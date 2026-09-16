@@ -21,6 +21,7 @@ Este archivo ordena las decisiones y documentos tecnicos que faltan antes y dura
 | Identidad, sesiones y autorizacion | Aceptado | [ADR-0004](../06-decisiones/ADR-0004-autenticacion-autorizacion.md) |
 | APIs, eventos y contratos | Aceptado | [ADR-0005](../06-decisiones/ADR-0005-diseno-contratos-api.md) |
 | Persistencia, concurrencia y migraciones | Aceptado | [ADR-0006](../06-decisiones/ADR-0006-persistencia-transacciones-migraciones.md) |
+| Estrategia de pruebas y puertas de calidad | Aceptado | [ADR-0007](../06-decisiones/ADR-0007-estrategia-pruebas-calidad.md) |
 | Componentes, fronteras y flujos | Documentado | [Mapa del sistema](../08-arquitectura/mapa-del-sistema.md) |
 | Estructura objetivo del repositorio | Documentado | [Especificacion del monorepo](../08-arquitectura/monorepo.md) |
 | Git, ramas, commits, PR y recuperacion | Documentado | [Git y GitHub](../05-reglas/05-git-y-github.md) |
@@ -30,10 +31,9 @@ Este archivo ordena las decisiones y documentos tecnicos que faltan antes y dura
 | Orden | Documento o decision | Preguntas que debe cerrar | Resultado esperado | Estado |
 |---|---|---|---|---|
 | 1 | Alcance del primer recorrido vertical | Que casos de uso entran, que se excluye y como se demuestra valor de extremo a extremo | Fase MVP con requisitos, exclusiones y criterios de aceptacion identificables | Pendiente; bloqueado como `PROY-002` |
-| 2 | ADR-0007: estrategia de pruebas y puertas de calidad | Frameworks, niveles, cobertura de riesgos, servicios reales, contratos y condiciones de merge | Matriz de pruebas y comandos obligatorios de CI | Pendiente bloqueante |
-| 3 | ADR-0008: entornos, configuracion y secretos | Entornos admitidos, precedencia, validacion, rotacion, acceso local y separacion por perfil | Contrato de configuracion sin secretos en Git | Pendiente bloqueante |
-| 4 | ADR-0009: integracion, entrega y releases | Jobs de CI, artefactos, versionado, promociones, migraciones, rollback y protecciones | Pipeline reproducible y politica de release | Pendiente bloqueante |
-| 5 | ADR-0010: observabilidad y manejo de fallos | Logs, trazas, metricas, correlacion, redaccion, alertas y catalogo de errores | Convenciones verificables desde el primer servicio | Pendiente bloqueante |
+| 2 | ADR-0008: entornos, configuracion y secretos | Entornos admitidos, precedencia, validacion, rotacion, acceso local y separacion por perfil | Contrato de configuracion sin secretos en Git | Pendiente bloqueante |
+| 3 | ADR-0009: integracion, entrega y releases | Jobs de CI, artefactos, versionado, promociones, migraciones, rollback y protecciones | Pipeline reproducible y politica de release | Pendiente bloqueante |
+| 4 | ADR-0010: observabilidad y manejo de fallos | Logs, trazas, metricas, correlacion, redaccion, alertas y catalogo de errores | Convenciones verificables desde el primer servicio | Pendiente bloqueante |
 
 El monorepo puede crearse despues de aprobar estos puntos y el alcance inicial. No se exige seleccionar todos los proveedores comerciales para preparar la base tecnica.
 
@@ -82,7 +82,7 @@ La CI debe detectar diferencias entre la fuente y los artefactos generados cuand
 ## Orden recomendado de cierre
 
 1. Aprobar el primer recorrido vertical y sus exclusiones.
-2. Resolver ADR-0007 a ADR-0010.
+2. Resolver ADR-0008 a ADR-0010.
 3. Crear el monorepo y comprobar sus criterios de bootstrap.
 4. Desarrollar un recorrido vertical pequeno con contratos, datos, autorizacion, pruebas y observabilidad.
 5. Resolver cada decision por capacidad justo antes de necesitarla.

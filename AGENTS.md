@@ -53,6 +53,9 @@ Antes de modificar codigo o documentacion:
 - Las migraciones aplicadas son inmutables, forward-only en produccion y se ejecutan una vez por perfil mediante un migrador controlado.
 - Los cambios incompatibles de datos usan expand-contract y backfills reanudables; rollback de aplicacion no equivale a restaurar datos.
 - La estructura y las dependencias del monorepo cumplen `docs/08-arquitectura/monorepo.md`; una diferencia requiere actualizar la especificacion o registrar la decision que la sustituye.
+- Las pruebas y puertas de calidad cumplen `docs/06-decisiones/ADR-0007-estrategia-pruebas-calidad.md` y `docs/05-reglas/02-pruebas-y-calidad.md`.
+- Ningun porcentaje de cobertura sustituye los escenarios de permisos, aislamiento, idempotencia, concurrencia, migracion y recuperacion aplicables.
+- Una prueba intermitente, reintentada o en cuarentena no se considera aprobada sin resolver el defecto o registrar una excepcion explicita.
 
 ## Cierre del trabajo
 

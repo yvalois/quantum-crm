@@ -12,6 +12,7 @@ Los registros ADR explican decisiones estructurales y evitan discutir o implemen
 | [0004](ADR-0004-autenticacion-autorizacion.md) | Autenticación y autorización | aceptado | 2026-09-16 |
 | [0005](ADR-0005-diseno-contratos-api.md) | Diseño, versionado y contratos de API | aceptado | 2026-09-16 |
 | [0006](ADR-0006-persistencia-transacciones-migraciones.md) | Persistencia, transacciones y evolución de datos | aceptado | 2026-09-16 |
+| [0007](ADR-0007-estrategia-pruebas-calidad.md) | Estrategia de pruebas y puertas de calidad | aceptado | 2026-09-16 |
 
 ## Convencion
 

@@ -286,6 +286,7 @@ La raiz expone nombres estables aunque internamente filtre paquetes:
 | `pnpm lint` | Lint y limites de imports |
 | `pnpm typecheck` | Compilar tipos estrictos de todos los workspaces |
 | `pnpm test` | Pruebas unitarias |
+| `pnpm test:coverage` | Unitarias con cobertura y umbrales obligatorios |
 | `pnpm test:integration` | Integracion con servicios aislados |
 | `pnpm test:contracts` | OpenAPI, eventos, webhooks y agentes |
 | `pnpm test:e2e` | Recorridos web y administrativos |
@@ -299,6 +300,8 @@ La raiz expone nombres estables aunque internamente filtre paquetes:
 Los scripts destructivos como reset local tienen nombres explicitos, validan el entorno y no forman parte de `ci` ni de despliegue.
 
 ## Pruebas
+
+Las herramientas, niveles, umbrales y puertas de calidad cumplen `../06-decisiones/ADR-0007-estrategia-pruebas-calidad.md`.
 
 ```text
 src/**/*.test.ts              pruebas unitarias junto al codigo
