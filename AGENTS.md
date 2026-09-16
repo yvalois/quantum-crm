@@ -43,6 +43,10 @@ Antes de modificar codigo o documentacion:
 - Los tokens OIDC no se guardan en `localStorage`, `sessionStorage`, URLs ni HTML; las aplicaciones web usan sesiones opacas server-side.
 - Toda operacion se deniega por defecto y comprueba en el servidor permiso, alcance y relacion con el recurso.
 - Usuarios, servicios, automatizaciones y agentes usan principales separados y de minimo privilegio.
+- Todo contrato externo cumple `docs/06-decisiones/ADR-0005-diseno-contratos-api.md` y `docs/05-reglas/06-api-y-contratos.md`.
+- Los schemas runtime de `packages/contracts` generan OpenAPI, JSON Schema y tipos; no se duplican DTO manuales por aplicacion.
+- Las operaciones criticas son idempotentes, los trabajos largos exponen recursos de operacion y los errores HTTP usan RFC 9457.
+- Un cambio incompatible de API o evento requiere version nueva y plan de migracion; no se oculta regenerando artefactos.
 
 ## Cierre del trabajo
 

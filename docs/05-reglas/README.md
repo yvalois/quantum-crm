@@ -7,6 +7,7 @@ Estas reglas comienzan la serie de practicas del proyecto. Son obligatorias salv
 3. [Seguridad y datos](03-seguridad-y-datos.md)
 4. [Documentacion y cambios](04-documentacion-y-cambios.md)
 5. [Git y GitHub](05-git-y-github.md)
+6. [API y contratos](06-api-y-contratos.md)
 
 ## Como agregar una regla
 

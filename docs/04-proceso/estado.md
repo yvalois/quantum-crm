@@ -35,6 +35,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | PROY-006 | Limites de modulos y dependencias aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0002-limites-modulos-dependencias.md`, `AGENTS.md` | Indice, enlaces y reglas obligatorias verificados |
 | PROY-007 | Estrategia multi-tenant y aislamiento de datos aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0003-aislamiento-multi-tenant.md`, `AGENTS.md`, `docs/05-reglas/03-seguridad-y-datos.md` | Indice, enlaces, limites de seguridad y reglas obligatorias verificados |
 | PROY-008 | Autenticacion y autorizacion aprobadas y registradas | 2026-09-16 | `docs/06-decisiones/ADR-0004-autenticacion-autorizacion.md`, `AGENTS.md`, `docs/05-reglas/03-seguridad-y-datos.md` | Indice, enlaces, sesiones, permisos y reglas obligatorias verificados |
+| PROY-009 | Diseno, versionado y contratos de API aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0005-diseno-contratos-api.md`, `docs/05-reglas/06-api-y-contratos.md`, `AGENTS.md` | Indice, enlaces, convenciones y reglas verificables de API validados |
 
 ## Decisiones pendientes
 
