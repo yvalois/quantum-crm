@@ -14,8 +14,6 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
-No hay trabajo en curso. Antes de empezar una tarea, agregar una fila con estado `EN_CURSO`.
-
 | ID | Descripcion | Responsable | Rama o PR | Inicio | Ultima actualizacion | Siguiente paso |
 |---|---|---|---|---|---|---|
 
@@ -24,6 +22,7 @@ No hay trabajo en curso. Antes de empezar una tarea, agregar una fila con estado
 | ID | Descripcion | Bloqueo | Responsable | Desde | Condicion para continuar |
 |---|---|---|---|---|---|
 | PROY-002 | Seleccionar la arquitectura de aplicacion | Faltan decisiones de stack y limites del primer lanzamiento | Por asignar | 2026-09-16 | Aprobar MVP y ADR inicial |
+| PROY-004 | Publicar y proteger el repositorio en GitHub | No existe un remoto `origin` ni se ha definido organizacion, nombre o visibilidad | Por asignar | 2026-09-16 | Crear el repositorio remoto, hacer el primer push y activar el ruleset de `main` |
 | OPS-02 | Validar el VPS | No se han proporcionado recursos ni acceso del servidor | Por asignar | 2026-09-16 | Completar la ficha real del VPS |
 
 ## Terminado
@@ -31,6 +30,7 @@ No hay trabajo en curso. Antes de empezar una tarea, agregar una fila con estado
 | ID | Resultado | Fecha | Evidencia | Verificacion |
 |---|---|---|---|---|
 | PROY-001 | Documentacion base organizada y reglas iniciales creadas | 2026-09-16 | `README.md`, `AGENTS.md`, `docs/` | Estructura y referencias verificadas localmente |
+| PROY-003 | Politica de Git y GitHub definida e integrada con las reglas del proyecto | 2026-09-16 | `docs/05-reglas/05-git-y-github.md`, `AGENTS.md`, `.github/pull_request_template.md` | Sin enlaces rotos, sin errores de whitespace y sin remoto configurado |
 
 ## Decisiones pendientes
 

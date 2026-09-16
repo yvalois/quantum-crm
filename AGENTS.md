@@ -26,6 +26,9 @@ Antes de modificar codigo o documentacion:
 - Las decisiones estructurales se registran como ADR en `docs/06-decisiones/`.
 - Se preservan los cambios ajenos y no se mezclan refactorizaciones sin relacion con el requisito activo.
 - Si la documentacion y la implementacion discrepan, no se oculta la diferencia: se detiene el cierre, se documenta y se resuelve la fuente correcta.
+- Cuando exista el remoto, no se trabaja ni se hace push directamente sobre `main`; se usa una rama corta y pull request segun `docs/05-reglas/05-git-y-github.md`.
+- No se hace force push, no se reescribe historia compartida y no se elimina trabajo sin autorizacion explicita.
+- No se integra ni publica una rama con comprobaciones obligatorias fallidas.
 
 ## Cierre del trabajo
 

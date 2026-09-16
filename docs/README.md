@@ -13,6 +13,7 @@ Esta carpeta separa alcance, plan, operacion, estado y reglas para que cada dato
 | Forma de trabajar | `04-proceso/flujo-de-trabajo.md` | Define el ciclo de una tarea |
 | Criterio de cierre | `04-proceso/definicion-de-terminado.md` | Impide cierres parciales o sin pruebas |
 | Reglas de ingenieria | `05-reglas/` | Establece practicas obligatorias |
+| Git y GitHub | `05-reglas/05-git-y-github.md` | Define ramas, commits, PR, merges y recuperacion |
 | Decisiones estructurales | `06-decisiones/` | Conserva las razones mediante ADR |
 
 No se deben crear listas paralelas de funcionalidades o estados. Los tableros externos, si se usan, deben referenciar los mismos identificadores y reflejar este repositorio.
