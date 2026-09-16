@@ -1,6 +1,6 @@
 # Mapa del sistema
 
-Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0010 y no representa componentes ya implementados.
+Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0011 y no representa componentes ya implementados.
 
 ## Contexto
 
@@ -203,6 +203,30 @@ sequenceDiagram
 
 Ninguna llamada al proveedor ocurre dentro de la transaccion comercial.
 
+## Flujo de una automatizacion
+
+```mermaid
+sequenceDiagram
+    participant M as Modulo propietario
+    participant D as PostgreSQL
+    participant Q as BullMQ
+    participant W as worker
+    participant A as automation
+    participant X as Accion publica
+
+    M->>D: Cambio + evento de outbox
+    W->>D: Reclamar outbox con lease
+    W->>Q: Notificar evento por ID
+    Q->>W: Entrega al menos una vez
+    W->>D: Inbox + ejecucion fijada a revision
+    W->>A: Reclamar paso y cargar estado vigente
+    A->>X: Comando autorizado e idempotente
+    X-->>A: Resultado real o incierto
+    A->>D: Checkpoint, espera, fallo o resultado
+```
+
+PostgreSQL conserva la definicion, revision, ejecucion, espera, checkpoint e idempotencia. BullMQ distribuye y acelera; si Redis pierde su estado, un reconciliador reconstruye notificaciones desde registros durables. Antes de cada efecto se vuelven a comprobar permisos, invariantes, cancelacion y modo de atencion.
+
 ## Flujo de un agente
 
 ```mermaid
@@ -259,6 +283,7 @@ sequenceDiagram
 | Chat y eventos interactivos | WebSocket autenticado y reanudable |
 | Progreso administrativo | SSE mas recurso REST de operacion |
 | Efectos asincronos | Outbox, BullMQ e inbox idempotente |
+| Automatizaciones y esperas | Revisiones y ejecuciones en PostgreSQL; BullMQ como distribucion recuperable |
 | Eventos entre procesos o sistemas | Envelope CloudEvents y AsyncAPI |
 | Agentes | HTTP y JSON Schema versionados; callback para ejecuciones largas |
 | Proveedores | Adaptadores y webhooks autenticados |
@@ -271,7 +296,10 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 |---|---|
 | Redis se pierde | PostgreSQL conserva operaciones pendientes recuperables |
 | Worker reinicia | Lease expira y otro consumidor reanuda sin duplicar efectos |
+| Trabajo se entrega dos veces | Inbox, clave idempotente y transicion condicional conservan un solo efecto |
+| Worker termina despues de perder el lease | Su resultado tardio se rechaza y la ejecucion continua desde el ultimo checkpoint |
 | Proveedor no responde | Se registra intento y se reintenta segun politica |
+| Resultado externo queda incierto | Se concilia antes de repetir pagos, reservas, mensajes o emisiones |
 | WebSocket o SSE se corta | Cliente reanuda con cursor o reconstruye snapshot |
 | Agente responde tarde | Callback valida ejecucion, conversacion y modo actual |
 | Migracion falla | Perfil no cambia a version observada nueva |
@@ -290,6 +318,7 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 - `ADR-0008`: entornos, configuracion y secretos.
 - `ADR-0009`: integracion, entrega y releases.
 - `ADR-0010`: observabilidad y manejo de fallos.
+- `ADR-0011`: trabajos asincronos y automatizaciones durables.
 
 ## Aspectos pendientes
 
@@ -298,5 +327,5 @@ Este mapa no decide aun:
 - Proveedores concretos de canales, calendario, pagos y facturacion.
 - Dimensionamiento y distribucion real del VPS.
 - Objetivos SLO, RPO y RTO.
-- Detalle del motor de automatizaciones y del contrato de agentes.
+- Detalle del contrato de agentes.
 - Arquitectura de componentes y experiencia visual del frontend.

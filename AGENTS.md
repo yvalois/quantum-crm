@@ -74,6 +74,12 @@ Antes de modificar codigo o documentacion:
 - Toda dependencia externa tiene timeout; solo se reintentan fallos transitorios con presupuesto, jitter e idempotencia o deduplicacion.
 - Una excepcion no capturada retira readiness y termina el proceso con error; no se continua en un estado desconocido.
 - Auditoria, outbox, inbox, operaciones y resultados durables no se sustituyen por logs o trazas.
+- Los trabajos asincronos y automatizaciones cumplen `docs/06-decisiones/ADR-0011-trabajos-asincronos-automatizaciones.md` y `docs/05-reglas/11-trabajos-asincronos-automatizaciones.md`.
+- PostgreSQL conserva la intencion, espera, ejecucion y resultado comercial; Redis y BullMQ distribuyen trabajo, pero nunca son su unica copia.
+- Todo consumidor asume entrega al menos una vez, usa idempotencia durable y rechaza resultados de un worker que perdio su lease.
+- Una automatizacion fija una revision inmutable, persiste checkpoints y revalida permisos, invariantes y toma humana antes de cada efecto.
+- Los reintentos se limitan a fallos transitorios con timeout, presupuesto, backoff y jitter; un resultado externo desconocido se concilia antes de repetir.
+- Pausas, cancelaciones, compensaciones y reanudaciones son operaciones tipadas, autorizadas y auditadas; no existe rollback generico ni edicion arbitraria de payloads.
 
 ## Cierre del trabajo
 

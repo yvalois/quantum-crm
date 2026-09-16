@@ -12,6 +12,7 @@ Estas reglas comienzan la serie de practicas del proyecto. Son obligatorias salv
 8. [Entornos, configuracion y secretos](08-entornos-configuracion-secretos.md)
 9. [CI/CD y releases](09-ci-cd-y-releases.md)
 10. [Observabilidad y manejo de fallos](10-observabilidad-y-fallos.md)
+11. [Trabajos asincronos y automatizaciones](11-trabajos-asincronos-automatizaciones.md)
 
 ## Como agregar una regla
 

@@ -28,6 +28,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 | ID | Resultado | Fecha | Evidencia | Verificacion |
 |---|---|---|---|---|
+| PROY-017 | Trabajos asincronos y automatizaciones durables aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0011-trabajos-asincronos-automatizaciones.md`, `docs/05-reglas/11-trabajos-asincronos-automatizaciones.md`, `docs/08-arquitectura/mapa-del-sistema.md`, `AGENTS.md` | Autoridad PostgreSQL, distribucion BullMQ, revisiones, leases, idempotencia, esperas, reintentos, compensacion, operacion manual y recuperacion conectados con las decisiones existentes |
 | PROY-002 | Alcance integral del MVP para cliente piloto aprobado y documentado | 2026-09-16 | `docs/02-plan/mvp-piloto.md`, `docs/01-producto/funcionalidades.md`, `docs/02-plan/trabajo.md`, `docs/03-operaciones/despliegues.md` | 249 requisitos de producto y `OPS-01` a `OPS-24` contabilizados; fases, dependencias, decisiones de proveedor y puerta final revisadas |
 | PROY-001 | Documentacion base organizada y reglas iniciales creadas | 2026-09-16 | `README.md`, `AGENTS.md`, `docs/` | Estructura y referencias verificadas localmente |
 | PROY-003 | Politica de Git y GitHub definida e integrada con las reglas del proyecto | 2026-09-16 | `docs/05-reglas/05-git-y-github.md`, `AGENTS.md`, `.github/pull_request_template.md` | Sin enlaces rotos, sin errores de whitespace y sin remoto configurado |
