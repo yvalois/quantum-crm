@@ -11,6 +11,7 @@ Antes de modificar codigo o documentacion:
 3. Revisar sus subtareas en `docs/02-plan/trabajo.md`.
 4. Revisar `docs/04-proceso/estado.md` y buscar el identificador en todo el repositorio.
 5. Leer las reglas pertinentes en `docs/05-reglas/`.
+6. Si afecta componentes, modulos o estructura, revisar `docs/08-arquitectura/` y los ADR relacionados.
 
 ## Reglas no negociables
 
@@ -51,6 +52,7 @@ Antes de modificar codigo o documentacion:
 - Ninguna llamada externa ocurre dentro de una transaccion; auditoria y outbox se guardan junto con el cambio comercial.
 - Las migraciones aplicadas son inmutables, forward-only en produccion y se ejecutan una vez por perfil mediante un migrador controlado.
 - Los cambios incompatibles de datos usan expand-contract y backfills reanudables; rollback de aplicacion no equivale a restaurar datos.
+- La estructura y las dependencias del monorepo cumplen `docs/08-arquitectura/monorepo.md`; una diferencia requiere actualizar la especificacion o registrar la decision que la sustituye.
 
 ## Cierre del trabajo
 

@@ -15,3 +15,5 @@ El proyecto se encuentra en preparacion. La documentacion base esta organizada, 
 5. Cumplir la definicion de terminado antes de marcar una casilla.
 
 El archivo [AGENTS.md](AGENTS.md) contiene las reglas obligatorias para cualquier persona o agente que modifique el proyecto.
+
+La arquitectura aprobada y la estructura objetivo se consultan en [docs/08-arquitectura/](docs/08-arquitectura/README.md).

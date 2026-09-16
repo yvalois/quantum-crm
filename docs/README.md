@@ -15,6 +15,7 @@ Esta carpeta separa alcance, plan, operacion, estado y reglas para que cada dato
 | Reglas de ingenieria | `05-reglas/` | Establece practicas obligatorias |
 | Git y GitHub | `05-reglas/05-git-y-github.md` | Define ramas, commits, PR, merges y recuperacion |
 | Decisiones estructurales | `06-decisiones/` | Conserva las razones mediante ADR |
+| Arquitectura vigente | `08-arquitectura/` | Muestra componentes, flujos y estructura objetivo del monorepo |
 
 No se deben crear listas paralelas de funcionalidades o estados. Los tableros externos, si se usan, deben referenciar los mismos identificadores y reflejar este repositorio.
 
@@ -25,7 +26,8 @@ No se deben crear listas paralelas de funcionalidades o estados. Los tableros ex
 3. Si afecta infraestructura, revisar `03-operaciones/despliegues.md`.
 4. Consultar `04-proceso/estado.md` para saber si alguien ya trabaja en ello o si existe evidencia de cierre.
 5. Buscar implementacion y pruebas con `rg "IDENTIFICADOR" .` y por los conceptos funcionales relacionados.
-6. Aplicar las reglas y la definicion de terminado.
+6. Si afecta limites o estructura, revisar `08-arquitectura/` y los ADR relacionados.
+7. Aplicar las reglas y la definicion de terminado.
 
 ## Resolucion de diferencias
 
