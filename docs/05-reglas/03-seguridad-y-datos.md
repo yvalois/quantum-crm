@@ -2,10 +2,16 @@
 
 ## Aislamiento por cliente
 
+- Aplicar `docs/06-decisiones/ADR-0003-aislamiento-multi-tenant.md` a todo recurso nuevo.
 - El `tenant_id` se deriva de una identidad autenticada o contexto confiable, nunca de un valor aceptado sin verificacion.
+- El `tenant_id` es un UUID inmutable; slugs, nombres y hostnames no son identificadores de seguridad.
+- Cada cliente tiene base, rol, realm de Keycloak, configuracion y secretos propios.
 - Cada acceso a datos, archivos, cache, cola y herramienta del agente conserva el alcance del cliente.
+- Un token emitido para un perfil se rechaza en cualquier otro perfil.
+- Si se comparte infraestructura, sus ACL, credenciales y namespaces se separan por perfil; un prefijo por si solo no es una barrera de seguridad.
 - Las pruebas de aislamiento usan al menos dos clientes y verifican lectura y escritura.
 - La administracion central y los administradores de cada CRM tienen identidades y permisos separados.
+- La administracion central no consulta directamente tablas comerciales y sus operaciones indican y autorizan el perfil objetivo.
 
 ## Autorizacion
 

@@ -35,6 +35,10 @@ Antes de modificar codigo o documentacion:
 - Un modulo no importa repositorios, entidades internas ni adaptadores de infraestructura de otro modulo; usa contratos publicos o eventos.
 - El dominio no depende de NestJS, Prisma, Redis, HTTP ni proveedores externos.
 - No se crea una carpeta generica `utils`; el codigo compartido se limita al shared kernel aprobado.
+- Cada perfil cumple el aislamiento definido en `docs/06-decisiones/ADR-0003-aislamiento-multi-tenant.md`.
+- El contexto del cliente se deriva de configuracion e identidad verificadas; nunca se confia en un `tenant_id` recibido libremente.
+- Ningun proceso, credencial, token, archivo, trabajo o agente puede atravesar el limite de su perfil.
+- Las APIs de plataforma no consultan directamente las tablas comerciales de los clientes.
 
 ## Cierre del trabajo
 

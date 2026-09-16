@@ -33,6 +33,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | PROY-003 | Politica de Git y GitHub definida e integrada con las reglas del proyecto | 2026-09-16 | `docs/05-reglas/05-git-y-github.md`, `AGENTS.md`, `.github/pull_request_template.md` | Sin enlaces rotos, sin errores de whitespace y sin remoto configurado |
 | PROY-005 | Stack base aprobado y registrado | 2026-09-16 | `docs/06-decisiones/ADR-0001-stack-base.md`, `docs/06-decisiones/README.md` | TypeScript obligatorio para el producto; agentes externos JavaScript o Python; referencias y reglas verificadas |
 | PROY-006 | Limites de modulos y dependencias aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0002-limites-modulos-dependencias.md`, `AGENTS.md` | Indice, enlaces y reglas obligatorias verificados |
+| PROY-007 | Estrategia multi-tenant y aislamiento de datos aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0003-aislamiento-multi-tenant.md`, `AGENTS.md`, `docs/05-reglas/03-seguridad-y-datos.md` | Indice, enlaces, limites de seguridad y reglas obligatorias verificados |
 
 ## Decisiones pendientes
 
