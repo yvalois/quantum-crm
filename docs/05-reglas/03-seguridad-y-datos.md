@@ -15,9 +15,17 @@
 
 ## Autorizacion
 
+- Aplicar `docs/06-decisiones/ADR-0004-autenticacion-autorizacion.md` a identidades, sesiones y permisos.
 - Autenticacion confirma identidad; autorizacion decide la accion concreta sobre el recurso concreto.
+- Keycloak autentica; Quantum conserva membresias, roles, permisos y alcances comerciales.
+- Los clientes web usan Authorization Code con PKCE y sesiones opacas server-side; no exponen tokens OIDC a JavaScript.
+- Las cookies de sesion son `HttpOnly`, `Secure`, `SameSite`, host-only y se acompañan de proteccion CSRF.
+- Los permisos siguen `recurso:accion` y se combinan con alcance `all`, `team`, `assigned`, `own` o `explicit`.
 - El servidor comprueba permisos aunque la interfaz o el agente oculten la accion.
+- Cada caso de uso deniega por defecto y verifica accion, alcance y relacion con el recurso.
 - El principio es minimo privilegio para usuarios, servicios, bases, CI y ejecutores.
+- MFA es obligatorio para operadores de la plataforma y se permite exigir autenticacion reciente en acciones sensibles.
+- Cambios de permisos y desactivaciones invalidan caches y sesiones relacionadas.
 - Acciones sensibles generan auditoria con actor, objetivo, resultado y correlacion, sin secretos.
 
 ## Secretos y privacidad

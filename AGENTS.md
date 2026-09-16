@@ -39,6 +39,10 @@ Antes de modificar codigo o documentacion:
 - El contexto del cliente se deriva de configuracion e identidad verificadas; nunca se confia en un `tenant_id` recibido libremente.
 - Ningun proceso, credencial, token, archivo, trabajo o agente puede atravesar el limite de su perfil.
 - Las APIs de plataforma no consultan directamente las tablas comerciales de los clientes.
+- La autenticacion y autorizacion cumplen `docs/06-decisiones/ADR-0004-autenticacion-autorizacion.md`.
+- Los tokens OIDC no se guardan en `localStorage`, `sessionStorage`, URLs ni HTML; las aplicaciones web usan sesiones opacas server-side.
+- Toda operacion se deniega por defecto y comprueba en el servidor permiso, alcance y relacion con el recurso.
+- Usuarios, servicios, automatizaciones y agentes usan principales separados y de minimo privilegio.
 
 ## Cierre del trabajo
 
