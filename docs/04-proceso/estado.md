@@ -38,6 +38,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | PROY-009 | Diseno, versionado y contratos de API aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0005-diseno-contratos-api.md`, `docs/05-reglas/06-api-y-contratos.md`, `AGENTS.md` | Indice, enlaces, convenciones y reglas verificables de API validados |
 | PROY-010 | Persistencia, transacciones y evolucion de datos aprobadas y registradas | 2026-09-16 | `docs/06-decisiones/ADR-0006-persistencia-transacciones-migraciones.md`, `docs/05-reglas/07-persistencia-y-migraciones.md`, `AGENTS.md` | Indice, enlaces, transacciones y reglas de migracion validados |
 | PROY-011 | Mapa del sistema y especificacion del monorepo documentados | 2026-09-16 | `docs/08-arquitectura/README.md`, `docs/08-arquitectura/mapa-del-sistema.md`, `docs/08-arquitectura/monorepo.md` | Componentes, limites, dependencias, flujos y enlaces verificados |
+| PROY-012 | Backlog documental tecnico ordenado por dependencia y momento limite | 2026-09-16 | `docs/02-plan/documentacion-tecnica.md`, `docs/README.md` | Decisiones aceptadas, bloqueantes, diferibles y artefactos generados separados; enlaces verificados |
 
 ## Decisiones pendientes
 

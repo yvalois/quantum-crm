@@ -8,6 +8,7 @@ Esta carpeta separa alcance, plan, operacion, estado y reglas para que cada dato
 |---|---|---|
 | Comportamiento esperado | `01-producto/funcionalidades.md` | Define que debe hacer Quantum CRM |
 | Descomposicion del trabajo | `02-plan/trabajo.md` | Contiene requisitos, subtareas y comprobaciones |
+| Backlog tecnico documental | `02-plan/documentacion-tecnica.md` | Ordena decisiones pendientes y su momento limite |
 | Infraestructura y despliegue | `03-operaciones/despliegues.md` | Define el trabajo operativo `OPS` |
 | Estado vigente y evidencia | `04-proceso/estado.md` | Indica que esta activo, bloqueado o terminado |
 | Forma de trabajar | `04-proceso/flujo-de-trabajo.md` | Define el ciclo de una tarea |
