@@ -11,6 +11,7 @@ Los registros ADR explican decisiones estructurales y evitan discutir o implemen
 | [0003](ADR-0003-aislamiento-multi-tenant.md) | Aislamiento multi-tenant por perfil | aceptado | 2026-09-16 |
 | [0004](ADR-0004-autenticacion-autorizacion.md) | Autenticación y autorización | aceptado | 2026-09-16 |
 | [0005](ADR-0005-diseno-contratos-api.md) | Diseño, versionado y contratos de API | aceptado | 2026-09-16 |
+| [0006](ADR-0006-persistencia-transacciones-migraciones.md) | Persistencia, transacciones y evolución de datos | aceptado | 2026-09-16 |
 
 ## Convencion
 

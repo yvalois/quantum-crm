@@ -47,6 +47,10 @@ Antes de modificar codigo o documentacion:
 - Los schemas runtime de `packages/contracts` generan OpenAPI, JSON Schema y tipos; no se duplican DTO manuales por aplicacion.
 - Las operaciones criticas son idempotentes, los trabajos largos exponen recursos de operacion y los errores HTTP usan RFC 9457.
 - Un cambio incompatible de API o evento requiere version nueva y plan de migracion; no se oculta regenerando artefactos.
+- La persistencia cumple `docs/06-decisiones/ADR-0006-persistencia-transacciones-migraciones.md` y `docs/05-reglas/07-persistencia-y-migraciones.md`.
+- Ninguna llamada externa ocurre dentro de una transaccion; auditoria y outbox se guardan junto con el cambio comercial.
+- Las migraciones aplicadas son inmutables, forward-only en produccion y se ejecutan una vez por perfil mediante un migrador controlado.
+- Los cambios incompatibles de datos usan expand-contract y backfills reanudables; rollback de aplicacion no equivale a restaurar datos.
 
 ## Cierre del trabajo
 
