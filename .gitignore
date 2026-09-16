@@ -1,0 +1,35 @@
+# Secretos y configuracion local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependencias y builds
+node_modules/
+dist/
+build/
+coverage/
+.next/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# IDE y sistema
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Datos y artefactos locales
+*.log
+*.bak
+*.dump
+*.sql
+backups/
+tmp/
+temp/
