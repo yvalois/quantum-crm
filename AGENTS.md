@@ -29,6 +29,8 @@ Antes de modificar codigo o documentacion:
 - Cuando exista el remoto, no se trabaja ni se hace push directamente sobre `main`; se usa una rama corta y pull request segun `docs/05-reglas/05-git-y-github.md`.
 - No se hace force push, no se reescribe historia compartida y no se elimina trabajo sin autorizacion explicita.
 - No se integra ni publica una rama con comprobaciones obligatorias fallidas.
+- El codigo propio de Quantum CRM se escribe en TypeScript estricto conforme a `docs/06-decisiones/ADR-0001-stack-base.md`.
+- Los agentes LangGraph pueden ser servicios externos JavaScript o Python, pero deben cumplir el contrato versionado y no acceden directamente a la infraestructura de datos.
 
 ## Cierre del trabajo
 

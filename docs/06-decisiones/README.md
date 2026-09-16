@@ -2,6 +2,12 @@
 
 Los registros ADR explican decisiones estructurales y evitan discutir o implementar varias veces la misma cuestion.
 
+## Indice
+
+| ADR | Titulo | Estado | Fecha |
+|---|---|---|---|
+| [0001](ADR-0001-stack-base.md) | Stack base de Quantum CRM | aceptado | 2026-09-16 |
+
 ## Convencion
 
 - Nombre: `ADR-0001-titulo-breve.md`.

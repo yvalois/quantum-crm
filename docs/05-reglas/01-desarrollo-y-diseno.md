@@ -34,9 +34,11 @@
 - Evitar consultas sin limites y patrones N+1 en caminos de uso normal.
 - Una transaccion cubre los cambios que deben confirmarse o fallar juntos.
 
-## Si se adopta TypeScript
+## TypeScript obligatorio
 
 - Activar modo estricto y evitar `any`; una excepcion requiere justificacion local.
 - Validar datos de runtime aunque exista tipado estatico.
 - Usar nombres de funciones con verbo y nombres de dominio, no abreviaturas opacas.
 - Mantener componentes de interfaz enfocados; la logica de negocio no vive dentro de la vista.
+- Mantener el codigo propio del producto en archivos TypeScript y TSX; JavaScript se admite solo en configuraciones que la herramienta no permita expresar en TypeScript o en agentes externos compatibles.
+- No introducir Python en las aplicaciones del monorepo; Python queda reservado para agentes LangGraph externos que implementen el contrato comun.
