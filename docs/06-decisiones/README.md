@@ -7,6 +7,7 @@ Los registros ADR explican decisiones estructurales y evitan discutir o implemen
 | ADR | Titulo | Estado | Fecha |
 |---|---|---|---|
 | [0001](ADR-0001-stack-base.md) | Stack base de Quantum CRM | aceptado | 2026-09-16 |
+| [0002](ADR-0002-limites-modulos-dependencias.md) | Límites de módulos y dependencias | aceptado | 2026-09-16 |
 
 ## Convencion
 

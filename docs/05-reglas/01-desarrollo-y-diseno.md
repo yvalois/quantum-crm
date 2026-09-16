@@ -34,6 +34,15 @@
 - Evitar consultas sin limites y patrones N+1 en caminos de uso normal.
 - Una transaccion cubre los cambios que deben confirmarse o fallar juntos.
 
+## Limites modulares
+
+- Aplicar `docs/06-decisiones/ADR-0002-limites-modulos-dependencias.md` en cada modulo nuevo.
+- Mantener las capas `domain`, `application`, `infrastructure` e `interface` y la direccion de dependencias aprobada.
+- Escribir una tabla solo desde su modulo propietario.
+- Usar contratos publicos para comunicacion sincrona y eventos de outbox para efectos derivados.
+- No exponer modelos Prisma como contratos de API o dominio.
+- Verificar en CI las importaciones prohibidas y dependencias circulares.
+
 ## TypeScript obligatorio
 
 - Activar modo estricto y evitar `any`; una excepcion requiere justificacion local.

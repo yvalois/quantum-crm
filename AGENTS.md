@@ -31,6 +31,10 @@ Antes de modificar codigo o documentacion:
 - No se integra ni publica una rama con comprobaciones obligatorias fallidas.
 - El codigo propio de Quantum CRM se escribe en TypeScript estricto conforme a `docs/06-decisiones/ADR-0001-stack-base.md`.
 - Los agentes LangGraph pueden ser servicios externos JavaScript o Python, pero deben cumplir el contrato versionado y no acceden directamente a la infraestructura de datos.
+- Cada modulo es propietario exclusivo de sus datos y cumple `docs/06-decisiones/ADR-0002-limites-modulos-dependencias.md`.
+- Un modulo no importa repositorios, entidades internas ni adaptadores de infraestructura de otro modulo; usa contratos publicos o eventos.
+- El dominio no depende de NestJS, Prisma, Redis, HTTP ni proveedores externos.
+- No se crea una carpeta generica `utils`; el codigo compartido se limita al shared kernel aprobado.
 
 ## Cierre del trabajo
 

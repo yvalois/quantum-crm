@@ -10,7 +10,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Aplicacion implementada: no existe todavia en este repositorio.
 - Requisitos funcionales completados: ninguno acreditado.
 - Requisitos operativos completados: ninguno acreditado.
-- Trabajo activo: ninguno registrado.
+- Trabajo activo: ninguno.
 
 ## En curso
 
@@ -32,6 +32,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | PROY-001 | Documentacion base organizada y reglas iniciales creadas | 2026-09-16 | `README.md`, `AGENTS.md`, `docs/` | Estructura y referencias verificadas localmente |
 | PROY-003 | Politica de Git y GitHub definida e integrada con las reglas del proyecto | 2026-09-16 | `docs/05-reglas/05-git-y-github.md`, `AGENTS.md`, `.github/pull_request_template.md` | Sin enlaces rotos, sin errores de whitespace y sin remoto configurado |
 | PROY-005 | Stack base aprobado y registrado | 2026-09-16 | `docs/06-decisiones/ADR-0001-stack-base.md`, `docs/06-decisiones/README.md` | TypeScript obligatorio para el producto; agentes externos JavaScript o Python; referencias y reglas verificadas |
+| PROY-006 | Limites de modulos y dependencias aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0002-limites-modulos-dependencias.md`, `AGENTS.md` | Indice, enlaces y reglas obligatorias verificados |
 
 ## Decisiones pendientes
 
