@@ -6,6 +6,9 @@
 *.key
 *.p12
 *.pfx
+*.private.jwk
+*.keystore
+/secrets/
 
 # Dependencias y builds
 node_modules/

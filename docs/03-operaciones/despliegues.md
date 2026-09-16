@@ -151,6 +151,8 @@ Hay dos tipos de cambios locales: el código que desarrollas en tu equipo y la c
 
 ## 6. Configuración global y cambios particulares del cliente
 
+La separación entre configuración técnica, configuración comercial y secretos cumple `../06-decisiones/ADR-0008-entornos-configuracion-secretos.md`.
+
 La configuración efectiva se calcula a partir de valores predeterminados de la release, configuración global de Quantum y excepciones del cliente, en ese orden. Las restricciones de seguridad y permisos de plataforma se aplican después y no pueden relajarse mediante una excepción del cliente.
 
 | Tipo de información | Dónde se guarda | Efecto de actualizar el código |
@@ -335,6 +337,7 @@ Rollback de aplicación y restauración de datos son operaciones diferentes. Res
   - [ ] Aplicar retención y rotación para que registros e imágenes no agoten el disco.
 
 - [ ] **OPS-23 — Administrar secretos y acceso operativo.**
+  - [ ] Cumplir el almacenamiento, montaje, rotación y validación definidos en `../06-decisiones/ADR-0008-entornos-configuracion-secretos.md`.
   - [ ] Guardar secretos por perfil y entorno en un almacén o archivos restringidos gestionados por el ejecutor.
   - [ ] Mantener referencias a secretos en la base administrativa; no sus valores en respuestas de API o formularios de consulta.
   - [ ] Usar credenciales de registro de solo lectura en el VPS y permisos de publicación únicamente en CI.

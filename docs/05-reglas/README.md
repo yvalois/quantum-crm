@@ -9,6 +9,7 @@ Estas reglas comienzan la serie de practicas del proyecto. Son obligatorias salv
 5. [Git y GitHub](05-git-y-github.md)
 6. [API y contratos](06-api-y-contratos.md)
 7. [Persistencia y migraciones](07-persistencia-y-migraciones.md)
+8. [Entornos, configuracion y secretos](08-entornos-configuracion-secretos.md)
 
 ## Como agregar una regla
 

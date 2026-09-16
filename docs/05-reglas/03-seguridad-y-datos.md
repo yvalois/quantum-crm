@@ -30,6 +30,7 @@
 
 ## Secretos y privacidad
 
+- Aplicar `docs/06-decisiones/ADR-0008-entornos-configuracion-secretos.md` y `docs/05-reglas/08-entornos-configuracion-secretos.md` a todo proceso, entorno y perfil.
 - Los secretos se inyectan mediante un mecanismo gestionado y se referencian sin mostrarlos.
 - Nunca se registran tokens, contraseñas, claves, cuerpos completos sensibles ni URLs firmadas reutilizables.
 - Datos de prueba son sinteticos o anonimizados.

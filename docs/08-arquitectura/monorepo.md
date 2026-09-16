@@ -267,12 +267,16 @@ El Prisma schema puede dividirse en archivos si la version fijada lo soporta de 
 
 ## Configuracion
 
-- `packages/config` define schemas runtime separados por aplicacion y entorno.
+La configuracion cumple `../06-decisiones/ADR-0008-entornos-configuracion-secretos.md`.
+
+- `packages/config` define un schema runtime por aplicacion y reglas explicitas por `QCRM_ENV`.
 - Cada proceso valida toda configuracion requerida antes de declararse ready.
-- Variables desconocidas sensibles y combinaciones incoherentes se rechazan.
+- Ningun otro paquete lee `process.env` directamente.
+- Claves `QCRM_*` desconocidas, placeholders y combinaciones incoherentes se rechazan.
 - `.env.example` documenta nombres y ejemplos no secretos.
 - `.env`, claves, certificados, exports y respaldos reales se excluyen de Git.
-- El frontend solo recibe variables explicitamente publicas.
+- Los secretos de staging y produccion se reciben mediante referencias `*_FILE` y mounts por servicio.
+- El frontend solo recibe una allowlist explicitamente publica en runtime.
 - Una variable publica no contiene secretos aunque su nombre no los sugiera.
 - La configuracion por cliente se resuelve por referencia del perfil, no por archivos compilados distintos.
 
@@ -295,6 +299,8 @@ La raiz expone nombres estables aunque internamente filtre paquetes:
 | `pnpm contracts:generate` | Generar artefactos contractuales |
 | `pnpm contracts:check` | Validar schemas y cambios incompatibles |
 | `pnpm db:check` | Validar historias y aplicar sobre bases temporales |
+| `pnpm config:check` | Validar schemas, ejemplos y compatibilidad de configuracion |
+| `pnpm secrets:scan` | Detectar secretos en contenido versionado y cambios |
 | `pnpm ci` | Ejecutar todas las puertas obligatorias aplicables |
 
 Los scripts destructivos como reset local tienen nombres explicitos, validan el entorno y no forman parte de `ci` ni de despliegue.

@@ -56,6 +56,10 @@ Antes de modificar codigo o documentacion:
 - Las pruebas y puertas de calidad cumplen `docs/06-decisiones/ADR-0007-estrategia-pruebas-calidad.md` y `docs/05-reglas/02-pruebas-y-calidad.md`.
 - Ningun porcentaje de cobertura sustituye los escenarios de permisos, aislamiento, idempotencia, concurrencia, migracion y recuperacion aplicables.
 - Una prueba intermitente, reintentada o en cuarentena no se considera aprobada sin resolver el defecto o registrar una excepcion explicita.
+- Los entornos, configuracion y secretos cumplen `docs/06-decisiones/ADR-0008-entornos-configuracion-secretos.md` y `docs/05-reglas/08-entornos-configuracion-secretos.md`.
+- Solo `packages/config` lee `process.env`; cada proceso valida su schema completo y falla cerrado antes de readiness.
+- Los secretos de staging y produccion entran mediante archivos `*_FILE` montados por servicio, nunca mediante Git, imagenes, frontend, argumentos o datos comerciales.
+- Staging y produccion ejecutan los mismos digests con bases, identidades, archivos, colas y credenciales separados.
 
 ## Cierre del trabajo
 
