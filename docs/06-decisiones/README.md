@@ -14,6 +14,7 @@ Los registros ADR explican decisiones estructurales y evitan discutir o implemen
 | [0006](ADR-0006-persistencia-transacciones-migraciones.md) | Persistencia, transacciones y evolución de datos | aceptado | 2026-09-16 |
 | [0007](ADR-0007-estrategia-pruebas-calidad.md) | Estrategia de pruebas y puertas de calidad | aceptado | 2026-09-16 |
 | [0008](ADR-0008-entornos-configuracion-secretos.md) | Entornos, configuracion y secretos | aceptado | 2026-09-16 |
+| [0009](ADR-0009-integracion-entrega-releases.md) | Integracion, entrega y releases | aceptado | 2026-09-16 |
 
 ## Convencion
 

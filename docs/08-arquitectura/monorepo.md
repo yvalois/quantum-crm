@@ -301,6 +301,9 @@ La raiz expone nombres estables aunque internamente filtre paquetes:
 | `pnpm db:check` | Validar historias y aplicar sobre bases temporales |
 | `pnpm config:check` | Validar schemas, ejemplos y compatibilidad de configuracion |
 | `pnpm secrets:scan` | Detectar secretos en contenido versionado y cambios |
+| `pnpm security:dependencies` | Auditar dependencias segun la politica de vulnerabilidades |
+| `pnpm image:scan` | Escanear por digest las imagenes o SBOM de una release |
+| `pnpm release:check` | Validar manifiesto, digests, compatibilidad y evidencia de una release |
 | `pnpm ci` | Ejecutar todas las puertas obligatorias aplicables |
 
 Los scripts destructivos como reset local tienen nombres explicitos, validan el entorno y no forman parte de `ci` ni de despliegue.

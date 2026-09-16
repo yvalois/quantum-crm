@@ -8,7 +8,7 @@ El administrador central se desarrolla en `Quantum_CRM_Funcionalidades.md` y `Qu
 
 Un mismo código base, imágenes versionadas y un entorno lógico por cliente. Cada perfil tendrá su aplicación, workers, configuración y base de datos. Inicialmente los entornos podrán compartir un VPS; su capacidad real determinará cuántos admite.
 
-Se propone **Docker Engine + Docker Compose + Caddy + PostgreSQL**, con **GitHub Actions y GHCR** para CI/CD y registro de imágenes si el repositorio se aloja en GitHub. El repositorio y la cuenta del registro todavía no han sido proporcionados. La arquitectura permite sustituir el servicio CI/CD conservando el contrato del ejecutor y los artefactos publicados.
+Se adopta **Docker Engine + Docker Compose + Caddy + PostgreSQL**, con **GitHub Actions y GHCR** para CI/CD y registro de imagenes conforme a [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-releases.md). El repositorio y la cuenta del registro todavia no han sido proporcionados. La arquitectura permite sustituir el servicio CI/CD conservando el contrato del ejecutor y los artefactos publicados.
 
 DevOps es la práctica completa de desarrollo y operación. Docker empaqueta los procesos; Compose declara cómo ejecutarlos; CI verifica e integra cambios; CD entrega versiones a los entornos. El administrador selecciona clientes y operaciones; un ejecutor restringido las lleva a cabo.
 
@@ -177,7 +177,7 @@ Una personalización que requiera código se incorpora al producto común con co
 
 ## 7. CI y construcción de releases
 
-El flujo propuesto utiliza GitHub Actions para ejecutar comprobaciones y publicar las imágenes en GHCR. GitHub documenta la publicación de imágenes mediante workflows y el uso de secretos para autenticarse en registros. Esta elección se confirma al disponer del repositorio. [Publicación de imágenes con GitHub Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
+El flujo aprobado en [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-releases.md) usa GitHub Actions para comprobar cambios, construir una sola vez y publicar imagenes en GHCR. El repositorio pendiente debera implementar esas protecciones; esta documentacion no afirma que los workflows ya existan. [Publicacion de imagenes con GitHub Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
 
 - [ ] **OPS-10 — Implementar integración continua.**
   - [ ] Verificar instalación reproducible, tipos, formato y compilación.

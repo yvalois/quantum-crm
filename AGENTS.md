@@ -60,6 +60,11 @@ Antes de modificar codigo o documentacion:
 - Solo `packages/config` lee `process.env`; cada proceso valida su schema completo y falla cerrado antes de readiness.
 - Los secretos de staging y produccion entran mediante archivos `*_FILE` montados por servicio, nunca mediante Git, imagenes, frontend, argumentos o datos comerciales.
 - Staging y produccion ejecutan los mismos digests con bases, identidades, archivos, colas y credenciales separados.
+- La integracion, entrega y promocion cumplen `docs/06-decisiones/ADR-0009-integracion-entrega-releases.md` y `docs/05-reglas/09-ci-cd-y-releases.md`.
+- Cada imagen se construye una vez, genera SBOM y procedencia y se despliega por digest; nunca se usa `latest` como identidad operativa.
+- Los pull requests no reciben secretos ni acceso al VPS; las actions externas se fijan por SHA completo y usan permisos minimos.
+- Los workflows solo solicitan operaciones tipadas a `admin-api`; `deploy-executor` es el unico componente que ejecuta Docker, migraciones y cambios de Caddy.
+- Rollback de aplicacion, migracion correctiva y restauracion de datos son operaciones diferentes y no se sustituyen automaticamente entre si.
 
 ## Cierre del trabajo
 
