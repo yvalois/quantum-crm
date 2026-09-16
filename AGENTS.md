@@ -8,14 +8,17 @@ Antes de modificar codigo o documentacion:
 
 1. Leer `docs/README.md`.
 2. Identificar el requisito en `docs/01-producto/funcionalidades.md`.
-3. Revisar sus subtareas en `docs/02-plan/trabajo.md`.
-4. Revisar `docs/04-proceso/estado.md` y buscar el identificador en todo el repositorio.
-5. Leer las reglas pertinentes en `docs/05-reglas/`.
-6. Si afecta componentes, modulos o estructura, revisar `docs/08-arquitectura/` y los ADR relacionados.
+3. Confirmar su fase y dependencias en `docs/02-plan/mvp-piloto.md`.
+4. Revisar sus subtareas en `docs/02-plan/trabajo.md`.
+5. Revisar `docs/04-proceso/estado.md` y buscar el identificador en todo el repositorio.
+6. Leer las reglas pertinentes en `docs/05-reglas/`.
+7. Si afecta componentes, modulos o estructura, revisar `docs/08-arquitectura/` y los ADR relacionados.
 
 ## Reglas no negociables
 
 - Ningun trabajo comienza sin un identificador de requisito. Para labores internas que no pertenecen al producto se usa `PROY-NNN`.
+- El MVP del cliente piloto incluye los 249 requisitos de producto y `OPS-01` a `OPS-24` conforme a `docs/02-plan/mvp-piloto.md`; una fase ordena trabajo, no excluye alcance.
+- Ninguna entrega parcial, demo, feature flag, mock o integracion simulada se presenta como el MVP terminado.
 - No se vuelve a implementar una funcion sin inspeccionar primero el codigo, las pruebas, el historial y la evidencia existente.
 - Una interfaz, boton, ruta vacia, mock o comentario `TODO` no demuestra que una funcion este terminada.
 - Antes de programar, el elemento se registra como `EN_CURSO` en `docs/04-proceso/estado.md`.

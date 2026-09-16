@@ -17,3 +17,5 @@ El proyecto se encuentra en preparacion. La documentacion base esta organizada, 
 El archivo [AGENTS.md](AGENTS.md) contiene las reglas obligatorias para cualquier persona o agente que modifique el proyecto.
 
 La arquitectura aprobada y la estructura objetivo se consultan en [docs/08-arquitectura/](docs/08-arquitectura/README.md).
+
+El alcance de la primera entrega se consulta en [MVP integral para cliente piloto](docs/02-plan/mvp-piloto.md).

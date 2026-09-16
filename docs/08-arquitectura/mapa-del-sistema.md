@@ -295,7 +295,6 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 
 Este mapa no decide aun:
 
-- Alcance y fases del MVP.
 - Proveedores concretos de canales, calendario, pagos y facturacion.
 - Dimensionamiento y distribucion real del VPS.
 - Objetivos SLO, RPO y RTO.

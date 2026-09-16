@@ -25,17 +25,14 @@ Este archivo ordena las decisiones y documentos tecnicos que faltan antes y dura
 | Entornos, configuracion y secretos | Aceptado | [ADR-0008](../06-decisiones/ADR-0008-entornos-configuracion-secretos.md) |
 | Integracion, entrega y releases | Aceptado | [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-releases.md) |
 | Observabilidad y manejo de fallos | Aceptado | [ADR-0010](../06-decisiones/ADR-0010-observabilidad-manejo-fallos.md) |
+| Alcance integral del MVP piloto | Aceptado | [MVP integral](mvp-piloto.md) |
 | Componentes, fronteras y flujos | Documentado | [Mapa del sistema](../08-arquitectura/mapa-del-sistema.md) |
 | Estructura objetivo del repositorio | Documentado | [Especificacion del monorepo](../08-arquitectura/monorepo.md) |
 | Git, ramas, commits, PR y recuperacion | Documentado | [Git y GitHub](../05-reglas/05-git-y-github.md) |
 
 ## Bloqueantes antes de escribir codigo de producto
 
-| Orden | Documento o decision | Preguntas que debe cerrar | Resultado esperado | Estado |
-|---|---|---|---|---|
-| 1 | Alcance del primer recorrido vertical | Que casos de uso entran, que se excluye y como se demuestra valor de extremo a extremo | Fase MVP con requisitos, exclusiones y criterios de aceptacion identificables | Pendiente; bloqueado como `PROY-002` |
-
-No quedan ADR tecnicos bloqueantes. El monorepo puede crearse despues de aprobar el alcance inicial. No se exige seleccionar todos los proveedores comerciales para preparar la base tecnica.
+No quedan decisiones documentales bloqueantes para crear el monorepo. El alcance aprobado incluye los 249 requisitos de producto y los 24 requisitos operativos; las selecciones por capacidad conservan las fechas limite definidas en [MVP integral](mvp-piloto.md).
 
 ## Decisiones antes de su capacidad
 
@@ -81,10 +78,9 @@ La CI debe detectar diferencias entre la fuente y los artefactos generados cuand
 
 ## Orden recomendado de cierre
 
-1. Aprobar el primer recorrido vertical y sus exclusiones.
-2. Crear el monorepo y comprobar sus criterios de bootstrap.
-3. Desarrollar un recorrido vertical pequeno con contratos, datos, autorizacion, pruebas y observabilidad.
-4. Resolver cada decision por capacidad justo antes de necesitarla.
-5. Completar fichas operativas antes de usar infraestructura o datos reales.
+1. Crear el monorepo y comprobar sus criterios de bootstrap.
+2. Desarrollar recorridos integrados pequenos siguiendo las fases del MVP.
+3. Resolver cada decision por capacidad justo antes de necesitarla.
+4. Completar fichas operativas antes de usar infraestructura o datos reales.
 
 Este orden evita tanto el codigo prematuro como documentar en detalle capacidades que todavia no tienen una necesidad comprobable.

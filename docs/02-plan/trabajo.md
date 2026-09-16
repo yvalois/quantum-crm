@@ -2,6 +2,8 @@
 
 Plan sin tiempos. Cada función completa tiene su propia casilla y mini funciones marcables. Los identificadores corresponden a `Quantum_CRM_Funcionalidades.md` y cubren los 223 puntos del adjunto más seis capacidades comunes y 20 funcionalidades del administrador central de Quantum.
 
+Todos estos requisitos forman parte del [MVP integral para el cliente piloto](mvp-piloto.md). Sus fases ordenan dependencias, pero no excluyen funciones ni permiten liberar un piloto parcial.
+
 > **Uso operativo:** este archivo es la lista autorizada de trabajo. Antes de cambiar una casilla, registrar el estado y la evidencia en `../04-proceso/estado.md` y aplicar `../04-proceso/definicion-de-terminado.md`. Una tarea en curso conserva su casilla vacía; `[x]` significa terminada y verificada, no iniciada ni parcialmente implementada.
 
 Marcar una función principal solo cuando sus mini funciones estén terminadas y su comportamiento esté verificado. Marcar una sección cuando todas sus funciones y su comprobación de integración estén completas. Todas las casillas se entregan pendientes.
