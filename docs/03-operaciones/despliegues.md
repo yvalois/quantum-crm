@@ -328,13 +328,16 @@ Rollback de aplicación y restauración de datos son operaciones diferentes. Res
 
 ## 15. Observabilidad, secretos y capacidad
 
+La instrumentacion, correlacion, taxonomia de errores, health checks y comportamiento ante fallos cumplen [ADR-0010](../06-decisiones/ADR-0010-observabilidad-manejo-fallos.md). La eleccion del backend productivo se hace despues de medir el VPS y no cambia el contrato OpenTelemetry de las aplicaciones.
+
 - [ ] **OPS-22 — Hacer visible el estado operativo.**
-  - [ ] Registrar logs con tenant_id, release_id, deployment_id y correlation_id.
+  - [ ] Registrar logs JSON redactados con tenant_id, release_id, deployment_id, trace_id y correlation_id.
   - [ ] Mostrar CPU, RAM, disco, errores, latencia, cola pendiente y salud por perfil.
   - [ ] Distinguir proceso vivo de aplicación lista para atender.
   - [ ] Detectar caducidad de certificados, errores de backups, disco insuficiente y trabajadores atascados.
   - [ ] Guardar auditoría de quién solicitó cada cambio y qué ejecutó realmente el sistema.
   - [ ] Aplicar retención y rotación para que registros e imágenes no agoten el disco.
+  - [ ] Alertar si el Collector descarta telemetria sin bloquear operaciones comerciales.
 
 - [ ] **OPS-23 — Administrar secretos y acceso operativo.**
   - [ ] Cumplir el almacenamiento, montaje, rotación y validación definidos en `../06-decisiones/ADR-0008-entornos-configuracion-secretos.md`.
@@ -363,6 +366,7 @@ Estos elementos son trabajo de desarrollo pendiente; sus nombres describen los a
 | Ejecutor | Operaciones tipadas, progreso, bloqueos y recuperación |
 | Registro de perfiles y operaciones | Estado deseado/observado, ubicación y auditoría |
 | Migraciones | Base administrativa y bases de clientes |
+| Observabilidad declarativa | Collector, dashboards, alertas, redaccion, retencion y health checks |
 | Procedimientos de recuperación | Rollback compatible, restore por cliente y recuperación del VPS |
 
 - [ ] **OPS-24 — Verificar la puesta en marcha completa.**

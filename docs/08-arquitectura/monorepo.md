@@ -96,6 +96,10 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
       tenant/
     caddy/
     keycloak/
+    observability/
+      collector/
+      dashboards/
+      alerts/
     scripts/
 
   docs/
@@ -160,7 +164,7 @@ Los nombres de modulos provienen de ADR-0002. Agregar, fusionar o retirar uno re
 | `auth` | OIDC, sesiones, AuthContext y adaptadores IAM | contracts, config y observability |
 | `ui` | Tokens, componentes y patrones accesibles | React y utilidades visuales aprobadas |
 | `config` | Schemas de variables y configuracion tipada | contratos minimos; sin dominio ni infraestructura mutable |
-| `observability` | Logs, trazas, metricas y redaccion | config y OpenTelemetry |
+| `observability` | Pino JSON, OpenTelemetry, correlacion, redaccion y salud | config; nunca dominio ni SDKs propietarios |
 | `testing` | Factories, harnesses, contenedores y aserciones | contratos y adaptadores solo para pruebas |
 
 `domain` y `platform-domain` contienen carpetas por modulo. No se crea una capa global de servicios, repositorios o entidades que mezcle propietarios.
@@ -304,6 +308,7 @@ La raiz expone nombres estables aunque internamente filtre paquetes:
 | `pnpm security:dependencies` | Auditar dependencias segun la politica de vulnerabilidades |
 | `pnpm image:scan` | Escanear por digest las imagenes o SBOM de una release |
 | `pnpm release:check` | Validar manifiesto, digests, compatibilidad y evidencia de una release |
+| `pnpm observability:check` | Validar campos, redaccion, cardinalidad, correlacion y configuracion del Collector |
 | `pnpm ci` | Ejecutar todas las puertas obligatorias aplicables |
 
 Los scripts destructivos como reset local tienen nombres explicitos, validan el entorno y no forman parte de `ci` ni de despliegue.
@@ -355,6 +360,8 @@ La estructura se considera implementada cuando:
 - Los contratos generan OpenAPI y JSON Schema.
 - Las dos historias de base se validan desde cero.
 - Configuracion faltante impide readiness con un error seguro.
+- Una solicitud de ejemplo correlaciona log, metrica y traza sin filtrar un valor canario.
+- Liveness, readiness y cierre controlado tienen pruebas reales por tipo de proceso.
 - Pruebas unitarias, integracion, contrato, arquitectura y E2E tienen al menos un smoke test real.
 - Se construyen imagenes sin incluir secretos ni codigo montado.
 

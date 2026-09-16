@@ -1,6 +1,6 @@
 # Mapa del sistema
 
-Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0006 y no representa componentes ya implementados.
+Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0010 y no representa componentes ya implementados.
 
 ## Contexto
 
@@ -55,7 +55,8 @@ flowchart TB
     end
 
     proxy[Caddy y HTTPS]
-    observability[OpenTelemetry y logs JSON]
+    collector[OpenTelemetry Collector]
+    telemetry[(Metricas, logs y trazas)]
     external[Proveedores y agentes externos]
 
     crmWeb --> proxy --> api
@@ -73,10 +74,13 @@ flowchart TB
     adminApi --> platformRealm
     adminApi -->|operacion autorizada| executor
     executor -->|Compose, migraciones y estado observado| Tenant
-    api --> observability
-    worker --> observability
-    adminApi --> observability
-    executor --> observability
+    crmWeb --> collector
+    adminWeb --> collector
+    api --> collector
+    worker --> collector
+    adminApi --> collector
+    executor --> collector
+    collector --> telemetry
 ```
 
 Los cuadros son limites logicos. PostgreSQL, Redis, S3, Keycloak y el VPS pueden compartir infraestructura fisica inicialmente, pero mantienen credenciales y espacios aislados conforme a ADR-0003.
@@ -259,6 +263,8 @@ sequenceDiagram
 | Agentes | HTTP y JSON Schema versionados; callback para ejecuciones largas |
 | Proveedores | Adaptadores y webhooks autenticados |
 
+La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones emiten OpenTelemetry y logs JSON hacia un Collector interno; el backend puede ser el perfil Grafana autocontenido o un servicio OTLP administrado segun capacidad y requisitos operativos.
+
 ## Fallos y recuperacion
 
 | Fallo | Comportamiento esperado |
@@ -280,6 +286,10 @@ sequenceDiagram
 - `ADR-0004`: identidad y permisos.
 - `ADR-0005`: APIs y contratos.
 - `ADR-0006`: persistencia y migraciones.
+- `ADR-0007`: pruebas y calidad.
+- `ADR-0008`: entornos, configuracion y secretos.
+- `ADR-0009`: integracion, entrega y releases.
+- `ADR-0010`: observabilidad y manejo de fallos.
 
 ## Aspectos pendientes
 

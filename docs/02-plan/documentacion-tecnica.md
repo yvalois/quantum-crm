@@ -24,6 +24,7 @@ Este archivo ordena las decisiones y documentos tecnicos que faltan antes y dura
 | Estrategia de pruebas y puertas de calidad | Aceptado | [ADR-0007](../06-decisiones/ADR-0007-estrategia-pruebas-calidad.md) |
 | Entornos, configuracion y secretos | Aceptado | [ADR-0008](../06-decisiones/ADR-0008-entornos-configuracion-secretos.md) |
 | Integracion, entrega y releases | Aceptado | [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-releases.md) |
+| Observabilidad y manejo de fallos | Aceptado | [ADR-0010](../06-decisiones/ADR-0010-observabilidad-manejo-fallos.md) |
 | Componentes, fronteras y flujos | Documentado | [Mapa del sistema](../08-arquitectura/mapa-del-sistema.md) |
 | Estructura objetivo del repositorio | Documentado | [Especificacion del monorepo](../08-arquitectura/monorepo.md) |
 | Git, ramas, commits, PR y recuperacion | Documentado | [Git y GitHub](../05-reglas/05-git-y-github.md) |
@@ -33,9 +34,8 @@ Este archivo ordena las decisiones y documentos tecnicos que faltan antes y dura
 | Orden | Documento o decision | Preguntas que debe cerrar | Resultado esperado | Estado |
 |---|---|---|---|---|
 | 1 | Alcance del primer recorrido vertical | Que casos de uso entran, que se excluye y como se demuestra valor de extremo a extremo | Fase MVP con requisitos, exclusiones y criterios de aceptacion identificables | Pendiente; bloqueado como `PROY-002` |
-| 2 | ADR-0010: observabilidad y manejo de fallos | Logs, trazas, metricas, correlacion, redaccion, alertas y catalogo de errores | Convenciones verificables desde el primer servicio | Pendiente bloqueante |
 
-El monorepo puede crearse despues de aprobar estos puntos y el alcance inicial. No se exige seleccionar todos los proveedores comerciales para preparar la base tecnica.
+No quedan ADR tecnicos bloqueantes. El monorepo puede crearse despues de aprobar el alcance inicial. No se exige seleccionar todos los proveedores comerciales para preparar la base tecnica.
 
 ## Decisiones antes de su capacidad
 
@@ -82,10 +82,9 @@ La CI debe detectar diferencias entre la fuente y los artefactos generados cuand
 ## Orden recomendado de cierre
 
 1. Aprobar el primer recorrido vertical y sus exclusiones.
-2. Resolver ADR-0010.
-3. Crear el monorepo y comprobar sus criterios de bootstrap.
-4. Desarrollar un recorrido vertical pequeno con contratos, datos, autorizacion, pruebas y observabilidad.
-5. Resolver cada decision por capacidad justo antes de necesitarla.
-6. Completar fichas operativas antes de usar infraestructura o datos reales.
+2. Crear el monorepo y comprobar sus criterios de bootstrap.
+3. Desarrollar un recorrido vertical pequeno con contratos, datos, autorizacion, pruebas y observabilidad.
+4. Resolver cada decision por capacidad justo antes de necesitarla.
+5. Completar fichas operativas antes de usar infraestructura o datos reales.
 
 Este orden evita tanto el codigo prematuro como documentar en detalle capacidades que todavia no tienen una necesidad comprobable.

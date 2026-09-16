@@ -65,6 +65,12 @@ Antes de modificar codigo o documentacion:
 - Los pull requests no reciben secretos ni acceso al VPS; las actions externas se fijan por SHA completo y usan permisos minimos.
 - Los workflows solo solicitan operaciones tipadas a `admin-api`; `deploy-executor` es el unico componente que ejecuta Docker, migraciones y cambios de Caddy.
 - Rollback de aplicacion, migracion correctiva y restauracion de datos son operaciones diferentes y no se sustituyen automaticamente entre si.
+- La observabilidad y el manejo de fallos cumplen `docs/06-decisiones/ADR-0010-observabilidad-manejo-fallos.md` y `docs/05-reglas/10-observabilidad-y-fallos.md`.
+- El dominio no importa logging, tracing, metricas ni SDKs de proveedores; la instrumentacion comun vive en `packages/observability`.
+- Los logs son JSON estructurado y redactado; IDs, rutas o valores no acotados nunca son labels de metricas ni nombres de spans.
+- Toda dependencia externa tiene timeout; solo se reintentan fallos transitorios con presupuesto, jitter e idempotencia o deduplicacion.
+- Una excepcion no capturada retira readiness y termina el proceso con error; no se continua en un estado desconocido.
+- Auditoria, outbox, inbox, operaciones y resultados durables no se sustituyen por logs o trazas.
 
 ## Cierre del trabajo
 

@@ -42,11 +42,11 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | PROY-013 | Estrategia de pruebas y puertas de calidad aprobada y registrada | 2026-09-16 | `docs/06-decisiones/ADR-0007-estrategia-pruebas-calidad.md`, `docs/05-reglas/02-pruebas-y-calidad.md`, `AGENTS.md` | Indice, enlaces, niveles, herramientas, cobertura, riesgos y puertas de CI verificados |
 | PROY-014 | Entornos, configuracion y secretos aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0008-entornos-configuracion-secretos.md`, `docs/05-reglas/08-entornos-configuracion-secretos.md`, `AGENTS.md`, `.gitignore` | Entornos, schemas, mounts, minimo privilegio, rotacion, deteccion y enlaces verificados |
 | PROY-015 | Integracion, entrega y releases aprobadas y registradas | 2026-09-16 | `docs/06-decisiones/ADR-0009-integracion-entrega-releases.md`, `docs/05-reglas/09-ci-cd-y-releases.md`, `AGENTS.md` | Flujo de CI, artefactos inmutables, seguridad, promocion, despliegue y recuperacion conectados con arquitectura y operacion |
+| PROY-016 | Observabilidad y manejo de fallos aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0010-observabilidad-manejo-fallos.md`, `docs/05-reglas/10-observabilidad-y-fallos.md`, `AGENTS.md` | Instrumentacion, correlacion, redaccion, cardinalidad, errores, reintentos, salud, alertas y perdida de telemetria conectados con arquitectura y operacion |
 
 ## Decisiones pendientes
 
 - Alcance exacto del MVP y sus fases.
-- Observabilidad y manejo de fallos.
 - Proveedores iniciales de canales, calendario, pagos y facturacion fiscal.
 - Recursos, sistema operativo y acceso del VPS.
 - Objetivos de rendimiento, disponibilidad, respaldo y recuperacion.
