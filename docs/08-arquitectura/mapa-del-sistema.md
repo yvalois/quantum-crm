@@ -1,6 +1,6 @@
 # Mapa del sistema
 
-Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0011 y no representa componentes ya implementados.
+Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0012 y no representa componentes ya implementados.
 
 ## Contexto
 
@@ -13,7 +13,8 @@ flowchart LR
     tenantAdmin[Administrador del CRM]
     operator[Operador de Quantum]
     providers[Canales, pagos y calendarios]
-    agents[Agentes LangGraph JS o Python]
+    agent[Agente principal Quantum]
+    custom[Agente personalizado JS o Python]
 
     crm[CRM de un perfil]
     platform[Plataforma central]
@@ -23,7 +24,10 @@ flowchart LR
     tenantAdmin -->|usuarios y configuracion| crm
     operator -->|clientes, releases y operaciones| platform
     crm <-->|webhooks y APIs| providers
-    crm <-->|contrato versionado y herramientas| agents
+    crm -->|/agent/v1| agent
+    agent -->|Quantum MCP| crm
+    crm -.->|/agent/v1 alternativo| custom
+    custom -.->|Quantum MCP| crm
     platform -->|operaciones tipadas| crm
 ```
 
@@ -41,7 +45,9 @@ flowchart TB
     subgraph Tenant[Perfil de cliente]
         api[api\nNestJS]
         worker[worker\nNestJS standalone]
+        agentRuntime[agent-runtime\nTypeScript y LangGraph.js]
         tenantDb[(PostgreSQL\nbase del cliente)]
+        agentState[(PostgreSQL\ncheckpoints del agente)]
         tenantRealm[Keycloak\nrealm del cliente]
         tenantFiles[(S3\nespacio del cliente)]
         tenantQueues[(Redis y BullMQ\nnamespace y ACL del cliente)]
@@ -57,7 +63,8 @@ flowchart TB
     proxy[Caddy y HTTPS]
     collector[OpenTelemetry Collector]
     telemetry[(Metricas, logs y trazas)]
-    external[Proveedores y agentes externos]
+    external[Proveedores externos]
+    customAgent[Agente personalizado\nJS o Python]
 
     crmWeb --> proxy --> api
     adminWeb --> proxy --> adminApi
@@ -68,6 +75,12 @@ flowchart TB
     worker --> tenantDb
     worker --> tenantFiles
     worker --> tenantQueues
+    api -->|POST /agent/v1| agentRuntime
+    agentRuntime -->|MCP /mcp| api
+    agentRuntime --> agentState
+    agentRuntime -->|OIDC discovery y token| tenantRealm
+    api -.->|POST /agent/v1| customAgent
+    customAgent -.->|MCP /mcp| api
     api <--> external
     worker <--> external
     adminApi --> platformDb
@@ -78,6 +91,7 @@ flowchart TB
     adminWeb --> collector
     api --> collector
     worker --> collector
+    agentRuntime --> collector
     adminApi --> collector
     executor --> collector
     collector --> telemetry
@@ -93,6 +107,7 @@ Los cuadros son limites logicos. PostgreSQL, Redis, S3, Keycloak y el VPS pueden
 | `admin-web` | Experiencia de operadores de Quantum | Usar sesiones de CRM o ejecutar comandos de host |
 | `api` | HTTP, WebSocket y casos de uso comerciales | Ejecutar trabajos largos, migraciones o acceder a otros perfiles |
 | `worker` | Outbox, inbox, automatizaciones, integraciones y trabajos duraderos | Exponer controladores publicos innecesarios o saltar autorizacion de comandos |
+| `agent-runtime` | Agente principal, subagentes internos, grafo, checkpoints e interrupciones | Acceder directamente a datos comerciales, proveedores, secretos o infraestructura interna |
 | `admin-api` | Perfiles, releases, servidores, operaciones y auditoria de plataforma | Consultar tablas comerciales o acceder al daemon Docker |
 | `deploy-executor` | Ejecutar operaciones de infraestructura tipadas y reportar estado | Aceptar shell arbitrario o credenciales de usuarios comerciales |
 
@@ -233,24 +248,29 @@ PostgreSQL conserva la definicion, revision, ejecucion, espera, checkpoint e ide
 sequenceDiagram
     participant C as conversations
     participant G as agent-gateway
-    participant L as LangGraph externo
-    participant T as Herramienta Quantum
+    participant W as worker
+    participant L as agent-runtime
+    participant T as Quantum MCP
     participant M as Modulo propietario
 
-    C->>G: Solicitar ejecucion autorizada
-    G->>L: Contexto minimo + contrato versionado
-    L->>G: Solicitar herramienta y argumentos
-    G->>G: Validar identidad, perfil, schema y permiso
-    G->>T: Ejecutar herramienta autorizada
+    C->>G: Crear ejecucion autorizada
+    G->>G: Persistir ejecucion + outbox
+    W->>G: Reclamar lease y generacion
+    W->>L: POST /agent/v1/runs + referencia MCP
+    L->>L: Obtener token MCP con identidad propia
+    L->>T: Descubrir resource o tool necesaria
+    T->>T: Validar principal, perfil, schema, permiso y riesgo
+    T-->>L: Contexto minimo o solicitud de aprobacion
+    L->>T: Invocar tool con argumentos estructurados
+    T->>T: Revalidar autorizacion y estado vigente
     T->>M: Caso de uso publico con AuthContext
     M-->>T: Resultado seguro
-    T-->>G: Resultado contractual
-    G-->>L: Resultado de herramienta
-    L-->>G: Mensaje, accion o escalamiento
+    T-->>L: Resultado contractual
+    L-->>G: Mensaje, accion, interrupcion o escalamiento
     G-->>C: Resultado condicionado al modo actual
 ```
 
-El modelo no selecciona el perfil ni aumenta permisos mediante argumentos.
+El modelo no selecciona el perfil ni aumenta permisos mediante argumentos. El agente principal puede delegar en subagentes internos invisibles, pero estos reciben solo las capabilities y el presupuesto de su tarea. El CRM conserva el estado comercial; el checkpoint del grafo no lo sustituye. El contrato completo esta en [agentes-mcp.md](agentes-mcp.md).
 
 ## Flujo de despliegue
 
@@ -285,7 +305,8 @@ sequenceDiagram
 | Efectos asincronos | Outbox, BullMQ e inbox idempotente |
 | Automatizaciones y esperas | Revisiones y ejecuciones en PostgreSQL; BullMQ como distribucion recuperable |
 | Eventos entre procesos o sistemas | Envelope CloudEvents y AsyncAPI |
-| Agentes | HTTP y JSON Schema versionados; callback para ejecuciones largas |
+| Ejecucion de agentes | `/agent/v1` sobre HTTP con JSON Schema versionado y cancelacion explicita |
+| Contexto y acciones agentivas | MCP Streamable HTTP en `/mcp`, con resources, tools y prompts acotados |
 | Proveedores | Adaptadores y webhooks autenticados |
 
 La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones emiten OpenTelemetry y logs JSON hacia un Collector interno; el backend puede ser el perfil Grafana autocontenido o un servicio OTLP administrado segun capacidad y requisitos operativos.
@@ -301,7 +322,9 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 | Proveedor no responde | Se registra intento y se reintenta segun politica |
 | Resultado externo queda incierto | Se concilia antes de repetir pagos, reservas, mensajes o emisiones |
 | WebSocket o SSE se corta | Cliente reanuda con cursor o reconstruye snapshot |
-| Agente responde tarde | Callback valida ejecucion, conversacion y modo actual |
+| Agente responde tarde | Callback autenticado valida ejecucion, intento, lease, generacion, conversacion y modo actual antes de transicionar |
+| `agent-runtime` reinicia | Reanuda solo un thread compatible desde checkpoint; en otro caso migra o reinicia de forma explicita |
+| MCP queda indisponible | La ejecucion se detiene o escala sin inventar contexto ni repetir efectos inciertos |
 | Migracion falla | Perfil no cambia a version observada nueva |
 | Release candidata falla | Trafico permanece o vuelve a version compatible anterior |
 | VPS se pierde | Se reconstruye desde inventario, imagenes y respaldo externo verificado |
@@ -319,6 +342,7 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 - `ADR-0009`: integracion, entrega y releases.
 - `ADR-0010`: observabilidad y manejo de fallos.
 - `ADR-0011`: trabajos asincronos y automatizaciones durables.
+- `ADR-0012`: agentes LangGraph y Quantum MCP.
 
 ## Aspectos pendientes
 
@@ -327,5 +351,4 @@ Este mapa no decide aun:
 - Proveedores concretos de canales, calendario, pagos y facturacion.
 - Dimensionamiento y distribucion real del VPS.
 - Objetivos SLO, RPO y RTO.
-- Detalle del contrato de agentes.
 - Arquitectura de componentes y experiencia visual del frontend.

@@ -34,7 +34,8 @@ Antes de modificar codigo o documentacion:
 - No se hace force push, no se reescribe historia compartida y no se elimina trabajo sin autorizacion explicita.
 - No se integra ni publica una rama con comprobaciones obligatorias fallidas.
 - El codigo propio de Quantum CRM se escribe en TypeScript estricto conforme a `docs/06-decisiones/ADR-0001-stack-base.md`.
-- Los agentes LangGraph pueden ser servicios externos JavaScript o Python, pero deben cumplir el contrato versionado y no acceden directamente a la infraestructura de datos.
+- El agente oficial vive en `agent-runtime` TypeScript con LangGraph.js; agentes personalizados pueden usar JavaScript o Python, pero todos cumplen `/agent/v1`, MCP y `docs/06-decisiones/ADR-0012-integracion-agentes-langgraph-mcp.md`.
+- Los agentes son una capacidad nativa de Quantum, pero no acceden directamente a datos comerciales, Redis, S3, administracion de Keycloak, secretos de proveedores ni APIs internas; usan resources y tools del Quantum MCP Gateway. Solo su adaptador OAuth accede a discovery y token endpoints publicados.
 - Cada modulo es propietario exclusivo de sus datos y cumple `docs/06-decisiones/ADR-0002-limites-modulos-dependencias.md`.
 - Un modulo no importa repositorios, entidades internas ni adaptadores de infraestructura de otro modulo; usa contratos publicos o eventos.
 - El dominio no depende de NestJS, Prisma, Redis, HTTP ni proveedores externos.
@@ -80,6 +81,13 @@ Antes de modificar codigo o documentacion:
 - Una automatizacion fija una revision inmutable, persiste checkpoints y revalida permisos, invariantes y toma humana antes de cada efecto.
 - Los reintentos se limitan a fallos transitorios con timeout, presupuesto, backoff y jitter; un resultado externo desconocido se concilia antes de repetir.
 - Pausas, cancelaciones, compensaciones y reanudaciones son operaciones tipadas, autorizadas y auditadas; no existe rollback generico ni edicion arbitraria de payloads.
+- La implementacion agentiva cumple `docs/05-reglas/12-agentes-langgraph-mcp.md` y `docs/08-arquitectura/agentes-mcp.md`.
+- Existe un agente principal visible por empresa; sus subagentes son internos, usan capabilities minimas y no deciden permisos ni aprobaciones.
+- El CRM conserva el estado comercial; checkpoints y memoria del agente no lo sustituyen, y el aprendizaje solo se persiste mediante una tool autorizada.
+- Cada tool MCP declara version, schema, permiso, riesgo, aprobacion, timeout e idempotencia y llama el caso de uso publico del modulo propietario.
+- Ningun prompt, mensaje, documento, resource o tool result concede permisos, cambia de perfil, revela secretos o evita aprobaciones.
+- CRM y runtime se autentican por separado; una ejecucion no transporta tokens humanos o MCP, y los callbacks se validan y deduplican por intento y generacion.
+- No se solicita, almacena ni expone cadena de pensamiento; la evidencia usa resultados y decisiones estructuradas permitidas.
 
 ## Cierre del trabajo
 

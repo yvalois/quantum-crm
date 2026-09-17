@@ -5,6 +5,8 @@
 - Responsables: propietario del proyecto
 - Requisitos relacionados: OPS-10 a OPS-21, ADM-09 a ADM-14 y ADM-20
 
+> Actualizacion posterior: [ADR-0012](ADR-0012-integracion-agentes-langgraph-mcp.md) amplia el manifiesto a siete procesos desplegables al incorporar `agent-runtime`; sus digests, contratos y compatibilidad forman parte de la misma release inmutable.
+
 ## Contexto
 
 Quantum debe verificar cambios no confiables, producir artefactos reproducibles, validar una release en staging y promover exactamente esos artefactos a produccion. Ademas, el despliegue por perfil puede incluir migraciones, workers, cambio de trafico y recuperacion, por lo que un workflow no debe ejecutar comandos arbitrarios sobre el VPS ni confundir una imagen construida con una release desplegable.
@@ -88,7 +90,7 @@ El cache acelera descargas, pero no sustituye al lockfile ni constituye evidenci
 - Grype CLI, fijado por version y checksum, escanea el digest o su SBOM con una base de vulnerabilidades actualizada.
 - Hallazgos `high` o `critical` bloquean la promocion salvo excepcion temporal aprobada. Una excepcion no cambia ni oculta el reporte.
 
-Una imagen de API y worker puede compartirse solamente si el mismo artefacto contiene ambos entrypoints y la medicion demuestra que no aumenta superficie o tamaño de forma injustificada. El manifiesto siempre identifica los seis procesos desplegables, aunque algunos referencien el mismo digest.
+Una imagen de API y worker puede compartirse solamente si el mismo artefacto contiene ambos entrypoints y la medicion demuestra que no aumenta superficie o tamaño de forma injustificada. El manifiesto siempre identifica los siete procesos desplegables, incluido `agent-runtime`, aunque algunos referencien el mismo digest.
 
 ## Manifiesto y estados de release
 

@@ -45,7 +45,7 @@ Compartir kernel o VPS no equivale a aislamiento fuerte del host. Un perfil con 
 - El runtime usa un rol exclusivo con acceso solo a esa base y sin privilegios de superusuario.
 - Las migraciones usan otro rol limitado y se ejecutan mediante un proceso controlado por perfil.
 - La base administrativa es independiente de todas las bases comerciales.
-- Una cadena de conexion de un cliente no se entrega a procesos de otro cliente ni a agentes externos.
+- Una cadena de conexion comercial no se entrega a procesos de otro cliente, al `agent-runtime` ni a agentes personalizados; estos acceden al CRM exclusivamente mediante MCP autorizado.
 - Las migraciones, respaldos, restauraciones y verificaciones se identifican por `tenant_id` y base objetivo.
 - Los esquemas internos por modulo definidos en ADR-0002 organizan una base de cliente; no sustituyen la separacion entre clientes.
 

@@ -6,7 +6,7 @@ El administrador central se desarrolla en `Quantum_CRM_Funcionalidades.md` y `Qu
 
 ## 1. Decisión de arquitectura
 
-Un mismo código base, imágenes versionadas y un entorno lógico por cliente. Cada perfil tendrá su aplicación, workers, configuración y base de datos. Inicialmente los entornos podrán compartir un VPS; su capacidad real determinará cuántos admite.
+Un mismo código base, imágenes versionadas y un entorno lógico por cliente. Cada perfil tendrá su aplicación, workers, `agent-runtime`, configuración y almacenes aislados. Inicialmente los entornos podrán compartir un VPS; su capacidad real determinará cuántos admite.
 
 Se adopta **Docker Engine + Docker Compose + Caddy + PostgreSQL**, con **GitHub Actions y GHCR** para CI/CD y registro de imagenes conforme a [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-releases.md). El repositorio y la cuenta del registro todavia no han sido proporcionados. La arquitectura permite sustituir el servicio CI/CD conservando el contrato del ejecutor y los artefactos publicados.
 
@@ -19,7 +19,7 @@ DevOps es la práctica completa de desarrollo y operación. Docker empaqueta los
 | Administrador central | Clientes, configuración, versiones y estado de operaciones | Plataforma |
 | Ejecutor | Aprovisionar, migrar, desplegar y recuperar según solicitudes válidas | VPS y recursos autorizados |
 | Caddy | Entrada HTTPS y encaminamiento a cada entorno | Compartido en el VPS |
-| Aplicación web, API y workers | Ejecutar el CRM de una release | Por cliente |
+| Aplicación web, API, workers y `agent-runtime` | Ejecutar el CRM agentivo de una release | Por cliente |
 | PostgreSQL | Base central y bases separadas de clientes, con roles propios | Motor inicialmente compartido |
 | Colas y trabajos | Ejecuciones pendientes identificadas por cliente y versión de formato | Separación lógica y permisos |
 | Archivos | Documentos, medios y adjuntos persistentes | Separación por cliente |
@@ -31,7 +31,7 @@ Docker documenta Compose como una opción para producción en un servidor y reco
   - [ ] Mantener un único repositorio y evitar ramas permanentes de código por cliente.
   - [ ] Separar la base de datos administrativa de las bases comerciales.
   - [ ] Definir proyectos Compose diferenciados para plataforma, pruebas y perfiles.
-  - [ ] Definir imágenes y procesos web, API y worker; API y worker pueden compartir imagen con comandos distintos.
+  - [ ] Definir imágenes y procesos web, API, worker y `agent-runtime`; API y worker pueden compartir imagen con comandos distintos.
   - [ ] Registrar qué componentes son compartidos y cuáles se actualizan por cliente.
 
 Los contenedores de un cliente no constituyen un servidor independiente: comparten kernel, CPU y almacenamiento del host. El motor PostgreSQL, Caddy y el propio VPS también tienen un alcance común. Sus actualizaciones requieren un procedimiento de plataforma distinto de una actualización del CRM de un cliente. Un VPS único no ofrece alta disponibilidad ante una caída completa del servidor.
@@ -196,7 +196,7 @@ El flujo aprobado en [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-re
   - [ ] Conservar la release anterior y evitar eliminar imágenes aún usadas por clientes o necesarias para reversión.
   - [ ] Publicar el manifiesto en ADM-09 solo cuando todos los artefactos requeridos estén disponibles.
 
-El manifiesto debe describir frontend, API y worker como un conjunto compatible. También debe registrar el rango de contratos de LangGraph admitidos; no basta una etiqueta comercial como `v1.5.0` para reconstruir exactamente el despliegue.
+El manifiesto debe describir frontend, API, worker y `agent-runtime` como un conjunto compatible. También debe registrar versiones de `/agent/v1`, MCP, grafo, prompts, politicas y checkpoints admitidos; no basta una etiqueta comercial como `v1.5.0` para reconstruir exactamente el despliegue.
 
 ## 8. Pruebas y promoción a producción
 
@@ -233,8 +233,9 @@ Tener acceso al daemon Docker supone privilegios elevados sobre el host. El ejec
   - [ ] Registrar el perfil y reservar su identificador, slug y hostname únicos.
   - [ ] Comprobar capacidad y seleccionar una release validada.
   - [ ] Crear base y roles, espacio de archivos, secretos y configuración inicial.
+  - [ ] Crear checkpoint store e identidades separadas para CRM hacia runtime y runtime hacia MCP.
   - [ ] Ejecutar las migraciones iniciales mediante un trabajo controlado.
-  - [ ] Levantar aplicación y worker con límites y credenciales del perfil.
+  - [ ] Levantar aplicación, worker y `agent-runtime` con límites y credenciales del perfil.
   - [ ] Configurar ruta Caddy y solicitar certificado del hostname nip.io real.
   - [ ] Crear o invitar al administrador del cliente sin guardar contraseñas en registros.
   - [ ] Verificar HTTPS, autenticación, aislamiento, salud de la aplicación y procesamiento de trabajos.
@@ -263,7 +264,7 @@ Se propone preparación de una versión candidata junto a la activa cuando la RA
   - [ ] Registrar mensajes y eventos entrantes de forma duradera antes de confirmar su recepción al proveedor.
   - [ ] Deduplicar eventos, envíos y efectos; el procesamiento puede repetirse, el efecto comercial debe controlarse de forma idempotente.
   - [ ] Versionar el formato de trabajos y callbacks y mantener compatibilidad mientras existan tareas antiguas pendientes.
-  - [ ] En callbacks de agentes, validar cliente, conversación, ejecución y modo de atención antes de enviar.
+  - [ ] En callbacks de agentes, validar cliente, conversación, ejecución, intento, lease, fencing generation y modo de atención antes de transicionar o enviar.
   - [ ] Mantener bloqueadas respuestas y seguimientos cuando un asesor haya tomado la conversación, también tras un despliegue.
   - [ ] Manejar reconexión de WebSockets/SSE con cursor de mensajes para recuperar eventos durante el cambio.
   - [ ] Mantener APIs compatibles con las pestañas abiertas del frontend anterior o solicitar recarga controlada antes de acciones incompatibles.
@@ -318,6 +319,7 @@ Rollback de aplicación y restauración de datos son operaciones diferentes. Res
 - [ ] **OPS-21 — Implementar respaldos y restauración comprobada.**
   - [ ] Definir frecuencia, retención y objetivos de recuperación según la operación real; quedan pendientes de acordar.
   - [ ] Respaldar cada base de cliente y la base administrativa con métodos consistentes de PostgreSQL.
+  - [ ] Respaldar el checkpoint store del perfil cuando existan ejecuciones suspendidas que deban reanudarse, sin confundirlo con estado comercial.
   - [ ] Respaldar archivos, configuración y material necesario para reconstruir conexiones y despliegues, protegiendo los secretos.
   - [ ] Coordinar referencias de archivos y datos para no producir una copia con adjuntos ausentes.
   - [ ] Enviar copias cifradas fuera del VPS y comprobar integridad y resultado.
@@ -356,7 +358,7 @@ Estos elementos son trabajo de desarrollo pendiente; sus nombres describen los a
 
 | Entregable | Contenido esperado |
 |---|---|
-| Dockerfiles | Builds reproducibles para web, API y worker |
+| Dockerfiles | Builds reproducibles para web, API, worker y `agent-runtime` |
 | Compose local | Desarrollo con base de prueba y recarga de código |
 | Compose de plataforma | Caddy, administrador, motor de datos y dependencias compartidas |
 | Plantilla Compose de cliente | Recursos, redes y slots de aplicación parametrizados por perfil |

@@ -21,6 +21,7 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
     admin-web/
     api/
     worker/
+    agent-runtime/
     admin-api/
     deploy-executor/
 
@@ -63,6 +64,7 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
         shared/
         <module>/http/v1/
         <module>/events/v1/
+        <module>/mcp/v1/
         agents/v1/
 
     database/
@@ -73,9 +75,12 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
         platform/
           schema.prisma
           migrations/
+        agent/
+          migrations/
       src/
         crm/
         platform/
+        agent/
 
     auth/
     ui/
@@ -87,6 +92,7 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
     architecture/
     contracts/
     integration/
+    agents/
     e2e/
 
   infra/
@@ -139,6 +145,15 @@ Los nombres de modulos provienen de ADR-0002. Agregar, fusionar o retirar uno re
 - Usa los mismos casos de uso y contratos que API.
 - No crea rutas HTTP publicas salvo health interno estrictamente necesario.
 
+### agent-runtime
+
+- TypeScript estricto y LangGraph.js.
+- Ejecuta el agente principal y subagentes internos invisibles.
+- Implementa `/agent/v1` y actua como host y cliente del Quantum MCP Gateway.
+- Persiste solo checkpoints y estado interno agentivo en el almacen separado del perfil.
+- No importa modulos de dominio, repositorios, Prisma comercial ni adaptadores de proveedores.
+- Agentes personalizados JavaScript o Python sustituyen esta aplicacion solo mediante los mismos contratos.
+
 ### admin-api
 
 - NestJS 11.
@@ -160,7 +175,7 @@ Los nombres de modulos provienen de ADR-0002. Agregar, fusionar o retirar uno re
 | `domain` | Dominio y aplicacion de modulos CRM | shared kernel y contratos publicos necesarios |
 | `platform-domain` | Dominio y aplicacion de plataforma | shared kernel y contratos administrativos |
 | `contracts` | Zod, tipos, OpenAPI, JSON Schema y eventos | librerias de schema aprobadas; nunca infraestructura |
-| `database` | Prisma, migraciones, repositorios y SQL | domain, platform-domain, config y observability |
+| `database` | Prisma, migraciones, repositorios, SQL y schema separado de checkpoints agentivos | domain, platform-domain, config y observability |
 | `auth` | OIDC, sesiones, AuthContext y adaptadores IAM | contracts, config y observability |
 | `ui` | Tokens, componentes y patrones accesibles | React y utilidades visuales aprobadas |
 | `config` | Schemas de variables y configuracion tipada | contratos minimos; sin dominio ni infraestructura mutable |
@@ -210,6 +225,7 @@ crm-web -> database
 admin-web -> domain comercial o database
 api -> platform-domain interno
 worker -> controladores HTTP
+agent-runtime -> database comercial, domain interno o adaptadores de proveedores
 CRM -> deploy-executor o socket Docker
 ```
 
@@ -257,15 +273,17 @@ Las excepciones se documentan localmente y no desactivan una regla para todo el 
 - CI regenera y comprueba diferencias o publica artefactos reproducibles segun el flujo elegido.
 - Los clientes generados son adaptadores; no se convierten en fuente de verdad.
 - JavaScript, TypeScript y Python se validan contra los mismos JSON Schema.
+- Resources, tools y prompts MCP derivan de schemas por modulo y no duplican DTO manuales.
 
 ## Persistencia
 
-`packages/database` contiene dos historias independientes:
+`packages/database` contiene tres historias independientes:
 
 - `crm`: aplicada a cada base de cliente.
 - `platform`: aplicada solo a la base administrativa.
+- `agent`: aplicada solo al checkpoint store del runtime agentivo de cada perfil.
 
-Las migraciones se agrupan por historia, no por aplicacion. Cada nombre y encabezado identifica el modulo propietario. El migrador usa rutas y credenciales explicitas y nunca infiere la base objetivo desde entrada libre.
+Las migraciones se agrupan por historia, no por aplicacion. Cada nombre y encabezado identifica el modulo propietario. El migrador usa rutas y credenciales explicitas y nunca infiere la base objetivo desde entrada libre. El rol de `agent-runtime` no accede a `crm` ni `platform`, y los procesos comerciales no usan el checkpoint store como estado de negocio.
 
 El Prisma schema puede dividirse en archivos si la version fijada lo soporta de forma estable, pero debe producir un unico historial ordenado por base. No se crea una historia Prisma independiente por modulo que pueda aplicarse fuera de orden.
 
@@ -309,6 +327,7 @@ La raiz expone nombres estables aunque internamente filtre paquetes:
 | `pnpm image:scan` | Escanear por digest las imagenes o SBOM de una release |
 | `pnpm release:check` | Validar manifiesto, digests, compatibilidad y evidencia de una release |
 | `pnpm observability:check` | Validar campos, redaccion, cardinalidad, correlacion y configuracion del Collector |
+| `pnpm agents:check` | Validar `/agent/v1`, MCP, fixtures JavaScript/Python y evaluaciones obligatorias |
 | `pnpm ci` | Ejecutar todas las puertas obligatorias aplicables |
 
 Los scripts destructivos como reset local tienen nombres explicitos, validan el entorno y no forman parte de `ci` ni de despliegue.
@@ -322,6 +341,7 @@ src/**/*.test.ts              pruebas unitarias junto al codigo
 tests/architecture/           dependencias y limites
 tests/contracts/              proveedores y consumidores
 tests/integration/            PostgreSQL, Redis, Keycloak y S3 aislados
+tests/agents/                 Contratos, evaluaciones y casos adversariales de agentes
 tests/e2e/                    recorridos de usuario
 ```
 
@@ -329,6 +349,7 @@ tests/e2e/                    recorridos de usuario
 - Integracion usa servicios reales aislados cuando se verifica comportamiento del motor.
 - Aislamiento usa al menos dos perfiles.
 - Los agentes JavaScript y Python ejecutan la misma suite contractual.
+- El agente oficial ejecuta la misma suite y evaluaciones que los agentes personalizados.
 - Ningun fixture incluye datos reales.
 
 ## Artefactos y despliegue
@@ -354,16 +375,17 @@ tests/e2e/                    recorridos de usuario
 La estructura se considera implementada cuando:
 
 - Todos los workspaces instalan con un lockfile reproducible.
-- Las seis aplicaciones compilan en TypeScript estricto.
+- Las siete aplicaciones compilan en TypeScript estricto.
 - Un modulo de ejemplo respeta las cuatro capas.
 - CI rechaza un import interno entre modulos.
 - Los contratos generan OpenAPI y JSON Schema.
-- Las dos historias de base se validan desde cero.
+- Las tres historias de base se validan desde cero y con credenciales separadas.
 - Configuracion faltante impide readiness con un error seguro.
 - Una solicitud de ejemplo correlaciona log, metrica y traza sin filtrar un valor canario.
 - Liveness, readiness y cierre controlado tienen pruebas reales por tipo de proceso.
 - Pruebas unitarias, integracion, contrato, arquitectura y E2E tienen al menos un smoke test real.
 - Se construyen imagenes sin incluir secretos ni codigo montado.
+- `agent-runtime` publica manifest, crea un thread y consume una resource y una tool MCP sin acceso directo a datos comerciales.
 
 ## Decisiones pendientes antes del bootstrap
 

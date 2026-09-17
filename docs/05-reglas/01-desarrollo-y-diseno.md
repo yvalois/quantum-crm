@@ -49,5 +49,5 @@
 - Validar datos de runtime aunque exista tipado estatico.
 - Usar nombres de funciones con verbo y nombres de dominio, no abreviaturas opacas.
 - Mantener componentes de interfaz enfocados; la logica de negocio no vive dentro de la vista.
-- Mantener el codigo propio del producto en archivos TypeScript y TSX; JavaScript se admite solo en configuraciones que la herramienta no permita expresar en TypeScript o en agentes externos compatibles.
-- No introducir Python en las aplicaciones del monorepo; Python queda reservado para agentes LangGraph externos que implementen el contrato comun.
+- Mantener el codigo propio del producto, incluido `agent-runtime`, en archivos TypeScript y TSX; JavaScript se admite solo en configuraciones que la herramienta no permita expresar en TypeScript o en agentes personalizados compatibles.
+- No introducir Python en las aplicaciones oficiales del monorepo; Python queda reservado para agentes personalizados que implementen `/agent/v1` y MCP desde su frontera propia.

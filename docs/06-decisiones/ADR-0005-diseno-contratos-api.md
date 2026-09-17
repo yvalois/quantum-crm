@@ -27,7 +27,7 @@ Se mantienen contratos independientes para:
 - Webhooks de proveedores y suscripciones salientes.
 - WebSocket, SSE y eventos entre procesos.
 
-La API administrativa no se mezcla con la comercial. Cada servicio HTTP publica su propia raiz `/api/v1`; el contrato de agentes usa un namespace explicito `/agent/v1` y los receptores de proveedores usan rutas registradas bajo `/webhooks/v1`.
+La API administrativa no se mezcla con la comercial. Cada servicio HTTP publica su propia raiz `/api/v1`; el contrato de agentes usa un namespace explicito `/agent/v1` y los receptores de proveedores usan rutas registradas bajo `/webhooks/v1`. En hosts de runtime, `/agent/v1` expone ejecuciones; en el host CRM, `/agent/v1/executions/{executionId}/callbacks` recibe sus resultados asincronos. El host forma parte de la identidad del contrato.
 
 Los endpoints de salud pueden vivir fuera de la version publica, no exponen datos sensibles y se protegen segun su audiencia.
 
@@ -218,7 +218,8 @@ Los agentes JavaScript y Python implementan el mismo contrato HTTP y JSON Schema
 - Entrada, salida, herramientas, errores y callbacks estan versionados.
 - Una ejecucion corta puede responder sincronicamente.
 - Una ejecucion larga devuelve `202` y se completa mediante operacion y callback autenticado.
-- Los callbacks son idempotentes y validan perfil, ejecucion, conversacion y modo de atencion.
+- El runtime recibe ejecuciones en su host y el CRM recibe callbacks en su propio host bajo `/agent/v1`; no se intercambian sus roles.
+- Los callbacks son idempotentes y validan perfil, ejecucion, conversacion, intento, fencing generation y modo de atencion.
 - Cada herramienta tiene nombre, version, schemas de argumentos y resultado y permisos requeridos.
 - El agente no recibe rutas internas, entidades de dominio ni modelos Prisma.
 - Un kit contractual comun valida implementaciones JavaScript y Python.

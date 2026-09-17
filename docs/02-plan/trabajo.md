@@ -161,9 +161,10 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
   - [ ] Permitir registrar el dominio definitivo y coordinar URLs, callbacks, cookies y webhooks al migrar.
 
 - [ ] **ADM-18 — Administrar conexiones y agentes por perfil.**
-  - [ ] Registrar endpoint del agente, contrato compatible y referencia a su secreto.
+  - [ ] Registrar el `agent-runtime` oficial o endpoint personalizado, contratos `/agent/v1` y MCP compatibles, manifiesto y referencias a secretos.
   - [ ] Verificar conectividad y mostrar errores del perfil correspondiente.
-  - [ ] Mantener separadas las versiones del CRM y del agente externo.
+  - [ ] Mantener identificadas las versiones del CRM, runtime, grafo, prompts, tools, politicas y checkpoints compatibles.
+  - [ ] Crear, rotar y revocar por perfil las identidades separadas para CRM hacia runtime y runtime hacia MCP sin transportar tokens humanos.
   - [ ] Evitar que una actualización global sustituya credenciales, prompts o endpoints específicos del cliente.
 
 - [ ] **ADM-19 — Conservar auditoría administrativa.**
@@ -337,21 +338,29 @@ Dependencias: usuarios, permisos y configuración. Conectar las herramientas esp
 
 - [ ] **BASE-01 — Conectar agentes LangGraph escritos en Python o JavaScript mediante un contrato común.**
   - [ ] Registrar endpoint, credenciales y agente asociado a cada canal o bandeja.
+  - [ ] Implementar `agent-runtime` oficial en TypeScript con LangGraph.js, un agente principal y subagentes internos invisibles.
+  - [ ] Hacer que el CRM sea cliente de `/agent/v1` y que cada runtime sea cliente del Quantum MCP Gateway.
   - [ ] Definir entradas comunes con empresa, contacto, conversación, mensaje, archivos y contexto autorizado.
   - [ ] Definir resultados comunes con mensajes, acciones solicitadas, estado y solicitud de escalamiento.
-  - [ ] Probar un agente de Python y otro de JavaScript usando adaptadores al mismo contrato, sin cambiar el núcleo del CRM.
+  - [ ] Publicar manifiesto con runtime, grafo, prompts, modelo, tools, politicas, contratos y compatibilidad de threads.
+  - [ ] Probar el agente oficial, un agente Python y otro JavaScript con la misma suite contractual, sin cambiar el núcleo del CRM.
 
 - [ ] **BASE-02 — Conservar contexto y confirmar las acciones reales del agente.**
   - [ ] Relacionar conversation_id y thread_id del agente de forma estable.
+  - [ ] Separar estado comercial, checkpoints por perfil y memoria aprendida; clasificar threads como compatibles, migrables o reiniciables.
   - [ ] Registrar mensajes humanos, respuestas del agente, formularios y resultados de herramientas en orden.
-  - [ ] Exponer las herramientas de cada módulo solo según permisos y validar argumentos en el CRM.
+  - [ ] Exponer resources `quantum://v<major>/...`, prompts y tools MCP solo según permisos y validar argumentos en el CRM.
+  - [ ] Persistir una deduccion solo mediante una tool del modulo propietario con fuente, alcance, confianza, sensibilidad y caducidad.
   - [ ] Devolver el resultado real de cada acción y evitar cierres o confirmaciones cuando una operación falla.
 
 - [ ] **BASE-03 — Ejecutar agentes sin duplicados ni respuestas posteriores a la toma humana.**
   - [ ] Guardar identificadores de eventos, mensajes y ejecuciones para deduplicar.
+  - [ ] Persistir en `agent-gateway` la maquina de estados de ejecucion, intento, lease y fencing generation.
   - [ ] Serializar el procesamiento de cada conversación y conservar orden de mensajes.
-  - [ ] Gestionar timeout, reintentos y respuesta diferida por callback cuando el adaptador lo requiera.
+  - [ ] Gestionar timeout, reintentos y callback autenticado e idempotente, rechazando intentos, generaciones y transiciones vencidas.
+  - [ ] Conciliar un despacho incierto antes de reintentar y normalizar respuestas sincronicas y callbacks mediante la misma transicion condicional.
   - [ ] Revisar la versión y modo de la conversación antes de publicar una respuesta pendiente.
+  - [ ] Cancelar o invalidar ejecuciones, respuestas y seguimientos pendientes cuando un asesor tome la conversacion.
 
 - [ ] **BASE-04 — Configurar automatizaciones mediante evento, condiciones y acciones.**
   - [ ] Crear flujos con nombre, evento inicial y estado borrador, activo o pausado.
@@ -372,6 +381,14 @@ Dependencias: usuarios, permisos y configuración. Conectar las herramientas esp
   - [ ] Mantener cada registro asociado a su empresa y evitar cruces si la instalación aloja varias empresas.
   - [ ] Registrar eventos con autor, fecha y referencias para alimentar historiales y reportes.
   - [ ] Devolver errores comprensibles sin registrar credenciales dentro del historial visible.
+  - [ ] Aislar entre dos perfiles identidades, tokens, ejecuciones, threads, checkpoints, memoria, resources, tools y callbacks.
+
+- [ ] **Comprobación integrada — Base agentiva y automatizaciones**
+  - [ ] Ejecutar una conversacion real donde el agente consulte contexto por MCP, delegue en un subagente, invoque una tool y confirme solo el resultado comercial persistido.
+  - [ ] Ejecutar una activacion proactiva duplicada y comprobar una sola ejecucion y un solo efecto.
+  - [ ] Interrumpir por aprobacion y por toma humana, reiniciar el runtime y verificar reanudacion o cancelacion desde estado durable.
+  - [ ] Ejecutar evaluaciones de respuesta, tool selection, argumentos, trayectoria, escalamiento, prompt injection, exfiltracion, memoria contaminada y loops.
+  - [ ] Probar version compatible e incompatible de thread y demostrar que ninguna reanuda silenciosamente un checkpoint no admitido.
 
 
 ## Contactos

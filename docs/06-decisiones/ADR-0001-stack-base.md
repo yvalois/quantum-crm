@@ -5,6 +5,8 @@
 - Responsables: propietario del proyecto
 - Requisitos relacionados: PROY-002, OPS-01, OPS-03, OPS-10, OPS-11 y BASE-01
 
+> Actualizacion posterior: [ADR-0012](ADR-0012-integracion-agentes-langgraph-mcp.md) incorpora `agent-runtime` como septima aplicacion desplegable y reemplaza la caracterizacion del agente oficial como servicio externo. La compatibilidad con agentes personalizados JavaScript o Python se conserva.
+
 ## Contexto
 
 Quantum CRM requiere interfaces web, una API transaccional, workers, tiempo real, administración central, despliegues por cliente e integración con agentes LangGraph. El proyecto comienza sin código y necesita compartir contratos y reglas sin asumir prematuramente la complejidad operativa de microservicios o Kubernetes.
@@ -36,9 +38,9 @@ El stack base es:
 
 Las versiones menores y de parche se fijan en el lockfile, las imágenes y los manifiestos de release; no se dejan rangos abiertos en producción.
 
-## Agentes LangGraph
+## Agentes LangGraph (decision original sustituida parcialmente)
 
-Los agentes son servicios externos al núcleo de Quantum y pueden estar escritos en JavaScript o Python. Ambos lenguajes deben implementar el mismo contrato HTTP versionado y superar las mismas pruebas de contrato.
+Esta decision trataba inicialmente todos los agentes como servicios externos al nucleo de Quantum. [ADR-0012](ADR-0012-integracion-agentes-langgraph-mcp.md) la sustituye para el agente oficial, que ahora es una aplicacion TypeScript nativa y separada. Los agentes personalizados JavaScript o Python conservan una frontera externa y deben implementar los contratos versionados y superar las mismas pruebas de contrato.
 
 Los agentes:
 
@@ -92,7 +94,7 @@ Se rechaza porque el producto requiere workers, WebSockets, automatizaciones y o
 
 ### Python como lenguaje principal del CRM
 
-Se rechaza para el núcleo porque TypeScript permite compartir contratos entre frontend, API y workers. Python permanece soportado para agentes LangGraph externos.
+Se rechaza para el nucleo porque TypeScript permite compartir contratos entre frontend, API y workers. Python permanece soportado para agentes LangGraph personalizados externos.
 
 ### MongoDB como base principal
 

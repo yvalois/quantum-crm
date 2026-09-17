@@ -7,7 +7,7 @@
 
 ## Contexto
 
-Quantum combina dos aplicaciones web, APIs, workers, PostgreSQL, Redis, Keycloak, almacenamiento S3, integraciones y agentes externos JavaScript o Python. Los riesgos principales no se limitan a funciones aisladas: incluyen aislamiento entre perfiles, permisos, concurrencia, reintentos, migraciones, compatibilidad de contratos y recorridos que atraviesan varios procesos.
+Quantum combina dos aplicaciones web, APIs, workers, un `agent-runtime` oficial, PostgreSQL, Redis, Keycloak, almacenamiento S3, integraciones y compatibilidad con agentes personalizados JavaScript o Python. Los riesgos principales no se limitan a funciones aisladas: incluyen aislamiento entre perfiles, permisos, concurrencia, reintentos, migraciones, compatibilidad de contratos y recorridos que atraviesan varios procesos.
 
 El monorepo necesita una estrategia comun que produzca retroalimentacion rapida sin sustituir las pruebas reales por mocks. Tambien debe impedir que la cobertura numerica, los reintentos o una suite E2E excesiva oculten defectos y lentitud.
 

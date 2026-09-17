@@ -26,6 +26,7 @@ Este archivo ordena las decisiones y documentos tecnicos que faltan antes y dura
 | Integracion, entrega y releases | Aceptado | [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-releases.md) |
 | Observabilidad y manejo de fallos | Aceptado | [ADR-0010](../06-decisiones/ADR-0010-observabilidad-manejo-fallos.md) |
 | Trabajos asincronos y automatizaciones | Aceptado | [ADR-0011](../06-decisiones/ADR-0011-trabajos-asincronos-automatizaciones.md) |
+| Integracion nativa de agentes LangGraph y MCP | Aceptado | [ADR-0012](../06-decisiones/ADR-0012-integracion-agentes-langgraph-mcp.md) |
 | Alcance integral del MVP piloto | Aceptado | [MVP integral](mvp-piloto.md) |
 | Componentes, fronteras y flujos | Documentado | [Mapa del sistema](../08-arquitectura/mapa-del-sistema.md) |
 | Estructura objetivo del repositorio | Documentado | [Especificacion del monorepo](../08-arquitectura/monorepo.md) |
@@ -39,7 +40,6 @@ No quedan decisiones documentales bloqueantes para crear el monorepo. El alcance
 
 | Orden sugerido | Documento o decision | Se requiere antes de | Preguntas principales | Estado |
 |---|---|---|---|---|
-| 7 | ADR-0012: integracion de agentes LangGraph | Primera herramienta o respuesta del agente | Contrato JS/Python, ejecuciones, permisos, contexto, limites, evaluacion y escalamiento humano | Pendiente por capacidad |
 | 8 | ADR-0013: archivos y objetos | Formularios, documentos o adjuntos | Proveedor S3, claves, cifrado, antivirus, limites, URLs firmadas, retencion y borrado | Pendiente por capacidad |
 | 9 | ADR-0014: arquitectura frontend y sistema visual | Primera interfaz productiva | Estado de servidor y cliente, formularios, componentes, accesibilidad, errores y pruebas visuales | Pendiente por capacidad |
 | 10 | ADR-0015: respaldo, restauracion y continuidad | Primer entorno con datos valiosos | RPO, RTO, alcance, cifrado, ubicacion externa, restauracion y evidencia | Pendiente por capacidad |

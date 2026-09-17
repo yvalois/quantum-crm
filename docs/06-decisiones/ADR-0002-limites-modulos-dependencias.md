@@ -175,7 +175,7 @@ No modifica datos de negocio. Usa eventos, proyecciones y vistas de lectura dise
 
 ### agent-gateway
 
-Puede consultar o solicitar operaciones mediante herramientas autorizadas. No posee contactos, oportunidades, mensajes, productos ni documentos.
+Posee conexiones, ejecuciones agentivas, estados, intentos, callbacks y asociaciones de threads. Puede consultar o solicitar operaciones mediante herramientas autorizadas. No posee contactos, oportunidades, mensajes, productos, documentos ni memoria comercial de otros modulos.
 
 ### integrations
 
