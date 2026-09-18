@@ -1,6 +1,6 @@
 # Mapa del sistema
 
-Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0012 y no representa componentes ya implementados.
+Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0013 y no representa componentes ya implementados.
 
 ## Contexto
 
@@ -49,8 +49,9 @@ flowchart TB
         tenantDb[(PostgreSQL\nbase del cliente)]
         agentState[(PostgreSQL\ncheckpoints del agente)]
         tenantRealm[Keycloak\nrealm del cliente]
-        tenantFiles[(S3\nespacio del cliente)]
+        tenantFiles[(SeaweedFS S3\nincoming y objects)]
         tenantQueues[(Redis y BullMQ\nnamespace y ACL del cliente)]
+        clam[ClamAV\nscanner privado]
     end
 
     subgraph Central[Plataforma central]
@@ -75,6 +76,7 @@ flowchart TB
     worker --> tenantDb
     worker --> tenantFiles
     worker --> tenantQueues
+    worker --> clam
     api -->|POST /agent/v1| agentRuntime
     agentRuntime -->|MCP /mcp| api
     agentRuntime --> agentState
@@ -97,7 +99,7 @@ flowchart TB
     collector --> telemetry
 ```
 
-Los cuadros son limites logicos. PostgreSQL, Redis, S3, Keycloak y el VPS pueden compartir infraestructura fisica inicialmente, pero mantienen credenciales y espacios aislados conforme a ADR-0003.
+Los cuadros son limites logicos. PostgreSQL, Redis, SeaweedFS, ClamAV, Keycloak y el VPS pueden compartir infraestructura fisica inicialmente, pero mantienen credenciales y espacios aislados conforme a ADR-0003 y ADR-0013.
 
 ## Responsabilidad de cada aplicacion
 
@@ -147,11 +149,15 @@ flowchart LR
     automation -.->|eventos auditables| audit
     documents --> files
     forms --> files
+    catalog --> files
+    conversations --> files
     iam -->|AuthContext| contacts
     settings -->|definiciones publicas| forms
 ```
 
 El diagrama muestra relaciones representativas, no una lista de imports. Todos los modulos se comunican por contratos publicos o eventos y conservan la propiedad definida en ADR-0002.
+
+`files` es propietario exclusivo de metadatos, claves y acceso S3. Los modulos comerciales conservan `fileId`, autorizan su recurso y usan el contrato publico de `files`; no conocen buckets, object keys ni credenciales.
 
 ## Modulos de plataforma
 
@@ -190,6 +196,8 @@ flowchart LR
 - Un proceso de A no recibe credenciales de B.
 - Una base logica o prefijo de Redis no constituye por si solo una barrera.
 - Respaldar o restaurar un cliente coordina su base, archivos, configuracion e identidad.
+
+Cada perfil recibe buckets privados `incoming` y `objects`. Los bytes de entrada no confiables permanecen en `incoming` hasta validar formato, checksum y scan ClamAV; solo los objetos `AVAILABLE` pasan a `objects` y pueden consumirse.
 
 ## Flujo de un comando comercial
 
@@ -241,6 +249,35 @@ sequenceDiagram
 ```
 
 PostgreSQL conserva la definicion, revision, ejecucion, espera, checkpoint e idempotencia. BullMQ distribuye y acelera; si Redis pierde su estado, un reconciliador reconstruye notificaciones desde registros durables. Antes de cada efecto se vuelven a comprobar permisos, invariantes, cancelacion y modo de atencion.
+
+## Flujo de un archivo
+
+```mermaid
+sequenceDiagram
+    participant U as Navegador o proveedor
+    participant F as files
+    participant D as PostgreSQL
+    participant I as SeaweedFS incoming
+    participant W as worker
+    participant C as ClamAV
+    participant O as SeaweedFS objects
+
+    U->>F: Solicitar intencion autorizada
+    F->>D: Reservar cuota y estado PENDING
+    F-->>U: fileId + autorizacion breve
+    U->>I: Cargar sobre key exacta
+    U->>F: Confirmar carga
+    F->>D: UPLOADED + outbox
+    W->>D: Reclamar lease y generacion
+    W->>I: Validar tamano, formato y SHA-256
+    W->>C: Escanear contenido
+    C-->>W: Resultado y version de firmas
+    W->>O: Copiar objeto inmutable y verificar
+    W->>D: Marcar AVAILABLE
+    W->>I: Eliminar temporal
+```
+
+PostgreSQL es la autoridad del estado. No existe transaccion distribuida con S3: outbox, idempotencia y reconciliadores resuelven cargas vencidas, objetos huerfanos, copias inciertas y borrados pendientes. La especificacion completa vive en [archivos-objetos.md](archivos-objetos.md).
 
 ## Flujo de un agente
 
@@ -325,6 +362,10 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 | Agente responde tarde | Callback autenticado valida ejecucion, intento, lease, generacion, conversacion y modo actual antes de transicionar |
 | `agent-runtime` reinicia | Reanuda solo un thread compatible desde checkpoint; en otro caso migra o reinicia de forma explicita |
 | MCP queda indisponible | La ejecucion se detiene o escala sin inventar contexto ni repetir efectos inciertos |
+| SeaweedFS queda indisponible | La carga, promocion o entrega permanece pendiente o falla de forma recuperable sin confirmar bytes no observados |
+| ClamAV queda indisponible o desactualizado | Los archivos permanecen en cuarentena y no alcanzan `AVAILABLE` |
+| El disco se aproxima al limite | Se bloquean nuevas escrituras antes del agotamiento y se mantienen lecturas seguras cuando sea posible |
+| Una copia o eliminacion S3 queda incierta | Un reconciliador observa estado y checksum antes de repetir o confirmar |
 | Migracion falla | Perfil no cambia a version observada nueva |
 | Release candidata falla | Trafico permanece o vuelve a version compatible anterior |
 | VPS se pierde | Se reconstruye desde inventario, imagenes y respaldo externo verificado |
@@ -343,6 +384,7 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 - `ADR-0010`: observabilidad y manejo de fallos.
 - `ADR-0011`: trabajos asincronos y automatizaciones durables.
 - `ADR-0012`: agentes LangGraph y Quantum MCP.
+- `ADR-0013`: archivos y almacenamiento de objetos.
 
 ## Aspectos pendientes
 

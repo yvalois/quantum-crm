@@ -18,6 +18,7 @@ Los registros ADR explican decisiones estructurales y evitan discutir o implemen
 | [0010](ADR-0010-observabilidad-manejo-fallos.md) | Observabilidad y manejo de fallos | aceptado | 2026-09-16 |
 | [0011](ADR-0011-trabajos-asincronos-automatizaciones.md) | Trabajos asincronos y automatizaciones durables | aceptado | 2026-09-16 |
 | [0012](ADR-0012-integracion-agentes-langgraph-mcp.md) | Integracion nativa de agentes LangGraph mediante MCP | aceptado | 2026-09-16 |
+| [0013](ADR-0013-archivos-almacenamiento-objetos.md) | Archivos y almacenamiento de objetos | aceptado | 2026-09-18 |
 
 ## Convencion
 

@@ -22,7 +22,7 @@ DevOps es la práctica completa de desarrollo y operación. Docker empaqueta los
 | Aplicación web, API, workers y `agent-runtime` | Ejecutar el CRM agentivo de una release | Por cliente |
 | PostgreSQL | Base central y bases separadas de clientes, con roles propios | Motor inicialmente compartido |
 | Colas y trabajos | Ejecuciones pendientes identificadas por cliente y versión de formato | Separación lógica y permisos |
-| Archivos | Documentos, medios y adjuntos persistentes | Separación por cliente |
+| SeaweedFS y ClamAV | Objetos S3 privados, cuarentena, scan y entrega de archivos | Servicio compartido con buckets y credenciales por cliente |
 | Respaldo externo | Recuperación después de pérdida del VPS | Fuera del VPS |
 
 Docker documenta Compose como una opción para producción en un servidor y recomienda configuración específica de producción, sin montar el código fuente como en desarrollo. Aquí la imagen se construirá en CI y el VPS descargará el artefacto publicado. [Docker Compose en producción](https://docs.docker.com/compose/how-tos/production/)
@@ -63,6 +63,7 @@ No se recibieron datos concretos del VPS en el mensaje. Los valores siguientes d
   - [ ] Confirmar una IP pública alcanzable y el control de los puertos de entrada.
   - [ ] Estimar memoria de plataforma, PostgreSQL y cada aplicación/worker mediante mediciones.
   - [ ] Reservar margen para backups, migraciones y dos versiones simultáneas durante una actualización.
+  - [ ] Medir almacenamiento de objetos, cuarentena, derivados, firmas antivirus y margen de copia antes de admitir cargas.
   - [ ] Definir límites efectivos de CPU, RAM, procesos y concurrencia según la capacidad comprobada.
   - [ ] Rechazar o aplazar nuevos despliegues cuando no haya capacidad suficiente.
 
@@ -75,6 +76,7 @@ No se fija un número de clientes por VPS antes de conocer sus recursos y medir 
   - [ ] Crear imágenes de aplicación con dependencias fijadas y proceso sin privilegios cuando sea viable.
   - [ ] Usar archivos separados para configuración local y de producción.
   - [ ] Desplegar imágenes por digest y conservar su relación con la release; no depender de una etiqueta mutable como `latest`.
+  - [ ] Fijar por digest SeaweedFS, ClamAV y sus componentes auxiliares y registrar su compatibilidad operativa.
   - [ ] Configurar comprobaciones de salud, reinicio y rotación de registros.
   - [ ] Mantener el código dentro de la imagen; los cambios en producción se publican como nuevas versiones.
   - [ ] Definir un identificador estable del perfil y nombres distintos para sus slots de despliegue activo y candidato.
@@ -86,6 +88,9 @@ No se fija un número de clientes por VPS antes de conocer sus recursos y medir 
   - [ ] Crear una base y rol de aplicación por cliente; revocar accesos heredados o públicos que permitan conectarse a otras bases.
   - [ ] Usar un rol distinto y limitado para migraciones; el CRM no operará como superusuario de PostgreSQL.
   - [ ] Separar archivos por cliente y comprobar autorización al leerlos o descargarlos.
+  - [ ] Crear buckets privados `incoming` y `objects` y credenciales de firma, scan, entrega y administración con mínimo privilegio por perfil.
+  - [ ] Activar versionado, checksum SHA-256 y pruebas de Browser POST en la versión exacta de SeaweedFS antes de aceptar cargas.
+  - [ ] Mantener los puertos administrativos de SeaweedFS y el socket o puerto de ClamAV exclusivamente en redes privadas.
   - [ ] Mantener volúmenes de datos, archivos y certificados fuera del ciclo de recreación de contenedores de aplicación.
   - [ ] Respaldar los datos antes de cualquier operación que afecte a volúmenes; no utilizar eliminaciones de volúmenes como mecanismo de actualización.
   - [ ] Si se comparte Redis, usar credenciales/ACL y prefijos por cliente; una base lógica o un prefijo por sí solo no es una barrera de seguridad.
@@ -233,6 +238,7 @@ Tener acceso al daemon Docker supone privilegios elevados sobre el host. El ejec
   - [ ] Registrar el perfil y reservar su identificador, slug y hostname únicos.
   - [ ] Comprobar capacidad y seleccionar una release validada.
   - [ ] Crear base y roles, espacio de archivos, secretos y configuración inicial.
+  - [ ] Provisionar de forma idempotente buckets, cuotas, políticas, claves de cifrado y credenciales de archivos del perfil.
   - [ ] Crear checkpoint store e identidades separadas para CRM hacia runtime y runtime hacia MCP.
   - [ ] Ejecutar las migraciones iniciales mediante un trabajo controlado.
   - [ ] Levantar aplicación, worker y `agent-runtime` con límites y credenciales del perfil.
@@ -322,6 +328,7 @@ Rollback de aplicación y restauración de datos son operaciones diferentes. Res
   - [ ] Respaldar el checkpoint store del perfil cuando existan ejecuciones suspendidas que deban reanudarse, sin confundirlo con estado comercial.
   - [ ] Respaldar archivos, configuración y material necesario para reconstruir conexiones y despliegues, protegiendo los secretos.
   - [ ] Coordinar referencias de archivos y datos para no producir una copia con adjuntos ausentes.
+  - [ ] Generar y verificar un inventario de `fileId`, object key interno y checksum sin exponerlo como contrato comercial.
   - [ ] Enviar copias cifradas fuera del VPS y comprobar integridad y resultado.
   - [ ] Restaurar un cliente en un entorno aislado y verificar registros, adjuntos y configuración.
   - [ ] Desactivar envíos, pagos y automatizaciones reales durante pruebas de restauración.
@@ -337,6 +344,7 @@ La instrumentacion, correlacion, taxonomia de errores, health checks y comportam
   - [ ] Mostrar CPU, RAM, disco, errores, latencia, cola pendiente y salud por perfil.
   - [ ] Distinguir proceso vivo de aplicación lista para atender.
   - [ ] Detectar caducidad de certificados, errores de backups, disco insuficiente y trabajadores atascados.
+  - [ ] Detectar firmas antivirus desactualizadas, archivos detenidos en cuarentena, reconciliaciones pendientes, cuota y margen de disco de objetos.
   - [ ] Guardar auditoría de quién solicitó cada cambio y qué ejecutó realmente el sistema.
   - [ ] Aplicar retención y rotación para que registros e imágenes no agoten el disco.
   - [ ] Alertar si el Collector descarta telemetria sin bloquear operaciones comerciales.
@@ -344,6 +352,7 @@ La instrumentacion, correlacion, taxonomia de errores, health checks y comportam
 - [ ] **OPS-23 — Administrar secretos y acceso operativo.**
   - [ ] Cumplir el almacenamiento, montaje, rotación y validación definidos en `../06-decisiones/ADR-0008-entornos-configuracion-secretos.md`.
   - [ ] Guardar secretos por perfil y entorno en un almacén o archivos restringidos gestionados por el ejecutor.
+  - [ ] Separar credenciales S3 de firma, scan y lectura, y montar claves de cifrado solo en los servicios autorizados.
   - [ ] Mantener referencias a secretos en la base administrativa; no sus valores en respuestas de API o formularios de consulta.
   - [ ] Usar credenciales de registro de solo lectura en el VPS y permisos de publicación únicamente en CI.
   - [ ] Restringir acceso SSH, verificar identidad del host y rotar credenciales de operación.
@@ -362,6 +371,7 @@ Estos elementos son trabajo de desarrollo pendiente; sus nombres describen los a
 | Compose local | Desarrollo con base de prueba y recarga de código |
 | Compose de plataforma | Caddy, administrador, motor de datos y dependencias compartidas |
 | Plantilla Compose de cliente | Recursos, redes y slots de aplicación parametrizados por perfil |
+| Almacenamiento y scanner | SeaweedFS y ClamAV fijados por digest, redes privadas, volumen persistente, cuotas y health checks |
 | Configuración Caddy generada | Hosts permitidos, rutas y HTTPS persistente |
 | Workflows CI/CD | Verificación, build, publicación y promoción |
 | Manifiesto de release | Digests, commit, migraciones y compatibilidad |
@@ -375,6 +385,7 @@ Estos elementos son trabajo de desarrollo pendiente; sus nombres describen los a
   - [ ] Completar datos del VPS y confirmar recursos antes del primer despliegue.
   - [ ] Aplicar un cambio local mediante Git, CI, release y entorno de pruebas.
   - [ ] Crear dos perfiles y confirmar aislamiento de datos, archivos y credenciales.
+  - [ ] Cargar un archivo seguro y uno EICAR, comprobar cuarentena y disponibilidad, y restaurar sus metadatos y objetos de forma coordinada.
   - [ ] Verificar HTTPS público y renovación con hosts nip.io reales.
   - [ ] Actualizar un perfil sin cambiar la versión de otro.
   - [ ] Ejecutar una actualización global con detención ante un fallo controlado.

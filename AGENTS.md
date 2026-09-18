@@ -43,6 +43,12 @@ Antes de modificar codigo o documentacion:
 - Cada perfil cumple el aislamiento definido en `docs/06-decisiones/ADR-0003-aislamiento-multi-tenant.md`.
 - El contexto del cliente se deriva de configuracion e identidad verificadas; nunca se confia en un `tenant_id` recibido libremente.
 - Ningun proceso, credencial, token, archivo, trabajo o agente puede atravesar el limite de su perfil.
+- Los archivos y objetos cumplen `docs/06-decisiones/ADR-0013-archivos-almacenamiento-objetos.md`, `docs/05-reglas/13-archivos-objetos.md` y `docs/08-arquitectura/archivos-objetos.md`.
+- SeaweedFS vive dentro del VPS, se despliega por digest y mantiene buckets privados `incoming` y `objects` por perfil; sus puertos administrativos no se publican.
+- Solo el modulo `files` accede a S3 y conoce buckets o object keys; los demas modulos usan `fileId` y contratos publicos.
+- Ningun archivo se descarga, previsualiza, comparte, procesa o entrega a un agente antes de estar `AVAILABLE` tras validacion y scan ClamAV.
+- Las URLs firmadas son breves, exactas, no se persisten ni registran; una sustitucion crea otro archivo inmutable.
+- El scan falla cerrado y los trabajos de promocion, reconciliacion y borrado son durables, idempotentes y aislados por perfil.
 - Las APIs de plataforma no consultan directamente las tablas comerciales de los clientes.
 - La autenticacion y autorizacion cumplen `docs/06-decisiones/ADR-0004-autenticacion-autorizacion.md`.
 - Los tokens OIDC no se guardan en `localStorage`, `sessionStorage`, URLs ni HTML; las aplicaciones web usan sesiones opacas server-side.

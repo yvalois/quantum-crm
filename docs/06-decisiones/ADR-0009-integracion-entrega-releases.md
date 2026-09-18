@@ -7,6 +7,8 @@
 
 > Actualizacion posterior: [ADR-0012](ADR-0012-integracion-agentes-langgraph-mcp.md) amplia el manifiesto a siete procesos desplegables al incorporar `agent-runtime`; sus digests, contratos y compatibilidad forman parte de la misma release inmutable.
 
+> Actualizacion posterior: [ADR-0013](ADR-0013-archivos-almacenamiento-objetos.md) incorpora SeaweedFS y ClamAV como componentes de plataforma fijados por digest, con compatibilidad, capacidad y procedimiento de actualizacion registrados.
+
 ## Contexto
 
 Quantum debe verificar cambios no confiables, producir artefactos reproducibles, validar una release en staging y promover exactamente esos artefactos a produccion. Ademas, el despliegue por perfil puede incluir migraciones, workers, cambio de trafico y recuperacion, por lo que un workflow no debe ejecutar comandos arbitrarios sobre el VPS ni confundir una imagen construida con una release desplegable.

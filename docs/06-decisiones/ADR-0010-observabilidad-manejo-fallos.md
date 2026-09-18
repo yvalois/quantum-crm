@@ -5,6 +5,8 @@
 - Responsables: propietario del proyecto
 - Requisitos relacionados: OPS-15, OPS-16, OPS-17, OPS-22, ADM-06, ADM-12, ADM-15, ADM-19 y todos los recorridos con dependencias externas
 
+> Actualizacion posterior: [ADR-0013](ADR-0013-archivos-almacenamiento-objetos.md) agrega estados y senales de archivos, scanner, reconciliacion, cuota y disco sin permitir nombres, contenido, URLs firmadas, object keys ni credenciales en telemetria.
+
 ## Contexto
 
 Quantum combina solicitudes HTTP, WebSocket, SSE, trabajos asincronos, eventos, agentes, proveedores y despliegues por perfil. Un fallo puede atravesar varios procesos o quedar pendiente despues de responder al usuario. Sin convenciones comunes seria dificil distinguir errores esperados de defectos, seguir una operacion, detectar degradacion o investigar un cliente sin exponer sus datos.

@@ -5,6 +5,8 @@
 - Responsables: propietario del proyecto
 - Requisitos relacionados: OPS-03, OPS-07, OPS-09, OPS-10, OPS-12, OPS-19, OPS-20, OPS-23, ADM-08 y ADM-18
 
+> Actualizacion posterior: [ADR-0013](ADR-0013-archivos-almacenamiento-objetos.md) aplica estas reglas a credenciales S3 por funcion y perfil, claves de cifrado de SeaweedFS y configuracion privada de ClamAV.
+
 ## Contexto
 
 Quantum debe ejecutar la misma release en desarrollo, pruebas, staging y produccion, pero con identidades, URLs, recursos y credenciales diferentes. Ademas, cada perfil de cliente conserva configuracion y secretos propios sin crear una variante del codigo ni de la imagen.

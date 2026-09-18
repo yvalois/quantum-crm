@@ -5,6 +5,8 @@
 - Responsables: propietario del proyecto
 - Requisitos relacionados: PROY-017, BASE-03 a BASE-06, CON-03, CON-10, PIPE-13, TAR-04, TAR-15, TAR-16, CAL-08, CAL-09, CAL-18, FORM-17, DOC-33 y OPS-16
 
+> Actualizacion posterior: [ADR-0013](ADR-0013-archivos-almacenamiento-objetos.md) aplica leases, fencing, idempotencia y reconciliacion a scan, promocion, derivados, expiracion y borrado de archivos.
+
 ## Contexto
 
 Quantum ejecuta eventos de dominio, automatizaciones configurables, esperas, recordatorios, webhooks, mensajes, agentes y operaciones masivas. Esos trabajos deben sobrevivir reinicios y perdida de Redis, respetar permisos y modo de atencion vigentes, y tolerar que un mensaje se entregue o procese mas de una vez.

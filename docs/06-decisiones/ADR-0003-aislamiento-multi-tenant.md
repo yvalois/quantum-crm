@@ -79,7 +79,9 @@ La federacion o inicio de sesion empresarial puede configurarse por realm poster
 
 ## Archivos y objetos
 
-- Cada perfil usa un bucket propio o un prefijo exclusivo protegido por credenciales y politicas que solo permiten ese espacio.
+La implementacion concreta, estados y flujo seguro se definen en [ADR-0013](ADR-0013-archivos-almacenamiento-objetos.md).
+
+- Cada perfil usa los buckets propios `incoming` y `objects` definidos por ADR-0013, protegidos por credenciales y politicas que solo permiten ese espacio.
 - Un prefijo sin controles de acceso no constituye aislamiento.
 - Las claves de objetos incluyen identificadores no adivinables y no aceptan rutas proporcionadas sin normalizacion.
 - La descarga siempre verifica identidad, autorizacion, perfil y metadatos propietarios.

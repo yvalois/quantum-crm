@@ -14,6 +14,7 @@ Estas reglas comienzan la serie de practicas del proyecto. Son obligatorias salv
 10. [Observabilidad y manejo de fallos](10-observabilidad-y-fallos.md)
 11. [Trabajos asincronos y automatizaciones](11-trabajos-asincronos-automatizaciones.md)
 12. [Agentes LangGraph y MCP](12-agentes-langgraph-mcp.md)
+13. [Archivos y objetos](13-archivos-objetos.md)
 
 ## Como agregar una regla
 

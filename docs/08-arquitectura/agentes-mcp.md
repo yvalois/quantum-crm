@@ -190,7 +190,7 @@ Reglas:
 - El primer segmento contiene la version mayor. Un cambio incompatible crea `v2`; ambas versiones se anuncian durante la migracion y el manifiesto fija el rango admitido.
 - Campos de respuesta compatibles pueden evolucionar dentro de la version mayor conforme al contrato semantico; no se cambia significado ni tipo en silencio.
 - Listas grandes se buscan o paginan; no se vuelcan completas al contexto.
-- Archivos se representan por metadatos y referencias de acceso corto conforme al futuro ADR de objetos.
+- Archivos se representan por metadatos y referencias de acceso corto conforme a [ADR-0013](../06-decisiones/ADR-0013-archivos-almacenamiento-objetos.md); el agente no recibe credenciales S3 ni acceso directo a SeaweedFS.
 - Suscripciones optimizan cambios, pero una desconexion exige releer estado autorizado.
 
 ### Tools

@@ -36,6 +36,8 @@ El stack base es:
 - OpenTelemetry y logs JSON para observabilidad.
 - Vitest, Playwright y pruebas de integración con servicios reales aislados.
 
+> Actualizacion posterior: [ADR-0013](ADR-0013-archivos-almacenamiento-objetos.md) selecciona SeaweedFS dentro del VPS, buckets privados por perfil, cuarentena con ClamAV y un adaptador S3 propiedad del modulo `files`.
+
 Las versiones menores y de parche se fijan en el lockfile, las imágenes y los manifiestos de release; no se dejan rangos abiertos en producción.
 
 ## Agentes LangGraph (decision original sustituida parcialmente)

@@ -27,9 +27,11 @@ Este archivo ordena las decisiones y documentos tecnicos que faltan antes y dura
 | Observabilidad y manejo de fallos | Aceptado | [ADR-0010](../06-decisiones/ADR-0010-observabilidad-manejo-fallos.md) |
 | Trabajos asincronos y automatizaciones | Aceptado | [ADR-0011](../06-decisiones/ADR-0011-trabajos-asincronos-automatizaciones.md) |
 | Integracion nativa de agentes LangGraph y MCP | Aceptado | [ADR-0012](../06-decisiones/ADR-0012-integracion-agentes-langgraph-mcp.md) |
+| Archivos y almacenamiento de objetos | Aceptado | [ADR-0013](../06-decisiones/ADR-0013-archivos-almacenamiento-objetos.md) |
 | Alcance integral del MVP piloto | Aceptado | [MVP integral](mvp-piloto.md) |
 | Componentes, fronteras y flujos | Documentado | [Mapa del sistema](../08-arquitectura/mapa-del-sistema.md) |
 | Estructura objetivo del repositorio | Documentado | [Especificacion del monorepo](../08-arquitectura/monorepo.md) |
+| Flujo seguro de archivos y objetos | Documentado | [Arquitectura de archivos](../08-arquitectura/archivos-objetos.md) |
 | Git, ramas, commits, PR y recuperacion | Documentado | [Git y GitHub](../05-reglas/05-git-y-github.md) |
 
 ## Bloqueantes antes de escribir codigo de producto
@@ -40,7 +42,6 @@ No quedan decisiones documentales bloqueantes para crear el monorepo. El alcance
 
 | Orden sugerido | Documento o decision | Se requiere antes de | Preguntas principales | Estado |
 |---|---|---|---|---|
-| 8 | ADR-0013: archivos y objetos | Formularios, documentos o adjuntos | Proveedor S3, claves, cifrado, antivirus, limites, URLs firmadas, retencion y borrado | Pendiente por capacidad |
 | 9 | ADR-0014: arquitectura frontend y sistema visual | Primera interfaz productiva | Estado de servidor y cliente, formularios, componentes, accesibilidad, errores y pruebas visuales | Pendiente por capacidad |
 | 10 | ADR-0015: respaldo, restauracion y continuidad | Primer entorno con datos valiosos | RPO, RTO, alcance, cifrado, ubicacion externa, restauracion y evidencia | Pendiente por capacidad |
 | 11 | Seleccion de proveedores de canales | Chat multicanal | Canal inicial, webhooks, sandbox, limites, plantillas, costos y cumplimiento | Pendiente por capacidad |

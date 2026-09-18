@@ -5,6 +5,8 @@
 - Responsables: propietario del proyecto
 - Requisitos relacionados: todos los requisitos funcionales, operativos y de plataforma
 
+> Actualizacion posterior: [ADR-0013](ADR-0013-archivos-almacenamiento-objetos.md) exige probar el contrato contra la version exacta de SeaweedFS y ClamAV real, incluidos aislamiento, contenido adversarial, fallos parciales, reconciliacion, retencion y restauracion.
+
 ## Contexto
 
 Quantum combina dos aplicaciones web, APIs, workers, un `agent-runtime` oficial, PostgreSQL, Redis, Keycloak, almacenamiento S3, integraciones y compatibilidad con agentes personalizados JavaScript o Python. Los riesgos principales no se limitan a funciones aisladas: incluyen aislamiento entre perfiles, permisos, concurrencia, reintentos, migraciones, compatibilidad de contratos y recorridos que atraviesan varios procesos.

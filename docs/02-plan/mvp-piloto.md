@@ -172,12 +172,13 @@ Las capacidades incompletas se protegen con feature flags en interfaz, API, work
 
 Estas elecciones son deliberadamente diferidas, pero tienen una condicion objetiva de cierre:
 
+El almacenamiento de objetos ya fue resuelto por [ADR-0013](../06-decisiones/ADR-0013-archivos-almacenamiento-objetos.md): SeaweedFS dentro del VPS, buckets privados por perfil, cuarentena ClamAV, objetos inmutables, URLs firmadas breves y borrado durable.
+
 | Decision | Debe resolverse antes de | Evidencia requerida |
 |---|---|---|
 | VPS, region y sistema operativo | Instalar staging o produccion | Ficha `OPS-02`, acceso y capacidad verificados |
 | Canales y cuentas iniciales | Completar `CFG-04`, `CHAT-04` y `CHAT-05` | Matriz de canales, sandbox, webhooks, limites, costos y datos permitidos |
 | Agente productivo JavaScript o Python | Activar el primer canal real | Endpoint, contrato, permisos, evaluacion y procedimiento de escalamiento |
-| Almacenamiento de objetos | Implementar cargas de formularios, catalogo o documentos | Proveedor, cifrado, limites, antivirus, retencion y borrado |
 | Calendario externo | Completar `CAL-19` | OAuth, recurrencia, zonas horarias, conflictos, webhooks y sandbox |
 | Correo y notificaciones | Enviar invitaciones, avisos o documentos reales | Identidad remitente, entrega, rebotes, plantillas y limites |
 | Pasarela de pagos | Completar `DOC-27` a `DOC-31` | Pais, monedas, sandbox, firmas, conciliacion, reembolsos y costos |

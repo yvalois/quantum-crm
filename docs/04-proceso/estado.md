@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Actualizado: 2026-09-16
+Actualizado: 2026-09-18
 
 Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No sustituye el checklist.
 
@@ -28,6 +28,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 | ID | Resultado | Fecha | Evidencia | Verificacion |
 |---|---|---|---|---|
+| PROY-019 | Arquitectura de archivos y almacenamiento S3 autohospedado aprobada y registrada | 2026-09-18 | `docs/06-decisiones/ADR-0013-archivos-almacenamiento-objetos.md`, `docs/08-arquitectura/archivos-objetos.md`, `docs/05-reglas/13-archivos-objetos.md`, `docs/02-plan/trabajo.md`, `docs/03-operaciones/despliegues.md`, `AGENTS.md` | SeaweedFS en VPS, buckets y credenciales por perfil, carga versionada con SHA-256, ClamAV, estados durables, referencias, borrado, backup y pruebas conectados; siete hallazgos del primer revisor corregidos; `git diff --check`, 22 archivos Markdown enlazados, checklist, estructura ADR y revision de secretos aprobados; segundo pase no disponible por limite de uso del revisor |
 | PROY-018 | Arquitectura nativa de agentes LangGraph y Quantum MCP aprobada y registrada | 2026-09-16 | `docs/06-decisiones/ADR-0012-integracion-agentes-langgraph-mcp.md`, `docs/08-arquitectura/agentes-mcp.md`, `docs/05-reglas/12-agentes-langgraph-mcp.md`, `docs/02-plan/trabajo.md`, `AGENTS.md` | Agente oficial TypeScript, agentes personalizados JavaScript/Python, MCP versionado, OAuth sin token passthrough, callbacks durables, subagentes, memoria por propietario, aislamiento y evaluaciones revisados sin observaciones |
 | PROY-017 | Trabajos asincronos y automatizaciones durables aprobados y registrados | 2026-09-16 | `docs/06-decisiones/ADR-0011-trabajos-asincronos-automatizaciones.md`, `docs/05-reglas/11-trabajos-asincronos-automatizaciones.md`, `docs/08-arquitectura/mapa-del-sistema.md`, `AGENTS.md` | Autoridad PostgreSQL, distribucion BullMQ, revisiones, leases, idempotencia, esperas, reintentos, compensacion, operacion manual y recuperacion conectados con las decisiones existentes |
 | PROY-002 | Alcance integral del MVP para cliente piloto aprobado y documentado | 2026-09-16 | `docs/02-plan/mvp-piloto.md`, `docs/01-producto/funcionalidades.md`, `docs/02-plan/trabajo.md`, `docs/03-operaciones/despliegues.md` | 249 requisitos de producto y `OPS-01` a `OPS-24` contabilizados; fases, dependencias, decisiones de proveedor y puerta final revisadas |

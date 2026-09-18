@@ -73,6 +73,7 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
 - [ ] **ADM-04 — Desplegar un perfil nuevo desde el administrador.**
   - [ ] Seleccionar versión compatible y servidor con capacidad disponible.
   - [ ] Solicitar al ejecutor la creación de base de datos, credenciales, almacenamiento, configuración y contenedores.
+  - [ ] Crear de forma idempotente los buckets privados `incoming` y `objects`, sus cuotas y credenciales de mínimo privilegio para el perfil.
   - [ ] Registrar el host temporal nip.io, el estado HTTPS y el administrador inicial del cliente.
   - [ ] Mostrar cada paso y activar el perfil solo cuando sus comprobaciones hayan terminado.
   - [ ] Permitir reanudar un alta fallida sin duplicar bases, contenedores o usuarios.
@@ -144,6 +145,7 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
 - [ ] **ADM-15 — Administrar respaldos y recuperaciones por cliente.**
   - [ ] Mostrar fecha, integridad, ubicación externa y resultado de los respaldos.
   - [ ] Iniciar respaldos del perfil incluyendo datos, archivos y referencias de configuración necesarias.
+  - [ ] Coordinar el punto de PostgreSQL con el inventario y checksums de objetos para detectar adjuntos ausentes al restaurar.
   - [ ] Restaurar primero en un entorno aislado y presentar la validación obtenida.
   - [ ] Registrar el punto de recuperación y el efecto sobre operaciones posteriores antes de una sustitución de datos.
   - [ ] Separar recuperación de un cliente de recuperación completa del VPS.
@@ -341,6 +343,7 @@ Dependencias: usuarios, permisos y configuración. Conectar las herramientas esp
   - [ ] Implementar `agent-runtime` oficial en TypeScript con LangGraph.js, un agente principal y subagentes internos invisibles.
   - [ ] Hacer que el CRM sea cliente de `/agent/v1` y que cada runtime sea cliente del Quantum MCP Gateway.
   - [ ] Definir entradas comunes con empresa, contacto, conversación, mensaje, archivos y contexto autorizado.
+  - [ ] Representar archivos mediante metadatos o referencias MCP autorizadas, sin credenciales S3, paths internos ni bytes no verificados.
   - [ ] Definir resultados comunes con mensajes, acciones solicitadas, estado y solicitud de escalamiento.
   - [ ] Publicar manifiesto con runtime, grafo, prompts, modelo, tools, politicas, contratos y compatibilidad de threads.
   - [ ] Probar el agente oficial, un agente Python y otro JavaScript con la misma suite contractual, sin cambiar el núcleo del CRM.
@@ -378,6 +381,7 @@ Dependencias: usuarios, permisos y configuración. Conectar las herramientas esp
 - [ ] **BASE-06 — Compartir relaciones, permisos y trazabilidad entre los módulos.**
   - [ ] Mantener identificadores estables para contactos, oportunidades, conversaciones y documentos.
   - [ ] Aplicar el alcance de acceso en consultas, modificaciones, archivos y exportaciones.
+  - [ ] Resolver cada `fileId` dentro del perfil verificado y denegar referencias, buckets, keys o URLs de otro perfil.
   - [ ] Mantener cada registro asociado a su empresa y evitar cruces si la instalación aloja varias empresas.
   - [ ] Registrar eventos con autor, fecha y referencias para alimentar historiales y reportes.
   - [ ] Devolver errores comprensibles sin registrar credenciales dentro del historial visible.
@@ -571,8 +575,9 @@ Dependencias: Contactos, canales, asesores y conexión con agentes. Las acciones
 
 - [ ] **CHAT-04 — Envío y recepción de audios, imágenes y documentos.**
   - [ ] Recibir archivos y asociarlos con su mensaje y canal.
+  - [ ] Someter entradas del navegador y del proveedor a cuarentena, validación y scan antes de asociarlas como disponibles.
   - [ ] Permitir adjuntar, previsualizar, descargar y enviar archivos compatibles.
-  - [ ] Entregar al agente el contenido procesado o una referencia accesible según el tipo de archivo.
+  - [ ] Entregar al agente el contenido procesado o una referencia MCP autorizada según la versión exacta del archivo.
 
 - [ ] **CHAT-05 — Manejo de plantillas de WhatsApp.**
   - [ ] Consultar las plantillas disponibles y su estado de aprobación.
@@ -871,9 +876,11 @@ Dependencias: Campos personalizados, contactos, chat y automatizaciones.
   - [ ] Insertar títulos, descripciones, imágenes y videos.
   - [ ] Permitir ordenar estos elementos entre preguntas.
   - [ ] Mostrar contenido correctamente en la vista pública.
+  - [ ] Publicar solo imágenes y videos `AVAILABLE` mediante autorizaciones de lectura de corta duración.
 
 - [ ] **FORM-05 — Permitir la carga de imágenes y documentos por parte del usuario.**
   - [ ] Permitir subir imágenes y documentos con límites definidos.
+  - [ ] Crear una intención firmada de corta duración, validar el contenido real y mantenerlo inaccesible hasta quedar `AVAILABLE`.
   - [ ] Asociar cada archivo a su respuesta.
   - [ ] Restringir el acceso a los archivos de respuestas a usuarios autorizados.
 
@@ -941,6 +948,7 @@ Dependencias: Campos personalizados, contactos, chat y automatizaciones.
   - [ ] Listar respuestas y abrir su detalle.
   - [ ] Filtrar por formulario, fecha y valores de respuesta.
   - [ ] Exportar valores y referencias de archivos respetando permisos.
+  - [ ] No persistir ni exportar URLs S3 firmadas; generar acceso nuevo al abrir una referencia autorizada.
 
 - [ ] **FORM-19 — Recibir notificaciones cuando se envíe una nueva respuesta.**
   - [ ] Configurar destinatarios internos de nuevas respuestas.
@@ -969,6 +977,7 @@ Dependencias: Campos personalizados, permisos y herramientas del agente. Su uso 
 - [ ] **CAT-02 — Registrar nombre, descripción, precio, imágenes y documentos.**
   - [ ] Guardar nombre, descripción y precio.
   - [ ] Adjuntar y ordenar imágenes y documentos.
+  - [ ] Sustituir archivos creando versiones inmutables nuevas sin sobrescribir objetos utilizados por otras fichas o documentos.
   - [ ] Mostrar la ficha completa y sus archivos.
 
 - [ ] **CAT-03 — Crear categorías completamente personalizadas.**
@@ -1018,6 +1027,7 @@ Dependencias: Campos personalizados, permisos y herramientas del agente. Su uso 
 
 - [ ] **CAT-12 — Establecer precio, código, imágenes y disponibilidad por variante.**
   - [ ] Guardar código, precio e imágenes por variante.
+  - [ ] Vincular cada imagen mediante `fileId` disponible y conservar su orden sin exponer claves del almacenamiento.
   - [ ] Asociar disponibilidad con la variante concreta.
   - [ ] Aplicar el precio de la variante al seleccionarla en un documento.
 
@@ -1069,6 +1079,7 @@ Dependencias: Campos personalizados, permisos y herramientas del agente. Su uso 
 - [ ] **CAT-22 — Compartir productos desde el chat.**
   - [ ] Seleccionar un producto desde el chat.
   - [ ] Enviar su información e imágenes por el canal compatible.
+  - [ ] Resolver y registrar la versión exacta de cada imagen disponible enviada al canal.
   - [ ] Registrar qué producto se compartió.
 
 - [ ] **CAT-23 — Agregar productos o servicios a cotizaciones y facturas.**
@@ -1080,6 +1091,7 @@ Dependencias: Campos personalizados, permisos y herramientas del agente. Su uso 
   - [ ] Mapear columnas, categorías, tipos y atributos al importar.
   - [ ] Validar errores y códigos duplicados.
   - [ ] Exportar productos, variantes y existencias sin alterar movimientos al consultar.
+  - [ ] Procesar archivos y referencias de medios importados mediante el mismo pipeline seguro y no exportar credenciales ni URLs firmadas persistentes.
 
 - [ ] **CAT-25 — Permitir que el agente consulte categorías, tipos, atributos, variantes, precios, existencias y disponibilidad.**
   - [ ] Exponer al agente esquema de categorías, tipos, atributos y variantes.
@@ -1134,6 +1146,7 @@ Dependencias: Contactos, oportunidades, catálogo, plantillas, agentes e integra
   - [ ] Implementar bloques de texto, imágenes, tablas, columnas y separadores.
   - [ ] Implementar productos, subtotales, impuestos, descuentos y campos dinámicos.
   - [ ] Incorporar campos de firma y registrar la firma sobre una versión identificada cuando se utilicen.
+  - [ ] Vincular imágenes y firmas al `fileId` y checksum exactos de la versión del documento.
 
 - [ ] **DOC-04 — Mover y ordenar libremente los bloques del documento.**
   - [ ] Insertar, mover y reordenar bloques.
@@ -1144,6 +1157,7 @@ Dependencias: Contactos, oportunidades, catálogo, plantillas, agentes e integra
   - [ ] Configurar encabezados, pies, logotipo, fondos y estilos.
   - [ ] Aplicar tipografías y colores a bloques y documento.
   - [ ] Mantener el diseño al exportar.
+  - [ ] Vincular logotipos y fondos por `fileId` inmutable y conservar la versión usada por cada documento emitido.
 
 - [ ] **DOC-06 — Crear varias páginas dentro del documento.**
   - [ ] Agregar páginas y saltos de página.
@@ -1189,6 +1203,7 @@ Dependencias: Contactos, oportunidades, catálogo, plantillas, agentes e integra
   - [ ] Adjuntar documentos y fichas técnicas.
   - [ ] Insertar imágenes en el contenido o como adjuntos.
   - [ ] Permitir acceso a los archivos autorizados desde el documento compartido.
+  - [ ] Impedir el acceso a adjuntos en cuarentena, rechazados, borrados o pertenecientes a otro perfil.
 
 - [ ] **DOC-15 — Guardar cualquier diseño como plantilla reutilizable.**
   - [ ] Guardar estructura, estilos y variables como plantilla.
@@ -1204,9 +1219,11 @@ Dependencias: Contactos, oportunidades, catálogo, plantillas, agentes e integra
   - [ ] Renderizar el documento como PDF.
   - [ ] Mantener páginas, tablas, imágenes y totales legibles.
   - [ ] Verificar un documento de varias páginas y otro con tabla extensa.
+  - [ ] Almacenar el PDF como objeto inmutable validado y vinculado a la versión exacta que lo generó.
 
 - [ ] **DOC-18 — Compartirlos mediante enlace, correo o chat.**
   - [ ] Generar enlace de acceso al documento específico.
+  - [ ] Usar una capacidad revocable de Quantum que autorice el recurso y emita una URL de archivo breve, nunca una URL S3 permanente.
   - [ ] Enviarlo por correo o chat y permitir compartir el PDF.
   - [ ] Registrar envío y errores del canal.
 
@@ -1234,6 +1251,7 @@ Dependencias: Contactos, oportunidades, catálogo, plantillas, agentes e integra
   - [ ] Guardar versiones con autor, fecha y cambios.
   - [ ] Mantener una copia de lo enviado o aceptado.
   - [ ] Vincular aceptación y firma a la versión concreta.
+  - [ ] Conservar los `fileId` y checksums exactos de imágenes, adjuntos, PDF y firma de cada versión emitida.
 
 - [ ] **DOC-24 — Convertir una cotización aceptada en factura sin volver a ingresar la información.**
   - [ ] Crear una factura desde una cotización aceptada.
@@ -1274,6 +1292,7 @@ Dependencias: Contactos, oportunidades, catálogo, plantillas, agentes e integra
   - [ ] Generar comprobante a partir de un pago confirmado.
   - [ ] Incluir factura, importe, fecha, método y referencia.
   - [ ] Permitir descargarlo y compartirlo.
+  - [ ] Conservar el comprobante como archivo inmutable y autorizar cada descarga o envío contra el pago confirmado.
 
 - [ ] **DOC-32 — Configurar monedas, impuestos y numeración de documentos.**
   - [ ] Aplicar moneda, impuestos y secuencia configurados.

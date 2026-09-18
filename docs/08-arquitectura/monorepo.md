@@ -92,6 +92,7 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
     architecture/
     contracts/
     integration/
+    files/
     agents/
     e2e/
 
@@ -102,6 +103,9 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
       tenant/
     caddy/
     keycloak/
+    storage/
+      seaweedfs/
+      clamav/
     observability/
       collector/
       dashboards/
@@ -144,6 +148,7 @@ Los nombres de modulos provienen de ADR-0002. Agregar, fusionar o retirar uno re
 - Procesa outbox, BullMQ, inbox, automatizaciones, webhooks salientes y tareas programadas.
 - Usa los mismos casos de uso y contratos que API.
 - No crea rutas HTTP publicas salvo health interno estrictamente necesario.
+- Ejecuta validacion, scan, promocion, derivados, reconciliacion y borrado durable de archivos sin convertir Redis en fuente de verdad.
 
 ### agent-runtime
 
@@ -328,6 +333,8 @@ La raiz expone nombres estables aunque internamente filtre paquetes:
 | `pnpm release:check` | Validar manifiesto, digests, compatibilidad y evidencia de una release |
 | `pnpm observability:check` | Validar campos, redaccion, cardinalidad, correlacion y configuracion del Collector |
 | `pnpm agents:check` | Validar `/agent/v1`, MCP, fixtures JavaScript/Python y evaluaciones obligatorias |
+| `pnpm files:check` | Validar contratos, estados, formatos, scan, retencion y aislamiento de archivos |
+| `pnpm storage:check` | Validar SeaweedFS, ClamAV, buckets, politicas, cuotas y reconciliacion contra versiones fijadas |
 | `pnpm ci` | Ejecutar todas las puertas obligatorias aplicables |
 
 Los scripts destructivos como reset local tienen nombres explicitos, validan el entorno y no forman parte de `ci` ni de despliegue.
@@ -341,6 +348,7 @@ src/**/*.test.ts              pruebas unitarias junto al codigo
 tests/architecture/           dependencias y limites
 tests/contracts/              proveedores y consumidores
 tests/integration/            PostgreSQL, Redis, Keycloak y S3 aislados
+tests/files/                  SeaweedFS, ClamAV, contenido adversarial y recuperacion
 tests/agents/                 Contratos, evaluaciones y casos adversariales de agentes
 tests/e2e/                    recorridos de usuario
 ```
@@ -348,6 +356,7 @@ tests/e2e/                    recorridos de usuario
 - Las pruebas compartidas se alojan en `packages/testing` sin reglas de negocio de produccion.
 - Integracion usa servicios reales aislados cuando se verifica comportamiento del motor.
 - Aislamiento usa al menos dos perfiles.
+- La suite de archivos usa las versiones exactas de SeaweedFS y ClamAV, prueba cuarentena real y nunca publica un objeto antes de `AVAILABLE`.
 - Los agentes JavaScript y Python ejecutan la misma suite contractual.
 - El agente oficial ejecuta la misma suite y evaluaciones que los agentes personalizados.
 - Ningun fixture incluye datos reales.
@@ -360,6 +369,7 @@ tests/e2e/                    recorridos de usuario
 - Una release relaciona commit, lockfile, imagenes por digest, migraciones y contratos.
 - Los perfiles ejecutan los mismos digests con configuracion separada.
 - Los Dockerfiles y Compose viven en `infra/`, no dispersos sin convencion.
+- SeaweedFS y ClamAV son servicios auxiliares fijados por digest; sus puertos administrativos permanecen en redes privadas y sus volumenes no siguen el ciclo de recreacion de las aplicaciones.
 
 ## Ownership y cambios
 
@@ -386,6 +396,8 @@ La estructura se considera implementada cuando:
 - Pruebas unitarias, integracion, contrato, arquitectura y E2E tienen al menos un smoke test real.
 - Se construyen imagenes sin incluir secretos ni codigo montado.
 - `agent-runtime` publica manifest, crea un thread y consume una resource y una tool MCP sin acceso directo a datos comerciales.
+- Dos perfiles cargan, escanean y descargan archivos reales sin cruzar buckets, credenciales, URLs ni metadatos.
+- Un reinicio durante la promocion o el borrado de un archivo converge mediante estado durable y reconciliacion.
 
 ## Decisiones pendientes antes del bootstrap
 
