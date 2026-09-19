@@ -10,12 +10,13 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Aplicacion implementada: no existe todavia en este repositorio.
 - Requisitos funcionales completados: ninguno acreditado.
 - Requisitos operativos completados: ninguno acreditado.
-- Trabajo activo: ninguno.
+- Trabajo activo: fundacion reproducible del monorepo (`OPS-01-a`).
 
 ## En curso
 
 | ID | Descripcion | Responsable | Rama o PR | Inicio | Ultima actualizacion | Siguiente paso |
 |---|---|---|---|---|---|---|
+| OPS-01 | Implementar la arquitectura operativa por rebanadas | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | Fundacion aprobada en [`OPS-01-a-monorepo-base.md`](../02-plan/tareas/OPS-01-a-monorepo-base.md); preparar `OPS-01-b` para procesos reales Next.js/NestJS y health basico |
 
 ## Bloqueado
 

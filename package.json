@@ -1,0 +1,31 @@
+{
+  "name": "quantum-crm",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Quantum CRM monorepo",
+  "license": "UNLICENSED",
+  "type": "module",
+  "packageManager": "pnpm@9.13.2",
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "pnpm": "9.13.2"
+  },
+  "scripts": {
+    "format:check": "prettier --check \"*.{json,mjs,yaml}\" \"apps/**/*.{json,ts,tsx}\" \"packages/**/*.{json,ts,tsx}\" \"tests/**/*.ts\"",
+    "lint": "eslint apps packages tests",
+    "typecheck": "pnpm -r --workspace-concurrency=4 --if-present typecheck",
+    "test": "vitest run tests/unit",
+    "test:architecture": "vitest run tests/architecture",
+    "build": "pnpm -r --workspace-concurrency=4 --if-present build",
+    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:architecture && pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@typescript-eslint/eslint-plugin": "8.70.0",
+    "@typescript-eslint/parser": "8.70.0",
+    "eslint": "10.11.0",
+    "prettier": "3.9.8",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

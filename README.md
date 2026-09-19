@@ -4,7 +4,7 @@ Este repositorio contiene el desarrollo de Quantum CRM y su sistema de seguimien
 
 ## Estado actual
 
-El proyecto se encuentra en preparacion. La documentacion base esta organizada, pero todavia no hay una aplicacion implementada en este repositorio. El estado vigente se consulta en [docs/04-proceso/estado.md](docs/04-proceso/estado.md).
+El proyecto se encuentra en bootstrap tecnico. Existe la fundacion del monorepo, pero todavia no hay una funcionalidad de producto implementada. El estado vigente se consulta en [docs/04-proceso/estado.md](docs/04-proceso/estado.md).
 
 ## Antes de trabajar
 
@@ -19,3 +19,26 @@ El archivo [AGENTS.md](AGENTS.md) contiene las reglas obligatorias para cualquie
 La arquitectura aprobada y la estructura objetivo se consultan en [docs/08-arquitectura/](docs/08-arquitectura/README.md).
 
 El alcance de la primera entrega se consulta en [MVP integral para cliente piloto](docs/02-plan/mvp-piloto.md).
+
+## Desarrollo local
+
+Requisitos fijados para el workspace:
+
+- Node.js `24.21.0`.
+- pnpm `9.13.2`, activado mediante Corepack.
+
+Instalacion y comprobaciones iniciales:
+
+```bash
+corepack enable
+corepack prepare pnpm@9.13.2 --activate
+pnpm install --frozen-lockfile
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:architecture
+pnpm build
+```
+
+Los directorios `apps/` y `packages/` contienen por ahora esqueletos compilables. Su existencia no acredita ninguna funcion `ADM`, `USR`, `CFG` ni comercial.
