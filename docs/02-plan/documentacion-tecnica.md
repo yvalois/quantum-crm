@@ -28,6 +28,8 @@ Este archivo ordena las decisiones y documentos tecnicos que faltan antes y dura
 | Trabajos asincronos y automatizaciones | Aceptado | [ADR-0011](../06-decisiones/ADR-0011-trabajos-asincronos-automatizaciones.md) |
 | Integracion nativa de agentes LangGraph y MCP | Aceptado | [ADR-0012](../06-decisiones/ADR-0012-integracion-agentes-langgraph-mcp.md) |
 | Archivos y almacenamiento de objetos | Aceptado | [ADR-0013](../06-decisiones/ADR-0013-archivos-almacenamiento-objetos.md) |
+| Arquitectura frontend y sistema visual | Aceptado | [ADR-0014](../06-decisiones/ADR-0014-arquitectura-frontends-sistema-visual.md) |
+| Respaldo, restauracion y continuidad | Aceptado | [ADR-0015](../06-decisiones/ADR-0015-respaldo-restauracion-continuidad.md) |
 | Alcance integral del MVP piloto | Aceptado | [MVP integral](mvp-piloto.md) |
 | Componentes, fronteras y flujos | Documentado | [Mapa del sistema](../08-arquitectura/mapa-del-sistema.md) |
 | Estructura objetivo del repositorio | Documentado | [Especificacion del monorepo](../08-arquitectura/monorepo.md) |
@@ -42,8 +44,8 @@ No quedan decisiones documentales bloqueantes para crear el monorepo. El alcance
 
 | Orden sugerido | Documento o decision | Se requiere antes de | Preguntas principales | Estado |
 |---|---|---|---|---|
-| 9 | ADR-0014: arquitectura frontend y sistema visual | Primera interfaz productiva | Estado de servidor y cliente, formularios, componentes, accesibilidad, errores y pruebas visuales | Pendiente por capacidad |
-| 10 | ADR-0015: respaldo, restauracion y continuidad | Primer entorno con datos valiosos | RPO, RTO, alcance, cifrado, ubicacion externa, restauracion y evidencia | Pendiente por capacidad |
+| 9 | [ADR-0014: arquitectura frontend y sistema visual](../06-decisiones/ADR-0014-arquitectura-frontends-sistema-visual.md) | Primera interfaz productiva | Tres aplicaciones web, limites de audiencia, referencia Stitch, componentes, accesibilidad, errores y pruebas visuales | Aceptado |
+| 10 | [ADR-0015: respaldo, restauracion y continuidad](../06-decisiones/ADR-0015-respaldo-restauracion-continuidad.md) | Primer entorno con datos valiosos | RPO, RTO, alcance, cifrado, ubicacion externa, restauracion y evidencia | Aceptado |
 | 11 | Seleccion de proveedores de canales | Chat multicanal | Canal inicial, webhooks, sandbox, limites, plantillas, costos y cumplimiento | Pendiente por capacidad |
 | 12 | Calendario externo | Sincronizacion de agenda | Proveedor, OAuth, recurrencia, zonas horarias, conflictos y webhooks | Pendiente por capacidad |
 | 13 | Pagos y facturacion fiscal | Cobros o emision fiscal | Pais, proveedor, monedas, impuestos, conciliacion, devoluciones y requisitos legales | Pendiente por capacidad |
@@ -57,7 +59,7 @@ Los numeros de ADR posteriores son reservas de orden, no decisiones aceptadas. S
 | Documento | Datos faltantes | Momento limite |
 |---|---|---|
 | Inventario real del VPS | Proveedor, region, sistema, arquitectura, CPU, RAM, disco, red y acceso | Antes de desplegar servicios compartidos |
-| Objetivos de servicio | SLO, ventanas, capacidad, RPO y RTO | Antes de comprometer disponibilidad o conservar datos valiosos |
+| Objetivos de servicio | SLO de disponibilidad, ventanas y capacidad; RPO/RTO iniciales viven en ADR-0015 | Antes de comprometer disponibilidad o conservar datos valiosos |
 | Matriz de entornos | Responsables, URLs, datos permitidos y controles por entorno | Antes de crear staging o produccion |
 | Runbooks | Alta, despliegue, rollback, restauracion, rotacion y respuesta a incidentes | Antes de operar la accion correspondiente |
 | Matriz de proveedores | Contrato, credenciales, sandbox, limites, webhooks, costos y contacto | Antes de integrar cada proveedor |

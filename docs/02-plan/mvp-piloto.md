@@ -87,7 +87,7 @@ Las fases son secuenciales por dependencia, aunque una rama corta puede preparar
 
 ### 1. Bootstrap tecnico
 
-Crear el monorepo, las siete aplicaciones, paquetes, contratos, bases, autenticacion, configuracion, pruebas, CI/CD, imagenes y observabilidad segun los criterios de [la especificacion del monorepo](../08-arquitectura/monorepo.md).
+Crear el monorepo, las ocho aplicaciones, paquetes, contratos, bases, autenticacion, configuracion, pruebas, CI/CD, imagenes y observabilidad segun los criterios de [la especificacion del monorepo](../08-arquitectura/monorepo.md).
 
 Trabajo operativo principal: `OPS-01`, `OPS-03`, `OPS-04`, `OPS-07` y `OPS-10` a `OPS-12`. `OPS-02` debe aportar la ficha real antes de instalar el VPS.
 
@@ -184,7 +184,8 @@ El almacenamiento de objetos ya fue resuelto por [ADR-0013](../06-decisiones/ADR
 | Pasarela de pagos | Completar `DOC-27` a `DOC-31` | Pais, monedas, sandbox, firmas, conciliacion, reembolsos y costos |
 | Proveedor fiscal y pais, si se habilita facturacion electronica | Presentarla como capacidad disponible | Requisitos legales, numeracion, impuestos, firma, anulacion y ambiente de pruebas |
 | Backend de observabilidad | Desplegar staging persistente | Capacidad o contrato, retencion, residencia, alertas y control de acceso |
-| Objetivos SLO, RPO y RTO | Aceptar datos reales del piloto | Valores, ventanas, responsables y runbooks aprobados |
+| Destino externo de backups | Aceptar datos reales del piloto | Dominio de fallo separado, cifrado, capacidad, residencia, costo, credenciales y restauracion medida segun ADR-0015 |
+| Objetivos SLO de disponibilidad | Aceptar datos reales del piloto | Valores, ventanas, responsables y runbooks aprobados; RPO y RTO iniciales viven en ADR-0015 |
 
 WhatsApp es obligatorio si se pretende cerrar `CHAT-05`; la matriz de canales define el conjunto finito adicional que representa `multicanal`. No se interpreta el requisito como compatibilidad con todos los proveedores existentes.
 
@@ -218,7 +219,7 @@ El MVP solo puede pasar a cliente piloto cuando existe evidencia de todo lo sigu
 - los 249 requisitos de producto tienen su casilla principal y todas sus subtareas completas;
 - `OPS-01` a `OPS-24` estan completos;
 - todas las comprobaciones integradas por seccion y el recorrido final pasan;
-- las siete aplicaciones y procesos auxiliares usan la release aprobada por digest;
+- las ocho aplicaciones y procesos auxiliares usan la release aprobada por digest;
 - no quedan migraciones, artefactos contractuales ni configuraciones pendientes;
 - los proveedores elegidos funcionan en sus entornos previstos y sus fallos son recuperables;
 - dos perfiles demuestran aislamiento de datos, archivos, identidades, colas, secretos y agentes;

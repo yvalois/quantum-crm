@@ -1,5 +1,7 @@
 # ADR 0013 Archivos y almacenamiento de objetos
 
+> Actualizacion posterior: [ADR-0015](ADR-0015-respaldo-restauracion-continuidad.md) define copia cifrada fuera del VPS, objetivos, retencion y restauracion coordinada sin cambiar el almacenamiento primario SeaweedFS.
+
 - Estado: aceptado
 - Fecha: 2026-09-18
 - Responsables: propietario del proyecto
@@ -34,7 +36,7 @@ Los objetos y derivados son inmutables. PDFs, comprobantes, versiones enviadas, 
 
 SeaweedFS usa cifrado en reposo y TLS en las fronteras de red aprobadas. Claves, credenciales S3 y configuracion sensible entran mediante secretos montados por servicio. `deploy-executor` es el unico componente con permisos administrativos para crear buckets, politicas, cuotas o credenciales.
 
-El almacenamiento principal en el VPS no es alta disponibilidad ni respaldo. La copia cifrada fuera del VPS y la restauracion coordinada de PostgreSQL, objetos y configuracion son obligatorias para el piloto. Un manifiesto durable fija cada `fileId`, estado, key interna, `versionId` y checksum al mismo corte de PostgreSQL y protege esas versiones contra borrado mientras se copian. ADR-0015 elegira destino, cifrado, RPO, RTO, retencion y runbook sin debilitar ese contrato.
+El almacenamiento principal en el VPS no es alta disponibilidad ni respaldo. La copia cifrada fuera del VPS y la restauracion coordinada de PostgreSQL, objetos y configuracion son obligatorias para el piloto. Un manifiesto durable fija cada `fileId`, estado, key interna, `versionId` y checksum al mismo corte de PostgreSQL y protege esas versiones contra borrado mientras se copian. [ADR-0015](ADR-0015-respaldo-restauracion-continuidad.md) define la clase de destino, cifrado, RPO, RTO, retencion y pruebas sin debilitar ese contrato.
 
 La especificacion operativa completa vive en [Archivos y objetos](../08-arquitectura/archivos-objetos.md) y las restricciones de implementacion en [Reglas de archivos y objetos](../05-reglas/13-archivos-objetos.md).
 

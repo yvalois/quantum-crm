@@ -192,7 +192,7 @@ No se crea una alerta por cada excepcion ni por cada fluctuacion breve.
 - Si se llena una cola, se descarta telemetria y se incrementan metricas internas antes de poner en riesgo la aplicacion.
 - La exportacion ocurre fuera de la ruta critica y una caida del Collector no falla una operacion comercial.
 - La auditoria, outbox, inbox, estados de despliegue y resultados de trabajos son datos durables de negocio u operacion; no dependen de retencion de logs ni de muestreo.
-- Un backend alojado en el mismo VPS no es evidencia disponible ante perdida total del servidor. ADR-0015 decide continuidad y copia externa necesaria.
+- Un backend alojado en el mismo VPS no es evidencia disponible ante perdida total del servidor. [ADR-0015](ADR-0015-respaldo-restauracion-continuidad.md) define continuidad y copia externa necesaria.
 
 ## Perfil de backend
 

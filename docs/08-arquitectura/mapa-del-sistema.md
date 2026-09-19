@@ -1,6 +1,6 @@
 # Mapa del sistema
 
-Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0013 y no representa componentes ya implementados.
+Este documento ofrece una vista operativa de Quantum CRM. Deriva de ADR-0001 a ADR-0015 y no representa componentes ya implementados.
 
 ## Contexto
 
@@ -39,6 +39,7 @@ La flecha de plataforma hacia CRM representa aprovisionamiento y operacion. No a
 flowchart TB
     subgraph Browser[Interfaces]
         crmWeb[crm-web\nNext.js]
+        portalWeb[portal-web\nNext.js]
         adminWeb[admin-web\nNext.js]
     end
 
@@ -65,9 +66,11 @@ flowchart TB
     collector[OpenTelemetry Collector]
     telemetry[(Metricas, logs y trazas)]
     external[Proveedores externos]
+    backupTarget[(Destino externo\nbackup cifrado)]
     customAgent[Agente personalizado\nJS o Python]
 
     crmWeb --> proxy --> api
+    portalWeb --> proxy
     adminWeb --> proxy --> adminApi
     api --> tenantDb
     api --> tenantRealm
@@ -89,7 +92,10 @@ flowchart TB
     adminApi --> platformRealm
     adminApi -->|operacion autorizada| executor
     executor -->|Compose, migraciones y estado observado| Tenant
+    executor -->|backup coordinado y cifrado| backupTarget
+    backupTarget -.->|restauracion aislada| executor
     crmWeb --> collector
+    portalWeb --> collector
     adminWeb --> collector
     api --> collector
     worker --> collector
@@ -106,6 +112,7 @@ Los cuadros son limites logicos. PostgreSQL, Redis, SeaweedFS, ClamAV, Keycloak 
 | Aplicacion | Responsabilidad | No debe hacer |
 |---|---|---|
 | `crm-web` | Experiencia de usuarios de cada CRM, BFF y sesion web | Acceder a bases, contener reglas comerciales o exponer tokens OIDC |
+| `portal-web` | Autoservicio responsive y white-label para clientes finales, con BFF y audiencia propia | Exponer operacion interna, datos ajenos, telemetria o funciones de plataforma |
 | `admin-web` | Experiencia de operadores de Quantum | Usar sesiones de CRM o ejecutar comandos de host |
 | `api` | HTTP, WebSocket y casos de uso comerciales | Ejecutar trabajos largos, migraciones o acceder a otros perfiles |
 | `worker` | Outbox, inbox, automatizaciones, integraciones y trabajos duraderos | Exponer controladores publicos innecesarios o saltar autorizacion de comandos |
@@ -385,6 +392,8 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 - `ADR-0011`: trabajos asincronos y automatizaciones durables.
 - `ADR-0012`: agentes LangGraph y Quantum MCP.
 - `ADR-0013`: archivos y almacenamiento de objetos.
+- `ADR-0014`: tres frontends y sistema visual.
+- `ADR-0015`: respaldo, restauracion y continuidad.
 
 ## Aspectos pendientes
 
@@ -392,5 +401,4 @@ Este mapa no decide aun:
 
 - Proveedores concretos de canales, calendario, pagos y facturacion.
 - Dimensionamiento y distribucion real del VPS.
-- Objetivos SLO, RPO y RTO.
-- Arquitectura de componentes y experiencia visual del frontend.
+- Objetivos SLO de disponibilidad; los RPO y RTO iniciales se fijan en ADR-0015.

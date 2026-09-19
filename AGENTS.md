@@ -10,7 +10,7 @@ Antes de modificar codigo o documentacion:
 2. Identificar el requisito en `docs/01-producto/funcionalidades.md`.
 3. Confirmar su fase y dependencias en `docs/02-plan/mvp-piloto.md`.
 4. Revisar sus subtareas en `docs/02-plan/trabajo.md`.
-5. Revisar `docs/04-proceso/estado.md` y buscar el identificador en todo el repositorio.
+5. Revisar `docs/04-proceso/estado.md`, leer la ficha coincidente en `docs/02-plan/tareas/` si existe y buscar el identificador en todo el repositorio.
 6. Leer las reglas pertinentes en `docs/05-reglas/`.
 7. Si afecta componentes, modulos o estructura, revisar `docs/08-arquitectura/` y los ADR relacionados.
 
@@ -22,6 +22,8 @@ Antes de modificar codigo o documentacion:
 - No se vuelve a implementar una funcion sin inspeccionar primero el codigo, las pruebas, el historial y la evidencia existente.
 - Una interfaz, boton, ruta vacia, mock o comentario `TODO` no demuestra que una funcion este terminada.
 - Antes de programar, el elemento se registra como `EN_CURSO` en `docs/04-proceso/estado.md`.
+- Los cambios de comportamiento, contratos, datos, migraciones, seguridad, integraciones, despliegue, recuperacion o varios componentes requieren antes del codigo una ficha en `docs/02-plan/tareas/`, creada desde `docs/07-plantillas/tarea.md`.
+- Las fichas reutilizan el ID original y son planes derivados: no crean IDs `TASK-NNN` ni sustituyen funcionalidades, MVP, checklist, estado, ADR o arquitectura.
 - Solo se marca `[x]` en el checklist cuando todas las subtareas y la verificacion aplicable cumplen la definicion de terminado.
 - Todo cambio de comportamiento incluye pruebas proporcionales al riesgo.
 - Los permisos, el aislamiento por cliente y la validacion se aplican en el servidor; la interfaz no es una barrera de seguridad.
@@ -63,6 +65,11 @@ Antes de modificar codigo o documentacion:
 - Las migraciones aplicadas son inmutables, forward-only en produccion y se ejecutan una vez por perfil mediante un migrador controlado.
 - Los cambios incompatibles de datos usan expand-contract y backfills reanudables; rollback de aplicacion no equivale a restaurar datos.
 - La estructura y las dependencias del monorepo cumplen `docs/08-arquitectura/monorepo.md`; una diferencia requiere actualizar la especificacion o registrar la decision que la sustituye.
+- Las experiencias web se mantienen separadas en `crm-web`, `portal-web` y `admin-web` conforme a `docs/06-decisiones/ADR-0014-arquitectura-frontends-sistema-visual.md`; el proyecto de Stitch es referencia visual, no evidencia de implementacion.
+- Los respaldos y restauraciones cumplen `docs/06-decisiones/ADR-0015-respaldo-restauracion-continuidad.md` y `docs/05-reglas/14-respaldo-restauracion-continuidad.md`.
+- Un volumen, snapshot o archivo dentro del VPS primario no cuenta como recuperacion ante desastre; antes de datos reales existe una copia cifrada fuera de ese dominio de fallo y una restauracion medida.
+- Solo un `BackupSet` completo y `VERIFIED` se restaura; rollback de aplicacion, restauracion de perfil y reconstruccion del VPS son operaciones distintas.
+- Toda restauracion ocurre primero en aislamiento, sin efectos externos, valida datos, objetos, identidad, configuracion y secretos y exige aprobacion antes de sustituir datos.
 - Las pruebas y puertas de calidad cumplen `docs/06-decisiones/ADR-0007-estrategia-pruebas-calidad.md` y `docs/05-reglas/02-pruebas-y-calidad.md`.
 - Ningun porcentaje de cobertura sustituye los escenarios de permisos, aislamiento, idempotencia, concurrencia, migracion y recuperacion aplicables.
 - Una prueba intermitente, reintentada o en cuarentena no se considera aprobada sin resolver el defecto o registrar una excepcion explicita.
@@ -101,6 +108,7 @@ Al terminar:
 
 1. Ejecutar las verificaciones requeridas.
 2. Guardar evidencia concreta en `docs/04-proceso/estado.md`.
-3. Actualizar solo las casillas realmente satisfechas en `docs/02-plan/trabajo.md`.
-4. Actualizar documentacion, decisiones y notas de cambio afectadas.
-5. Confirmar que no quedan secretos, artefactos temporales ni cambios no relacionados.
+3. Completar la evidencia, desviaciones y pendientes de la ficha de implementacion cuando exista.
+4. Actualizar solo las casillas realmente satisfechas en `docs/02-plan/trabajo.md`.
+5. Actualizar documentacion, decisiones y notas de cambio afectadas.
+6. Confirmar que no quedan secretos, artefactos temporales ni cambios no relacionados.

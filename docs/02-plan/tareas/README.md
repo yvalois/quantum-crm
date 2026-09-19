@@ -44,4 +44,3 @@ Para una correccion documental o mecanica pequena puede bastar el registro en `e
 6. Conservar la ficha cerrada para que una persona o agente futuro pueda entender que se hizo y por que, sin tener que reconstruir la sesion original.
 
 Las casillas de una ficha controlan su plan local. Nunca sustituyen las casillas canonicas de `trabajo.md` ni autorizan marcar un requisito como terminado.
-

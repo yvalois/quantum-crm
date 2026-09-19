@@ -10,6 +10,7 @@ Esta carpeta separa alcance, plan, operacion, estado y reglas para que cada dato
 | Descomposicion del trabajo | `02-plan/trabajo.md` | Contiene requisitos, subtareas y comprobaciones |
 | Alcance del MVP integral | `02-plan/mvp-piloto.md` | Incluye los 249 requisitos de producto, 24 OPS, fases y puerta del piloto |
 | Backlog tecnico documental | `02-plan/documentacion-tecnica.md` | Ordena decisiones pendientes y su momento limite |
+| Planes de implementacion derivados | `02-plan/tareas/` | Conectan un requisito activo con cambios, riesgos y verificaciones sin sustituir fuentes de verdad |
 | Infraestructura y despliegue | `03-operaciones/despliegues.md` | Define el trabajo operativo `OPS` |
 | Estado vigente y evidencia | `04-proceso/estado.md` | Indica que esta activo, bloqueado o terminado |
 | Forma de trabajar | `04-proceso/flujo-de-trabajo.md` | Define el ciclo de una tarea |
@@ -18,6 +19,8 @@ Esta carpeta separa alcance, plan, operacion, estado y reglas para que cada dato
 | Git y GitHub | `05-reglas/05-git-y-github.md` | Define ramas, commits, PR, merges y recuperacion |
 | Decisiones estructurales | `06-decisiones/` | Conserva las razones mediante ADR |
 | Arquitectura vigente | `08-arquitectura/` | Muestra componentes, flujos y estructura objetivo del monorepo |
+| Referencia visual | `08-arquitectura/frontends-experiencia-visual.md` | Vincula el proyecto de Stitch y separa las tres experiencias web |
+| Recuperacion | `08-arquitectura/respaldo-restauracion-continuidad.md` | Define backups coordinados, restauracion aislada y continuidad |
 
 No se deben crear listas paralelas de funcionalidades o estados. Los tableros externos, si se usan, deben referenciar los mismos identificadores y reflejar este repositorio.
 
@@ -27,9 +30,10 @@ No se deben crear listas paralelas de funcionalidades o estados. Los tableros ex
 2. Leer todas sus subtareas en `02-plan/trabajo.md`.
 3. Si afecta infraestructura, revisar `03-operaciones/despliegues.md`.
 4. Consultar `04-proceso/estado.md` para saber si alguien ya trabaja en ello o si existe evidencia de cierre.
-5. Buscar implementacion y pruebas con `rg "IDENTIFICADOR" .` y por los conceptos funcionales relacionados.
-6. Si afecta limites o estructura, revisar `08-arquitectura/` y los ADR relacionados.
-7. Aplicar las reglas y la definicion de terminado.
+5. Leer la ficha correspondiente en `02-plan/tareas/` si existe.
+6. Buscar implementacion y pruebas con `rg "IDENTIFICADOR" .` y por los conceptos funcionales relacionados.
+7. Si afecta limites o estructura, revisar `08-arquitectura/` y los ADR relacionados.
+8. Aplicar las reglas y la definicion de terminado.
 
 ## Resolucion de diferencias
 
@@ -37,6 +41,7 @@ No se deben crear listas paralelas de funcionalidades o estados. Los tableros ex
 - Un ADR aprobado decide la arquitectura dentro de ese alcance.
 - El checklist decide las comprobaciones necesarias, pero no puede reducir silenciosamente el alcance funcional.
 - Estado registra hechos actuales y siempre debe enlazar evidencia.
+- Las fichas de implementacion detallan la ejecucion, pero no pueden redefinir alcance, estado o terminado.
 - Una necesidad nueva se agrega primero a funcionalidades y despues al checklist; no se implementa como requisito oculto.
 
 ## Procedencia inicial

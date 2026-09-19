@@ -1,5 +1,7 @@
 # ADR 0008 Entornos, configuracion y secretos
 
+> Actualizacion posterior: [ADR-0014](ADR-0014-arquitectura-frontends-sistema-visual.md) incorpora `portal-web` con contrato publico, sesion y audiencia propios. La referencia original a dos frontends queda ampliada a tres.
+
 - Estado: aceptado
 - Fecha: 2026-09-16
 - Responsables: propietario del proyecto

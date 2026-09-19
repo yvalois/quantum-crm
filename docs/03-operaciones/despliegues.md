@@ -323,7 +323,7 @@ Rollback de aplicación y restauración de datos son operaciones diferentes. Res
 ## 14. Backups y recuperación
 
 - [ ] **OPS-21 — Implementar respaldos y restauración comprobada.**
-  - [ ] Definir frecuencia, retención y objetivos de recuperación según la operación real; quedan pendientes de acordar.
+  - [ ] Aplicar frecuencia, retención y objetivos iniciales de [ADR-0015](../06-decisiones/ADR-0015-respaldo-restauracion-continuidad.md) y corregir cualquier objetivo que las mediciones no alcancen antes del piloto.
   - [ ] Respaldar cada base de cliente y la base administrativa con métodos consistentes de PostgreSQL.
   - [ ] Respaldar el checkpoint store del perfil cuando existan ejecuciones suspendidas que deban reanudarse, sin confundirlo con estado comercial.
   - [ ] Respaldar archivos, configuración y material necesario para reconstruir conexiones y despliegues, protegiendo los secretos.
@@ -334,6 +334,8 @@ Rollback de aplicación y restauración de datos son operaciones diferentes. Res
   - [ ] Desactivar envíos, pagos y automatizaciones reales durante pruebas de restauración.
   - [ ] Probar la reconstrucción de un servidor desde el inventario, artefactos y respaldos.
   - [ ] Evitar tratar un volumen Docker o una copia en el mismo disco como respaldo frente a pérdida del VPS.
+
+La arquitectura detallada, estados y pruebas se especifican en [Respaldo, restauracion y continuidad](../08-arquitectura/respaldo-restauracion-continuidad.md). El proveedor externo permanece por seleccionar, pero una ubicacion separada y cifrada es una condicion de entrada para datos reales.
 
 ## 15. Observabilidad, secretos y capacidad
 

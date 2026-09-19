@@ -7,6 +7,8 @@
 
 > Actualizacion posterior: [ADR-0012](ADR-0012-integracion-agentes-langgraph-mcp.md) incorpora `agent-runtime` como septima aplicacion desplegable y reemplaza la caracterizacion del agente oficial como servicio externo. La compatibilidad con agentes personalizados JavaScript o Python se conserva.
 
+> Actualizacion posterior: [ADR-0014](ADR-0014-arquitectura-frontends-sistema-visual.md) separa la experiencia web en `crm-web`, `portal-web` y `admin-web`, por lo que el monorepo pasa a ocho aplicaciones desplegables.
+
 ## Contexto
 
 Quantum CRM requiere interfaces web, una API transaccional, workers, tiempo real, administración central, despliegues por cliente e integración con agentes LangGraph. El proyecto comienza sin código y necesita compartir contratos y reglas sin asumir prematuramente la complejidad operativa de microservicios o Kubernetes.

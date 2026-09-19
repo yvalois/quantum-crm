@@ -409,7 +409,7 @@ Alertas minimas: promociones detenidas, firmas desactualizadas, reconciliacion s
 
 ## Backup y restauracion
 
-ADR-0015 definira RPO, RTO, destino externo, cifrado, retencion y runbooks. Esta decision fija el contrato de consistencia que no puede cambiar:
+[ADR-0015](../06-decisiones/ADR-0015-respaldo-restauracion-continuidad.md) define RPO, RTO, clase de destino externo, cifrado, retencion y pruebas. El contrato de consistencia es:
 
 1. El coordinador adquiere un barrier y una generacion de backup por perfil. Las transiciones que puedan retirar o reemplazar bytes respetan ese fencing.
 2. PostgreSQL crea un manifiesto durable dentro del corte consistente de la base. Cada entrada contiene `fileId`, estado, zona, key interna, `versionId` y SHA-256.
@@ -426,7 +426,7 @@ El manifiesto incluye:
 - configuracion y politicas necesarias para reconstruir buckets y validar el inventario;
 - referencias protegidas a claves y secretos mediante su procedimiento propio, nunca sus valores dentro del backup de datos.
 
-La restauracion ocurre primero en un entorno aislado, con envios y automatizaciones externas deshabilitados. Reconstruye buckets privados, restaura las versiones conservadas, verifica el manifiesto completo y solo despues habilita referencias. Cada referencia activa debe resolver al checksum esperado y no puede aparecer un objeto de otro perfil. ADR-0015 debe elegir la tecnologia que implemente este contrato; hasta entonces no se puede cerrar `ADM-15`, `OPS-21` ni la puerta final del piloto.
+La restauracion ocurre primero en un entorno aislado, con envios y automatizaciones externas deshabilitados. Reconstruye buckets privados, restaura las versiones conservadas, verifica el manifiesto completo y solo despues habilita referencias. Cada referencia activa debe resolver al checksum esperado y no puede aparecer un objeto de otro perfil. La arquitectura de [respaldo y continuidad](respaldo-restauracion-continuidad.md) aplica el procedimiento; no se puede cerrar `ADM-15`, `OPS-21` ni la puerta final del piloto hasta implementarlo y restaurarlo con exito.
 
 ## Estrategia de pruebas
 

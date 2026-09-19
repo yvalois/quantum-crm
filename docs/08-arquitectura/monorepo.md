@@ -18,6 +18,7 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
 /
   apps/
     crm-web/
+    portal-web/
     admin-web/
     api/
     worker/
@@ -94,6 +95,7 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
     integration/
     files/
     agents/
+    recovery/
     e2e/
 
   infra/
@@ -106,6 +108,7 @@ Esta es la estructura objetivo para implementar el stack aprobado. Actualmente d
     storage/
       seaweedfs/
       clamav/
+    recovery/
     observability/
       collector/
       dashboards/
@@ -126,6 +129,14 @@ Los nombres de modulos provienen de ADR-0002. Agregar, fusionar o retirar uno re
 - Interfaz del CRM y BFF para sesion web.
 - Consume contratos del CRM y componentes de `ui`.
 - No importa `database`, adaptadores, Prisma ni dominios de plataforma.
+
+### portal-web
+
+- Next.js 16 y React.
+- Portal responsive y white-label para clientes finales de cada empresa.
+- Consume contratos publicos del CRM mediante un BFF y una sesion de audiencia propia.
+- Solo solicita recursos pertenecientes al cliente autenticado y acciones habilitadas por la empresa.
+- No importa `database`, adaptadores, Prisma, dominios de plataforma ni navegacion interna del CRM.
 
 ### admin-web
 
@@ -227,6 +238,7 @@ domain -> NestJS, Next.js, Prisma, Redis, HTTP o proveedor
 modulo A -> infrastructure de modulo B
 contracts -> database o aplicaciones
 crm-web -> database
+portal-web -> database o platform-domain
 admin-web -> domain comercial o database
 api -> platform-domain interno
 worker -> controladores HTTP
@@ -335,6 +347,7 @@ La raiz expone nombres estables aunque internamente filtre paquetes:
 | `pnpm agents:check` | Validar `/agent/v1`, MCP, fixtures JavaScript/Python y evaluaciones obligatorias |
 | `pnpm files:check` | Validar contratos, estados, formatos, scan, retencion y aislamiento de archivos |
 | `pnpm storage:check` | Validar SeaweedFS, ClamAV, buckets, politicas, cuotas y reconciliacion contra versiones fijadas |
+| `pnpm recovery:check` | Validar manifiestos, cifrado, retencion, restauracion aislada y medicion de RPO/RTO |
 | `pnpm ci` | Ejecutar todas las puertas obligatorias aplicables |
 
 Los scripts destructivos como reset local tienen nombres explicitos, validan el entorno y no forman parte de `ci` ni de despliegue.
@@ -350,6 +363,7 @@ tests/contracts/              proveedores y consumidores
 tests/integration/            PostgreSQL, Redis, Keycloak y S3 aislados
 tests/files/                  SeaweedFS, ClamAV, contenido adversarial y recuperacion
 tests/agents/                 Contratos, evaluaciones y casos adversariales de agentes
+tests/recovery/               Backups coordinados, corrupcion, restauracion aislada y reconstruccion
 tests/e2e/                    recorridos de usuario
 ```
 
@@ -385,7 +399,7 @@ tests/e2e/                    recorridos de usuario
 La estructura se considera implementada cuando:
 
 - Todos los workspaces instalan con un lockfile reproducible.
-- Las siete aplicaciones compilan en TypeScript estricto.
+- Las ocho aplicaciones compilan en TypeScript estricto.
 - Un modulo de ejemplo respeta las cuatro capas.
 - CI rechaza un import interno entre modulos.
 - Los contratos generan OpenAPI y JSON Schema.
