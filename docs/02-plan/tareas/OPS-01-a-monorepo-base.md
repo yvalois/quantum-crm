@@ -111,7 +111,7 @@ El repositorio instala una unica grafica de dependencias reproducible y expone u
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: `package.json`, `pnpm-lock.yaml`, configuraciones raiz, `apps/*`, `packages/*`, `tests/unit/workspace-inventory.test.ts`, `tests/architecture/import-boundaries.test.ts`, `README.md` y esta ficha; rama local `chore/OPS-01-monorepo-base`, sin remoto ni PR.
+- Archivos, commits o PR: commit local `38f629d`; `package.json`, `pnpm-lock.yaml`, configuraciones raiz, `apps/*`, `packages/*`, `tests/unit/workspace-inventory.test.ts`, `tests/architecture/import-boundaries.test.ts`, `README.md` y esta ficha; rama `chore/OPS-01-monorepo-base`, sin remoto ni PR.
 - Comandos y resultados: Node.js `24.21.0`; `pnpm install --offline --frozen-lockfile`, formato y lint aprobados; typecheck y build aprobados en 17 workspaces; una suite unitaria con 2 pruebas y una suite de arquitectura con 1 prueba aprobadas.
 - Documentacion actualizada: instrucciones locales en `README.md`, ficha y registro de estado.
 - Desviaciones del plan: se fijo pnpm `9.13.2`, disponible y compatible con Node 24, porque el Corepack global no reconoce la firma de pnpm 12. Node 24 se ejecuto de forma temporal sin sustituir el Node 20 global del equipo.
