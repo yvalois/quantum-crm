@@ -67,6 +67,11 @@ services:
       QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
       QCRM_HOST: 0.0.0.0
       QCRM_PORT: "3001"
+      QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
+      QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+    secrets:
+      - source: crm-database-url
+        target: qcrm_database_url
     healthcheck:
       test:
         [
@@ -89,6 +94,11 @@ services:
       QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
       QCRM_HOST: 0.0.0.0
       QCRM_PORT: "3101"
+      QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
+      QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+    secrets:
+      - source: crm-database-url
+        target: qcrm_database_url
     healthcheck:
       test:
         [
@@ -131,3 +141,7 @@ networks:
     name: "${QCRM_TENANT_EDGE_NETWORK:?set QCRM_TENANT_EDGE_NETWORK}"
   tenant-internal:
     internal: true
+
+secrets:
+  crm-database-url:
+    file: "${QCRM_CRM_DATABASE_URL_SECRET_FILE:?set QCRM_CRM_DATABASE_URL_SECRET_FILE}"

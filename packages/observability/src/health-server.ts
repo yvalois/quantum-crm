@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type ServerResponse } from "node:http";
 
 import { createHealthStatus } from "@quantum-crm/contracts";
 
@@ -6,7 +6,7 @@ export interface HealthServerOptions {
   readonly serviceName: string;
   readonly host: string;
   readonly port: number;
-  readonly isReady: () => boolean;
+  readonly isReady: () => boolean | Promise<boolean>;
 }
 
 export interface HealthServer {
@@ -29,10 +29,18 @@ function closeServer(server: Server): Promise<void> {
 
 export function createInternalHealthServer(options: HealthServerOptions): HealthServer {
   const server = createServer((request, response) => {
+    void handleRequest(request.method, request.url, response);
+  });
+
+  async function handleRequest(
+    method: string | undefined,
+    url: string | undefined,
+    response: ServerResponse,
+  ): Promise<void> {
     const check =
-      request.method === "GET" && request.url === "/health/live"
+      method === "GET" && url === "/health/live"
         ? "live"
-        : request.method === "GET" && request.url === "/health/ready"
+        : method === "GET" && url === "/health/ready"
           ? "ready"
           : undefined;
 
@@ -45,14 +53,21 @@ export function createInternalHealthServer(options: HealthServerOptions): Health
       return;
     }
 
-    const ready = check === "live" || options.isReady();
+    let ready = check === "live";
+    if (!ready) {
+      try {
+        ready = await options.isReady();
+      } catch {
+        ready = false;
+      }
+    }
     const body = createHealthStatus({ service: options.serviceName, check, ready });
     response.writeHead(ready ? 200 : 503, {
       "cache-control": "no-store",
       "content-type": "application/json",
     });
     response.end(JSON.stringify(body));
-  });
+  }
 
   return {
     start: () =>

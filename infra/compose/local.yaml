@@ -90,6 +90,11 @@ services:
       QCRM_ENV: local
       QCRM_HOST: 0.0.0.0
       QCRM_PORT: "3001"
+      QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
+      QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+    secrets:
+      - source: crm-database-url
+        target: qcrm_database_url
     ports:
       - 127.0.0.1:3001:3001
     healthcheck:
@@ -118,6 +123,10 @@ services:
       QCRM_ENV: local
       QCRM_HOST: 0.0.0.0
       QCRM_PORT: "3002"
+      QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+    secrets:
+      - source: platform-database-url
+        target: qcrm_database_url
     ports:
       - 127.0.0.1:3002:3002
     healthcheck:
@@ -146,6 +155,11 @@ services:
       QCRM_ENV: local
       QCRM_HOST: 0.0.0.0
       QCRM_PORT: "3101"
+      QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
+      QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+    secrets:
+      - source: crm-database-url
+        target: qcrm_database_url
     ports:
       - 127.0.0.1:3101:3101
     healthcheck:
@@ -223,3 +237,9 @@ networks:
     internal: true
   platform:
     internal: true
+
+secrets:
+  crm-database-url:
+    file: "${QCRM_CRM_DATABASE_URL_SECRET_FILE:?set QCRM_CRM_DATABASE_URL_SECRET_FILE}"
+  platform-database-url:
+    file: "${QCRM_PLATFORM_DATABASE_URL_SECRET_FILE:?set QCRM_PLATFORM_DATABASE_URL_SECRET_FILE}"

@@ -32,4 +32,21 @@ describe("internal health server", () => {
       await server.close();
     }
   });
+
+  it("fails readiness closed when its asynchronous probe throws", async () => {
+    const server = createInternalHealthServer({
+      serviceName: "worker",
+      host: "127.0.0.1",
+      port: 0,
+      isReady: async () => Promise.reject(new Error("dependency unavailable")),
+    });
+    const address = await server.start();
+
+    try {
+      const response = await fetch(`http://${address.host}:${address.port}/health/ready`);
+      expect(response.status).toBe(503);
+    } finally {
+      await server.close();
+    }
+  });
 });

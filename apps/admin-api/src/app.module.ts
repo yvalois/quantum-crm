@@ -1,8 +1,15 @@
-import { Module } from "@nestjs/common";
+import { type DynamicModule, Module } from "@nestjs/common";
+import { POSTGRES_DATABASE, type PostgresDatabase } from "@quantum-crm/database";
 
 import { HealthController } from "./health.controller.js";
 
-@Module({
-  controllers: [HealthController],
-})
-export class AppModule {}
+@Module({})
+export class AppModule {
+  public static register(database: PostgresDatabase): DynamicModule {
+    return {
+      module: AppModule,
+      controllers: [HealthController],
+      providers: [{ provide: POSTGRES_DATABASE, useValue: database }],
+    };
+  }
+}

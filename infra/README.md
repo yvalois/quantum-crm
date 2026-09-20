@@ -11,7 +11,18 @@ Esta carpeta contiene el bootstrap de contenedores de Quantum CRM. No acredita u
 | `platform.yaml` / `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor`               | Plantilla de procesos centrales sin puertos publicos directos                      |
 | `tenant.yaml` / `-p qcrm-t-<uuid>`   | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla repetible por perfil, con nombre de proyecto validado por el ejecutor    |
 
-Las dependencias de datos, identidad, archivos, proxy y telemetria se agregaran en sus requisitos propios. El `deploy-executor` no recibe el socket Docker en este incremento.
+La rebanada `OPS-04-a` agrega el contrato de conexion a PostgreSQL, pero no instala el motor ni crea datos comerciales. Identidad, Redis, archivos, proxy y telemetria se agregaran en sus requisitos propios. El `deploy-executor` no recibe el socket Docker en este incremento.
+
+## Conexion PostgreSQL y secretos
+
+- `api` y `worker` reciben la URL runtime de la base de su perfil.
+- `admin-api` recibe una URL distinta para la base de plataforma.
+- Webs, `agent-runtime` y `deploy-executor` no reciben credenciales PostgreSQL.
+- El valor se monta como secret de solo lectura en `/run/secrets/qcrm_database_url`; `QCRM_DATABASE_URL_FILE` contiene solo esa referencia.
+- `QCRM_TENANT_ID` identifica el perfil de `api` y `worker` mediante un UUID inmutable. No selecciona dinamicamente otra base.
+- Las variables `QCRM_CRM_DATABASE_URL_SECRET_FILE` y `QCRM_PLATFORM_DATABASE_URL_SECRET_FILE` apuntan a archivos del host fuera del checkout. Nunca contienen la URL.
+
+Las plantillas esperan que PostgreSQL ya haya sido aprovisionado con una base y un rol runtime distintos por perfil, `PUBLIC CONNECT` revocado y un rol migrador separado. Ese aprovisionamiento dinamico pertenece a `OPS-14`; las plantillas actuales no lo simulan ni lo presentan como terminado.
 
 ## Imagenes
 
@@ -30,6 +41,16 @@ Estos archivos se conservan en Git, pero no se ejecutan en el equipo local del p
 docker compose -f infra/compose/local.yaml config --quiet
 docker compose -f infra/compose/test.yaml config --quiet
 ```
+
+Ambos comandos requieren rutas a archivos sinteticos existentes y un UUID de prueba:
+
+```text
+QCRM_TENANT_ID=00000000-0000-4000-8000-000000000001
+QCRM_CRM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/crm-database-url
+QCRM_PLATFORM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/platform-database-url
+```
+
+La validacion real de roles usa `tests/integration/fixtures/postgres-bootstrap.sql` exclusivamente contra PostgreSQL 18 desechable en el VPS autorizado. Las contrasenas de ese fixture son marcadores sinteticos y no se reutilizan en ningun entorno persistente.
 
 Las plantillas de plataforma y perfil requieren valores sinteticos o referencias reales. `QCRM_IMAGE_REGISTRY` no lleva tag; cada variable `*_DIGEST` contiene solo los 64 caracteres hexadecimales del SHA-256. Ejemplo de forma, no de una release existente:
 

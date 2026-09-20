@@ -113,14 +113,16 @@ La especificacion logica anterior es mas amplia que el codigo disponible. El inc
 
 | Proyecto Compose | Procesos incluidos | Estado y limite |
 |---|---|---|
-| `quantum-local` | ocho aplicaciones | Build local y puertos limitados a loopback; no contiene dependencias de datos |
+| `quantum-local` | ocho aplicaciones | Build integrado en el VPS de pruebas y puertos limitados a loopback; monta referencias PostgreSQL sinteticas solo en procesos autorizados |
 | `quantum-test` | `crm-web`, `api` | Smoke de los dos tipos de imagen, sin datos comerciales |
 | `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor` | Plantilla por digest; no monta Docker ni implementa operaciones de host |
-| `qcrm-t-<uuid>` | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla por perfil y digest; todavia no conecta persistencia, identidad, colas ni archivos |
+| `qcrm-t-<uuid>` | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla por perfil y digest; `api` y `worker` reciben una conexion PostgreSQL por archivo secreto; identidad, colas y archivos siguen pendientes |
 
 `infra/docker/Dockerfile.web` produce las tres variantes Next.js standalone y `infra/docker/Dockerfile.node` produce los cinco procesos Node compilados. Caddy sera el unico publicador de trafico en los despliegues no locales; las redes externas declaradas son puntos de conexion controlados, no autorizacion para publicar puertos internos.
 
-Los componentes de datos, identidad, archivos, proxy, telemetria y respaldo permanecen como arquitectura aprobada pendiente de sus requisitos operativos. La existencia de una plantilla Compose no acredita instalacion en el VPS, imagen publicada, SBOM, procedencia, escaneo ni release desplegada.
+`OPS-04-a` materializa la frontera inicial de PostgreSQL: `api` y `worker` consumen la base exclusiva de su perfil, `admin-api` consume la base de plataforma y readiness prueba la conexion sin exponer identidad ni URL. `agent-runtime`, webs y `deploy-executor` no reciben esos secretos. Todavia no existen schemas comerciales, historias Prisma, migrador controlado ni aprovisionamiento dinamico; esas ausencias no se ocultan con tablas o migraciones ficticias.
+
+Los componentes de identidad, Redis, archivos, proxy, telemetria y respaldo permanecen como arquitectura aprobada pendiente de sus requisitos operativos. La existencia de una plantilla Compose no acredita instalacion persistente en el VPS, imagen publicada, SBOM, procedencia, escaneo ni release desplegada.
 
 ## Responsabilidad de cada aplicacion
 

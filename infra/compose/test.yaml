@@ -23,6 +23,11 @@ services:
       QCRM_ENV: test
       QCRM_HOST: 0.0.0.0
       QCRM_PORT: "3001"
+      QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
+      QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+    secrets:
+      - source: crm-database-url
+        target: qcrm_database_url
     healthcheck:
       test:
         [
@@ -66,3 +71,7 @@ services:
 networks:
   test:
     internal: true
+
+secrets:
+  crm-database-url:
+    file: "${QCRM_CRM_DATABASE_URL_SECRET_FILE:?set QCRM_CRM_DATABASE_URL_SECRET_FILE}"

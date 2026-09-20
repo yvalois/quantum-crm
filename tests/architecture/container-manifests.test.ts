@@ -11,6 +11,15 @@ function serviceNames(compose: string): string[] {
   return [...services.matchAll(/^  ([a-z][a-z0-9-]+):$/gm)].map((match) => match[1] ?? "");
 }
 
+function serviceBlock(compose: string, serviceName: string): string {
+  const match = new RegExp(
+    `^  ${serviceName}:\\n([\\s\\S]*?)(?=^  [a-z][a-z0-9-]+:\\n|^networks:\\n|^secrets:\\n)`,
+    "m",
+  ).exec(compose);
+
+  return match?.[0] ?? "";
+}
+
 describe("container manifests", () => {
   it("pins the toolchain and runs both runtime images without root", () => {
     for (const dockerfile of ["infra/docker/Dockerfile.web", "infra/docker/Dockerfile.node"]) {
@@ -71,6 +80,27 @@ describe("container manifests", () => {
       expect(compose).toContain("read_only: true");
       expect(compose).toContain("no-new-privileges:true");
       expect(compose).toContain("cap_drop:");
+    }
+  });
+
+  it("mounts each database URL only in an authorized process", () => {
+    const tenant = read("infra/compose/tenant.yaml");
+    const platform = read("infra/compose/platform.yaml");
+
+    for (const service of ["api", "worker"]) {
+      expect(serviceBlock(tenant, service)).toContain(
+        "QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url",
+      );
+    }
+    for (const service of ["crm-web", "portal-web", "agent-runtime"]) {
+      expect(serviceBlock(tenant, service)).not.toContain("QCRM_DATABASE_URL_FILE");
+    }
+
+    expect(serviceBlock(platform, "admin-api")).toContain(
+      "QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url",
+    );
+    for (const service of ["admin-web", "deploy-executor"]) {
+      expect(serviceBlock(platform, service)).not.toContain("QCRM_DATABASE_URL_FILE");
     }
   });
 });

@@ -3,12 +3,21 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  ConfigurationError,
-  parseProcessConfig,
-  parseServiceConfig,
-  processDefinitions,
-} from "./process-config.js";
+import { parseProcessConfig, parseServiceConfig, processDefinitions } from "./process-config.js";
+import { ConfigurationError } from "./configuration-error.js";
+import type { SecretFileSystem } from "./secret-value.js";
+
+const validDatabaseUrl = "postgresql://runtime:test-only-not-a-secret@postgres:5432/profile_a";
+
+const secretFileSystem: SecretFileSystem = {
+  lstat: () => ({
+    size: validDatabaseUrl.length,
+    isFile: () => true,
+    isSymbolicLink: () => false,
+  }),
+  readFile: () => new TextEncoder().encode(validDatabaseUrl),
+  realpath: (path) => path,
+};
 
 const definition = {
   serviceName: "worker",
@@ -88,13 +97,24 @@ describe("process configuration", () => {
 
   it("keeps an exhaustive definition for every Node process", () => {
     expect(processDefinitions).toEqual({
-      api: { serviceName: "api", defaultHost: "0.0.0.0", defaultPort: 3001 },
+      api: {
+        serviceName: "api",
+        defaultHost: "0.0.0.0",
+        defaultPort: 3001,
+        database: { target: "crm", requiresTenant: true },
+      },
       "admin-api": {
         serviceName: "admin-api",
         defaultHost: "0.0.0.0",
         defaultPort: 3002,
+        database: { target: "platform", requiresTenant: false },
       },
-      worker: { serviceName: "worker", defaultHost: "127.0.0.1", defaultPort: 3101 },
+      worker: {
+        serviceName: "worker",
+        defaultHost: "127.0.0.1",
+        defaultPort: 3101,
+        database: { target: "crm", requiresTenant: true },
+      },
       "deploy-executor": {
         serviceName: "deploy-executor",
         defaultHost: "127.0.0.1",
@@ -120,11 +140,15 @@ describe("process configuration", () => {
         }),
     );
 
-    expect(parseServiceConfig("worker", environment)).toMatchObject({
+    expect(parseServiceConfig("worker", environment, secretFileSystem)).toMatchObject({
       serviceName: "worker",
       environment: "local",
       host: "127.0.0.1",
       port: 3101,
+      database: {
+        target: "crm",
+        tenantId: "00000000-0000-4000-8000-000000000001",
+      },
     });
   });
 });

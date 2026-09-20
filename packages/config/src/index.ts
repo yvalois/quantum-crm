@@ -1,12 +1,29 @@
 export {
-  ConfigurationError,
   loadProcessConfig,
   loadServiceConfig,
   parseProcessConfig,
   parseServiceConfig,
   processDefinitions,
+  requireDatabaseConfig,
   type ProcessConfig,
   type ProcessDefinition,
   type ProcessName,
   type QcrmEnvironment,
 } from "./process-config.js";
+export { ConfigurationError } from "./configuration-error.js";
+export {
+  databaseEnvironmentKeys,
+  expectedDatabaseSecretPath,
+  parseDatabaseConfig,
+  type DatabaseConfig,
+  type DatabaseDefinition,
+  type DatabaseTarget,
+} from "./database-config.js";
+export {
+  loadSecretFile,
+  SecretFileError,
+  SecretValue,
+  type SecretFileMetadata,
+  type SecretFileOptions,
+  type SecretFileSystem,
+} from "./secret-value.js";
