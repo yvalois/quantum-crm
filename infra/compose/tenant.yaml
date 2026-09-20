@@ -1,0 +1,133 @@
+x-service-defaults: &service-defaults
+  init: true
+  read_only: true
+  restart: unless-stopped
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+services:
+  crm-web:
+    <<: *service-defaults
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/crm-web@sha256:${QCRM_CRM_WEB_DIGEST:?set QCRM_CRM_WEB_DIGEST}"
+    pull_policy: always
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: "3000"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [tenant-edge]
+
+  portal-web:
+    <<: *service-defaults
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/portal-web@sha256:${QCRM_PORTAL_WEB_DIGEST:?set QCRM_PORTAL_WEB_DIGEST}"
+    pull_policy: always
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: "3000"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [tenant-edge]
+
+  api:
+    <<: *service-defaults
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/api@sha256:${QCRM_API_DIGEST:?set QCRM_API_DIGEST}"
+    pull_policy: always
+    environment:
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3001"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [tenant-edge, tenant-internal]
+
+  worker:
+    <<: *service-defaults
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/worker@sha256:${QCRM_WORKER_DIGEST:?set QCRM_WORKER_DIGEST}"
+    pull_policy: always
+    environment:
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3101"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3101/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [tenant-internal]
+
+  agent-runtime:
+    <<: *service-defaults
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/agent-runtime@sha256:${QCRM_AGENT_RUNTIME_DIGEST:?set QCRM_AGENT_RUNTIME_DIGEST}"
+    pull_policy: always
+    environment:
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3103"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3103/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [tenant-internal]
+
+networks:
+  tenant-edge:
+    external: true
+    name: "${QCRM_TENANT_EDGE_NETWORK:?set QCRM_TENANT_EDGE_NETWORK}"
+  tenant-internal:
+    internal: true

@@ -9,6 +9,16 @@ const definition = {
 } as const;
 
 describe("process configuration", () => {
+  it("accepts every approved environment", () => {
+    for (const environment of ["local", "test", "preview", "staging", "production"]) {
+      expect(
+        parseProcessConfig(definition, {
+          QCRM_ENV: environment,
+        }).environment,
+      ).toBe(environment);
+    }
+  });
+
   it("uses safe local defaults", () => {
     expect(parseProcessConfig(definition, {})).toEqual({
       serviceName: "worker",

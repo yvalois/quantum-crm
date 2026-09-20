@@ -59,3 +59,16 @@ El bootstrap actual contiene ocho procesos ejecutables. Sus rutas de health solo
 Los procesos Node validan `QCRM_HOST` y `QCRM_PORT` antes de declarar readiness. Los servicios internos usan `127.0.0.1` de forma predeterminada y las APIs usan `0.0.0.0` para permitir su futura conexion mediante la red privada de despliegue.
 
 Todavia no hay funcionalidades `ADM`, `USR`, `CFG` ni comerciales implementadas. LangGraph, `/agent/v1`, bases de datos, Redis y servicios externos tampoco forman parte de este incremento.
+
+## Contenedores
+
+La base declarativa se encuentra en [infra/README.md](infra/README.md). Existen proyectos Compose separados para desarrollo local, smoke de imagenes, plataforma central y perfiles de cliente. Las plantillas no locales exigen referencias OCI fijadas por digest y no publican puertos de aplicacion directamente al host.
+
+La configuracion Compose puede validarse sin iniciar contenedores:
+
+```bash
+docker compose -f infra/compose/local.yaml config --quiet
+docker compose -f infra/compose/test.yaml config --quiet
+```
+
+La presencia de Dockerfiles o manifiestos validos no demuestra que una imagen fue construida, escaneada, publicada o desplegada.

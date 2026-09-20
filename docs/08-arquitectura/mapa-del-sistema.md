@@ -107,6 +107,21 @@ flowchart TB
 
 Los cuadros son limites logicos. PostgreSQL, Redis, SeaweedFS, ClamAV, Keycloak y el VPS pueden compartir infraestructura fisica inicialmente, pero mantienen credenciales y espacios aislados conforme a ADR-0003 y ADR-0013.
 
+## Materializacion actual del bootstrap
+
+La especificacion logica anterior es mas amplia que el codigo disponible. El incremento `OPS-01-c` materializa solo los ocho procesos de aplicacion y sus fronteras de contenedor:
+
+| Proyecto Compose | Procesos incluidos | Estado y limite |
+|---|---|---|
+| `quantum-local` | ocho aplicaciones | Build local y puertos limitados a loopback; no contiene dependencias de datos |
+| `quantum-test` | `crm-web`, `api` | Smoke de los dos tipos de imagen, sin datos comerciales |
+| `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor` | Plantilla por digest; no monta Docker ni implementa operaciones de host |
+| `qcrm-t-<uuid>` | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla por perfil y digest; todavia no conecta persistencia, identidad, colas ni archivos |
+
+`infra/docker/Dockerfile.web` produce las tres variantes Next.js standalone y `infra/docker/Dockerfile.node` produce los cinco procesos Node compilados. Caddy sera el unico publicador de trafico en los despliegues no locales; las redes externas declaradas son puntos de conexion controlados, no autorizacion para publicar puertos internos.
+
+Los componentes de datos, identidad, archivos, proxy, telemetria y respaldo permanecen como arquitectura aprobada pendiente de sus requisitos operativos. La existencia de una plantilla Compose no acredita instalacion en el VPS, imagen publicada, SBOM, procedencia, escaneo ni release desplegada.
+
 ## Responsabilidad de cada aplicacion
 
 | Aplicacion | Responsabilidad | No debe hacer |
@@ -402,3 +417,4 @@ Este mapa no decide aun:
 - Proveedores concretos de canales, calendario, pagos y facturacion.
 - Dimensionamiento y distribucion real del VPS.
 - Objetivos SLO de disponibilidad; los RPO y RTO iniciales se fijan en ADR-0015.
+

@@ -1,0 +1,91 @@
+name: quantum-platform
+
+x-service-defaults: &service-defaults
+  init: true
+  read_only: true
+  restart: unless-stopped
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+services:
+  admin-web:
+    <<: *service-defaults
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/admin-web@sha256:${QCRM_ADMIN_WEB_DIGEST:?set QCRM_ADMIN_WEB_DIGEST}"
+    pull_policy: always
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: "3000"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [platform-edge]
+
+  admin-api:
+    <<: *service-defaults
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/admin-api@sha256:${QCRM_ADMIN_API_DIGEST:?set QCRM_ADMIN_API_DIGEST}"
+    pull_policy: always
+    environment:
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3002"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3002/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [platform-edge, platform-internal]
+
+  deploy-executor:
+    <<: *service-defaults
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/deploy-executor@sha256:${QCRM_DEPLOY_EXECUTOR_DIGEST:?set QCRM_DEPLOY_EXECUTOR_DIGEST}"
+    pull_policy: always
+    environment:
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3102"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3102/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [platform-internal]
+
+networks:
+  platform-edge:
+    external: true
+    name: "${QCRM_PLATFORM_EDGE_NETWORK:?set QCRM_PLATFORM_EDGE_NETWORK}"
+  platform-internal:
+    internal: true

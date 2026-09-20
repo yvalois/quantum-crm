@@ -1,0 +1,225 @@
+name: quantum-local
+
+x-service-defaults: &service-defaults
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+x-web-health: &web-health
+  interval: 10s
+  timeout: 3s
+  retries: 5
+  start_period: 10s
+  test:
+    - CMD
+    - node
+    - -e
+    - fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+
+services:
+  crm-web:
+    <<: *service-defaults
+    image: quantum-crm/crm-web:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        APP: crm-web
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      - 127.0.0.1:3000:3000
+    healthcheck: *web-health
+    networks: [tenant]
+
+  portal-web:
+    <<: *service-defaults
+    image: quantum-crm/portal-web:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        APP: portal-web
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      - 127.0.0.1:3003:3000
+    healthcheck: *web-health
+    networks: [tenant]
+
+  admin-web:
+    <<: *service-defaults
+    image: quantum-crm/admin-web:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        APP: admin-web
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      - 127.0.0.1:3004:3000
+    healthcheck: *web-health
+    networks: [platform]
+
+  api:
+    <<: *service-defaults
+    image: quantum-crm/api:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.node
+      args:
+        APP: api
+    environment:
+      QCRM_ENV: local
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3001"
+    ports:
+      - 127.0.0.1:3001:3001
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks: [tenant]
+
+  admin-api:
+    <<: *service-defaults
+    image: quantum-crm/admin-api:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.node
+      args:
+        APP: admin-api
+    environment:
+      QCRM_ENV: local
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3002"
+    ports:
+      - 127.0.0.1:3002:3002
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3002/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks: [platform]
+
+  worker:
+    <<: *service-defaults
+    image: quantum-crm/worker:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.node
+      args:
+        APP: worker
+    environment:
+      QCRM_ENV: local
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3101"
+    ports:
+      - 127.0.0.1:3101:3101
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3101/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks: [tenant]
+
+  deploy-executor:
+    <<: *service-defaults
+    image: quantum-crm/deploy-executor:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.node
+      args:
+        APP: deploy-executor
+    environment:
+      QCRM_ENV: local
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3102"
+    ports:
+      - 127.0.0.1:3102:3102
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3102/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks: [platform]
+
+  agent-runtime:
+    <<: *service-defaults
+    image: quantum-crm/agent-runtime:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.node
+      args:
+        APP: agent-runtime
+    environment:
+      QCRM_ENV: local
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3103"
+    ports:
+      - 127.0.0.1:3103:3103
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3103/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks: [tenant]
+
+networks:
+  tenant:
+    internal: true
+  platform:
+    internal: true

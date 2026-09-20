@@ -11,7 +11,7 @@
     "pnpm": "9.13.2"
   },
   "scripts": {
-    "format:check": "prettier --check \"*.{json,mjs,ts,yaml}\" \"apps/**/*.{css,json,ts,tsx}\" \"packages/**/*.{json,ts,tsx}\" \"tests/**/*.ts\"",
+    "format:check": "prettier --check \"*.{json,mjs,ts,yaml}\" \"apps/**/*.{css,json,ts,tsx}\" \"packages/**/*.{json,ts,tsx}\" \"tests/**/*.ts\" \"infra/**/*.{json,md,ts,yaml,yml}\"",
     "lint": "eslint apps packages tests",
     "typecheck": "pnpm -r --workspace-concurrency=4 --if-present typecheck",
     "test": "vitest run tests/unit apps packages",

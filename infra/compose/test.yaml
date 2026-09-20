@@ -1,0 +1,68 @@
+name: quantum-test
+
+x-service-defaults: &service-defaults
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  api:
+    <<: *service-defaults
+    image: quantum-crm/api:test
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.node
+      args:
+        APP: api
+    environment:
+      QCRM_ENV: test
+      QCRM_HOST: 0.0.0.0
+      QCRM_PORT: "3001"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks: [test]
+
+  crm-web:
+    <<: *service-defaults
+    image: quantum-crm/crm-web:test
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        APP: crm-web
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: "3000"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks: [test]
+
+networks:
+  test:
+    internal: true

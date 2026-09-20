@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const qcrmEnvironmentSchema = z.enum(["local", "test", "staging", "production"]);
+const qcrmEnvironmentSchema = z.enum(["local", "test", "preview", "staging", "production"]);
 const allowedKeys = new Set(["QCRM_ENV", "QCRM_HOST", "QCRM_PORT", "QCRM_SHUTDOWN_TIMEOUT_MS"]);
 
 export interface ProcessDefinition {
