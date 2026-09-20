@@ -10,14 +10,14 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Aplicacion implementada: no existe todavia en este repositorio.
 - Requisitos funcionales completados: ninguno acreditado.
 - Requisitos operativos completados: ninguno acreditado.
-- Trabajo activo: arquitectura operativa incremental del monorepo (`OPS-01`).
+- Trabajo activo: arquitectura operativa incremental del monorepo y validacion del VPS (`OPS-01`, `OPS-02`).
 
 ## En curso
 
 | ID | Descripcion | Responsable | Rama o PR | Inicio | Ultima actualizacion | Siguiente paso |
 |---|---|---|---|---|---|---|
-| OPS-01 | Implementar la arquitectura operativa por rebanadas | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | `OPS-01-a`, `OPS-01-b` y [`OPS-01-c`](../02-plan/tareas/OPS-01-c-contenedores-compose.md) implementados; la construccion y ejecucion Docker queda pendiente de acceso al VPS autorizado, nunca del daemon local |
-| OPS-02 | Validar el VPS antes de instalar | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | Ejecutar [`OPS-02-validacion-vps.md`](../02-plan/tareas/OPS-02-validacion-vps.md): builds y smoke aislados sin afectar Nginx ni 80/443 |
+| OPS-01 | Implementar la arquitectura operativa por rebanadas | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | `OPS-01-a`, `OPS-01-b` y [`OPS-01-c`](../02-plan/tareas/OPS-01-c-contenedores-compose.md) implementados; imagenes `crm-web` y `api` construidas y verificadas en el VPS; continuar con dependencias de plataforma sin usar Docker local |
+| OPS-02 | Validar el VPS antes de instalar | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | Builds y smoke aislados aprobados sin afectar Nginx ni 80/443; resolver proveedor, firewall, respaldo externo y dimensionamiento integrado segun [`OPS-02-validacion-vps.md`](../02-plan/tareas/OPS-02-validacion-vps.md) |
 
 ## Bloqueado
 

@@ -63,11 +63,32 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 
 Caddy permanece inactivo. La arquitectura aprobada lo contempla como proxy, pero el VPS ya usa Nginx y Certbot. La convivencia o migracion requiere una decision explicita; ningun build o smoke de Quantum usara 80/443 mientras tanto.
 
+## Builds y smoke aislados
+
+La validacion del 2026-09-19 uso el commit `e2389a81e71eaf054a3e00bac7283206161505d4`, transferido a `/opt/quantum/builds/e2389a81e71eaf054a3e00bac7283206161505d4`. Las pruebas no modificaron Nginx ni publicaron servicios hacia Internet.
+
+| Evidencia | `crm-web` | `api` |
+|---|---|---|
+| Imagen local del VPS | `quantum-crm/crm-web:e2389a81e71e` | `quantum-crm/api:e2389a81e71e` |
+| ID de imagen | `sha256:cfae50ac9f208664a0ba372eea27060043d6c6b075cd6c05b0eaa926bce2e0a2` | `sha256:ee29aed81bfb2e953b459f5a1a615ccf832b1f369f26cd6f59004b16215185ea` |
+| Tamano reportado por Docker | 411,590,733 bytes | 364,251,132 bytes |
+| Usuario final | `node` | `node` |
+| Health live y ready | `status: ok` | `status: ok` |
+| Puerto temporal | `127.0.0.1:13000` | `127.0.0.1:13001` |
+| Memoria ociosa observada | 39.05 MiB | 49.85 MiB |
+| CPU durante la muestra | 0.00 % | 0.00 % |
+
+Ambos contenedores se ejecutaron con raiz de solo lectura, `cap_drop: ALL`, `no-new-privileges` y un `tmpfs` acotado en `/tmp`. Las cuatro rutas live/ready respondieron correctamente. Los contenedores temporales fueron eliminados despues de la prueba; las imagenes permanecen como evidencia local. Nginx siguio activo y el disco quedo con aproximadamente 42 GiB disponibles.
+
+La medicion es una muestra en reposo de dos procesos, no un dimensionamiento del sistema completo. Aun faltan PostgreSQL, Redis, identidad, archivos, scan, workers, observabilidad, carga concurrente y margen de despliegue.
+
+El primer build revelo que la web no construia sus dependencias workspace; el commit `4d0fa22` corrigio el orden. El primer arranque posterior revelo que se habia aplanado incorrectamente el standalone de Next.js; `e2389a8` preservo su estructura. Ambos defectos quedaron cubiertos por la prueba de arquitectura y por el smoke final.
+
 ## Pendientes de `OPS-02`
 
 - Identificar proveedor, plan contratado y limites externos de red o snapshots.
 - Confirmar firewall del proveedor y definir politica UFW sin cortar SSH ni los sitios actuales.
-- Medir consumo de las imagenes y dependencias reales antes de fijar limites.
+- Medir la plataforma completa y carga concurrente antes de fijar limites definitivos.
 - Reservar margen para bases, objetos, respaldos, migraciones y candidatos.
 - Definir destino de respaldo cifrado fuera del VPS.
 - Crear usuario operativo de minimo privilegio, rotar la contraseña expuesta y revisar login root.

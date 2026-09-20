@@ -39,13 +39,21 @@ Inventariar el VPS real, establecer acceso SSH reutilizable sin guardar contrase
 - [x] Crear y verificar una clave SSH dedicada sin persistir la contraseña.
 - [x] Inventariar sistema, recursos, Docker, puertos y servicios.
 - [x] Registrar Nginx y los sitios existentes como recursos a preservar.
-- [ ] Construir imagenes de referencia secuencialmente en el VPS.
-- [ ] Ejecutar smoke aislado en puertos loopback sin usar 80/443.
-- [ ] Medir consumo y documentar limites iniciales.
+- [x] Construir imagenes de referencia secuencialmente en el VPS.
+- [x] Ejecutar smoke aislado en puertos loopback sin usar 80/443.
+- [x] Medir el consumo en reposo de las imagenes de referencia.
+- [ ] Dimensionar la plataforma completa y la carga concurrente antes de fijar limites.
 - [ ] Resolver proveedor, firewall y respaldo externo antes del cierre.
 
 ## Evidencia
 
 - Inventario: [`inventario-vps.md`](../../03-operaciones/inventario-vps.md).
 - Acceso: alias local `quantum-crm-vps` con autenticacion por clave verificada.
-- Pendiente: builds, smoke y medicion real de contenedores.
+- Commit validado: `e2389a81e71eaf054a3e00bac7283206161505d4`.
+- Builds: `crm-web` y `api` construidos secuencialmente en el VPS como usuario final `node`.
+- Smoke: live y ready aprobaron en ambas imagenes mediante `127.0.0.1:13000` y `127.0.0.1:13001`; raiz de solo lectura, capacidades eliminadas y `no-new-privileges` verificados.
+- Muestra en reposo: 39.05 MiB para `crm-web` y 49.85 MiB para `api`; no representa la capacidad total del MVP.
+- Prueba de arquitectura: 5 de 5 casos aprobados, incluido build de dependencias workspace y estructura standalone.
+- Limpieza: los dos contenedores temporales se eliminaron; Nginx permanecio activo y 80/443 no se modificaron.
+- Desviaciones resueltas: los builds iniciales detectaron dependencias workspace sin construir y estructura standalone aplanada; se corrigieron en `4d0fa22` y `e2389a8` antes del smoke aprobado.
+- Pendiente: proveedor, firewall, respaldo externo y dimensionamiento integrado de la plataforma.

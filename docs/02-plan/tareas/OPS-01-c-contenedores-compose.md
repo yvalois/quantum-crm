@@ -64,7 +64,7 @@ El repositorio define imagenes multi-stage sin privilegios para los procesos web
 - [x] Los archivos no locales rechazan imagenes ausentes o no fijadas por digest.
 - [x] Los servicios tienen healthcheck, filesystem de solo lectura, `no-new-privileges` y `cap_drop: ALL`.
 - [x] `docker compose config` y las puertas de codigo aplicables pasan.
-- [x] La falta de daemon Docker se documenta y no se presenta una imagen no construida como verificada.
+- [x] El daemon local no se utiliza y las imagenes de referencia se construyen y ejecutan solo en el VPS autorizado.
 
 ## Riesgos y mitigaciones
 
@@ -92,5 +92,6 @@ El repositorio define imagenes multi-stage sin privilegios para los procesos web
 - Seguridad local: cero coincidencias de credenciales en los archivos del incremento; el contexto excluye secretos, entornos locales, dependencias y artefactos de build.
 - Documentacion actualizada: `README.md`, `infra/README.md`, `docs/08-arquitectura/mapa-del-sistema.md` y `docs/04-proceso/estado.md`.
 - Correccion operativa posterior: por decision del propietario, Docker Desktop permanece apagado y no se construyen ni ejecutan contenedores en su equipo. El intento de inicio realizado durante esta ficha se detuvo inmediatamente al aclararse la regla.
-- Desviaciones del plan: no se construyeron ni ejecutaron imagenes y no se presentan como verificadas; la validacion real se traslada al VPS autorizado.
-- Pendientes o decisiones nuevas: obtener acceso al VPS de desarrollo o pruebas, construir y escanear alli las imagenes y publicar solo mediante CI con SBOM, procedencia y digest; agregar datos, identidad, proxy, archivos, telemetria y secretos en sus requisitos propietarios.
+- Validacion posterior en VPS: `crm-web` y `api` del commit `e2389a8` se construyeron y aprobaron live/ready en loopback con usuario `node`, raiz de solo lectura, capacidades eliminadas y `no-new-privileges`; evidencia detallada en [`inventario-vps.md`](../../03-operaciones/inventario-vps.md).
+- Desviaciones resueltas: el primer build revelo dependencias workspace sin construir y el primer arranque web revelo una estructura standalone aplanada. Los commits `4d0fa22` y `e2389a8` corrigieron ambos defectos y agregaron regresion de arquitectura antes del smoke aprobado.
+- Pendientes o decisiones nuevas: construir y escanear el resto de imagenes, publicar solo mediante CI con SBOM, procedencia y digest, y agregar datos, identidad, proxy, archivos, telemetria y secretos en sus requisitos propietarios.
