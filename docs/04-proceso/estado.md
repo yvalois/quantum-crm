@@ -18,6 +18,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 |---|---|---|---|---|---|---|
 | OPS-01 | Implementar la arquitectura operativa por rebanadas | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | `OPS-01-a`, `OPS-01-b` y [`OPS-01-c`](../02-plan/tareas/OPS-01-c-contenedores-compose.md) implementados; imagenes `crm-web` y `api` construidas y verificadas en el VPS; continuar con dependencias de plataforma sin usar Docker local |
 | OPS-02 | Validar el VPS antes de instalar | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | Builds y smoke aislados aprobados sin afectar Nginx ni 80/443; resolver proveedor, firewall, respaldo externo y dimensionamiento integrado segun [`OPS-02-validacion-vps.md`](../02-plan/tareas/OPS-02-validacion-vps.md) |
+| OPS-23 | Endurecer el acceso operativo al VPS | Codex | `chore/OPS-23-vps-access` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | Ejecutar [`OPS-23-a-acceso-operativo-vps.md`](../02-plan/tareas/OPS-23-a-acceso-operativo-vps.md) sin modificar firewall, Nginx ni puertos publicos |
 
 ## Bloqueado
 
