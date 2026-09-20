@@ -16,6 +16,7 @@ const subject = "keycloak-platform-operator";
 const policy = {
   issuer: "https://identity.example.test/realms/quantum-platform",
   audience: "quantum-admin-api",
+  allowedPermissions: ["tenants:read", "tenants:manage", "deployments:execute"],
 } as const;
 const accessToken = new SecretValue("synthetic-access-token");
 
@@ -159,6 +160,22 @@ describe("platform authentication", () => {
     await expect(authenticate(dependencies({ membership: null }))).rejects.toEqual(
       new PlatformAuthenticationError("MEMBERSHIP_REJECTED"),
     );
+  });
+
+  it("rejects a membership containing a permission outside the platform catalog", async () => {
+    await expect(
+      authenticate(
+        dependencies({
+          membership: {
+            id: operatorId,
+            oidcSubject: subject,
+            status: "ACTIVE",
+            permissions: ["root:anything"],
+            authorizationRevision: 1n,
+          },
+        }),
+      ),
+    ).rejects.toEqual(new PlatformAuthenticationError("MEMBERSHIP_REJECTED"));
   });
 
   it("denies an absent or malformed permission by default", async () => {

@@ -34,6 +34,7 @@ export interface PlatformMembershipReader {
 export interface PlatformAuthPolicy {
   readonly issuer: string;
   readonly audience: string;
+  readonly allowedPermissions: readonly string[];
 }
 
 export interface PlatformAuthContext {
@@ -71,8 +72,18 @@ function rejectIdentity(): never {
   throw new PlatformAuthenticationError("IDENTITY_REJECTED");
 }
 
-function normalizePermissions(permissions: readonly string[]): readonly string[] {
-  if (permissions.some((permission) => !permissionPattern.test(permission))) {
+function normalizePermissions(
+  permissions: readonly string[],
+  allowedPermissions: readonly string[],
+): readonly string[] {
+  const allowed = new Set(allowedPermissions);
+  if (
+    allowed.size !== allowedPermissions.length ||
+    allowedPermissions.some((permission) => !permissionPattern.test(permission)) ||
+    permissions.some(
+      (permission) => !permissionPattern.test(permission) || !allowed.has(permission),
+    )
+  ) {
     throw new PlatformAuthenticationError("MEMBERSHIP_REJECTED");
   }
 
@@ -140,7 +151,7 @@ export async function authenticatePlatformOperator(input: {
       id: membership.id,
       oidcSubject: membership.oidcSubject,
     }),
-    permissions: normalizePermissions(membership.permissions),
+    permissions: normalizePermissions(membership.permissions, input.policy.allowedPermissions),
     authorizationRevision: membership.authorizationRevision,
     authenticatedAt: identity.authenticatedAt.toISOString(),
     correlationId: input.correlationId,
