@@ -39,13 +39,13 @@ keycloak_ip="$(docker inspect "$keycloak_container" --format '{{range .NetworkSe
 [[ "$keycloak_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 69
 keycloak_url="http://${keycloak_ip}:8080"
 
-curl --fail --silent --show-error \
+tr -d '\r\n' <"$bootstrap_password_file" | curl --fail --silent --show-error \
   --output "${temporary_directory}/token.json" \
   --request POST "${keycloak_url}/realms/master/protocol/openid-connect/token" \
   --data-urlencode client_id=admin-cli \
   --data-urlencode grant_type=password \
   --data-urlencode "username=${bootstrap_username}" \
-  --data-urlencode "password@${bootstrap_password_file}"
+  --data-urlencode password@-
 
 python3 - "${temporary_directory}/token.json" "${temporary_directory}/auth.conf" <<'PY'
 import json
