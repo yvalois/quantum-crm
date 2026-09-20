@@ -40,7 +40,7 @@ systemctl is-active --quiet nginx
 systemctl is-active --quiet certbot.timer
 
 docker compose --env-file "$environment_file" -f "$compose_file" config --quiet
-docker compose --env-file "$environment_file" -f "$compose_file" run --rm --no-deps edge-proxy \
+docker compose --env-file "$environment_file" -f "$compose_file" run --rm --no-deps --pull never edge-proxy \
   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
 rollback() {
