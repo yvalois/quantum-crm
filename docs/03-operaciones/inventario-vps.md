@@ -74,19 +74,19 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 
 Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME.
 
-El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el consumo a checkouts de build con `node_modules`, `.next` y `dist`, imagenes historicas e intermedias y cache de Docker; los volumenes persistentes ocupaban aproximadamente 122 MB y no eran la causa. Se eliminaron solo artefactos reproducibles bajo `/opt/quantum/builds`, imagenes no usadas y cache sin referencias. Se conservaron los fuentes de cada build, las imagenes activas, el rollback inmediato de `admin-web` y `admin-api`, y el migrador mas reciente. El resultado inicial fue 8.7 GiB usados y 39 GiB libres, 19 % de uso. Tras construir `ADM-04-b`, retirar el checkout de pruebas, la imagen temporal, imagenes historicas y cache reproducible, quedaron 11 GiB usados y 37 GiB libres, 22 % de uso, con siete contenedores saludables. No se tocaron bases, volumenes persistentes, secretos ni respaldos.
+El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el consumo a checkouts de build con `node_modules`, `.next`, `dist` y `.pnpm-store`, imagenes historicas e intermedias y cache de Docker; los volumenes persistentes no eran la causa. Se eliminaron solo artefactos reproducibles bajo `/opt/quantum/builds`, imagenes no usadas y cache sin referencias. Se conservaron los fuentes del build vigente, las imagenes activas y el rollback inmediato. Tras construir y desplegar `ADM-05-a`, retirar dos checkouts de prueba, el store local de pnpm y cache reproducible, quedaron 14 GiB usados y 34 GiB libres, 29 % de uso, con siete contenedores saludables. `.dockerignore` excluye ahora `.pnpm-store` para que no vuelva a inflar el contexto de imagen. No se tocaron bases, volumenes persistentes, secretos ni respaldos.
 
 ## Plataforma administrativa desplegada
 
-| Servicio    | Imagen o estado inmutable                         | Estado verificado |
-| ----------- | ------------------------------------------------- | ----------------- |
-| Caddy       | `qcrm-edge/caddy@sha256:e9c93188...66448`         | `healthy`         |
-| `admin-web` | `qcrm-platform/admin-web@sha256:abc03081...5590e` | `healthy`         |
-| `admin-api` | `qcrm-platform/admin-api@sha256:4685dfaf...39517` | `healthy`         |
-| `deploy-executor` | `qcrm-platform/deploy-executor@sha256:343c6d73...74651` | `healthy` |
-| Keycloak    | persistente, realm `quantum-platform`             | `healthy`         |
-| PostgreSQL  | persistente, base y roles de plataforma           | `healthy`         |
-| Redis       | persistente, ACL exclusiva de sesiones            | `healthy`         |
+| Servicio          | Imagen o estado inmutable                               | Estado verificado |
+| ----------------- | ------------------------------------------------------- | ----------------- |
+| Caddy             | `qcrm-edge/caddy@sha256:e9c93188...66448`               | `healthy`         |
+| `admin-web`       | `qcrm-platform/admin-web@sha256:abc03081...5590e`       | `healthy`         |
+| `admin-api`       | `qcrm-platform/admin-api@sha256:50849758...d60e4`       | `healthy`         |
+| `deploy-executor` | `qcrm-platform/deploy-executor@sha256:343c6d73...74651` | `healthy`         |
+| Keycloak          | persistente, realm `quantum-platform`                   | `healthy`         |
+| PostgreSQL        | persistente, base y roles de plataforma                 | `healthy`         |
+| Redis             | persistente, ACL exclusiva de sesiones                  | `healthy`         |
 
 Las redes `platform-database`, `platform-session`, `platform-internal` y `platform-oidc` son internas. La ultima contiene solo Caddy y `admin-api` y permite resolver el JWKS HTTPS del issuer exacto sin habilitar salida general a Internet. El operador inicial queda en estado de entrega y debe definir su propia contrasena y TOTP; el secreto inicial permanece fuera de Git con modo `0400`, y las cuentas administrativas temporales de Keycloak fueron retiradas.
 
@@ -99,6 +99,8 @@ Ese mismo dia, `ADM-02-c` actualizo exclusivamente `admin-web` desde el build pe
 `ADM-04-a` aplico la migracion aditiva `20260920220000_adm_04_create_provisioning_operations` y actualizo exclusivamente `admin-api` desde el build persistente `c8da78d9a13aa37c879018230e5d3d0665a587d8`. El endpoint interno registra una operacion durable con actor, correlacion, servidor, release, control optimista e idempotencia; no ejecuta Docker ni acepta comandos libres. PostgreSQL 18 desechable aprobo las tres migraciones desde cero y 6/6 pruebas de integracion antes del despliegue. El archivo `platform.env.before-adm04a-c8da78d` conserva el digest anterior; los otros cinco servicios no se recrearon y la ruta nueva nego una solicitud anonima con `401`.
 
 `ADM-04-b` aplico `20260920233000_adm_04_add_provisioning_leases` y desplego `admin-api` y `deploy-executor` desde el commit `69e6c694657893d722e585796d2eb384e40caa71`. Dos reclamos concurrentes sobre PostgreSQL desechable devolvieron una sola operacion; tambien aprobaron renovacion con fencing y recuperacion del lease vencido. El ejecutor usa la URL runtime de plataforma montada como archivo, su readiness depende de PostgreSQL, no recibe el socket Docker y aun no reclama automaticamente ni ejecuta efectos de host. Los respaldos `platform.env.before-adm04b-69e6c69` y `platform.env.before-adm04b-api-69e6c69` conservan las configuraciones previas correspondientes.
+
+`ADM-05-a` aplico `20260921010000_adm_05_create_infrastructure_servers` y desplego `admin-api` desde el commit `593077e86d8b0b88347c5cc8a09a782ab84f8708`. El registro `staging-primary` conserva la IPv4 `2.25.172.119`, Hostinger, Ubuntu 26.04.1 LTS, `x86_64`, 1000 millicores, 3910 MiB de RAM y 48 484 MiB de almacenamiento; la referencia de acceso se reduce a un indicador booleano en la API. La region contractual continua sin confirmar. El servidor queda deliberadamente `UNAVAILABLE`, con reserva cero, hasta medir el consumo base y enlazar reservas por perfil: la capacidad fisica calculada no autoriza aun un alta. El respaldo `platform.env.before-adm05a-593077e` conserva el digest anterior de aplicacion.
 
 ## Builds y smoke aislados
 

@@ -4,6 +4,8 @@
 .env.*
 !.env.example
 **/node_modules
+.pnpm-store
+**/.pnpm-store
 **/dist
 **/.next
 **/generated

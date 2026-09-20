@@ -65,12 +65,12 @@ El administrador registra servidores confirmados con identidad, ubicacion, plata
 
 ## Plan de implementacion
 
-- [ ] Modelar servidor, capacidad e invariantes en dominio y contratos.
-- [ ] Crear migracion, modelo Prisma y privilegios del runtime.
-- [ ] Implementar repositorio, servicio y API protegida con ETag.
-- [ ] Cubrir normalizacion, secretos, conflictos, permisos y persistencia real.
-- [ ] Verificar, migrar y desplegar por digest en el VPS.
-- [ ] Registrar el VPS observado y documentar evidencia sin cerrar `ADM-05`.
+- [x] Modelar servidor, capacidad e invariantes en dominio y contratos.
+- [x] Crear migracion, modelo Prisma y privilegios del runtime.
+- [x] Implementar repositorio, servicio y API protegida con ETag.
+- [x] Cubrir normalizacion, secretos, conflictos, permisos y persistencia real.
+- [x] Verificar, migrar y desplegar por digest en el VPS.
+- [x] Registrar el VPS observado y documentar evidencia sin cerrar `ADM-05`.
 
 ## Riesgos y mitigaciones
 
@@ -84,12 +84,12 @@ El administrador registra servidores confirmados con identidad, ubicacion, plata
 
 ## Criterios de aceptacion
 
-- [ ] Un operador autorizado registra y consulta un servidor confirmado.
-- [ ] La capacidad disponible nunca es negativa y se deriva de total menos reservado.
-- [ ] Arquitectura, estado e IP se validan y normalizan.
-- [ ] La API nunca devuelve la referencia ni el secreto de operacion.
-- [ ] Una actualizacion obsoleta devuelve precondicion fallida.
-- [ ] El VPS de staging queda registrado con datos observados, no estimados.
+- [x] Un operador autorizado registra y consulta un servidor confirmado.
+- [x] La capacidad disponible nunca es negativa y se deriva de total menos reservado.
+- [x] Arquitectura, estado e IP se validan y normalizan.
+- [x] La API nunca devuelve la referencia ni el secreto de operacion.
+- [x] Una actualizacion obsoleta devuelve precondicion fallida.
+- [x] El VPS de staging queda registrado con datos observados, no estimados.
 
 ## Plan de verificacion
 
@@ -109,8 +109,8 @@ El administrador registra servidores confirmados con identidad, ubicacion, plata
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: commits `36d861f0eaf77a652a7cbbe716a95833289f8dd4` y `593077e86d8b0b88347c5cc8a09a782ab84f8708`; dominio en `packages/platform-domain/src/infrastructure/`, contratos en `packages/contracts/src/infrastructure/`, adaptador en `packages/database`, API en `apps/admin-api/src/infrastructure-servers.controller.ts` y migracion `20260921010000_adm_05_create_infrastructure_servers`.
+- Comandos y resultados: CI limpia en Node.js 24 aprobo formato, lint, tipos, 41 pruebas de configuracion, 190 pruebas generales, 20 de arquitectura y los 17 builds. PostgreSQL 18 desechable aplico las cinco migraciones desde cero y aprobo 10/10 pruebas de perfiles e infraestructura. Staging aplico la migracion y dejo `admin-api` saludable con `qcrm-platform/admin-api@sha256:508497585c257c0b5ea15dbf32ae56d91715a63d11fe6c0d5971b98f493d60e4`; readiness devolvio `200` y la ruta anonima de servidores `401`.
+- Documentacion actualizada: esta ficha, `docs/02-plan/trabajo.md`, `docs/04-proceso/estado.md`, `docs/03-operaciones/inventario-vps.md` y `.dockerignore` para excluir el store reproducible de pnpm.
+- Desviaciones del plan: el registro inicial se creo mediante el servicio y repositorio de produccion dentro del contenedor, porque no se automatizo una sesion humana; la prueba HTTP demuestra los permisos. La region contractual sigue sin confirmar y se registra como `unconfirmed`. El servidor queda `UNAVAILABLE` y con reserva cero hasta medir la plataforma: la capacidad fisica visible no autoriza admisiones.
+- Pendientes o decisiones nuevas: `ADM-05-b` debe relacionar perfiles y slots con recursos, reservar capacidad atomicamente y enlazar la admision de `ADM-04`; `ADM-09` debe aportar requisitos de release. No se agrega aun FK sobre `serverId` historicos.

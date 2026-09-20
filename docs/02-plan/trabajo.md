@@ -42,7 +42,6 @@ Este orden establece dependencias, no plazos. Las integraciones entre secciones 
 - [ ] Integraciones concretas: se deben seleccionar los canales, calendarios externos y pasarelas que se conectarán. El plan conserva esas capacidades sin dar por contratado un proveedor.
 - [ ] Facturación fiscal: la emisión fiscal por país no está detallada en el adjunto; su proveedor y requisitos deberán definirse antes de presentarla como facturación electrónica habilitada.
 
-
 - [ ] Administración central: cada perfil representa una empresa con su entorno y base de datos; el administrador de Quantum gestiona el conjunto de clientes y no se confunde con los usuarios administradores de cada CRM.
 - [ ] Operación técnica: el diseño de contenedores, cambios locales, CI/CD, actualizaciones, VPS y HTTPS temporal con nip.io se desarrolla en `Quantum_CRM_DevOps_Despliegues.md`.
 
@@ -79,10 +78,10 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
   - [ ] Permitir reanudar un alta fallida sin duplicar bases, contenedores o usuarios.
 
 - [ ] **ADM-05 — Registrar los VPS y la ubicación de cada perfil.**
-  - [ ] Guardar IP pública, proveedor, sistema operativo, arquitectura, CPU, RAM y almacenamiento una vez confirmados.
+  - [x] Guardar IP pública, proveedor, sistema operativo, arquitectura, CPU, RAM y almacenamiento una vez confirmados.
   - [ ] Relacionar cada cliente con su servidor y recursos desplegados.
   - [ ] Consultar capacidad disponible antes de admitir un nuevo perfil o una segunda versión temporal.
-  - [ ] Guardar referencias a credenciales de operación, sin mostrar claves privadas o contraseñas en la ficha.
+  - [x] Guardar referencias a credenciales de operación, sin mostrar claves privadas o contraseñas en la ficha.
 
 - [ ] **ADM-06 — Consultar la versión instalada y el estado real del despliegue.**
   - [ ] Mostrar versión deseada, versión observada, digest de imágenes y revisión de configuración.
@@ -393,7 +392,6 @@ Dependencias: usuarios, permisos y configuración. Conectar las herramientas esp
   - [ ] Interrumpir por aprobacion y por toma humana, reiniciar el runtime y verificar reanudacion o cancelacion desde estado durable.
   - [ ] Ejecutar evaluaciones de respuesta, tool selection, argumentos, trayectoria, escalamiento, prompt injection, exfiltracion, memoria contaminada y loops.
   - [ ] Probar version compatible e incompatible de thread y demostrar que ninguna reanuda silenciosamente un checkpoint no admitido.
-
 
 ## Contactos
 
