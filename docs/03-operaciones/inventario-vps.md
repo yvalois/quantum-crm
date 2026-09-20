@@ -3,7 +3,7 @@
 > Este archivo contiene solo metadatos operativos no secretos. Contraseñas, claves privadas y valores de credenciales no se guardan en el repositorio.
 
 - Requisito propietario: `OPS-02`
-- Ultima comprobacion: 2026-09-19
+- Ultima comprobacion: 2026-09-20
 - Estado: acceso operativo SSH por clave endurecido; inventario y dimensionamiento en curso
 
 ## Identidad y acceso
@@ -54,7 +54,7 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 | Cgroups              | v2                                 |
 | Docker root          | `/var/lib/docker`                  |
 | Contenedores activos | 6 persistentes y saludables        |
-| Imagenes presentes   | 24; 6 usadas por servicios activos |
+| Imagenes presentes   | 14; 6 usadas por servicios activos |
 
 ## Servicios y puertos existentes
 
@@ -72,7 +72,9 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 | Actualizaciones automaticas       | `unattended-upgrades` activo y habilitado      | Mantener y observar reinicios o actualizaciones pendientes                            |
 | Herramientas de backup            | `restic`, `borg` y `rclone` ausentes           | Elegir destino y herramienta antes de datos reales                                    |
 
-Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME. Tras el build de `ADM-02-c` y depurar exclusivamente dependencias reproducibles y cache no usada quedaron aproximadamente 11 GiB libres (79 % de uso); las imagenes activas y los volumenes persistentes no se tocaron.
+Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME.
+
+El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el consumo a checkouts de build con `node_modules`, `.next` y `dist`, imagenes historicas e intermedias y cache de Docker; los volumenes persistentes ocupaban aproximadamente 122 MB y no eran la causa. Se eliminaron solo artefactos reproducibles bajo `/opt/quantum/builds`, imagenes no usadas y cache sin referencias. Se conservaron los fuentes de cada build, las seis imagenes activas, el rollback inmediato de `admin-web` y `admin-api`, y el migrador mas reciente. El resultado fue 8.7 GiB usados y 39 GiB libres, 19 % de uso, con los seis contenedores saludables. No se tocaron bases, volumenes, secretos ni respaldos.
 
 ## Plataforma administrativa desplegada
 
@@ -106,7 +108,7 @@ La validacion del 2026-09-19 uso el commit `e2389a81e71eaf054a3e00bac72832061615
 | Memoria ociosa observada    | 39.05 MiB                                                                 | 49.85 MiB                                                                 |
 | CPU durante la muestra      | 0.00 %                                                                    | 0.00 %                                                                    |
 
-Ambos contenedores se ejecutaron con raiz de solo lectura, `cap_drop: ALL`, `no-new-privileges` y un `tmpfs` acotado en `/tmp`. Las cuatro rutas live/ready respondieron correctamente. Los contenedores temporales fueron eliminados despues de la prueba; las imagenes permanecen como evidencia local. Nginx siguio activo y el disco quedo con aproximadamente 42 GiB disponibles.
+Ambos contenedores se ejecutaron con raiz de solo lectura, `cap_drop: ALL`, `no-new-privileges` y un `tmpfs` acotado en `/tmp`. Las cuatro rutas live/ready respondieron correctamente. Los contenedores temporales se eliminaron despues de la prueba. Las imagenes de esa validacion se conservaron inicialmente y fueron retiradas durante la limpieza segura del 2026-09-20 porque ya no estaban en uso; la evidencia inmutable permanece en esta tabla y en el commit indicado. Nginx siguio activo durante la prueba.
 
 La medicion es una muestra en reposo de dos procesos, no un dimensionamiento del sistema completo. Aun faltan PostgreSQL, Redis, identidad, archivos, scan, workers, observabilidad, carga concurrente y margen de despliegue.
 

@@ -56,6 +56,7 @@ Inventariar el VPS real, establecer acceso SSH reutilizable sin guardar contrase
 - Muestra en reposo: 39.05 MiB para `crm-web` y 49.85 MiB para `api`; no representa la capacidad total del MVP.
 - Prueba de arquitectura: 5 de 5 casos aprobados, incluido build de dependencias workspace y estructura standalone.
 - Limpieza: los dos contenedores temporales se eliminaron; Nginx permanecio activo y 80/443 no se modificaron.
+- Capacidad recuperada: el 2026-09-20 se confirmo que el 79 % de uso provenia de artefactos reproducibles de builds e imagenes Docker no usadas, no de datos persistentes. Tras retirar solo esos artefactos quedaron 39 GiB libres y 19 % de uso; los seis servicios siguieron saludables y no se tocaron volumenes, bases, secretos ni respaldos.
 - Desviaciones resueltas: los builds iniciales detectaron dependencias workspace sin construir y estructura standalone aplanada; se corrigieron en `4d0fa22` y `e2389a8` antes del smoke aprobado.
 - Red observada: Hostinger por RDAP de RIPE, IPv4 `2.25.172.119` e IPv6 `2a02:4780:75:82b9::1/48`.
 - Pendiente: plan y firewall del proveedor, respaldo externo y dimensionamiento integrado de la plataforma.
