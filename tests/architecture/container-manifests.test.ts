@@ -24,9 +24,13 @@ describe("container manifests", () => {
   });
 
   it("builds workspace dependencies before each application image", () => {
-    expect(read("infra/docker/Dockerfile.web")).toContain(
+    const webDockerfile = read("infra/docker/Dockerfile.web");
+
+    expect(webDockerfile).toContain(
       'pnpm --filter "@quantum-crm/${APP}..." build',
     );
+    expect(webDockerfile).toContain("/.next/standalone ./");
+    expect(webDockerfile).toContain('ln -s "apps/${APP}" runtime');
     expect(read("infra/docker/Dockerfile.node")).toContain(
       'pnpm --filter "@quantum-crm/${APP}..." build',
     );

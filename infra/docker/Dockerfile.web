@@ -21,9 +21,9 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 WORKDIR /app
-COPY --from=build --chown=node:node /workspace/apps/${APP}/.next/standalone/node_modules ./node_modules
-COPY --from=build --chown=node:node /workspace/apps/${APP}/.next/standalone/apps/${APP} ./runtime
-COPY --from=build --chown=node:node /workspace/apps/${APP}/.next/static ./runtime/.next/static
+COPY --from=build --chown=node:node /workspace/apps/${APP}/.next/standalone ./
+COPY --from=build --chown=node:node /workspace/apps/${APP}/.next/static ./apps/${APP}/.next/static
+RUN ln -s "apps/${APP}" runtime
 USER node
 EXPOSE 3000
 CMD ["node", "runtime/server.js"]
