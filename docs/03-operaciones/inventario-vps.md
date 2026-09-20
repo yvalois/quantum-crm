@@ -72,7 +72,7 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 | Actualizaciones automaticas       | `unattended-upgrades` activo y habilitado      | Mantener y observar reinicios o actualizaciones pendientes                            |
 | Herramientas de backup            | `restic`, `borg` y `rclone` ausentes           | Elegir destino y herramienta antes de datos reales                                    |
 
-Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME. Tras depurar exclusivamente cache de build no usada quedaron aproximadamente 14 GiB libres (73 % de uso); las imagenes activas y los volumenes persistentes no se tocaron.
+Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME. Tras el build de `ADM-02-c` y depurar exclusivamente dependencias reproducibles y cache no usada quedaron aproximadamente 11 GiB libres (79 % de uso); las imagenes activas y los volumenes persistentes no se tocaron.
 
 ## Plataforma administrativa desplegada
 
