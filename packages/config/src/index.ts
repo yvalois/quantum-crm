@@ -1,1 +1,7 @@
-export const packageIdentity = "@quantum-crm/config" as const;
+export {
+  ConfigurationError,
+  loadProcessConfig,
+  parseProcessConfig,
+  type ProcessConfig,
+  type ProcessDefinition,
+} from "./process-config.js";

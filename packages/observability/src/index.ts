@@ -1,1 +1,6 @@
-export const packageIdentity = "@quantum-crm/observability" as const;
+export {
+  createInternalHealthServer,
+  type HealthServer,
+  type HealthServerOptions,
+} from "./health-server.js";
+export { registerGracefulShutdown, type ShutdownTarget } from "./shutdown.js";

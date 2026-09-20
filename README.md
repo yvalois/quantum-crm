@@ -41,4 +41,21 @@ pnpm test:architecture
 pnpm build
 ```
 
-Los directorios `apps/` y `packages/` contienen por ahora esqueletos compilables. Su existencia no acredita ninguna funcion `ADM`, `USR`, `CFG` ni comercial.
+## Procesos disponibles
+
+El bootstrap actual contiene ocho procesos ejecutables. Sus rutas de health solo acreditan que el proceso esta vivo y listo para recibir trabajo tecnico; no demuestran funciones comerciales.
+
+| Proceso           |       Puerto predeterminado | Health                                  |
+| ----------------- | --------------------------: | --------------------------------------- |
+| `crm-web`         | definido al iniciar Next.js | `/api/health/live`, `/api/health/ready` |
+| `portal-web`      | definido al iniciar Next.js | `/api/health/live`, `/api/health/ready` |
+| `admin-web`       | definido al iniciar Next.js | `/api/health/live`, `/api/health/ready` |
+| `api`             |                      `3001` | `/health/live`, `/health/ready`         |
+| `admin-api`       |                      `3002` | `/health/live`, `/health/ready`         |
+| `worker`          |                      `3101` | `/health/live`, `/health/ready`         |
+| `deploy-executor` |                      `3102` | `/health/live`, `/health/ready`         |
+| `agent-runtime`   |                      `3103` | `/health/live`, `/health/ready`         |
+
+Los procesos Node validan `QCRM_HOST` y `QCRM_PORT` antes de declarar readiness. Los servicios internos usan `127.0.0.1` de forma predeterminada y las APIs usan `0.0.0.0` para permitir su futura conexion mediante la red privada de despliegue.
+
+Todavia no hay funcionalidades `ADM`, `USR`, `CFG` ni comerciales implementadas. LangGraph, `/agent/v1`, bases de datos, Redis y servicios externos tampoco forman parte de este incremento.

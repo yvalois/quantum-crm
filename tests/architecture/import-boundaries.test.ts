@@ -11,7 +11,7 @@ function collectTypeScriptFiles(directory: string): string[] {
     const path = join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      return entry.name === "dist" || entry.name === "node_modules"
+      return [".next", "dist", "node_modules"].includes(entry.name)
         ? []
         : collectTypeScriptFiles(path);
     }
@@ -53,6 +53,31 @@ describe("architectural import boundaries", () => {
         if (imported.includes("/src/") || imported.startsWith("../../packages/")) {
           violations.push(`${path} -> ${imported}`);
         }
+
+        if (
+          path.startsWith("packages/contracts/") &&
+          /@quantum-crm\/(?:database|domain|platform-domain)|apps\//.test(imported)
+        ) {
+          violations.push(`${path} -> ${imported}`);
+        }
+
+        if (
+          path.startsWith("apps/agent-runtime/") &&
+          /@quantum-crm\/(?:database|domain|platform-domain)|@nestjs|prisma|redis|bullmq/.test(
+            imported,
+          )
+        ) {
+          violations.push(`${path} -> ${imported}`);
+        }
+
+        if (path.startsWith("apps/api/") && /@quantum-crm\/platform-domain/.test(imported)) {
+          violations.push(`${path} -> ${imported}`);
+        }
+      }
+
+      const source = readFileSync(file, "utf8");
+      if (!path.startsWith("packages/config/") && source.includes("process.env")) {
+        violations.push(`${path} -> process.env`);
       }
     }
 

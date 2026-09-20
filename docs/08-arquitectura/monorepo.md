@@ -1,6 +1,6 @@
 # Especificacion del monorepo
 
-Esta es la estructura objetivo para implementar el stack aprobado. Actualmente describe trabajo futuro; no acredita que las carpetas o aplicaciones existan.
+Esta es la estructura objetivo para implementar el stack aprobado. La fundacion y los procesos se construyen por rebanadas registradas en `docs/04-proceso/estado.md`; la existencia de una carpeta, ruta de health o composition root no acredita una funcionalidad de producto.
 
 ## Principios
 
