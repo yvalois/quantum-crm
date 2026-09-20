@@ -70,6 +70,12 @@ importers:
 
   apps/admin-web:
     dependencies:
+      "@quantum-crm/auth":
+        specifier: workspace:*
+        version: link:../../packages/auth
+      "@quantum-crm/config":
+        specifier: workspace:*
+        version: link:../../packages/config
       "@quantum-crm/contracts":
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -223,6 +229,15 @@ importers:
       jose:
         specifier: 6.2.12
         version: 6.2.12
+      openid-client:
+        specifier: 6.8.8
+        version: 6.8.8
+      redis:
+        specifier: 6.2.1
+        version: 6.2.1
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/config:
     dependencies:
@@ -1016,6 +1031,57 @@ packages:
       "@types/react":
         optional: true
 
+  "@redis/bloom@6.2.1":
+    resolution:
+      {
+        integrity: sha512-huQgNLaCIZfQ9SeLn4q9124uOUd8HbZDYHwwUzNcRgHqCHiHKl2dDxMqJCeWh8cMqZAoWuHR8XnWbDMIf+o7ag==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@redis/client": ^6.2.1
+
+  "@redis/client@6.2.1":
+    resolution:
+      {
+        integrity: sha512-LzxBY7SIBvvJiyCgcaJZZakE3fJrZZ++i24+EDW9fKpCl68D35uJcKFpZZwCfOoG9WZTbyZlMzMeM0gtOAMU9Q==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@node-rs/xxhash": ^1.1.0
+      "@opentelemetry/api": ">=1 <2"
+    peerDependenciesMeta:
+      "@node-rs/xxhash":
+        optional: true
+      "@opentelemetry/api":
+        optional: true
+
+  "@redis/json@6.2.1":
+    resolution:
+      {
+        integrity: sha512-AFIUJ8Gj0DaaSBHYuSt8+O0oYWM+50OK1c0OmodB7XERIA8+BbyV3O4v76f9iccWasd1/7qjfZTpuzexUaZtrQ==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@redis/client": ^6.2.1
+
+  "@redis/search@6.2.1":
+    resolution:
+      {
+        integrity: sha512-2vfOAOyYFE7UUw3sBBlkqqruBtOUS4HRY5MtW4hp83llrwvtrTE4r22CEqXddlV+54zkLxBE4nmsIJ/dpezQrQ==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@redis/client": ^6.2.1
+
+  "@redis/time-series@6.2.1":
+    resolution:
+      {
+        integrity: sha512-kiYniph04dJOole+L359B6C9E+jYS2uDP7hca6Onj0xF38ZIpyxARO0Iq0W4ZRn1e8Q6vqW00QFZVSMRA/2Ijw==,
+      }
+    engines: { node: ">= 20.0.0" }
+    peerDependencies:
+      "@redis/client": ^6.2.1
+
   "@rolldown/binding-android-arm-eabi@1.2.9":
     resolution:
       {
@@ -1659,6 +1725,13 @@ packages:
       {
         integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==,
       }
+
+  cluster-key-slot@1.1.2:
+    resolution:
+      {
+        integrity: sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA==,
+      }
+    engines: { node: ">=0.10.0" }
 
   concat-stream@2.0.0:
     resolution:
@@ -2741,6 +2814,12 @@ packages:
       sass:
         optional: true
 
+  oauth4webapi@3.8.8:
+    resolution:
+      {
+        integrity: sha512-8N28E+a/oxfXWBgOMt+ZP/JUf/XR+IFbvkAEPP3gznXOMv9BpAAwiIj0TFNz3tGTPc0ZQ8zmWBNgN1nAys0gng==,
+      }
+
   object-assign@4.1.1:
     resolution:
       {
@@ -2779,6 +2858,12 @@ packages:
     resolution:
       {
         integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==,
+      }
+
+  openid-client@6.8.8:
+    resolution:
+      {
+        integrity: sha512-ZsucJA5Ad04Uv7YN4ql+s4GXNmb9uAYQwyJTsJx7CH/MX3JZioLE2pVKi1SC+YrbSLA4Px3Gi30dMjgOZtb6pA==,
       }
 
   optionator@0.9.4:
@@ -3093,6 +3178,13 @@ packages:
         integrity: sha512-Kko+Y5XQ6fM+Ce3dq3m9YGxnacYZYl9cA1wZjaF3Vbry2L3i1qVg8+CAgNPsXRArPMUMCaOR7oa9Nqntc43JKA==,
       }
     engines: { node: ">= 20.19.0" }
+
+  redis@6.2.1:
+    resolution:
+      {
+        integrity: sha512-Z9VHtgYs48PiQC77X9O2Er8Hj4T+5BtFjT91/vi5Is1D04N72cA946ZslM1ImJw8ZctFBZWAVjM7S5wJNeHMpg==,
+      }
+    engines: { node: ">= 20.0.0" }
 
   reflect-metadata@0.2.2:
     resolution:
@@ -4084,6 +4176,26 @@ snapshots:
     optionalDependencies:
       "@types/react": 19.3.0
 
+  "@redis/bloom@6.2.1(@redis/client@6.2.1)":
+    dependencies:
+      "@redis/client": 6.2.1
+
+  "@redis/client@6.2.1":
+    dependencies:
+      cluster-key-slot: 1.1.2
+
+  "@redis/json@6.2.1(@redis/client@6.2.1)":
+    dependencies:
+      "@redis/client": 6.2.1
+
+  "@redis/search@6.2.1(@redis/client@6.2.1)":
+    dependencies:
+      "@redis/client": 6.2.1
+
+  "@redis/time-series@6.2.1(@redis/client@6.2.1)":
+    dependencies:
+      "@redis/client": 6.2.1
+
   "@rolldown/binding-android-arm-eabi@1.2.9":
     optional: true
 
@@ -4497,6 +4609,8 @@ snapshots:
   classnames@2.5.1: {}
 
   client-only@0.0.1: {}
+
+  cluster-key-slot@1.1.2: {}
 
   concat-stream@2.0.0:
     dependencies:
@@ -5085,6 +5199,8 @@ snapshots:
       - "@types/node"
       - babel-plugin-macros
 
+  oauth4webapi@3.8.8: {}
+
   object-assign@4.1.1: {}
 
   object-inspect@1.13.4: {}
@@ -5100,6 +5216,11 @@ snapshots:
   once@1.4.0:
     dependencies:
       wrappy: 1.0.2
+
+  openid-client@6.8.8:
+    dependencies:
+      jose: 6.2.12
+      oauth4webapi: 3.8.8
 
   optionator@0.9.4:
     dependencies:
@@ -5274,6 +5395,17 @@ snapshots:
       util-deprecate: 1.0.2
 
   readdirp@5.1.1: {}
+
+  redis@6.2.1:
+    dependencies:
+      "@redis/bloom": 6.2.1(@redis/client@6.2.1)
+      "@redis/client": 6.2.1
+      "@redis/json": 6.2.1(@redis/client@6.2.1)
+      "@redis/search": 6.2.1(@redis/client@6.2.1)
+      "@redis/time-series": 6.2.1(@redis/client@6.2.1)
+    transitivePeerDependencies:
+      - "@node-rs/xxhash"
+      - "@opentelemetry/api"
 
   reflect-metadata@0.2.2: {}
 

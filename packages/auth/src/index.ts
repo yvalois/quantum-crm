@@ -19,4 +19,31 @@ export {
 
 export const OIDC_ACCESS_TOKEN_VERIFIER = Symbol("OIDC_ACCESS_TOKEN_VERIFIER");
 
+export {
+  KeycloakPlatformOidcProvider,
+  PlatformWebAuthenticationError,
+  PlatformWebAuthService,
+  type PlatformLoginCompletion,
+  type PlatformLoginStart,
+  type PlatformOidcProvider,
+  type PlatformOidcTokenSet,
+} from "./platform-web-auth.js";
+export {
+  newCsrfToken,
+  newOpaqueHandle,
+  PlatformSessionError,
+  safeReturnTo,
+  sessionKey,
+  validateCsrf,
+  validateRequestOrigin,
+  type PlatformLoginTransaction,
+  type PlatformSessionStore,
+  type PlatformWebSession,
+} from "./platform-web-session.js";
+export {
+  createRedisPlatformSessionStore,
+  RedisPlatformSessionStore,
+  type PlatformSessionRedisClient,
+} from "./redis-platform-session-store.js";
+
 export const packageIdentity = "@quantum-crm/auth" as const;

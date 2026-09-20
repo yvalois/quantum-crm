@@ -1,4 +1,11 @@
 export {
+  adminWebOidcClientSecretPath,
+  adminWebSessionRedisUrlPath,
+  loadAdminWebAuthConfig,
+  parseAdminWebAuthConfig,
+  type AdminWebAuthConfig,
+} from "./admin-web-auth-config.js";
+export {
   loadProcessConfig,
   loadServiceConfig,
   parseProcessConfig,

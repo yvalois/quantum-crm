@@ -25,6 +25,17 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: "3000"
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
+      QCRM_ADMIN_WEB_ORIGIN: "${QCRM_ADMIN_WEB_ORIGIN:?set QCRM_ADMIN_WEB_ORIGIN}"
+      QCRM_OIDC_ISSUER: "${QCRM_PLATFORM_OIDC_ISSUER:?set QCRM_PLATFORM_OIDC_ISSUER}"
+      QCRM_OIDC_CLIENT_ID: "${QCRM_ADMIN_WEB_OIDC_CLIENT_ID:-quantum-admin-web}"
+      QCRM_OIDC_CLIENT_SECRET_FILE: /run/secrets/qcrm_oidc_client_secret
+      QCRM_SESSION_REDIS_URL_FILE: /run/secrets/qcrm_session_redis_url
+    secrets:
+      - source: admin-web-oidc-client-secret
+        target: qcrm_oidc_client_secret
+      - source: admin-web-session-redis-url
+        target: qcrm_session_redis_url
     healthcheck:
       test:
         [
@@ -37,7 +48,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [platform-edge]
+    networks: [platform-edge, platform-internal]
 
   admin-api:
     <<: *service-defaults
@@ -99,5 +110,9 @@ networks:
     internal: true
 
 secrets:
+  admin-web-oidc-client-secret:
+    file: "${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE:?set QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE}"
+  admin-web-session-redis-url:
+    file: "${QCRM_ADMIN_WEB_SESSION_REDIS_URL_FILE:?set QCRM_ADMIN_WEB_SESSION_REDIS_URL_FILE}"
   platform-database-url:
     file: "${QCRM_PLATFORM_DATABASE_URL_SECRET_FILE:?set QCRM_PLATFORM_DATABASE_URL_SECRET_FILE}"

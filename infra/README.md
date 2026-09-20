@@ -38,6 +38,12 @@ La definicion importable inicial vive en `infra/keycloak/quantum-platform-realm.
 
 `bash infra/keycloak/validate-realm.sh` ejecuta la prueba repetible solo en el VPS autorizado. Arranca un Keycloak 26.7.4 desechable por digest, importa el realm con datos sinteticos, inspecciona discovery, JWKS, cliente, grants, PKCE, mappers y flujo OTP mediante la Admin API y elimina el contenedor y sus datos al terminar. No instala ni modifica la identidad persistente.
 
+## Sesion administrativa
+
+`admin-web` usa un cliente OIDC confidencial y conserva transacciones y sesiones opacas en Redis. Recibe el client secret y la URL de Redis mediante los archivos exactos `/run/secrets/qcrm_oidc_client_secret` y `/run/secrets/qcrm_session_redis_url`; ningun token OIDC se entrega al navegador. La plantilla no instala un Redis persistente: su aprovisionamiento, aislamiento y respaldo pertenecen al despliegue de plataforma.
+
+`bash infra/redis/validate-platform-session.sh` se ejecuta solo en el VPS autorizado. Crea una red interna y un Redis 8.2.1 desechable fijado por digest, monta una URL sintetica como archivo secreto, valida consumo unico, lectura, renovacion e invalidacion y elimina contenedor, red, secreto e imagen de prueba al terminar.
+
 ## Imagenes
 
 - `infra/docker/Dockerfile.web`: genera la salida standalone de una de las tres aplicaciones Next.js.

@@ -103,4 +103,20 @@ describe("container manifests", () => {
       expect(serviceBlock(platform, service)).not.toContain("QCRM_DATABASE_URL_FILE");
     }
   });
+
+  it("mounts platform web session secrets only in admin-web", () => {
+    const platform = read("infra/compose/platform.yaml");
+    const adminWeb = serviceBlock(platform, "admin-web");
+
+    expect(adminWeb).toContain(
+      "QCRM_OIDC_CLIENT_SECRET_FILE: /run/secrets/qcrm_oidc_client_secret",
+    );
+    expect(adminWeb).toContain("QCRM_SESSION_REDIS_URL_FILE: /run/secrets/qcrm_session_redis_url");
+    expect(adminWeb).toContain("source: admin-web-oidc-client-secret");
+    expect(adminWeb).toContain("source: admin-web-session-redis-url");
+    for (const service of ["admin-api", "deploy-executor"]) {
+      expect(serviceBlock(platform, service)).not.toContain("qcrm_oidc_client_secret");
+      expect(serviceBlock(platform, service)).not.toContain("qcrm_session_redis_url");
+    }
+  });
 });
