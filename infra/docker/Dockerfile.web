@@ -13,7 +13,7 @@ WORKDIR /workspace
 COPY . .
 RUN case "${APP}" in crm-web|portal-web|admin-web) ;; *) exit 64 ;; esac \
     && pnpm install --frozen-lockfile \
-    && pnpm --filter "@quantum-crm/${APP}" build
+    && pnpm --filter "@quantum-crm/${APP}..." build
 
 FROM ${NODE_IMAGE} AS runtime
 ARG APP

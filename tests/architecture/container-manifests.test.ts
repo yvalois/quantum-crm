@@ -23,6 +23,15 @@ describe("container manifests", () => {
     }
   });
 
+  it("builds workspace dependencies before each application image", () => {
+    expect(read("infra/docker/Dockerfile.web")).toContain(
+      'pnpm --filter "@quantum-crm/${APP}..." build',
+    );
+    expect(read("infra/docker/Dockerfile.node")).toContain(
+      'pnpm --filter "@quantum-crm/${APP}..." build',
+    );
+  });
+
   it("keeps secrets, dependencies and build outputs outside the context", () => {
     const ignore = read(".dockerignore");
 
