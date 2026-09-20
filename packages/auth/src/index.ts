@@ -26,6 +26,7 @@ export {
   type PlatformLoginCompletion,
   type PlatformLoginStart,
   type PlatformOidcProvider,
+  type PlatformOidcRefreshTokenSet,
   type PlatformOidcTokenSet,
 } from "./platform-web-auth.js";
 export {

@@ -71,6 +71,7 @@ describe("Redis platform session store", () => {
       {
         subject: "platform-operator",
         accessToken: new SecretValue("synthetic-access-token"),
+        accessTokenExpiresAt: new Date(now.getTime() + 60_000),
         refreshToken: new SecretValue("synthetic-refresh-token"),
         idToken: new SecretValue("synthetic-id-token"),
         csrfToken: newCsrfToken(),
@@ -90,5 +91,54 @@ describe("Redis platform session store", () => {
     expect(session?.accessToken.expose()).toBe("synthetic-access-token");
     await store.deleteSession(handle);
     await expect(store.readSession(handle, new Date(), 30)).resolves.toBeNull();
+  });
+
+  it("updates a session only while the caller owns its refresh lease", async () => {
+    const now = new Date();
+    const original = {
+      subject: "platform-operator",
+      accessToken: new SecretValue("original-access-token"),
+      accessTokenExpiresAt: new Date(now.getTime() + 10_000),
+      refreshToken: new SecretValue("original-refresh-token"),
+      idToken: new SecretValue("synthetic-id-token"),
+      csrfToken: newCsrfToken(),
+      authenticatedAt: now,
+      createdAt: now,
+      lastSeenAt: now,
+      absoluteExpiresAt: new Date(now.getTime() + 300_000),
+    };
+    const handle = await store.createSession(original, 30);
+    const lease = await store.acquireSessionRefresh(handle, 10);
+    expect(lease).not.toBeNull();
+    await expect(store.acquireSessionRefresh(handle, 10)).resolves.toBeNull();
+
+    await expect(
+      store.updateSession(
+        handle,
+        new SecretValue("x".repeat(43)),
+        { ...original, accessToken: new SecretValue("forged-access-token") },
+        30,
+      ),
+    ).rejects.toThrow();
+    await store.updateSession(
+      handle,
+      lease!,
+      { ...original, accessToken: new SecretValue("rotated-access-token") },
+      30,
+    );
+    await store.releaseSessionRefresh(handle, new SecretValue("x".repeat(43)));
+    await expect(store.acquireSessionRefresh(handle, 10)).resolves.toBeNull();
+    await store.releaseSessionRefresh(handle, lease!);
+    const invalidationLease = await store.acquireSessionRefresh(handle, 10);
+    expect(invalidationLease).not.toBeNull();
+    expect((await store.readSession(handle, now, 30))?.accessToken.expose()).toBe(
+      "rotated-access-token",
+    );
+    await store.invalidateSessionRefresh(handle, new SecretValue("x".repeat(43)));
+    await expect(store.readSession(handle, now, 30)).resolves.not.toBeNull();
+    await store.invalidateSessionRefresh(handle, invalidationLease!);
+    await expect(store.readSession(handle, now, 30)).resolves.toBeNull();
+    await store.releaseSessionRefresh(handle, invalidationLease!);
+    await store.deleteSession(handle);
   });
 });

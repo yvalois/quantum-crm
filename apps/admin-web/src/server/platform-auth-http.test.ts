@@ -45,6 +45,7 @@ function runtime(): PlatformAuthRuntime {
       session: vi.fn(async () => ({
         subject: "operator",
         accessToken: new SecretValue("server-only-access-token"),
+        accessTokenExpiresAt: new Date("2026-09-20T15:05:00.000Z"),
         refreshToken: new SecretValue("server-only-refresh-token"),
         idToken: new SecretValue("server-only-id-token"),
         csrfToken,

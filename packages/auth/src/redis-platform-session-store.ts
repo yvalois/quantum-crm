@@ -23,6 +23,7 @@ const loginSchema = z.object({
 const sessionSchema = z.object({
   subject: z.string().min(1).max(255),
   accessToken: z.string().min(1).max(16_384),
+  accessTokenExpiresAt: z.string().datetime(),
   refreshToken: z.string().min(1).max(16_384).optional(),
   idToken: z.string().min(1).max(16_384),
   csrfToken: z.string().length(43),
@@ -32,7 +33,24 @@ const sessionSchema = z.object({
   absoluteExpiresAt: z.string().datetime(),
 });
 
-export type PlatformSessionRedisClient = Pick<RedisClientType, "del" | "get" | "getDel" | "set">;
+export type PlatformSessionRedisClient = Pick<
+  RedisClientType,
+  "del" | "eval" | "get" | "getDel" | "set"
+>;
+
+const updateWithLeaseScript = `
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+local result = redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[3], 'XX')
+if result then return 1 else return 0 end
+`;
+const releaseLeaseScript = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
+return 0
+`;
+const invalidateWithLeaseScript = `
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+return redis.call('DEL', KEYS[2])
+`;
 
 function secondsUntil(date: Date, now: Date): number {
   return Math.max(0, Math.ceil((date.getTime() - now.getTime()) / 1_000));
@@ -107,6 +125,7 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
       const session = Object.freeze({
         subject: value.subject,
         accessToken: new SecretValue(value.accessToken),
+        accessTokenExpiresAt: new Date(value.accessTokenExpiresAt),
         ...(value.refreshToken ? { refreshToken: new SecretValue(value.refreshToken) } : {}),
         idToken: new SecretValue(value.idToken),
         csrfToken: value.csrfToken,
@@ -119,6 +138,62 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
       return session;
     } catch {
       await this.redis.del(key).catch(() => undefined);
+      throw new PlatformSessionError();
+    }
+  }
+
+  public async acquireSessionRefresh(
+    handle: SecretValue,
+    ttlSeconds: number,
+  ): Promise<SecretValue | null> {
+    try {
+      const lease = newOpaqueHandle();
+      const result = await this.redis.set(sessionKey("refresh", handle), lease.expose(), {
+        EX: ttlSeconds,
+        NX: true,
+      });
+      return result === "OK" ? lease : null;
+    } catch {
+      throw new PlatformSessionError();
+    }
+  }
+
+  public async updateSession(
+    handle: SecretValue,
+    lease: SecretValue,
+    session: PlatformWebSession,
+    idleTtlSeconds: number,
+  ): Promise<void> {
+    const ttl = this.sessionTtl(session, idleTtlSeconds);
+    try {
+      const result = await this.redis.eval(updateWithLeaseScript, {
+        keys: [sessionKey("refresh", handle), sessionKey("session", handle)],
+        arguments: [lease.expose(), this.serializeSession(session), String(ttl)],
+      });
+      if (result !== 1) throw new PlatformSessionError();
+    } catch {
+      throw new PlatformSessionError();
+    }
+  }
+
+  public async releaseSessionRefresh(handle: SecretValue, lease: SecretValue): Promise<void> {
+    try {
+      await this.redis.eval(releaseLeaseScript, {
+        keys: [sessionKey("refresh", handle)],
+        arguments: [lease.expose()],
+      });
+    } catch {
+      throw new PlatformSessionError();
+    }
+  }
+
+  public async invalidateSessionRefresh(handle: SecretValue, lease: SecretValue): Promise<void> {
+    try {
+      await this.redis.eval(invalidateWithLeaseScript, {
+        keys: [sessionKey("refresh", handle), sessionKey("session", handle)],
+        arguments: [lease.expose()],
+      });
+    } catch {
       throw new PlatformSessionError();
     }
   }
@@ -137,27 +212,37 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
     idleTtlSeconds: number,
     create: boolean,
   ): Promise<void> {
+    const ttl = this.sessionTtl(session, idleTtlSeconds);
+    const result = await this.redis.set(
+      sessionKey("session", handle),
+      this.serializeSession(session),
+      { EX: ttl, ...(create ? { NX: true as const } : { XX: true as const }) },
+    );
+    if (result !== "OK") throw new PlatformSessionError();
+  }
+
+  private sessionTtl(session: PlatformWebSession, idleTtlSeconds: number): number {
     const ttl = Math.min(
       idleTtlSeconds,
       secondsUntil(session.absoluteExpiresAt, session.lastSeenAt),
     );
     if (ttl < 1) throw new PlatformSessionError();
-    const result = await this.redis.set(
-      sessionKey("session", handle),
-      JSON.stringify({
-        subject: session.subject,
-        accessToken: session.accessToken.expose(),
-        ...(session.refreshToken ? { refreshToken: session.refreshToken.expose() } : {}),
-        idToken: session.idToken.expose(),
-        csrfToken: session.csrfToken,
-        authenticatedAt: session.authenticatedAt.toISOString(),
-        createdAt: session.createdAt.toISOString(),
-        lastSeenAt: session.lastSeenAt.toISOString(),
-        absoluteExpiresAt: session.absoluteExpiresAt.toISOString(),
-      }),
-      { EX: ttl, ...(create ? { NX: true as const } : { XX: true as const }) },
-    );
-    if (result !== "OK") throw new PlatformSessionError();
+    return ttl;
+  }
+
+  private serializeSession(session: PlatformWebSession): string {
+    return JSON.stringify({
+      subject: session.subject,
+      accessToken: session.accessToken.expose(),
+      accessTokenExpiresAt: session.accessTokenExpiresAt.toISOString(),
+      ...(session.refreshToken ? { refreshToken: session.refreshToken.expose() } : {}),
+      idToken: session.idToken.expose(),
+      csrfToken: session.csrfToken,
+      authenticatedAt: session.authenticatedAt.toISOString(),
+      createdAt: session.createdAt.toISOString(),
+      lastSeenAt: session.lastSeenAt.toISOString(),
+      absoluteExpiresAt: session.absoluteExpiresAt.toISOString(),
+    });
   }
 }
 

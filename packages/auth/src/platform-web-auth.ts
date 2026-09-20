@@ -10,6 +10,7 @@ import {
   randomNonce,
   randomPKCECodeVerifier,
   randomState,
+  refreshTokenGrant,
   tokenRevocation,
 } from "openid-client";
 
@@ -26,8 +27,16 @@ export interface PlatformOidcTokenSet {
   readonly acr: string;
   readonly authenticatedAt: Date;
   readonly accessToken: SecretValue;
+  readonly accessTokenExpiresAt: Date;
   readonly refreshToken?: SecretValue;
   readonly idToken: SecretValue;
+}
+
+export interface PlatformOidcRefreshTokenSet {
+  readonly accessToken: SecretValue;
+  readonly accessTokenExpiresAt: Date;
+  readonly refreshToken: SecretValue;
+  readonly idToken?: SecretValue;
 }
 
 export interface PlatformOidcProvider {
@@ -42,6 +51,7 @@ export interface PlatformOidcProvider {
     readonly nonce: string;
     readonly codeVerifier: SecretValue;
   }): Promise<PlatformOidcTokenSet>;
+  refresh(refreshToken: SecretValue): Promise<PlatformOidcRefreshTokenSet>;
   revokeRefreshToken(token: SecretValue): Promise<void>;
 }
 
@@ -142,7 +152,9 @@ export class KeycloakPlatformOidcProvider implements PlatformOidcProvider {
         typeof claims.auth_time !== "number" ||
         !Number.isInteger(claims.auth_time) ||
         typeof tokens.access_token !== "string" ||
-        typeof tokens.id_token !== "string"
+        typeof tokens.id_token !== "string" ||
+        typeof tokens.expiresIn() !== "number" ||
+        tokens.expiresIn()! < 1
       ) {
         throw new PlatformWebAuthenticationError();
       }
@@ -151,8 +163,32 @@ export class KeycloakPlatformOidcProvider implements PlatformOidcProvider {
         acr: claims.acr,
         authenticatedAt: new Date(claims.auth_time * 1_000),
         accessToken: new ProtectedValue(tokens.access_token),
+        accessTokenExpiresAt: new Date(Date.now() + tokens.expiresIn()! * 1_000),
         ...(tokens.refresh_token ? { refreshToken: new ProtectedValue(tokens.refresh_token) } : {}),
         idToken: new ProtectedValue(tokens.id_token),
+      });
+    } catch {
+      throw new PlatformWebAuthenticationError();
+    }
+  }
+
+  public async refresh(refreshToken: SecretValue): Promise<PlatformOidcRefreshTokenSet> {
+    try {
+      const tokens = await refreshTokenGrant(this.#configuration, refreshToken.expose());
+      const expiresIn = tokens.expiresIn();
+      if (
+        typeof tokens.access_token !== "string" ||
+        typeof tokens.refresh_token !== "string" ||
+        typeof expiresIn !== "number" ||
+        expiresIn < 1
+      ) {
+        throw new PlatformWebAuthenticationError();
+      }
+      return Object.freeze({
+        accessToken: new ProtectedValue(tokens.access_token),
+        accessTokenExpiresAt: new Date(Date.now() + expiresIn * 1_000),
+        refreshToken: new ProtectedValue(tokens.refresh_token),
+        ...(tokens.id_token ? { idToken: new ProtectedValue(tokens.id_token) } : {}),
       });
     } catch {
       throw new PlatformWebAuthenticationError();
@@ -223,6 +259,7 @@ export class PlatformWebAuthService {
         Object.freeze({
           subject: tokens.subject,
           accessToken: tokens.accessToken,
+          accessTokenExpiresAt: tokens.accessTokenExpiresAt,
           ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}),
           idToken: tokens.idToken,
           csrfToken: newCsrfToken(),
@@ -243,15 +280,55 @@ export class PlatformWebAuthService {
 
   public async session(handle: SecretValue): Promise<PlatformWebSession | null> {
     try {
-      return await this.store.readSession(handle, this.clock(), this.config.sessionIdleTtlSeconds);
+      const now = this.clock();
+      const session = await this.store.readSession(handle, now, this.config.sessionIdleTtlSeconds);
+      if (!session) return null;
+      const refreshWindowMilliseconds = 30_000;
+      if (session.accessTokenExpiresAt.getTime() > now.getTime() + refreshWindowMilliseconds) {
+        return session;
+      }
+      if (!session.refreshToken) {
+        await this.store.deleteSession(handle);
+        return null;
+      }
+      const lease = await this.store.acquireSessionRefresh(handle, 10);
+      if (!lease) throw new PlatformWebAuthenticationError();
+      try {
+        const tokens = await this.provider.refresh(session.refreshToken);
+        if (tokens.accessTokenExpiresAt.getTime() <= now.getTime() + refreshWindowMilliseconds) {
+          throw new PlatformWebAuthenticationError();
+        }
+        const refreshed = Object.freeze({
+          ...session,
+          accessToken: tokens.accessToken,
+          accessTokenExpiresAt: tokens.accessTokenExpiresAt,
+          refreshToken: tokens.refreshToken,
+          ...(tokens.idToken ? { idToken: tokens.idToken } : {}),
+          lastSeenAt: now,
+        });
+        await this.store.updateSession(handle, lease, refreshed, this.config.sessionIdleTtlSeconds);
+        return refreshed;
+      } catch {
+        await this.store.invalidateSessionRefresh(handle, lease).catch(() => undefined);
+        throw new PlatformWebAuthenticationError();
+      } finally {
+        await this.store.releaseSessionRefresh(handle, lease).catch(() => undefined);
+      }
     } catch (error) {
-      if (error instanceof PlatformSessionError) throw new PlatformWebAuthenticationError();
+      if (
+        error instanceof PlatformSessionError ||
+        error instanceof PlatformWebAuthenticationError
+      ) {
+        throw new PlatformWebAuthenticationError();
+      }
       throw error;
     }
   }
 
   public async logout(handle: SecretValue): Promise<void> {
-    const session = await this.session(handle);
+    const session = await this.store
+      .readSession(handle, this.clock(), this.config.sessionIdleTtlSeconds)
+      .catch(() => null);
     await this.store.deleteSession(handle).catch(() => undefined);
     if (session?.refreshToken) {
       await this.provider.revokeRefreshToken(session.refreshToken).catch(() => undefined);

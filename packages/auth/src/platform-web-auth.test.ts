@@ -7,8 +7,10 @@ import {
   PlatformWebAuthenticationError,
   PlatformWebAuthService,
   type PlatformOidcProvider,
+  type PlatformOidcRefreshTokenSet,
   type PlatformOidcTokenSet,
 } from "./platform-web-auth.js";
+import { newCsrfToken } from "./platform-web-session.js";
 import type {
   PlatformLoginTransaction,
   PlatformSessionStore,
@@ -38,6 +40,7 @@ class MemoryStore implements PlatformSessionStore {
   public transaction: PlatformLoginTransaction | null = null;
   public sessionValue: PlatformWebSession | null = null;
   public deleted = false;
+  public leaseAvailable = true;
 
   public async createLoginTransaction(transaction: PlatformLoginTransaction): Promise<SecretValue> {
     this.transaction = transaction;
@@ -59,6 +62,25 @@ class MemoryStore implements PlatformSessionStore {
     return this.sessionValue;
   }
 
+  public async acquireSessionRefresh(): Promise<SecretValue | null> {
+    return this.leaseAvailable ? new SecretValue("l".repeat(43)) : null;
+  }
+
+  public async updateSession(
+    _handle: SecretValue,
+    _lease: SecretValue,
+    session: PlatformWebSession,
+  ): Promise<void> {
+    this.sessionValue = session;
+  }
+
+  public async releaseSessionRefresh(): Promise<void> {}
+
+  public async invalidateSessionRefresh(): Promise<void> {
+    this.deleted = true;
+    this.sessionValue = null;
+  }
+
   public async deleteSession(): Promise<void> {
     this.deleted = true;
     this.sessionValue = null;
@@ -71,6 +93,7 @@ function tokenSet(override: Partial<PlatformOidcTokenSet> = {}): PlatformOidcTok
     acr: "2",
     authenticatedAt: new Date(now.getTime() - 10_000),
     accessToken: new SecretValue("synthetic-access-token"),
+    accessTokenExpiresAt: new Date(now.getTime() + 300_000),
     refreshToken: new SecretValue("synthetic-refresh-token"),
     idToken: new SecretValue("synthetic-id-token"),
     ...override,
@@ -81,6 +104,8 @@ class FakeProvider implements PlatformOidcProvider {
   public exchanged = false;
   public revoked = false;
   public tokens = tokenSet();
+  public refreshed = false;
+  public refreshFails = false;
 
   public authorizationUrl(input: {
     readonly state: string;
@@ -97,6 +122,16 @@ class FakeProvider implements PlatformOidcProvider {
   public async exchange(): Promise<PlatformOidcTokenSet> {
     this.exchanged = true;
     return this.tokens;
+  }
+
+  public async refresh(): Promise<PlatformOidcRefreshTokenSet> {
+    this.refreshed = true;
+    if (this.refreshFails) throw new PlatformWebAuthenticationError();
+    return {
+      accessToken: new SecretValue("rotated-access-token"),
+      accessTokenExpiresAt: new Date(now.getTime() + 300_000),
+      refreshToken: new SecretValue("rotated-refresh-token"),
+    };
   }
 
   public async revokeRefreshToken(): Promise<void> {
@@ -189,5 +224,75 @@ describe("platform web authentication service", () => {
 
     expect(store.deleted).toBe(true);
     expect(provider.revoked).toBe(true);
+  });
+
+  it("reuses a sufficiently valid access token without refreshing it", async () => {
+    const store = new MemoryStore();
+    const provider = new FakeProvider();
+    store.sessionValue = {
+      ...tokenSet(),
+      csrfToken: newCsrfToken(),
+      createdAt: now,
+      lastSeenAt: now,
+      absoluteExpiresAt: new Date(now.getTime() + 600_000),
+    };
+    const service = new PlatformWebAuthService(config, store, provider, () => now);
+
+    const session = await service.session(new SecretValue("h".repeat(43)));
+
+    expect(session?.accessToken.expose()).toBe("synthetic-access-token");
+    expect(provider.refreshed).toBe(false);
+  });
+
+  it("rotates a near-expiry access and refresh token inside the server session", async () => {
+    const store = new MemoryStore();
+    const provider = new FakeProvider();
+    store.sessionValue = {
+      ...tokenSet({ accessTokenExpiresAt: new Date(now.getTime() + 10_000) }),
+      csrfToken: newCsrfToken(),
+      createdAt: now,
+      lastSeenAt: now,
+      absoluteExpiresAt: new Date(now.getTime() + 600_000),
+    };
+    const service = new PlatformWebAuthService(config, store, provider, () => now);
+
+    const session = await service.session(new SecretValue("h".repeat(43)));
+
+    expect(provider.refreshed).toBe(true);
+    expect(session?.accessToken.expose()).toBe("rotated-access-token");
+    expect(session?.refreshToken?.expose()).toBe("rotated-refresh-token");
+    expect(session?.absoluteExpiresAt).toEqual(new Date(now.getTime() + 600_000));
+  });
+
+  it("fails closed if refresh cannot complete or another replica owns the lease", async () => {
+    const createNearExpiryStore = (): MemoryStore => {
+      const store = new MemoryStore();
+      store.sessionValue = {
+        ...tokenSet({ accessTokenExpiresAt: new Date(now.getTime() + 10_000) }),
+        csrfToken: newCsrfToken(),
+        createdAt: now,
+        lastSeenAt: now,
+        absoluteExpiresAt: new Date(now.getTime() + 600_000),
+      };
+      return store;
+    };
+    const busyStore = createNearExpiryStore();
+    busyStore.leaseAvailable = false;
+    await expect(
+      new PlatformWebAuthService(config, busyStore, new FakeProvider(), () => now).session(
+        new SecretValue("h".repeat(43)),
+      ),
+    ).rejects.toBeInstanceOf(PlatformWebAuthenticationError);
+    expect(busyStore.deleted).toBe(false);
+
+    const failedStore = createNearExpiryStore();
+    const failedProvider = new FakeProvider();
+    failedProvider.refreshFails = true;
+    await expect(
+      new PlatformWebAuthService(config, failedStore, failedProvider, () => now).session(
+        new SecretValue("h".repeat(43)),
+      ),
+    ).rejects.toBeInstanceOf(PlatformWebAuthenticationError);
+    expect(failedStore.deleted).toBe(true);
   });
 });

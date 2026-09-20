@@ -16,6 +16,7 @@ export interface PlatformLoginTransaction {
 export interface PlatformWebSession {
   readonly subject: string;
   readonly accessToken: SecretValue;
+  readonly accessTokenExpiresAt: Date;
   readonly refreshToken?: SecretValue;
   readonly idToken: SecretValue;
   readonly csrfToken: string;
@@ -34,6 +35,15 @@ export interface PlatformSessionStore {
     now: Date,
     idleTtlSeconds: number,
   ): Promise<PlatformWebSession | null>;
+  acquireSessionRefresh(handle: SecretValue, ttlSeconds: number): Promise<SecretValue | null>;
+  updateSession(
+    handle: SecretValue,
+    lease: SecretValue,
+    session: PlatformWebSession,
+    idleTtlSeconds: number,
+  ): Promise<void>;
+  invalidateSessionRefresh(handle: SecretValue, lease: SecretValue): Promise<void>;
+  releaseSessionRefresh(handle: SecretValue, lease: SecretValue): Promise<void>;
   deleteSession(handle: SecretValue): Promise<void>;
 }
 
@@ -45,7 +55,10 @@ export function newCsrfToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export function sessionKey(namespace: "login" | "session", handle: SecretValue): string {
+export function sessionKey(
+  namespace: "login" | "session" | "refresh",
+  handle: SecretValue,
+): string {
   const exposed = handle.expose();
   if (!handlePattern.test(exposed)) {
     throw new PlatformSessionError();
