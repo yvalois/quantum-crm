@@ -11,6 +11,7 @@ mode="${QCRM_OPERATOR_MODE:-prepare-e2e}"
 username="${QCRM_OPERATOR_USERNAME:-qcrm-owner}"
 email="${QCRM_OPERATOR_EMAIL:-owner@quantum.local}"
 bootstrap_username="${QCRM_KEYCLOAK_BOOTSTRAP_USERNAME:-qcrm-bootstrap-admin}"
+remove_bootstrap_admins="${QCRM_REMOVE_BOOTSTRAP_ADMINS:-false}"
 keycloak_container="${QCRM_KEYCLOAK_CONTAINER:-quantum-platform-foundation-platform-keycloak-1}"
 postgres_container="${QCRM_POSTGRES_CONTAINER:-quantum-platform-foundation-platform-postgres-1}"
 
@@ -18,6 +19,7 @@ postgres_container="${QCRM_POSTGRES_CONTAINER:-quantum-platform-foundation-platf
 [[ "$mode" == prepare-e2e || "$mode" == handoff ]] || exit 78
 [[ "$username" =~ ^[a-z][a-z0-9-]{2,63}$ ]] || exit 78
 [[ "$bootstrap_username" =~ ^[a-z][a-z0-9-]{2,63}$ ]] || exit 78
+[[ "$remove_bootstrap_admins" == true || "$remove_bootstrap_admins" == false ]] || exit 78
 [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$ ]] || exit 78
 
 bootstrap_password_file="${secret_directory}/keycloak-bootstrap-admin-password"
@@ -204,5 +206,35 @@ COMMIT;
 SQL
 DB
 
-unset user_id keycloak_ip keycloak_url
+if [[ "$remove_bootstrap_admins" == true ]]; then
+  [[ "$bootstrap_username" == qcrm-recovery-admin ]] || exit 78
+  bootstrap_admins=(qcrm-bootstrap-admin "$bootstrap_username")
+  for bootstrap_admin in "${bootstrap_admins[@]}"; do
+    curl --fail --silent --show-error \
+      --config "${temporary_directory}/auth.conf" \
+      --get "${keycloak_url}/admin/realms/master/users" \
+      --data-urlencode "username=${bootstrap_admin}" \
+      --data-urlencode exact=true \
+      --output "${temporary_directory}/bootstrap-users.json"
+    bootstrap_admin_id="$(python3 - "${temporary_directory}/bootstrap-users.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    users = json.load(source)
+if len(users) > 1:
+    raise SystemExit(78)
+print(users[0]["id"] if users else "")
+PY
+)"
+    if [[ -n "$bootstrap_admin_id" ]]; then
+      [[ "$bootstrap_admin_id" =~ ^[0-9a-f-]{36}$ ]] || exit 78
+      curl --fail --silent --show-error \
+        --config "${temporary_directory}/auth.conf" \
+        --request DELETE "${keycloak_url}/admin/realms/master/users/${bootstrap_admin_id}"
+    fi
+  done
+fi
+
+unset user_id keycloak_ip keycloak_url bootstrap_admin_id
 echo "Platform operator is ready in ${mode} mode"
