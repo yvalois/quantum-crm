@@ -42,8 +42,9 @@ Inventariar el VPS real, establecer acceso SSH reutilizable sin guardar contrase
 - [x] Construir imagenes de referencia secuencialmente en el VPS.
 - [x] Ejecutar smoke aislado en puertos loopback sin usar 80/443.
 - [x] Medir el consumo en reposo de las imagenes de referencia.
+- [x] Identificar proveedor de red, IPv4 e IPv6 publicas.
 - [ ] Dimensionar la plataforma completa y la carga concurrente antes de fijar limites.
-- [ ] Resolver proveedor, firewall y respaldo externo antes del cierre.
+- [ ] Confirmar plan y firewall de Hostinger y resolver respaldo externo antes del cierre.
 
 ## Evidencia
 
@@ -56,4 +57,5 @@ Inventariar el VPS real, establecer acceso SSH reutilizable sin guardar contrase
 - Prueba de arquitectura: 5 de 5 casos aprobados, incluido build de dependencias workspace y estructura standalone.
 - Limpieza: los dos contenedores temporales se eliminaron; Nginx permanecio activo y 80/443 no se modificaron.
 - Desviaciones resueltas: los builds iniciales detectaron dependencias workspace sin construir y estructura standalone aplanada; se corrigieron en `4d0fa22` y `e2389a8` antes del smoke aprobado.
-- Pendiente: proveedor, firewall, respaldo externo y dimensionamiento integrado de la plataforma.
+- Red observada: Hostinger por RDAP de RIPE, IPv4 `2.25.172.119` e IPv6 `2a02:4780:75:82b9::1/48`.
+- Pendiente: plan y firewall del proveedor, respaldo externo y dimensionamiento integrado de la plataforma.

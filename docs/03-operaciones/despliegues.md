@@ -12,18 +12,18 @@ Se adopta **Docker Engine + Docker Compose + Caddy + PostgreSQL**, con **GitHub 
 
 DevOps es la práctica completa de desarrollo y operación. Docker empaqueta los procesos; Compose declara cómo ejecutarlos; CI verifica e integra cambios; CD entrega versiones a los entornos. El administrador selecciona clientes y operaciones; un ejecutor restringido las lleva a cabo.
 
-| Componente | Responsabilidad | Alcance inicial |
-|---|---|---|
-| Repositorio Git | Código, pruebas, migraciones y definiciones de infraestructura | Común a Quantum |
-| CI/CD y registro | Verificar, construir y publicar releases inmutables | Común a Quantum |
-| Administrador central | Clientes, configuración, versiones y estado de operaciones | Plataforma |
-| Ejecutor | Aprovisionar, migrar, desplegar y recuperar según solicitudes válidas | VPS y recursos autorizados |
-| Caddy | Entrada HTTPS y encaminamiento a cada entorno | Compartido en el VPS |
-| Aplicación web, API, workers y `agent-runtime` | Ejecutar el CRM agentivo de una release | Por cliente |
-| PostgreSQL | Base central y bases separadas de clientes, con roles propios | Motor inicialmente compartido |
-| Colas y trabajos | Ejecuciones pendientes identificadas por cliente y versión de formato | Separación lógica y permisos |
-| SeaweedFS y ClamAV | Objetos S3 privados, cuarentena, scan y entrega de archivos | Servicio compartido con buckets y credenciales por cliente |
-| Respaldo externo | Recuperación después de pérdida del VPS | Fuera del VPS |
+| Componente                                     | Responsabilidad                                                       | Alcance inicial                                            |
+| ---------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Repositorio Git                                | Código, pruebas, migraciones y definiciones de infraestructura        | Común a Quantum                                            |
+| CI/CD y registro                               | Verificar, construir y publicar releases inmutables                   | Común a Quantum                                            |
+| Administrador central                          | Clientes, configuración, versiones y estado de operaciones            | Plataforma                                                 |
+| Ejecutor                                       | Aprovisionar, migrar, desplegar y recuperar según solicitudes válidas | VPS y recursos autorizados                                 |
+| Caddy                                          | Entrada HTTPS y encaminamiento a cada entorno                         | Compartido en el VPS                                       |
+| Aplicación web, API, workers y `agent-runtime` | Ejecutar el CRM agentivo de una release                               | Por cliente                                                |
+| PostgreSQL                                     | Base central y bases separadas de clientes, con roles propios         | Motor inicialmente compartido                              |
+| Colas y trabajos                               | Ejecuciones pendientes identificadas por cliente y versión de formato | Separación lógica y permisos                               |
+| SeaweedFS y ClamAV                             | Objetos S3 privados, cuarentena, scan y entrega de archivos           | Servicio compartido con buckets y credenciales por cliente |
+| Respaldo externo                               | Recuperación después de pérdida del VPS                               | Fuera del VPS                                              |
 
 Docker documenta Compose como una opción para producción en un servidor y recomienda configuración específica de producción, sin montar el código fuente como en desarrollo. Aquí la imagen se construirá en CI y el VPS descargará el artefacto publicado. [Docker Compose en producción](https://docs.docker.com/compose/how-tos/production/)
 
@@ -40,23 +40,23 @@ Los contenedores de un cliente no constituyen un servidor independiente: compart
 
 El acceso y el inventario inicial se verificaron el 2026-09-19. La evidencia ampliada vive en [inventario-vps.md](inventario-vps.md). Los datos no observados siguen pendientes y ninguna credencial se guarda en este documento.
 
-| Dato | Estado | Uso |
-|---|---|---|
-| Proveedor y nombre del VPS | Proveedor pendiente; hostname `srv1959250` | Inventario de infraestructura |
-| IPv4 pública estable | `2.25.172.119`, acceso verificado | Hosts nip.io y acceso al proxy |
-| IPv6 pública, si existe | Pendiente | Revisar DNS y conectividad coherentes |
-| Sistema operativo y versión | Ubuntu 26.04, kernel `7.0.0-30-generic` | Instalación compatible y mantenimiento |
-| Arquitectura CPU, amd64 o arm64 | `amd64` / `x86_64` | Construcción y selección de imágenes |
-| vCPU y RAM | 1 vCPU y aproximadamente 3.82 GiB RAM | Límites por cliente y capacidad de despliegue |
-| Disco total, libre y tipo | Aproximadamente 47.35 GiB totales y 44.56 GiB disponibles, ext4 | Bases, archivos, imágenes y copias temporales |
-| Usuario y puerto SSH | `root`, puerto `22`; crear usuario operativo limitado sigue pendiente | Acceso operativo cuando se implemente |
-| Método de acceso SSH | Clave dedicada mediante alias local `quantum-crm-vps`; contraseña no almacenada | Credencial gestionada de forma segura |
-| Servicios y contenedores existentes | Docker activo sin contenedores; Nginx y Monarx activos | Evitar conflictos o interrupciones |
-| Uso actual de puertos 80 y 443 | Nginx publica dos sitios existentes con Certbot | Integración del proxy sin sustituir servicios a ciegas |
-| Firewall del proveedor y del sistema | UFW inactivo; firewall del proveedor pendiente | Exposición HTTP/HTTPS y acceso administrativo |
-| Repositorio y registro de imágenes | Pendiente | Configuración de CI/CD |
-| Destino de respaldos fuera del VPS | Pendiente | Recuperación ante pérdida total |
-| Perfiles iniciales y carga prevista | Pendiente | Dimensionamiento y concurrencia |
+| Dato                                 | Estado                                                                                  | Uso                                                    |
+| ------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Proveedor y nombre del VPS           | Hostinger por registro RIPE; hostname `srv1959250`; plan contractual pendiente          | Inventario de infraestructura                          |
+| IPv4 pública estable                 | `2.25.172.119`, acceso verificado                                                       | Hosts nip.io y acceso al proxy                         |
+| IPv6 pública, si existe              | `2a02:4780:75:82b9::1/48`                                                               | Revisar DNS y conectividad coherentes                  |
+| Sistema operativo y versión          | Ubuntu 26.04, kernel `7.0.0-30-generic`                                                 | Instalación compatible y mantenimiento                 |
+| Arquitectura CPU, amd64 o arm64      | `amd64` / `x86_64`                                                                      | Construcción y selección de imágenes                   |
+| vCPU y RAM                           | 1 vCPU y aproximadamente 3.82 GiB RAM                                                   | Límites por cliente y capacidad de despliegue          |
+| Disco total, libre y tipo            | Aproximadamente 47.35 GiB totales y 44.56 GiB disponibles, ext4                         | Bases, archivos, imágenes y copias temporales          |
+| Usuario y puerto SSH                 | `quantum-ops`, puerto `22`; `root` queda como fallback temporal solo por clave          | Acceso operativo durante bootstrap                     |
+| Método de acceso SSH                 | Clave operativa dedicada mediante alias `quantum-crm-vps`; contrasena SSH deshabilitada | Credencial gestionada de forma segura                  |
+| Servicios y contenedores existentes  | Docker activo sin contenedores; Nginx y Monarx activos                                  | Evitar conflictos o interrupciones                     |
+| Uso actual de puertos 80 y 443       | Nginx publica dos sitios existentes con Certbot                                         | Integración del proxy sin sustituir servicios a ciegas |
+| Firewall del proveedor y del sistema | UFW inactivo; firewall del proveedor pendiente                                          | Exposición HTTP/HTTPS y acceso administrativo          |
+| Repositorio y registro de imágenes   | Pendiente                                                                               | Configuración de CI/CD                                 |
+| Destino de respaldos fuera del VPS   | Pendiente                                                                               | Recuperación ante pérdida total                        |
+| Perfiles iniciales y carga prevista  | Pendiente                                                                               | Dimensionamiento y concurrencia                        |
 
 - [ ] **OPS-02 — Validar el VPS antes de instalar.**
   - [ ] Completar la ficha y revisar el inventario de servicios existentes.
@@ -101,12 +101,12 @@ Para trabajos pendientes se propone un registro duradero en PostgreSQL y un outb
 
 **nip.io resuelve DNS; Caddy obtiene y renueva los certificados HTTPS.** El hostname contiene la IP pública del VPS. El servicio nip.io permite certificados para hosts individuales y actualmente no ofrece certificados wildcard. Se utilizarán nombres explícitos por entorno. [Documentación de nip.io](https://nip.io/)
 
-| Entorno | Patrón de hostname, pendiente de sustituir la IP |
-|---|---|
-| Administración | `admin.<IP_CON_GUIONES>.nip.io` |
-| Pruebas | `staging.<IP_CON_GUIONES>.nip.io` |
-| Cliente A | `cliente-a.<IP_CON_GUIONES>.nip.io` |
-| Cliente B | `cliente-b.<IP_CON_GUIONES>.nip.io` |
+| Entorno        | Patrón de hostname, pendiente de sustituir la IP |
+| -------------- | ------------------------------------------------ |
+| Administración | `admin.<IP_CON_GUIONES>.nip.io`                  |
+| Pruebas        | `staging.<IP_CON_GUIONES>.nip.io`                |
+| Cliente A      | `cliente-a.<IP_CON_GUIONES>.nip.io`              |
+| Cliente B      | `cliente-b.<IP_CON_GUIONES>.nip.io`              |
 
 `IP_CON_GUIONES` es un marcador, no un host utilizable. Ejemplo ilustrativo: `cliente-a.203-0-113-10.nip.io`; esa IP pertenece a un rango reservado para documentación y debe sustituirse por la IP pública real. Usar slugs sin secuencias numéricas que puedan confundirse con una dirección y comprobar siempre la resolución final.
 
@@ -161,13 +161,13 @@ La separación entre configuración técnica, configuración comercial y secreto
 
 La configuración efectiva se calcula a partir de valores predeterminados de la release, configuración global de Quantum y excepciones del cliente, en ese orden. Las restricciones de seguridad y permisos de plataforma se aplican después y no pueden relajarse mediante una excepción del cliente.
 
-| Tipo de información | Dónde se guarda | Efecto de actualizar el código |
-|---|---|---|
-| Colores, módulos y reglas heredadas | Configuración versionada | Se preservan excepciones compatibles |
-| Campos, tipos, opciones y etiquetas personalizados | Datos del cliente | Se conservan identificadores y valores |
-| Pipelines, automatizaciones, formularios y plantillas editados | Datos y revisiones del cliente | No se reemplazan por semillas globales |
-| Credenciales y endpoints | Secretos y referencias por perfil | No se sustituyen por valores del desarrollador |
-| Código de una funcionalidad | Imagen de la release | Se reemplaza mediante despliegue controlado |
+| Tipo de información                                            | Dónde se guarda                   | Efecto de actualizar el código                 |
+| -------------------------------------------------------------- | --------------------------------- | ---------------------------------------------- |
+| Colores, módulos y reglas heredadas                            | Configuración versionada          | Se preservan excepciones compatibles           |
+| Campos, tipos, opciones y etiquetas personalizados             | Datos del cliente                 | Se conservan identificadores y valores         |
+| Pipelines, automatizaciones, formularios y plantillas editados | Datos y revisiones del cliente    | No se reemplazan por semillas globales         |
+| Credenciales y endpoints                                       | Secretos y referencias por perfil | No se sustituyen por valores del desarrollador |
+| Código de una funcionalidad                                    | Imagen de la release              | Se reemplaza mediante despliegue controlado    |
 
 - [ ] **OPS-09 — Preservar personalizaciones durante actualizaciones.**
   - [ ] Versionar la configuración global y cada revisión por cliente.
@@ -368,21 +368,21 @@ El agotamiento de recursos por un cliente puede afectar al resto si todos compar
 
 Estos elementos son trabajo de desarrollo pendiente; sus nombres describen los archivos o componentes a crear en el repositorio real, no entregables ejecutables incluidos en este documento.
 
-| Entregable | Contenido esperado |
-|---|---|
-| Dockerfiles | Builds reproducibles para web, API, worker y `agent-runtime` |
-| Compose local | Desarrollo con base de prueba y recarga de código |
-| Compose de plataforma | Caddy, administrador, motor de datos y dependencias compartidas |
-| Plantilla Compose de cliente | Recursos, redes y slots de aplicación parametrizados por perfil |
-| Almacenamiento y scanner | SeaweedFS y ClamAV fijados por digest, redes privadas, volumen persistente, cuotas y health checks |
-| Configuración Caddy generada | Hosts permitidos, rutas y HTTPS persistente |
-| Workflows CI/CD | Verificación, build, publicación y promoción |
-| Manifiesto de release | Digests, commit, migraciones y compatibilidad |
-| Ejecutor | Operaciones tipadas, progreso, bloqueos y recuperación |
-| Registro de perfiles y operaciones | Estado deseado/observado, ubicación y auditoría |
-| Migraciones | Base administrativa y bases de clientes |
-| Observabilidad declarativa | Collector, dashboards, alertas, redaccion, retencion y health checks |
-| Procedimientos de recuperación | Rollback compatible, restore por cliente y recuperación del VPS |
+| Entregable                         | Contenido esperado                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Dockerfiles                        | Builds reproducibles para web, API, worker y `agent-runtime`                                       |
+| Compose local                      | Desarrollo con base de prueba y recarga de código                                                  |
+| Compose de plataforma              | Caddy, administrador, motor de datos y dependencias compartidas                                    |
+| Plantilla Compose de cliente       | Recursos, redes y slots de aplicación parametrizados por perfil                                    |
+| Almacenamiento y scanner           | SeaweedFS y ClamAV fijados por digest, redes privadas, volumen persistente, cuotas y health checks |
+| Configuración Caddy generada       | Hosts permitidos, rutas y HTTPS persistente                                                        |
+| Workflows CI/CD                    | Verificación, build, publicación y promoción                                                       |
+| Manifiesto de release              | Digests, commit, migraciones y compatibilidad                                                      |
+| Ejecutor                           | Operaciones tipadas, progreso, bloqueos y recuperación                                             |
+| Registro de perfiles y operaciones | Estado deseado/observado, ubicación y auditoría                                                    |
+| Migraciones                        | Base administrativa y bases de clientes                                                            |
+| Observabilidad declarativa         | Collector, dashboards, alertas, redaccion, retencion y health checks                               |
+| Procedimientos de recuperación     | Rollback compatible, restore por cliente y recuperación del VPS                                    |
 
 - [ ] **OPS-24 — Verificar la puesta en marcha completa.**
   - [ ] Completar datos del VPS y confirmar recursos antes del primer despliegue.
@@ -400,16 +400,16 @@ Estos elementos son trabajo de desarrollo pendiente; sus nombres describen los a
 
 ## 17. Relación con el desarrollo del administrador
 
-| Funciones del administrador | Trabajo operativo relacionado |
-|---|---|
+| Funciones del administrador                       | Trabajo operativo relacionado  |
+| ------------------------------------------------- | ------------------------------ |
 | ADM-01 a ADM-03: acceso, perfiles y ciclo de vida | OPS-01, OPS-04, OPS-13, OPS-23 |
-| ADM-04 a ADM-06: alta, VPS y estado | OPS-02, OPS-03, OPS-14, OPS-22 |
-| ADM-07 y ADM-08: módulos y configuración | OPS-09, OPS-11, OPS-19 |
-| ADM-09 a ADM-12: releases y operaciones | OPS-10 a OPS-17 |
-| ADM-13 y ADM-14: migraciones y reversión | OPS-18 a OPS-20 |
-| ADM-15 y ADM-16: respaldos y salud | OPS-21 y OPS-22 |
-| ADM-17: hosts y HTTPS | OPS-05 y OPS-06 |
-| ADM-18: agentes y conexiones | OPS-09, OPS-12, OPS-16, OPS-23 |
-| ADM-19 y ADM-20: auditoría y ejecutor | OPS-13, OPS-22, OPS-23 |
+| ADM-04 a ADM-06: alta, VPS y estado               | OPS-02, OPS-03, OPS-14, OPS-22 |
+| ADM-07 y ADM-08: módulos y configuración          | OPS-09, OPS-11, OPS-19         |
+| ADM-09 a ADM-12: releases y operaciones           | OPS-10 a OPS-17                |
+| ADM-13 y ADM-14: migraciones y reversión          | OPS-18 a OPS-20                |
+| ADM-15 y ADM-16: respaldos y salud                | OPS-21 y OPS-22                |
+| ADM-17: hosts y HTTPS                             | OPS-05 y OPS-06                |
+| ADM-18: agentes y conexiones                      | OPS-09, OPS-12, OPS-16, OPS-23 |
+| ADM-19 y ADM-20: auditoría y ejecutor             | OPS-13, OPS-22, OPS-23         |
 
 La implementación se considera terminada cuando las operaciones del administrador funcionan contra esta infraestructura y superan OPS-24. Dibujar los controles del panel sin aprovisionamiento, migraciones, observación y recuperación reales no completa la función.
