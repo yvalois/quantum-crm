@@ -14,14 +14,22 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "build": "pnpm prisma:platform:generate && tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prisma:platform:generate": "prisma generate --schema prisma/platform/schema.prisma",
+    "prisma:platform:validate": "prisma validate --schema prisma/platform/schema.prisma",
+    "db:check": "pnpm prisma:platform:validate && pnpm prisma:platform:generate",
+    "db:migrate:platform": "prisma migrate deploy --config prisma/platform/prisma7.config.ts"
   },
   "dependencies": {
     "@quantum-crm/config": "workspace:*",
+    "@quantum-crm/platform-domain": "workspace:*",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "pg": "8.23.0"
   },
   "devDependencies": {
-    "@types/pg": "8.23.1"
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.0"
   }
 }

@@ -15,6 +15,7 @@
     "lint": "eslint apps packages tests",
     "typecheck": "pnpm -r --workspace-concurrency=4 --if-present typecheck",
     "config:check": "vitest run packages/config/src",
+    "db:check": "pnpm --filter @quantum-crm/database db:check",
     "test": "vitest run tests/unit apps packages",
     "test:integration": "vitest run tests/integration",
     "test:architecture": "vitest run tests/architecture",
@@ -23,10 +24,12 @@
   },
   "devDependencies": {
     "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
     "@typescript-eslint/eslint-plugin": "8.70.0",
     "@typescript-eslint/parser": "8.70.0",
     "eslint": "10.11.0",
     "prettier": "3.9.8",
+    "pg": "8.23.0",
     "typescript": "6.0.3",
     "vitest": "5.0.1"
   }

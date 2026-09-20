@@ -1,0 +1,43 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../../generated/platform"
+  runtime      = "nodejs"
+  moduleFormat = "esm"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["tenants"]
+}
+
+enum TenantStatus {
+  PENDING      @map("pending")
+  PROVISIONING @map("provisioning")
+  ACTIVE       @map("active")
+  SUSPENDED    @map("suspended")
+  ERROR        @map("error")
+
+  @@map("tenant_status")
+  @@schema("tenants")
+}
+
+model TenantProfile {
+  id                String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name              String       @db.Text
+  slug              String       @unique(map: "tenant_profiles_slug_key") @db.Citext
+  adminContactName  String       @map("admin_contact_name") @db.Text
+  adminContactEmail String       @map("admin_contact_email") @db.Citext
+  status            TenantStatus @default(PENDING)
+  serverId          String?      @map("server_id") @db.Uuid
+  releaseId         String?      @map("release_id") @db.Uuid
+  version           BigInt       @default(1)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
+  @@index([serverId], map: "tenant_profiles_server_id_idx", where: raw("\"server_id\" IS NOT NULL"))
+  @@index([releaseId], map: "tenant_profiles_release_id_idx", where: raw("\"release_id\" IS NOT NULL"))
+  @@map("tenant_profiles")
+  @@schema("tenants")
+}

@@ -6,6 +6,4 @@ export {
   type TenantProfile,
   type TenantProfileDraft,
   type TenantProfileStatus,
-} from "./tenants/index.js";
-
-export const packageIdentity = "@quantum-crm/platform-domain" as const;
+} from "./tenant-profile.js";

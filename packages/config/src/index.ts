@@ -27,3 +27,10 @@ export {
   type SecretFileOptions,
   type SecretFileSystem,
 } from "./secret-value.js";
+export {
+  expectedMigrationDatabaseSecretPath,
+  loadMigrationDatabaseConfig,
+  parseMigrationDatabaseConfig,
+  type MigrationDatabaseConfig,
+  type MigrationHistory,
+} from "./migration-database-config.js";

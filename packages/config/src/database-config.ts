@@ -36,7 +36,7 @@ export interface DatabaseConfig {
   readonly idleInTransactionTimeoutMs: number;
 }
 
-function isValidPostgresUrl(value: string): boolean {
+export function isValidPostgresUrl(value: string): boolean {
   try {
     const url = new URL(value);
     return (

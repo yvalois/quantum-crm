@@ -37,7 +37,7 @@ describe("architectural import boundaries", () => {
 
       for (const imported of imports) {
         if (
-          path.startsWith("packages/domain/") &&
+          /packages\/(?:domain|platform-domain)\//.test(path) &&
           /(?:@nestjs|next|prisma|redis|bullmq|@quantum-crm\/database)/.test(imported)
         ) {
           violations.push(`${path} -> ${imported}`);

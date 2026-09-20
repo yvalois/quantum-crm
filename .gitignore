@@ -17,6 +17,7 @@ build/
 coverage/
 .next/
 *.tsbuildinfo
+packages/database/generated/
 
 # Python
 __pycache__/
@@ -34,6 +35,7 @@ Thumbs.db
 *.bak
 *.dump
 *.sql
+!packages/database/prisma/**/migrations/**/*.sql
 backups/
 tmp/
 temp/
