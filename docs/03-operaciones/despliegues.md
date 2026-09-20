@@ -36,24 +36,24 @@ Docker documenta Compose como una opción para producción en un servidor y reco
 
 Los contenedores de un cliente no constituyen un servidor independiente: comparten kernel, CPU y almacenamiento del host. El motor PostgreSQL, Caddy y el propio VPS también tienen un alcance común. Sus actualizaciones requieren un procedimiento de plataforma distinto de una actualización del CRM de un cliente. Un VPS único no ofrece alta disponibilidad ante una caída completa del servidor.
 
-## 2. Datos del VPS pendientes
+## 2. Datos del VPS
 
-No se recibieron datos concretos del VPS en el mensaje. Los valores siguientes deben completarse con información real; no se asumen proveedor, IP, distribución ni capacidad.
+El acceso y el inventario inicial se verificaron el 2026-09-19. La evidencia ampliada vive en [inventario-vps.md](inventario-vps.md). Los datos no observados siguen pendientes y ninguna credencial se guarda en este documento.
 
 | Dato | Estado | Uso |
 |---|---|---|
-| Proveedor y nombre del VPS | Pendiente | Inventario de infraestructura |
-| IPv4 pública estable | Pendiente | Hosts nip.io y acceso al proxy |
+| Proveedor y nombre del VPS | Proveedor pendiente; hostname `srv1959250` | Inventario de infraestructura |
+| IPv4 pública estable | `2.25.172.119`, acceso verificado | Hosts nip.io y acceso al proxy |
 | IPv6 pública, si existe | Pendiente | Revisar DNS y conectividad coherentes |
-| Sistema operativo y versión | Pendiente | Instalación compatible y mantenimiento |
-| Arquitectura CPU, amd64 o arm64 | Pendiente | Construcción y selección de imágenes |
-| vCPU y RAM | Pendiente | Límites por cliente y capacidad de despliegue |
-| Disco total, libre y tipo | Pendiente | Bases, archivos, imágenes y copias temporales |
-| Usuario y puerto SSH | Pendiente | Acceso operativo cuando se implemente |
-| Método de acceso SSH | Pendiente; no incluir claves en este archivo | Credencial gestionada de forma segura |
-| Servicios y contenedores existentes | Pendiente | Evitar conflictos o interrupciones |
-| Uso actual de puertos 80 y 443 | Pendiente | Integración de Caddy sin sustituir servicios a ciegas |
-| Firewall del proveedor y del sistema | Pendiente | Exposición HTTP/HTTPS y acceso administrativo |
+| Sistema operativo y versión | Ubuntu 26.04, kernel `7.0.0-30-generic` | Instalación compatible y mantenimiento |
+| Arquitectura CPU, amd64 o arm64 | `amd64` / `x86_64` | Construcción y selección de imágenes |
+| vCPU y RAM | 1 vCPU y aproximadamente 3.82 GiB RAM | Límites por cliente y capacidad de despliegue |
+| Disco total, libre y tipo | Aproximadamente 47.35 GiB totales y 44.56 GiB disponibles, ext4 | Bases, archivos, imágenes y copias temporales |
+| Usuario y puerto SSH | `root`, puerto `22`; crear usuario operativo limitado sigue pendiente | Acceso operativo cuando se implemente |
+| Método de acceso SSH | Clave dedicada mediante alias local `quantum-crm-vps`; contraseña no almacenada | Credencial gestionada de forma segura |
+| Servicios y contenedores existentes | Docker activo sin contenedores; Nginx y Monarx activos | Evitar conflictos o interrupciones |
+| Uso actual de puertos 80 y 443 | Nginx publica dos sitios existentes con Certbot | Integración del proxy sin sustituir servicios a ciegas |
+| Firewall del proveedor y del sistema | UFW inactivo; firewall del proveedor pendiente | Exposición HTTP/HTTPS y acceso administrativo |
 | Repositorio y registro de imágenes | Pendiente | Configuración de CI/CD |
 | Destino de respaldos fuera del VPS | Pendiente | Recuperación ante pérdida total |
 | Perfiles iniciales y carga prevista | Pendiente | Dimensionamiento y concurrencia |

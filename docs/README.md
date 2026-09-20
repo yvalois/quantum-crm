@@ -12,6 +12,7 @@ Esta carpeta separa alcance, plan, operacion, estado y reglas para que cada dato
 | Backlog tecnico documental | `02-plan/documentacion-tecnica.md` | Ordena decisiones pendientes y su momento limite |
 | Planes de implementacion derivados | `02-plan/tareas/` | Conectan un requisito activo con cambios, riesgos y verificaciones sin sustituir fuentes de verdad |
 | Infraestructura y despliegue | `03-operaciones/despliegues.md` | Define el trabajo operativo `OPS` |
+| Inventario real del VPS | `03-operaciones/inventario-vps.md` | Registra capacidad, acceso no secreto, servicios existentes y riesgos observados |
 | Estado vigente y evidencia | `04-proceso/estado.md` | Indica que esta activo, bloqueado o terminado |
 | Forma de trabajar | `04-proceso/flujo-de-trabajo.md` | Define el ciclo de una tarea |
 | Criterio de cierre | `04-proceso/definicion-de-terminado.md` | Impide cierres parciales o sin pruebas |

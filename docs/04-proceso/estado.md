@@ -17,13 +17,13 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | ID | Descripcion | Responsable | Rama o PR | Inicio | Ultima actualizacion | Siguiente paso |
 |---|---|---|---|---|---|---|
 | OPS-01 | Implementar la arquitectura operativa por rebanadas | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | `OPS-01-a`, `OPS-01-b` y [`OPS-01-c`](../02-plan/tareas/OPS-01-c-contenedores-compose.md) implementados; la construccion y ejecucion Docker queda pendiente de acceso al VPS autorizado, nunca del daemon local |
+| OPS-02 | Validar el VPS antes de instalar | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | Ejecutar [`OPS-02-validacion-vps.md`](../02-plan/tareas/OPS-02-validacion-vps.md): builds y smoke aislados sin afectar Nginx ni 80/443 |
 
 ## Bloqueado
 
 | ID | Descripcion | Bloqueo | Responsable | Desde | Condicion para continuar |
 |---|---|---|---|---|---|
 | PROY-004 | Publicar y proteger el repositorio en GitHub | No existe un remoto `origin` ni se ha definido organizacion, nombre o visibilidad | Por asignar | 2026-09-16 | Crear el repositorio remoto, hacer el primer push y activar el ruleset de `main` |
-| OPS-02 | Validar el VPS | No se han proporcionado recursos ni acceso del servidor | Por asignar | 2026-09-16 | Completar la ficha real del VPS |
 
 ## Terminado
 
