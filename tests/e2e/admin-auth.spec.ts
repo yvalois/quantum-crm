@@ -122,7 +122,7 @@ test("operator completes password, TOTP, authorized API and logout", async ({ pa
   await expect(page).toHaveURL(/\/realms\/quantum-platform\/protocol\/openid-connect\/auth/u);
 });
 
-test("operator handoff requires a private password before access", async ({ page }) => {
+test("operator handoff requires private credentials before access", async ({ page }) => {
   test.skip(!expectHandoff, "enabled only for final handoff verification");
   const password = operatorPassword();
 
@@ -131,7 +131,6 @@ test("operator handoff requires a private password before access", async ({ page
   await page.locator("#password").fill(password);
   await page.locator("#kc-login").click();
 
-  await expect(page.locator("#password-new")).toBeVisible();
-  await expect(page.locator("#password-confirm")).toBeVisible();
+  await expect(page.locator("#kc-passwd-update-form, #kc-totp-settings")).toBeVisible();
   await expect(page).not.toHaveURL(/\/dashboard$/u);
 });
