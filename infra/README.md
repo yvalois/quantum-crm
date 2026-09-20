@@ -24,6 +24,16 @@ La rebanada `OPS-04-a` agrega el contrato de conexion a PostgreSQL, pero no inst
 
 Las plantillas esperan que PostgreSQL ya haya sido aprovisionado con una base y un rol runtime distintos por perfil, `PUBLIC CONNECT` revocado y un rol migrador separado. Ese aprovisionamiento dinamico pertenece a `OPS-14`; las plantillas actuales no lo simulan ni lo presentan como terminado.
 
+## Identidad OIDC de plataforma
+
+- Solo `admin-api` recibe issuer, audience, ACR MFA y antiguedad maxima del access token.
+- El issuer identifica el realm Keycloak exclusivo `quantum-platform`; en staging y produccion debe usar HTTPS.
+- El endpoint JWKS se deriva como `<issuer>/protocol/openid-connect/certs`. Ningun header o claim del token puede elegir otra URL.
+- La audience es exclusiva de `admin-api`; una audience de CRM no es valida para plataforma.
+- `QCRM_OIDC_REQUIRED_ACR` debe coincidir con el LoA configurado para MFA en Keycloak. El valor inicial documentado es `2`.
+- Estas variables no son secretos. Tokens, client secrets y credenciales no se guardan en Compose ni en Git.
+- `infra/config/admin-api.env.example` contiene un ejemplo local sintetico. La instalacion y el realm reales de Keycloak siguen pendientes dentro de `ADM-01`.
+
 ## Imagenes
 
 - `infra/docker/Dockerfile.web`: genera la salida standalone de una de las tres aplicaciones Next.js.
@@ -48,6 +58,10 @@ Ambos comandos requieren rutas a archivos sinteticos existentes y un UUID de pru
 QCRM_TENANT_ID=00000000-0000-4000-8000-000000000001
 QCRM_CRM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/crm-database-url
 QCRM_PLATFORM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/platform-database-url
+QCRM_PLATFORM_OIDC_ISSUER=https://identity.example.test/realms/quantum-platform
+QCRM_PLATFORM_OIDC_AUDIENCE=quantum-admin-api
+QCRM_PLATFORM_OIDC_REQUIRED_ACR=2
+QCRM_PLATFORM_OIDC_MAX_TOKEN_AGE_SECONDS=300
 ```
 
 La validacion real de roles usa `tests/integration/fixtures/postgres-bootstrap.sql` exclusivamente contra PostgreSQL 18 desechable en el VPS autorizado. Las contrasenas de ese fixture son marcadores sinteticos y no se reutilizan en ningun entorno persistente.

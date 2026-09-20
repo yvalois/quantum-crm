@@ -9,6 +9,7 @@ function workspaceSource(relativePath: string): string {
 export default defineConfig({
   resolve: {
     alias: {
+      "@quantum-crm/auth": workspaceSource("./packages/auth/src/index.ts"),
       "@quantum-crm/config": workspaceSource("./packages/config/src/index.ts"),
       "@quantum-crm/contracts": workspaceSource("./packages/contracts/src/index.ts"),
       "@quantum-crm/database": workspaceSource("./packages/database/src/index.ts"),

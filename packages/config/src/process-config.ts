@@ -7,6 +7,12 @@ import {
   type DatabaseConfig,
   type DatabaseDefinition,
 } from "./database-config.js";
+import {
+  oidcEnvironmentKeys,
+  parseOidcConfig,
+  type OidcConfig,
+  type OidcDefinition,
+} from "./oidc-config.js";
 import type { SecretFileSystem } from "./secret-value.js";
 
 const qcrmEnvironmentSchema = z.enum(["local", "test", "preview", "staging", "production"]);
@@ -33,6 +39,7 @@ export const processDefinitions = Object.freeze({
     defaultHost: "0.0.0.0",
     defaultPort: 3002,
     database: Object.freeze({ target: "platform", requiresTenant: false }),
+    oidc: Object.freeze({ provider: "keycloak", boundary: "platform" }),
   }),
   worker: Object.freeze({
     serviceName: "worker",
@@ -59,6 +66,7 @@ export interface ProcessDefinition {
   readonly defaultHost: string;
   readonly defaultPort: number;
   readonly database?: DatabaseDefinition;
+  readonly oidc?: OidcDefinition;
 }
 
 export interface ProcessConfig {
@@ -69,6 +77,7 @@ export interface ProcessConfig {
   readonly port: number;
   readonly shutdownTimeoutMs: number;
   readonly database?: DatabaseConfig;
+  readonly oidc?: OidcConfig;
 }
 
 function readEnvironment(): NodeJS.ProcessEnv {
@@ -91,6 +100,14 @@ export function requireDatabaseConfig(config: ProcessConfig): DatabaseConfig {
   return config.database;
 }
 
+export function requireOidcConfig(config: ProcessConfig): OidcConfig {
+  if (!config.oidc) {
+    throw new ConfigurationError(config.serviceName, ["QCRM_OIDC_ISSUER"]);
+  }
+
+  return config.oidc;
+}
+
 export function parseServiceConfig(
   serviceName: ProcessName,
   environment: Readonly<Record<string, string | undefined>>,
@@ -107,6 +124,7 @@ export function parseProcessConfig(
   const allowedKeys = new Set<string>([
     ...processEnvironmentKeys,
     ...(definition.database ? databaseEnvironmentKeys : []),
+    ...(definition.oidc ? oidcEnvironmentKeys : []),
   ]);
   const unknownKeys = Object.keys(environment)
     .filter((key) => key.startsWith("QCRM_") && !allowedKeys.has(key))
@@ -157,6 +175,9 @@ export function parseProcessConfig(
         fileSystem,
       )
     : undefined;
+  const oidc = definition.oidc
+    ? parseOidcConfig(definition.serviceName, definition.oidc, result.data.QCRM_ENV, environment)
+    : undefined;
 
   return Object.freeze({
     schemaVersion: "process-config/v1",
@@ -166,5 +187,6 @@ export function parseProcessConfig(
     port: result.data.QCRM_PORT,
     shutdownTimeoutMs: result.data.QCRM_SHUTDOWN_TIMEOUT_MS,
     ...(database ? { database } : {}),
+    ...(oidc ? { oidc } : {}),
   });
 }

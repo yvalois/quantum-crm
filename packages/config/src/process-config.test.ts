@@ -108,6 +108,7 @@ describe("process configuration", () => {
         defaultHost: "0.0.0.0",
         defaultPort: 3002,
         database: { target: "platform", requiresTenant: false },
+        oidc: { provider: "keycloak", boundary: "platform" },
       },
       worker: {
         serviceName: "worker",
@@ -148,6 +149,34 @@ describe("process configuration", () => {
       database: {
         target: "crm",
         tenantId: "00000000-0000-4000-8000-000000000001",
+      },
+    });
+  });
+
+  it("keeps the non-secret admin-api example valid", () => {
+    const environment = Object.fromEntries(
+      readFileSync(join(process.cwd(), "infra/config/admin-api.env.example"), "utf8")
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith("#"))
+        .map((line) => {
+          const separator = line.indexOf("=");
+          return [line.slice(0, separator), line.slice(separator + 1)];
+        }),
+    );
+
+    expect(parseServiceConfig("admin-api", environment, secretFileSystem)).toMatchObject({
+      serviceName: "admin-api",
+      environment: "local",
+      host: "0.0.0.0",
+      port: 3002,
+      database: { target: "platform" },
+      oidc: {
+        provider: "keycloak",
+        boundary: "platform",
+        issuer: "http://keycloak:8080/realms/quantum-platform",
+        audience: "quantum-admin-api",
+        requiredAcr: "2",
       },
     });
   });

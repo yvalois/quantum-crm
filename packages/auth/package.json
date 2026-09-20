@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@quantum-crm/config": "workspace:*"
+    "@quantum-crm/config": "workspace:*",
+    "jose": "6.2.12"
   }
 }
