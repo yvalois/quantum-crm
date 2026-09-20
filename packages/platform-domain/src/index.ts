@@ -6,6 +6,15 @@ export {
   type TenantProfile,
   type TenantProfileDraft,
   type TenantProfileStatus,
+  TenantProfileConflictError,
+  TenantProfileNotFoundError,
+  TenantProfileService,
+  TenantProfileVersionConflictError,
+  type TenantProfileCursor,
+  type TenantProfileListCriteria,
+  type TenantProfilePage,
+  type TenantProfileRepository,
+  type UpdateTenantProfileCommand,
 } from "./tenants/index.js";
 
 export {

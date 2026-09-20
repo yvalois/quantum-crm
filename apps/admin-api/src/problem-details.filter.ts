@@ -11,6 +11,9 @@ const titles: Readonly<Record<number, string>> = Object.freeze({
   401: "Unauthorized",
   403: "Forbidden",
   404: "Not Found",
+  409: "Conflict",
+  412: "Precondition Failed",
+  428: "Precondition Required",
   503: "Service Unavailable",
 });
 

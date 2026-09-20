@@ -1,4 +1,9 @@
 import { parseDatabaseConfig } from "@quantum-crm/config";
+import {
+  createPlatformPostgresDatabase,
+  type PlatformPostgresDatabase,
+} from "@quantum-crm/database";
+import { TenantProfileConflictError } from "@quantum-crm/platform-domain";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -10,13 +15,17 @@ const config = parseDatabaseConfig(
   { QCRM_DATABASE_URL_FILE: secretPath },
 );
 const pool = new Pool({ connectionString: config.connectionUrl.expose(), max: 1 });
+let database: PlatformPostgresDatabase;
 
 beforeAll(async () => {
   await pool.query("DELETE FROM tenants.tenant_profiles");
+  database = createPlatformPostgresDatabase(config, "tenant-profile-integration");
+  await database.connect();
 });
 
 afterAll(async () => {
   await pool.query("DELETE FROM tenants.tenant_profiles");
+  await database.close();
   await pool.end();
 });
 
@@ -121,5 +130,51 @@ describe("platform tenant profile migration", () => {
     await expect(
       pool.query("CREATE TABLE tenants.runtime_forbidden(id bigint PRIMARY KEY)"),
     ).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("creates, filters and conditionally updates through the production repository", async () => {
+    const created = await database.tenantProfiles.create({
+      name: "Repository Profile",
+      slug: "repository-profile",
+      adminContactName: "Rita",
+      adminContactEmail: "rita@example.test",
+      status: "PENDING",
+    });
+    expect(created.version).toBe(1n);
+
+    const page = await database.tenantProfiles.list({
+      status: "PENDING",
+      search: "Repository",
+      limit: 1,
+    });
+    expect(page.items.map(({ id }) => id)).toContain(created.id);
+
+    const updated = await database.tenantProfiles.update(created.id, 1n, {
+      name: "Repository Profile Updated",
+      slug: created.slug,
+      adminContactName: created.adminContactName,
+      adminContactEmail: created.adminContactEmail,
+      status: "ACTIVE",
+    });
+    expect(updated).toMatchObject({ status: "ACTIVE", version: 2n });
+    await expect(
+      database.tenantProfiles.update(created.id, 1n, {
+        name: created.name,
+        slug: created.slug,
+        adminContactName: created.adminContactName,
+        adminContactEmail: created.adminContactEmail,
+        status: created.status,
+      }),
+    ).resolves.toBeNull();
+
+    await expect(
+      database.tenantProfiles.create({
+        name: "Duplicate",
+        slug: created.slug,
+        adminContactName: "Dora",
+        adminContactEmail: "dora@example.test",
+        status: "PENDING",
+      }),
+    ).rejects.toBeInstanceOf(TenantProfileConflictError);
   });
 });

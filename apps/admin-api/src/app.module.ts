@@ -13,6 +13,8 @@ import {
   PlatformAuthorizationGuard,
 } from "./platform-security.js";
 import { ProblemDetailsFilter } from "./problem-details.filter.js";
+import { TENANT_PROFILE_SERVICE, TenantProfilesController } from "./tenant-profiles.controller.js";
+import { TenantProfileService } from "@quantum-crm/platform-domain";
 
 @Module({})
 export class AppModule {
@@ -23,12 +25,16 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      controllers: [HealthController, OperatorsController],
+      controllers: [HealthController, OperatorsController, TenantProfilesController],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: oidcAccessTokenVerifier },
         { provide: PLATFORM_MEMBERSHIPS, useValue: database.memberships },
         { provide: PLATFORM_AUTH_POLICY, useValue: authPolicy },
+        {
+          provide: TENANT_PROFILE_SERVICE,
+          useFactory: () => new TenantProfileService(database.tenantProfiles),
+        },
         { provide: APP_GUARD, useClass: PlatformAuthenticationGuard },
         { provide: APP_GUARD, useClass: PlatformAuthorizationGuard },
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },

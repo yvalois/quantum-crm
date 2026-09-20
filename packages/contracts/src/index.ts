@@ -11,3 +11,19 @@ export {
   PlatformPermissionSchema,
   type PlatformOperatorSelf,
 } from "./platform-iam/v1/operator-self.js";
+export {
+  CreateTenantProfileSchema,
+  TenantProfileListQuerySchema,
+  TenantProfileListResponseSchema,
+  TenantProfileResponseSchema,
+  TenantProfileSchema,
+  TenantProfileStatusSchema,
+  UpdateTenantProfileSchema,
+  tenantProfileResponse,
+  type CreateTenantProfile,
+  type TenantProfileContract,
+  type TenantProfileListQuery,
+  type TenantProfileListResponse,
+  type TenantProfileResponse,
+  type UpdateTenantProfile,
+} from "./tenants/v1/tenant-profile.js";
