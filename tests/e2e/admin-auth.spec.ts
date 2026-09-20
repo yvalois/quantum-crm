@@ -5,6 +5,14 @@ import { expect, test } from "@playwright/test";
 
 const username = process.env.QCRM_E2E_OPERATOR_USERNAME ?? "qcrm-owner";
 const passwordFile = process.env.QCRM_E2E_OPERATOR_PASSWORD_FILE;
+const expectHandoff = process.env.QCRM_E2E_EXPECT_HANDOFF === "true";
+
+function operatorPassword(): string {
+  if (!passwordFile) throw new Error("QCRM_E2E_OPERATOR_PASSWORD_FILE is required");
+  const password = readFileSync(passwordFile, "utf8").trim();
+  if (password.length < 14) throw new Error("Invalid E2E password file");
+  return password;
+}
 
 function decodeBase32(value: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -33,9 +41,8 @@ function totp(secret: string, now = Date.now()): string {
 }
 
 test("operator completes password, TOTP, authorized API and logout", async ({ page, context }) => {
-  if (!passwordFile) throw new Error("QCRM_E2E_OPERATOR_PASSWORD_FILE is required");
-  const password = readFileSync(passwordFile, "utf8").trim();
-  if (password.length < 14) throw new Error("Invalid E2E password file");
+  test.skip(expectHandoff, "handoff verification uses the forced password action");
+  const password = operatorPassword();
 
   const unauthenticated = await context.request.get("/api/platform/operators/me", {
     maxRedirects: 0,
@@ -113,4 +120,18 @@ test("operator completes password, TOTP, authorized API and logout", async ({ pa
 
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/realms\/quantum-platform\/protocol\/openid-connect\/auth/u);
+});
+
+test("operator handoff requires a private password before access", async ({ page }) => {
+  test.skip(!expectHandoff, "enabled only for final handoff verification");
+  const password = operatorPassword();
+
+  await page.goto("/dashboard");
+  await page.locator("#username").fill(username);
+  await page.locator("#password").fill(password);
+  await page.locator("#kc-login").click();
+
+  await expect(page.locator("#password-new")).toBeVisible();
+  await expect(page.locator("#password-confirm")).toBeVisible();
+  await expect(page).not.toHaveURL(/\/dashboard$/u);
 });
