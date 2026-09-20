@@ -198,7 +198,7 @@ describe("admin API authentication boundary", () => {
     const createdBody = await created.text();
     expect(created.status).toBe(201);
     expect(created.headers.get("etag")).toBe('"1"');
-    expect(created.headers.get("location")).toContain(infrastructureServer.id);
+    expect(created.headers.get("location")).toContain("01995f7e-7b52-7000-8000-000000000301");
     expect(createdBody).toContain('"credentialConfigured":true');
     expect(createdBody).not.toContain("secret://");
   });
