@@ -10,12 +10,14 @@ secret_directory="${QCRM_SECRET_DIRECTORY:?set QCRM_SECRET_DIRECTORY}"
 mode="${QCRM_OPERATOR_MODE:-prepare-e2e}"
 username="${QCRM_OPERATOR_USERNAME:-qcrm-owner}"
 email="${QCRM_OPERATOR_EMAIL:-owner@quantum.local}"
+bootstrap_username="${QCRM_KEYCLOAK_BOOTSTRAP_USERNAME:-qcrm-bootstrap-admin}"
 keycloak_container="${QCRM_KEYCLOAK_CONTAINER:-quantum-platform-foundation-platform-keycloak-1}"
 postgres_container="${QCRM_POSTGRES_CONTAINER:-quantum-platform-foundation-platform-postgres-1}"
 
 [[ "$secret_directory" == /opt/quantum/secrets/* ]] || exit 78
 [[ "$mode" == prepare-e2e || "$mode" == handoff ]] || exit 78
 [[ "$username" =~ ^[a-z][a-z0-9-]{2,63}$ ]] || exit 78
+[[ "$bootstrap_username" =~ ^[a-z][a-z0-9-]{2,63}$ ]] || exit 78
 [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$ ]] || exit 78
 
 bootstrap_password_file="${secret_directory}/keycloak-bootstrap-admin-password"
@@ -42,7 +44,7 @@ curl --fail --silent --show-error \
   --request POST "${keycloak_url}/realms/master/protocol/openid-connect/token" \
   --data-urlencode client_id=admin-cli \
   --data-urlencode grant_type=password \
-  --data-urlencode username=qcrm-bootstrap-admin \
+  --data-urlencode "username=${bootstrap_username}" \
   --data-urlencode "password@${bootstrap_password_file}"
 
 python3 - "${temporary_directory}/token.json" "${temporary_directory}/auth.conf" <<'PY'
