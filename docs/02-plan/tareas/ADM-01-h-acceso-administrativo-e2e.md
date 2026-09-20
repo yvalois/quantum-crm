@@ -64,12 +64,12 @@ Un operador inicial de Quantum puede acceder por HTTPS a `admin.2-25-172-119.nip
 
 ## Plan de implementacion
 
-- [ ] Declarar Caddy, configuracion de hosts, volumenes y procedimiento reversible de migracion.
-- [ ] Implementar aprovisionamiento reanudable del operador sin secretos en argumentos o logs.
-- [ ] Construir y desplegar `admin-web` y `admin-api` por digest en las redes autorizadas.
-- [ ] Validar Caddy en paralelo, migrar 80/443 y comprobar los dos sitios existentes.
-- [ ] Ejecutar E2E completo con MFA y matriz negativa; retirar credenciales OTP de prueba.
-- [ ] Ejecutar CI, registrar evidencia y actualizar solo las casillas realmente satisfechas.
+- [x] Declarar Caddy, configuracion de hosts, volumenes y procedimiento reversible de migracion.
+- [x] Implementar aprovisionamiento reanudable del operador sin secretos en argumentos o logs.
+- [x] Construir y desplegar `admin-web` y `admin-api` por digest en las redes autorizadas.
+- [x] Validar Caddy en paralelo, migrar 80/443 y comprobar los dos sitios existentes.
+- [x] Ejecutar E2E completo con MFA y matriz negativa; retirar credenciales OTP de prueba.
+- [x] Ejecutar CI, registrar evidencia y actualizar solo las casillas realmente satisfechas.
 
 ## Riesgos y mitigaciones
 
@@ -84,13 +84,13 @@ Un operador inicial de Quantum puede acceder por HTTPS a `admin.2-25-172-119.nip
 
 ## Criterios de aceptacion
 
-- [ ] Los cuatro hosts responden por HTTPS con certificados validos y HTTP redirige a HTTPS.
-- [ ] Los dos sitios preexistentes conservan su contenido y Nginx queda recuperable pero inactivo.
-- [ ] El operador inicial existe una sola vez, esta activo y tiene solo permisos de plataforma declarados.
-- [ ] El flujo exige password y TOTP, entrega ACR 2 y nunca expone tokens al navegador.
-- [ ] El panel y `/api/platform/operators/me` funcionan; no autenticados, usuarios ajenos y MFA insuficiente son denegados.
-- [ ] Logout invalida la sesion y el operador queda obligado a configurar su propio password/TOTP.
-- [ ] CI, despliegue por digest, reinicio y E2E real aprueban sin secretos ni artefactos sensibles.
+- [x] Los cuatro hosts responden por HTTPS con certificados validos y HTTP redirige a HTTPS.
+- [x] Los dos sitios preexistentes conservan su contenido y Nginx queda recuperable pero inactivo.
+- [x] El operador inicial existe una sola vez, esta activo y tiene solo permisos de plataforma declarados.
+- [x] El flujo exige password y TOTP, entrega ACR 2 y nunca expone tokens al navegador.
+- [x] El panel y `/api/platform/operators/me` funcionan; no autenticados, usuarios ajenos y MFA insuficiente son denegados.
+- [x] Logout invalida la sesion y el operador queda obligado a configurar su propio password/TOTP.
+- [x] CI, despliegue por digest, reinicio y E2E real aprueban sin secretos ni artefactos sensibles.
 
 ## Plan de verificacion
 
@@ -111,8 +111,11 @@ Un operador inicial de Quantum puede acceder por HTTPS a `admin.2-25-172-119.nip
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: pendiente.
+- Archivos, commits o PR: commits `e3c99e1` a `3d823a3` en `feat/ADM-01-platform-foundation`; implementacion en `apps/admin-web`, `infra/caddy`, `infra/compose`, `infra/platform` y `tests/e2e`. No existe remoto configurado para push o PR.
+- Comandos y resultados: CI final en Node 24 aprobo formato, lint, tipos, 41 pruebas de configuracion, 141 unitarias, 19 de arquitectura y todos los builds. Chromium aprobo dos recorridos limpios de password, TOTP, callback, panel, siete permisos, cookie opaca, no exposicion y logout; la verificacion final aprobo la barrera de credenciales privadas. Compose, Caddy, DNS, discovery, TLS y reinicios aprobaron.
+- Despliegue: `admin-web` usa digest `9126de6c...0a4c`, `admin-api` `1f00f000...2374` y Caddy `e9c93188...66448`. Los seis servicios estan saludables y solo Caddy publica 80/443. La red interna `platform-oidc` contiene exclusivamente Caddy y `admin-api` para obtener JWKS por HTTPS sin salida general.
+- Recuperacion e idempotencia: el aprovisionador se ejecuto repetidamente y PostgreSQL confirmo `1:7` (un operador activo y siete permisos). El rollback real a Nginx y la migracion posterior a Caddy preservaron los hashes `40e2b151...30b` y `35517498...9e56`. Nginx y Certbot quedaron inactivos, deshabilitados y recuperables.
+- Seguridad y entrega: el password inicial permanece fuera de Git con propietario `root:root` y modo `0400`; la semilla TOTP de prueba fue retirada, los artefactos Playwright vivieron solo en `tmpfs`, las cuentas administrativas temporales de Keycloak se eliminaron y el siguiente login exige configurar credenciales privadas.
+- Documentacion actualizada: ficha, checklist, funcionalidad, estado, inventario del VPS, despliegues e infraestructura.
+- Desviaciones del plan: la credencial inicial de bootstrap de Keycloak no coincidia con el estado persistente. Se aplico el flujo oficial de recuperacion con todos los nodos detenidos, se uso un administrador temporal y se elimino al cerrar. El E2E revelo que el aislamiento original impedia resolver JWKS; se agrego una red OIDC interna de dos miembros en lugar de habilitar Internet para `admin-api`.
+- Pendientes o decisiones nuevas: el propietario debe completar su password y TOTP en el primer acceso. `OPS-05` continua abierto para hosts de clientes, WebSocket/SSE, renovacion y alertas; GitHub/GHCR siguen bloqueados por `PROY-004` y las imagenes actuales son digests locales del VPS.

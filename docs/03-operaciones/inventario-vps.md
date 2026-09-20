@@ -46,30 +46,46 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 
 ## Docker
 
-| Dato                 | Valor observado         |
-| -------------------- | ----------------------- |
-| Docker Engine        | 29.8.0, servicio activo |
-| Docker Compose       | v5.5.1                  |
-| Storage driver       | overlayfs               |
-| Cgroups              | v2                      |
-| Docker root          | `/var/lib/docker`       |
-| Contenedores activos | 0                       |
-| Imagenes presentes   | 0                       |
+| Dato                 | Valor observado                    |
+| -------------------- | ---------------------------------- |
+| Docker Engine        | 29.8.0, servicio activo            |
+| Docker Compose       | v5.5.1                             |
+| Storage driver       | overlayfs                          |
+| Cgroups              | v2                                 |
+| Docker root          | `/var/lib/docker`                  |
+| Contenedores activos | 6 persistentes y saludables        |
+| Imagenes presentes   | 23; 6 usadas por servicios activos |
 
 ## Servicios y puertos existentes
 
-| Puerto o servicio                 | Estado observado                                      | Regla de preservacion                                                                 |
-| --------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| SSH `22/tcp`                      | publicado por OpenSSH                                 | No cambiar acceso hasta validar usuario operativo y recuperacion                      |
-| Nginx `80/443`                    | activo y publicado en IPv4/IPv6                       | No detener, reemplazar ni tomar los puertos sin plan de migracion                     |
-| `mr-business.2-25-172-119.nip.io` | sitio Nginx con raiz `/var/www/mr-business` y Certbot | Preservar                                                                             |
-| `2-25-172-119.nip.io`             | sitio Nginx con raiz `/var/www/quantum` y Certbot     | Preservar                                                                             |
-| Monarx `127.0.0.1:65529`          | agente local                                          | No publicar ni interferir                                                             |
-| UFW                               | inactivo                                              | Revisar firewall del proveedor y politica del host antes de publicar servicios nuevos |
-| Actualizaciones automaticas       | `unattended-upgrades` activo y habilitado             | Mantener y observar reinicios o actualizaciones pendientes                            |
-| Herramientas de backup            | `restic`, `borg` y `rclone` ausentes                  | Elegir destino y herramienta antes de datos reales                                    |
+| Puerto o servicio                 | Estado observado                               | Regla de preservacion                                                                 |
+| --------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| SSH `22/tcp`                      | publicado por OpenSSH                          | No cambiar acceso hasta validar usuario operativo y recuperacion                      |
+| Caddy `80/443`                    | activo y saludable por digest en IPv4/IPv6     | Unica entrada publica; conservar volumenes ACME y configuracion versionada            |
+| Nginx y Certbot                   | instalados, inactivos y deshabilitados         | Recuperacion ensayada; no eliminar configuracion ni certificados anteriores           |
+| `mr-business.2-25-172-119.nip.io` | servido por Caddy desde `/var/www/mr-business` | Hash `35517498...9e56` preservado antes, durante y despues del rollback               |
+| `2-25-172-119.nip.io`             | servido por Caddy desde `/var/www/quantum`     | Hash `40e2b151...30b` preservado antes, durante y despues del rollback                |
+| `admin.2-25-172-119.nip.io`       | `admin-web` por HTTPS                          | TLS valido, CSP con nonce, headers seguros y sesion host-only                         |
+| `identity.2-25-172-119.nip.io`    | Keycloak de plataforma por HTTPS               | Discovery y JWKS publicados; administracion interna no expuesta                       |
+| Monarx `127.0.0.1:65529`          | agente local                                   | No publicar ni interferir                                                             |
+| UFW                               | inactivo                                       | Revisar firewall del proveedor y politica del host antes de publicar servicios nuevos |
+| Actualizaciones automaticas       | `unattended-upgrades` activo y habilitado      | Mantener y observar reinicios o actualizaciones pendientes                            |
+| Herramientas de backup            | `restic`, `borg` y `rclone` ausentes           | Elegir destino y herramienta antes de datos reales                                    |
 
-Caddy permanece inactivo. La arquitectura aprobada lo contempla como proxy, pero el VPS ya usa Nginx y Certbot. La convivencia o migracion requiere una decision explicita; ningun build o smoke de Quantum usara 80/443 mientras tanto.
+Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME. Tras depurar exclusivamente cache de build no usada quedaron aproximadamente 14 GiB libres (72 % de uso); las imagenes activas y los volumenes persistentes no se tocaron.
+
+## Plataforma administrativa desplegada
+
+| Servicio    | Imagen o estado inmutable                        | Estado verificado |
+| ----------- | ------------------------------------------------ | ----------------- |
+| Caddy       | `qcrm-edge/caddy@sha256:e9c93188...66448`        | `healthy`         |
+| `admin-web` | `qcrm-platform/admin-web@sha256:9126de6c...0a4c` | `healthy`         |
+| `admin-api` | `qcrm-platform/admin-api@sha256:1f00f000...2374` | `healthy`         |
+| Keycloak    | persistente, realm `quantum-platform`            | `healthy`         |
+| PostgreSQL  | persistente, base y roles de plataforma          | `healthy`         |
+| Redis       | persistente, ACL exclusiva de sesiones           | `healthy`         |
+
+Las redes `platform-database`, `platform-session`, `platform-internal` y `platform-oidc` son internas. La ultima contiene solo Caddy y `admin-api` y permite resolver el JWKS HTTPS del issuer exacto sin habilitar salida general a Internet. El operador inicial queda en estado de entrega y debe definir su propia contrasena y TOTP; el secreto inicial permanece fuera de Git con modo `0400`, y las cuentas administrativas temporales de Keycloak fueron retiradas.
 
 ## Builds y smoke aislados
 

@@ -40,23 +40,23 @@ Los contenedores de un cliente no constituyen un servidor independiente: compart
 
 El acceso y el inventario inicial se verificaron el 2026-09-19. La evidencia ampliada vive en [inventario-vps.md](inventario-vps.md). Los datos no observados siguen pendientes y ninguna credencial se guarda en este documento.
 
-| Dato                                 | Estado                                                                                  | Uso                                                    |
-| ------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Proveedor y nombre del VPS           | Hostinger por registro RIPE; hostname `srv1959250`; plan contractual pendiente          | Inventario de infraestructura                          |
-| IPv4 pública estable                 | `2.25.172.119`, acceso verificado                                                       | Hosts nip.io y acceso al proxy                         |
-| IPv6 pública, si existe              | `2a02:4780:75:82b9::1/48`                                                               | Revisar DNS y conectividad coherentes                  |
-| Sistema operativo y versión          | Ubuntu 26.04, kernel `7.0.0-30-generic`                                                 | Instalación compatible y mantenimiento                 |
-| Arquitectura CPU, amd64 o arm64      | `amd64` / `x86_64`                                                                      | Construcción y selección de imágenes                   |
-| vCPU y RAM                           | 1 vCPU y aproximadamente 3.82 GiB RAM                                                   | Límites por cliente y capacidad de despliegue          |
-| Disco total, libre y tipo            | Aproximadamente 47.35 GiB totales y 44.56 GiB disponibles, ext4                         | Bases, archivos, imágenes y copias temporales          |
-| Usuario y puerto SSH                 | `quantum-ops`, puerto `22`; `root` queda como fallback temporal solo por clave          | Acceso operativo durante bootstrap                     |
-| Método de acceso SSH                 | Clave operativa dedicada mediante alias `quantum-crm-vps`; contrasena SSH deshabilitada | Credencial gestionada de forma segura                  |
-| Servicios y contenedores existentes  | Docker activo sin contenedores; Nginx y Monarx activos                                  | Evitar conflictos o interrupciones                     |
-| Uso actual de puertos 80 y 443       | Nginx publica dos sitios existentes con Certbot                                         | Integración del proxy sin sustituir servicios a ciegas |
-| Firewall del proveedor y del sistema | UFW inactivo; firewall del proveedor pendiente                                          | Exposición HTTP/HTTPS y acceso administrativo          |
-| Repositorio y registro de imágenes   | Pendiente                                                                               | Configuración de CI/CD                                 |
-| Destino de respaldos fuera del VPS   | Pendiente                                                                               | Recuperación ante pérdida total                        |
-| Perfiles iniciales y carga prevista  | Pendiente                                                                               | Dimensionamiento y concurrencia                        |
+| Dato                                 | Estado                                                                                  | Uso                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Proveedor y nombre del VPS           | Hostinger por registro RIPE; hostname `srv1959250`; plan contractual pendiente          | Inventario de infraestructura                  |
+| IPv4 pública estable                 | `2.25.172.119`, acceso verificado                                                       | Hosts nip.io y acceso al proxy                 |
+| IPv6 pública, si existe              | `2a02:4780:75:82b9::1/48`                                                               | Revisar DNS y conectividad coherentes          |
+| Sistema operativo y versión          | Ubuntu 26.04, kernel `7.0.0-30-generic`                                                 | Instalación compatible y mantenimiento         |
+| Arquitectura CPU, amd64 o arm64      | `amd64` / `x86_64`                                                                      | Construcción y selección de imágenes           |
+| vCPU y RAM                           | 1 vCPU y aproximadamente 3.82 GiB RAM                                                   | Límites por cliente y capacidad de despliegue  |
+| Disco total, libre y tipo            | Aproximadamente 47.35 GiB totales y 44.56 GiB disponibles, ext4                         | Bases, archivos, imágenes y copias temporales  |
+| Usuario y puerto SSH                 | `quantum-ops`, puerto `22`; `root` queda como fallback temporal solo por clave          | Acceso operativo durante bootstrap             |
+| Método de acceso SSH                 | Clave operativa dedicada mediante alias `quantum-crm-vps`; contrasena SSH deshabilitada | Credencial gestionada de forma segura          |
+| Servicios y contenedores existentes  | Seis servicios Quantum saludables; Caddy y Monarx activos; Nginx preservado e inactivo  | Mantener health, limites y recuperacion        |
+| Uso actual de puertos 80 y 443       | Caddy publica los dos sitios existentes, administrador e identidad                      | Unica entrada publica; rollback Nginx ensayado |
+| Firewall del proveedor y del sistema | UFW inactivo; firewall del proveedor pendiente                                          | Exposición HTTP/HTTPS y acceso administrativo  |
+| Repositorio y registro de imágenes   | Pendiente                                                                               | Configuración de CI/CD                         |
+| Destino de respaldos fuera del VPS   | Pendiente                                                                               | Recuperación ante pérdida total                |
+| Perfiles iniciales y carga prevista  | Pendiente                                                                               | Dimensionamiento y concurrencia                |
 
 - [ ] **OPS-02 — Validar el VPS antes de instalar.**
   - [ ] Completar la ficha y revisar el inventario de servicios existentes.

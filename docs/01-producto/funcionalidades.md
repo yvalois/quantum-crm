@@ -25,7 +25,7 @@ Cada casilla representa un requisito. El archivo `Quantum_CRM_Checklist_Trabajo.
 
 Gestionar múltiples perfiles de clientes, sus configuraciones, versiones y operaciones de despliegue. Los requisitos ADM corresponden al producto administrativo; sus mecanismos operativos se detallan en `Quantum_CRM_DevOps_Despliegues.md`.
 
-- [ ] **ADM-01** — Acceso al administrador central de Quantum.
+- [x] **ADM-01** — Acceso al administrador central de Quantum.
 - [ ] **ADM-02** — Crear y administrar perfiles de clientes o tenants.
 - [ ] **ADM-03** — Gestionar el ciclo de vida de cada perfil.
 - [ ] **ADM-04** — Desplegar un perfil nuevo desde el administrador.
