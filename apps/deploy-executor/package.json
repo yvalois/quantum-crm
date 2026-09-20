@@ -15,6 +15,7 @@
     "@nestjs/common": "11.2.5",
     "@nestjs/core": "11.2.5",
     "@quantum-crm/config": "workspace:*",
+    "@quantum-crm/database": "workspace:*",
     "@quantum-crm/observability": "workspace:*",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"

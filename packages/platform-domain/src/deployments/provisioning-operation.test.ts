@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createProvisioningOperationDraft,
+  hydrateProvisioningOperation,
   ProvisioningOperationValidationError,
   TenantProvisioningService,
+  validateProvisioningLeaseClaim,
+  validateProvisioningLeaseRenewal,
   type ProvisioningOperationRepository,
 } from "./provisioning-operation.js";
 
@@ -52,8 +55,62 @@ describe("tenant provisioning operation", () => {
     }));
     const service = new TenantProvisioningService({
       request,
+      claimNext: vi.fn(),
+      renewLease: vi.fn(),
     } satisfies ProvisioningOperationRepository);
     await expect(service.request(command)).resolves.toMatchObject({ tenantVersion: 2n });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING" }));
+  });
+
+  it("hydrates a running operation only with a coherent durable lease", () => {
+    const operation = hydrateProvisioningOperation({
+      ...command,
+      id: "01995f7e-7b52-7000-8000-000000000401",
+      status: "RUNNING",
+      currentStep: "VALIDATE",
+      attempt: 1,
+      version: 2n,
+      lease: {
+        owner: "executor-01",
+        lastHeartbeatAt: new Date("2026-09-20T12:00:00.000Z"),
+        expiresAt: new Date("2026-09-20T12:01:00.000Z"),
+      },
+      createdAt: new Date("2026-09-20T11:59:00.000Z"),
+      updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+    });
+
+    expect(operation).toMatchObject({
+      status: "RUNNING",
+      attempt: 1,
+      lease: { owner: "executor-01" },
+    });
+    expect(Object.isFrozen(operation.lease)).toBe(true);
+  });
+
+  it("rejects inconsistent lease state and invalid fencing commands", () => {
+    expect(() =>
+      hydrateProvisioningOperation({
+        ...command,
+        id: "01995f7e-7b52-7000-8000-000000000401",
+        status: "RUNNING",
+        currentStep: "VALIDATE",
+        attempt: 1,
+        version: 2n,
+        lease: null,
+        createdAt: new Date("2026-09-20T11:59:00.000Z"),
+        updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+      }),
+    ).toThrow(new ProvisioningOperationValidationError("lease"));
+    expect(() =>
+      validateProvisioningLeaseClaim({ workerId: "executor 01", leaseDurationSeconds: 60 }),
+    ).toThrow(new ProvisioningOperationValidationError("workerId"));
+    expect(() =>
+      validateProvisioningLeaseRenewal({
+        operationId: "01995f7e-7b52-7000-8000-000000000401",
+        workerId: "executor-01",
+        leaseDurationSeconds: 60,
+        expectedVersion: 0n,
+      }),
+    ).toThrow(new ProvisioningOperationValidationError("expectedVersion"));
   });
 });

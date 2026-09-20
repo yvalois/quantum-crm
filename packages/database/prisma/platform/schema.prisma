@@ -131,6 +131,9 @@ model ProvisioningOperation {
   currentStep           ProvisioningOperationStep   @default(VALIDATE) @map("current_step")
   attempt               Int                         @default(0)
   version               BigInt                      @default(1)
+  leaseOwner            String?                     @map("lease_owner") @db.VarChar(128)
+  leaseExpiresAt        DateTime?                   @map("lease_expires_at") @db.Timestamptz(6)
+  lastHeartbeatAt       DateTime?                   @map("last_heartbeat_at") @db.Timestamptz(6)
   createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   tenantProfile         TenantProfile               @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -138,6 +141,7 @@ model ProvisioningOperation {
 
   @@unique([requestedByOperatorId, idempotencyKey], map: "provisioning_operations_actor_idempotency_key_key")
   @@index([status, createdAt, id], map: "provisioning_operations_status_created_id_idx")
+  @@index([status, leaseExpiresAt, createdAt, id], map: "provisioning_operations_claimable_idx", where: raw("\"status\" IN ('pending', 'running')"))
   @@unique([tenantProfileId], map: "provisioning_operations_one_open_per_tenant_idx", where: raw("\"status\" IN ('pending', 'running')"))
   @@map("provisioning_operations")
   @@schema("operations")

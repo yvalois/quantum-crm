@@ -55,7 +55,8 @@ El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases
 
 - `api` y `worker` reciben la URL runtime de la base de su perfil.
 - `admin-api` recibe una URL distinta para la base de plataforma.
-- Webs, `agent-runtime` y `deploy-executor` no reciben credenciales PostgreSQL.
+- `admin-api` y `deploy-executor` reciben la URL runtime de plataforma; el ejecutor solo reclama y actualiza operaciones durables mediante ese rol sin DDL.
+- Webs y `agent-runtime` no reciben credenciales PostgreSQL.
 - El valor se monta como secret de solo lectura en `/run/secrets/qcrm_database_url`; `QCRM_DATABASE_URL_FILE` contiene solo esa referencia.
 - `QCRM_TENANT_ID` identifica el perfil de `api` y `worker` mediante un UUID inmutable. No selecciona dinamicamente otra base.
 - Las variables `QCRM_CRM_DATABASE_URL_SECRET_FILE` y `QCRM_PLATFORM_DATABASE_URL_SECRET_FILE` apuntan a archivos del host fuera del checkout. Nunca contienen la URL.

@@ -21,6 +21,14 @@ function serviceBlock(compose: string, serviceName: string): string {
 }
 
 describe("container manifests", () => {
+  it("keeps generated build artifacts out of Docker contexts", () => {
+    const dockerIgnore = read(".dockerignore");
+
+    for (const pattern of ["**/node_modules", "**/dist", "**/.next", "**/generated"]) {
+      expect(dockerIgnore).toContain(pattern);
+    }
+  });
+
   it("pins the toolchain and runs both runtime images without root", () => {
     for (const dockerfile of ["infra/docker/Dockerfile.web", "infra/docker/Dockerfile.node"]) {
       const source = read(dockerfile);
@@ -188,10 +196,14 @@ describe("container manifests", () => {
       expect(serviceBlock(tenant, service)).not.toContain("QCRM_DATABASE_URL_FILE");
     }
 
-    expect(serviceBlock(platform, "admin-api")).toContain(
-      "QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url",
-    );
-    for (const service of ["admin-web", "deploy-executor"]) {
+    for (const service of ["admin-api", "deploy-executor"]) {
+      expect(serviceBlock(platform, service)).toContain(
+        "QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url",
+      );
+      expect(serviceBlock(platform, service)).toContain("source: platform-database-url");
+      expect(serviceBlock(platform, service)).toContain("platform-database");
+    }
+    for (const service of ["admin-web"]) {
       expect(serviceBlock(platform, service)).not.toContain("QCRM_DATABASE_URL_FILE");
     }
   });

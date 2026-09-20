@@ -51,6 +51,7 @@ export const processDefinitions = Object.freeze({
     serviceName: "deploy-executor",
     defaultHost: "127.0.0.1",
     defaultPort: 3102,
+    database: Object.freeze({ target: "platform", requiresTenant: false }),
   }),
   "agent-runtime": Object.freeze({
     serviceName: "agent-runtime",

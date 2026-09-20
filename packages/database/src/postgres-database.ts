@@ -3,6 +3,8 @@ import {
   createProvisioningOperationDraft,
   hydrateProvisioningOperation,
   ProvisioningOperationConflictError,
+  provisioningOperationStatuses,
+  provisioningOperationSteps,
   hydrateTenantProfile,
   TenantProfileConflictError,
   TenantProfileLifecycleTransitionError,
@@ -10,8 +12,14 @@ import {
   TenantProfileVersionConflictError,
   tenantProfileStatuses,
   transitionTenantProfileStatus,
+  validateProvisioningLeaseClaim,
+  validateProvisioningLeaseRenewal,
+  type ClaimProvisioningOperationCommand,
   type ProvisioningOperation,
   type ProvisioningOperationRepository,
+  type ProvisioningOperationStatus,
+  type ProvisioningOperationStep,
+  type RenewProvisioningOperationLeaseCommand,
   type RequestProvisioningCommand,
   type TenantProfile,
   type TenantProfileDraft,
@@ -104,6 +112,9 @@ interface ProvisioningOperationRow {
   readonly current_step: string;
   readonly attempt: number;
   readonly version: string;
+  readonly lease_owner: string | null;
+  readonly lease_expires_at: Date | null;
+  readonly last_heartbeat_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly tenant_version?: string;
@@ -121,29 +132,53 @@ const provisioningOperationSelection = `
   operation.current_step::text,
   operation.attempt,
   operation.version::text,
+  operation.lease_owner,
+  operation.lease_expires_at,
+  operation.last_heartbeat_at,
   operation.created_at,
   operation.updated_at
 `;
 
 function provisioningOperationFromRow(row: ProvisioningOperationRow): ProvisioningOperation {
-  if (row.status !== "pending" || row.current_step !== "validate") {
-    throw new DatabaseUnavailableError();
-  }
   return hydrateProvisioningOperation({
-    ...createProvisioningOperationDraft({
-      tenantProfileId: row.tenant_profile_id,
-      serverId: row.server_id,
-      releaseId: row.release_id,
-      requestedByOperatorId: row.requested_by_operator_id,
-      idempotencyKey: row.idempotency_key,
-      correlationId: row.correlation_id,
-    }),
     id: row.id,
+    tenantProfileId: row.tenant_profile_id,
+    serverId: row.server_id,
+    releaseId: row.release_id,
+    requestedByOperatorId: row.requested_by_operator_id,
+    idempotencyKey: row.idempotency_key,
+    correlationId: row.correlation_id,
+    status: provisioningOperationStatus(row.status),
+    currentStep: provisioningOperationStep(row.current_step),
     attempt: row.attempt,
     version: BigInt(row.version),
+    lease:
+      row.lease_owner && row.lease_expires_at && row.last_heartbeat_at
+        ? {
+            owner: row.lease_owner,
+            expiresAt: row.lease_expires_at,
+            lastHeartbeatAt: row.last_heartbeat_at,
+          }
+        : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
+}
+
+function provisioningOperationStatus(value: string): ProvisioningOperationStatus {
+  const normalized = value.toUpperCase();
+  if (provisioningOperationStatuses.includes(normalized as ProvisioningOperationStatus)) {
+    return normalized as ProvisioningOperationStatus;
+  }
+  throw new DatabaseUnavailableError();
+}
+
+function provisioningOperationStep(value: string): ProvisioningOperationStep {
+  const normalized = value.toUpperCase();
+  if (provisioningOperationSteps.includes(normalized as ProvisioningOperationStep)) {
+    return normalized as ProvisioningOperationStep;
+  }
+  throw new DatabaseUnavailableError();
 }
 
 const tenantProfileSelection = `
@@ -602,6 +637,76 @@ export function createPlatformPostgresDatabase(
         throw new DatabaseUnavailableError();
       } finally {
         client?.release();
+      }
+    },
+    claimNext: async (command: ClaimProvisioningOperationCommand) => {
+      const claim = validateProvisioningLeaseClaim(command);
+      try {
+        const result = (await pool.query(
+          `
+            WITH candidate AS (
+              SELECT operation.id
+              FROM operations.provisioning_operations AS operation
+              WHERE operation.status = 'pending'
+                 OR (
+                   operation.status = 'running'
+                   AND operation.lease_expires_at <= CURRENT_TIMESTAMP
+                 )
+              ORDER BY
+                CASE WHEN operation.status = 'pending' THEN 0 ELSE 1 END,
+                operation.created_at ASC,
+                operation.id ASC
+              FOR UPDATE SKIP LOCKED
+              LIMIT 1
+            )
+            UPDATE operations.provisioning_operations AS operation
+            SET
+              status = 'running',
+              attempt = operation.attempt + 1,
+              lease_owner = $1,
+              lease_expires_at = CURRENT_TIMESTAMP + ($2::integer * INTERVAL '1 second'),
+              last_heartbeat_at = CURRENT_TIMESTAMP,
+              version = operation.version + 1,
+              updated_at = CURRENT_TIMESTAMP
+            FROM candidate
+            WHERE operation.id = candidate.id
+            RETURNING ${provisioningOperationSelection}
+          `,
+          [claim.workerId, claim.leaseDurationSeconds],
+        )) as { readonly rows: ProvisioningOperationRow[] };
+        return result.rows[0] ? provisioningOperationFromRow(result.rows[0]) : null;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    renewLease: async (command: RenewProvisioningOperationLeaseCommand) => {
+      const renewal = validateProvisioningLeaseRenewal(command);
+      try {
+        const result = (await pool.query(
+          `
+            UPDATE operations.provisioning_operations AS operation
+            SET
+              lease_expires_at = CURRENT_TIMESTAMP + ($4::integer * INTERVAL '1 second'),
+              last_heartbeat_at = CURRENT_TIMESTAMP,
+              version = operation.version + 1,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE operation.id = $1::uuid
+              AND operation.status = 'running'
+              AND operation.lease_owner = $2
+              AND operation.version = $3
+              AND operation.lease_expires_at > CURRENT_TIMESTAMP
+            RETURNING ${provisioningOperationSelection}
+          `,
+          [
+            renewal.operationId,
+            renewal.workerId,
+            renewal.expectedVersion.toString(),
+            renewal.leaseDurationSeconds,
+          ],
+        )) as { readonly rows: ProvisioningOperationRow[] };
+        return result.rows[0] ? provisioningOperationFromRow(result.rows[0]) : null;
+      } catch {
+        throw new DatabaseUnavailableError();
       }
     },
   });

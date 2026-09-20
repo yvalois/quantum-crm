@@ -261,4 +261,81 @@ describe("platform tenant profile migration", () => {
     );
     expect(count.rows[0]?.count).toBe("0");
   });
+
+  it("claims once, fences renewal and recovers an expired lease", async () => {
+    await pool.query("DELETE FROM operations.provisioning_operations");
+    const created = await database.tenantProfiles.create({
+      name: "Lease Provisioning",
+      slug: "lease-provisioning",
+      adminContactName: "Lia",
+      adminContactEmail: "lia@example.test",
+      status: "PENDING",
+    });
+    const requested = await database.provisioningOperations.request({
+      tenantProfileId: created.id,
+      serverId: "01995f7e-7b52-7000-8000-000000000401",
+      releaseId: "01995f7e-7b52-7000-8000-000000000402",
+      requestedByOperatorId: operatorId,
+      idempotencyKey: "provisioning-integration-lease",
+      correlationId: "integration-request-lease",
+      expectedTenantVersion: created.version,
+    });
+
+    const claims = await Promise.all([
+      database.provisioningOperations.claimNext({
+        workerId: "executor-01",
+        leaseDurationSeconds: 60,
+      }),
+      database.provisioningOperations.claimNext({
+        workerId: "executor-02",
+        leaseDurationSeconds: 60,
+      }),
+    ]);
+    const claimed = claims.find((operation) => operation !== null);
+    expect(claims.filter((operation) => operation !== null)).toHaveLength(1);
+    expect(claimed).toMatchObject({
+      id: requested.operation.id,
+      status: "RUNNING",
+      attempt: 1,
+    });
+    if (!claimed?.lease) throw new Error("Expected a claimed lease");
+
+    await expect(
+      database.provisioningOperations.renewLease({
+        operationId: claimed.id,
+        workerId: claimed.lease.owner === "executor-01" ? "executor-02" : "executor-01",
+        leaseDurationSeconds: 60,
+        expectedVersion: claimed.version,
+      }),
+    ).resolves.toBeNull();
+    const renewed = await database.provisioningOperations.renewLease({
+      operationId: claimed.id,
+      workerId: claimed.lease.owner,
+      leaseDurationSeconds: 60,
+      expectedVersion: claimed.version,
+    });
+    expect(renewed).toMatchObject({ id: claimed.id, status: "RUNNING" });
+    expect(renewed?.version).toBe(claimed.version + 1n);
+
+    await pool.query(
+      `
+        UPDATE operations.provisioning_operations
+        SET
+          last_heartbeat_at = CURRENT_TIMESTAMP - INTERVAL '2 seconds',
+          lease_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second'
+        WHERE id = $1::uuid
+      `,
+      [claimed.id],
+    );
+    const recovered = await database.provisioningOperations.claimNext({
+      workerId: "executor-recovery",
+      leaseDurationSeconds: 60,
+    });
+    expect(recovered).toMatchObject({
+      id: claimed.id,
+      status: "RUNNING",
+      attempt: 2,
+      lease: { owner: "executor-recovery" },
+    });
+  });
 });

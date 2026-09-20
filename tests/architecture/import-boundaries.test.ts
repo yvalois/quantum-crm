@@ -53,7 +53,7 @@ describe("architectural import boundaries", () => {
         if (
           path.startsWith("apps/") &&
           imported === "@quantum-crm/database" &&
-          !/apps\/(?:api|admin-api|worker)\//.test(path)
+          !/apps\/(?:api|admin-api|worker|deploy-executor)\//.test(path)
         ) {
           violations.push(`${path} -> ${imported}`);
         }

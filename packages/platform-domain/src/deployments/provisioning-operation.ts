@@ -1,6 +1,7 @@
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
 const correlationIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
+const workerIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
 
 export const provisioningOperationStatuses = [
   "PENDING",
@@ -25,32 +26,38 @@ export const provisioningOperationSteps = [
 ] as const;
 export type ProvisioningOperationStep = (typeof provisioningOperationSteps)[number];
 
-export interface ProvisioningOperationDraft {
+interface ProvisioningOperationIdentity {
   readonly tenantProfileId: string;
   readonly serverId: string;
   readonly releaseId: string;
   readonly requestedByOperatorId: string;
   readonly idempotencyKey: string;
   readonly correlationId: string;
+}
+
+export interface ProvisioningOperationDraft extends ProvisioningOperationIdentity {
   readonly status: "PENDING";
   readonly currentStep: "VALIDATE";
 }
 
-export interface ProvisioningOperation extends ProvisioningOperationDraft {
+export interface ProvisioningOperationLease {
+  readonly owner: string;
+  readonly expiresAt: Date;
+  readonly lastHeartbeatAt: Date;
+}
+
+export interface ProvisioningOperation extends ProvisioningOperationIdentity {
   readonly id: string;
+  readonly status: ProvisioningOperationStatus;
+  readonly currentStep: ProvisioningOperationStep;
   readonly attempt: number;
   readonly version: bigint;
+  readonly lease: ProvisioningOperationLease | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
 
-export interface RequestProvisioningCommand {
-  readonly tenantProfileId: string;
-  readonly serverId: string;
-  readonly releaseId: string;
-  readonly requestedByOperatorId: string;
-  readonly idempotencyKey: string;
-  readonly correlationId: string;
+export interface RequestProvisioningCommand extends ProvisioningOperationIdentity {
   readonly expectedTenantVersion: bigint;
 }
 
@@ -60,8 +67,24 @@ export interface ProvisioningRequestResult {
   readonly idempotentReplay: boolean;
 }
 
+export interface ClaimProvisioningOperationCommand {
+  readonly workerId: string;
+  readonly leaseDurationSeconds: number;
+}
+
+export interface RenewProvisioningOperationLeaseCommand extends ClaimProvisioningOperationCommand {
+  readonly operationId: string;
+  readonly expectedVersion: bigint;
+}
+
 export interface ProvisioningOperationRepository {
   readonly request: (command: RequestProvisioningCommand) => Promise<ProvisioningRequestResult>;
+  readonly claimNext: (
+    command: ClaimProvisioningOperationCommand,
+  ) => Promise<ProvisioningOperation | null>;
+  readonly renewLease: (
+    command: RenewProvisioningOperationLeaseCommand,
+  ) => Promise<ProvisioningOperation | null>;
 }
 
 export class ProvisioningOperationValidationError extends Error {
@@ -89,9 +112,7 @@ function validDate(field: string, value: Date): Date {
   return new Date(value.getTime());
 }
 
-export function createProvisioningOperationDraft(
-  input: Omit<ProvisioningOperationDraft, "status" | "currentStep">,
-): ProvisioningOperationDraft {
+function identity(input: ProvisioningOperationIdentity): ProvisioningOperationIdentity {
   if (!idempotencyKeyPattern.test(input.idempotencyKey)) {
     throw new ProvisioningOperationValidationError("idempotencyKey");
   }
@@ -105,33 +126,104 @@ export function createProvisioningOperationDraft(
     requestedByOperatorId: uuid("requestedByOperatorId", input.requestedByOperatorId),
     idempotencyKey: input.idempotencyKey,
     correlationId: input.correlationId,
+  });
+}
+
+export function validateProvisioningLeaseClaim(
+  input: ClaimProvisioningOperationCommand,
+): ClaimProvisioningOperationCommand {
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (
+    !Number.isInteger(input.leaseDurationSeconds) ||
+    input.leaseDurationSeconds < 10 ||
+    input.leaseDurationSeconds > 300
+  ) {
+    throw new ProvisioningOperationValidationError("leaseDurationSeconds");
+  }
+  return Object.freeze({ ...input });
+}
+
+export function validateProvisioningLeaseRenewal(
+  input: RenewProvisioningOperationLeaseCommand,
+): RenewProvisioningOperationLeaseCommand {
+  const claim = validateProvisioningLeaseClaim(input);
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  return Object.freeze({
+    ...claim,
+    operationId: uuid("operationId", input.operationId),
+    expectedVersion: input.expectedVersion,
+  });
+}
+
+export function createProvisioningOperationDraft(
+  input: Omit<ProvisioningOperationDraft, "status" | "currentStep">,
+): ProvisioningOperationDraft {
+  return Object.freeze({
+    ...identity(input),
     status: "PENDING",
     currentStep: "VALIDATE",
   });
 }
 
 export function hydrateProvisioningOperation(
-  input: ProvisioningOperationDraft & {
+  input: ProvisioningOperationIdentity & {
     readonly id: string;
+    readonly status: ProvisioningOperationStatus;
+    readonly currentStep: ProvisioningOperationStep;
     readonly attempt: number;
     readonly version: bigint;
+    readonly lease: ProvisioningOperationLease | null;
     readonly createdAt: Date;
     readonly updatedAt: Date;
   },
 ): ProvisioningOperation {
+  if (!provisioningOperationStatuses.includes(input.status)) {
+    throw new ProvisioningOperationValidationError("status");
+  }
+  if (!provisioningOperationSteps.includes(input.currentStep)) {
+    throw new ProvisioningOperationValidationError("currentStep");
+  }
   if (!Number.isInteger(input.attempt) || input.attempt < 0) {
     throw new ProvisioningOperationValidationError("attempt");
   }
+  if (input.status === "RUNNING" && input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
   if (input.version < 1n) throw new ProvisioningOperationValidationError("version");
-  const draft = createProvisioningOperationDraft(input);
+  if ((input.status === "RUNNING") !== (input.lease !== null)) {
+    throw new ProvisioningOperationValidationError("lease");
+  }
+
+  const operationIdentity = identity(input);
   const createdAt = validDate("createdAt", input.createdAt);
   const updatedAt = validDate("updatedAt", input.updatedAt);
   if (updatedAt < createdAt) throw new ProvisioningOperationValidationError("updatedAt");
+
+  let lease: ProvisioningOperationLease | null = null;
+  if (input.lease) {
+    if (!workerIdPattern.test(input.lease.owner)) {
+      throw new ProvisioningOperationValidationError("lease.owner");
+    }
+    const expiresAt = validDate("lease.expiresAt", input.lease.expiresAt);
+    const lastHeartbeatAt = validDate("lease.lastHeartbeatAt", input.lease.lastHeartbeatAt);
+    if (lastHeartbeatAt > expiresAt) {
+      throw new ProvisioningOperationValidationError("lease.lastHeartbeatAt");
+    }
+    lease = Object.freeze({ owner: input.lease.owner, expiresAt, lastHeartbeatAt });
+  }
+
   return Object.freeze({
-    ...draft,
+    ...operationIdentity,
     id: uuid("id", input.id),
+    status: input.status,
+    currentStep: input.currentStep,
     attempt: input.attempt,
     version: input.version,
+    lease,
     createdAt,
     updatedAt,
   });

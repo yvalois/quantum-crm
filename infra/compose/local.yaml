@@ -204,6 +204,10 @@ services:
       QCRM_ENV: local
       QCRM_HOST: 0.0.0.0
       QCRM_PORT: "3102"
+      QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+    secrets:
+      - source: platform-database-url
+        target: qcrm_database_url
     ports:
       - 127.0.0.1:3102:3102
     healthcheck:

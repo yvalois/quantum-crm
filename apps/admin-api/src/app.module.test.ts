@@ -33,6 +33,7 @@ beforeAll(async () => {
     currentStep: "VALIDATE",
     attempt: 0,
     version: 1n,
+    lease: null,
     createdAt: new Date("2026-09-20T12:00:00.000Z"),
     updatedAt: new Date("2026-09-20T12:00:00.000Z"),
   });
@@ -66,6 +67,8 @@ beforeAll(async () => {
         tenantVersion: 2n,
         idempotentReplay: false,
       })),
+      claimNext: vi.fn(async () => null),
+      renewLease: vi.fn(async () => null),
     },
   };
   application = await NestFactory.create(
