@@ -63,12 +63,12 @@ La plataforma dispone del primer agregado propietario `TenantProfile`, un schema
 
 ## Plan de implementacion
 
-- [ ] Modelar invariantes del perfil en dominio puro.
-- [ ] Fijar Prisma 7 y crear schema/migracion de plataforma.
-- [ ] Implementar configuracion de migracion por archivo secreto.
-- [ ] Agregar validaciones unitarias, arquitectonicas y PostgreSQL real.
-- [ ] Ejecutar CI y `db:check` en el VPS.
-- [ ] Registrar evidencia sin cerrar `ADM-02`.
+- [x] Modelar invariantes del perfil en dominio puro.
+- [x] Fijar Prisma 7 y crear schema/migracion de plataforma.
+- [x] Implementar configuracion de migracion por archivo secreto.
+- [x] Agregar validaciones unitarias, arquitectonicas y PostgreSQL real.
+- [x] Ejecutar CI y `db:check` en el VPS.
+- [x] Registrar evidencia sin cerrar `ADM-02`.
 
 ## Riesgos y mitigaciones
 
@@ -82,13 +82,13 @@ La plataforma dispone del primer agregado propietario `TenantProfile`, un schema
 
 ## Criterios de aceptacion
 
-- [ ] El dominio rechaza UUID, nombre, slug, email y estados invalidos.
-- [ ] La migracion crea solo objetos propietarios del modulo `tenants`.
-- [ ] UUID se genera con PostgreSQL 18 y slug es unico sin distinguir mayusculas.
-- [ ] Estado, servidor y release permiten los futuros filtros de `ADM-02`.
-- [ ] Runtime puede crear, leer y actualizar perfiles pero no cambiar el schema.
-- [ ] La migracion se aplica con credencial separada cargada desde archivo.
-- [ ] CI y prueba PostgreSQL real aprueban en el VPS.
+- [x] El dominio rechaza UUID, nombre, slug, email y estados invalidos.
+- [x] La migracion crea solo objetos propietarios del modulo `tenants`.
+- [x] UUID se genera con PostgreSQL 18 y slug es unico sin distinguir mayusculas.
+- [x] Estado, servidor y release permiten los futuros filtros de `ADM-02`.
+- [x] Runtime puede crear, leer y actualizar perfiles pero no cambiar el schema.
+- [x] La migracion se aplica con credencial separada cargada desde archivo.
+- [x] CI y prueba PostgreSQL real aprueban en el VPS.
 
 ## Plan de verificacion
 
@@ -108,8 +108,10 @@ La plataforma dispone del primer agregado propietario `TenantProfile`, un schema
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: repositorio, casos de uso y contratos HTTP se agregaran en la siguiente rebanada protegida por `ADM-01`.
+- Archivos, commits o PR: agregado `TenantProfile` en `packages/platform-domain`, configuracion segura en `packages/config`, schema, migracion y comandos Prisma 7 en `packages/database`, prueba PostgreSQL en `tests/integration` y soporte OpenSSL en la toolchain Node. Commits locales `8641f90`, `bb045ef`, `062436e`, `bcf6412`, `4069757` y `4ca912f` en `feat/ADM-02-tenant-profile`, sin remoto ni PR.
+- Comandos y resultados: `pnpm db:check` valido el schema y genero Prisma Client 7.10.0. `pnpm run ci` aprobo en el VPS con Node 24.21.0 fijado por digest: formato, lint, typecheck y build de 17 workspaces, 21 pruebas de configuracion, 48 pruebas generales y 9 pruebas de arquitectura.
+- Migracion e integracion: PostgreSQL 18 fijado por digest aplico la migracion desde cero; la segunda ejecucion informo `No pending migrations` y `prisma migrate diff` informo `No difference detected`. Las 3 pruebas de integracion verificaron UUIDv7, restricciones, slug canonico y unico, DML de runtime y rechazo de DDL. La comprobacion final confirmo PostgreSQL 18, migrador sin superusuario y runtime sin `CREATE` en `tenants`.
+- Imagen de construccion: el target `toolchain` de `infra/docker/Dockerfile.node` se construyo correctamente en el VPS con OpenSSL y certificados; la imagen temporal de verificacion se retiro al terminar.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`; el checklist funcional no se marca porque aun faltan casos de uso, autorizacion, membresias, busqueda y UI.
+- Desviaciones resueltas: se excluyo el cliente Prisma generado de lint, Vitest y pruebas de limites; los defaults SQL se alinearon con Prisma hasta obtener deriva cero; la prueba separa el duplicado exacto del rechazo de un slug no canonico.
+- Pendientes o decisiones nuevas: `ADM-02` sigue `EN_CURSO`. La siguiente rebanada implementara repositorio, casos de uso y contratos protegidos despues de establecer `ADM-01`; siguen pendientes busqueda/filtros, membresias e interfaz administrativa.
