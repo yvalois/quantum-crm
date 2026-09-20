@@ -82,7 +82,7 @@ El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el 
 | ----------- | ------------------------------------------------- | ----------------- |
 | Caddy       | `qcrm-edge/caddy@sha256:e9c93188...66448`         | `healthy`         |
 | `admin-web` | `qcrm-platform/admin-web@sha256:abc03081...5590e` | `healthy`         |
-| `admin-api` | `qcrm-platform/admin-api@sha256:7748b117...671e5` | `healthy`         |
+| `admin-api` | `qcrm-platform/admin-api@sha256:42791eb6...9bb21` | `healthy`         |
 | Keycloak    | persistente, realm `quantum-platform`             | `healthy`         |
 | PostgreSQL  | persistente, base y roles de plataforma           | `healthy`         |
 | Redis       | persistente, ACL exclusiva de sesiones            | `healthy`         |
@@ -92,6 +92,8 @@ Las redes `platform-database`, `platform-session`, `platform-internal` y `platfo
 El 2026-09-20, `ADM-02-b` actualizo exclusivamente `admin-api` desde el build persistente `248c4d56426c8aa00bbae40654c98b9551be30f4`. El servicio expone internamente la API v1 protegida de perfiles de cliente. El archivo `platform.env.before-ADM-02-248c4d5` conserva el digest anterior para rollback de aplicacion sin tocar los perfiles persistidos.
 
 Ese mismo dia, `ADM-02-c` actualizo exclusivamente `admin-web` desde el build persistente `7ce09af36261b0b2eb0a578c2c20078061ebebe9`. El BFF publica rutas fijas para listar, crear, obtener y editar perfiles, conserva los tokens en servidor y exige Origin, CSRF y `If-Match` donde corresponde. El digest anterior permanece registrado en `platform.env.before-adm02c-font-7ce09af`; el smoke HTTPS confirmo raiz `200`, redireccion del dashboard privado, BFF anonimo `401` y contenedor saludable.
+
+`ADM-03-a` actualizo exclusivamente `admin-api` desde el build persistente `dc555e9cb4658199b8fc284b705bc4d9bd4de9f0`. El contrato de edicion general ya no acepta cambios de estado y el dominio concentra la matriz de transiciones futura. El archivo `platform.env.before-adm03a-dc555e9` conserva el digest anterior; el contenedor nuevo quedo saludable por digest, los otros cinco servicios no se recrearon y el disco quedo en 20 % tras retirar dependencias y cache reproducibles.
 
 ## Builds y smoke aislados
 

@@ -65,7 +65,7 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
   - [x] Distinguir el perfil de empresa de los contactos comerciales que viven dentro de su CRM.
 
 - [ ] **ADM-03 — Gestionar el ciclo de vida de cada perfil.**
-  - [ ] Mostrar estados pendiente, aprovisionando, activo, suspendido y error.
+  - [x] Mostrar estados pendiente, aprovisionando, activo, suspendido y error.
   - [ ] Activar y suspender acceso y ejecución del cliente conservando sus datos.
   - [ ] Definir el tratamiento de webhooks entrantes durante una suspensión: recepción duradera sin respuesta automática cuando la política elegida lo permita.
   - [ ] Reanudar operaciones pendientes de forma controlada, revalidando las reglas de envío.

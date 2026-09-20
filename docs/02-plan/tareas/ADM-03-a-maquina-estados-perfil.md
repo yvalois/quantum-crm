@@ -62,11 +62,11 @@ El dominio define transiciones explicitas entre pendiente, aprovisionando, activ
 
 ## Plan de implementacion
 
-- [ ] Implementar la matriz de transiciones como funcion pura de dominio.
-- [ ] Cubrir todas las acciones validas e invalidas con pruebas.
-- [ ] Retirar `status` del comando y contrato de edicion general.
-- [ ] Verificar contratos, dominio, API, BFF y build afectados.
-- [ ] Registrar evidencia sin cerrar el requisito completo.
+- [x] Implementar la matriz de transiciones como funcion pura de dominio.
+- [x] Cubrir todas las acciones validas e invalidas con pruebas.
+- [x] Retirar `status` del comando y contrato de edicion general.
+- [x] Verificar contratos, dominio, API, BFF y build afectados.
+- [x] Registrar evidencia sin cerrar el requisito completo.
 
 ## Riesgos y mitigaciones
 
@@ -78,10 +78,10 @@ El dominio define transiciones explicitas entre pendiente, aprovisionando, activ
 
 ## Criterios de aceptacion
 
-- [ ] Los cinco estados siguen siendo visibles y filtrables.
-- [ ] Solo las transiciones aprobadas por accion son aceptadas por el dominio.
-- [ ] La actualizacion general rechaza el campo `status`.
-- [ ] Ninguna accion se presenta como suspension real antes de controlar acceso, jobs y webhooks.
+- [x] Los cinco estados siguen siendo visibles y filtrables.
+- [x] Solo las transiciones aprobadas por accion son aceptadas por el dominio.
+- [x] La actualizacion general rechaza el campo `status`.
+- [x] Ninguna accion se presenta como suspension real antes de controlar acceso, jobs y webhooks.
 
 ## Plan de verificacion
 
@@ -101,8 +101,8 @@ El dominio define transiciones explicitas entre pendiente, aprovisionando, activ
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: politica y 16 casos de ciclo de vida en `packages/platform-domain`, contrato estricto en `packages/contracts` y frontera corregida en `apps/admin-api`; commits locales `5390998` y `dc555e9` en `feat/ADM-03-tenant-lifecycle`, sin remoto configurado.
+- Comandos y resultados: CI completa en Node 24 dentro del VPS; formato, lint y typecheck aprobaron, 41 pruebas de configuracion, 168 pruebas generales, 19 de arquitectura y los 17 builds aplicables pasaron. `admin-api` quedo saludable con digest `42791eb6ba22e595d2595d94abf3f61a57021b0cedea7f94ac04337c7789bb21`.
+- Documentacion actualizada: esta ficha, estado, checklist e inventario del VPS.
+- Desviaciones del plan: la primera ejecucion de typecheck detecto que se habia retirado por error el filtro de listado en vez de la asignacion de edicion; `dc555e9` restauro el filtro y la CI completa posterior aprobo. No hubo cambios de datos.
+- Pendientes o decisiones nuevas: `ADM-03` sigue abierto. Las acciones operativas se expondran solo cuando controlen acceso, jobs y webhooks reales mediante operaciones durables; no se publicara un boton que cambie unicamente la etiqueta del perfil.
