@@ -92,7 +92,7 @@ describe("container manifests", () => {
     const platform = read("infra/compose/platform.yaml");
 
     expect(serviceNames(foundation).sort()).toEqual(
-      ["platform-keycloak", "platform-postgres", "platform-redis"].sort(),
+      ["platform-keycloak", "platform-migrator", "platform-postgres", "platform-redis"].sort(),
     );
     expect(foundation).not.toMatch(/^    ports:/m);
     expect(foundation).not.toContain("start-dev");
@@ -103,14 +103,21 @@ describe("container manifests", () => {
     expect(serviceBlock(foundation, "platform-postgres")).toContain(
       "networks: [platform-database]",
     );
+    expect(serviceBlock(foundation, "platform-postgres")).toContain("DAC_OVERRIDE");
     expect(serviceBlock(foundation, "platform-redis")).toContain("networks: [platform-session]");
+    expect(serviceBlock(foundation, "platform-redis")).toContain("DAC_OVERRIDE");
     expect(serviceBlock(foundation, "platform-keycloak")).toContain(
       "networks: [platform-edge, platform-database]",
     );
+    expect(serviceBlock(foundation, "platform-keycloak")).not.toContain("cap_add:");
     expect(serviceBlock(platform, "admin-web")).toContain("platform-session");
     expect(serviceBlock(platform, "admin-web")).not.toContain("platform-database");
     expect(serviceBlock(platform, "admin-api")).toContain("platform-database");
     expect(serviceBlock(platform, "admin-api")).not.toContain("platform-session");
+    expect(serviceBlock(foundation, "platform-migrator")).toContain("profiles: [tools]");
+    expect(serviceBlock(foundation, "platform-migrator")).toContain(
+      "QCRM_MIGRATION_DATABASE_URL_FILE: /run/secrets/qcrm_migration_database_url",
+    );
   });
 
   it("adapts vendor credentials from mounted files without secret command arguments", () => {
@@ -122,7 +129,7 @@ describe("container manifests", () => {
     expect(foundation).not.toContain("--requirepass");
     expect(foundation).not.toContain("--db-password");
     expect(redisEntrypoint).toContain("/run/secrets/qcrm_redis_password");
-    expect(redisEntrypoint).toContain("--aclfile /run/redis/users.acl");
+    expect(redisEntrypoint).toContain("--aclfile /tmp/users.acl");
     expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_DB_PASSWORD_FILE");
     expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE");
     expect(keycloakEntrypoint).not.toContain("set -x");

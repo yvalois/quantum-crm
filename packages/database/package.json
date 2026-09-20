@@ -19,7 +19,9 @@
     "prisma:platform:generate": "prisma generate --schema prisma/platform/schema.prisma",
     "prisma:platform:validate": "prisma validate --schema prisma/platform/schema.prisma",
     "db:check": "pnpm prisma:platform:validate && pnpm prisma:platform:generate",
-    "db:migrate:platform": "prisma migrate deploy --config prisma/platform/prisma7.config.ts"
+    "db:migrate:platform": "prisma migrate deploy --config prisma/platform/prisma7.config.ts",
+    "db:grant:platform": "node dist/grant-platform-runtime.js",
+    "db:provision:platform": "pnpm db:migrate:platform && pnpm db:grant:platform"
   },
   "dependencies": {
     "@quantum-crm/config": "workspace:*",

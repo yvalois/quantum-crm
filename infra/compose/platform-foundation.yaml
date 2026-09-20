@@ -16,13 +16,19 @@ x-stateful-defaults: &stateful-defaults
 services:
   platform-postgres:
     <<: *stateful-defaults
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/platform-postgres@sha256:${QCRM_PLATFORM_POSTGRES_IMAGE_DIGEST:?set QCRM_PLATFORM_POSTGRES_IMAGE_DIGEST}"
     pull_policy: always
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: qcrm_cluster_admin
       POSTGRES_PASSWORD_FILE: /run/secrets/qcrm_postgres_admin_password
-      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
     secrets:
       - source: postgres-admin-password
         target: qcrm_postgres_admin_password
@@ -49,6 +55,12 @@ services:
 
   platform-redis:
     <<: *stateful-defaults
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/platform-redis@sha256:${QCRM_PLATFORM_REDIS_IMAGE_DIGEST:?set QCRM_PLATFORM_REDIS_IMAGE_DIGEST}"
     pull_policy: always
     read_only: true
@@ -61,7 +73,6 @@ services:
       - platform-redis-data:/data
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
-      - /run/redis:rw,noexec,nosuid,size=4m,uid=999,gid=999
     healthcheck:
       test:
         [
@@ -78,6 +89,7 @@ services:
 
   platform-keycloak:
     <<: *stateful-defaults
+    init: false
     image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/keycloak@sha256:${QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST:?set QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST}"
     pull_policy: always
     read_only: true
@@ -108,6 +120,7 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
       - /opt/keycloak/data/tmp:rw,noexec,nosuid,size=64m,uid=1000,gid=0
+      - /opt/keycloak/data/transaction-logs:rw,noexec,nosuid,size=16m,uid=1000,gid=0
     depends_on:
       platform-postgres:
         condition: service_healthy
@@ -124,6 +137,31 @@ services:
     mem_limit: 896m
     cpus: 0.7
     networks: [platform-edge, platform-database]
+
+  platform-migrator:
+    init: true
+    image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/platform-migrator@sha256:${QCRM_PLATFORM_MIGRATOR_IMAGE_DIGEST:?set QCRM_PLATFORM_MIGRATOR_IMAGE_DIGEST}"
+    pull_policy: always
+    profiles: [tools]
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      QCRM_MIGRATION_DATABASE_URL_FILE: /run/secrets/qcrm_migration_database_url
+    secrets:
+      - source: platform-migration-database-url
+        target: qcrm_migration_database_url
+    depends_on:
+      platform-postgres:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: 0.5
+    networks: [platform-database]
 
 networks:
   platform-edge:
@@ -157,3 +195,5 @@ secrets:
     file: "${QCRM_PLATFORM_REDIS_PASSWORD_FILE:?set QCRM_PLATFORM_REDIS_PASSWORD_FILE}"
   admin-web-oidc-client-secret:
     file: "${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE:?set QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE}"
+  platform-migration-database-url:
+    file: "${QCRM_PLATFORM_MIGRATION_DATABASE_URL_FILE:?set QCRM_PLATFORM_MIGRATION_DATABASE_URL_FILE}"

@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1.7
+
+ARG NODE_IMAGE=node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
+
+FROM ${NODE_IMAGE} AS runtime
+ENV PNPM_HOME=/pnpm
+ENV PATH=${PNPM_HOME}:${PATH}
+ENV NODE_ENV=production
+WORKDIR /workspace
+RUN corepack enable && corepack prepare pnpm@9.13.2 --activate
+COPY . .
+RUN pnpm install --frozen-lockfile \
+    && pnpm --filter "@quantum-crm/database..." build
+USER node
+CMD ["pnpm", "--filter", "@quantum-crm/database", "db:provision:platform"]

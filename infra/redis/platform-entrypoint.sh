@@ -8,11 +8,12 @@ IFS= read -r password <"$secret_file"
 
 umask 077
 printf 'user default on >%s ~qcrm:platform:* +@connection +@read +@write -@dangerous +eval +evalsha\n' \
-  "$password" >/run/redis/users.acl
+  "$password" >/tmp/users.acl
+chown redis:redis /tmp/users.acl
 unset password
 
 exec docker-entrypoint.sh redis-server \
-  --aclfile /run/redis/users.acl \
+  --aclfile /tmp/users.acl \
   --appendonly yes \
   --appendfsync everysec \
   --save '900 1 300 10 60 10000'
