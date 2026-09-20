@@ -48,15 +48,15 @@ La sesion opaca de `admin-web` renueva el access token antes de expirar sin entr
 
 ## Impacto tecnico
 
-| Area | Impacto previsto |
-|---|---|
-| Aplicaciones y modulos | Servicio de autenticacion de `admin-web` y adaptador OIDC |
-| Contratos y eventos | Contratos internos de sesion y proveedor; sin API publica nueva |
-| Datos y migraciones | Schema efimero Redis compatible; sesiones antiguas fallan cerradas |
-| Permisos y aislamiento | Sin cambio; sesion ligada al operador de plataforma |
-| Configuracion y secretos | Sin secreto nuevo; tokens permanecen server-side |
-| Observabilidad y operacion | Fallo uniforme sin registrar tokens |
-| Documentacion | Ficha y estado oficial |
+| Area                       | Impacto previsto                                                   |
+| -------------------------- | ------------------------------------------------------------------ |
+| Aplicaciones y modulos     | Servicio de autenticacion de `admin-web` y adaptador OIDC          |
+| Contratos y eventos        | Contratos internos de sesion y proveedor; sin API publica nueva    |
+| Datos y migraciones        | Schema efimero Redis compatible; sesiones antiguas fallan cerradas |
+| Permisos y aislamiento     | Sin cambio; sesion ligada al operador de plataforma                |
+| Configuracion y secretos   | Sin secreto nuevo; tokens permanecen server-side                   |
+| Observabilidad y operacion | Fallo uniforme sin registrar tokens                                |
+| Documentacion              | Ficha y estado oficial                                             |
 
 ## Plan de implementacion
 
@@ -69,13 +69,13 @@ La sesion opaca de `admin-web` renueva el access token antes de expirar sin entr
 
 ## Riesgos y mitigaciones
 
-| Riesgo | Mitigacion | Verificacion |
-|---|---|---|
-| Dos replicas reutilizan el refresh token | Lease Redis NX con propietario y liberacion compare-delete | Prueba concurrente y de propietario incorrecto |
-| Token vencido llega a `admin-api` | Margen de renovacion previo al vencimiento | Prueba en el borde temporal |
-| Refresh revocado deja sesion utilizable | Borrado fail-closed ante cualquier fallo | Prueba de proveedor fallido |
-| El refresh extiende indefinidamente la sesion | TTL limitado por expiracion absoluta original | Prueba del limite absoluto |
-| Tokens aparecen en cliente o logs | Persistencia y uso exclusivamente server-side | Inspeccion de respuestas y codigo |
+| Riesgo                                        | Mitigacion                                                 | Verificacion                                   |
+| --------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| Dos replicas reutilizan el refresh token      | Lease Redis NX con propietario y liberacion compare-delete | Prueba concurrente y de propietario incorrecto |
+| Token vencido llega a `admin-api`             | Margen de renovacion previo al vencimiento                 | Prueba en el borde temporal                    |
+| Refresh revocado deja sesion utilizable       | Borrado fail-closed ante cualquier fallo                   | Prueba de proveedor fallido                    |
+| El refresh extiende indefinidamente la sesion | TTL limitado por expiracion absoluta original              | Prueba del limite absoluto                     |
+| Tokens aparecen en cliente o logs             | Persistencia y uso exclusivamente server-side              | Inspeccion de respuestas y codigo              |
 
 ## Criterios de aceptacion
 
