@@ -34,6 +34,8 @@ Las plantillas esperan que PostgreSQL ya haya sido aprovisionado con una base y 
 - Estas variables no son secretos. Tokens, client secrets y credenciales no se guardan en Compose ni en Git.
 - `infra/config/admin-api.env.example` contiene un ejemplo local sintetico. La instalacion y el realm reales de Keycloak siguen pendientes dentro de `ADM-01`.
 
+La definicion importable inicial vive en `infra/keycloak/quantum-platform-realm.json`. No contiene usuarios, contrasenas, semillas OTP ni client secrets. Antes de importarla, el entorno debe definir `QCRM_ADMIN_WEB_ORIGIN` con el origen HTTPS exacto de `admin-web`; el redirect permitido se limita a `/api/auth/callback/keycloak`. El cliente confidencial recibe su credencial fuera de Git durante el aprovisionamiento y `admin-api` continua rechazando cualquier token que no pruebe ACR 2.
+
 ## Imagenes
 
 - `infra/docker/Dockerfile.web`: genera la salida standalone de una de las tres aplicaciones Next.js.
