@@ -14,7 +14,7 @@ import {
   platformProblem,
   platformSessionCookieName,
   type PlatformAuthRuntime,
-} from "./platform-auth-http.js";
+} from "./platform-auth-http";
 
 const maximumResponseBytes = 1_048_576;
 const maximumRequestBytes = 65_536;
