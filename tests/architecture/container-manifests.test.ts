@@ -152,6 +152,7 @@ describe("container manifests", () => {
 
   it("declares a hardened Caddy edge that preserves existing sites", () => {
     const edge = read("infra/compose/edge.yaml");
+    const platform = read("infra/compose/platform.yaml");
     const caddyfile = read("infra/caddy/Caddyfile");
     const dockerfile = read("infra/docker/Dockerfile.caddy");
 
@@ -162,7 +163,9 @@ describe("container manifests", () => {
     expect(edge).toContain("/var/www/quantum:/srv/quantum:ro");
     expect(edge).toContain("/var/www/mr-business:/srv/mr-business:ro");
     expect(edge).toContain("edge-caddy-data:/data");
-    expect(edge).toContain("networks: [platform-edge]");
+    expect(edge).toContain("platform-oidc:");
+    expect(edge).toContain("QCRM_IDENTITY_HOST");
+    expect(serviceBlock(platform, "admin-api")).toContain("platform-oidc");
     expect(dockerfile).toContain("caddy:2.11.4-alpine@sha256:");
     expect(dockerfile).toContain("USER caddy-runtime");
     expect(caddyfile).toContain("reverse_proxy admin-web:3000");

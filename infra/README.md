@@ -17,7 +17,7 @@ La fundacion persistente separa el ciclo de vida de PostgreSQL, Redis y Keycloak
 
 ## Entrada HTTPS
 
-`edge.yaml` publica exclusivamente Caddy en 80/443, persiste su estado ACME y solo se conecta a `platform-edge`. Los sitios estaticos preexistentes se montan desde `/var/www` en solo lectura; `admin-web` y Keycloak se alcanzan por sus nombres internos. La imagen personalizada conserva la version oficial fijada por digest y ejecuta Caddy sin privilegios, con solo `NET_BIND_SERVICE`.
+`edge.yaml` publica exclusivamente Caddy en 80/443 y persiste su estado ACME. Los sitios estaticos preexistentes se montan desde `/var/www` en solo lectura; `admin-web` y Keycloak se alcanzan por `platform-edge`. La red interna `platform-oidc` une solo Caddy y `admin-api` y registra el host publico de identidad como alias de Caddy, de modo que la API obtiene JWKS por HTTPS con el issuer exacto sin recibir acceso general a Internet. La imagen personalizada conserva la version oficial fijada por digest y ejecuta Caddy sin privilegios, con solo `NET_BIND_SERVICE`.
 
 La primera migracion desde Nginx es una operacion excepcional de bootstrap. `infra/caddy/migrate-from-nginx.sh` valida DNS, Nginx, Compose y Caddy antes de liberar los puertos; si falla cualquier comprobacion posterior, detiene Caddy y reactiva Nginx y Certbot. `infra/caddy/rollback-to-nginx.sh` permite la recuperacion explicita. Ambos requieren un checkout inmutable bajo `/opt/quantum/builds/` y un archivo de configuracion no secreto bajo `/opt/quantum/config/`. Los cambios posteriores de ingreso pertenecen al flujo tipado de `deploy-executor`.
 
@@ -28,7 +28,7 @@ La primera migracion desde Nginx es una operacion excepcional de bootstrap. `inf
 - PostgreSQL solo pertenece a `platform-database` y crea bases y roles separados para Keycloak, migracion y runtime.
 - Redis solo pertenece a `platform-session`, exige ACL y limita las claves al namespace de sesiones administrativas.
 - Keycloak pertenece a la red de entrada y a `platform-database`; usa PostgreSQL y el comando `start --optimized --import-realm`, nunca `start-dev`.
-- `platform.yaml` conecta `admin-web` unicamente a la red de sesiones y `admin-api` unicamente a la red de datos.
+- `platform.yaml` conecta `admin-web` a entrada y sesiones. `admin-api` usa datos y la red interna OIDC dedicada; esta ultima solo permite obtener el JWKS HTTPS del issuer exacto a traves de Caddy.
 
 El host instala `infra/redis/99-quantum-redis.conf` en `/etc/sysctl.d/99-quantum-redis.conf` y aplica `sysctl --system` antes de arrancar Redis. Esta configuracion permite que su persistencia en segundo plano funcione bajo presion de memoria.
 

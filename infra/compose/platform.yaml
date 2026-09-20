@@ -79,7 +79,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [platform-internal, platform-database]
+    networks: [platform-internal, platform-database, platform-oidc]
 
   deploy-executor:
     <<: *service-defaults
@@ -115,6 +115,9 @@ networks:
   platform-session:
     external: true
     name: "${QCRM_PLATFORM_SESSION_NETWORK:?set QCRM_PLATFORM_SESSION_NETWORK}"
+  platform-oidc:
+    external: true
+    name: "${QCRM_PLATFORM_OIDC_NETWORK:?set QCRM_PLATFORM_OIDC_NETWORK}"
 
 secrets:
   admin-web-oidc-client-secret:

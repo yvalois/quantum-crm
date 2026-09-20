@@ -42,12 +42,19 @@ services:
         max-file: "5"
     mem_limit: 128m
     cpus: 0.2
-    networks: [platform-edge]
+    networks:
+      platform-edge: {}
+      platform-oidc:
+        aliases:
+          - "${QCRM_IDENTITY_HOST:?set QCRM_IDENTITY_HOST}"
 
 networks:
   platform-edge:
     external: true
     name: "${QCRM_PLATFORM_EDGE_NETWORK:?set QCRM_PLATFORM_EDGE_NETWORK}"
+  platform-oidc:
+    external: true
+    name: "${QCRM_PLATFORM_OIDC_NETWORK:?set QCRM_PLATFORM_OIDC_NETWORK}"
 
 volumes:
   edge-caddy-data:
