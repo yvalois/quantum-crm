@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 function workspaceSource(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
@@ -16,6 +16,7 @@ export default defineConfig({
   },
   test: {
     clearMocks: true,
+    exclude: [...configDefaults.exclude, "**/dist/**", "**/.next/**"],
     restoreMocks: true,
   },
 });

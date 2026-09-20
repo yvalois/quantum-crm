@@ -1,17 +1,13 @@
 import "reflect-metadata";
 
 import { NestFactory } from "@nestjs/core";
-import { loadProcessConfig } from "@quantum-crm/config";
+import { loadServiceConfig } from "@quantum-crm/config";
 import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
 
 import { AppModule } from "./app.module.js";
 
 async function bootstrap(): Promise<void> {
-  const config = loadProcessConfig({
-    serviceName: "worker",
-    defaultHost: "127.0.0.1",
-    defaultPort: 3101,
-  });
+  const config = loadServiceConfig("worker");
   const application = await NestFactory.createApplicationContext(AppModule, {
     abortOnError: true,
     logger: false,

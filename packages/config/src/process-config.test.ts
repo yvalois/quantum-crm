@@ -1,6 +1,14 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { ConfigurationError, parseProcessConfig } from "./process-config.js";
+import {
+  ConfigurationError,
+  parseProcessConfig,
+  parseServiceConfig,
+  processDefinitions,
+} from "./process-config.js";
 
 const definition = {
   serviceName: "worker",
@@ -14,6 +22,8 @@ describe("process configuration", () => {
       expect(
         parseProcessConfig(definition, {
           QCRM_ENV: environment,
+          QCRM_HOST: "127.0.0.1",
+          QCRM_PORT: "3101",
         }).environment,
       ).toBe(environment);
     }
@@ -21,6 +31,7 @@ describe("process configuration", () => {
 
   it("uses safe local defaults", () => {
     expect(parseProcessConfig(definition, {})).toEqual({
+      schemaVersion: "process-config/v1",
       serviceName: "worker",
       environment: "local",
       host: "127.0.0.1",
@@ -47,5 +58,73 @@ describe("process configuration", () => {
     expect(() => parseProcessConfig(definition, { QCRM_PORT: "0" })).toThrow(
       new ConfigurationError("worker", ["QCRM_PORT"]),
     );
+  });
+
+  it("requires host and port outside local and test", () => {
+    for (const environment of ["preview", "staging", "production"]) {
+      expect(() => parseProcessConfig(definition, { QCRM_ENV: environment })).toThrow(
+        new ConfigurationError("worker", ["QCRM_HOST", "QCRM_PORT"]),
+      );
+    }
+  });
+
+  it("rejects placeholders without exposing their values", () => {
+    expect(() =>
+      parseProcessConfig(definition, {
+        QCRM_HOST: "CHANGE_ME",
+      }),
+    ).toThrow(new ConfigurationError("worker", ["QCRM_HOST"]));
+
+    try {
+      parseProcessConfig(definition, { QCRM_HOST: "CHANGE_ME" });
+    } catch (error) {
+      expect(String(error)).not.toContain("CHANGE_ME");
+    }
+  });
+
+  it("returns an immutable configuration object", () => {
+    expect(Object.isFrozen(parseProcessConfig(definition, {}))).toBe(true);
+  });
+
+  it("keeps an exhaustive definition for every Node process", () => {
+    expect(processDefinitions).toEqual({
+      api: { serviceName: "api", defaultHost: "0.0.0.0", defaultPort: 3001 },
+      "admin-api": {
+        serviceName: "admin-api",
+        defaultHost: "0.0.0.0",
+        defaultPort: 3002,
+      },
+      worker: { serviceName: "worker", defaultHost: "127.0.0.1", defaultPort: 3101 },
+      "deploy-executor": {
+        serviceName: "deploy-executor",
+        defaultHost: "127.0.0.1",
+        defaultPort: 3102,
+      },
+      "agent-runtime": {
+        serviceName: "agent-runtime",
+        defaultHost: "127.0.0.1",
+        defaultPort: 3103,
+      },
+    });
+  });
+
+  it("keeps the non-secret example valid for worker", () => {
+    const environment = Object.fromEntries(
+      readFileSync(join(process.cwd(), ".env.example"), "utf8")
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith("#"))
+        .map((line) => {
+          const separator = line.indexOf("=");
+          return [line.slice(0, separator), line.slice(separator + 1)];
+        }),
+    );
+
+    expect(parseServiceConfig("worker", environment)).toMatchObject({
+      serviceName: "worker",
+      environment: "local",
+      host: "127.0.0.1",
+      port: 3101,
+    });
   });
 });

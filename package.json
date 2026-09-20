@@ -14,10 +14,11 @@
     "format:check": "prettier --check \"*.{json,mjs,ts,yaml}\" \"apps/**/*.{css,json,ts,tsx}\" \"packages/**/*.{json,ts,tsx}\" \"tests/**/*.ts\" \"infra/**/*.{json,md,ts,yaml,yml}\"",
     "lint": "eslint apps packages tests",
     "typecheck": "pnpm -r --workspace-concurrency=4 --if-present typecheck",
+    "config:check": "vitest run packages/config/src",
     "test": "vitest run tests/unit apps packages",
     "test:architecture": "vitest run tests/architecture",
     "build": "pnpm -r --workspace-concurrency=4 --if-present build",
-    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:architecture && pnpm build"
+    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm config:check && pnpm test && pnpm test:architecture && pnpm build"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

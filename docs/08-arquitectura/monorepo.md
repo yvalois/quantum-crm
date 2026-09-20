@@ -186,17 +186,17 @@ Los nombres de modulos provienen de ADR-0002. Agregar, fusionar o retirar uno re
 
 ## Paquetes
 
-| Paquete | Contenido | Puede depender de |
-|---|---|---|
-| `domain` | Dominio y aplicacion de modulos CRM | shared kernel y contratos publicos necesarios |
-| `platform-domain` | Dominio y aplicacion de plataforma | shared kernel y contratos administrativos |
-| `contracts` | Zod, tipos, OpenAPI, JSON Schema y eventos | librerias de schema aprobadas; nunca infraestructura |
-| `database` | Prisma, migraciones, repositorios, SQL y schema separado de checkpoints agentivos | domain, platform-domain, config y observability |
-| `auth` | OIDC, sesiones, AuthContext y adaptadores IAM | contracts, config y observability |
-| `ui` | Tokens, componentes y patrones accesibles | React y utilidades visuales aprobadas |
-| `config` | Schemas de variables y configuracion tipada | contratos minimos; sin dominio ni infraestructura mutable |
-| `observability` | Pino JSON, OpenTelemetry, correlacion, redaccion y salud | config; nunca dominio ni SDKs propietarios |
-| `testing` | Factories, harnesses, contenedores y aserciones | contratos y adaptadores solo para pruebas |
+| Paquete           | Contenido                                                                         | Puede depender de                                         |
+| ----------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `domain`          | Dominio y aplicacion de modulos CRM                                               | shared kernel y contratos publicos necesarios             |
+| `platform-domain` | Dominio y aplicacion de plataforma                                                | shared kernel y contratos administrativos                 |
+| `contracts`       | Zod, tipos, OpenAPI, JSON Schema y eventos                                        | librerias de schema aprobadas; nunca infraestructura      |
+| `database`        | Prisma, migraciones, repositorios, SQL y schema separado de checkpoints agentivos | domain, platform-domain, config y observability           |
+| `auth`            | OIDC, sesiones, AuthContext y adaptadores IAM                                     | contracts, config y observability                         |
+| `ui`              | Tokens, componentes y patrones accesibles                                         | React y utilidades visuales aprobadas                     |
+| `config`          | Schemas de variables y configuracion tipada                                       | contratos minimos; sin dominio ni infraestructura mutable |
+| `observability`   | Pino JSON, OpenTelemetry, correlacion, redaccion y salud                          | config; nunca dominio ni SDKs propietarios                |
+| `testing`         | Factories, harnesses, contenedores y aserciones                                   | contratos y adaptadores solo para pruebas                 |
 
 `domain` y `platform-domain` contienen carpetas por modulo. No se crea una capa global de servicios, repositorios o entidades que mezcle propietarios.
 
@@ -323,32 +323,32 @@ La configuracion cumple `../06-decisiones/ADR-0008-entornos-configuracion-secret
 
 La raiz expone nombres estables aunque internamente filtre paquetes:
 
-| Script | Responsabilidad |
-|---|---|
-| `pnpm format:check` | Comprobar formato sin modificar |
-| `pnpm lint` | Lint y limites de imports |
-| `pnpm typecheck` | Compilar tipos estrictos de todos los workspaces |
-| `pnpm test` | Pruebas unitarias |
-| `pnpm test:coverage` | Unitarias con cobertura y umbrales obligatorios |
-| `pnpm test:integration` | Integracion con servicios aislados |
-| `pnpm test:contracts` | OpenAPI, eventos, webhooks y agentes |
-| `pnpm test:e2e` | Recorridos web y administrativos |
-| `pnpm test:architecture` | Direccion de dependencias y exports |
-| `pnpm build` | Construir aplicaciones y paquetes |
-| `pnpm contracts:generate` | Generar artefactos contractuales |
-| `pnpm contracts:check` | Validar schemas y cambios incompatibles |
-| `pnpm db:check` | Validar historias y aplicar sobre bases temporales |
-| `pnpm config:check` | Validar schemas, ejemplos y compatibilidad de configuracion |
-| `pnpm secrets:scan` | Detectar secretos en contenido versionado y cambios |
-| `pnpm security:dependencies` | Auditar dependencias segun la politica de vulnerabilidades |
-| `pnpm image:scan` | Escanear por digest las imagenes o SBOM de una release |
-| `pnpm release:check` | Validar manifiesto, digests, compatibilidad y evidencia de una release |
-| `pnpm observability:check` | Validar campos, redaccion, cardinalidad, correlacion y configuracion del Collector |
-| `pnpm agents:check` | Validar `/agent/v1`, MCP, fixtures JavaScript/Python y evaluaciones obligatorias |
-| `pnpm files:check` | Validar contratos, estados, formatos, scan, retencion y aislamiento de archivos |
-| `pnpm storage:check` | Validar SeaweedFS, ClamAV, buckets, politicas, cuotas y reconciliacion contra versiones fijadas |
-| `pnpm recovery:check` | Validar manifiestos, cifrado, retencion, restauracion aislada y medicion de RPO/RTO |
-| `pnpm ci` | Ejecutar todas las puertas obligatorias aplicables |
+| Script                       | Responsabilidad                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`          | Comprobar formato sin modificar                                                                      |
+| `pnpm lint`                  | Lint y limites de imports                                                                            |
+| `pnpm typecheck`             | Compilar tipos estrictos de todos los workspaces                                                     |
+| `pnpm test`                  | Pruebas unitarias                                                                                    |
+| `pnpm test:coverage`         | Unitarias con cobertura y umbrales obligatorios                                                      |
+| `pnpm test:integration`      | Integracion con servicios aislados                                                                   |
+| `pnpm test:contracts`        | OpenAPI, eventos, webhooks y agentes                                                                 |
+| `pnpm test:e2e`              | Recorridos web y administrativos                                                                     |
+| `pnpm test:architecture`     | Direccion de dependencias y exports                                                                  |
+| `pnpm build`                 | Construir aplicaciones y paquetes                                                                    |
+| `pnpm contracts:generate`    | Generar artefactos contractuales                                                                     |
+| `pnpm contracts:check`       | Validar schemas y cambios incompatibles                                                              |
+| `pnpm db:check`              | Validar historias y aplicar sobre bases temporales                                                   |
+| `pnpm config:check`          | Validar schemas, ejemplos y compatibilidad de configuracion                                          |
+| `pnpm secrets:scan`          | Detectar secretos en contenido versionado y cambios                                                  |
+| `pnpm security:dependencies` | Auditar dependencias segun la politica de vulnerabilidades                                           |
+| `pnpm image:scan`            | Escanear por digest las imagenes o SBOM de una release                                               |
+| `pnpm release:check`         | Validar manifiesto, digests, compatibilidad y evidencia de una release                               |
+| `pnpm observability:check`   | Validar campos, redaccion, cardinalidad, correlacion y configuracion del Collector                   |
+| `pnpm agents:check`          | Validar `/agent/v1`, MCP, fixtures JavaScript/Python y evaluaciones obligatorias                     |
+| `pnpm files:check`           | Validar contratos, estados, formatos, scan, retencion y aislamiento de archivos                      |
+| `pnpm storage:check`         | Validar SeaweedFS, ClamAV, buckets, politicas, cuotas y reconciliacion contra versiones fijadas      |
+| `pnpm recovery:check`        | Validar manifiestos, cifrado, retencion, restauracion aislada y medicion de RPO/RTO                  |
+| `pnpm run ci`                | Ejecutar todas las puertas obligatorias aplicables sin colisionar con el comando reservado `pnpm ci` |
 
 Los scripts destructivos como reset local tienen nombres explicitos, validan el entorno y no forman parte de `ci` ni de despliegue.
 

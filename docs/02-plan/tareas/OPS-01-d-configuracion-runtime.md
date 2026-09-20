@@ -102,7 +102,7 @@ Los cinco procesos Node desplegables cargan una definicion central por servicio,
 - Comprobacion manual: ninguna lectura `process.env` fuera de `packages/config`.
 - Seguridad, permisos y aislamiento: canario ausente del error; no agregar secretos ni paths reales.
 - Idempotencia, concurrencia y recuperacion: cambio puro de bootstrap; rollback al commit anterior.
-- Comandos que deben aprobar: `format:check`, `lint`, `typecheck`, `config:check`, pruebas unitarias, arquitectura y builds afectados.
+- Comandos que deben aprobar: `pnpm run ci`, `config:check` y la validacion de imagen en el VPS. Se usa `pnpm run ci` porque `pnpm ci` es un comando reservado del gestor y no ejecuta el script homonimo.
 
 ## Recuperacion
 

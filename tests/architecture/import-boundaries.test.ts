@@ -83,4 +83,29 @@ describe("architectural import boundaries", () => {
 
     expect(violations).toEqual([]);
   });
+
+  it("loads each Node process from the central service definition", () => {
+    const services = {
+      "apps/api/src/main.ts": "api",
+      "apps/admin-api/src/main.ts": "admin-api",
+      "apps/worker/src/main.ts": "worker",
+      "apps/deploy-executor/src/main.ts": "deploy-executor",
+      "apps/agent-runtime/src/main.ts": "agent-runtime",
+    } as const;
+
+    for (const [path, serviceName] of Object.entries(services)) {
+      const source = readFileSync(join(root, path), "utf8");
+
+      expect(source).toContain(`loadServiceConfig("${serviceName}")`);
+      expect(source).not.toContain("loadProcessConfig(");
+    }
+  });
+
+  it("does not rediscover compiled test artifacts", () => {
+    const source = readFileSync(join(root, "vitest.config.ts"), "utf8");
+
+    expect(source).toContain("...configDefaults.exclude");
+    expect(source).toContain('"**/dist/**"');
+    expect(source).toContain('"**/.next/**"');
+  });
 });
