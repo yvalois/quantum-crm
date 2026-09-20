@@ -23,6 +23,8 @@ La fundacion persistente separa el ciclo de vida de PostgreSQL, Redis y Keycloak
 - Keycloak pertenece a la red de entrada y a `platform-database`; usa PostgreSQL y el comando `start --optimized --import-realm`, nunca `start-dev`.
 - `platform.yaml` conecta `admin-web` unicamente a la red de sesiones y `admin-api` unicamente a la red de datos.
 
+El host instala `infra/redis/99-quantum-redis.conf` en `/etc/sysctl.d/99-quantum-redis.conf` y aplica `sysctl --system` antes de arrancar Redis. Esta configuracion permite que su persistencia en segundo plano funcione bajo presion de memoria.
+
 Las cuatro imagenes de fundacion se construyen desde los Dockerfiles fijados por digest en `infra/docker/`. PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`; los wrappers de Redis y Keycloak adaptan los archivos montados a sus interfaces nativas sin colocar valores en Compose ni en argumentos. `infra/platform/provision-secrets.sh` crea de forma reanudable los secretos ausentes y valida los existentes sin imprimirlos ni sustituirlos. Se ejecuta como `root` con `QCRM_SECRET_DIRECTORY=/opt/quantum/secrets/<entorno>/platform`.
 
 Los archivos viven fuera del checkout bajo un directorio `0700`. Los usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. La fundacion consume los primeros ocho; los dos ultimos son las conexiones runtime derivadas para `platform.yaml`:

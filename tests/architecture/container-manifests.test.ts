@@ -146,6 +146,10 @@ describe("container manifests", () => {
     expect(provisioner).not.toContain("set -x");
   });
 
+  it("declares the Redis host memory prerequisite", () => {
+    expect(read("infra/redis/99-quantum-redis.conf")).toContain("vm.overcommit_memory = 1");
+  });
+
   it("mounts each database URL only in an authorized process", () => {
     const tenant = read("infra/compose/tenant.yaml");
     const platform = read("infra/compose/platform.yaml");
