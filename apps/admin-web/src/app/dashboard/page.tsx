@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { platformSessionCookieName } from "../../server/platform-auth-http";
 import { getPlatformAuthRuntime } from "../../server/platform-auth-runtime";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const runtime = await getPlatformAuthRuntime();
   const handle = (await cookies()).get(platformSessionCookieName(runtime.config))?.value;
