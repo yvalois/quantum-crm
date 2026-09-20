@@ -13,8 +13,12 @@ import {
   PlatformAuthorizationGuard,
 } from "./platform-security.js";
 import { ProblemDetailsFilter } from "./problem-details.filter.js";
-import { TENANT_PROFILE_SERVICE, TenantProfilesController } from "./tenant-profiles.controller.js";
-import { TenantProfileService } from "@quantum-crm/platform-domain";
+import {
+  TENANT_PROFILE_SERVICE,
+  TENANT_PROVISIONING_SERVICE,
+  TenantProfilesController,
+} from "./tenant-profiles.controller.js";
+import { TenantProfileService, TenantProvisioningService } from "@quantum-crm/platform-domain";
 
 @Module({})
 export class AppModule {
@@ -34,6 +38,10 @@ export class AppModule {
         {
           provide: TENANT_PROFILE_SERVICE,
           useFactory: () => new TenantProfileService(database.tenantProfiles),
+        },
+        {
+          provide: TENANT_PROVISIONING_SERVICE,
+          useFactory: () => new TenantProvisioningService(database.provisioningOperations),
         },
         { provide: APP_GUARD, useClass: PlatformAuthenticationGuard },
         { provide: APP_GUARD, useClass: PlatformAuthorizationGuard },

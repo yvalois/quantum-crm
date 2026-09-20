@@ -1,8 +1,18 @@
 import type { DatabaseConfig } from "@quantum-crm/config";
 import {
+  createProvisioningOperationDraft,
+  hydrateProvisioningOperation,
+  ProvisioningOperationConflictError,
   hydrateTenantProfile,
   TenantProfileConflictError,
+  TenantProfileLifecycleTransitionError,
+  TenantProfileNotFoundError,
+  TenantProfileVersionConflictError,
   tenantProfileStatuses,
+  transitionTenantProfileStatus,
+  type ProvisioningOperation,
+  type ProvisioningOperationRepository,
+  type RequestProvisioningCommand,
   type TenantProfile,
   type TenantProfileDraft,
   type TenantProfileListCriteria,
@@ -30,6 +40,7 @@ export interface PostgresDatabase {
 export interface PlatformPostgresDatabase extends PostgresDatabase {
   readonly memberships: PlatformMembershipRepository;
   readonly tenantProfiles: TenantProfileRepository;
+  readonly provisioningOperations: ProvisioningOperationRepository;
 }
 
 export interface PlatformMembershipRepository {
@@ -79,6 +90,60 @@ interface TenantProfileRow {
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
+}
+
+interface ProvisioningOperationRow {
+  readonly id: string;
+  readonly tenant_profile_id: string;
+  readonly server_id: string;
+  readonly release_id: string;
+  readonly requested_by_operator_id: string;
+  readonly idempotency_key: string;
+  readonly correlation_id: string;
+  readonly status: string;
+  readonly current_step: string;
+  readonly attempt: number;
+  readonly version: string;
+  readonly created_at: Date;
+  readonly updated_at: Date;
+  readonly tenant_version?: string;
+}
+
+const provisioningOperationSelection = `
+  operation.id::text,
+  operation.tenant_profile_id::text,
+  operation.server_id::text,
+  operation.release_id::text,
+  operation.requested_by_operator_id::text,
+  operation.idempotency_key,
+  operation.correlation_id,
+  operation.status::text,
+  operation.current_step::text,
+  operation.attempt,
+  operation.version::text,
+  operation.created_at,
+  operation.updated_at
+`;
+
+function provisioningOperationFromRow(row: ProvisioningOperationRow): ProvisioningOperation {
+  if (row.status !== "pending" || row.current_step !== "validate") {
+    throw new DatabaseUnavailableError();
+  }
+  return hydrateProvisioningOperation({
+    ...createProvisioningOperationDraft({
+      tenantProfileId: row.tenant_profile_id,
+      serverId: row.server_id,
+      releaseId: row.release_id,
+      requestedByOperatorId: row.requested_by_operator_id,
+      idempotencyKey: row.idempotency_key,
+      correlationId: row.correlation_id,
+    }),
+    id: row.id,
+    attempt: row.attempt,
+    version: BigInt(row.version),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
 }
 
 const tenantProfileSelection = `
@@ -410,5 +475,136 @@ export function createPlatformPostgresDatabase(
     },
   });
 
-  return Object.freeze({ ...database, memberships, tenantProfiles });
+  const provisioningOperations: ProvisioningOperationRepository = Object.freeze({
+    request: async (command: RequestProvisioningCommand) => {
+      const draft = createProvisioningOperationDraft(command);
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `${draft.requestedByOperatorId}:${draft.idempotencyKey}`,
+        ]);
+
+        const existingResult = await client.query<ProvisioningOperationRow>(
+          `
+            SELECT ${provisioningOperationSelection}, profile.version::text AS tenant_version
+            FROM operations.provisioning_operations AS operation
+            JOIN tenants.tenant_profiles AS profile ON profile.id = operation.tenant_profile_id
+            WHERE operation.requested_by_operator_id = $1::uuid
+              AND operation.idempotency_key = $2
+            FOR UPDATE OF operation
+          `,
+          [draft.requestedByOperatorId, draft.idempotencyKey],
+        );
+        const existing = existingResult.rows[0];
+        if (existing) {
+          if (
+            existing.tenant_profile_id !== draft.tenantProfileId ||
+            existing.server_id !== draft.serverId ||
+            existing.release_id !== draft.releaseId
+          ) {
+            throw new ProvisioningOperationConflictError();
+          }
+          await client.query("COMMIT");
+          return Object.freeze({
+            operation: provisioningOperationFromRow(existing),
+            tenantVersion: BigInt(existing.tenant_version ?? "0"),
+            idempotentReplay: true,
+          });
+        }
+
+        const profileResult = await client.query<{
+          readonly status: string;
+          readonly version: string;
+        }>(
+          `
+            SELECT status::text, version::text
+            FROM tenants.tenant_profiles
+            WHERE id = $1::uuid
+            FOR UPDATE
+          `,
+          [draft.tenantProfileId],
+        );
+        const profile = profileResult.rows[0];
+        if (!profile) throw new TenantProfileNotFoundError();
+        if (BigInt(profile.version) !== command.expectedTenantVersion) {
+          throw new TenantProfileVersionConflictError();
+        }
+        const nextStatus = transitionTenantProfileStatus(
+          tenantStatus(profile.status),
+          "START_PROVISIONING",
+        );
+
+        const operationResult = await client.query<ProvisioningOperationRow>(
+          `
+            INSERT INTO operations.provisioning_operations (
+              tenant_profile_id,
+              server_id,
+              release_id,
+              requested_by_operator_id,
+              idempotency_key,
+              correlation_id
+            ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6)
+            RETURNING ${provisioningOperationSelection.replaceAll("operation.", "")}
+          `,
+          [
+            draft.tenantProfileId,
+            draft.serverId,
+            draft.releaseId,
+            draft.requestedByOperatorId,
+            draft.idempotencyKey,
+            draft.correlationId,
+          ],
+        );
+        const operationRow = operationResult.rows[0];
+        if (!operationRow) throw new DatabaseUnavailableError();
+
+        const updated = await client.query<{ readonly version: string }>(
+          `
+            UPDATE tenants.tenant_profiles
+            SET
+              status = $3::tenants.tenant_status,
+              server_id = $4::uuid,
+              release_id = $5::uuid,
+              version = version + 1,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid AND version = $2
+            RETURNING version::text
+          `,
+          [
+            draft.tenantProfileId,
+            command.expectedTenantVersion.toString(),
+            nextStatus.toLowerCase(),
+            draft.serverId,
+            draft.releaseId,
+          ],
+        );
+        const tenantVersion = updated.rows[0]?.version;
+        if (!tenantVersion) throw new TenantProfileVersionConflictError();
+        await client.query("COMMIT");
+        return Object.freeze({
+          operation: provisioningOperationFromRow(operationRow),
+          tenantVersion: BigInt(tenantVersion),
+          idempotentReplay: false,
+        });
+      } catch (error) {
+        if (client) await client.query("ROLLBACK").catch(() => undefined);
+        if (
+          error instanceof ProvisioningOperationConflictError ||
+          error instanceof TenantProfileLifecycleTransitionError ||
+          error instanceof TenantProfileNotFoundError ||
+          error instanceof TenantProfileVersionConflictError
+        ) {
+          throw error;
+        }
+        if (isUniqueViolation(error)) throw new ProvisioningOperationConflictError();
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
+  });
+
+  return Object.freeze({ ...database, memberships, tenantProfiles, provisioningOperations });
 }

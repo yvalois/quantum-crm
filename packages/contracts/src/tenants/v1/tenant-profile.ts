@@ -31,7 +31,11 @@ export const CreateTenantProfileSchema = TenantProfileFieldsSchema.pick({
   adminContactEmail: true,
 }).strict();
 
-export const UpdateTenantProfileSchema = TenantProfileFieldsSchema.omit({ status: true })
+export const UpdateTenantProfileSchema = TenantProfileFieldsSchema.omit({
+  status: true,
+  serverId: true,
+  releaseId: true,
+})
   .partial()
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one field is required",

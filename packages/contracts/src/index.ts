@@ -27,3 +27,11 @@ export {
   type TenantProfileResponse,
   type UpdateTenantProfile,
 } from "./tenants/v1/tenant-profile.js";
+export {
+  ProvisioningOperationResponseSchema,
+  ProvisioningOperationSchema,
+  RequestTenantProvisioningSchema,
+  type ProvisioningOperationContract,
+  type ProvisioningOperationResponse,
+  type RequestTenantProvisioning,
+} from "./deployments/v1/provisioning-operation.js";

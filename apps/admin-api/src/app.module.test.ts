@@ -1,7 +1,7 @@
 import type { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { PlatformPostgresDatabase } from "@quantum-crm/database";
-import { hydrateTenantProfile } from "@quantum-crm/platform-domain";
+import { hydrateProvisioningOperation, hydrateTenantProfile } from "@quantum-crm/platform-domain";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "./app.module.js";
@@ -21,6 +21,21 @@ beforeAll(async () => {
     createdAt: new Date("2026-09-20T12:00:00.000Z"),
     updatedAt: new Date("2026-09-20T12:00:00.000Z"),
   });
+  const provisioningOperation = hydrateProvisioningOperation({
+    id: "01995f7e-7b52-7000-8000-000000000401",
+    tenantProfileId: tenantProfile.id,
+    serverId: "01995f7e-7b52-7000-8000-000000000301",
+    releaseId: "01995f7e-7b52-7000-8000-000000000302",
+    requestedByOperatorId: "01995f7e-7b52-7000-8000-000000000101",
+    idempotencyKey: "provision-acme-001",
+    correlationId: "request-001",
+    status: "PENDING",
+    currentStep: "VALIDATE",
+    attempt: 0,
+    version: 1n,
+    createdAt: new Date("2026-09-20T12:00:00.000Z"),
+    updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+  });
   const database: PlatformPostgresDatabase = {
     connect: vi.fn(async () => undefined),
     isReady: vi.fn(async () => true),
@@ -31,7 +46,7 @@ beforeAll(async () => {
         id: "01995f7e-7b52-7000-8000-000000000101",
         oidcSubject: "operator-subject",
         status: "ACTIVE",
-        permissions: ["tenants:manage", "tenants:read"],
+        permissions: ["deployments:execute", "tenants:manage", "tenants:read"],
         authorizationRevision: 1n,
       })),
     },
@@ -44,6 +59,13 @@ beforeAll(async () => {
           ? hydrateTenantProfile({ ...tenantProfile, name: "Acme Updated", version: 2n })
           : null,
       ),
+    },
+    provisioningOperations: {
+      request: vi.fn(async () => ({
+        operation: provisioningOperation,
+        tenantVersion: 2n,
+        idempotentReplay: false,
+      })),
     },
   };
   application = await NestFactory.create(
@@ -63,7 +85,7 @@ beforeAll(async () => {
       {
         issuer: "https://identity.example.test/realms/quantum-platform",
         audience: "quantum-admin-api",
-        allowedPermissions: ["tenants:read", "tenants:manage"],
+        allowedPermissions: ["deployments:execute", "tenants:read", "tenants:manage"],
       },
     ),
     { abortOnError: false, logger: false },
@@ -163,5 +185,31 @@ describe("admin API authentication boundary", () => {
       body: JSON.stringify({ slug: "invalid" }),
     });
     expect(invalid.status).toBe(400);
+  });
+
+  it("accepts a typed idempotent provisioning request", async () => {
+    const response = await fetch(
+      `${origin}/api/v1/tenant-profiles/01995f7e-7b52-7000-8000-000000000201/provisioning-operations`,
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer signed.token.value",
+          "content-type": "application/json",
+          "idempotency-key": "provision-acme-001",
+          "if-match": '"1"',
+        },
+        body: JSON.stringify({
+          serverId: "01995f7e-7b52-7000-8000-000000000301",
+          releaseId: "01995f7e-7b52-7000-8000-000000000302",
+        }),
+      },
+    );
+    expect(response.status).toBe(202);
+    expect(response.headers.get("x-tenant-profile-etag")).toBe('"2"');
+    await expect(response.json()).resolves.toMatchObject({
+      schemaVersion: "tenant-provisioning-operation/v1",
+      data: { status: "PENDING", currentStep: "VALIDATE" },
+      meta: { idempotentReplay: false },
+    });
   });
 });

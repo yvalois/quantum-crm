@@ -3,7 +3,11 @@ import {
   createPlatformPostgresDatabase,
   type PlatformPostgresDatabase,
 } from "@quantum-crm/database";
-import { TenantProfileConflictError } from "@quantum-crm/platform-domain";
+import {
+  ProvisioningOperationConflictError,
+  TenantProfileConflictError,
+  TenantProfileVersionConflictError,
+} from "@quantum-crm/platform-domain";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -16,15 +20,28 @@ const config = parseDatabaseConfig(
 );
 const pool = new Pool({ connectionString: config.connectionUrl.expose(), max: 1 });
 let database: PlatformPostgresDatabase;
+let operatorId: string;
 
 beforeAll(async () => {
+  await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
+  await pool.query("DELETE FROM platform_iam.operator_permissions");
+  await pool.query("DELETE FROM platform_iam.operator_memberships");
+  const operator = await pool.query<{ id: string }>(`
+    INSERT INTO platform_iam.operator_memberships (oidc_subject, status)
+    VALUES ('provisioning-integration-operator', 'active')
+    RETURNING id::text
+  `);
+  operatorId = operator.rows[0]!.id;
   database = createPlatformPostgresDatabase(config, "tenant-profile-integration");
   await database.connect();
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
+  await pool.query("DELETE FROM platform_iam.operator_permissions");
+  await pool.query("DELETE FROM platform_iam.operator_memberships");
   await database.close();
   await pool.end();
 });
@@ -176,5 +193,72 @@ describe("platform tenant profile migration", () => {
         status: "PENDING",
       }),
     ).rejects.toBeInstanceOf(TenantProfileConflictError);
+  });
+
+  it("records provisioning atomically and replays the same idempotency key", async () => {
+    const created = await database.tenantProfiles.create({
+      name: "Provisioning Profile",
+      slug: "provisioning-profile",
+      adminContactName: "Pia",
+      adminContactEmail: "pia@example.test",
+      status: "PENDING",
+    });
+    const command = {
+      tenantProfileId: created.id,
+      serverId: "01995f7e-7b52-7000-8000-000000000301",
+      releaseId: "01995f7e-7b52-7000-8000-000000000302",
+      requestedByOperatorId: operatorId,
+      idempotencyKey: "provisioning-integration-001",
+      correlationId: "integration-request-001",
+      expectedTenantVersion: created.version,
+    } as const;
+
+    const requested = await database.provisioningOperations.request(command);
+    expect(requested).toMatchObject({ tenantVersion: 2n, idempotentReplay: false });
+    expect(requested.operation).toMatchObject({ status: "PENDING", currentStep: "VALIDATE" });
+    await expect(database.tenantProfiles.findById(created.id)).resolves.toMatchObject({
+      status: "PROVISIONING",
+      serverId: command.serverId,
+      releaseId: command.releaseId,
+      version: 2n,
+    });
+
+    await expect(database.provisioningOperations.request(command)).resolves.toMatchObject({
+      operation: { id: requested.operation.id },
+      tenantVersion: 2n,
+      idempotentReplay: true,
+    });
+    await expect(
+      database.provisioningOperations.request({
+        ...command,
+        releaseId: "01995f7e-7b52-7000-8000-000000000303",
+      }),
+    ).rejects.toBeInstanceOf(ProvisioningOperationConflictError);
+  });
+
+  it("rejects stale versions without leaving an operation", async () => {
+    const created = await database.tenantProfiles.create({
+      name: "Stale Provisioning",
+      slug: "stale-provisioning",
+      adminContactName: "Sia",
+      adminContactEmail: "sia@example.test",
+      status: "PENDING",
+    });
+    await expect(
+      database.provisioningOperations.request({
+        tenantProfileId: created.id,
+        serverId: "01995f7e-7b52-7000-8000-000000000301",
+        releaseId: "01995f7e-7b52-7000-8000-000000000302",
+        requestedByOperatorId: operatorId,
+        idempotencyKey: "provisioning-integration-stale",
+        correlationId: "integration-request-stale",
+        expectedTenantVersion: 99n,
+      }),
+    ).rejects.toBeInstanceOf(TenantProfileVersionConflictError);
+    const count = await pool.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM operations.provisioning_operations WHERE tenant_profile_id = $1::uuid",
+      [created.id],
+    );
+    expect(count.rows[0]?.count).toBe("0");
   });
 });

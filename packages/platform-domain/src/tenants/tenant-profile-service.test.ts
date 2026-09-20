@@ -49,7 +49,7 @@ describe("TenantProfileService", () => {
     );
   });
 
-  it("preserves fields, clears nullable assignments and increments through the repository", async () => {
+  it("preserves operational assignments while updating profile metadata", async () => {
     const adapter = repository(
       profile({
         serverId: "01995f7e-7b52-7000-8000-000000000301",
@@ -59,7 +59,6 @@ describe("TenantProfileService", () => {
     const service = new TenantProfileService(adapter);
     const updated = await service.update("01995f7e-7b52-7000-8000-000000000201", 1n, {
       name: "Acme Uno",
-      serverId: null,
     });
     expect(updated.version).toBe(2n);
     expect(adapter.update).toHaveBeenCalledWith(
@@ -67,7 +66,7 @@ describe("TenantProfileService", () => {
       1n,
       expect.objectContaining({ name: "Acme Uno", releaseId: expect.any(String) }),
     );
-    expect((adapter.update as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]).not.toHaveProperty(
+    expect((adapter.update as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]).toHaveProperty(
       "serverId",
     );
   });

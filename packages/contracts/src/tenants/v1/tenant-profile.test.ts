@@ -36,7 +36,8 @@ describe("tenant profile HTTP contracts", () => {
     expect(TenantProfileListQuerySchema.parse({ pageSize: "100" }).pageSize).toBe(100);
     expect(TenantProfileListQuerySchema.safeParse({ pageSize: "101" }).success).toBe(false);
     expect(UpdateTenantProfileSchema.safeParse({}).success).toBe(false);
-    expect(UpdateTenantProfileSchema.safeParse({ serverId: null }).success).toBe(true);
+    expect(UpdateTenantProfileSchema.safeParse({ serverId: null }).success).toBe(false);
+    expect(UpdateTenantProfileSchema.safeParse({ releaseId: null }).success).toBe(false);
     expect(UpdateTenantProfileSchema.safeParse({ status: "ACTIVE" }).success).toBe(false);
   });
 });

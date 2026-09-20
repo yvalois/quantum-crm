@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Headers,
+  HttpCode,
   HttpException,
   NotFoundException,
   Param,
@@ -18,19 +19,27 @@ import {
 } from "@nestjs/common";
 import {
   CreateTenantProfileSchema,
+  ProvisioningOperationResponseSchema,
+  RequestTenantProvisioningSchema,
   TenantProfileListQuerySchema,
   TenantProfileListResponseSchema,
   UpdateTenantProfileSchema,
   tenantProfileResponse,
   type TenantProfileContract,
+  type ProvisioningOperationContract,
 } from "@quantum-crm/contracts";
 import { DatabaseUnavailableError } from "@quantum-crm/database";
 import {
+  ProvisioningOperationConflictError,
+  ProvisioningOperationValidationError,
+  TenantProfileLifecycleTransitionError,
   TenantProfileConflictError,
   TenantProfileNotFoundError,
   TenantProfileService,
   TenantProfileValidationError,
   TenantProfileVersionConflictError,
+  TenantProvisioningService,
+  type ProvisioningOperation,
   type TenantProfile,
   type TenantProfileCursor,
   type TenantProfileListCriteria,
@@ -41,6 +50,7 @@ import { Inject } from "@nestjs/common";
 import { platformAuthContext, RequirePlatformPermission } from "./platform-security.js";
 
 export const TENANT_PROFILE_SERVICE = Symbol("TENANT_PROFILE_SERVICE");
+export const TENANT_PROVISIONING_SERVICE = Symbol("TENANT_PROVISIONING_SERVICE");
 
 interface HeaderResponse {
   readonly setHeader: (name: string, value: string) => void;
@@ -62,6 +72,23 @@ function toContract(profile: TenantProfile): TenantProfileContract {
   };
 }
 
+function provisioningOperationContract(
+  operation: ProvisioningOperation,
+): ProvisioningOperationContract {
+  return {
+    id: operation.id,
+    tenantProfileId: operation.tenantProfileId,
+    serverId: operation.serverId,
+    releaseId: operation.releaseId,
+    status: operation.status,
+    currentStep: operation.currentStep,
+    attempt: operation.attempt,
+    version: operation.version.toString(),
+    createdAt: operation.createdAt.toISOString(),
+    updatedAt: operation.updatedAt.toISOString(),
+  };
+}
+
 function etag(version: bigint): string {
   return `"${version.toString()}"`;
 }
@@ -71,6 +98,11 @@ function expectedVersion(value: string | undefined): bigint {
   const match = /^"([1-9][0-9]*)"$/u.exec(value);
   if (!match?.[1]) throw new BadRequestException();
   return BigInt(match[1]);
+}
+
+function idempotencyKey(value: string | undefined): string {
+  if (!value || !/^[A-Za-z0-9._:-]{8,128}$/u.test(value)) throw new BadRequestException();
+  return value;
 }
 
 function encodeCursor(cursor: TenantProfileCursor): string {
@@ -108,6 +140,13 @@ function translate(error: unknown): never {
   if (error instanceof TenantProfileVersionConflictError) {
     throw new HttpException("Precondition Failed", 412);
   }
+  if (
+    error instanceof ProvisioningOperationConflictError ||
+    error instanceof TenantProfileLifecycleTransitionError
+  ) {
+    throw new ConflictException();
+  }
+  if (error instanceof ProvisioningOperationValidationError) throw new BadRequestException();
   if (error instanceof TenantProfileValidationError) throw new BadRequestException();
   if (error instanceof DatabaseUnavailableError) throw new ServiceUnavailableException();
   throw error;
@@ -117,6 +156,8 @@ function translate(error: unknown): never {
 export class TenantProfilesController {
   public constructor(
     @Inject(TENANT_PROFILE_SERVICE) private readonly profiles: TenantProfileService,
+    @Inject(TENANT_PROVISIONING_SERVICE)
+    private readonly provisioning: TenantProvisioningService,
   ) {}
 
   @Get()
@@ -210,12 +251,49 @@ export class TenantProfilesController {
         ...(parsed.data.adminContactEmail !== undefined
           ? { adminContactEmail: parsed.data.adminContactEmail }
           : {}),
-        ...(parsed.data.serverId !== undefined ? { serverId: parsed.data.serverId } : {}),
-        ...(parsed.data.releaseId !== undefined ? { releaseId: parsed.data.releaseId } : {}),
       };
       const profile = await this.profiles.update(id, expectedVersion(ifMatch), changes);
       response.setHeader("ETag", etag(profile.version));
       return tenantProfileResponse(toContract(profile));
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Post(":id/provisioning-operations")
+  @HttpCode(202)
+  @RequirePlatformPermission("deployments:execute")
+  public async requestProvisioning(
+    @Req() request: Parameters<typeof platformAuthContext>[0],
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Headers("idempotency-key") rawIdempotencyKey: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HeaderResponse,
+  ) {
+    const auth = platformAuthContext(request);
+    const parsed = RequestTenantProvisioningSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException();
+    try {
+      const result = await this.provisioning.request({
+        tenantProfileId: id,
+        serverId: parsed.data.serverId,
+        releaseId: parsed.data.releaseId,
+        requestedByOperatorId: auth.principal.id,
+        idempotencyKey: idempotencyKey(rawIdempotencyKey),
+        correlationId: auth.correlationId,
+        expectedTenantVersion: expectedVersion(ifMatch),
+      });
+      response.setHeader(
+        "Location",
+        `/api/v1/tenant-profiles/${id}/provisioning-operations/${result.operation.id}`,
+      );
+      response.setHeader("X-Tenant-Profile-ETag", etag(result.tenantVersion));
+      return ProvisioningOperationResponseSchema.parse({
+        schemaVersion: "tenant-provisioning-operation/v1",
+        data: provisioningOperationContract(result.operation),
+        meta: { idempotentReplay: result.idempotentReplay },
+      });
     } catch (error) {
       translate(error);
     }

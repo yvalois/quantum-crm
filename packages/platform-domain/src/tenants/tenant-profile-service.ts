@@ -61,8 +61,6 @@ export interface UpdateTenantProfileCommand {
   readonly slug?: string;
   readonly adminContactName?: string;
   readonly adminContactEmail?: string;
-  readonly serverId?: string | null;
-  readonly releaseId?: string | null;
 }
 
 export class TenantProfileService {
@@ -99,8 +97,8 @@ export class TenantProfileService {
       adminContactName: changes.adminContactName ?? current.adminContactName,
       adminContactEmail: changes.adminContactEmail ?? current.adminContactEmail,
       status: current.status,
-      ...(changes.serverId === null ? {} : { serverId: changes.serverId ?? current.serverId }),
-      ...(changes.releaseId === null ? {} : { releaseId: changes.releaseId ?? current.releaseId }),
+      ...(current.serverId ? { serverId: current.serverId } : {}),
+      ...(current.releaseId ? { releaseId: current.releaseId } : {}),
     });
     const updated = await this.repository.update(id, expectedVersion, draft);
     if (!updated) throw new TenantProfileVersionConflictError();
