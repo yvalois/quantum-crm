@@ -65,33 +65,33 @@ Quantum dispone de un nucleo tipado de identidad y autorizacion administrativa q
 
 ## Plan de implementacion
 
-- [ ] Modelar membresia y catalogo de permisos en `platform-iam`.
-- [ ] Implementar contexto autenticado y autorizacion fail-closed en `auth`.
-- [ ] Crear schema y migracion Prisma de plataforma.
-- [ ] Probar denegaciones de issuer, audiencia, MFA, membresia y permiso.
-- [ ] Probar migracion, restricciones y privilegios en PostgreSQL 18.
-- [ ] Ejecutar `db:check` y CI completa en el VPS.
-- [ ] Registrar evidencia sin cerrar `ADM-01`.
+- [x] Modelar membresia y catalogo de permisos en `platform-iam`.
+- [x] Implementar contexto autenticado y autorizacion fail-closed en `auth`.
+- [x] Crear schema y migracion Prisma de plataforma.
+- [x] Probar denegaciones de issuer, audiencia, MFA, membresia y permiso.
+- [x] Probar migracion, restricciones y privilegios en PostgreSQL 18.
+- [x] Ejecutar `db:check` y CI completa en el VPS.
+- [x] Registrar evidencia sin cerrar `ADM-01`.
 
 ## Riesgos y mitigaciones
 
-| Riesgo                                      | Mitigacion                                                               | Verificacion                    |
-| ------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------- |
-| Tratar claims sin firma como autenticados   | La API exige el tipo `VerifiedOidcIdentity`; el adaptador real queda como dependencia explicita | Pruebas y nombres de frontera   |
-| Aceptar un token de CRM en plataforma       | Comparar issuer y audiencia exactos antes de consultar permisos          | Casos negativos unitarios       |
-| Omitir MFA                                  | Requerir evidencia multifactor para todo operador humano                 | Caso sin MFA rechazado           |
-| Permiso desconocido o ausente               | Catalogo cerrado y denegacion por defecto                                | Matriz de autorizacion           |
-| Runtime altera permisos o schema            | Grants DML explicitos y runtime sin DDL                                  | Integracion PostgreSQL           |
+| Riesgo                                    | Mitigacion                                                                                      | Verificacion                  |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------- |
+| Tratar claims sin firma como autenticados | La API exige el tipo `VerifiedOidcIdentity`; el adaptador real queda como dependencia explicita | Pruebas y nombres de frontera |
+| Aceptar un token de CRM en plataforma     | Comparar issuer y audiencia exactos antes de consultar permisos                                 | Casos negativos unitarios     |
+| Omitir MFA                                | Requerir evidencia multifactor para todo operador humano                                        | Caso sin MFA rechazado        |
+| Permiso desconocido o ausente             | Catalogo cerrado y denegacion por defecto                                                       | Matriz de autorizacion        |
+| Runtime altera permisos o schema          | Grants DML explicitos y runtime sin DDL                                                         | Integracion PostgreSQL        |
 
 ## Criterios de aceptacion
 
-- [ ] Ningun contexto se crea con issuer o audiencia de CRM.
-- [ ] Un operador sin MFA, suspendido o sin permiso es rechazado.
-- [ ] Solo permisos conocidos pueden persistirse y autorizarse.
-- [ ] El contexto conserva subject, membresia, revision y correlacion sin tokens.
-- [ ] Runtime opera membresias y permisos pero no cambia el schema.
-- [ ] La migracion es idempotente, forward-only y no presenta deriva.
-- [ ] CI y prueba PostgreSQL real aprueban en el VPS.
+- [x] Ningun contexto se crea con issuer o audiencia de CRM.
+- [x] Un operador sin MFA, suspendido o sin permiso es rechazado.
+- [x] Solo permisos conocidos pueden persistirse y autorizarse.
+- [x] El contexto conserva subject, membresia, revision y correlacion sin tokens.
+- [x] Runtime opera membresias y permisos pero no cambia el schema.
+- [x] La migracion es idempotente, forward-only y no presenta deriva.
+- [x] CI y prueba PostgreSQL real aprueban en el VPS.
 
 ## Plan de verificacion
 
@@ -111,8 +111,10 @@ Quantum dispone de un nucleo tipado de identidad y autorizacion administrativa q
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: adaptador Keycloak, sesiones opacas, CSRF, endpoints y UI se implementaran en rebanadas posteriores de `ADM-01`.
+- Archivos, commits o PR: nucleo de autenticacion en `packages/auth`, agregado y catalogo cerrado en `packages/platform-domain/src/platform-iam`, schema y migracion en la historia Prisma `platform`, y prueba PostgreSQL en `tests/integration`. Commits locales `ae70244`, `cb4e05a` y `26d253a` en `feat/ADM-01-platform-iam`, sin remoto ni PR.
+- Comandos y resultados: `pnpm db:check` valido el schema y genero Prisma Client 7.10.0. `pnpm run ci` aprobo en el VPS con Node 24.21.0 fijado por digest: formato, lint, typecheck y build de 17 workspaces, 21 pruebas de configuracion, 68 pruebas generales y 9 pruebas de arquitectura.
+- Migracion e integracion: PostgreSQL 18 fijado por digest aplico desde cero las dos migraciones de plataforma; la repeticion informo `No pending migrations` y `prisma migrate diff` informo `No difference detected`. Las 6 pruebas de integracion de plataforma aprobaron; 3 verificaron membresias, permisos cerrados, restricciones, cascada, DML de runtime y rechazo de DDL. La comprobacion final confirmo PostgreSQL 18, migrador sin superusuario y runtime sin `CREATE` en `tenants` ni `platform_iam`.
+- Seguridad verificada: issuer o audience de CRM, principal no humano, salida malformada del verificador, ausencia de MFA, membresia inexistente/pendiente/suspendida y permisos fuera del catalogo se rechazan sin conservar ni exponer el token.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`; `docs/02-plan/trabajo.md` permanece abierto porque aun no existe acceso administrativo extremo a extremo.
+- Desviaciones del plan: ninguna material; la politica recibe explicitamente el catalogo permitido para impedir que un adaptador defectuoso introduzca permisos arbitrarios.
+- Pendientes o decisiones nuevas: `ADM-01` sigue `EN_CURSO`. La siguiente rebanada debe implementar configuracion y adaptador criptografico OIDC/JWKS contra Keycloak; despues corresponden sesiones opacas, PKCE, CSRF, endpoints y UI.
