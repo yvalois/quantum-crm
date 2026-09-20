@@ -47,6 +47,27 @@ create_token() {
   unset value
 }
 
+create_operator_password() {
+  local path="${secret_directory}/initial-operator-password"
+  local temporary="${path}.tmp"
+  local value
+
+  if [[ ! -e "$path" ]]; then
+    umask 077
+    printf 'Qq9!%s\n' "$(openssl rand -hex 32)" >"$temporary"
+    chown root:root "$temporary"
+    chmod 0400 "$temporary"
+    mv "$temporary" "$path"
+  fi
+
+  [[ -f "$path" && ! -L "$path" ]] || exit 78
+  IFS= read -r value <"$path"
+  [[ "$value" =~ ^Qq9\![A-Fa-f0-9]{64}$ ]] || exit 78
+  chown root:root "$path"
+  chmod 0400 "$path"
+  unset value
+}
+
 create_derived_url() {
   local name="$1"
   local value="$2"
@@ -77,6 +98,7 @@ create_token keycloak-database-password "$app_uid" "$data_gid" 0440
 create_token keycloak-bootstrap-admin-password "$app_uid" "$app_uid" 0400
 create_token platform-redis-password "$app_uid" "$data_gid" 0440
 create_token admin-web-oidc-client-secret "$app_uid" "$app_uid" 0400
+create_operator_password
 
 migrator_password="$(<"${secret_directory}/platform-migrator-password")"
 runtime_password="$(<"${secret_directory}/platform-runtime-password")"

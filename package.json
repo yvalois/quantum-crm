@@ -19,12 +19,14 @@
     "test": "vitest run tests/unit apps packages",
     "test:integration": "vitest run tests/integration",
     "test:architecture": "vitest run tests/architecture",
+    "test:e2e:admin": "playwright test tests/e2e/admin-auth.spec.ts --project=chromium",
     "build": "pnpm -r --workspace-concurrency=1 --if-present build",
     "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm config:check && pnpm test && pnpm test:architecture && pnpm build"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "@types/pg": "8.23.1",
+    "@playwright/test": "1.63.0",
     "@typescript-eslint/eslint-plugin": "8.70.0",
     "@typescript-eslint/parser": "8.70.0",
     "eslint": "10.11.0",
