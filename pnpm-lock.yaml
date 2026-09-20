@@ -265,9 +265,6 @@ importers:
       "@quantum-crm/config":
         specifier: workspace:*
         version: link:../config
-      "@quantum-crm/platform-domain":
-        specifier: workspace:*
-        version: link:../platform-domain
       pg:
         specifier: 8.23.0
         version: 8.23.0

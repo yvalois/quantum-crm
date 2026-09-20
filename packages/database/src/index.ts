@@ -7,6 +7,7 @@ export {
   createPlatformPostgresDatabase,
   DatabaseUnavailableError,
   type PlatformMembershipRepository,
+  type PlatformMembershipRecord,
   type PlatformPostgresDatabase,
   type PostgresDatabase,
   type PostgresPoolFactory,

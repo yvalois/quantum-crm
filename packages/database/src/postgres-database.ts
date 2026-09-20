@@ -1,10 +1,4 @@
 import type { DatabaseConfig } from "@quantum-crm/config";
-import {
-  hydratePlatformOperatorMembership,
-  type PlatformOperatorMembership,
-  type PlatformOperatorStatus,
-  type PlatformPermission,
-} from "@quantum-crm/platform-domain";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
 interface PostgresPool {
@@ -28,7 +22,15 @@ export interface PlatformPostgresDatabase extends PostgresDatabase {
 }
 
 export interface PlatformMembershipRepository {
-  readonly findByOidcSubject: (oidcSubject: string) => Promise<PlatformOperatorMembership | null>;
+  readonly findByOidcSubject: (oidcSubject: string) => Promise<PlatformMembershipRecord | null>;
+}
+
+export interface PlatformMembershipRecord {
+  readonly id: string;
+  readonly oidcSubject: string;
+  readonly status: "PENDING" | "ACTIVE" | "SUSPENDED";
+  readonly permissions: readonly string[];
+  readonly authorizationRevision: bigint;
 }
 
 export class DatabaseUnavailableError extends Error {
@@ -52,20 +54,14 @@ interface PlatformMembershipRow {
   readonly status: string;
   readonly authorization_revision: string;
   readonly permissions: string[];
-  readonly created_at: Date;
-  readonly updated_at: Date;
 }
 
-function platformStatus(value: string): PlatformOperatorStatus {
+function platformStatus(value: string): PlatformMembershipRecord["status"] {
   const normalized = value.toUpperCase();
   if (normalized === "PENDING" || normalized === "ACTIVE" || normalized === "SUSPENDED") {
     return normalized;
   }
   throw new DatabaseUnavailableError();
-}
-
-function platformPermissions(values: string[]): readonly PlatformPermission[] {
-  return values as PlatformPermission[];
 }
 
 function createPool(config: DatabaseConfig, serviceName: string, poolFactory: PostgresPoolFactory) {
@@ -171,7 +167,7 @@ export function createPlatformPostgresDatabase(
   const pool = createPool(config, serviceName, poolFactory);
   const database = createPostgresDatabase(config, serviceName, () => pool);
   const memberships: PlatformMembershipRepository = Object.freeze({
-    findByOidcSubject: async (oidcSubject: string): Promise<PlatformOperatorMembership | null> => {
+    findByOidcSubject: async (oidcSubject: string): Promise<PlatformMembershipRecord | null> => {
       try {
         const result = (await pool.query(
           `
@@ -180,8 +176,6 @@ export function createPlatformPostgresDatabase(
               membership.oidc_subject,
               membership.status::text,
               membership.authorization_revision::text,
-              membership.created_at,
-              membership.updated_at,
               COALESCE(
                 array_agg(permission.permission::text ORDER BY permission.permission)
                   FILTER (WHERE permission.permission IS NOT NULL),
@@ -197,14 +191,12 @@ export function createPlatformPostgresDatabase(
         )) as { readonly rows: PlatformMembershipRow[] };
         const row = result.rows[0];
         if (!row) return null;
-        return hydratePlatformOperatorMembership({
+        return Object.freeze({
           id: row.id,
           oidcSubject: row.oidc_subject,
           status: platformStatus(row.status),
-          permissions: platformPermissions(row.permissions),
+          permissions: Object.freeze([...row.permissions]),
           authorizationRevision: BigInt(row.authorization_revision),
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
         });
       } catch {
         throw new DatabaseUnavailableError();
