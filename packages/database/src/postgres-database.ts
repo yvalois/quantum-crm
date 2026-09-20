@@ -177,7 +177,7 @@ export function createPlatformPostgresDatabase(
               membership.status::text,
               membership.authorization_revision::text,
               COALESCE(
-                array_agg(permission.permission::text ORDER BY permission.permission)
+                array_agg(permission.permission::text ORDER BY permission.permission::text)
                   FILTER (WHERE permission.permission IS NOT NULL),
                 ARRAY[]::text[]
               ) AS permissions
