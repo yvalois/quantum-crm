@@ -64,12 +64,12 @@ Un operador autorizado puede crear, consultar, listar y editar perfiles desde `a
 
 ## Plan de implementacion
 
-- [ ] Definir contratos runtime de entrada y salida.
-- [ ] Implementar puerto, casos de uso y errores del modulo.
-- [ ] Implementar repositorio PostgreSQL con filtros, cursor y version.
-- [ ] Publicar controladores protegidos y semantica RFC 9457/ETag.
-- [ ] Agregar y ejecutar pruebas aplicables.
-- [ ] Registrar evidencia y pendientes sin cerrar `ADM-02`.
+- [x] Definir contratos runtime de entrada y salida.
+- [x] Implementar puerto, casos de uso y errores del modulo.
+- [x] Implementar repositorio PostgreSQL con filtros, cursor y version.
+- [x] Publicar controladores protegidos y semantica RFC 9457/ETag.
+- [x] Agregar y ejecutar pruebas aplicables.
+- [x] Registrar evidencia y pendientes sin cerrar `ADM-02`.
 
 ## Riesgos y mitigaciones
 
@@ -83,12 +83,12 @@ Un operador autorizado puede crear, consultar, listar y editar perfiles desde `a
 
 ## Criterios de aceptacion
 
-- [ ] Crear normaliza y persiste un perfil valido, y rechaza slug duplicado sin revelar SQL.
-- [ ] Obtener y listar requieren `tenants:read`; crear y editar requieren `tenants:manage`.
-- [ ] El listado admite filtros acotados y cursor opaco con orden determinista.
-- [ ] La edicion exige la version observada y rechaza conflictos sin perder cambios.
-- [ ] Entradas y salidas se validan con schemas de `packages/contracts`.
-- [ ] Las pruebas y puertas afectadas aprueban.
+- [x] Crear normaliza y persiste un perfil valido, y rechaza slug duplicado sin revelar SQL.
+- [x] Obtener y listar requieren `tenants:read`; crear y editar requieren `tenants:manage`.
+- [x] El listado admite filtros acotados y cursor opaco con orden determinista.
+- [x] La edicion exige la version observada y rechaza conflictos sin perder cambios.
+- [x] Entradas y salidas se validan con schemas de `packages/contracts`.
+- [x] Las pruebas y puertas afectadas aprueban.
 
 ## Plan de verificacion
 
@@ -108,8 +108,9 @@ Un operador autorizado puede crear, consultar, listar y editar perfiles desde `a
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: contratos `tenants/v1`, servicio de aplicacion en `platform-domain`, repositorio en `packages/database`, controlador y composicion en `admin-api`, y pruebas de contrato, aplicacion, HTTP e integracion. Commits locales `f11a997` y `248c4d5` en `feat/ADM-02-tenant-management`; no existe remoto ni PR.
+- Comandos y resultados: CI final en el VPS con Node 24 aprobo formato, lint, tipos, 41 pruebas de configuracion, 147 pruebas generales, 19 pruebas de arquitectura y los 17 builds. PostgreSQL 18 desechable aprobo 4 pruebas reales de migracion, permisos, creacion, busqueda, filtro, version obsoleta y unicidad.
+- Despliegue: `admin-api` se construyo y desplego por digest `7748b117...671e5` desde el build persistente del commit `248c4d56426c8aa00bbae40654c98b9551be30f4`; health interno y readiness HTTPS aprobaron, con cero reinicios. El archivo de entorno previo quedo respaldado para rollback.
+- Documentacion actualizada: esta ficha, `docs/04-proceso/estado.md` e inventario operativo del VPS. `ADM-02` y sus casillas funcionales permanecen abiertos porque la interfaz y las membresias aun no existen.
+- Desviaciones del plan: la primera prueba PostgreSQL real detecto un escape doble incorrecto en la busqueda `ILIKE`; se corrigio en `248c4d5` y la misma suite aprobo completa. No se agrego migracion porque la tabla existente ya soportaba los contratos.
+- Pendientes o decisiones nuevas: implementar `admin-web` y su BFF sobre estos contratos, y despues membresias de usuarios por perfil sin mezclar permisos de plataforma. La generacion global de OpenAPI sigue siendo una capacidad transversal pendiente del bootstrap de contratos y no se presenta como resuelta por esta rebanada.

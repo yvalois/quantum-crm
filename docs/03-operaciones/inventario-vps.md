@@ -54,7 +54,7 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 | Cgroups              | v2                                 |
 | Docker root          | `/var/lib/docker`                  |
 | Contenedores activos | 6 persistentes y saludables        |
-| Imagenes presentes   | 23; 6 usadas por servicios activos |
+| Imagenes presentes   | 24; 6 usadas por servicios activos |
 
 ## Servicios y puertos existentes
 
@@ -72,7 +72,7 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 | Actualizaciones automaticas       | `unattended-upgrades` activo y habilitado      | Mantener y observar reinicios o actualizaciones pendientes                            |
 | Herramientas de backup            | `restic`, `borg` y `rclone` ausentes           | Elegir destino y herramienta antes de datos reales                                    |
 
-Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME. Tras depurar exclusivamente cache de build no usada quedaron aproximadamente 14 GiB libres (72 % de uso); las imagenes activas y los volumenes persistentes no se tocaron.
+Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME. Tras depurar exclusivamente cache de build no usada quedaron aproximadamente 14 GiB libres (73 % de uso); las imagenes activas y los volumenes persistentes no se tocaron.
 
 ## Plataforma administrativa desplegada
 
@@ -80,12 +80,14 @@ Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento re
 | ----------- | ------------------------------------------------ | ----------------- |
 | Caddy       | `qcrm-edge/caddy@sha256:e9c93188...66448`        | `healthy`         |
 | `admin-web` | `qcrm-platform/admin-web@sha256:9126de6c...0a4c` | `healthy`         |
-| `admin-api` | `qcrm-platform/admin-api@sha256:1f00f000...2374` | `healthy`         |
+| `admin-api` | `qcrm-platform/admin-api@sha256:7748b117...671e5` | `healthy`         |
 | Keycloak    | persistente, realm `quantum-platform`            | `healthy`         |
 | PostgreSQL  | persistente, base y roles de plataforma          | `healthy`         |
 | Redis       | persistente, ACL exclusiva de sesiones           | `healthy`         |
 
 Las redes `platform-database`, `platform-session`, `platform-internal` y `platform-oidc` son internas. La ultima contiene solo Caddy y `admin-api` y permite resolver el JWKS HTTPS del issuer exacto sin habilitar salida general a Internet. El operador inicial queda en estado de entrega y debe definir su propia contrasena y TOTP; el secreto inicial permanece fuera de Git con modo `0400`, y las cuentas administrativas temporales de Keycloak fueron retiradas.
+
+El 2026-09-20, `ADM-02-b` actualizo exclusivamente `admin-api` desde el build persistente `248c4d56426c8aa00bbae40654c98b9551be30f4`. El servicio expone internamente la API v1 protegida de perfiles de cliente; la interfaz y el BFF aun no la publican como recorrido de operador. El archivo `platform.env.before-ADM-02-248c4d5` conserva el digest anterior para rollback de aplicacion sin tocar los perfiles persistidos.
 
 ## Builds y smoke aislados
 
