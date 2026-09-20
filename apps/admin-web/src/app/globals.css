@@ -28,6 +28,7 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
+  font-family: var(--font-interface), Arial, sans-serif;
   background:
     radial-gradient(circle at 72% -15%, rgba(43, 109, 106, 0.18), transparent 34rem),
     var(--graphite-0);
