@@ -17,7 +17,7 @@
     "config:check": "vitest run packages/config/src",
     "test": "vitest run tests/unit apps packages",
     "test:architecture": "vitest run tests/architecture",
-    "build": "pnpm -r --workspace-concurrency=4 --if-present build",
+    "build": "pnpm -r --workspace-concurrency=1 --if-present build",
     "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm config:check && pnpm test && pnpm test:architecture && pnpm build"
   },
   "devDependencies": {
