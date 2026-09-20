@@ -11,7 +11,7 @@ function collectTypeScriptFiles(directory: string): string[] {
     const path = join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      return [".next", "dist", "node_modules"].includes(entry.name)
+      return [".next", "dist", "generated", "node_modules"].includes(entry.name)
         ? []
         : collectTypeScriptFiles(path);
     }
@@ -115,5 +115,6 @@ describe("architectural import boundaries", () => {
     expect(source).toContain("...configDefaults.exclude");
     expect(source).toContain('"**/dist/**"');
     expect(source).toContain('"**/.next/**"');
+    expect(source).toContain('"**/generated/**"');
   });
 });

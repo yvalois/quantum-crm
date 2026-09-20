@@ -17,7 +17,7 @@ export default defineConfig({
   },
   test: {
     clearMocks: true,
-    exclude: [...configDefaults.exclude, "**/dist/**", "**/.next/**"],
+    exclude: [...configDefaults.exclude, "**/dist/**", "**/.next/**", "**/generated/**"],
     restoreMocks: true,
   },
 });

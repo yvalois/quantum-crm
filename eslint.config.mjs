@@ -3,7 +3,13 @@ import typescriptEslintParser from "@typescript-eslint/parser";
 
 export default [
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**", "**/coverage/**"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/coverage/**",
+      "packages/database/generated/**",
+    ],
   },
   {
     files: ["**/*.ts", "**/*.tsx"],
