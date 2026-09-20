@@ -65,14 +65,14 @@ Los cinco procesos Node desplegables cargan una definicion central por servicio,
 
 ## Plan de implementacion
 
-- [ ] Definir inventario tipado de servicios Node y `loadServiceConfig`.
-- [ ] Aplicar defaults por entorno, placeholders rechazados e inmutabilidad.
-- [ ] Migrar los cinco composition roots a la nueva API.
-- [ ] Agregar pruebas del inventario, entornos estrictos, redaccion y ejemplo.
-- [ ] Agregar `config:check` y actualizar `.env.example`.
-- [ ] Ejecutar formato, lint, tipos, pruebas, arquitectura y builds afectados.
-- [ ] Validar una imagen representativa y fallo cerrado en el VPS.
-- [ ] Registrar evidencia y pendientes sin cerrar `OPS-01`.
+- [x] Definir inventario tipado de servicios Node y `loadServiceConfig`.
+- [x] Aplicar defaults por entorno, placeholders rechazados e inmutabilidad.
+- [x] Migrar los cinco composition roots a la nueva API.
+- [x] Agregar pruebas del inventario, entornos estrictos, redaccion y ejemplo.
+- [x] Agregar `config:check` y actualizar `.env.example`.
+- [x] Ejecutar formato, lint, tipos, pruebas, arquitectura y builds afectados.
+- [x] Validar una imagen representativa y fallo cerrado en el VPS.
+- [x] Registrar evidencia y pendientes sin cerrar `OPS-01`.
 
 ## Riesgos y mitigaciones
 
@@ -86,13 +86,13 @@ Los cinco procesos Node desplegables cargan una definicion central por servicio,
 
 ## Criterios de aceptacion
 
-- [ ] Los cinco procesos usan `loadServiceConfig` y no duplican definiciones.
-- [ ] Todas las claves `QCRM_*` desconocidas fallan sin filtrar valores.
-- [ ] Preview, staging y produccion no aceptan host o puerto ausentes.
-- [ ] Local y test conservan defaults documentados.
-- [ ] La configuracion devuelta esta congelada y tiene version de schema.
-- [ ] `pnpm config:check` valida parser, inventario y `.env.example`.
-- [ ] Las puertas afectadas y el smoke en VPS aprueban.
+- [x] Los cinco procesos usan `loadServiceConfig` y no duplican definiciones.
+- [x] Todas las claves `QCRM_*` desconocidas fallan sin filtrar valores.
+- [x] Preview, staging y produccion no aceptan host o puerto ausentes.
+- [x] Local y test conservan defaults documentados.
+- [x] La configuracion devuelta esta congelada y tiene version de schema.
+- [x] `pnpm config:check` valida parser, inventario y `.env.example`.
+- [x] Las puertas afectadas y el smoke en VPS aprueban.
 
 ## Plan de verificacion
 
@@ -112,8 +112,9 @@ Los cinco procesos Node desplegables cargan una definicion central por servicio,
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: configuracion web publica y secretos `*_FILE` se implementan con consumidores concretos.
+- Archivos, commits o PR: `packages/config/src/process-config.ts`, sus pruebas y exportaciones; cinco `apps/*/src/main.ts`; `.env.example`, `package.json`, `vitest.config.ts`, pruebas de arquitectura y documentacion. Commits locales `066aed9`, `5aff63e` y `10b7b27`; rama `feat/OPS-01-runtime-config`, sin remoto ni PR.
+- Comandos y resultados: `pnpm run ci` aprobo en el VPS dentro de Node `24.21.0` fijado por digest: formato, lint, typecheck de 17 workspaces, 9 pruebas de configuracion, 19 pruebas generales, 8 pruebas de arquitectura y build de los 17 workspaces aplicables.
+- Imagen y smoke en VPS: `quantum-crm/api:10b7b27affc6`, ID `sha256:46ec53b395a6ee5da043a79d43a2c5fdd797025a7bca465397bbf106ff47a952`; usuario `node`, raiz de solo lectura, `cap_drop: ALL` y `no-new-privileges`. Sin host/puerto en `production` termino con codigo 1 y solo `api failed to start`; con configuracion valida respondio `health/v1` en live/ready mediante `127.0.0.1:13002`, sin publicar en todas las interfaces, y Nginx permanecio activo.
+- Documentacion actualizada: `.env.example`, `docs/08-arquitectura/monorepo.md`, esta ficha y `docs/04-proceso/estado.md`.
+- Desviaciones resueltas: `git archive` en Windows convertia dos archivos `.mjs` a CRLF; `.gitattributes` fija LF para texto y el archivo se verifico por bytes antes de transferirlo. El primer build concurrente excedio la memoria del VPS y termino con codigo 137; los builds se serializaron para la capacidad real de 1 vCPU/4 GB y la puerta completa aprobo.
+- Pendientes o decisiones nuevas: la configuracion web publica y los secretos `*_FILE` se implementaran con consumidores y mounts concretos; esta rebanada no cierra `OPS-01` ni ningun requisito funcional.
