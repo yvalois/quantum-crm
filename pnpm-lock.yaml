@@ -209,7 +209,11 @@ importers:
         specifier: 7.8.2
         version: 7.8.2
 
-  packages/auth: {}
+  packages/auth:
+    dependencies:
+      "@quantum-crm/config":
+        specifier: workspace:*
+        version: link:../config
 
   packages/config:
     dependencies:

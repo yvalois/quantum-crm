@@ -8,7 +8,55 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["tenants"]
+  schemas  = ["platform_iam", "tenants"]
+}
+
+enum PlatformOperatorStatus {
+  PENDING   @map("pending")
+  ACTIVE    @map("active")
+  SUSPENDED @map("suspended")
+
+  @@map("operator_status")
+  @@schema("platform_iam")
+}
+
+enum PlatformPermission {
+  TENANTS_READ         @map("tenants:read")
+  TENANTS_MANAGE       @map("tenants:manage")
+  CONFIGURATION_READ   @map("configuration:read")
+  CONFIGURATION_MANAGE @map("configuration:manage")
+  DEPLOYMENTS_READ     @map("deployments:read")
+  DEPLOYMENTS_EXECUTE  @map("deployments:execute")
+  OPERATORS_MANAGE     @map("operators:manage")
+
+  @@map("platform_permission")
+  @@schema("platform_iam")
+}
+
+model PlatformOperatorMembership {
+  id                    String                       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  oidcSubject           String                       @unique(map: "operator_memberships_oidc_subject_key") @map("oidc_subject") @db.VarChar(255)
+  status                PlatformOperatorStatus       @default(PENDING)
+  authorizationRevision BigInt                       @default(1) @map("authorization_revision")
+  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  permissions           PlatformOperatorPermission[]
+
+  @@index([status, createdAt, id], map: "operator_memberships_status_created_id_idx")
+  @@map("operator_memberships")
+  @@schema("platform_iam")
+}
+
+model PlatformOperatorPermission {
+  operatorId String                     @map("operator_id") @db.Uuid
+  permission PlatformPermission
+  createdAt  DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  operator   PlatformOperatorMembership @relation(fields: [operatorId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([operatorId, permission], map: "operator_permissions_pkey")
+  @@index([permission, operatorId], map: "operator_permissions_permission_operator_idx")
+  @@map("operator_permissions")
+  @@schema("platform_iam")
 }
 
 enum TenantStatus {
