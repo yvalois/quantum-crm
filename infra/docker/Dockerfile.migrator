@@ -16,4 +16,4 @@ RUN pnpm install --frozen-lockfile \
     && pnpm --filter "@quantum-crm/database..." build
 ENV NODE_ENV=production
 USER node
-CMD ["pnpm", "--filter", "@quantum-crm/database", "db:provision:platform"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --config packages/database/prisma/platform/prisma7.config.ts && node packages/database/dist/grant-platform-runtime.js"]
