@@ -127,15 +127,9 @@ PY
 
 curl --fail --silent --show-error \
   --config "${temporary_directory}/auth.conf" \
-  --header 'Content-Type: application/json' \
-  --request PUT "${keycloak_url}/admin/realms/quantum-platform/users/${user_id}/reset-password" \
-  --data-binary "@${temporary_directory}/password.json"
-
-curl --fail --silent --show-error \
-  --config "${temporary_directory}/auth.conf" \
   "${keycloak_url}/admin/realms/quantum-platform/users/${user_id}/credentials" \
   --output "${temporary_directory}/credentials.json"
-python3 - "${temporary_directory}/credentials.json" "${temporary_directory}/otp-ids" <<'PY'
+python3 - "${temporary_directory}/credentials.json" "${temporary_directory}/otp-ids" "${temporary_directory}/has-password" <<'PY'
 import json
 import sys
 
@@ -145,7 +139,16 @@ with open(sys.argv[2], "w", encoding="utf-8") as target:
     for credential in credentials:
         if credential.get("type") == "otp":
             target.write(f'{credential["id"]}\n')
+if any(credential.get("type") == "password" for credential in credentials):
+    open(sys.argv[3], "w", encoding="utf-8").close()
 PY
+if [[ ! -e "${temporary_directory}/has-password" ]]; then
+  curl --fail --silent --show-error \
+    --config "${temporary_directory}/auth.conf" \
+    --header 'Content-Type: application/json' \
+    --request PUT "${keycloak_url}/admin/realms/quantum-platform/users/${user_id}/reset-password" \
+    --data-binary "@${temporary_directory}/password.json"
+fi
 while IFS= read -r credential_id; do
   [[ -n "$credential_id" ]] || continue
   curl --fail --silent --show-error \
