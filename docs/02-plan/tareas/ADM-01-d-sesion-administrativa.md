@@ -62,13 +62,13 @@
 
 ## Plan de implementacion
 
-- [ ] Modelar configuracion fail-closed de `admin-web` y secretos por archivo.
-- [ ] Implementar transacciones y sesiones opacas con expiraciones acotadas.
-- [ ] Implementar adaptador Redis con consumo unico e invalidacion.
-- [ ] Implementar Authorization Code + PKCE y Route Handlers same-origin.
-- [ ] Aplicar cookies seguras, Origin/CSRF y retorno local validado.
-- [ ] Probar protocolo, ataques, Redis real y build en VPS.
-- [ ] Registrar evidencia sin cerrar `ADM-01`.
+- [x] Modelar configuracion fail-closed de `admin-web` y secretos por archivo.
+- [x] Implementar transacciones y sesiones opacas con expiraciones acotadas.
+- [x] Implementar adaptador Redis con consumo unico e invalidacion.
+- [x] Implementar Authorization Code + PKCE y Route Handlers same-origin.
+- [x] Aplicar cookies seguras, Origin/CSRF y retorno local validado.
+- [x] Probar protocolo, ataques, Redis real y build en VPS.
+- [x] Registrar evidencia sin cerrar `ADM-01`.
 
 ## Riesgos y mitigaciones
 
@@ -83,13 +83,13 @@
 
 ## Criterios de aceptacion
 
-- [ ] Login genera una autorizacion con state, nonce, PKCE S256 y ACR 2.
-- [ ] Callback invalido o repetido no crea sesion.
-- [ ] La sesion del navegador es opaca y no contiene tokens OIDC.
-- [ ] Cookies y expiraciones cumplen ADR-0004.
-- [ ] Logout exige Origin/CSRF, destruye sesion y limpia cookie.
-- [ ] Configuracion insegura o secretos ausentes fallan antes de servir autenticacion.
-- [ ] CI e integracion Redis afectada aprueban en VPS.
+- [x] Login genera una autorizacion con state, nonce, PKCE S256 y ACR 2.
+- [x] Callback invalido o repetido no crea sesion.
+- [x] La sesion del navegador es opaca y no contiene tokens OIDC.
+- [x] Cookies y expiraciones cumplen ADR-0004.
+- [x] Logout exige Origin/CSRF, destruye sesion y limpia cookie.
+- [x] Configuracion insegura o secretos ausentes fallan antes de servir autenticacion.
+- [x] CI e integracion Redis afectada aprueban en VPS.
 
 ## Plan de verificacion
 
@@ -109,8 +109,8 @@
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: aprovisionamiento persistente, operador inicial, guardas y proxy a `admin-api`.
+- Archivos, commits o PR: commit `ff14d23`; implementacion en `packages/auth`, `packages/config`, `apps/admin-web`, plantillas Compose y harness `infra/redis/validate-platform-session.sh` sobre la rama `feat/ADM-01-admin-session`. No existe remoto configurado para publicar PR o push.
+- Comandos y resultados: `pnpm run ci` aprobo en el VPS con Node 24.21.0: 39 pruebas de configuracion, 122 pruebas generales, 14 pruebas de arquitectura, lint, formato, typecheck y build de los 17 workspaces aplicables. `bash infra/redis/validate-platform-session.sh` aprobo 2/2 pruebas contra Redis 8.2.1 fijado por digest `sha256:5fa2edb1e408fa8235e6db8fab01d1afaaae96c9403ba67b70feceb8661e8621` en red interna desechable.
+- Documentacion actualizada: ejemplo de configuracion de `admin-web`, secretos y redes de Compose, descripcion operativa del almacen de sesiones, ficha y estado oficial.
+- Desviaciones del plan: ninguna de alcance. La prueba E2E con operador y OTP permanece deliberadamente fuera de esta rebanada hasta aprovisionar identidad persistente; no se presenta la sesion aislada como acceso administrativo completo.
+- Pendientes o decisiones nuevas: aprovisionamiento persistente de Keycloak y Redis, operador inicial, guardas de rutas, proxy autenticado a `admin-api`, renovacion de tokens y recorrido E2E. Se resolveran en las siguientes rebanadas de `ADM-01`.

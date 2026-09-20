@@ -53,7 +53,7 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
 - [ ] **Sección completa — Administrador central de Quantum**
 
 - [ ] **ADM-01 — Acceso al administrador central de Quantum.**
-  - [ ] Crear una aplicación administrativa separada del acceso de los clientes.
+  - [x] Crear una aplicación administrativa separada del acceso de los clientes.
   - [ ] Autenticar a los operadores de Quantum y exigir MFA para las cuentas administrativas.
   - [ ] Definir permisos de plataforma para administrar clientes, configuración y despliegues.
   - [ ] Impedir que un administrador del CRM de un cliente obtenga permisos de plataforma.
