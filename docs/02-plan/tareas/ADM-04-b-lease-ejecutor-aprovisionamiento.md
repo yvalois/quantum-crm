@@ -61,12 +61,12 @@ El ejecutor puede conectarse con una identidad runtime a PostgreSQL de plataform
 
 ## Plan de implementacion
 
-- [ ] Generalizar el agregado para estados y leases observados.
-- [ ] Agregar migracion forward-only e indice de reclamacion.
-- [ ] Implementar claim y renovacion con fencing.
-- [ ] Conectar `deploy-executor` a PostgreSQL y a readiness.
-- [ ] Verificar migracion, concurrencia, vencimiento y configuracion.
-- [ ] Registrar evidencia sin ejecutar efectos de host.
+- [x] Generalizar el agregado para estados y leases observados.
+- [x] Agregar migracion forward-only e indice de reclamacion.
+- [x] Implementar claim y renovacion con fencing.
+- [x] Conectar `deploy-executor` a PostgreSQL y a readiness.
+- [x] Verificar migracion, concurrencia, vencimiento y configuracion.
+- [x] Registrar evidencia sin ejecutar efectos de host.
 
 ## Riesgos y mitigaciones
 
@@ -79,11 +79,11 @@ El ejecutor puede conectarse con una identidad runtime a PostgreSQL de plataform
 
 ## Criterios de aceptacion
 
-- [ ] Un reclamo cambia `PENDING` a `RUNNING`, incrementa intento y fija lease.
-- [ ] Dos reclamos simultaneos no devuelven la misma operacion.
-- [ ] Una operacion con lease vencido puede ser reclamada por otro propietario.
-- [ ] Solo el propietario vigente con la version esperada puede renovar.
-- [ ] `deploy-executor` no queda ready sin PostgreSQL y no recibe acceso a Docker.
+- [x] Un reclamo cambia `PENDING` a `RUNNING`, incrementa intento y fija lease.
+- [x] Dos reclamos simultaneos no devuelven la misma operacion.
+- [x] Una operacion con lease vencido puede ser reclamada por otro propietario.
+- [x] Solo el propietario vigente con la version esperada puede renovar.
+- [x] `deploy-executor` no queda ready sin PostgreSQL y no recibe acceso a Docker.
 
 ## Plan de verificacion
 
@@ -103,8 +103,8 @@ El ejecutor puede conectarse con una identidad runtime a PostgreSQL de plataform
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: commit `69e6c694657893d722e585796d2eb384e40caa71`; agregado en `packages/platform-domain/src/deployments/`, persistencia en `packages/database`, conexion en `apps/deploy-executor` y migracion `20260920233000_adm_04_add_provisioning_leases`.
+- Comandos y resultados: formato, lint y tipos aprobados; 41 pruebas de configuracion, 181 generales y 19 de arquitectura aprobadas; los 17 builds finalizaron. PostgreSQL 18 desechable aplico cuatro migraciones desde cero y aprobo 7/7 pruebas de integracion, incluida competencia entre dos reclamos, fencing y recuperacion vencida. Staging aplico la cuarta migracion; `admin-api` y `deploy-executor` quedaron saludables por digest.
+- Documentacion actualizada: esta ficha, `docs/04-proceso/estado.md`, `docs/03-operaciones/inventario-vps.md` e `infra/README.md`.
+- Desviaciones del plan: la primera comprobacion de arquitectura reflejaba la frontera anterior que prohibia base de datos al ejecutor; se actualizo para permitirle exclusivamente el paquete de persistencia de plataforma. El primer intento de despliegue se revirtio automaticamente por un error del chequeo auxiliar de mounts; el segundo uso una comprobacion corregida y aprobo.
+- Pendientes o decisiones nuevas: el proceso aun no reclama automaticamente porque no existe un handler que pueda confirmar capacidad y release reales. La proxima rebanada debe implementar el paso `VALIDATE` contra `ADM-05` y `ADM-09` antes de iniciar el loop; no se ejecutan efectos de host ni se marca `ADM-04` terminado.
