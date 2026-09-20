@@ -50,33 +50,33 @@
 
 ## Plan de implementacion
 
-- [ ] Registrar el contrato publico de operador autenticado.
-- [ ] Implementar lector PostgreSQL reutilizando el pool de plataforma.
-- [ ] Aplicar autenticacion global y permisos declarativos en `admin-api`.
-- [ ] Implementar el endpoint propio del operador y respuestas seguras.
-- [ ] Implementar el proxy fijo en `admin-web` sin exponer tokens.
-- [ ] Verificar denegaciones, permisos, fallo de dependencias y recorrido HTTP.
-- [ ] Ejecutar CI en VPS y registrar evidencia.
+- [x] Registrar el contrato publico de operador autenticado.
+- [x] Implementar lector PostgreSQL reutilizando el pool de plataforma.
+- [x] Aplicar autenticacion global y permisos declarativos en `admin-api`.
+- [x] Implementar el endpoint propio del operador y respuestas seguras.
+- [x] Implementar el proxy fijo en `admin-web` sin exponer tokens.
+- [x] Verificar denegaciones, permisos, fallo de dependencias y recorrido HTTP.
+- [x] Ejecutar CI en VPS y registrar evidencia.
 
 ## Riesgos y mitigaciones
 
-| Riesgo | Mitigacion | Verificacion |
-|---|---|---|
-| Ruta administrativa publica por omision | Guardia global y decorador publico solo para health | Ruta sin metadata devuelve 401 |
-| Token filtrado al navegador | Token recuperado server-side y respuesta validada por schema | Canario ausente en JSON y headers |
-| SSRF o proxy abierto | Origen configurado y ruta upstream constantes | Entradas del navegador no eligen destino |
-| Membresia suspendida o permiso ausente | Consulta vigente por solicitud y denegacion por defecto | Matriz 401/403 |
-| Caida de PostgreSQL, Redis o API | Timeout y respuesta 503 uniforme | Fallos simulados |
+| Riesgo                                  | Mitigacion                                                   | Verificacion                             |
+| --------------------------------------- | ------------------------------------------------------------ | ---------------------------------------- |
+| Ruta administrativa publica por omision | Guardia global y decorador publico solo para health          | Ruta sin metadata devuelve 401           |
+| Token filtrado al navegador             | Token recuperado server-side y respuesta validada por schema | Canario ausente en JSON y headers        |
+| SSRF o proxy abierto                    | Origen configurado y ruta upstream constantes                | Entradas del navegador no eligen destino |
+| Membresia suspendida o permiso ausente  | Consulta vigente por solicitud y denegacion por defecto      | Matriz 401/403                           |
+| Caida de PostgreSQL, Redis o API        | Timeout y respuesta 503 uniforme                             | Fallos simulados                         |
 
 ## Criterios de aceptacion
 
-- [ ] Health permanece publico y el resto de `admin-api` queda protegido por defecto.
-- [ ] Token invalido, identidad de CRM, MFA ausente o membresia inactiva devuelve 401.
-- [ ] Permiso ausente devuelve 403 antes de ejecutar el controlador.
-- [ ] El endpoint propio responde un contrato estricto sin tokens ni secretos.
-- [ ] El BFF usa solo el destino fijo y el token server-side de la sesion.
-- [ ] Navegador sin sesion recibe 401 y dependencia no disponible recibe 503.
-- [ ] CI y pruebas afectadas aprueban en VPS.
+- [x] Health permanece publico y el resto de `admin-api` queda protegido por defecto.
+- [x] Token invalido, identidad de CRM, MFA ausente o membresia inactiva devuelve 401.
+- [x] Permiso ausente devuelve 403 antes de ejecutar el controlador.
+- [x] El endpoint propio responde un contrato estricto sin tokens ni secretos.
+- [x] El BFF usa solo el destino fijo y el token server-side de la sesion.
+- [x] Navegador sin sesion recibe 401 y dependencia no disponible recibe 503.
+- [x] CI y pruebas afectadas aprueban en VPS.
 
 ## Recuperacion
 
@@ -85,8 +85,8 @@
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes: renovacion de tokens, identidad persistente y E2E con OTP.
+- Archivos, commits o PR: commits `5267d18`, `6faea1e`, `272dc66`, `5e690a2`, `2548d1e` y `2a235f0` sobre `feat/ADM-01-admin-guard-proxy`; implementacion en `admin-api`, `admin-web`, `packages/contracts`, `packages/database`, configuracion y Compose. No existe remoto configurado para push o PR.
+- Comandos y resultados: `pnpm run ci` aprobo en el VPS sobre `2a235f0` con Node 24.21.0: formato, lint, typecheck de 17 workspaces, 41 pruebas de configuracion, 133 pruebas generales, 14 pruebas de arquitectura y build de los 17 workspaces aplicables. La integracion focalizada aprobo 3/3 escenarios contra PostgreSQL 18.1 real y desechable, incluido el lector usado por `admin-api`.
+- Documentacion actualizada: ficha y estado oficial; ejemplos y manifiestos declaran el origen interno fijo de `admin-api` y asignan los secretos de sesion solo a `admin-web`.
+- Desviaciones del plan: ninguna de alcance. La validacion en checkout limpio detecto y corrigio la resolucion del paquete de dominio, imports de Next.js y prerender del dashboard; PostgreSQL real detecto y corrigio el orden lexical de permisos.
+- Pendientes: renovacion de tokens, aprovisionamiento persistente de identidad/Redis, operador inicial y E2E completo con OTP. `ADM-01` permanece abierto hasta acreditarlos.
