@@ -65,12 +65,12 @@ Existe una configuracion versionada e importable del realm exclusivo `quantum-pl
 
 ## Plan de implementacion
 
-- [ ] Versionar realm minimo sin usuarios ni credenciales.
-- [ ] Configurar cliente confidencial, PKCE, redirects y mappers.
-- [ ] Configurar flujo LoA 1/2 con OTP requerido y politicas de seguridad.
-- [ ] Crear prueba estructural para impedir relajaciones o secretos.
-- [ ] Importar y consultar la configuracion en Keycloak 26.7.4 desechable en el VPS.
-- [ ] Registrar evidencia sin cerrar `ADM-01`.
+- [x] Versionar realm minimo sin usuarios ni credenciales.
+- [x] Configurar cliente confidencial, PKCE, redirects y mappers.
+- [x] Configurar flujo LoA 1/2 con OTP requerido y politicas de seguridad.
+- [x] Crear prueba estructural para impedir relajaciones o secretos.
+- [x] Importar y consultar la configuracion en Keycloak 26.7.4 desechable en el VPS.
+- [x] Registrar evidencia sin cerrar `ADM-01`.
 
 ## Riesgos y mitigaciones
 
@@ -84,12 +84,12 @@ Existe una configuracion versionada e importable del realm exclusivo `quantum-pl
 
 ## Criterios de aceptacion
 
-- [ ] Keycloak importa y habilita `quantum-platform` sin configuracion invalida.
-- [ ] El cliente solo admite Authorization Code y exige PKCE `S256`.
-- [ ] El cliente exige ACR minimo 2 y el flujo asociado requiere OTP para LoA 2.
-- [ ] Los access tokens reciben audience `quantum-admin-api` y principal `human`.
-- [ ] El realm no contiene usuarios, secretos, redirects comodin ni autorregistro.
-- [ ] La validacion automatica local y la integracion real en VPS aprueban.
+- [x] Keycloak importa y habilita `quantum-platform` sin configuracion invalida.
+- [x] El cliente solo admite Authorization Code y exige PKCE `S256`.
+- [x] El cliente exige ACR minimo 2 y el flujo asociado requiere OTP para LoA 2.
+- [x] Los access tokens reciben audience `quantum-admin-api` y principal `human`.
+- [x] El realm no contiene usuarios, secretos, redirects comodin ni autorregistro.
+- [x] La validacion automatica local y la integracion real en VPS aprueban.
 
 ## Plan de verificacion
 
@@ -109,8 +109,10 @@ Existe una configuracion versionada e importable del realm exclusivo `quantum-pl
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: despliegue persistente, credencial confidencial, operador inicial y BFF de sesiones.
+- Archivos y commits: `d4cb38e` planifica la rebanada; `ad99075` agrega realm, invariantes y documentacion; `84e16d8` agrega el harness repetible de Keycloak real. No existe remoto configurado, por lo que no hay PR ni push.
+- Verificacion local: 4/4 invariantes del realm, lint, 13/13 pruebas de arquitectura y `git diff --check` aprobados.
+- Verificacion reproducible en VPS sobre `84e16d8`: `pnpm run ci` aprobado con formato, lint, typecheck, 31 pruebas de configuracion, 93 unitarias, 13 de arquitectura y build de los 17 workspaces aplicables bajo Node 24.
+- Integracion Keycloak en VPS: `bash infra/keycloak/validate-realm.sh` aprobo contra Keycloak 26.7.4 fijado por digest `sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c`; valido importacion, discovery, JWKS RSA, realm, cliente, grants, PKCE, ACR, mappers, ausencia de usuarios y pasos password/OTP mediante Admin API.
+- Documentacion actualizada: `infra/README.md`, realm importable, harness, ficha y estado oficial.
+- Desviaciones del plan: ninguna. La prueba usa HTTP, H2 y credenciales sinteticas solo dentro del contenedor desechable; no representa el despliegue persistente ni reduce los requisitos HTTPS, PostgreSQL o secretos por archivo.
+- Pendientes: despliegue persistente, PostgreSQL/secretos de Keycloak, credencial confidencial, operador inicial, BFF, sesiones, CSRF, endpoints, guardas y UI permanecen en `ADM-01`.
