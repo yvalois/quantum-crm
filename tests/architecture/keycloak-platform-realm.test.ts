@@ -25,7 +25,10 @@ async function realm(): Promise<JsonObject> {
 describe("Keycloak platform realm", () => {
   it("contains no identities, credentials, secrets or wildcard origins", async () => {
     const configuration = await realm();
-    const serialized = JSON.stringify(configuration);
+    const serialized = JSON.stringify(configuration).replace(
+      '"secret":"${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET}",',
+      "",
+    );
 
     expect(configuration.users).toBeUndefined();
     expect(serialized).not.toMatch(/"(?:secret|credentials?|password|value)"\s*:/iu);
@@ -51,6 +54,7 @@ describe("Keycloak platform realm", () => {
       directAccessGrantsEnabled: false,
       serviceAccountsEnabled: false,
       redirectUris: ["${QCRM_ADMIN_WEB_ORIGIN}/api/auth/callback/keycloak"],
+      secret: "${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET}",
       webOrigins: ["${QCRM_ADMIN_WEB_ORIGIN}"],
     });
     expect(object(client.attributes)).toMatchObject({

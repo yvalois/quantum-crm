@@ -4,14 +4,38 @@ Esta carpeta contiene el bootstrap de contenedores de Quantum CRM. No acredita u
 
 ## Matriz actual
 
-| Proyecto                             | Servicios                                                 | Proposito                                                                          |
-| ------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `local.yaml` / `quantum-local`       | ocho aplicaciones                                         | Desarrollo integrado en el VPS de pruebas, con puertos publicados solo en loopback |
-| `test.yaml` / `quantum-test`         | `crm-web` y `api`                                         | Smoke desechable de ambos tipos de imagen                                          |
-| `platform.yaml` / `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor`               | Plantilla de procesos centrales sin puertos publicos directos                      |
-| `tenant.yaml` / `-p qcrm-t-<uuid>`   | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla repetible por perfil, con nombre de proyecto validado por el ejecutor    |
+| Proyecto                                                   | Servicios                                                 | Proposito                                                                             |
+| ---------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `local.yaml` / `quantum-local`                             | ocho aplicaciones                                         | Desarrollo integrado en el VPS de pruebas, con puertos publicados solo en loopback    |
+| `test.yaml` / `quantum-test`                               | `crm-web` y `api`                                         | Smoke desechable de ambos tipos de imagen                                             |
+| `platform-foundation.yaml` / `quantum-platform-foundation` | PostgreSQL, Redis y Keycloak                              | Dependencias persistentes de plataforma con redes privadas y volumenes independientes |
+| `platform.yaml` / `quantum-platform`                       | `admin-web`, `admin-api`, `deploy-executor`               | Procesos centrales sin puertos publicos directos                                      |
+| `tenant.yaml` / `-p qcrm-t-<uuid>`                         | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla repetible por perfil, con nombre de proyecto validado por el ejecutor       |
 
-La rebanada `OPS-04-a` agrega el contrato de conexion a PostgreSQL, pero no instala el motor ni crea datos comerciales. Identidad, Redis, archivos, proxy y telemetria se agregaran en sus requisitos propios. El `deploy-executor` no recibe el socket Docker en este incremento.
+La fundacion persistente separa el ciclo de vida de PostgreSQL, Redis y Keycloak del ciclo de releases de las aplicaciones. Sus volumenes nunca se eliminan como parte de un rollback de aplicacion. Archivos, proxy y telemetria se agregaran en sus requisitos propios. El `deploy-executor` no recibe el socket Docker en este incremento.
+
+## Fundacion persistente de plataforma
+
+`infra/compose/platform-foundation.yaml` declara los tres motores sin publicar puertos al host:
+
+- PostgreSQL solo pertenece a `platform-database` y crea bases y roles separados para Keycloak, migracion y runtime.
+- Redis solo pertenece a `platform-session`, exige ACL y limita las claves al namespace de sesiones administrativas.
+- Keycloak pertenece a la red de entrada y a `platform-database`; usa PostgreSQL y el comando `start --optimized --import-realm`, nunca `start-dev`.
+- `platform.yaml` conecta `admin-web` unicamente a la red de sesiones y `admin-api` unicamente a la red de datos.
+
+Las tres imagenes de fundacion se construyen desde los Dockerfiles fijados por digest en `infra/docker/`. PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`; los wrappers de Redis y Keycloak adaptan los archivos montados a sus interfaces nativas sin colocar valores en Compose ni en argumentos. Los siete archivos requeridos viven fuera del checkout con permisos `0600` y son:
+
+```text
+postgres-admin-password
+platform-migrator-password
+platform-runtime-password
+keycloak-database-password
+keycloak-bootstrap-admin-password
+platform-redis-password
+admin-web-oidc-client-secret
+```
+
+El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases.sh` desde la imagen inmutable. La importacion de Keycloak omite el realm si ya existe; no es un mecanismo de actualizacion ni de backup. El procedimiento de aprovisionamiento valida dos ejecuciones y una recreacion sin usar `docker compose down -v`.
 
 ## Conexion PostgreSQL y secretos
 

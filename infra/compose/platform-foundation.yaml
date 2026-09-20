@@ -1,0 +1,159 @@
+name: quantum-platform-foundation
+
+x-stateful-defaults: &stateful-defaults
+  init: true
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+services:
+  platform-postgres:
+    <<: *stateful-defaults
+    image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/platform-postgres@sha256:${QCRM_PLATFORM_POSTGRES_IMAGE_DIGEST:?set QCRM_PLATFORM_POSTGRES_IMAGE_DIGEST}"
+    pull_policy: always
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: qcrm_cluster_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/qcrm_postgres_admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+    secrets:
+      - source: postgres-admin-password
+        target: qcrm_postgres_admin_password
+      - source: platform-migrator-password
+        target: qcrm_platform_migrator_password
+      - source: platform-runtime-password
+        target: qcrm_platform_runtime_password
+      - source: keycloak-database-password
+        target: qcrm_keycloak_database_password
+    volumes:
+      - platform-postgres-data:/var/lib/postgresql
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /var/run/postgresql:rw,noexec,nosuid,size=16m,uid=999,gid=999
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U qcrm_cluster_admin -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    mem_limit: 768m
+    cpus: 0.6
+    networks: [platform-database]
+
+  platform-redis:
+    <<: *stateful-defaults
+    image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/platform-redis@sha256:${QCRM_PLATFORM_REDIS_IMAGE_DIGEST:?set QCRM_PLATFORM_REDIS_IMAGE_DIGEST}"
+    pull_policy: always
+    read_only: true
+    environment:
+      QCRM_REDIS_PASSWORD_FILE: /run/secrets/qcrm_redis_password
+    secrets:
+      - source: redis-password
+        target: qcrm_redis_password
+    volumes:
+      - platform-redis-data:/data
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+      - /run/redis:rw,noexec,nosuid,size=4m,uid=999,gid=999
+    healthcheck:
+      test:
+        [
+          CMD-SHELL,
+          "REDISCLI_AUTH=$$(cat /run/secrets/qcrm_redis_password) redis-cli --no-auth-warning ping | grep -qx PONG",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    mem_limit: 192m
+    cpus: 0.2
+    networks: [platform-session]
+
+  platform-keycloak:
+    <<: *stateful-defaults
+    image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/keycloak@sha256:${QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST:?set QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST}"
+    pull_policy: always
+    read_only: true
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: qcrm-bootstrap-admin
+      KC_DB: postgres
+      KC_DB_URL_DATABASE: qcrm_keycloak
+      KC_DB_URL_HOST: platform-postgres
+      KC_DB_URL_PORT: "5432"
+      KC_DB_USERNAME: qcrm_keycloak
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: "${QCRM_PLATFORM_IDENTITY_ORIGIN:?set QCRM_PLATFORM_IDENTITY_ORIGIN}"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_MANAGEMENT_HEALTH_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_SERVER_ASYNC_BOOTSTRAP: "false"
+      QCRM_ADMIN_WEB_ORIGIN: "${QCRM_ADMIN_WEB_ORIGIN:?set QCRM_ADMIN_WEB_ORIGIN}"
+      QCRM_KEYCLOAK_DB_PASSWORD_FILE: /run/secrets/qcrm_keycloak_database_password
+      QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/qcrm_keycloak_bootstrap_admin_password
+      QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE: /run/secrets/qcrm_admin_web_oidc_client_secret
+    secrets:
+      - source: keycloak-database-password
+        target: qcrm_keycloak_database_password
+      - source: keycloak-bootstrap-admin-password
+        target: qcrm_keycloak_bootstrap_admin_password
+      - source: admin-web-oidc-client-secret
+        target: qcrm_admin_web_oidc_client_secret
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /opt/keycloak/data/tmp:rw,noexec,nosuid,size=64m,uid=1000,gid=0
+    depends_on:
+      platform-postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          CMD-SHELL,
+          "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q '200 OK' <&3",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
+    mem_limit: 896m
+    cpus: 0.7
+    networks: [platform-edge, platform-database]
+
+networks:
+  platform-edge:
+    external: true
+    name: "${QCRM_PLATFORM_EDGE_NETWORK:?set QCRM_PLATFORM_EDGE_NETWORK}"
+  platform-database:
+    internal: true
+    name: "${QCRM_PLATFORM_DATABASE_NETWORK:?set QCRM_PLATFORM_DATABASE_NETWORK}"
+  platform-session:
+    internal: true
+    name: "${QCRM_PLATFORM_SESSION_NETWORK:?set QCRM_PLATFORM_SESSION_NETWORK}"
+
+volumes:
+  platform-postgres-data:
+    name: "${QCRM_PLATFORM_POSTGRES_VOLUME:?set QCRM_PLATFORM_POSTGRES_VOLUME}"
+  platform-redis-data:
+    name: "${QCRM_PLATFORM_REDIS_VOLUME:?set QCRM_PLATFORM_REDIS_VOLUME}"
+
+secrets:
+  postgres-admin-password:
+    file: "${QCRM_POSTGRES_ADMIN_PASSWORD_FILE:?set QCRM_POSTGRES_ADMIN_PASSWORD_FILE}"
+  platform-migrator-password:
+    file: "${QCRM_PLATFORM_MIGRATOR_PASSWORD_FILE:?set QCRM_PLATFORM_MIGRATOR_PASSWORD_FILE}"
+  platform-runtime-password:
+    file: "${QCRM_PLATFORM_RUNTIME_PASSWORD_FILE:?set QCRM_PLATFORM_RUNTIME_PASSWORD_FILE}"
+  keycloak-database-password:
+    file: "${QCRM_KEYCLOAK_DATABASE_PASSWORD_FILE:?set QCRM_KEYCLOAK_DATABASE_PASSWORD_FILE}"
+  keycloak-bootstrap-admin-password:
+    file: "${QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE:?set QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE}"
+  redis-password:
+    file: "${QCRM_PLATFORM_REDIS_PASSWORD_FILE:?set QCRM_PLATFORM_REDIS_PASSWORD_FILE}"
+  admin-web-oidc-client-secret:
+    file: "${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE:?set QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE}"

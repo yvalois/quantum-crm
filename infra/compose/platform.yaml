@@ -49,7 +49,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [platform-edge, platform-internal]
+    networks: [platform-edge, platform-internal, platform-session]
 
   admin-api:
     <<: *service-defaults
@@ -79,7 +79,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [platform-edge, platform-internal]
+    networks: [platform-internal, platform-database]
 
   deploy-executor:
     <<: *service-defaults
@@ -109,6 +109,12 @@ networks:
     name: "${QCRM_PLATFORM_EDGE_NETWORK:?set QCRM_PLATFORM_EDGE_NETWORK}"
   platform-internal:
     internal: true
+  platform-database:
+    external: true
+    name: "${QCRM_PLATFORM_DATABASE_NETWORK:?set QCRM_PLATFORM_DATABASE_NETWORK}"
+  platform-session:
+    external: true
+    name: "${QCRM_PLATFORM_SESSION_NETWORK:?set QCRM_PLATFORM_SESSION_NETWORK}"
 
 secrets:
   admin-web-oidc-client-secret:

@@ -71,7 +71,11 @@ describe("container manifests", () => {
   });
 
   it("uses digest references and no direct host ports in deployment templates", () => {
-    for (const path of ["infra/compose/platform.yaml", "infra/compose/tenant.yaml"]) {
+    for (const path of [
+      "infra/compose/platform-foundation.yaml",
+      "infra/compose/platform.yaml",
+      "infra/compose/tenant.yaml",
+    ]) {
       const compose = read(path);
 
       expect(compose).toContain("@sha256:${QCRM_");
@@ -81,6 +85,47 @@ describe("container manifests", () => {
       expect(compose).toContain("no-new-privileges:true");
       expect(compose).toContain("cap_drop:");
     }
+  });
+
+  it("separates persistent platform dependencies by private network and volume", () => {
+    const foundation = read("infra/compose/platform-foundation.yaml");
+    const platform = read("infra/compose/platform.yaml");
+
+    expect(serviceNames(foundation).sort()).toEqual(
+      ["platform-keycloak", "platform-postgres", "platform-redis"].sort(),
+    );
+    expect(foundation).not.toMatch(/^    ports:/m);
+    expect(foundation).not.toContain("start-dev");
+    expect(serviceBlock(foundation, "platform-postgres")).toContain(
+      "platform-postgres-data:/var/lib/postgresql",
+    );
+    expect(serviceBlock(foundation, "platform-redis")).toContain("platform-redis-data:/data");
+    expect(serviceBlock(foundation, "platform-postgres")).toContain(
+      "networks: [platform-database]",
+    );
+    expect(serviceBlock(foundation, "platform-redis")).toContain("networks: [platform-session]");
+    expect(serviceBlock(foundation, "platform-keycloak")).toContain(
+      "networks: [platform-edge, platform-database]",
+    );
+    expect(serviceBlock(platform, "admin-web")).toContain("platform-session");
+    expect(serviceBlock(platform, "admin-web")).not.toContain("platform-database");
+    expect(serviceBlock(platform, "admin-api")).toContain("platform-database");
+    expect(serviceBlock(platform, "admin-api")).not.toContain("platform-session");
+  });
+
+  it("adapts vendor credentials from mounted files without secret command arguments", () => {
+    const foundation = read("infra/compose/platform-foundation.yaml");
+    const redisEntrypoint = read("infra/redis/platform-entrypoint.sh");
+    const keycloakEntrypoint = read("infra/keycloak/platform-entrypoint.sh");
+
+    expect(foundation).not.toMatch(/PASSWORD:\s*[^/\s]/);
+    expect(foundation).not.toContain("--requirepass");
+    expect(foundation).not.toContain("--db-password");
+    expect(redisEntrypoint).toContain("/run/secrets/qcrm_redis_password");
+    expect(redisEntrypoint).toContain("--aclfile /run/redis/users.acl");
+    expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_DB_PASSWORD_FILE");
+    expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE");
+    expect(keycloakEntrypoint).not.toContain("set -x");
   });
 
   it("mounts each database URL only in an authorized process", () => {

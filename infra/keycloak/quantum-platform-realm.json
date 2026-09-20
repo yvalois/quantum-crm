@@ -178,6 +178,7 @@
       "description": "Confidential BFF client for Quantum platform operators",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
+      "secret": "${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET}",
       "protocol": "openid-connect",
       "publicClient": false,
       "bearerOnly": false,
