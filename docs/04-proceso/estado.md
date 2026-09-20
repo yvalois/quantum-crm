@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Actualizado: 2026-09-19
+Actualizado: 2026-09-20
 
 Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No sustituye el checklist.
 
@@ -10,7 +10,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Aplicacion implementada: existe el bootstrap ejecutable de las ocho aplicaciones/procesos; no existe todavia ningun flujo comercial acreditado.
 - Requisitos funcionales completados: ninguno acreditado.
 - Requisitos operativos completados: ninguno acreditado.
-- Trabajo activo: arquitectura operativa, validacion del VPS y acceso seguro (`OPS-01`, `OPS-02`, `OPS-23`).
+- Trabajo activo: arquitectura operativa, persistencia aislada, validacion del VPS y acceso seguro (`OPS-01`, `OPS-02`, `OPS-04`, `OPS-23`).
 
 ## En curso
 
@@ -18,6 +18,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | ------ | --------------------------------------------------- | ----------- | ----------------------------------------------------- | ---------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | OPS-01 | Implementar la arquitectura operativa por rebanadas | Codex       | `feat/OPS-01-runtime-config` (sin remoto configurado) | 2026-09-19 | 2026-09-19           | [`OPS-01-d`](../02-plan/tareas/OPS-01-d-configuracion-runtime.md) cerrado: CI completa con Node 24, imagen API y fallo cerrado/smoke aprobados en VPS. Siguiente: registrar la rebanada de persistencia y aislamiento de `OPS-04` sin marcar `OPS-01` completo |
 | OPS-02 | Validar el VPS antes de instalar                    | Codex       | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19           | Proveedor de red e IPv6 identificados; confirmar plan y firewall de Hostinger, respaldo externo y dimensionamiento integrado segun [`OPS-02-validacion-vps.md`](../02-plan/tareas/OPS-02-validacion-vps.md)                                                    |
+| OPS-04 | Aislar conexiones y persistencia                    | Codex       | `feat/OPS-04-postgres-base` (sin remoto configurado)  | 2026-09-20 | 2026-09-20           | `EN_CURSO`: ejecutar [`OPS-04-a`](../02-plan/tareas/OPS-04-a-postgres-base.md), conexion PostgreSQL por archivo secreto y prueba real de aislamiento con dos perfiles sinteticos en el VPS                                                                     |
 | OPS-23 | Administrar secretos y acceso operativo             | Codex       | `chore/OPS-23-vps-access` (sin remoto configurado)    | 2026-09-19 | 2026-09-19           | [`OPS-23-a`](../02-plan/tareas/OPS-23-a-acceso-operativo-vps.md) aplicado: SSH solo por clave y usuario operativo; comprobar consola del proveedor, retirar fallback root y reducir privilegios antes del cierre de OPS-23                                     |
 
 ## Bloqueado
