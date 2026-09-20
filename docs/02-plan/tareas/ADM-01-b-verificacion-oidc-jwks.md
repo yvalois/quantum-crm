@@ -55,46 +55,46 @@
 
 ## Impacto tecnico
 
-| Area                       | Impacto previsto                                                      |
-| -------------------------- | --------------------------------------------------------------------- |
-| Aplicaciones y modulos     | `packages/config`, `packages/auth` y manifiestos de `admin-api`       |
-| Contratos y eventos        | Implementacion del puerto interno OIDC; sin API publica nueva         |
-| Datos y migraciones        | Ninguno                                                               |
-| Permisos y aislamiento     | Realm/audience de plataforma y MFA exactos                            |
-| Configuracion y secretos   | Variables publicas OIDC; ningun secreto ni token persistido           |
-| Observabilidad y operacion | Errores uniformes; timeout y cache JWKS acotados                      |
-| Documentacion              | Ejemplo de `admin-api`, infraestructura, ficha y estado               |
+| Area                       | Impacto previsto                                                |
+| -------------------------- | --------------------------------------------------------------- |
+| Aplicaciones y modulos     | `packages/config`, `packages/auth` y manifiestos de `admin-api` |
+| Contratos y eventos        | Implementacion del puerto interno OIDC; sin API publica nueva   |
+| Datos y migraciones        | Ninguno                                                         |
+| Permisos y aislamiento     | Realm/audience de plataforma y MFA exactos                      |
+| Configuracion y secretos   | Variables publicas OIDC; ningun secreto ni token persistido     |
+| Observabilidad y operacion | Errores uniformes; timeout y cache JWKS acotados                |
+| Documentacion              | Ejemplo de `admin-api`, infraestructura, ficha y estado         |
 
 ## Plan de implementacion
 
-- [ ] Modelar y probar configuracion OIDC exclusiva de `admin-api`.
-- [ ] Implementar verificador JWT/JWKS con `jose` fijado.
-- [ ] Probar firma, algoritmo, issuer, audience, tiempos, tipo, principal y ACR.
-- [ ] Probar JWKS remoto confiable, rotacion por `kid` y rechazo de URL indicada por el token.
-- [ ] Actualizar ejemplos y Compose sin secretos.
-- [ ] Ejecutar configuracion, pruebas, arquitectura y CI completa en el VPS.
-- [ ] Registrar evidencia sin cerrar `ADM-01`.
+- [x] Modelar y probar configuracion OIDC exclusiva de `admin-api`.
+- [x] Implementar verificador JWT/JWKS con `jose` fijado.
+- [x] Probar firma, algoritmo, issuer, audience, tiempos, tipo, principal y ACR.
+- [x] Probar JWKS remoto confiable, rotacion por `kid` y rechazo de URL indicada por el token.
+- [x] Actualizar ejemplos y Compose sin secretos.
+- [x] Ejecutar configuracion, pruebas, arquitectura y CI completa en el VPS.
+- [x] Registrar evidencia sin cerrar `ADM-01`.
 
 ## Riesgos y mitigaciones
 
-| Riesgo                              | Mitigacion                                                                  | Verificacion                    |
-| ----------------------------------- | --------------------------------------------------------------------------- | ------------------------------- |
-| Algoritmo debil o confusion de clave | Allowlist exclusiva `RS256` y `jwtVerify`                                   | Tokens HS256/algoritmo distinto |
-| SSRF mediante `jku` o issuer        | JWKS derivado de configuracion validada; nunca del token                    | Token con `jku` hostil          |
-| Token CRM aceptado en plataforma    | Issuer y audience exactos dentro de la verificacion criptografica           | Token firmado con claims CRM    |
-| MFA aparente pero insuficiente      | ACR exacto configurado y principal humano requerido                         | ACR inferior y principal service |
-| Falla o abuso del endpoint JWKS     | HTTPS protegido, timeout, cooldown y cache con limites                      | Servidor remoto desechable      |
-| Filtracion de token o claims        | `SecretValue`, errores uniformes y salida minima                            | Canario ausente de errores      |
+| Riesgo                               | Mitigacion                                                        | Verificacion                     |
+| ------------------------------------ | ----------------------------------------------------------------- | -------------------------------- |
+| Algoritmo debil o confusion de clave | Allowlist exclusiva `RS256` y `jwtVerify`                         | Tokens HS256/algoritmo distinto  |
+| SSRF mediante `jku` o issuer         | JWKS derivado de configuracion validada; nunca del token          | Token con `jku` hostil           |
+| Token CRM aceptado en plataforma     | Issuer y audience exactos dentro de la verificacion criptografica | Token firmado con claims CRM     |
+| MFA aparente pero insuficiente       | ACR exacto configurado y principal humano requerido               | ACR inferior y principal service |
+| Falla o abuso del endpoint JWKS      | HTTPS protegido, timeout, cooldown y cache con limites            | Servidor remoto desechable       |
+| Filtracion de token o claims         | `SecretValue`, errores uniformes y salida minima                  | Canario ausente de errores       |
 
 ## Criterios de aceptacion
 
-- [ ] Configuracion incompleta, insegura o incoherente impide iniciar `admin-api`.
-- [ ] Solo un JWT `RS256` firmado por el JWKS confiable produce identidad verificada.
-- [ ] Issuer, audience, expiracion, antiguedad, Bearer, human y ACR son obligatorios.
-- [ ] Un `jku`, `jwk` o JWKS indicado por entrada no cambia la fuente de confianza.
-- [ ] El adaptador no conserva ni expone el token.
-- [ ] Los manifiestos y ejemplos contienen solo configuracion publica sintetica.
-- [ ] CI y prueba JWKS real aprueban en el VPS.
+- [x] Configuracion incompleta, insegura o incoherente impide iniciar `admin-api`.
+- [x] Solo un JWT `RS256` firmado por el JWKS confiable produce identidad verificada.
+- [x] Issuer, audience, expiracion, antiguedad, Bearer, human y ACR son obligatorios.
+- [x] Un `jku`, `jwk` o JWKS indicado por entrada no cambia la fuente de confianza.
+- [x] El adaptador no conserva ni expone el token.
+- [x] Los manifiestos y ejemplos contienen solo configuracion publica sintetica.
+- [x] CI y prueba JWKS real aprueban en el VPS.
 
 ## Plan de verificacion
 
@@ -114,8 +114,11 @@
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: realm Keycloak real, flujo LoA/MFA, cliente confidencial, PKCE y sesiones opacas permanecen en `ADM-01`.
+- Archivos y commits: `6a80c9a` planifica la rebanada; `1e611ad` implementa configuracion, verificador, composicion, ejemplos y pruebas; `2b40a06` permite resolver los tipos fuente de `auth` durante el typecheck limpio del monorepo. No existe remoto configurado, por lo que no hay PR ni push.
+- Verificacion local: 35 pruebas focalizadas aprobadas; lint, 9 pruebas de arquitectura, formato y `git diff --check` aprobados.
+- Verificacion reproducible en VPS sobre `2b40a06d0ed5`, dentro de `node:24-bookworm`: `pnpm run ci` aprobado con 31 pruebas de configuracion, 93 pruebas unitarias, 9 pruebas de arquitectura, typecheck y build de los 17 workspaces aplicables.
+- Integracion focalizada en VPS: `tests/integration/oidc-remote-jwks.test.ts`, 1/1 aprobada contra un servidor HTTP JWKS desechable; dos verificaciones consecutivas hicieron una sola consulta por cache.
+- Manifiestos en VPS: `docker compose ... config --quiet` aprobado para `infra/compose/local.yaml` y `infra/compose/platform.yaml` con UUID, archivos secretos y digests sinteticos.
+- Documentacion actualizada: ejemplo de entorno `admin-api`, variables y limites OIDC en `infra/README.md`, ficha y estado oficial.
+- Desviaciones del plan: ninguna funcional. La suite de integracion global tambien fue invocada sin sus secretos ni PostgreSQL desechable y, como estaba previsto, los tres archivos ajenos a esta rebanada rechazaron la configuracion ausente; la integracion OIDC incluida aprobo tanto en esa ejecucion como de forma focalizada.
+- Pendientes: realm Keycloak real, flujo LoA/MFA, cliente confidencial, PKCE, sesiones opacas, endpoints HTTP y guardas permanecen en `ADM-01`; esta ficha no acredita acceso administrativo completo.
