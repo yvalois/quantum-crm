@@ -1,0 +1,56 @@
+name: quantum-edge
+
+services:
+  edge-proxy:
+    image: "${QCRM_EDGE_IMAGE_REGISTRY:?set QCRM_EDGE_IMAGE_REGISTRY}/caddy@sha256:${QCRM_CADDY_IMAGE_DIGEST:?set QCRM_CADDY_IMAGE_DIGEST}"
+    pull_policy: always
+    restart: unless-stopped
+    read_only: true
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    environment:
+      QCRM_ADMIN_HOST: "${QCRM_ADMIN_HOST:?set QCRM_ADMIN_HOST}"
+      QCRM_IDENTITY_HOST: "${QCRM_IDENTITY_HOST:?set QCRM_IDENTITY_HOST}"
+      QCRM_MR_BUSINESS_SITE_HOST: "${QCRM_MR_BUSINESS_SITE_HOST:?set QCRM_MR_BUSINESS_SITE_HOST}"
+      QCRM_QUANTUM_SITE_HOST: "${QCRM_QUANTUM_SITE_HOST:?set QCRM_QUANTUM_SITE_HOST}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /var/www/quantum:/srv/quantum:ro
+      - /var/www/mr-business:/srv/mr-business:ro
+      - edge-caddy-data:/data
+      - edge-caddy-config:/config
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,uid=1000,gid=1000
+    healthcheck:
+      test: [CMD, caddy, validate, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    mem_limit: 128m
+    cpus: 0.2
+    networks: [platform-edge]
+
+networks:
+  platform-edge:
+    external: true
+    name: "${QCRM_PLATFORM_EDGE_NETWORK:?set QCRM_PLATFORM_EDGE_NETWORK}"
+
+volumes:
+  edge-caddy-data:
+    name: "${QCRM_EDGE_CADDY_DATA_VOLUME:?set QCRM_EDGE_CADDY_DATA_VOLUME}"
+  edge-caddy-config:
+    name: "${QCRM_EDGE_CADDY_CONFIG_VOLUME:?set QCRM_EDGE_CADDY_CONFIG_VOLUME}"

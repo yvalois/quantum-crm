@@ -1,4 +1,8 @@
-export default function SignedOutPage() {
+import { connection } from "next/server";
+
+export default async function SignedOutPage() {
+  await connection();
+
   return (
     <main>
       <p className="eyebrow">Quantum Admin</p>

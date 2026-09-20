@@ -150,6 +150,28 @@ describe("container manifests", () => {
     expect(read("infra/redis/99-quantum-redis.conf")).toContain("vm.overcommit_memory = 1");
   });
 
+  it("declares a hardened Caddy edge that preserves existing sites", () => {
+    const edge = read("infra/compose/edge.yaml");
+    const caddyfile = read("infra/caddy/Caddyfile");
+    const dockerfile = read("infra/docker/Dockerfile.caddy");
+
+    expect(serviceNames(edge)).toEqual(["edge-proxy"]);
+    expect(edge).toContain("caddy@sha256:${QCRM_CADDY_IMAGE_DIGEST");
+    expect(edge).toContain('user: "1000:1000"');
+    expect(edge).toContain("NET_BIND_SERVICE");
+    expect(edge).toContain("/var/www/quantum:/srv/quantum:ro");
+    expect(edge).toContain("/var/www/mr-business:/srv/mr-business:ro");
+    expect(edge).toContain("edge-caddy-data:/data");
+    expect(edge).toContain("networks: [platform-edge]");
+    expect(dockerfile).toContain("caddy:2.11.4-alpine@sha256:");
+    expect(dockerfile).toContain("USER caddy-runtime");
+    expect(caddyfile).toContain("reverse_proxy admin-web:3000");
+    expect(caddyfile).toContain("reverse_proxy platform-keycloak:8080");
+    expect(caddyfile).toContain("root * /srv/quantum");
+    expect(caddyfile).toContain("root * /srv/mr-business");
+    expect(caddyfile).not.toContain("tls_insecure_skip_verify");
+  });
+
   it("mounts each database URL only in an authorized process", () => {
     const tenant = read("infra/compose/tenant.yaml");
     const platform = read("infra/compose/platform.yaml");

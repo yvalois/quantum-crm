@@ -1,0 +1,64 @@
+{
+	admin off
+}
+
+(static_headers) {
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		-Server
+	}
+}
+
+(admin_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
+		-Server
+	}
+}
+
+{$QCRM_QUANTUM_SITE_HOST} {
+	import static_headers
+	root * /srv/quantum
+	try_files {path} {path}/ /index.html
+	file_server
+}
+
+{$QCRM_MR_BUSINESS_SITE_HOST} {
+	import static_headers
+	root * /srv/mr-business
+	try_files {path} {path}/ /index.html
+	file_server
+}
+
+{$QCRM_ADMIN_HOST} {
+	import admin_headers
+	reverse_proxy admin-web:3000 {
+		health_uri /api/health/ready
+		health_interval 10s
+		health_timeout 3s
+		transport http {
+			dial_timeout 3s
+			response_header_timeout 30s
+		}
+	}
+}
+
+{$QCRM_IDENTITY_HOST} {
+	import admin_headers
+	reverse_proxy platform-keycloak:8080 {
+		health_uri /realms/quantum-platform/.well-known/openid-configuration
+		health_interval 15s
+		health_timeout 5s
+		transport http {
+			dial_timeout 3s
+			response_header_timeout 30s
+		}
+	}
+}

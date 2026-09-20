@@ -1,0 +1,9 @@
+# syntax=docker/dockerfile:1.7
+
+ARG CADDY_IMAGE=caddy:2.11.4-alpine@sha256:de23def33b17fb5d1290b0f6c2add1d70780e52341896c00a4c8a2a2fe9d355e
+
+FROM ${CADDY_IMAGE}
+RUN addgroup -S -g 1000 caddy-runtime \
+    && adduser -S -D -H -u 1000 -G caddy-runtime caddy-runtime \
+    && chown -R caddy-runtime:caddy-runtime /config /data
+USER caddy-runtime

@@ -1,4 +1,8 @@
-export default function BootstrapPage() {
+import { connection } from "next/server";
+
+export default async function BootstrapPage() {
+  await connection();
+
   return (
     <main>
       <p className="eyebrow">Operadores de Quantum</p>

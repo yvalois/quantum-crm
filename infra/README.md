@@ -10,9 +10,16 @@ Esta carpeta contiene el bootstrap de contenedores de Quantum CRM. No acredita u
 | `test.yaml` / `quantum-test`                               | `crm-web` y `api`                                          | Smoke desechable de ambos tipos de imagen                                             |
 | `platform-foundation.yaml` / `quantum-platform-foundation` | PostgreSQL, Redis, Keycloak y migrador bajo perfil `tools` | Dependencias persistentes de plataforma con redes privadas y volumenes independientes |
 | `platform.yaml` / `quantum-platform`                       | `admin-web`, `admin-api`, `deploy-executor`                | Procesos centrales sin puertos publicos directos                                      |
+| `edge.yaml` / `quantum-edge`                               | Caddy                                                      | Unica entrada HTTP/HTTPS; sitios existentes, identidad y administrador                |
 | `tenant.yaml` / `-p qcrm-t-<uuid>`                         | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime`  | Plantilla repetible por perfil, con nombre de proyecto validado por el ejecutor       |
 
-La fundacion persistente separa el ciclo de vida de PostgreSQL, Redis y Keycloak del ciclo de releases de las aplicaciones. Sus volumenes nunca se eliminan como parte de un rollback de aplicacion. Archivos, proxy y telemetria se agregaran en sus requisitos propios. El `deploy-executor` no recibe el socket Docker en este incremento.
+La fundacion persistente separa el ciclo de vida de PostgreSQL, Redis y Keycloak del ciclo de releases de las aplicaciones. Sus volumenes nunca se eliminan como parte de un rollback de aplicacion. Archivos y telemetria se agregaran en sus requisitos propios. El `deploy-executor` no recibe el socket Docker en este incremento.
+
+## Entrada HTTPS
+
+`edge.yaml` publica exclusivamente Caddy en 80/443, persiste su estado ACME y solo se conecta a `platform-edge`. Los sitios estaticos preexistentes se montan desde `/var/www` en solo lectura; `admin-web` y Keycloak se alcanzan por sus nombres internos. La imagen personalizada conserva la version oficial fijada por digest y ejecuta Caddy sin privilegios, con solo `NET_BIND_SERVICE`.
+
+La primera migracion desde Nginx es una operacion excepcional de bootstrap. `infra/caddy/migrate-from-nginx.sh` valida DNS, Nginx, Compose y Caddy antes de liberar los puertos; si falla cualquier comprobacion posterior, detiene Caddy y reactiva Nginx y Certbot. `infra/caddy/rollback-to-nginx.sh` permite la recuperacion explicita. Ambos requieren un checkout inmutable bajo `/opt/quantum/builds/` y un archivo de configuracion no secreto bajo `/opt/quantum/config/`. Los cambios posteriores de ingreso pertenecen al flujo tipado de `deploy-executor`.
 
 ## Fundacion persistente de plataforma
 
