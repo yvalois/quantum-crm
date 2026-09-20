@@ -132,6 +132,7 @@ export class TenantProfilesController {
       const cursor = decodeCursor(parsed.data.cursor);
       const criteria: TenantProfileListCriteria = {
         limit: parsed.data.pageSize,
+        ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
         ...(parsed.data.serverId !== undefined ? { serverId: parsed.data.serverId } : {}),
         ...(parsed.data.releaseId !== undefined ? { releaseId: parsed.data.releaseId } : {}),
         ...(parsed.data.search !== undefined ? { search: parsed.data.search } : {}),
@@ -209,7 +210,6 @@ export class TenantProfilesController {
         ...(parsed.data.adminContactEmail !== undefined
           ? { adminContactEmail: parsed.data.adminContactEmail }
           : {}),
-        ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
         ...(parsed.data.serverId !== undefined ? { serverId: parsed.data.serverId } : {}),
         ...(parsed.data.releaseId !== undefined ? { releaseId: parsed.data.releaseId } : {}),
       };
