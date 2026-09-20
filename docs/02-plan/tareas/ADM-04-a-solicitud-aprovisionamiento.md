@@ -60,12 +60,12 @@ Una solicitud autorizada registra de forma atomica e idempotente la intencion de
 
 ## Plan de implementacion
 
-- [ ] Modelar operacion, estados, pasos e invariantes.
-- [ ] Crear migracion forward-only y privilegios minimos.
-- [ ] Implementar repositorio transaccional e idempotente.
-- [ ] Publicar contrato y endpoint protegido.
-- [ ] Verificar, migrar y desplegar por digest en el VPS.
-- [ ] Registrar evidencia sin cerrar `ADM-04`.
+- [x] Modelar operacion, estados, pasos e invariantes.
+- [x] Crear migracion forward-only y privilegios minimos.
+- [x] Implementar repositorio transaccional e idempotente.
+- [x] Publicar contrato y endpoint protegido.
+- [x] Verificar, migrar y desplegar por digest en el VPS.
+- [x] Registrar evidencia sin cerrar `ADM-04`.
 
 ## Riesgos y mitigaciones
 
@@ -78,11 +78,11 @@ Una solicitud autorizada registra de forma atomica e idempotente la intencion de
 
 ## Criterios de aceptacion
 
-- [ ] La misma solicitud devuelve la misma operacion sin incrementar otra vez la version.
-- [ ] Reutilizar la clave con otro payload produce conflicto.
-- [ ] Perfil y operacion se persisten juntos o ninguno se persiste.
-- [ ] Estados no elegibles y versiones obsoletas se rechazan.
-- [ ] No existe campo de shell, ruta, Compose ni secreto en el contrato.
+- [x] La misma solicitud devuelve la misma operacion sin incrementar otra vez la version.
+- [x] Reutilizar la clave con otro payload produce conflicto.
+- [x] Perfil y operacion se persisten juntos o ninguno se persiste.
+- [x] Estados no elegibles y versiones obsoletas se rechazan.
+- [x] No existe campo de shell, ruta, Compose ni secreto en el contrato.
 
 ## Plan de verificacion
 
@@ -102,8 +102,8 @@ Una solicitud autorizada registra de forma atomica e idempotente la intencion de
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: commit `c8da78d9a13aa37c879018230e5d3d0665a587d8`; dominio y contratos en `packages/platform-domain/src/deployments/` y `packages/contracts/src/deployments/v1/`; persistencia en `packages/database`; endpoint en `apps/admin-api`; migracion `20260920220000_adm_04_create_provisioning_operations`.
+- Comandos y resultados: CI completa en Node.js 24 aprobo formato, lint, tipos, 41 pruebas de configuracion, 178 pruebas generales, 19 de arquitectura y los 17 builds. En PostgreSQL 18 desechable se aplicaron desde cero las tres migraciones de plataforma y `platform-tenant-profile.test.ts` aprobo 6/6. La migracion se aplico despues al PostgreSQL persistente; `admin-api` quedo `healthy` con `qcrm-platform/admin-api@sha256:9bcf679e33d1f148c2b7ee8ba3caca416c365981e1c7d408fab6a7785eef27e1`. Un smoke interno a la ruta sin credenciales devolvio `401`.
+- Documentacion actualizada: esta ficha, `docs/04-proceso/estado.md` y `docs/03-operaciones/inventario-vps.md`.
+- Desviaciones del plan: no se uso la base persistente para pruebas destructivas; la integracion se ejecuto en PostgreSQL desechable con credenciales sinteticas. No se realizo un smoke HTTP con sesion humana; la autorizacion se cubrio mediante prueba de controlador y el smoke anonimo comprobo denegacion cerrada.
+- Pendientes o decisiones nuevas: el ejecutor todavia debe reclamar la operacion, ejecutar los pasos tipados, persistir progreso y activar o marcar fallo. Los catalogos reales de servidor y release pertenecen a `ADM-05` y `ADM-09`; `ADM-04` permanece abierto.

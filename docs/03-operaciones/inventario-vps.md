@@ -54,7 +54,7 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 | Cgroups              | v2                                 |
 | Docker root          | `/var/lib/docker`                  |
 | Contenedores activos | 6 persistentes y saludables        |
-| Imagenes presentes   | 14; 6 usadas por servicios activos |
+| Imagenes presentes   | 17; 6 usadas por servicios activos |
 
 ## Servicios y puertos existentes
 
@@ -74,7 +74,7 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 
 Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento reversible de `ADM-01-h`. Solo Caddy publica 80/443; PostgreSQL, Redis, Keycloak, `admin-web` y `admin-api` no publican puertos del host. La recuperacion a Nginx fue ejecutada y la migracion se repitio conservando ambos sitios y el volumen ACME.
 
-El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el consumo a checkouts de build con `node_modules`, `.next` y `dist`, imagenes historicas e intermedias y cache de Docker; los volumenes persistentes ocupaban aproximadamente 122 MB y no eran la causa. Se eliminaron solo artefactos reproducibles bajo `/opt/quantum/builds`, imagenes no usadas y cache sin referencias. Se conservaron los fuentes de cada build, las seis imagenes activas, el rollback inmediato de `admin-web` y `admin-api`, y el migrador mas reciente. El resultado fue 8.7 GiB usados y 39 GiB libres, 19 % de uso, con los seis contenedores saludables. No se tocaron bases, volumenes, secretos ni respaldos.
+El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el consumo a checkouts de build con `node_modules`, `.next` y `dist`, imagenes historicas e intermedias y cache de Docker; los volumenes persistentes ocupaban aproximadamente 122 MB y no eran la causa. Se eliminaron solo artefactos reproducibles bajo `/opt/quantum/builds`, imagenes no usadas y cache sin referencias. Se conservaron los fuentes de cada build, las seis imagenes activas, el rollback inmediato de `admin-web` y `admin-api`, y el migrador mas reciente. El resultado inicial fue 8.7 GiB usados y 39 GiB libres, 19 % de uso. Tras construir y desplegar `ADM-04-a`, retirar su entorno PostgreSQL desechable, su volumen anonimo y la cache no referenciada, quedaron 11 GiB usados y 37 GiB libres, 23 % de uso, con los seis contenedores saludables. No se tocaron bases, volumenes persistentes, secretos ni respaldos.
 
 ## Plataforma administrativa desplegada
 
@@ -82,7 +82,7 @@ El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el 
 | ----------- | ------------------------------------------------- | ----------------- |
 | Caddy       | `qcrm-edge/caddy@sha256:e9c93188...66448`         | `healthy`         |
 | `admin-web` | `qcrm-platform/admin-web@sha256:abc03081...5590e` | `healthy`         |
-| `admin-api` | `qcrm-platform/admin-api@sha256:42791eb6...9bb21` | `healthy`         |
+| `admin-api` | `qcrm-platform/admin-api@sha256:9bcf679e...f27e1` | `healthy`         |
 | Keycloak    | persistente, realm `quantum-platform`             | `healthy`         |
 | PostgreSQL  | persistente, base y roles de plataforma           | `healthy`         |
 | Redis       | persistente, ACL exclusiva de sesiones            | `healthy`         |
@@ -94,6 +94,8 @@ El 2026-09-20, `ADM-02-b` actualizo exclusivamente `admin-api` desde el build pe
 Ese mismo dia, `ADM-02-c` actualizo exclusivamente `admin-web` desde el build persistente `7ce09af36261b0b2eb0a578c2c20078061ebebe9`. El BFF publica rutas fijas para listar, crear, obtener y editar perfiles, conserva los tokens en servidor y exige Origin, CSRF y `If-Match` donde corresponde. El digest anterior permanece registrado en `platform.env.before-adm02c-font-7ce09af`; el smoke HTTPS confirmo raiz `200`, redireccion del dashboard privado, BFF anonimo `401` y contenedor saludable.
 
 `ADM-03-a` actualizo exclusivamente `admin-api` desde el build persistente `dc555e9cb4658199b8fc284b705bc4d9bd4de9f0`. El contrato de edicion general ya no acepta cambios de estado y el dominio concentra la matriz de transiciones futura. El archivo `platform.env.before-adm03a-dc555e9` conserva el digest anterior; el contenedor nuevo quedo saludable por digest, los otros cinco servicios no se recrearon y el disco quedo en 20 % tras retirar dependencias y cache reproducibles.
+
+`ADM-04-a` aplico la migracion aditiva `20260920220000_adm_04_create_provisioning_operations` y actualizo exclusivamente `admin-api` desde el build persistente `c8da78d9a13aa37c879018230e5d3d0665a587d8`. El endpoint interno registra una operacion durable con actor, correlacion, servidor, release, control optimista e idempotencia; no ejecuta Docker ni acepta comandos libres. PostgreSQL 18 desechable aprobo las tres migraciones desde cero y 6/6 pruebas de integracion antes del despliegue. El archivo `platform.env.before-adm04a-c8da78d` conserva el digest anterior; los otros cinco servicios no se recrearon y la ruta nueva nego una solicitud anonima con `401`.
 
 ## Builds y smoke aislados
 
