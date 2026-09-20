@@ -152,6 +152,7 @@ services:
     cap_drop:
       - ALL
     environment:
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
       QCRM_MIGRATION_DATABASE_URL_FILE: /run/secrets/qcrm_migration_database_url
     secrets:
       - source: platform-migration-database-url
