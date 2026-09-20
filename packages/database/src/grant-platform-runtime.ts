@@ -1,6 +1,8 @@
 import { loadMigrationDatabaseConfig } from "@quantum-crm/config";
 import pg from "pg";
 
+import { normalizePgConnectionString } from "./pg-connection-string.js";
+
 const grants = Object.freeze([
   "GRANT USAGE ON SCHEMA platform_iam, tenants TO qcrm_platform_runtime",
   "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA platform_iam, tenants TO qcrm_platform_runtime",
@@ -14,7 +16,7 @@ const grants = Object.freeze([
 async function grantPlatformRuntime(): Promise<void> {
   const config = loadMigrationDatabaseConfig("platform");
   const client = new pg.Client({
-    connectionString: config.connectionUrl.expose(),
+    connectionString: normalizePgConnectionString(config.connectionUrl.expose()),
     connectionTimeoutMillis: 5_000,
   });
   await client.connect();
