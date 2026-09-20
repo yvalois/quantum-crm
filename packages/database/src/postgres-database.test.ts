@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createPostgresDatabase,
+  createPlatformPostgresDatabase,
   DatabaseUnavailableError,
   type PostgresPoolFactory,
 } from "./postgres-database.js";
@@ -20,6 +21,17 @@ const databaseConfig: DatabaseConfig = Object.freeze({
   statementTimeoutMs: 15_000,
   lockTimeoutMs: 5_000,
   idleInTransactionTimeoutMs: 10_000,
+});
+
+const platformDatabaseConfig: DatabaseConfig = Object.freeze({
+  schemaVersion: "database-config/v1",
+  target: "platform",
+  connectionUrl: databaseConfig.connectionUrl,
+  poolMax: databaseConfig.poolMax,
+  connectionTimeoutMs: databaseConfig.connectionTimeoutMs,
+  statementTimeoutMs: databaseConfig.statementTimeoutMs,
+  lockTimeoutMs: databaseConfig.lockTimeoutMs,
+  idleInTransactionTimeoutMs: databaseConfig.idleInTransactionTimeoutMs,
 });
 
 function createPoolDouble(options: { readonly connectFails?: boolean } = {}): {
@@ -93,5 +105,54 @@ describe("PostgreSQL database", () => {
     expect(pool.end).toHaveBeenCalledTimes(1);
     expect(await database.isReady()).toBe(false);
     await expect(database.connect()).rejects.toEqual(new DatabaseUnavailableError());
+  });
+
+  it("reads and validates a platform membership through the shared pool", async () => {
+    const query = vi.fn(async (statement: string) =>
+      statement.includes("operator_memberships")
+        ? {
+            rows: [
+              {
+                id: "01995f7e-7b52-7000-8000-000000000101",
+                oidc_subject: "keycloak-platform-operator",
+                status: "active",
+                authorization_revision: "3",
+                permissions: ["deployments:execute", "tenants:read"],
+                created_at: new Date("2026-09-20T12:00:00.000Z"),
+                updated_at: new Date("2026-09-20T12:01:00.000Z"),
+              },
+            ],
+          }
+        : {
+            rows: [
+              {
+                server_version_num: 180_000,
+                can_create_database_objects: false,
+                can_create_public_objects: false,
+              },
+            ],
+          },
+    );
+    const factory: PostgresPoolFactory = () => ({
+      connect: async () => ({ query, release: vi.fn() }) as never,
+      query,
+      end: vi.fn(async () => undefined),
+      on: vi.fn(),
+    });
+    const database = createPlatformPostgresDatabase(platformDatabaseConfig, "admin-api", factory);
+    await database.connect();
+
+    await expect(
+      database.memberships.findByOidcSubject("keycloak-platform-operator"),
+    ).resolves.toMatchObject({
+      oidcSubject: "keycloak-platform-operator",
+      status: "ACTIVE",
+      permissions: ["deployments:execute", "tenants:read"],
+      authorizationRevision: 3n,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("WHERE membership.oidc_subject = $1"),
+      ["keycloak-platform-operator"],
+    );
   });
 });

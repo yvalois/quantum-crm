@@ -1,5 +1,6 @@
 import type { AdminWebAuthConfig } from "@quantum-crm/config";
 import { SecretValue } from "@quantum-crm/config";
+import { PlatformOperatorSelfSchema } from "@quantum-crm/contracts";
 import {
   type PlatformWebAuthService,
   validateCsrf,
@@ -12,6 +13,11 @@ export interface PlatformAuthRuntime {
     PlatformWebAuthService,
     "beginLogin" | "completeLogin" | "logout" | "session"
   >;
+  readonly platformApiFetch: typeof fetch;
+}
+
+export function platformSessionCookieName(config: AdminWebAuthConfig): string {
+  return `${config.secureCookies ? "__Host-" : ""}qcrm_admin_session`;
 }
 
 function cookieNames(config: AdminWebAuthConfig): {
@@ -21,8 +27,49 @@ function cookieNames(config: AdminWebAuthConfig): {
   const prefix = config.secureCookies ? "__Host-" : "";
   return {
     login: `${prefix}qcrm_admin_login`,
-    session: `${prefix}qcrm_admin_session`,
+    session: platformSessionCookieName(config),
   };
+}
+
+export async function handlePlatformOperatorMe(
+  request: Request,
+  runtime: PlatformAuthRuntime,
+): Promise<Response> {
+  const sessionHandle = cookie(request, platformSessionCookieName(runtime.config));
+  if (!sessionHandle) return problem(401, "Unauthorized");
+
+  try {
+    const session = await runtime.auth.session(new SecretValue(sessionHandle));
+    if (!session) return problem(401, "Unauthorized");
+
+    const response = await runtime.platformApiFetch(
+      new URL("/api/v1/operators/me", runtime.config.adminApiOrigin),
+      {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${session.accessToken.expose()}`,
+          "x-correlation-id": crypto.randomUUID(),
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (response.status === 401) return problem(401, "Unauthorized");
+    if (response.status === 403) return problem(403, "Forbidden");
+    if (!response.ok) return problem(503, "Platform service temporarily unavailable");
+    const declaredLength = Number(response.headers.get("content-length") ?? "0");
+    if (declaredLength > 65_536) return problem(503, "Platform service temporarily unavailable");
+    const body = await response.text();
+    if (new TextEncoder().encode(body).byteLength > 65_536) {
+      return problem(503, "Platform service temporarily unavailable");
+    }
+    const parsed = PlatformOperatorSelfSchema.parse(JSON.parse(body) as unknown);
+    return Response.json(parsed, { headers: noStoreHeaders() });
+  } catch {
+    return problem(503, "Platform service temporarily unavailable");
+  }
 }
 
 function serializeCookie(

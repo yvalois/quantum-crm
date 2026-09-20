@@ -7,6 +7,7 @@ import {
   handlePlatformCallback,
   handlePlatformLogin,
   handlePlatformLogout,
+  handlePlatformOperatorMe,
   handlePlatformSession,
 } from "./platform-auth-http.js";
 
@@ -14,6 +15,7 @@ const config: AdminWebAuthConfig = {
   schemaVersion: "admin-web-auth-config/v1",
   environment: "production",
   origin: "https://admin.example.test",
+  adminApiOrigin: "http://admin-api:3002",
   issuer: "https://identity.example.test/realms/quantum-platform",
   clientId: "quantum-admin-web",
   clientSecret: new SecretValue("synthetic-client-secret"),
@@ -33,6 +35,7 @@ const csrfToken = "c".repeat(43);
 function runtime(): PlatformAuthRuntime {
   return {
     config,
+    platformApiFetch: vi.fn(fetch),
     auth: {
       beginLogin: vi.fn(async () => ({
         authorizationUrl: new URL("https://identity.example.test/authorize?state=opaque"),
@@ -131,5 +134,67 @@ describe("admin web authentication HTTP boundary", () => {
     expect(accepted.headers.get("location")).toBe(config.signedOutUrl);
     expect(accepted.headers.get("set-cookie")).toContain("Max-Age=0");
     expect(authRuntime.auth.logout).toHaveBeenCalledWith(sessionHandle);
+  });
+
+  it("proxies operator identity through a fixed server-side route without exposing tokens", async () => {
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        schemaVersion: "platform-operator/v1",
+        data: {
+          id: "01995f7e-7b52-7000-8000-000000000101",
+          permissions: ["tenants:read"],
+          authorizationRevision: "3",
+          authenticatedAt: "2026-09-20T15:00:00.000Z",
+        },
+      }),
+    );
+    const authRuntime: PlatformAuthRuntime = {
+      ...runtime(),
+      platformApiFetch: upstream as typeof fetch,
+    };
+    const response = await handlePlatformOperatorMe(
+      new Request(
+        "https://admin.example.test/api/platform/operators/me?target=http://attacker.test",
+        {
+          headers: { cookie: `__Host-qcrm_admin_session=${sessionHandle.expose()}` },
+        },
+      ),
+      authRuntime,
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(upstream.mock.calls[0]?.[0].toString()).toBe(
+      "http://admin-api:3002/api/v1/operators/me",
+    );
+    expect(upstream.mock.calls[0]?.[1]?.headers).toMatchObject({
+      authorization: "Bearer server-only-access-token",
+    });
+    expect(body).not.toContain("server-only-access-token");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("fails closed when the operator endpoint is absent or malformed", async () => {
+    const missing = runtime();
+    missing.auth.session = vi.fn(async () => null);
+    const noSession = await handlePlatformOperatorMe(
+      new Request("https://admin.example.test/api/platform/operators/me", {
+        headers: { cookie: `__Host-qcrm_admin_session=${sessionHandle.expose()}` },
+      }),
+      missing,
+    );
+    expect(noSession.status).toBe(401);
+
+    const malformed: PlatformAuthRuntime = {
+      ...runtime(),
+      platformApiFetch: vi.fn(async () => Response.json({ unexpected: true })),
+    };
+    const rejected = await handlePlatformOperatorMe(
+      new Request("https://admin.example.test/api/platform/operators/me", {
+        headers: { cookie: `__Host-qcrm_admin_session=${sessionHandle.expose()}` },
+      }),
+      malformed,
+    );
+    expect(rejected.status).toBe(503);
   });
 });

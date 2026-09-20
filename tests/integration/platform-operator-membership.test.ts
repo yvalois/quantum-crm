@@ -1,4 +1,5 @@
 import { parseDatabaseConfig } from "@quantum-crm/config";
+import { createPlatformPostgresDatabase } from "@quantum-crm/database";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -10,8 +11,10 @@ const config = parseDatabaseConfig(
   { QCRM_DATABASE_URL_FILE: secretPath },
 );
 const pool = new Pool({ connectionString: config.connectionUrl.expose(), max: 1 });
+const database = createPlatformPostgresDatabase(config, "platform-membership-integration");
 
 beforeAll(async () => {
+  await database.connect();
   await pool.query("DELETE FROM platform_iam.operator_permissions");
   await pool.query("DELETE FROM platform_iam.operator_memberships");
 });
@@ -20,6 +23,7 @@ afterAll(async () => {
   await pool.query("DELETE FROM platform_iam.operator_permissions");
   await pool.query("DELETE FROM platform_iam.operator_memberships");
   await pool.end();
+  await database.close();
 });
 
 describe("platform operator membership migration", () => {
@@ -68,6 +72,14 @@ describe("platform operator membership migration", () => {
       { permission: "deployments:execute" },
       { permission: "tenants:read" },
     ]);
+    await expect(
+      database.memberships.findByOidcSubject("keycloak-platform-operator"),
+    ).resolves.toMatchObject({
+      id: operatorId,
+      status: "ACTIVE",
+      permissions: ["deployments:execute", "tenants:read"],
+      authorizationRevision: 1n,
+    });
   });
 
   it("rejects duplicate subjects, invalid revisions and unknown permissions", async () => {

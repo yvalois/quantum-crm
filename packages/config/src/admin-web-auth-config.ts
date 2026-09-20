@@ -16,6 +16,7 @@ export interface AdminWebAuthConfig {
   readonly schemaVersion: "admin-web-auth-config/v1";
   readonly environment: QcrmEnvironment;
   readonly origin: string;
+  readonly adminApiOrigin: string;
   readonly issuer: string;
   readonly clientId: string;
   readonly clientSecret: SecretValue;
@@ -93,18 +94,23 @@ export function parseAdminWebAuthConfig(
   const parsedEnvironment = environmentName.success ? environmentName.data : "production";
   const originValue = z.string().trim().url().safeParse(environment.QCRM_ADMIN_WEB_ORIGIN);
   const issuerValue = z.string().trim().url().safeParse(environment.QCRM_OIDC_ISSUER);
+  const adminApiOriginValue = z.string().trim().url().safeParse(environment.QCRM_ADMIN_API_ORIGIN);
   const origin = originValue.success ? exactOrigin(originValue.data, parsedEnvironment) : undefined;
   const issuer = issuerValue.success
     ? keycloakIssuer(issuerValue.data, parsedEnvironment)
+    : undefined;
+  const adminApiOrigin = adminApiOriginValue.success
+    ? exactOrigin(adminApiOriginValue.data, "local")
     : undefined;
   const invalid = [
     ...(environmentName.success ? [] : ["QCRM_ENV"]),
     ...(origin ? [] : ["QCRM_ADMIN_WEB_ORIGIN"]),
     ...(issuer ? [] : ["QCRM_OIDC_ISSUER"]),
+    ...(adminApiOrigin ? [] : ["QCRM_ADMIN_API_ORIGIN"]),
     ...(clientId.success ? [] : ["QCRM_OIDC_CLIENT_ID"]),
   ];
 
-  if (!environmentName.success || !origin || !issuer || !clientId.success) {
+  if (!environmentName.success || !origin || !adminApiOrigin || !issuer || !clientId.success) {
     throw new ConfigurationError("admin-web", invalid);
   }
 
@@ -140,6 +146,7 @@ export function parseAdminWebAuthConfig(
       schemaVersion: "admin-web-auth-config/v1",
       environment: environmentName.data,
       origin: normalizedOrigin,
+      adminApiOrigin: adminApiOrigin.origin,
       issuer: normalizedIssuer,
       clientId: clientId.data,
       clientSecret,

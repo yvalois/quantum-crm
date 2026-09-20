@@ -39,17 +39,6 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: "3000"
-      QCRM_ENV: local
-      QCRM_ADMIN_WEB_ORIGIN: http://127.0.0.1:3004
-      QCRM_OIDC_ISSUER: http://keycloak:8080/realms/quantum-platform
-      QCRM_OIDC_CLIENT_ID: quantum-admin-web
-      QCRM_OIDC_CLIENT_SECRET_FILE: /run/secrets/qcrm_oidc_client_secret
-      QCRM_SESSION_REDIS_URL_FILE: /run/secrets/qcrm_session_redis_url
-    secrets:
-      - source: admin-web-oidc-client-secret
-        target: qcrm_oidc_client_secret
-      - source: admin-web-session-redis-url
-        target: qcrm_session_redis_url
     ports:
       - 127.0.0.1:3000:3000
     healthcheck: *web-health
@@ -84,6 +73,18 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: "3000"
+      QCRM_ENV: local
+      QCRM_ADMIN_WEB_ORIGIN: http://127.0.0.1:3004
+      QCRM_ADMIN_API_ORIGIN: http://admin-api:3002
+      QCRM_OIDC_ISSUER: http://keycloak:8080/realms/quantum-platform
+      QCRM_OIDC_CLIENT_ID: quantum-admin-web
+      QCRM_OIDC_CLIENT_SECRET_FILE: /run/secrets/qcrm_oidc_client_secret
+      QCRM_SESSION_REDIS_URL_FILE: /run/secrets/qcrm_session_redis_url
+    secrets:
+      - source: admin-web-oidc-client-secret
+        target: qcrm_oidc_client_secret
+      - source: admin-web-session-redis-url
+        target: qcrm_session_redis_url
     ports:
       - 127.0.0.1:3004:3000
     healthcheck: *web-health

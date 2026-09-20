@@ -24,6 +24,7 @@ const fileSystem: SecretFileSystem = {
 const valid = {
   QCRM_ENV: "test",
   QCRM_ADMIN_WEB_ORIGIN: "https://admin.example.test",
+  QCRM_ADMIN_API_ORIGIN: "http://admin-api:3002",
   QCRM_OIDC_ISSUER: "https://identity.example.test/realms/quantum-platform",
   QCRM_OIDC_CLIENT_ID: "quantum-admin-web",
   QCRM_OIDC_CLIENT_SECRET_FILE: clientSecretPath,
@@ -36,6 +37,7 @@ describe("admin web authentication configuration", () => {
 
     expect(config).toMatchObject({
       origin: "https://admin.example.test",
+      adminApiOrigin: "http://admin-api:3002",
       issuer: "https://identity.example.test/realms/quantum-platform",
       callbackUrl: "https://admin.example.test/api/auth/callback/keycloak",
       signedOutUrl: "https://admin.example.test/signed-out",
@@ -62,6 +64,12 @@ describe("admin web authentication configuration", () => {
       "wrong issuer",
       { QCRM_OIDC_ISSUER: "https://identity.example.test/customer" },
       "QCRM_OIDC_ISSUER",
+    ],
+    ["missing admin API", { QCRM_ADMIN_API_ORIGIN: undefined }, "QCRM_ADMIN_API_ORIGIN"],
+    [
+      "admin API path",
+      { QCRM_ADMIN_API_ORIGIN: "http://admin-api:3002/internal" },
+      "QCRM_ADMIN_API_ORIGIN",
     ],
     ["client id", { QCRM_OIDC_CLIENT_ID: "bad client" }, "QCRM_OIDC_CLIENT_ID"],
     [

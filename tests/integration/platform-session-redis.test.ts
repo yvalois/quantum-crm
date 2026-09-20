@@ -20,6 +20,7 @@ function testConfig(): AdminWebAuthConfig {
     schemaVersion: "admin-web-auth-config/v1",
     environment: "test",
     origin: "http://admin-web.example.test",
+    adminApiOrigin: "http://admin-api:3002",
     issuer: "http://keycloak:8080/realms/quantum-platform",
     clientId: "quantum-admin-web",
     clientSecret: new SecretValue("synthetic-client-secret"),

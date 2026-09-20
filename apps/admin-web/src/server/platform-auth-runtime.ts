@@ -16,6 +16,7 @@ async function createRuntime(): Promise<PlatformAuthRuntime> {
   return Object.freeze({
     config,
     auth: new PlatformWebAuthService(config, store, provider),
+    platformApiFetch: fetch,
   });
 }
 

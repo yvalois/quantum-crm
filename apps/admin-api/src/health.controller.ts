@@ -2,11 +2,14 @@ import { Controller, Get, Inject, Res } from "@nestjs/common";
 import { createHealthStatus, type HealthStatus } from "@quantum-crm/contracts";
 import { POSTGRES_DATABASE, type PostgresDatabase } from "@quantum-crm/database";
 
+import { PublicRoute } from "./platform-security.js";
+
 interface StatusResponse {
   readonly status: (code: number) => unknown;
 }
 
 @Controller("health")
+@PublicRoute()
 export class HealthController {
   public constructor(
     @Inject(POSTGRES_DATABASE) private readonly database: Pick<PostgresDatabase, "isReady">,
