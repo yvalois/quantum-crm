@@ -2,8 +2,8 @@ import { SecretValue } from "@quantum-crm/config";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { platformSessionCookieName } from "../../server/platform-auth-http.js";
-import { getPlatformAuthRuntime } from "../../server/platform-auth-runtime.js";
+import { platformSessionCookieName } from "../../server/platform-auth-http";
+import { getPlatformAuthRuntime } from "../../server/platform-auth-runtime";
 
 export default async function DashboardPage() {
   const runtime = await getPlatformAuthRuntime();
