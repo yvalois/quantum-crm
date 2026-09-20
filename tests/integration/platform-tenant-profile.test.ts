@@ -73,7 +73,7 @@ describe("platform tenant profile migration", () => {
     );
   });
 
-  it("rejects a case-insensitive duplicate slug and invalid data", async () => {
+  it("rejects duplicate, noncanonical and invalid profile data", async () => {
     await pool.query(`
       INSERT INTO tenants.tenant_profiles
         (name, slug, admin_contact_name, admin_contact_email)
@@ -86,9 +86,18 @@ describe("platform tenant profile migration", () => {
         INSERT INTO tenants.tenant_profiles
           (name, slug, admin_contact_name, admin_contact_email)
         VALUES
-          ('Second', 'UNIQUE-SLUG', 'Bea', 'bea@example.test')
+          ('Second', 'unique-slug', 'Bea', 'bea@example.test')
       `),
     ).rejects.toMatchObject({ code: "23505" });
+
+    await expect(
+      pool.query(`
+        INSERT INTO tenants.tenant_profiles
+          (name, slug, admin_contact_name, admin_contact_email)
+        VALUES
+          ('Uppercase', 'UPPERCASE-SLUG', 'Cia', 'cia@example.test')
+      `),
+    ).rejects.toMatchObject({ code: "23514" });
 
     await expect(
       pool.query(`
