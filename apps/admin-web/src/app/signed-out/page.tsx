@@ -4,11 +4,13 @@ export default async function SignedOutPage() {
   await connection();
 
   return (
-    <main>
-      <p className="eyebrow">Quantum Admin</p>
-      <h1>Sesion cerrada</h1>
-      <p>Tu sesion administrativa se cerro correctamente.</p>
-      <a href="/api/auth/login">Volver a ingresar</a>
+    <main className="public-shell">
+      <section className="public-panel">
+        <p className="eyebrow">Quantum Admin</p>
+        <h1>Sesión cerrada</h1>
+        <p>Tu sesión administrativa se cerró correctamente.</p>
+        <a href="/api/auth/login">Volver a ingresar</a>
+      </section>
     </main>
   );
 }

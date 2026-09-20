@@ -35,12 +35,12 @@ export async function handlePlatformOperatorMe(
   request: Request,
   runtime: PlatformAuthRuntime,
 ): Promise<Response> {
-  const sessionHandle = cookie(request, platformSessionCookieName(runtime.config));
-  if (!sessionHandle) return problem(401, "Unauthorized");
+  const sessionHandle = platformCookie(request, platformSessionCookieName(runtime.config));
+  if (!sessionHandle) return platformProblem(401, "Unauthorized");
 
   try {
     const session = await runtime.auth.session(new SecretValue(sessionHandle));
-    if (!session) return problem(401, "Unauthorized");
+    if (!session) return platformProblem(401, "Unauthorized");
 
     const response = await runtime.platformApiFetch(
       new URL("/api/v1/operators/me", runtime.config.adminApiOrigin),
@@ -56,19 +56,20 @@ export async function handlePlatformOperatorMe(
         signal: AbortSignal.timeout(5_000),
       },
     );
-    if (response.status === 401) return problem(401, "Unauthorized");
-    if (response.status === 403) return problem(403, "Forbidden");
-    if (!response.ok) return problem(503, "Platform service temporarily unavailable");
+    if (response.status === 401) return platformProblem(401, "Unauthorized");
+    if (response.status === 403) return platformProblem(403, "Forbidden");
+    if (!response.ok) return platformProblem(503, "Platform service temporarily unavailable");
     const declaredLength = Number(response.headers.get("content-length") ?? "0");
-    if (declaredLength > 65_536) return problem(503, "Platform service temporarily unavailable");
+    if (declaredLength > 65_536)
+      return platformProblem(503, "Platform service temporarily unavailable");
     const body = await response.text();
     if (new TextEncoder().encode(body).byteLength > 65_536) {
-      return problem(503, "Platform service temporarily unavailable");
+      return platformProblem(503, "Platform service temporarily unavailable");
     }
     const parsed = PlatformOperatorSelfSchema.parse(JSON.parse(body) as unknown);
-    return Response.json(parsed, { headers: noStoreHeaders() });
+    return Response.json(parsed, { headers: platformNoStoreHeaders() });
   } catch {
-    return problem(503, "Platform service temporarily unavailable");
+    return platformProblem(503, "Platform service temporarily unavailable");
   }
 }
 
@@ -87,7 +88,7 @@ function serializeCookie(
   ].join("; ");
 }
 
-function cookie(request: Request, name: string): string | null {
+export function platformCookie(request: Request, name: string): string | null {
   for (const part of (request.headers.get("cookie") ?? "").split(";")) {
     const separator = part.indexOf("=");
     if (separator < 1) continue;
@@ -98,14 +99,14 @@ function cookie(request: Request, name: string): string | null {
   return null;
 }
 
-function noStoreHeaders(): Headers {
+export function platformNoStoreHeaders(): Headers {
   return new Headers({
     "cache-control": "no-store, max-age=0",
     pragma: "no-cache",
   });
 }
 
-function problem(status: number, title: string): Response {
+export function platformProblem(status: number, title: string): Response {
   return Response.json(
     {
       type: "about:blank",
@@ -123,7 +124,7 @@ function problem(status: number, title: string): Response {
 }
 
 function redirect(location: string, cookieHeader?: string): Response {
-  const headers = noStoreHeaders();
+  const headers = platformNoStoreHeaders();
   headers.set("location", location);
   if (cookieHeader) headers.append("set-cookie", cookieHeader);
   return new Response(null, { status: 303, headers });
@@ -145,7 +146,7 @@ export async function handlePlatformLogin(
       }),
     );
   } catch {
-    return problem(503, "Authentication temporarily unavailable");
+    return platformProblem(503, "Authentication temporarily unavailable");
   }
 }
 
@@ -154,13 +155,13 @@ export async function handlePlatformCallback(
   runtime: PlatformAuthRuntime,
 ): Promise<Response> {
   const names = cookieNames(runtime.config);
-  const transactionHandle = cookie(request, names.login);
+  const transactionHandle = platformCookie(request, names.login);
   const clearLogin = serializeCookie(names.login, "", {
     maxAge: 0,
     secure: runtime.config.secureCookies,
   });
   if (!transactionHandle) {
-    const response = problem(400, "Invalid authentication response");
+    const response = platformProblem(400, "Invalid authentication response");
     response.headers.append("set-cookie", clearLogin);
     return response;
   }
@@ -173,7 +174,7 @@ export async function handlePlatformCallback(
       callback,
       new SecretValue(transactionHandle),
     );
-    const headers = noStoreHeaders();
+    const headers = platformNoStoreHeaders();
     headers.set("location", new URL(completed.returnTo, runtime.config.origin).toString());
     headers.append("set-cookie", clearLogin);
     headers.append(
@@ -185,7 +186,7 @@ export async function handlePlatformCallback(
     );
     return new Response(null, { status: 303, headers });
   } catch {
-    const response = problem(401, "Authentication failed");
+    const response = platformProblem(401, "Authentication failed");
     response.headers.append("set-cookie", clearLogin);
     return response;
   }
@@ -195,15 +196,21 @@ export async function handlePlatformSession(
   request: Request,
   runtime: PlatformAuthRuntime,
 ): Promise<Response> {
-  const sessionHandle = cookie(request, cookieNames(runtime.config).session);
+  const sessionHandle = platformCookie(request, cookieNames(runtime.config).session);
   if (!sessionHandle) {
-    return Response.json({ authenticated: false }, { status: 401, headers: noStoreHeaders() });
+    return Response.json(
+      { authenticated: false },
+      { status: 401, headers: platformNoStoreHeaders() },
+    );
   }
 
   try {
     const session = await runtime.auth.session(new SecretValue(sessionHandle));
     if (!session) {
-      return Response.json({ authenticated: false }, { status: 401, headers: noStoreHeaders() });
+      return Response.json(
+        { authenticated: false },
+        { status: 401, headers: platformNoStoreHeaders() },
+      );
     }
     return Response.json(
       {
@@ -211,10 +218,10 @@ export async function handlePlatformSession(
         csrfToken: session.csrfToken,
         authenticatedAt: session.authenticatedAt.toISOString(),
       },
-      { headers: noStoreHeaders() },
+      { headers: platformNoStoreHeaders() },
     );
   } catch {
-    return problem(503, "Session temporarily unavailable");
+    return platformProblem(503, "Session temporarily unavailable");
   }
 }
 
@@ -223,19 +230,19 @@ export async function handlePlatformLogout(
   runtime: PlatformAuthRuntime,
 ): Promise<Response> {
   const names = cookieNames(runtime.config);
-  const sessionHandle = cookie(request, names.session);
+  const sessionHandle = platformCookie(request, names.session);
   if (
     !sessionHandle ||
     !validateRequestOrigin(runtime.config.origin, request.headers.get("origin"))
   ) {
-    return problem(403, "Request rejected");
+    return platformProblem(403, "Request rejected");
   }
 
   try {
     const protectedHandle = new SecretValue(sessionHandle);
     const session = await runtime.auth.session(protectedHandle);
     if (!session || !validateCsrf(session.csrfToken, request.headers.get("x-csrf-token"))) {
-      return problem(403, "Request rejected");
+      return platformProblem(403, "Request rejected");
     }
     await runtime.auth.logout(protectedHandle);
     return redirect(
@@ -246,6 +253,6 @@ export async function handlePlatformLogout(
       }),
     );
   } catch {
-    return problem(503, "Session temporarily unavailable");
+    return platformProblem(503, "Session temporarily unavailable");
   }
 }

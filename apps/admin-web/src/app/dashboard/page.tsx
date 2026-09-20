@@ -1,23 +1,57 @@
-import { SecretValue } from "@quantum-crm/config";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import Link from "next/link";
 
-import { platformSessionCookieName } from "../../server/platform-auth-http";
-import { getPlatformAuthRuntime } from "../../server/platform-auth-runtime";
-
-export const dynamic = "force-dynamic";
-
-export default async function DashboardPage() {
-  const runtime = await getPlatformAuthRuntime();
-  const handle = (await cookies()).get(platformSessionCookieName(runtime.config))?.value;
-  const session = handle ? await runtime.auth.session(new SecretValue(handle)) : null;
-  if (!session) redirect("/api/auth/login?returnTo=%2Fdashboard");
-
+export default function DashboardPage() {
   return (
-    <main>
-      <p className="eyebrow">Plataforma Quantum</p>
-      <h1>Panel administrativo</h1>
-      <p>Sesion verificada. Los modulos operativos se habilitaran por permiso.</p>
+    <main className="admin-content">
+      <section className="page-heading dashboard-heading">
+        <div>
+          <p className="eyebrow">PLATAFORMA QUANTUM / RESUMEN</p>
+          <h1>Centro de control</h1>
+          <p>
+            Supervisa la estructura operativa sin entrar a los datos comerciales de tus clientes.
+          </p>
+        </div>
+        <span className="live-stamp">ACTUALIZACIÓN EN VIVO</span>
+      </section>
+
+      <section className="control-grid" aria-label="Capacidades de plataforma">
+        <Link className="control-card control-card-featured" href="/dashboard/tenants">
+          <span className="card-index">01</span>
+          <div>
+            <p>GESTIÓN DISPONIBLE</p>
+            <h2>Perfiles de clientes</h2>
+            <span>Crea empresas, consulta su estado y conserva su identidad operativa.</span>
+          </div>
+          <b aria-hidden="true">↗</b>
+        </Link>
+        <article className="control-card is-planned">
+          <span className="card-index">02</span>
+          <div>
+            <p>SIGUIENTE FASE</p>
+            <h2>Infraestructura</h2>
+            <span>Capacidad, asignaciones y salud observada por servidor.</span>
+          </div>
+        </article>
+        <article className="control-card is-planned">
+          <span className="card-index">03</span>
+          <div>
+            <p>SIGUIENTE FASE</p>
+            <h2>Operaciones</h2>
+            <span>Despliegues tipados, progreso y recuperación verificable.</span>
+          </div>
+        </article>
+      </section>
+
+      <section className="boundary-note">
+        <span aria-hidden="true">◎</span>
+        <div>
+          <strong>Frontera administrativa activa</strong>
+          <p>
+            Quantum administra perfiles y despliegues. Los contactos, conversaciones y ventas
+            permanecen dentro de cada CRM aislado.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }
