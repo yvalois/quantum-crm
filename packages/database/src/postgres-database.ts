@@ -1,7 +1,11 @@
 import type { DatabaseConfig } from "@quantum-crm/config";
 import {
   createProvisioningOperationDraft,
+  hydrateInfrastructureServer,
   hydrateProvisioningOperation,
+  InfrastructureServerConflictError,
+  infrastructureServerArchitectures,
+  infrastructureServerStatuses,
   ProvisioningOperationConflictError,
   provisioningOperationStatuses,
   provisioningOperationSteps,
@@ -15,6 +19,12 @@ import {
   validateProvisioningLeaseClaim,
   validateProvisioningLeaseRenewal,
   type ClaimProvisioningOperationCommand,
+  type InfrastructureServer,
+  type InfrastructureServerArchitecture,
+  type InfrastructureServerDraft,
+  type InfrastructureServerListCriteria,
+  type InfrastructureServerRepository,
+  type InfrastructureServerStatus,
   type ProvisioningOperation,
   type ProvisioningOperationRepository,
   type ProvisioningOperationStatus,
@@ -47,6 +57,7 @@ export interface PostgresDatabase {
 
 export interface PlatformPostgresDatabase extends PostgresDatabase {
   readonly memberships: PlatformMembershipRepository;
+  readonly infrastructureServers: InfrastructureServerRepository;
   readonly tenantProfiles: TenantProfileRepository;
   readonly provisioningOperations: ProvisioningOperationRepository;
 }
@@ -98,6 +109,97 @@ interface TenantProfileRow {
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
+}
+
+interface InfrastructureServerRow {
+  readonly id: string;
+  readonly code: string;
+  readonly display_name: string;
+  readonly provider: string;
+  readonly region: string;
+  readonly public_ipv4: string;
+  readonly operating_system: string;
+  readonly architecture: string;
+  readonly status: string;
+  readonly total_cpu_millicores: number;
+  readonly total_memory_mib: number;
+  readonly total_storage_mib: number;
+  readonly reserved_cpu_millicores: number;
+  readonly reserved_memory_mib: number;
+  readonly reserved_storage_mib: number;
+  readonly operation_credential_ref: string;
+  readonly confirmed_at: Date;
+  readonly version: string;
+  readonly created_at: Date;
+  readonly updated_at: Date;
+}
+
+const infrastructureServerSelection = `
+  id::text,
+  code::text,
+  display_name,
+  provider,
+  region,
+  host(public_ipv4) AS public_ipv4,
+  operating_system,
+  architecture::text,
+  status::text,
+  total_cpu_millicores,
+  total_memory_mib,
+  total_storage_mib,
+  reserved_cpu_millicores,
+  reserved_memory_mib,
+  reserved_storage_mib,
+  operation_credential_ref,
+  confirmed_at,
+  version::text,
+  created_at,
+  updated_at
+`;
+
+function infrastructureServerStatus(value: string): InfrastructureServerStatus {
+  const normalized = value.toUpperCase();
+  if (infrastructureServerStatuses.includes(normalized as InfrastructureServerStatus)) {
+    return normalized as InfrastructureServerStatus;
+  }
+  throw new DatabaseUnavailableError();
+}
+
+function infrastructureServerArchitecture(value: string): InfrastructureServerArchitecture {
+  const normalized = value.toUpperCase();
+  if (infrastructureServerArchitectures.includes(normalized as InfrastructureServerArchitecture)) {
+    return normalized as InfrastructureServerArchitecture;
+  }
+  throw new DatabaseUnavailableError();
+}
+
+function infrastructureServerFromRow(row: InfrastructureServerRow): InfrastructureServer {
+  return hydrateInfrastructureServer({
+    id: row.id,
+    code: row.code,
+    displayName: row.display_name,
+    provider: row.provider,
+    region: row.region,
+    publicIpv4: row.public_ipv4,
+    operatingSystem: row.operating_system,
+    architecture: infrastructureServerArchitecture(row.architecture),
+    status: infrastructureServerStatus(row.status),
+    totalCapacity: {
+      cpuMillicores: row.total_cpu_millicores,
+      memoryMiB: row.total_memory_mib,
+      storageMiB: row.total_storage_mib,
+    },
+    reservedCapacity: {
+      cpuMillicores: row.reserved_cpu_millicores,
+      memoryMiB: row.reserved_memory_mib,
+      storageMiB: row.reserved_storage_mib,
+    },
+    operationCredentialRef: row.operation_credential_ref,
+    confirmedAt: row.confirmed_at,
+    version: BigInt(row.version),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
 }
 
 interface ProvisioningOperationRow {
@@ -371,6 +473,143 @@ export function createPlatformPostgresDatabase(
           authorizationRevision: BigInt(row.authorization_revision),
         });
       } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+  });
+
+  const infrastructureServers: InfrastructureServerRepository = Object.freeze({
+    create: async (draft: InfrastructureServerDraft): Promise<InfrastructureServer> => {
+      try {
+        const result = (await pool.query(
+          `
+            INSERT INTO infrastructure.servers (
+              code, display_name, provider, region, public_ipv4, operating_system,
+              architecture, status, total_cpu_millicores, total_memory_mib,
+              total_storage_mib, reserved_cpu_millicores, reserved_memory_mib,
+              reserved_storage_mib, operation_credential_ref, confirmed_at
+            ) VALUES (
+              $1, $2, $3, $4, $5::inet, $6, $7::infrastructure.server_architecture,
+              $8::infrastructure.server_status, $9, $10, $11, $12, $13, $14, $15, $16
+            )
+            RETURNING ${infrastructureServerSelection}
+          `,
+          [
+            draft.code,
+            draft.displayName,
+            draft.provider,
+            draft.region,
+            draft.publicIpv4,
+            draft.operatingSystem,
+            draft.architecture.toLowerCase(),
+            draft.status.toLowerCase(),
+            draft.totalCapacity.cpuMillicores,
+            draft.totalCapacity.memoryMiB,
+            draft.totalCapacity.storageMiB,
+            draft.reservedCapacity.cpuMillicores,
+            draft.reservedCapacity.memoryMiB,
+            draft.reservedCapacity.storageMiB,
+            draft.operationCredentialRef,
+            draft.confirmedAt,
+          ],
+        )) as { readonly rows: InfrastructureServerRow[] };
+        const row = result.rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        return infrastructureServerFromRow(row);
+      } catch (error) {
+        if (isUniqueViolation(error)) throw new InfrastructureServerConflictError();
+        if (error instanceof InfrastructureServerConflictError) throw error;
+        throw new DatabaseUnavailableError();
+      }
+    },
+    findById: async (id: string): Promise<InfrastructureServer | null> => {
+      try {
+        const result = (await pool.query(
+          `SELECT ${infrastructureServerSelection} FROM infrastructure.servers WHERE id = $1::uuid`,
+          [id],
+        )) as { readonly rows: InfrastructureServerRow[] };
+        return result.rows[0] ? infrastructureServerFromRow(result.rows[0]) : null;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    list: async (criteria: InfrastructureServerListCriteria) => {
+      try {
+        const values: unknown[] = [];
+        const where = criteria.status ? "WHERE status = $1::infrastructure.server_status" : "";
+        if (criteria.status) values.push(criteria.status.toLowerCase());
+        values.push(criteria.limit);
+        const result = (await pool.query(
+          `
+            SELECT ${infrastructureServerSelection}
+            FROM infrastructure.servers
+            ${where}
+            ORDER BY created_at ASC, id ASC
+            LIMIT $${values.length}
+          `,
+          values,
+        )) as { readonly rows: InfrastructureServerRow[] };
+        return Object.freeze(result.rows.map(infrastructureServerFromRow));
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    update: async (
+      id: string,
+      expectedVersion: bigint,
+      draft: InfrastructureServerDraft,
+    ): Promise<InfrastructureServer | null> => {
+      try {
+        const result = (await pool.query(
+          `
+            UPDATE infrastructure.servers
+            SET
+              code = $3,
+              display_name = $4,
+              provider = $5,
+              region = $6,
+              public_ipv4 = $7::inet,
+              operating_system = $8,
+              architecture = $9::infrastructure.server_architecture,
+              status = $10::infrastructure.server_status,
+              total_cpu_millicores = $11,
+              total_memory_mib = $12,
+              total_storage_mib = $13,
+              reserved_cpu_millicores = $14,
+              reserved_memory_mib = $15,
+              reserved_storage_mib = $16,
+              operation_credential_ref = $17,
+              confirmed_at = $18,
+              version = version + 1,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid AND version = $2
+            RETURNING ${infrastructureServerSelection}
+          `,
+          [
+            id,
+            expectedVersion.toString(),
+            draft.code,
+            draft.displayName,
+            draft.provider,
+            draft.region,
+            draft.publicIpv4,
+            draft.operatingSystem,
+            draft.architecture.toLowerCase(),
+            draft.status.toLowerCase(),
+            draft.totalCapacity.cpuMillicores,
+            draft.totalCapacity.memoryMiB,
+            draft.totalCapacity.storageMiB,
+            draft.reservedCapacity.cpuMillicores,
+            draft.reservedCapacity.memoryMiB,
+            draft.reservedCapacity.storageMiB,
+            draft.operationCredentialRef,
+            draft.confirmedAt,
+          ],
+        )) as { readonly rows: InfrastructureServerRow[] };
+        return result.rows[0] ? infrastructureServerFromRow(result.rows[0]) : null;
+      } catch (error) {
+        if (isUniqueViolation(error)) throw new InfrastructureServerConflictError();
+        if (error instanceof InfrastructureServerConflictError) throw error;
         throw new DatabaseUnavailableError();
       }
     },
@@ -711,5 +950,11 @@ export function createPlatformPostgresDatabase(
     },
   });
 
-  return Object.freeze({ ...database, memberships, tenantProfiles, provisioningOperations });
+  return Object.freeze({
+    ...database,
+    memberships,
+    infrastructureServers,
+    tenantProfiles,
+    provisioningOperations,
+  });
 }

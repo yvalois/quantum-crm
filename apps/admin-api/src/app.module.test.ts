@@ -1,7 +1,11 @@
 import type { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { PlatformPostgresDatabase } from "@quantum-crm/database";
-import { hydrateProvisioningOperation, hydrateTenantProfile } from "@quantum-crm/platform-domain";
+import {
+  hydrateInfrastructureServer,
+  hydrateProvisioningOperation,
+  hydrateTenantProfile,
+} from "@quantum-crm/platform-domain";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "./app.module.js";
@@ -37,6 +41,24 @@ beforeAll(async () => {
     createdAt: new Date("2026-09-20T12:00:00.000Z"),
     updatedAt: new Date("2026-09-20T12:00:00.000Z"),
   });
+  const infrastructureServer = hydrateInfrastructureServer({
+    id: "01995f7e-7b52-7000-8000-000000000301",
+    code: "staging-primary",
+    displayName: "Staging primary",
+    provider: "Hostinger",
+    region: "unknown",
+    publicIpv4: "192.0.2.10",
+    operatingSystem: "Ubuntu 24.04 LTS",
+    architecture: "X86_64",
+    status: "AVAILABLE",
+    totalCapacity: { cpuMillicores: 4000, memoryMiB: 8192, storageMiB: 102400 },
+    reservedCapacity: { cpuMillicores: 1000, memoryMiB: 2048, storageMiB: 20480 },
+    operationCredentialRef: "secret://staging/servers/primary/ssh-key",
+    confirmedAt: new Date("2026-09-20T12:00:00.000Z"),
+    version: 1n,
+    createdAt: new Date("2026-09-20T12:00:00.000Z"),
+    updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+  });
   const database: PlatformPostgresDatabase = {
     connect: vi.fn(async () => undefined),
     isReady: vi.fn(async () => true),
@@ -47,9 +69,23 @@ beforeAll(async () => {
         id: "01995f7e-7b52-7000-8000-000000000101",
         oidcSubject: "operator-subject",
         status: "ACTIVE",
-        permissions: ["deployments:execute", "tenants:manage", "tenants:read"],
+        permissions: ["deployments:execute", "deployments:read", "tenants:manage", "tenants:read"],
         authorizationRevision: 1n,
       })),
+    },
+    infrastructureServers: {
+      create: vi.fn(async () => infrastructureServer),
+      findById: vi.fn(async () => infrastructureServer),
+      list: vi.fn(async () => [infrastructureServer]),
+      update: vi.fn(async (_id, expectedVersion) =>
+        expectedVersion === 1n
+          ? hydrateInfrastructureServer({
+              ...infrastructureServer,
+              status: "DRAINING",
+              version: 2n,
+            })
+          : null,
+      ),
     },
     tenantProfiles: {
       create: vi.fn(async () => tenantProfile),
@@ -88,7 +124,12 @@ beforeAll(async () => {
       {
         issuer: "https://identity.example.test/realms/quantum-platform",
         audience: "quantum-admin-api",
-        allowedPermissions: ["deployments:execute", "tenants:read", "tenants:manage"],
+        allowedPermissions: [
+          "deployments:execute",
+          "deployments:read",
+          "tenants:read",
+          "tenants:manage",
+        ],
       },
     ),
     { abortOnError: false, logger: false },
@@ -122,6 +163,44 @@ describe("admin API authentication boundary", () => {
     expect(body).toContain("01995f7e-7b52-7000-8000-000000000101");
     expect(body).not.toContain("signed.token.value");
     expect(body).not.toContain("operator-subject");
+  });
+
+  it("lists infrastructure capacity without exposing the credential reference", async () => {
+    const authorization = { authorization: "Bearer signed.token.value" };
+    const response = await fetch(`${origin}/api/v1/infrastructure-servers?pageSize=10`, {
+      headers: authorization,
+    });
+    const body = await response.text();
+    expect(response.status).toBe(200);
+    expect(body).toContain('"availableCapacity":{"cpuMillicores":3000');
+    expect(body).toContain('"credentialConfigured":true');
+    expect(body).not.toContain("secret://");
+    expect(body).not.toContain("ssh-key");
+
+    const created = await fetch(`${origin}/api/v1/infrastructure-servers`, {
+      method: "POST",
+      headers: { ...authorization, "content-type": "application/json" },
+      body: JSON.stringify({
+        code: "staging-primary",
+        displayName: "Staging primary",
+        provider: "Hostinger",
+        region: "unknown",
+        publicIpv4: "192.0.2.10",
+        operatingSystem: "Ubuntu 24.04 LTS",
+        architecture: "X86_64",
+        status: "AVAILABLE",
+        totalCapacity: { cpuMillicores: 4000, memoryMiB: 8192, storageMiB: 102400 },
+        reservedCapacity: { cpuMillicores: 1000, memoryMiB: 2048, storageMiB: 20480 },
+        operationCredentialRef: "secret://staging/servers/primary/ssh-key",
+        confirmedAt: "2026-09-20T12:00:00.000Z",
+      }),
+    });
+    const createdBody = await created.text();
+    expect(created.status).toBe(201);
+    expect(created.headers.get("etag")).toBe('"1"');
+    expect(created.headers.get("location")).toContain(infrastructureServer.id);
+    expect(createdBody).toContain('"credentialConfigured":true');
+    expect(createdBody).not.toContain("secret://");
   });
 
   it("validates, lists and conditionally updates protected tenant profiles", async () => {

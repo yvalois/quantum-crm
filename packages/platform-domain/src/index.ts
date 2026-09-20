@@ -36,3 +36,4 @@ export {
 export const packageIdentity = "@quantum-crm/platform-domain" as const;
 
 export * from "./deployments/index.js";
+export * from "./infrastructure/index.js";

@@ -35,3 +35,17 @@ export {
   type ProvisioningOperationResponse,
   type RequestTenantProvisioning,
 } from "./deployments/v1/provisioning-operation.js";
+export {
+  CreateInfrastructureServerSchema,
+  InfrastructureServerArchitectureSchema,
+  InfrastructureServerListQuerySchema,
+  InfrastructureServerListResponseSchema,
+  InfrastructureServerResponseSchema,
+  InfrastructureServerSchema,
+  InfrastructureServerStatusSchema,
+  ServerCapacitySchema,
+  UpdateInfrastructureServerSchema,
+  type CreateInfrastructureServer,
+  type InfrastructureServerContract,
+  type UpdateInfrastructureServer,
+} from "./infrastructure/v1/infrastructure-server.js";

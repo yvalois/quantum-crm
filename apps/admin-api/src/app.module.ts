@@ -14,11 +14,19 @@ import {
 } from "./platform-security.js";
 import { ProblemDetailsFilter } from "./problem-details.filter.js";
 import {
+  INFRASTRUCTURE_SERVER_SERVICE,
+  InfrastructureServersController,
+} from "./infrastructure-servers.controller.js";
+import {
   TENANT_PROFILE_SERVICE,
   TENANT_PROVISIONING_SERVICE,
   TenantProfilesController,
 } from "./tenant-profiles.controller.js";
-import { TenantProfileService, TenantProvisioningService } from "@quantum-crm/platform-domain";
+import {
+  InfrastructureServerService,
+  TenantProfileService,
+  TenantProvisioningService,
+} from "@quantum-crm/platform-domain";
 
 @Module({})
 export class AppModule {
@@ -29,12 +37,21 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      controllers: [HealthController, OperatorsController, TenantProfilesController],
+      controllers: [
+        HealthController,
+        InfrastructureServersController,
+        OperatorsController,
+        TenantProfilesController,
+      ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: oidcAccessTokenVerifier },
         { provide: PLATFORM_MEMBERSHIPS, useValue: database.memberships },
         { provide: PLATFORM_AUTH_POLICY, useValue: authPolicy },
+        {
+          provide: INFRASTRUCTURE_SERVER_SERVICE,
+          useFactory: () => new InfrastructureServerService(database.infrastructureServers),
+        },
         {
           provide: TENANT_PROFILE_SERVICE,
           useFactory: () => new TenantProfileService(database.tenantProfiles),

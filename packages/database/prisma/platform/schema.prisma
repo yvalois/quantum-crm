@@ -8,7 +8,51 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["operations", "platform_iam", "tenants"]
+  schemas  = ["infrastructure", "operations", "platform_iam", "tenants"]
+}
+
+enum InfrastructureServerStatus {
+  AVAILABLE   @map("available")
+  DRAINING    @map("draining")
+  UNAVAILABLE @map("unavailable")
+
+  @@map("server_status")
+  @@schema("infrastructure")
+}
+
+enum InfrastructureServerArchitecture {
+  X86_64 @map("x86_64")
+  ARM64   @map("arm64")
+
+  @@map("server_architecture")
+  @@schema("infrastructure")
+}
+
+model InfrastructureServer {
+  id                     String                           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  code                   String                           @unique(map: "infrastructure_servers_code_key") @db.Citext
+  displayName            String                           @map("display_name") @db.Text
+  provider               String                           @db.Text
+  region                 String                           @db.Text
+  publicIpv4             String                           @unique(map: "infrastructure_servers_public_ipv4_key") @map("public_ipv4") @db.Inet
+  operatingSystem        String                           @map("operating_system") @db.Text
+  architecture           InfrastructureServerArchitecture
+  status                 InfrastructureServerStatus
+  totalCpuMillicores     Int                              @map("total_cpu_millicores")
+  totalMemoryMib         Int                              @map("total_memory_mib")
+  totalStorageMib        Int                              @map("total_storage_mib")
+  reservedCpuMillicores  Int                              @default(0) @map("reserved_cpu_millicores")
+  reservedMemoryMib      Int                              @default(0) @map("reserved_memory_mib")
+  reservedStorageMib     Int                              @default(0) @map("reserved_storage_mib")
+  operationCredentialRef String                           @map("operation_credential_ref") @db.VarChar(263)
+  confirmedAt            DateTime                         @map("confirmed_at") @db.Timestamptz(6)
+  version                BigInt                           @default(1)
+  createdAt              DateTime                         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt, id], map: "infrastructure_servers_status_created_id_idx")
+  @@map("servers")
+  @@schema("infrastructure")
 }
 
 enum PlatformOperatorStatus {
