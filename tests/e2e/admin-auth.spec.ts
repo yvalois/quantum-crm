@@ -48,9 +48,10 @@ test("operator completes password, TOTP, authorized API and logout", async ({ pa
   await page.locator("#password").fill(password);
   await page.locator("#kc-login").click();
 
-  const secretInput = page.locator("#totpSecret");
-  await expect(secretInput).toBeAttached();
-  const secret = (await secretInput.inputValue()).trim();
+  await page.locator("#mode-manual").click();
+  const secretOutput = page.locator("#kc-totp-secret-key");
+  await expect(secretOutput).toBeVisible();
+  const secret = (await secretOutput.innerText()).replaceAll(/\s/gu, "");
   expect(secret).toMatch(/^[A-Z2-7]+$/u);
   await page.locator("#totp").fill(totp(secret));
   const deviceName = page.locator("#userLabel");
