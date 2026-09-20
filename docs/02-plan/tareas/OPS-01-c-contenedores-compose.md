@@ -80,7 +80,7 @@ El repositorio define imagenes multi-stage sin privilegios para los procesos web
 
 - Pruebas unitarias/arquitectura: manifiestos, imagen base, usuario, digests, redes, puertos y hardening.
 - Integracion: `docker compose config` para local, test, plataforma y perfil con referencias sinteticas.
-- Build/ejecucion: sujeto a disponibilidad del daemon; no se sustituye con validacion estatica.
+- Build/ejecucion: se realiza exclusivamente en el VPS de desarrollo o pruebas autorizado; no se inicia un daemon Docker local.
 - Seguridad: escaneo local de secretos y comprobacion de archivos excluidos del contexto.
 - Recuperacion: revertir los commits de esta ficha; no existen datos ni volumenes creados.
 
@@ -91,5 +91,6 @@ El repositorio define imagenes multi-stage sin privilegios para los procesos web
 - Compose: `config --quiet` aprobo local, test, plataforma y perfil; plataforma sin variables de digest fallo de forma esperada.
 - Seguridad local: cero coincidencias de credenciales en los archivos del incremento; el contexto excluye secretos, entornos locales, dependencias y artefactos de build.
 - Documentacion actualizada: `README.md`, `infra/README.md`, `docs/08-arquitectura/mapa-del-sistema.md` y `docs/04-proceso/estado.md`.
-- Desviaciones del plan: Docker CLI 28.1.1 y Compose 2.35.1 estan instalados, pero el daemon Docker no esta activo; no se construyeron ni ejecutaron imagenes y no se presentan como verificadas.
-- Pendientes o decisiones nuevas: construir y escanear imagenes cuando exista daemon; publicar solo mediante CI con SBOM, procedencia y digest; agregar datos, identidad, proxy, archivos, telemetria y secretos en sus requisitos propietarios.
+- Correccion operativa posterior: por decision del propietario, Docker Desktop permanece apagado y no se construyen ni ejecutan contenedores en su equipo. El intento de inicio realizado durante esta ficha se detuvo inmediatamente al aclararse la regla.
+- Desviaciones del plan: no se construyeron ni ejecutaron imagenes y no se presentan como verificadas; la validacion real se traslada al VPS autorizado.
+- Pendientes o decisiones nuevas: obtener acceso al VPS de desarrollo o pruebas, construir y escanear alli las imagenes y publicar solo mediante CI con SBOM, procedencia y digest; agregar datos, identidad, proxy, archivos, telemetria y secretos en sus requisitos propietarios.

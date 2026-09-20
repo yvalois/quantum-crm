@@ -25,6 +25,8 @@ Estas reglas aplican a workflows, imagenes, manifiestos, promociones y operacion
 
 ## Artefactos
 
+- No iniciar Docker Desktop, construir imagenes ni levantar Compose en el equipo local del propietario.
+- Ejecutar la validacion real de contenedores en el VPS de desarrollo o pruebas autorizado, separado de produccion y con datos sinteticos.
 - Construir cada imagen una sola vez por commit aceptado.
 - Publicar en GHCR con identidad por digest OCI.
 - No desplegar `latest`, nombres de rama ni tags mutables.

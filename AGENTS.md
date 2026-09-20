@@ -81,6 +81,7 @@ Antes de modificar codigo o documentacion:
 - Cada imagen se construye una vez, genera SBOM y procedencia y se despliega por digest; nunca se usa `latest` como identidad operativa.
 - Los pull requests no reciben secretos ni acceso al VPS; las actions externas se fijan por SHA completo y usan permisos minimos.
 - Los workflows solo solicitan operaciones tipadas a `admin-api`; `deploy-executor` es el unico componente que ejecuta Docker, migraciones y cambios de Caddy.
+- No se inicia Docker Desktop, no se construyen imagenes y no se ejecuta Docker Compose en el equipo local del propietario. La validacion real de contenedores se realiza en el VPS de desarrollo o pruebas autorizado; localmente solo se editan codigo y manifiestos y se ejecutan comprobaciones que no requieran daemon.
 - Rollback de aplicacion, migracion correctiva y restauracion de datos son operaciones diferentes y no se sustituyen automaticamente entre si.
 - La observabilidad y el manejo de fallos cumplen `docs/06-decisiones/ADR-0010-observabilidad-manejo-fallos.md` y `docs/05-reglas/10-observabilidad-y-fallos.md`.
 - El dominio no importa logging, tracing, metricas ni SDKs de proveedores; la instrumentacion comun vive en `packages/observability`.

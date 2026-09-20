@@ -62,13 +62,8 @@ Todavia no hay funcionalidades `ADM`, `USR`, `CFG` ni comerciales implementadas.
 
 ## Contenedores
 
-La base declarativa se encuentra en [infra/README.md](infra/README.md). Existen proyectos Compose separados para desarrollo local, smoke de imagenes, plataforma central y perfiles de cliente. Las plantillas no locales exigen referencias OCI fijadas por digest y no publican puertos de aplicacion directamente al host.
+La base declarativa se encuentra en [infra/README.md](infra/README.md). Existen proyectos Compose separados para desarrollo, smoke de imagenes, plataforma central y perfiles de cliente. Las plantillas no locales exigen referencias OCI fijadas por digest y no publican puertos de aplicacion directamente al host.
 
-La configuracion Compose puede validarse sin iniciar contenedores:
+En este equipo se editan el codigo y los manifiestos, pero no se inicia Docker Desktop, no se construyen imagenes y no se ejecuta Compose. La validacion real de contenedores se realiza directamente en el VPS de desarrollo o pruebas autorizado.
 
-```bash
-docker compose -f infra/compose/local.yaml config --quiet
-docker compose -f infra/compose/test.yaml config --quiet
-```
-
-La presencia de Dockerfiles o manifiestos validos no demuestra que una imagen fue construida, escaneada, publicada o desplegada.
+La presencia de Dockerfiles o manifiestos validos no demuestra que una imagen fue construida, escaneada, publicada o desplegada en el VPS.

@@ -139,8 +139,9 @@ Hay dos tipos de cambios locales: el código que desarrollas en tu equipo y la c
 
 - [ ] **OPS-07 — Establecer el flujo de desarrollo local.**
   - [ ] Mantener `main` como línea integrable y usar ramas cortas de funcionalidad o corrección.
-  - [ ] Levantar aplicación, base y dependencias locales con Compose y datos sintéticos.
-  - [ ] Usar recarga de código y montajes locales únicamente en desarrollo.
+  - [ ] Desarrollar y verificar código en el equipo local sin iniciar Docker Desktop ni ejecutar contenedores.
+  - [ ] Levantar aplicación, base y dependencias con Compose en el VPS de desarrollo o pruebas autorizado y con datos sintéticos.
+  - [ ] Reservar recarga de código y montajes del checkout para ese entorno de desarrollo; producción usa imágenes inmutables.
   - [ ] Mantener `.env.example` sin secretos y excluir `.env`, respaldos y credenciales reales del repositorio.
   - [ ] Deshabilitar envíos externos reales en las pruebas locales y usar cuentas o conectores de prueba.
   - [ ] Versionar juntos los cambios de código, las migraciones y el esquema de configuración que necesiten.

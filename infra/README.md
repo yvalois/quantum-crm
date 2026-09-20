@@ -6,7 +6,7 @@ Esta carpeta contiene el bootstrap de contenedores de Quantum CRM. No acredita u
 
 | Proyecto                             | Servicios                                                 | Proposito                                                                       |
 | ------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `local.yaml` / `quantum-local`       | ocho aplicaciones                                         | Desarrollo integrado con puertos publicados solo en `127.0.0.1`                 |
+| `local.yaml` / `quantum-local`       | ocho aplicaciones                                         | Desarrollo integrado en el VPS de pruebas, con puertos publicados solo en loopback |
 | `test.yaml` / `quantum-test`         | `crm-web` y `api`                                         | Smoke desechable de ambos tipos de imagen                                       |
 | `platform.yaml` / `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor`               | Plantilla de procesos centrales sin puertos publicos directos                   |
 | `tenant.yaml` / `-p qcrm-t-<uuid>`   | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla repetible por perfil, con nombre de proyecto validado por el ejecutor |
@@ -20,7 +20,11 @@ Las dependencias de datos, identidad, archivos, proxy y telemetria se agregaran 
 - Ambas usan Node.js `24.21.0-bookworm-slim` fijado por digest, pnpm `9.13.2`, build multi-stage y usuario `node` sin privilegios.
 - Los argumentos `APP` tienen allowlist; un nombre desconocido detiene el build.
 
-## Validacion local
+## Lugar de ejecucion
+
+Estos archivos se conservan en Git, pero no se ejecutan en el equipo local del propietario. Docker Desktop debe permanecer apagado. Los builds, healthchecks y pruebas Compose se realizan en el VPS de desarrollo o pruebas autorizado, con datos sinteticos y sin afectar produccion.
+
+## Validacion en el VPS
 
 ```bash
 docker compose -f infra/compose/local.yaml config --quiet
