@@ -336,7 +336,7 @@ export function createPlatformPostgresDatabase(
         values.push(`%${escaped}%`);
         const parameter = `$${values.length}`;
         conditions.push(
-          `(name ILIKE ${parameter} ESCAPE '\\\\' OR slug::text ILIKE ${parameter} ESCAPE '\\\\' OR admin_contact_email::text ILIKE ${parameter} ESCAPE '\\\\')`,
+          `(name ILIKE ${parameter} ESCAPE '\\' OR slug::text ILIKE ${parameter} ESCAPE '\\' OR admin_contact_email::text ILIKE ${parameter} ESCAPE '\\')`,
         );
       }
       if (criteria.cursor) {
