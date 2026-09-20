@@ -59,10 +59,10 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
   - [x] Impedir que un administrador del CRM de un cliente obtenga permisos de plataforma.
 
 - [ ] **ADM-02 — Crear y administrar perfiles de clientes o tenants.**
-  - [ ] Registrar identificador inmutable, nombre, slug, contacto administrativo y estado del cliente.
-  - [ ] Listar, buscar y filtrar clientes por estado, servidor y versión.
+  - [x] Registrar identificador inmutable, nombre, slug, contacto administrativo y estado del cliente.
+  - [x] Listar, buscar y filtrar clientes por estado, servidor y versión.
   - [ ] Gestionar la pertenencia de usuarios al cliente sin mezclar sus roles con los de Quantum.
-  - [ ] Distinguir el perfil de empresa de los contactos comerciales que viven dentro de su CRM.
+  - [x] Distinguir el perfil de empresa de los contactos comerciales que viven dentro de su CRM.
 
 - [ ] **ADM-03 — Gestionar el ciclo de vida de cada perfil.**
   - [ ] Mostrar estados pendiente, aprovisionando, activo, suspendido y error.

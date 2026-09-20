@@ -76,18 +76,20 @@ Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento re
 
 ## Plataforma administrativa desplegada
 
-| Servicio    | Imagen o estado inmutable                        | Estado verificado |
-| ----------- | ------------------------------------------------ | ----------------- |
-| Caddy       | `qcrm-edge/caddy@sha256:e9c93188...66448`        | `healthy`         |
-| `admin-web` | `qcrm-platform/admin-web@sha256:9126de6c...0a4c` | `healthy`         |
+| Servicio    | Imagen o estado inmutable                         | Estado verificado |
+| ----------- | ------------------------------------------------- | ----------------- |
+| Caddy       | `qcrm-edge/caddy@sha256:e9c93188...66448`         | `healthy`         |
+| `admin-web` | `qcrm-platform/admin-web@sha256:abc03081...5590e` | `healthy`         |
 | `admin-api` | `qcrm-platform/admin-api@sha256:7748b117...671e5` | `healthy`         |
-| Keycloak    | persistente, realm `quantum-platform`            | `healthy`         |
-| PostgreSQL  | persistente, base y roles de plataforma          | `healthy`         |
-| Redis       | persistente, ACL exclusiva de sesiones           | `healthy`         |
+| Keycloak    | persistente, realm `quantum-platform`             | `healthy`         |
+| PostgreSQL  | persistente, base y roles de plataforma           | `healthy`         |
+| Redis       | persistente, ACL exclusiva de sesiones            | `healthy`         |
 
 Las redes `platform-database`, `platform-session`, `platform-internal` y `platform-oidc` son internas. La ultima contiene solo Caddy y `admin-api` y permite resolver el JWKS HTTPS del issuer exacto sin habilitar salida general a Internet. El operador inicial queda en estado de entrega y debe definir su propia contrasena y TOTP; el secreto inicial permanece fuera de Git con modo `0400`, y las cuentas administrativas temporales de Keycloak fueron retiradas.
 
-El 2026-09-20, `ADM-02-b` actualizo exclusivamente `admin-api` desde el build persistente `248c4d56426c8aa00bbae40654c98b9551be30f4`. El servicio expone internamente la API v1 protegida de perfiles de cliente; la interfaz y el BFF aun no la publican como recorrido de operador. El archivo `platform.env.before-ADM-02-248c4d5` conserva el digest anterior para rollback de aplicacion sin tocar los perfiles persistidos.
+El 2026-09-20, `ADM-02-b` actualizo exclusivamente `admin-api` desde el build persistente `248c4d56426c8aa00bbae40654c98b9551be30f4`. El servicio expone internamente la API v1 protegida de perfiles de cliente. El archivo `platform.env.before-ADM-02-248c4d5` conserva el digest anterior para rollback de aplicacion sin tocar los perfiles persistidos.
+
+Ese mismo dia, `ADM-02-c` actualizo exclusivamente `admin-web` desde el build persistente `7ce09af36261b0b2eb0a578c2c20078061ebebe9`. El BFF publica rutas fijas para listar, crear, obtener y editar perfiles, conserva los tokens en servidor y exige Origin, CSRF y `If-Match` donde corresponde. El digest anterior permanece registrado en `platform.env.before-adm02c-font-7ce09af`; el smoke HTTPS confirmo raiz `200`, redireccion del dashboard privado, BFF anonimo `401` y contenedor saludable.
 
 ## Builds y smoke aislados
 

@@ -65,12 +65,12 @@ Un operador autenticado puede consultar, buscar, filtrar, crear y editar perfile
 
 ## Plan de implementacion
 
-- [ ] Crear BFF validado y protegido para perfiles.
-- [ ] Construir shell y pantalla de listado con estados completos.
-- [ ] Implementar creacion y edicion con permisos, CSRF y ETag.
-- [ ] Agregar pruebas de frontera, comportamiento y accesibilidad basica.
-- [ ] Ejecutar CI y desplegar por digest en el VPS.
-- [ ] Registrar evidencia sin cerrar las membresias de `ADM-02`.
+- [x] Crear BFF validado y protegido para perfiles.
+- [x] Construir shell y pantalla de listado con estados completos.
+- [x] Implementar creacion y edicion con permisos, CSRF y ETag.
+- [x] Agregar pruebas de frontera, comportamiento y accesibilidad basica.
+- [x] Ejecutar CI y desplegar por digest en el VPS.
+- [x] Registrar evidencia sin cerrar las membresias de `ADM-02`.
 
 ## Riesgos y mitigaciones
 
@@ -85,13 +85,13 @@ Un operador autenticado puede consultar, buscar, filtrar, crear y editar perfile
 
 ## Criterios de aceptacion
 
-- [ ] El navegador nunca recibe tokens OIDC ni conoce el origen interno de `admin-api`.
-- [ ] El operador puede buscar, filtrar y recorrer perfiles reales sin listas ilimitadas.
-- [ ] Solo `tenants:manage` habilita creacion y edicion, y el servidor vuelve a autorizar.
-- [ ] Crear valida empresa, slug y contacto; editar conserva concurrencia optimista.
-- [ ] Carga, vacio, error, 401, 403 y 412 tienen una salida comprensible y recuperable.
-- [ ] La interfaz sigue la direccion visual grafito aprobada, funciona con teclado y responde en movil.
-- [ ] CI, build, despliegue por digest y smoke aplicable aprueban.
+- [x] El navegador nunca recibe tokens OIDC ni conoce el origen interno de `admin-api`.
+- [x] El operador puede buscar, filtrar y recorrer perfiles reales sin listas ilimitadas.
+- [x] Solo `tenants:manage` habilita creacion y edicion, y el servidor vuelve a autorizar.
+- [x] Crear valida empresa, slug y contacto; editar conserva concurrencia optimista.
+- [x] Carga, vacio, error, 401, 403 y 412 tienen una salida comprensible y recuperable.
+- [x] La interfaz sigue la direccion visual grafito aprobada, funciona con teclado y responde en movil.
+- [x] CI, build, despliegue por digest y smoke aplicable aprueban.
 
 ## Plan de verificacion
 
@@ -111,8 +111,9 @@ Un operador autenticado puede consultar, buscar, filtrar, crear y editar perfile
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: commits locales `6319937`, `682a097` y `7ce09af` en `feat/ADM-02-admin-ui`; shell y pagina de perfiles en `apps/admin-web/src/app/dashboard`, rutas BFF en `apps/admin-web/src/app/api/platform/tenant-profiles` y frontera validada en `apps/admin-web/src/server/tenant-profile-http.ts`. No existe remoto ni PR.
+- Comandos y resultados: CI final en Node 24 aprobo formato, lint, tipos, 41 pruebas de configuracion, 152 pruebas generales, 19 pruebas de arquitectura y los 17 builds. Las cinco pruebas nuevas cubren ruta fija, filtros, token server-side, Origin, CSRF, ETag, conflicto y respuesta malformada.
+- Despliegue: `admin-web` se construyo y desplego exclusivamente en el VPS desde el checkout inmutable `7ce09af36261b0b2eb0a578c2c20078061ebebe9`, por digest `abc0308128eba097f58938ca47243951f73cd76e735a5289e0a4e27fd3c5590e`. Quedo `healthy`; HTTPS aprobo raiz `200`, redireccion del dashboard privado y `401` acotado del BFF sin sesion.
+- Documentacion actualizada: esta ficha, estado oficial, subtareas realmente terminadas e inventario operativo del VPS. `ADM-02` permanece abierto por membresias.
+- Desviaciones del plan: la primera puerta de build detecto un import `.js` que TypeScript aceptaba pero Turbopack no resolvia; se corrigio y el CI completo se repitio. La inspeccion visual del primer digest detecto la herencia incorrecta de la fuente; se corrigio, reconstruyo, redesplego e inspecciono de nuevo.
+- Pendientes o decisiones nuevas: el recorrido autenticado con datos reales se comprobara con la sesion privada del propietario; no se creo una credencial temporal ni se debilito MFA para automatizarlo. La siguiente rebanada de `ADM-02` es pertenencia de usuarios al perfil sin mezclar roles del CRM con permisos de Quantum.
