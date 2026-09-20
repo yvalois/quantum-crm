@@ -51,24 +51,24 @@ PostgreSQL, Redis y Keycloak de plataforma pueden aprovisionarse de forma reprod
 
 ## Impacto tecnico
 
-| Area                       | Impacto previsto                                                             |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| Aplicaciones y modulos     | Sin cambio de dominio; conexiones de `admin-web` y `admin-api`               |
-| Contratos y eventos        | Sin contrato publico nuevo                                                   |
-| Datos y migraciones        | Motor persistente, roles separados y migraciones `platform` controladas      |
-| Permisos y aislamiento     | Redes de datos/sesion separadas; ningun puerto de motor publicado            |
-| Configuracion y secretos   | Archivos `0600` externos; adaptacion de proveedores que no soportan `*_FILE` |
-| Observabilidad y operacion | Healthchecks y procedimiento de bootstrap/reanudacion                        |
-| Documentacion              | Infraestructura, tarea y estado                                              |
+| Area                       | Impacto previsto                                                        |
+| -------------------------- | ----------------------------------------------------------------------- |
+| Aplicaciones y modulos     | Sin cambio de dominio; conexiones de `admin-web` y `admin-api`          |
+| Contratos y eventos        | Sin contrato publico nuevo                                              |
+| Datos y migraciones        | Motor persistente, roles separados y migraciones `platform` controladas |
+| Permisos y aislamiento     | Redes de datos/sesion separadas; ningun puerto de motor publicado       |
+| Configuracion y secretos   | Archivos externos `0400`/`0440`; adaptacion de proveedores sin `*_FILE` |
+| Observabilidad y operacion | Healthchecks y procedimiento de bootstrap/reanudacion                   |
+| Documentacion              | Infraestructura, tarea y estado                                         |
 
 ## Plan de implementacion
 
-- [ ] Declarar servicios persistentes, redes y volumenes con imagenes por digest.
-- [ ] Implementar adaptadores de entrada por archivo para Redis y Keycloak.
-- [ ] Implementar bootstrap idempotente de PostgreSQL y migracion controlada.
-- [ ] Importar y validar el realm sin sobrescribirlo en reinicios.
-- [ ] Conectar las aplicaciones con minimo privilegio y ampliar pruebas de arquitectura.
-- [ ] Aprovisionar la fundacion en el VPS, verificar persistencia/reinicio y registrar evidencia.
+- [x] Declarar servicios persistentes, redes y volumenes con imagenes por digest.
+- [x] Implementar adaptadores de entrada por archivo para Redis y Keycloak.
+- [x] Implementar bootstrap idempotente de PostgreSQL y migracion controlada.
+- [x] Importar y validar el realm sin sobrescribirlo en reinicios.
+- [x] Conectar las aplicaciones con minimo privilegio y ampliar pruebas de arquitectura.
+- [x] Aprovisionar la fundacion en el VPS, verificar persistencia/reinicio y registrar evidencia.
 
 ## Riesgos y mitigaciones
 
@@ -83,13 +83,13 @@ PostgreSQL, Redis y Keycloak de plataforma pueden aprovisionarse de forma reprod
 
 ## Criterios de aceptacion
 
-- [ ] Las tres dependencias usan digests exactos y sobreviven recreacion mediante volumenes.
-- [ ] PostgreSQL separa administrador de cluster, migrador, runtime y Keycloak.
-- [ ] Redis exige autenticacion y solo `admin-web` alcanza su red.
-- [ ] Keycloak usa PostgreSQL, modo de servidor y realm `quantum-platform` sin `start-dev`.
-- [ ] Ningun secreto real queda en Git, manifiestos renderizados, argumentos o logs.
-- [ ] Las migraciones se ejecutan una vez por un proceso separado y `admin-api` usa solo runtime.
-- [ ] La validacion real del VPS aprueba sin cambiar 80/443 ni servicios existentes.
+- [x] Las tres dependencias usan digests exactos y sobreviven recreacion mediante volumenes.
+- [x] PostgreSQL separa administrador de cluster, migrador, runtime y Keycloak.
+- [x] Redis exige autenticacion y solo `admin-web` alcanza su red.
+- [x] Keycloak usa PostgreSQL, modo de servidor y realm `quantum-platform` sin `start-dev`.
+- [x] Ningun secreto real queda en Git, manifiestos renderizados, argumentos o logs.
+- [x] Las migraciones se ejecutan una vez por un proceso separado y `admin-api` usa solo runtime.
+- [x] La validacion real del VPS aprueba sin cambiar 80/443 ni servicios existentes.
 
 ## Plan de verificacion
 
@@ -109,8 +109,9 @@ PostgreSQL, Redis y Keycloak de plataforma pueden aprovisionarse de forma reprod
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: operador inicial, TOTP, proxy HTTPS y E2E permanecen para la siguiente rebanada.
+- Archivos, commits o PR: Compose persistente, cuatro Dockerfiles, wrappers de PostgreSQL/Redis/Keycloak, migrador separado, aprovisionador de secretos, requisito sysctl, conexiones de red, documentacion y pruebas en los commits locales `4f4dadb` a `51f5d52` de `feat/ADM-01-platform-foundation`; no existe remoto configurado.
+- Comandos y resultados: CI completa en Node 24 sobre `9ef4d63` aprobo formato, lint, tipos, 41 pruebas de configuracion, 138 unitarias, 17 de arquitectura y los builds; el cambio final `51f5d52` aprobo formato y 18 pruebas de arquitectura. En el VPS, Compose valido, los tres servicios quedaron `healthy`, sin puertos publicados y con imagenes por digest; el migrador ejecuto dos veces y luego de la recreacion sin migraciones pendientes; runtime pudo leer pero no crear tablas; Redis nego acceso sin autenticacion y fuera de prefijo, y conservo una escritura valida tras recreacion; Keycloak conservo el realm y discovery correcto tras recreacion.
+- Documentacion actualizada: `infra/README.md`, esta ficha y `docs/04-proceso/estado.md`; `infra/platform/provision-secrets.sh` es la fuente operativa reanudable para los diez archivos secretos y derivados.
+- Seguridad y operacion: escaneo de valores contra checkout, inspecciones y logs aprobado; archivos con modos `0400`/`0440`; redes de datos y sesion internas; `vm.overcommit_memory=1`; consumos iniciales aproximados: PostgreSQL 40 MiB, Redis 7 MiB y Keycloak 441 MiB.
+- Desviaciones del plan: ninguna funcional. La persistencia de Keycloak reside en el volumen PostgreSQL y Redis usa AOF con `appendfsync everysec`; la prueba de Redis respeto ese intervalo y su prefijo ACL.
+- Pendientes o decisiones nuevas: operador inicial, TOTP, exposicion HTTPS mediante el proxy existente y E2E completo permanecen para `ADM-01-h`; `ADM-01` no se marca terminado.
