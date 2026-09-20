@@ -16,7 +16,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 | ID | Descripcion | Responsable | Rama o PR | Inicio | Ultima actualizacion | Siguiente paso |
 |---|---|---|---|---|---|---|
-| OPS-01 | Implementar la arquitectura operativa por rebanadas | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | `OPS-01-a` y [`OPS-01-b`](../02-plan/tareas/OPS-01-b-procesos-health.md) verificados; preparar Compose, imagenes reproducibles y mapa de procesos sin cerrar todavia `OPS-01` |
+| OPS-01 | Implementar la arquitectura operativa por rebanadas | Codex | `chore/OPS-01-monorepo-base` (sin remoto configurado) | 2026-09-19 | 2026-09-19 | `OPS-01-a`, `OPS-01-b` y [`OPS-01-c`](../02-plan/tareas/OPS-01-c-contenedores-compose.md) implementados; falta construir las imagenes con daemon activo antes de evaluar el cierre de `OPS-01` |
 
 ## Bloqueado
 

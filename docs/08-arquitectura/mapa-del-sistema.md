@@ -417,4 +417,3 @@ Este mapa no decide aun:
 - Proveedores concretos de canales, calendario, pagos y facturacion.
 - Dimensionamiento y distribucion real del VPS.
 - Objetivos SLO de disponibilidad; los RPO y RTO iniciales se fijan en ADR-0015.
-
