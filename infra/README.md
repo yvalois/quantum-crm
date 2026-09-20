@@ -23,7 +23,9 @@ La fundacion persistente separa el ciclo de vida de PostgreSQL, Redis y Keycloak
 - Keycloak pertenece a la red de entrada y a `platform-database`; usa PostgreSQL y el comando `start --optimized --import-realm`, nunca `start-dev`.
 - `platform.yaml` conecta `admin-web` unicamente a la red de sesiones y `admin-api` unicamente a la red de datos.
 
-Las cuatro imagenes de fundacion se construyen desde los Dockerfiles fijados por digest en `infra/docker/`. PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`; los wrappers de Redis y Keycloak adaptan los archivos montados a sus interfaces nativas sin colocar valores en Compose ni en argumentos. Los ocho archivos requeridos viven fuera del checkout bajo un directorio `0700`. Los archivos usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. Los archivos son:
+Las cuatro imagenes de fundacion se construyen desde los Dockerfiles fijados por digest en `infra/docker/`. PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`; los wrappers de Redis y Keycloak adaptan los archivos montados a sus interfaces nativas sin colocar valores en Compose ni en argumentos. `infra/platform/provision-secrets.sh` crea de forma reanudable los secretos ausentes y valida los existentes sin imprimirlos ni sustituirlos. Se ejecuta como `root` con `QCRM_SECRET_DIRECTORY=/opt/quantum/secrets/<entorno>/platform`.
+
+Los archivos viven fuera del checkout bajo un directorio `0700`. Los usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. La fundacion consume los primeros ocho; los dos ultimos son las conexiones runtime derivadas para `platform.yaml`:
 
 ```text
 postgres-admin-password
@@ -34,6 +36,8 @@ keycloak-bootstrap-admin-password
 platform-redis-password
 admin-web-oidc-client-secret
 platform-migration-database-url
+platform-database-url
+admin-web-session-redis-url
 ```
 
 El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases.sh` desde la imagen inmutable. El servicio `platform-migrator`, activado explicitamente con el perfil `tools`, aplica las migraciones y despues concede al rol runtime solo uso de schemas y DML; las aplicaciones nunca ejecutan migraciones. La importacion de Keycloak omite el realm si ya existe; no es un mecanismo de actualizacion ni de backup. El procedimiento de aprovisionamiento valida dos ejecuciones y una recreacion sin usar `docker compose down -v`.

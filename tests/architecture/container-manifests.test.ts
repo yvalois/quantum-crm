@@ -135,6 +135,17 @@ describe("container manifests", () => {
     expect(keycloakEntrypoint).not.toContain("set -x");
   });
 
+  it("provisions platform secrets without overwriting or printing their values", () => {
+    const provisioner = read("infra/platform/provision-secrets.sh");
+
+    expect(provisioner).toContain("openssl rand -hex 32");
+    expect(provisioner).toContain('if [[ ! -e "$path" ]]');
+    expect(provisioner).toContain("platform-migration-database-url");
+    expect(provisioner).toContain("platform-database-url");
+    expect(provisioner).toContain("admin-web-session-redis-url");
+    expect(provisioner).not.toContain("set -x");
+  });
+
   it("mounts each database URL only in an authorized process", () => {
     const tenant = read("infra/compose/tenant.yaml");
     const platform = read("infra/compose/platform.yaml");

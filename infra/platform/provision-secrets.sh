@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[[ ${EUID} -eq 0 ]] || {
+  echo "Run as root" >&2
+  exit 77
+}
+
+secret_directory="${QCRM_SECRET_DIRECTORY:?set QCRM_SECRET_DIRECTORY}"
+app_uid="${QCRM_APP_UID:-1000}"
+data_uid="${QCRM_DATA_UID:-999}"
+data_gid="${QCRM_DATA_GID:-999}"
+
+[[ "$secret_directory" == /opt/quantum/secrets/* ]] || {
+  echo "QCRM_SECRET_DIRECTORY must be below /opt/quantum/secrets" >&2
+  exit 78
+}
+[[ "$app_uid" =~ ^[0-9]+$ && "$data_uid" =~ ^[0-9]+$ && "$data_gid" =~ ^[0-9]+$ ]] || {
+  echo "Container IDs must be numeric" >&2
+  exit 78
+}
+
+install -d -m 0700 -o root -g root "$secret_directory"
+
+create_token() {
+  local name="$1"
+  local owner="$2"
+  local group="$3"
+  local mode="$4"
+  local path="${secret_directory}/${name}"
+  local temporary="${path}.tmp"
+  local value
+
+  if [[ ! -e "$path" ]]; then
+    umask 077
+    openssl rand -hex 32 >"$temporary"
+    chown "$owner:$group" "$temporary"
+    chmod "$mode" "$temporary"
+    mv "$temporary" "$path"
+  fi
+
+  [[ -f "$path" && ! -L "$path" ]] || exit 78
+  IFS= read -r value <"$path"
+  [[ "$value" =~ ^[A-Za-z0-9_-]{43,128}$ ]] || exit 78
+  chown "$owner:$group" "$path"
+  chmod "$mode" "$path"
+  unset value
+}
+
+create_derived_url() {
+  local name="$1"
+  local value="$2"
+  local path="${secret_directory}/${name}"
+  local temporary="${path}.tmp"
+  local current
+
+  if [[ ! -e "$path" ]]; then
+    umask 077
+    printf '%s\n' "$value" >"$temporary"
+    chown "$app_uid:$app_uid" "$temporary"
+    chmod 0400 "$temporary"
+    mv "$temporary" "$path"
+  fi
+
+  [[ -f "$path" && ! -L "$path" ]] || exit 78
+  IFS= read -r current <"$path"
+  [[ "$current" == "$value" ]] || exit 78
+  chown "$app_uid:$app_uid" "$path"
+  chmod 0400 "$path"
+  unset current
+}
+
+create_token postgres-admin-password "$data_uid" "$data_gid" 0400
+create_token platform-migrator-password "$data_uid" "$data_gid" 0400
+create_token platform-runtime-password "$data_uid" "$data_gid" 0400
+create_token keycloak-database-password "$app_uid" "$data_gid" 0440
+create_token keycloak-bootstrap-admin-password "$app_uid" "$app_uid" 0400
+create_token platform-redis-password "$app_uid" "$data_gid" 0440
+create_token admin-web-oidc-client-secret "$app_uid" "$app_uid" 0400
+
+migrator_password="$(<"${secret_directory}/platform-migrator-password")"
+runtime_password="$(<"${secret_directory}/platform-runtime-password")"
+redis_password="$(<"${secret_directory}/platform-redis-password")"
+
+create_derived_url platform-migration-database-url \
+  "postgresql://qcrm_platform_migrator:${migrator_password}@platform-postgres:5432/qcrm_platform?sslmode=disable"
+create_derived_url platform-database-url \
+  "postgresql://qcrm_platform_runtime:${runtime_password}@platform-postgres:5432/qcrm_platform?sslmode=disable"
+create_derived_url admin-web-session-redis-url \
+  "redis://default:${redis_password}@platform-redis:6379/0"
+
+unset migrator_password runtime_password redis_password
+echo "Platform secret files are ready"
