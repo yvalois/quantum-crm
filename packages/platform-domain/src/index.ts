@@ -1,8 +1,12 @@
 export {
   createTenantProfileDraft,
   hydrateTenantProfile,
+  transitionTenantProfileStatus,
+  TenantProfileLifecycleTransitionError,
   TenantProfileValidationError,
+  tenantProfileLifecycleActions,
   tenantProfileStatuses,
+  type TenantProfileLifecycleAction,
   type TenantProfile,
   type TenantProfileDraft,
   type TenantProfileStatus,

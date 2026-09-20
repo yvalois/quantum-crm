@@ -31,10 +31,11 @@ export const CreateTenantProfileSchema = TenantProfileFieldsSchema.pick({
   adminContactEmail: true,
 }).strict();
 
-export const UpdateTenantProfileSchema = TenantProfileFieldsSchema.partial().refine(
-  (value) => Object.keys(value).length > 0,
-  { message: "At least one field is required" },
-);
+export const UpdateTenantProfileSchema = TenantProfileFieldsSchema.omit({ status: true })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  });
 
 export const TenantProfileSchema = TenantProfileFieldsSchema.extend({
   id: z.string().uuid(),

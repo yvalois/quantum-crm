@@ -12,6 +12,66 @@ export const tenantProfileStatuses = [
 
 export type TenantProfileStatus = (typeof tenantProfileStatuses)[number];
 
+export const tenantProfileLifecycleActions = [
+  "START_PROVISIONING",
+  "MARK_ACTIVE",
+  "MARK_ERROR",
+  "SUSPEND",
+  "RESUME",
+] as const;
+
+export type TenantProfileLifecycleAction = (typeof tenantProfileLifecycleActions)[number];
+
+export class TenantProfileLifecycleTransitionError extends Error {
+  public constructor(
+    public readonly currentStatus: TenantProfileStatus,
+    public readonly action: TenantProfileLifecycleAction,
+  ) {
+    super(`Cannot apply ${action} to tenant profile in ${currentStatus}`);
+    this.name = "TenantProfileLifecycleTransitionError";
+  }
+}
+
+const lifecycleTransitions: Readonly<
+  Record<
+    TenantProfileLifecycleAction,
+    Readonly<Partial<Record<TenantProfileStatus, TenantProfileStatus>>>
+  >
+> = Object.freeze({
+  START_PROVISIONING: Object.freeze({
+    PENDING: "PROVISIONING",
+    PROVISIONING: "PROVISIONING",
+    ERROR: "PROVISIONING",
+  }),
+  MARK_ACTIVE: Object.freeze({
+    PROVISIONING: "ACTIVE",
+    ACTIVE: "ACTIVE",
+  }),
+  MARK_ERROR: Object.freeze({
+    PROVISIONING: "ERROR",
+    ERROR: "ERROR",
+  }),
+  SUSPEND: Object.freeze({
+    ACTIVE: "SUSPENDED",
+    SUSPENDED: "SUSPENDED",
+  }),
+  RESUME: Object.freeze({
+    SUSPENDED: "ACTIVE",
+    ACTIVE: "ACTIVE",
+  }),
+});
+
+export function transitionTenantProfileStatus(
+  currentStatus: TenantProfileStatus,
+  action: TenantProfileLifecycleAction,
+): TenantProfileStatus {
+  const nextStatus = lifecycleTransitions[action][currentStatus];
+  if (!nextStatus) {
+    throw new TenantProfileLifecycleTransitionError(currentStatus, action);
+  }
+  return nextStatus;
+}
+
 export interface TenantProfileDraft {
   readonly name: string;
   readonly slug: string;

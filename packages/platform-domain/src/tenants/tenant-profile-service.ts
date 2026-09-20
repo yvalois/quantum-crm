@@ -61,7 +61,6 @@ export interface UpdateTenantProfileCommand {
   readonly slug?: string;
   readonly adminContactName?: string;
   readonly adminContactEmail?: string;
-  readonly status?: TenantProfileStatus;
   readonly serverId?: string | null;
   readonly releaseId?: string | null;
 }
@@ -99,7 +98,7 @@ export class TenantProfileService {
       slug: changes.slug ?? current.slug,
       adminContactName: changes.adminContactName ?? current.adminContactName,
       adminContactEmail: changes.adminContactEmail ?? current.adminContactEmail,
-      status: changes.status ?? current.status,
+      status: current.status,
       ...(changes.serverId === null ? {} : { serverId: changes.serverId ?? current.serverId }),
       ...(changes.releaseId === null ? {} : { releaseId: changes.releaseId ?? current.releaseId }),
     });
