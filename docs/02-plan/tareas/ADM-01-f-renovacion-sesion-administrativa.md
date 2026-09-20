@@ -60,12 +60,12 @@ La sesion opaca de `admin-web` renueva el access token antes de expirar sin entr
 
 ## Plan de implementacion
 
-- [ ] Extender el token set y la sesion con expiracion verificable.
-- [ ] Implementar refresh grant y rotacion estricta en el proveedor OIDC.
-- [ ] Implementar lease Redis y actualizacion de sesion solo por su propietario.
-- [ ] Renovar desde el servicio antes de devolver la sesion al BFF.
-- [ ] Cubrir expiracion, rotacion, concurrencia y fallo cerrado.
-- [ ] Ejecutar CI en VPS y registrar evidencia.
+- [x] Extender el token set y la sesion con expiracion verificable.
+- [x] Implementar refresh grant y rotacion estricta en el proveedor OIDC.
+- [x] Implementar lease Redis y actualizacion de sesion solo por su propietario.
+- [x] Renovar desde el servicio antes de devolver la sesion al BFF.
+- [x] Cubrir expiracion, rotacion, concurrencia y fallo cerrado.
+- [x] Ejecutar CI en VPS y registrar evidencia.
 
 ## Riesgos y mitigaciones
 
@@ -79,12 +79,12 @@ La sesion opaca de `admin-web` renueva el access token antes de expirar sin entr
 
 ## Criterios de aceptacion
 
-- [ ] Una sesion con token vigente se reutiliza sin llamar al proveedor.
-- [ ] Una sesion proxima a expirar se renueva y guarda de forma server-side.
-- [ ] La rotacion conserva el sujeto y el limite absoluto y exige un refresh token nuevo.
-- [ ] Solo el propietario del lease puede actualizar/liberarlo.
-- [ ] Si el lease esta ocupado o el proveedor falla no se reutiliza el refresh token ni se acepta una credencial vencida.
-- [ ] Las pruebas y CI aplicables aprueban en el VPS.
+- [x] Una sesion con token vigente se reutiliza sin llamar al proveedor.
+- [x] Una sesion proxima a expirar se renueva y guarda de forma server-side.
+- [x] La rotacion conserva el sujeto y el limite absoluto y exige un refresh token nuevo.
+- [x] Solo el propietario del lease puede actualizar, invalidar o liberarlo.
+- [x] Si el lease esta ocupado o el proveedor falla no se reutiliza el refresh token ni se acepta una credencial vencida.
+- [x] Las pruebas y CI aplicables aprueban en el VPS.
 
 ## Plan de verificacion
 
@@ -104,8 +104,8 @@ La sesion opaca de `admin-web` renueva el access token antes de expirar sin entr
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: aprovisionamiento persistente y E2E OTP permanecen en la siguiente rebanada.
+- Archivos, commits o PR: implementacion `21a4eb1` y plan `1ee14f3` sobre `feat/ADM-01-session-refresh`; no existe remoto configurado para push o PR.
+- Comandos y resultados: sobre el commit exacto `21a4eb1`, `pnpm run ci` aprobo en el VPS dentro de `node:24-bookworm`: formato, lint, typecheck de 17 workspaces, 41 pruebas de configuracion, 136 pruebas generales, 14 pruebas de arquitectura y build de los 17 workspaces aplicables. La prueba focalizada aprobo 3/3 escenarios contra Redis real y aislado, incluida la exclusion y mutacion condicionada por propietario.
+- Documentacion actualizada: ficha y estado oficial. El ADR-0004 ya establece tokens server-side, access tokens breves, rotacion y limites de sesion, por lo que no fue necesaria una decision nueva.
+- Desviaciones del plan: ninguna funcional. La validacion local uso Node 20 solo como señal rapida; la evidencia oficial se ejecuto con Node 24 en el VPS. El intento inicial de transmitir el archivo tar por la canalizacion de PowerShell altero el flujo binario; se repitio con un archivo temporal verificable y se limpio junto con los artefactos remotos.
+- Pendientes o decisiones nuevas: aprovisionamiento persistente de Keycloak y Redis, operador inicial y E2E OTP permanecen en la siguiente rebanada. `ADM-01` continua abierto.
