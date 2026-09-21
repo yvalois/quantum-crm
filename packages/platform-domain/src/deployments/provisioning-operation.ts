@@ -26,6 +26,16 @@ export const provisioningOperationSteps = [
 ] as const;
 export type ProvisioningOperationStep = (typeof provisioningOperationSteps)[number];
 
+export const provisioningValidationFailureCodes = [
+  "TENANT_STATE_INVALID",
+  "TENANT_PLACEMENT_MISMATCH",
+  "SERVER_UNAVAILABLE",
+  "RELEASE_NOT_VALIDATED",
+  "RESERVATION_INVALID",
+  "CAPACITY_ACCOUNTING_INVALID",
+] as const;
+export type ProvisioningValidationFailureCode = (typeof provisioningValidationFailureCodes)[number];
+
 interface ProvisioningOperationIdentity {
   readonly tenantProfileId: string;
   readonly serverId: string;
@@ -64,6 +74,7 @@ export interface ProvisioningOperation extends ProvisioningOperationIdentity {
   readonly currentStep: ProvisioningOperationStep;
   readonly attempt: number;
   readonly version: bigint;
+  readonly failureCode: ProvisioningValidationFailureCode | null;
   readonly lease: ProvisioningOperationLease | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -80,14 +91,52 @@ export interface ProvisioningRequestResult {
   readonly idempotentReplay: boolean;
 }
 
-export interface ClaimProvisioningOperationCommand {
+interface ProvisioningOperationLeaseCommand {
   readonly workerId: string;
   readonly leaseDurationSeconds: number;
 }
 
-export interface RenewProvisioningOperationLeaseCommand extends ClaimProvisioningOperationCommand {
+export interface ClaimProvisioningOperationCommand extends ProvisioningOperationLeaseCommand {
+  readonly supportedSteps: readonly ProvisioningOperationStep[];
+}
+
+export interface RenewProvisioningOperationLeaseCommand extends ProvisioningOperationLeaseCommand {
   readonly operationId: string;
   readonly expectedVersion: bigint;
+}
+
+export interface CompleteProvisioningValidationCommand {
+  readonly operationId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+}
+
+export interface ProvisioningValidationResult {
+  readonly operation: ProvisioningOperation;
+  readonly tenantVersion: bigint;
+  readonly outcome: "ADVANCED" | "FAILED";
+  readonly failureCode: ProvisioningValidationFailureCode | null;
+}
+
+export interface ProvisioningValidationSnapshot {
+  readonly tenant: {
+    readonly status: "PENDING" | "PROVISIONING" | "ACTIVE" | "SUSPENDED" | "ERROR";
+    readonly serverId: string | null;
+    readonly releaseId: string | null;
+  };
+  readonly server: {
+    readonly status: "AVAILABLE" | "DRAINING" | "UNAVAILABLE";
+    readonly reservedCapacity: ProvisioningCapacity;
+  };
+  readonly release: { readonly status: "CANDIDATE" | "VALIDATED" | "RETIRED" };
+  readonly reservation: {
+    readonly tenantProfileId: string;
+    readonly serverId: string;
+    readonly releaseId: string;
+    readonly status: "RESERVED" | "ACTIVE" | "RELEASED";
+    readonly capacity: ProvisioningCapacity;
+  };
 }
 
 export interface ProvisioningOperationRepository {
@@ -98,6 +147,9 @@ export interface ProvisioningOperationRepository {
   readonly renewLease: (
     command: RenewProvisioningOperationLeaseCommand,
   ) => Promise<ProvisioningOperation | null>;
+  readonly completeValidation: (
+    command: CompleteProvisioningValidationCommand,
+  ) => Promise<ProvisioningValidationResult | null>;
 }
 
 export class ProvisioningOperationValidationError extends Error {
@@ -180,21 +232,98 @@ export function validateProvisioningLeaseClaim(
   ) {
     throw new ProvisioningOperationValidationError("leaseDurationSeconds");
   }
-  return Object.freeze({ ...input });
+  if (
+    input.supportedSteps.length === 0 ||
+    new Set(input.supportedSteps).size !== input.supportedSteps.length ||
+    input.supportedSteps.some((step) => !provisioningOperationSteps.includes(step))
+  ) {
+    throw new ProvisioningOperationValidationError("supportedSteps");
+  }
+  return Object.freeze({ ...input, supportedSteps: Object.freeze([...input.supportedSteps]) });
 }
 
 export function validateProvisioningLeaseRenewal(
   input: RenewProvisioningOperationLeaseCommand,
 ): RenewProvisioningOperationLeaseCommand {
-  const claim = validateProvisioningLeaseClaim(input);
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (
+    !Number.isInteger(input.leaseDurationSeconds) ||
+    input.leaseDurationSeconds < 10 ||
+    input.leaseDurationSeconds > 300
+  ) {
+    throw new ProvisioningOperationValidationError("leaseDurationSeconds");
+  }
   if (input.expectedVersion < 1n) {
     throw new ProvisioningOperationValidationError("expectedVersion");
   }
   return Object.freeze({
-    ...claim,
+    workerId: input.workerId,
+    leaseDurationSeconds: input.leaseDurationSeconds,
     operationId: uuid("operationId", input.operationId),
     expectedVersion: input.expectedVersion,
   });
+}
+
+export function validateCompleteProvisioningValidation(
+  input: CompleteProvisioningValidationCommand,
+): CompleteProvisioningValidationCommand {
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
+  return Object.freeze({
+    operationId: uuid("operationId", input.operationId),
+    workerId: input.workerId,
+    expectedVersion: input.expectedVersion,
+    attempt: input.attempt,
+  });
+}
+
+function sameCapacity(left: ProvisioningCapacity, right: ProvisioningCapacity): boolean {
+  return (
+    left.cpuMillicores === right.cpuMillicores &&
+    left.memoryMiB === right.memoryMiB &&
+    left.storageMiB === right.storageMiB
+  );
+}
+
+export function evaluateProvisioningValidation(
+  operation: ProvisioningOperation,
+  snapshot: ProvisioningValidationSnapshot,
+): ProvisioningValidationFailureCode | null {
+  if (snapshot.tenant.status !== "PROVISIONING") return "TENANT_STATE_INVALID";
+  if (
+    snapshot.tenant.serverId !== operation.serverId ||
+    snapshot.tenant.releaseId !== operation.releaseId
+  ) {
+    return "TENANT_PLACEMENT_MISMATCH";
+  }
+  if (snapshot.server.status !== "AVAILABLE") return "SERVER_UNAVAILABLE";
+  if (snapshot.release.status !== "VALIDATED") return "RELEASE_NOT_VALIDATED";
+  if (
+    snapshot.reservation.status !== "RESERVED" ||
+    snapshot.reservation.tenantProfileId !== operation.tenantProfileId ||
+    snapshot.reservation.serverId !== operation.serverId ||
+    snapshot.reservation.releaseId !== operation.releaseId ||
+    !sameCapacity(snapshot.reservation.capacity, operation.requestedCapacity)
+  ) {
+    return "RESERVATION_INVALID";
+  }
+  if (
+    snapshot.server.reservedCapacity.cpuMillicores < operation.requestedCapacity.cpuMillicores ||
+    snapshot.server.reservedCapacity.memoryMiB < operation.requestedCapacity.memoryMiB ||
+    snapshot.server.reservedCapacity.storageMiB < operation.requestedCapacity.storageMiB
+  ) {
+    return "CAPACITY_ACCOUNTING_INVALID";
+  }
+  return null;
 }
 
 export function createProvisioningOperationDraft(
@@ -214,6 +343,7 @@ export function hydrateProvisioningOperation(
     readonly currentStep: ProvisioningOperationStep;
     readonly attempt: number;
     readonly version: bigint;
+    readonly failureCode?: ProvisioningValidationFailureCode | null;
     readonly lease: ProvisioningOperationLease | null;
     readonly createdAt: Date;
     readonly updatedAt: Date;
@@ -233,6 +363,13 @@ export function hydrateProvisioningOperation(
     throw new ProvisioningOperationValidationError("attempt");
   }
   if (input.version < 1n) throw new ProvisioningOperationValidationError("version");
+  const failureCode = input.failureCode ?? null;
+  if (
+    failureCode !== null &&
+    (input.status !== "FAILED" || !provisioningValidationFailureCodes.includes(failureCode))
+  ) {
+    throw new ProvisioningOperationValidationError("failureCode");
+  }
   if ((input.status === "RUNNING") !== (input.lease !== null)) {
     throw new ProvisioningOperationValidationError("lease");
   }
@@ -267,6 +404,7 @@ export function hydrateProvisioningOperation(
     currentStep: input.currentStep,
     attempt: input.attempt,
     version: input.version,
+    failureCode,
     lease,
     createdAt,
     updatedAt,
