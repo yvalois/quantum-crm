@@ -147,6 +147,7 @@ beforeAll(async () => {
       claimNext: vi.fn(async () => null),
       renewLease: vi.fn(async () => null),
       completeValidation: vi.fn(async () => null),
+      completeDatabase: vi.fn(async () => null),
     },
   };
   application = await NestFactory.create(

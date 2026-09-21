@@ -110,6 +110,7 @@ model InfrastructureServer {
   updatedAt              DateTime                         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   capacityReservations   InfrastructureCapacityReservation[]
   provisioningOperations ProvisioningOperation[]
+  tenantDatabases        TenantDatabase[]
 
   @@index([status, createdAt, id], map: "infrastructure_servers_status_created_id_idx")
   @@map("servers")
@@ -221,6 +222,7 @@ model TenantProfile {
   updatedAt         DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   provisioningOperations ProvisioningOperation[]
   capacityReservations InfrastructureCapacityReservation[]
+  database             TenantDatabase?
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -272,9 +274,42 @@ enum ProvisioningValidationFailureCode {
   RELEASE_NOT_VALIDATED        @map("release_not_validated")
   RESERVATION_INVALID          @map("reservation_invalid")
   CAPACITY_ACCOUNTING_INVALID  @map("capacity_accounting_invalid")
+  DATABASE_TARGET_CONFLICT     @map("database_target_conflict")
+  DATABASE_UNAVAILABLE         @map("database_unavailable")
+  DATABASE_PERMISSION_DENIED   @map("database_permission_denied")
+  DATABASE_IDENTITY_MISMATCH   @map("database_identity_mismatch")
 
   @@map("provisioning_validation_failure_code")
   @@schema("operations")
+}
+
+enum TenantDatabaseStatus {
+  PROVISIONING @map("provisioning")
+  CREATED      @map("created")
+  ERROR        @map("error")
+
+  @@map("tenant_database_status")
+  @@schema("tenants")
+}
+
+model TenantDatabase {
+  id               String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId  String             @unique(map: "tenant_databases_tenant_profile_id_key") @map("tenant_profile_id") @db.Uuid
+  serverId         String             @map("server_id") @db.Uuid
+  databaseName     String             @unique(map: "tenant_databases_database_name_key") @map("database_name") @db.VarChar(63)
+  migratorRoleName String             @unique(map: "tenant_databases_migrator_role_name_key") @map("migrator_role_name") @db.VarChar(63)
+  runtimeRoleName  String             @unique(map: "tenant_databases_runtime_role_name_key") @map("runtime_role_name") @db.VarChar(63)
+  status           TenantDatabaseStatus @default(PROVISIONING)
+  version          BigInt             @default(1)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile    TenantProfile      @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  server           InfrastructureServer @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([serverId], map: "tenant_databases_server_id_idx")
+  @@index([status, updatedAt, id], map: "tenant_databases_status_updated_id_idx")
+  @@map("tenant_databases")
+  @@schema("tenants")
 }
 
 model ProvisioningOperation {

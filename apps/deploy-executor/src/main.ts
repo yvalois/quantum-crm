@@ -4,7 +4,10 @@ import { hostname } from "node:os";
 
 import { NestFactory } from "@nestjs/core";
 import { loadServiceConfig, requireDatabaseConfig } from "@quantum-crm/config";
-import { createPlatformPostgresDatabase } from "@quantum-crm/database";
+import {
+  createPlatformPostgresDatabase,
+  createTenantDatabaseProvisioner,
+} from "@quantum-crm/database";
 import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
 
 import { AppModule } from "./app.module.js";
@@ -16,6 +19,9 @@ async function bootstrap(): Promise<void> {
     requireDatabaseConfig(config),
     config.serviceName,
   );
+  const adminConnectionUrl = config.database?.adminConnectionUrl?.expose();
+  if (!adminConnectionUrl) throw new Error("deploy-executor database admin configuration missing");
+  const databaseProvisioner = createTenantDatabaseProvisioner(adminConnectionUrl);
   let application: Awaited<ReturnType<typeof NestFactory.createApplicationContext>> | undefined;
   try {
     await database.connect();
@@ -34,11 +40,16 @@ async function bootstrap(): Promise<void> {
     });
 
     await healthServer.start();
-    const executor = new ProvisioningExecutor(database.provisioningOperations, {
-      workerId: `deploy-executor:${hostname()}`,
-      leaseDurationSeconds: 60,
-      idlePollMilliseconds: 2_000,
-    });
+    const executor = new ProvisioningExecutor(
+      database.provisioningOperations,
+      {
+        workerId: `deploy-executor:${hostname()}`,
+        leaseDurationSeconds: 60,
+        idlePollMilliseconds: 2_000,
+      },
+      undefined,
+      databaseProvisioner,
+    );
     ready = true;
     const close = async (): Promise<void> => {
       if (closing) return;
@@ -48,6 +59,7 @@ async function bootstrap(): Promise<void> {
       await healthServer.close();
       await applicationContext.close();
       await database.close();
+      await databaseProvisioner.close();
     };
     registerGracefulShutdown([{ close }], config.shutdownTimeoutMs);
     void executor.start().catch(async () => {
@@ -58,6 +70,7 @@ async function bootstrap(): Promise<void> {
   } catch (error) {
     await application?.close();
     await database.close();
+    await databaseProvisioner.close();
     throw error;
   }
 }

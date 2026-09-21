@@ -33,6 +33,10 @@ export const provisioningValidationFailureCodes = [
   "RELEASE_NOT_VALIDATED",
   "RESERVATION_INVALID",
   "CAPACITY_ACCOUNTING_INVALID",
+  "DATABASE_TARGET_CONFLICT",
+  "DATABASE_UNAVAILABLE",
+  "DATABASE_PERMISSION_DENIED",
+  "DATABASE_IDENTITY_MISMATCH",
 ] as const;
 export type ProvisioningValidationFailureCode = (typeof provisioningValidationFailureCodes)[number];
 
@@ -112,11 +116,44 @@ export interface CompleteProvisioningValidationCommand {
   readonly attempt: number;
 }
 
+export interface CompleteProvisioningDatabaseCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+  readonly databaseName: string;
+  readonly migratorRoleName: string;
+  readonly runtimeRoleName: string;
+  readonly failureCode?: ProvisioningValidationFailureCode;
+}
+
 export interface ProvisioningValidationResult {
   readonly operation: ProvisioningOperation;
   readonly tenantVersion: bigint;
   readonly outcome: "ADVANCED" | "FAILED";
   readonly failureCode: ProvisioningValidationFailureCode | null;
+}
+
+export interface TenantDatabaseIdentity {
+  readonly databaseName: string;
+  readonly migratorRoleName: string;
+  readonly runtimeRoleName: string;
+}
+
+export interface TenantDatabaseProvisionCommand {
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+}
+
+export interface TenantDatabaseProvisioningResult extends TenantDatabaseIdentity {
+  readonly reconciled: boolean;
+}
+
+export interface TenantDatabaseProvisioner {
+  readonly provision: (
+    command: TenantDatabaseProvisionCommand,
+  ) => Promise<TenantDatabaseProvisioningResult>;
 }
 
 export interface ProvisioningValidationSnapshot {
@@ -150,6 +187,19 @@ export interface ProvisioningOperationRepository {
   readonly completeValidation: (
     command: CompleteProvisioningValidationCommand,
   ) => Promise<ProvisioningValidationResult | null>;
+  readonly completeDatabase: (
+    command: CompleteProvisioningDatabaseCommand,
+  ) => Promise<ProvisioningValidationResult | null>;
+}
+
+export function tenantDatabaseIdentity(tenantProfileId: string): TenantDatabaseIdentity {
+  const normalized = uuid("tenantProfileId", tenantProfileId);
+  const compact = normalized.replaceAll("-", "");
+  return Object.freeze({
+    databaseName: `qcrm_t_${compact}`,
+    migratorRoleName: `qcrm_m_${compact}`,
+    runtimeRoleName: `qcrm_r_${compact}`,
+  });
 }
 
 export class ProvisioningOperationValidationError extends Error {
@@ -283,6 +333,42 @@ export function validateCompleteProvisioningValidation(
     workerId: input.workerId,
     expectedVersion: input.expectedVersion,
     attempt: input.attempt,
+  });
+}
+
+export function validateCompleteProvisioningDatabase(
+  input: CompleteProvisioningDatabaseCommand,
+): CompleteProvisioningDatabaseCommand {
+  const identity = tenantDatabaseIdentity(input.tenantProfileId);
+  if (
+    input.databaseName !== identity.databaseName ||
+    input.migratorRoleName !== identity.migratorRoleName ||
+    input.runtimeRoleName !== identity.runtimeRoleName
+  ) {
+    throw new ProvisioningOperationValidationError("databaseIdentity");
+  }
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
+  if (input.failureCode && !provisioningValidationFailureCodes.includes(input.failureCode)) {
+    throw new ProvisioningOperationValidationError("failureCode");
+  }
+  return Object.freeze({
+    operationId: uuid("operationId", input.operationId),
+    tenantProfileId: uuid("tenantProfileId", input.tenantProfileId),
+    workerId: input.workerId,
+    expectedVersion: input.expectedVersion,
+    attempt: input.attempt,
+    databaseName: input.databaseName,
+    migratorRoleName: input.migratorRoleName,
+    runtimeRoleName: input.runtimeRoleName,
+    ...(input.failureCode ? { failureCode: input.failureCode } : {}),
   });
 }
 

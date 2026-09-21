@@ -10,6 +10,7 @@ import {
 import type { QcrmEnvironment } from "./process-config.js";
 
 const databaseUrlFile = "/run/secrets/qcrm_database_url";
+const databaseAdminUrlFile = "/run/secrets/qcrm_database_admin_url";
 const tenantIdSchema = z.string().uuid();
 
 export const databaseEnvironmentKeys = Object.freeze([
@@ -17,11 +18,16 @@ export const databaseEnvironmentKeys = Object.freeze([
   "QCRM_TENANT_ID",
 ] as const);
 
+export const databaseAdminEnvironmentKeys = Object.freeze([
+  "QCRM_DATABASE_ADMIN_URL_FILE",
+] as const);
+
 export type DatabaseTarget = "crm" | "platform";
 
 export interface DatabaseDefinition {
   readonly target: DatabaseTarget;
   readonly requiresTenant: boolean;
+  readonly requiresAdmin?: boolean;
 }
 
 export interface DatabaseConfig {
@@ -29,6 +35,7 @@ export interface DatabaseConfig {
   readonly target: DatabaseTarget;
   readonly tenantId?: string;
   readonly connectionUrl: SecretValue;
+  readonly adminConnectionUrl?: SecretValue;
   readonly poolMax: number;
   readonly connectionTimeoutMs: number;
   readonly statementTimeoutMs: number;
@@ -91,11 +98,39 @@ export function parseDatabaseConfig(
     throw new ConfigurationError(serviceName, ["QCRM_DATABASE_URL_FILE"]);
   }
 
+  let adminConnectionUrl: SecretValue | undefined;
+  if (definition.requiresAdmin) {
+    const adminUrlFileResult = z
+      .string()
+      .trim()
+      .min(1)
+      .safeParse(environment.QCRM_DATABASE_ADMIN_URL_FILE);
+    if (!adminUrlFileResult.success) {
+      throw new ConfigurationError(serviceName, ["QCRM_DATABASE_ADMIN_URL_FILE"]);
+    }
+    try {
+      adminConnectionUrl = loadSecretFile("database admin URL", adminUrlFileResult.data, {
+        environment: environmentName,
+        expectedProtectedPath: databaseAdminUrlFile,
+        ...(fileSystem ? { fileSystem } : {}),
+      });
+    } catch (error) {
+      if (error instanceof SecretFileError) {
+        throw new ConfigurationError(serviceName, ["QCRM_DATABASE_ADMIN_URL_FILE"]);
+      }
+      throw error;
+    }
+    if (!isValidPostgresUrl(adminConnectionUrl.expose())) {
+      throw new ConfigurationError(serviceName, ["QCRM_DATABASE_ADMIN_URL_FILE"]);
+    }
+  }
+
   return Object.freeze({
     schemaVersion: "database-config/v1",
     target: definition.target,
     ...(tenantResult.success ? { tenantId: tenantResult.data } : {}),
     connectionUrl,
+    ...(adminConnectionUrl ? { adminConnectionUrl } : {}),
     poolMax: 5,
     connectionTimeoutMs: 5_000,
     statementTimeoutMs: 15_000,

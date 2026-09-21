@@ -120,7 +120,7 @@ describe("process configuration", () => {
         serviceName: "deploy-executor",
         defaultHost: "127.0.0.1",
         defaultPort: 3102,
-        database: { target: "platform", requiresTenant: false },
+        database: { target: "platform", requiresTenant: false, requiresAdmin: true },
       },
       "agent-runtime": {
         serviceName: "agent-runtime",

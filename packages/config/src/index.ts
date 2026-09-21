@@ -29,6 +29,7 @@ export {
   databaseEnvironmentKeys,
   expectedDatabaseSecretPath,
   parseDatabaseConfig,
+  databaseAdminEnvironmentKeys,
   type DatabaseConfig,
   type DatabaseDefinition,
   type DatabaseTarget,
