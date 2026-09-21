@@ -5,6 +5,7 @@ import {
 } from "@quantum-crm/database";
 import {
   InfrastructureCapacityExceededError,
+  InfrastructureServerNotAdmissibleError,
   ProvisioningOperationConflictError,
   TenantProfileConflictError,
   TenantProfileVersionConflictError,
@@ -359,6 +360,68 @@ describe("platform tenant profile migration", () => {
       [constrainedServer.id],
     );
     expect(effects.rows[0]).toEqual({ reservations: "1", operations: "1" });
+  });
+
+  it("rejects missing and unavailable servers without partial effects", async () => {
+    const unavailableServer = await database.infrastructureServers.create({
+      code: "unavailable-capacity",
+      displayName: "Unavailable capacity",
+      provider: "Test provider",
+      region: "test-region",
+      publicIpv4: "192.0.2.32",
+      operatingSystem: "Test Linux 1",
+      architecture: "X86_64",
+      status: "UNAVAILABLE",
+      totalCapacity: { cpuMillicores: 1000, memoryMiB: 2048, storageMiB: 20000 },
+      reservedCapacity: { cpuMillicores: 0, memoryMiB: 0, storageMiB: 0 },
+      operationCredentialRef: "secret://test/servers/unavailable/ssh-key",
+      confirmedAt: new Date("2026-09-20T12:00:00.000Z"),
+    });
+    const profile = await database.tenantProfiles.create({
+      name: "Rejected Capacity",
+      slug: "rejected-capacity",
+      adminContactName: "Rafa",
+      adminContactEmail: "rafa@example.test",
+      status: "PENDING",
+    });
+    const baseCommand = {
+      tenantProfileId: profile.id,
+      releaseId: "01995f7e-7b52-7000-8000-000000000520",
+      requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10000 },
+      requestedByOperatorId: operatorId,
+      correlationId: "capacity-rejected-001",
+      expectedTenantVersion: profile.version,
+    } as const;
+
+    await expect(
+      database.provisioningOperations.request({
+        ...baseCommand,
+        serverId: unavailableServer.id,
+        idempotencyKey: "capacity-unavailable-001",
+      }),
+    ).rejects.toBeInstanceOf(InfrastructureServerNotAdmissibleError);
+    await expect(
+      database.provisioningOperations.request({
+        ...baseCommand,
+        serverId: "01995f7e-7b52-7000-8000-000000000599",
+        idempotencyKey: "capacity-missing-001",
+      }),
+    ).rejects.toBeInstanceOf(InfrastructureServerNotAdmissibleError);
+
+    const effects = await pool.query<{ reservations: string; operations: string }>(
+      `
+        SELECT
+          (SELECT count(*)::text FROM infrastructure.capacity_reservations WHERE tenant_profile_id = $1::uuid) AS reservations,
+          (SELECT count(*)::text FROM operations.provisioning_operations WHERE tenant_profile_id = $1::uuid) AS operations
+      `,
+      [profile.id],
+    );
+    expect(effects.rows[0]).toEqual({ reservations: "0", operations: "0" });
+    await expect(database.tenantProfiles.findById(profile.id)).resolves.toMatchObject({
+      status: "PENDING",
+      serverId: undefined,
+      version: 1n,
+    });
   });
 
   it("claims once, fences renewal and recovers an expired lease", async () => {
