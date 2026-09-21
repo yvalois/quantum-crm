@@ -49,9 +49,41 @@ model InfrastructureServer {
   version                BigInt                           @default(1)
   createdAt              DateTime                         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  capacityReservations   InfrastructureCapacityReservation[]
+  provisioningOperations ProvisioningOperation[]
 
   @@index([status, createdAt, id], map: "infrastructure_servers_status_created_id_idx")
   @@map("servers")
+  @@schema("infrastructure")
+}
+
+enum InfrastructureCapacityReservationStatus {
+  RESERVED @map("reserved")
+  ACTIVE   @map("active")
+  RELEASED @map("released")
+
+  @@map("capacity_reservation_status")
+  @@schema("infrastructure")
+}
+
+model InfrastructureCapacityReservation {
+  id                 String                                  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId    String                                  @map("tenant_profile_id") @db.Uuid
+  serverId           String                                  @map("server_id") @db.Uuid
+  releaseId          String                                  @map("release_id") @db.Uuid
+  status             InfrastructureCapacityReservationStatus @default(RESERVED)
+  cpuMillicores      Int                                     @map("cpu_millicores")
+  memoryMib          Int                                     @map("memory_mib")
+  storageMib         Int                                     @map("storage_mib")
+  createdAt          DateTime                                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile      TenantProfile                           @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  server             InfrastructureServer                    @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  provisioningOperations ProvisioningOperation[]
+
+  @@unique([tenantProfileId], map: "capacity_reservations_one_open_per_tenant_idx", where: raw("\"status\" IN ('reserved', 'active')"))
+  @@index([serverId, status, createdAt, id], map: "capacity_reservations_server_status_created_id_idx")
+  @@map("capacity_reservations")
   @@schema("infrastructure")
 }
 
@@ -128,6 +160,7 @@ model TenantProfile {
   createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   provisioningOperations ProvisioningOperation[]
+  capacityReservations InfrastructureCapacityReservation[]
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
   @@index([serverId], map: "tenant_profiles_server_id_idx", where: raw("\"server_id\" IS NOT NULL"))
@@ -168,6 +201,10 @@ model ProvisioningOperation {
   tenantProfileId       String                      @map("tenant_profile_id") @db.Uuid
   serverId              String                      @map("server_id") @db.Uuid
   releaseId             String                      @map("release_id") @db.Uuid
+  capacityReservationId String?                     @map("capacity_reservation_id") @db.Uuid
+  requestedCpuMillicores Int?                       @map("requested_cpu_millicores")
+  requestedMemoryMib     Int?                       @map("requested_memory_mib")
+  requestedStorageMib    Int?                       @map("requested_storage_mib")
   requestedByOperatorId String                      @map("requested_by_operator_id") @db.Uuid
   idempotencyKey        String                      @map("idempotency_key") @db.VarChar(128)
   correlationId         String                      @map("correlation_id") @db.VarChar(128)
@@ -181,10 +218,13 @@ model ProvisioningOperation {
   createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   tenantProfile         TenantProfile               @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  server                InfrastructureServer        @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  capacityReservation   InfrastructureCapacityReservation? @relation(fields: [capacityReservationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   requestedByOperator   PlatformOperatorMembership  @relation(fields: [requestedByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([requestedByOperatorId, idempotencyKey], map: "provisioning_operations_actor_idempotency_key_key")
   @@index([status, createdAt, id], map: "provisioning_operations_status_created_id_idx")
+  @@unique([capacityReservationId], map: "provisioning_operations_capacity_reservation_id_key")
   @@index([status, leaseExpiresAt, createdAt, id], map: "provisioning_operations_claimable_idx", where: raw("\"status\" IN ('pending', 'running')"))
   @@unique([tenantProfileId], map: "provisioning_operations_one_open_per_tenant_idx", where: raw("\"status\" IN ('pending', 'running')"))
   @@map("provisioning_operations")

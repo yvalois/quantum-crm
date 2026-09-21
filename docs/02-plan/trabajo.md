@@ -80,7 +80,7 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
 - [ ] **ADM-05 — Registrar los VPS y la ubicación de cada perfil.**
   - [x] Guardar IP pública, proveedor, sistema operativo, arquitectura, CPU, RAM y almacenamiento una vez confirmados.
   - [ ] Relacionar cada cliente con su servidor y recursos desplegados.
-  - [ ] Consultar capacidad disponible antes de admitir un nuevo perfil o una segunda versión temporal.
+  - [x] Consultar capacidad disponible antes de admitir un nuevo perfil o una segunda versión temporal.
   - [x] Guardar referencias a credenciales de operación, sin mostrar claves privadas o contraseñas en la ficha.
 
 - [ ] **ADM-06 — Consultar la versión instalada y el estado real del despliegue.**

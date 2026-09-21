@@ -4,6 +4,8 @@ import {
   hydrateInfrastructureServer,
   hydrateProvisioningOperation,
   InfrastructureServerConflictError,
+  InfrastructureCapacityExceededError,
+  InfrastructureServerNotAdmissibleError,
   infrastructureServerArchitectures,
   infrastructureServerStatuses,
   ProvisioningOperationConflictError,
@@ -207,6 +209,10 @@ interface ProvisioningOperationRow {
   readonly tenant_profile_id: string;
   readonly server_id: string;
   readonly release_id: string;
+  readonly capacity_reservation_id: string | null;
+  readonly requested_cpu_millicores: number | null;
+  readonly requested_memory_mib: number | null;
+  readonly requested_storage_mib: number | null;
   readonly requested_by_operator_id: string;
   readonly idempotency_key: string;
   readonly correlation_id: string;
@@ -227,6 +233,10 @@ const provisioningOperationSelection = `
   operation.tenant_profile_id::text,
   operation.server_id::text,
   operation.release_id::text,
+  operation.capacity_reservation_id::text,
+  operation.requested_cpu_millicores,
+  operation.requested_memory_mib,
+  operation.requested_storage_mib,
   operation.requested_by_operator_id::text,
   operation.idempotency_key,
   operation.correlation_id,
@@ -242,6 +252,14 @@ const provisioningOperationSelection = `
 `;
 
 function provisioningOperationFromRow(row: ProvisioningOperationRow): ProvisioningOperation {
+  if (
+    !row.capacity_reservation_id ||
+    row.requested_cpu_millicores === null ||
+    row.requested_memory_mib === null ||
+    row.requested_storage_mib === null
+  ) {
+    throw new DatabaseUnavailableError();
+  }
   return hydrateProvisioningOperation({
     id: row.id,
     tenantProfileId: row.tenant_profile_id,
@@ -250,6 +268,11 @@ function provisioningOperationFromRow(row: ProvisioningOperationRow): Provisioni
     requestedByOperatorId: row.requested_by_operator_id,
     idempotencyKey: row.idempotency_key,
     correlationId: row.correlation_id,
+    requestedCapacity: {
+      cpuMillicores: row.requested_cpu_millicores,
+      memoryMiB: row.requested_memory_mib,
+      storageMiB: row.requested_storage_mib,
+    },
     status: provisioningOperationStatus(row.status),
     currentStep: provisioningOperationStep(row.current_step),
     attempt: row.attempt,
@@ -264,6 +287,14 @@ function provisioningOperationFromRow(row: ProvisioningOperationRow): Provisioni
         : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    capacityReservation: {
+      id: row.capacity_reservation_id,
+      capacity: {
+        cpuMillicores: row.requested_cpu_millicores,
+        memoryMiB: row.requested_memory_mib,
+        storageMiB: row.requested_storage_mib,
+      },
+    },
   });
 }
 
@@ -776,7 +807,10 @@ export function createPlatformPostgresDatabase(
           if (
             existing.tenant_profile_id !== draft.tenantProfileId ||
             existing.server_id !== draft.serverId ||
-            existing.release_id !== draft.releaseId
+            existing.release_id !== draft.releaseId ||
+            existing.requested_cpu_millicores !== draft.requestedCapacity.cpuMillicores ||
+            existing.requested_memory_mib !== draft.requestedCapacity.memoryMiB ||
+            existing.requested_storage_mib !== draft.requestedCapacity.storageMiB
           ) {
             throw new ProvisioningOperationConflictError();
           }
@@ -810,16 +844,105 @@ export function createPlatformPostgresDatabase(
           "START_PROVISIONING",
         );
 
+        const serverResult = await client.query<{
+          readonly status: string;
+          readonly total_cpu_millicores: number;
+          readonly total_memory_mib: number;
+          readonly total_storage_mib: number;
+          readonly reserved_cpu_millicores: number;
+          readonly reserved_memory_mib: number;
+          readonly reserved_storage_mib: number;
+        }>(
+          `
+            SELECT
+              status::text,
+              total_cpu_millicores,
+              total_memory_mib,
+              total_storage_mib,
+              reserved_cpu_millicores,
+              reserved_memory_mib,
+              reserved_storage_mib
+            FROM infrastructure.servers
+            WHERE id = $1::uuid
+            FOR UPDATE
+          `,
+          [draft.serverId],
+        );
+        const server = serverResult.rows[0];
+        if (!server || server.status !== "available") {
+          throw new InfrastructureServerNotAdmissibleError();
+        }
+        if (
+          server.reserved_cpu_millicores + draft.requestedCapacity.cpuMillicores >
+            server.total_cpu_millicores ||
+          server.reserved_memory_mib + draft.requestedCapacity.memoryMiB >
+            server.total_memory_mib ||
+          server.reserved_storage_mib + draft.requestedCapacity.storageMiB >
+            server.total_storage_mib
+        ) {
+          throw new InfrastructureCapacityExceededError();
+        }
+
+        const reservationResult = await client.query<{ readonly id: string }>(
+          `
+            INSERT INTO infrastructure.capacity_reservations (
+              tenant_profile_id,
+              server_id,
+              release_id,
+              cpu_millicores,
+              memory_mib,
+              storage_mib
+            ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6)
+            RETURNING id::text
+          `,
+          [
+            draft.tenantProfileId,
+            draft.serverId,
+            draft.releaseId,
+            draft.requestedCapacity.cpuMillicores,
+            draft.requestedCapacity.memoryMiB,
+            draft.requestedCapacity.storageMiB,
+          ],
+        );
+        const capacityReservationId = reservationResult.rows[0]?.id;
+        if (!capacityReservationId) throw new DatabaseUnavailableError();
+
+        await client.query(
+          `
+            UPDATE infrastructure.servers
+            SET
+              reserved_cpu_millicores = reserved_cpu_millicores + $2,
+              reserved_memory_mib = reserved_memory_mib + $3,
+              reserved_storage_mib = reserved_storage_mib + $4,
+              version = version + 1,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid
+          `,
+          [
+            draft.serverId,
+            draft.requestedCapacity.cpuMillicores,
+            draft.requestedCapacity.memoryMiB,
+            draft.requestedCapacity.storageMiB,
+          ],
+        );
+
         const operationResult = await client.query<ProvisioningOperationRow>(
           `
             INSERT INTO operations.provisioning_operations (
               tenant_profile_id,
               server_id,
               release_id,
+              capacity_reservation_id,
+              requested_cpu_millicores,
+              requested_memory_mib,
+              requested_storage_mib,
               requested_by_operator_id,
               idempotency_key,
               correlation_id
-            ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6)
+            ) VALUES (
+              $1::uuid, $2::uuid, $3::uuid, $7::uuid, $8, $9, $10,
+              $4::uuid, $5, $6
+            )
             RETURNING ${provisioningOperationSelection.replaceAll("operation.", "")}
           `,
           [
@@ -829,6 +952,10 @@ export function createPlatformPostgresDatabase(
             draft.requestedByOperatorId,
             draft.idempotencyKey,
             draft.correlationId,
+            capacityReservationId,
+            draft.requestedCapacity.cpuMillicores,
+            draft.requestedCapacity.memoryMiB,
+            draft.requestedCapacity.storageMiB,
           ],
         );
         const operationRow = operationResult.rows[0];
@@ -868,7 +995,9 @@ export function createPlatformPostgresDatabase(
           error instanceof ProvisioningOperationConflictError ||
           error instanceof TenantProfileLifecycleTransitionError ||
           error instanceof TenantProfileNotFoundError ||
-          error instanceof TenantProfileVersionConflictError
+          error instanceof TenantProfileVersionConflictError ||
+          error instanceof InfrastructureServerNotAdmissibleError ||
+          error instanceof InfrastructureCapacityExceededError
         ) {
           throw error;
         }
@@ -886,11 +1015,14 @@ export function createPlatformPostgresDatabase(
             WITH candidate AS (
               SELECT operation.id
               FROM operations.provisioning_operations AS operation
-              WHERE operation.status = 'pending'
-                 OR (
+              WHERE (
+                   operation.status = 'pending'
+                   OR (
                    operation.status = 'running'
                    AND operation.lease_expires_at <= CURRENT_TIMESTAMP
                  )
+                )
+                AND operation.capacity_reservation_id IS NOT NULL
               ORDER BY
                 CASE WHEN operation.status = 'pending' THEN 0 ELSE 1 END,
                 operation.created_at ASC,

@@ -33,6 +33,18 @@ interface ProvisioningOperationIdentity {
   readonly requestedByOperatorId: string;
   readonly idempotencyKey: string;
   readonly correlationId: string;
+  readonly requestedCapacity: ProvisioningCapacity;
+}
+
+export interface ProvisioningCapacity {
+  readonly cpuMillicores: number;
+  readonly memoryMiB: number;
+  readonly storageMiB: number;
+}
+
+export interface CapacityReservation {
+  readonly id: string;
+  readonly capacity: ProvisioningCapacity;
 }
 
 export interface ProvisioningOperationDraft extends ProvisioningOperationIdentity {
@@ -55,6 +67,7 @@ export interface ProvisioningOperation extends ProvisioningOperationIdentity {
   readonly lease: ProvisioningOperationLease | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+  readonly capacityReservation: CapacityReservation;
 }
 
 export interface RequestProvisioningCommand extends ProvisioningOperationIdentity {
@@ -101,6 +114,20 @@ export class ProvisioningOperationConflictError extends Error {
   }
 }
 
+export class InfrastructureServerNotAdmissibleError extends Error {
+  public constructor() {
+    super("Infrastructure server is not available for admission");
+    this.name = "InfrastructureServerNotAdmissibleError";
+  }
+}
+
+export class InfrastructureCapacityExceededError extends Error {
+  public constructor() {
+    super("Infrastructure server has insufficient available capacity");
+    this.name = "InfrastructureCapacityExceededError";
+  }
+}
+
 function uuid(field: string, value: string): string {
   const normalized = value.toLowerCase();
   if (!uuidPattern.test(normalized)) throw new ProvisioningOperationValidationError(field);
@@ -119,6 +146,7 @@ function identity(input: ProvisioningOperationIdentity): ProvisioningOperationId
   if (!correlationIdPattern.test(input.correlationId)) {
     throw new ProvisioningOperationValidationError("correlationId");
   }
+  const requestedCapacity = provisioningCapacity(input.requestedCapacity);
   return Object.freeze({
     tenantProfileId: uuid("tenantProfileId", input.tenantProfileId),
     serverId: uuid("serverId", input.serverId),
@@ -126,7 +154,17 @@ function identity(input: ProvisioningOperationIdentity): ProvisioningOperationId
     requestedByOperatorId: uuid("requestedByOperatorId", input.requestedByOperatorId),
     idempotencyKey: input.idempotencyKey,
     correlationId: input.correlationId,
+    requestedCapacity,
   });
+}
+
+function provisioningCapacity(input: ProvisioningCapacity): ProvisioningCapacity {
+  for (const [dimension, amount] of Object.entries(input)) {
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      throw new ProvisioningOperationValidationError(`requestedCapacity.${dimension}`);
+    }
+  }
+  return Object.freeze({ ...input });
 }
 
 export function validateProvisioningLeaseClaim(
@@ -179,6 +217,7 @@ export function hydrateProvisioningOperation(
     readonly lease: ProvisioningOperationLease | null;
     readonly createdAt: Date;
     readonly updatedAt: Date;
+    readonly capacityReservation: CapacityReservation;
   },
 ): ProvisioningOperation {
   if (!provisioningOperationStatuses.includes(input.status)) {
@@ -216,6 +255,11 @@ export function hydrateProvisioningOperation(
     lease = Object.freeze({ owner: input.lease.owner, expiresAt, lastHeartbeatAt });
   }
 
+  const capacityReservation = Object.freeze({
+    id: uuid("capacityReservation.id", input.capacityReservation.id),
+    capacity: provisioningCapacity(input.capacityReservation.capacity),
+  });
+
   return Object.freeze({
     ...operationIdentity,
     id: uuid("id", input.id),
@@ -226,6 +270,7 @@ export function hydrateProvisioningOperation(
     lease,
     createdAt,
     updatedAt,
+    capacityReservation,
   });
 }
 

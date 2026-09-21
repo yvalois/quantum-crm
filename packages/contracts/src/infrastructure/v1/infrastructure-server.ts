@@ -28,7 +28,6 @@ const WritableInfrastructureServerFieldsSchema = z
     totalCapacity: ServerCapacitySchema.refine(
       (value) => value.cpuMillicores > 0 && value.memoryMiB > 0 && value.storageMiB > 0,
     ),
-    reservedCapacity: ServerCapacitySchema,
     operationCredentialRef: z
       .string()
       .trim()
@@ -38,13 +37,7 @@ const WritableInfrastructureServerFieldsSchema = z
   })
   .strict();
 
-export const CreateInfrastructureServerSchema = WritableInfrastructureServerFieldsSchema.refine(
-  (value) =>
-    value.reservedCapacity.cpuMillicores <= value.totalCapacity.cpuMillicores &&
-    value.reservedCapacity.memoryMiB <= value.totalCapacity.memoryMiB &&
-    value.reservedCapacity.storageMiB <= value.totalCapacity.storageMiB,
-  { path: ["reservedCapacity"] },
-);
+export const CreateInfrastructureServerSchema = WritableInfrastructureServerFieldsSchema;
 export const UpdateInfrastructureServerSchema =
   WritableInfrastructureServerFieldsSchema.partial().refine(
     (value) => Object.keys(value).length > 0,
@@ -56,6 +49,7 @@ export const InfrastructureServerSchema = WritableInfrastructureServerFieldsSche
 }).extend({
   id: z.string().uuid(),
   availableCapacity: ServerCapacitySchema,
+  reservedCapacity: ServerCapacitySchema,
   credentialConfigured: z.boolean(),
   version: z.string().regex(/^[1-9][0-9]*$/u),
   createdAt: z.string().datetime(),

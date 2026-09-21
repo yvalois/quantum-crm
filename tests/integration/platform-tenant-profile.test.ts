@@ -4,6 +4,8 @@ import {
   type PlatformPostgresDatabase,
 } from "@quantum-crm/database";
 import {
+  InfrastructureCapacityExceededError,
+  InfrastructureServerNotAdmissibleError,
   ProvisioningOperationConflictError,
   TenantProfileConflictError,
   TenantProfileVersionConflictError,
@@ -21,10 +23,13 @@ const config = parseDatabaseConfig(
 const pool = new Pool({ connectionString: config.connectionUrl.expose(), max: 1 });
 let database: PlatformPostgresDatabase;
 let operatorId: string;
+let serverId: string;
 
 beforeAll(async () => {
   await pool.query("DELETE FROM operations.provisioning_operations");
+  await pool.query("DELETE FROM infrastructure.capacity_reservations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
+  await pool.query("DELETE FROM infrastructure.servers");
   await pool.query("DELETE FROM platform_iam.operator_permissions");
   await pool.query("DELETE FROM platform_iam.operator_memberships");
   const operator = await pool.query<{ id: string }>(`
@@ -33,13 +38,28 @@ beforeAll(async () => {
     RETURNING id::text
   `);
   operatorId = operator.rows[0]!.id;
+  const server = await pool.query<{ id: string }>(`
+    INSERT INTO infrastructure.servers (
+      code, display_name, provider, region, public_ipv4, operating_system,
+      architecture, status, total_cpu_millicores, total_memory_mib,
+      total_storage_mib, operation_credential_ref, confirmed_at
+    ) VALUES (
+      'tenant-integration', 'Tenant integration', 'Test provider', 'test-region',
+      '192.0.2.30', 'Test Linux 1', 'x86_64', 'available', 100000, 100000,
+      1000000, 'secret://test/servers/tenant-integration/ssh-key', CURRENT_TIMESTAMP
+    )
+    RETURNING id::text
+  `);
+  serverId = server.rows[0]!.id;
   database = createPlatformPostgresDatabase(config, "tenant-profile-integration");
   await database.connect();
 });
 
 afterAll(async () => {
   await pool.query("DELETE FROM operations.provisioning_operations");
+  await pool.query("DELETE FROM infrastructure.capacity_reservations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
+  await pool.query("DELETE FROM infrastructure.servers");
   await pool.query("DELETE FROM platform_iam.operator_permissions");
   await pool.query("DELETE FROM platform_iam.operator_memberships");
   await database.close();
@@ -53,7 +73,8 @@ describe("platform tenant profile migration", () => {
       id_version: number;
       status: string;
       version: string;
-    }>(`
+    }>(
+      `
       INSERT INTO tenants.tenant_profiles (
         name,
         slug,
@@ -66,7 +87,7 @@ describe("platform tenant profile migration", () => {
         'acme-co',
         'Ana Perez',
         'admin@acme.example',
-        '01995f7e-7b52-7000-8000-000000000010',
+        $1::uuid,
         '01995f7e-7b52-7000-8000-000000000020'
       )
       RETURNING
@@ -74,7 +95,9 @@ describe("platform tenant profile migration", () => {
         uuid_extract_version(id) AS id_version,
         status::text,
         version::text
-    `);
+    `,
+      [serverId],
+    );
 
     expect(inserted.rows[0]).toMatchObject({
       id_version: 7,
@@ -205,8 +228,9 @@ describe("platform tenant profile migration", () => {
     });
     const command = {
       tenantProfileId: created.id,
-      serverId: "01995f7e-7b52-7000-8000-000000000301",
+      serverId,
       releaseId: "01995f7e-7b52-7000-8000-000000000302",
+      requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
       requestedByOperatorId: operatorId,
       idempotencyKey: "provisioning-integration-001",
       correlationId: "integration-request-001",
@@ -247,8 +271,9 @@ describe("platform tenant profile migration", () => {
     await expect(
       database.provisioningOperations.request({
         tenantProfileId: created.id,
-        serverId: "01995f7e-7b52-7000-8000-000000000301",
+        serverId,
         releaseId: "01995f7e-7b52-7000-8000-000000000302",
+        requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
         requestedByOperatorId: operatorId,
         idempotencyKey: "provisioning-integration-stale",
         correlationId: "integration-request-stale",
@@ -262,6 +287,144 @@ describe("platform tenant profile migration", () => {
     expect(count.rows[0]?.count).toBe("0");
   });
 
+  it("admits only one concurrent request when the remaining capacity fits one", async () => {
+    const constrainedServer = await database.infrastructureServers.create({
+      code: "concurrency-capacity",
+      displayName: "Concurrency capacity",
+      provider: "Test provider",
+      region: "test-region",
+      publicIpv4: "192.0.2.31",
+      operatingSystem: "Test Linux 1",
+      architecture: "X86_64",
+      status: "AVAILABLE",
+      totalCapacity: { cpuMillicores: 1000, memoryMiB: 2048, storageMiB: 20000 },
+      reservedCapacity: { cpuMillicores: 0, memoryMiB: 0, storageMiB: 0 },
+      operationCredentialRef: "secret://test/servers/concurrency/ssh-key",
+      confirmedAt: new Date("2026-09-20T12:00:00.000Z"),
+    });
+    const [first, second] = await Promise.all([
+      database.tenantProfiles.create({
+        name: "Capacity First",
+        slug: "capacity-first",
+        adminContactName: "Cora",
+        adminContactEmail: "cora@example.test",
+        status: "PENDING",
+      }),
+      database.tenantProfiles.create({
+        name: "Capacity Second",
+        slug: "capacity-second",
+        adminContactName: "Ciro",
+        adminContactEmail: "ciro@example.test",
+        status: "PENDING",
+      }),
+    ]);
+    const requestedCapacity = {
+      cpuMillicores: 600,
+      memoryMiB: 1536,
+      storageMiB: 15000,
+    } as const;
+
+    const results = await Promise.allSettled(
+      [first, second].map((profile, index) =>
+        database.provisioningOperations.request({
+          tenantProfileId: profile.id,
+          serverId: constrainedServer.id,
+          releaseId: `01995f7e-7b52-7000-8000-00000000050${index}`,
+          requestedCapacity,
+          requestedByOperatorId: operatorId,
+          idempotencyKey: `capacity-concurrency-00${index}`,
+          correlationId: `capacity-concurrency-00${index}`,
+          expectedTenantVersion: profile.version,
+        }),
+      ),
+    );
+
+    expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find(({ status }) => status === "rejected");
+    expect(rejected).toMatchObject({
+      status: "rejected",
+      reason: expect.any(InfrastructureCapacityExceededError),
+    });
+    await expect(
+      database.infrastructureServers.findById(constrainedServer.id),
+    ).resolves.toMatchObject({
+      reservedCapacity: requestedCapacity,
+      availableCapacity: { cpuMillicores: 400, memoryMiB: 512, storageMiB: 5000 },
+    });
+    const effects = await pool.query<{ reservations: string; operations: string }>(
+      `
+        SELECT
+          (SELECT count(*)::text FROM infrastructure.capacity_reservations WHERE server_id = $1::uuid) AS reservations,
+          (SELECT count(*)::text FROM operations.provisioning_operations WHERE server_id = $1::uuid) AS operations
+      `,
+      [constrainedServer.id],
+    );
+    expect(effects.rows[0]).toEqual({ reservations: "1", operations: "1" });
+  });
+
+  it("rejects missing and unavailable servers without partial effects", async () => {
+    const unavailableServer = await database.infrastructureServers.create({
+      code: "unavailable-capacity",
+      displayName: "Unavailable capacity",
+      provider: "Test provider",
+      region: "test-region",
+      publicIpv4: "192.0.2.32",
+      operatingSystem: "Test Linux 1",
+      architecture: "X86_64",
+      status: "UNAVAILABLE",
+      totalCapacity: { cpuMillicores: 1000, memoryMiB: 2048, storageMiB: 20000 },
+      reservedCapacity: { cpuMillicores: 0, memoryMiB: 0, storageMiB: 0 },
+      operationCredentialRef: "secret://test/servers/unavailable/ssh-key",
+      confirmedAt: new Date("2026-09-20T12:00:00.000Z"),
+    });
+    const profile = await database.tenantProfiles.create({
+      name: "Rejected Capacity",
+      slug: "rejected-capacity",
+      adminContactName: "Rafa",
+      adminContactEmail: "rafa@example.test",
+      status: "PENDING",
+    });
+    const baseCommand = {
+      tenantProfileId: profile.id,
+      releaseId: "01995f7e-7b52-7000-8000-000000000520",
+      requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10000 },
+      requestedByOperatorId: operatorId,
+      correlationId: "reject-01",
+      expectedTenantVersion: profile.version,
+    } as const;
+
+    await expect(
+      database.provisioningOperations.request({
+        ...baseCommand,
+        serverId: unavailableServer.id,
+        idempotencyKey: "blocked-01",
+      }),
+    ).rejects.toBeInstanceOf(InfrastructureServerNotAdmissibleError);
+    await expect(
+      database.provisioningOperations.request({
+        ...baseCommand,
+        serverId: "01995f7e-7b52-7000-8000-000000000599",
+        idempotencyKey: "missing-01",
+      }),
+    ).rejects.toBeInstanceOf(InfrastructureServerNotAdmissibleError);
+
+    const effects = await pool.query<{ reservations: string; operations: string }>(
+      `
+        SELECT
+          (SELECT count(*)::text FROM infrastructure.capacity_reservations WHERE tenant_profile_id = $1::uuid) AS reservations,
+          (SELECT count(*)::text FROM operations.provisioning_operations WHERE tenant_profile_id = $1::uuid) AS operations
+      `,
+      [profile.id],
+    );
+    expect(effects.rows[0]).toEqual({ reservations: "0", operations: "0" });
+    const unchanged = await database.tenantProfiles.findById(profile.id);
+    expect(unchanged).toMatchObject({
+      status: "PENDING",
+      version: 1n,
+    });
+    expect(unchanged?.serverId).toBeUndefined();
+  });
+
   it("claims once, fences renewal and recovers an expired lease", async () => {
     await pool.query("DELETE FROM operations.provisioning_operations");
     const created = await database.tenantProfiles.create({
@@ -273,8 +436,9 @@ describe("platform tenant profile migration", () => {
     });
     const requested = await database.provisioningOperations.request({
       tenantProfileId: created.id,
-      serverId: "01995f7e-7b52-7000-8000-000000000401",
+      serverId,
       releaseId: "01995f7e-7b52-7000-8000-000000000402",
+      requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
       requestedByOperatorId: operatorId,
       idempotencyKey: "provisioning-integration-lease",
       correlationId: "integration-request-lease",
