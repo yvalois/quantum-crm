@@ -120,7 +120,7 @@ La especificacion logica anterior es mas amplia que el codigo disponible. El inc
 
 `infra/docker/Dockerfile.web` produce las tres variantes Next.js standalone y `infra/docker/Dockerfile.node` produce los cinco procesos Node compilados. Caddy sera el unico publicador de trafico en los despliegues no locales; las redes externas declaradas son puntos de conexion controlados, no autorizacion para publicar puertos internos.
 
-`OPS-04-a` materializa la frontera inicial de PostgreSQL: `api` y `worker` consumen la base exclusiva de su perfil, `admin-api` consume la base de plataforma y readiness prueba la conexion sin exponer identidad ni URL. `agent-runtime` y las webs no reciben esos secretos. `ADM-04-d` agrega al `deploy-executor` una referencia administrativa separada y de privilegio minimo para crear y reconciliar una base por perfil; `ADM-04-e` agrega credenciales idempotentes en archivos privados y referencias sin valores; `ADM-04-g` materializa un manifiesto no secreto y su referencia durable fuera del checkout antes de iniciar contenedores. El executor no recibe Docker socket, shell ni SQL libre. Los schemas comerciales, migrador de perfil y pasos posteriores siguen pendientes.
+`OPS-04-a` materializa la frontera inicial de PostgreSQL: `api` y `worker` consumen la base exclusiva de su perfil, `admin-api` consume la base de plataforma y readiness prueba la conexion sin exponer identidad ni URL. `agent-runtime` y las webs no reciben esos secretos. `ADM-04-d` agrega al `deploy-executor` una referencia administrativa separada y de privilegio minimo para crear y reconciliar una base por perfil; `ADM-04-e` agrega credenciales idempotentes en archivos privados y referencias sin valores; `ADM-04-g` materializa un manifiesto no secreto y su referencia durable fuera del checkout antes de iniciar contenedores. `ADM-04-h` define un adaptador Unix privado para que el ejecutor pueda reconciliar Compose sin recibir el socket Docker. Los schemas comerciales, migrador de perfil y pasos posteriores siguen pendientes.
 
 Los componentes de identidad, Redis, archivos, proxy, telemetria y respaldo permanecen como arquitectura aprobada pendiente de sus requisitos operativos. La existencia de una plantilla Compose no acredita instalacion persistente en el VPS, imagen publicada, SBOM, procedencia, escaneo ni release desplegada.
 
@@ -405,6 +405,7 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 - `ADR-0007`: pruebas y calidad.
 - `ADR-0008`: entornos, configuracion y secretos.
 - `ADR-0017`: secretos idempotentes de base por perfil.
+- `ADR-0018`: ejecucion restringida de Compose por perfil.
 - `ADR-0009`: integracion, entrega y releases.
 - `ADR-0010`: observabilidad y manejo de fallos.
 - `ADR-0011`: trabajos asincronos y automatizaciones durables.
