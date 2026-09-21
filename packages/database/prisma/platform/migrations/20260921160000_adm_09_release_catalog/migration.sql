@@ -140,6 +140,3 @@ REVOKE ALL ON ALL SEQUENCES IN SCHEMA releases FROM PUBLIC;
 REVOKE ALL ON FUNCTION releases.has_complete_artifact_set(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION releases.assert_release_artifacts_from_release() FROM PUBLIC;
 REVOKE ALL ON FUNCTION releases.assert_release_artifacts_from_artifact() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION releases.has_complete_artifact_set(uuid) TO qcrm_platform_runtime;
-GRANT EXECUTE ON FUNCTION releases.assert_release_artifacts_from_release() TO qcrm_platform_runtime;
-GRANT EXECUTE ON FUNCTION releases.assert_release_artifacts_from_artifact() TO qcrm_platform_runtime;

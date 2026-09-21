@@ -17,6 +17,9 @@ const grants = Object.freeze([
   "ALTER DEFAULT PRIVILEGES FOR ROLE qcrm_platform_migrator IN SCHEMA operations GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO qcrm_platform_runtime",
   "ALTER DEFAULT PRIVILEGES FOR ROLE qcrm_platform_migrator IN SCHEMA infrastructure GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO qcrm_platform_runtime",
   "ALTER DEFAULT PRIVILEGES FOR ROLE qcrm_platform_migrator IN SCHEMA releases GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO qcrm_platform_runtime",
+  "GRANT EXECUTE ON FUNCTION releases.has_complete_artifact_set(uuid) TO qcrm_platform_runtime",
+  "GRANT EXECUTE ON FUNCTION releases.assert_release_artifacts_from_release() TO qcrm_platform_runtime",
+  "GRANT EXECUTE ON FUNCTION releases.assert_release_artifacts_from_artifact() TO qcrm_platform_runtime",
 ]);
 
 async function grantPlatformRuntime(): Promise<void> {
