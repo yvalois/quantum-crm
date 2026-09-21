@@ -51,6 +51,7 @@ model PlatformRelease {
   tenantProfiles            TenantProfile[]
   capacityReservations      InfrastructureCapacityReservation[]
   provisioningOperations    ProvisioningOperation[]
+  tenantConfigurations      TenantConfiguration[]
 
   @@index([status, createdAt, id], map: "releases_status_created_id_idx")
   @@map("releases")
@@ -112,6 +113,7 @@ model InfrastructureServer {
   provisioningOperations ProvisioningOperation[]
   tenantDatabases        TenantDatabase[]
   tenantStorage           TenantStorage[]
+  tenantConfigurations    TenantConfiguration[]
 
   @@index([status, createdAt, id], map: "infrastructure_servers_status_created_id_idx")
   @@map("servers")
@@ -225,6 +227,7 @@ model TenantProfile {
   capacityReservations InfrastructureCapacityReservation[]
   database             TenantDatabase?
   storage              TenantStorage?
+  configuration        TenantConfiguration?
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -284,6 +287,10 @@ enum ProvisioningValidationFailureCode {
   STORAGE_UNAVAILABLE          @map("storage_unavailable")
   STORAGE_PERMISSION_DENIED    @map("storage_permission_denied")
   STORAGE_IDENTITY_MISMATCH    @map("storage_identity_mismatch")
+  CONFIGURATION_TARGET_CONFLICT @map("configuration_target_conflict")
+  CONFIGURATION_UNAVAILABLE     @map("configuration_unavailable")
+  CONFIGURATION_PERMISSION_DENIED @map("configuration_permission_denied")
+  CONFIGURATION_IDENTITY_MISMATCH @map("configuration_identity_mismatch")
 
   @@map("provisioning_validation_failure_code")
   @@schema("operations")
@@ -403,6 +410,35 @@ model TenantStorageSecret {
   @@unique([tenantStorageId, kind], map: "tenant_storage_secrets_storage_kind_key")
   @@index([updatedAt, id], map: "tenant_storage_secrets_updated_id_idx")
   @@map("tenant_storage_secrets")
+  @@schema("tenants")
+}
+
+enum TenantConfigurationStatus {
+  READY @map("ready")
+  ERROR @map("error")
+
+  @@map("tenant_configuration_status")
+  @@schema("tenants")
+}
+
+model TenantConfiguration {
+  id                    String                     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId       String                     @unique(map: "tenant_configurations_tenant_profile_id_key") @map("tenant_profile_id") @db.Uuid
+  serverId              String                     @map("server_id") @db.Uuid
+  releaseId             String                     @map("release_id") @db.Uuid
+  manifestRef           String                     @map("manifest_ref") @db.VarChar(256)
+  configurationRevision BigInt                    @default(1) @map("configuration_revision")
+  status                TenantConfigurationStatus @default(READY)
+  version               BigInt                    @default(1)
+  createdAt             DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile         TenantProfile              @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  server                InfrastructureServer      @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  release               PlatformRelease            @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([serverId], map: "tenant_configurations_server_id_idx")
+  @@index([status, updatedAt, id], map: "tenant_configurations_status_updated_id_idx")
+  @@map("tenant_configurations")
   @@schema("tenants")
 }
 
