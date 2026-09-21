@@ -16,6 +16,7 @@ Estas reglas comienzan la serie de practicas del proyecto. Son obligatorias salv
 12. [Agentes LangGraph y MCP](12-agentes-langgraph-mcp.md)
 13. [Archivos y objetos](13-archivos-objetos.md)
 14. [Respaldo, restauracion y continuidad](14-respaldo-restauracion-continuidad.md)
+15. [Ejecucion eficiente de verificaciones](15-ejecucion-verificaciones-vps.md)
 
 ## Como agregar una regla
 
