@@ -47,8 +47,10 @@ beforeAll(async () => {
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
   await pool.query("DELETE FROM infrastructure.servers");
+  await pool.query("BEGIN");
   await pool.query("DELETE FROM releases.release_artifacts");
   await pool.query("DELETE FROM releases.releases");
+  await pool.query("COMMIT");
   await pool.query("DELETE FROM platform_iam.operator_permissions");
   await pool.query("DELETE FROM platform_iam.operator_memberships");
   const operator = await pool.query<{ id: string }>(`
@@ -102,8 +104,10 @@ afterAll(async () => {
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
   await pool.query("DELETE FROM infrastructure.servers");
+  await pool.query("BEGIN");
   await pool.query("DELETE FROM releases.release_artifacts");
   await pool.query("DELETE FROM releases.releases");
+  await pool.query("COMMIT");
   await pool.query("DELETE FROM platform_iam.operator_permissions");
   await pool.query("DELETE FROM platform_iam.operator_memberships");
   await database.close();
