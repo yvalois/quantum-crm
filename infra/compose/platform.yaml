@@ -92,6 +92,7 @@ services:
       QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
       QCRM_DATABASE_ADMIN_URL_FILE: /run/secrets/qcrm_database_admin_url
       QCRM_TENANT_SECRET_DIRECTORY: /run/tenant-secrets
+      QCRM_TENANT_CONFIGURATION_DIRECTORY: /run/tenant-configuration
       QCRM_STORAGE_S3_ENDPOINT: http://platform-storage:8333
       QCRM_STORAGE_S3_ADMIN_ACCESS_KEY_FILE: /run/secrets/qcrm_storage_s3_admin_access_key
       QCRM_STORAGE_S3_ADMIN_SECRET_KEY_FILE: /run/secrets/qcrm_storage_s3_admin_secret_key
@@ -108,6 +109,10 @@ services:
       - type: bind
         source: "${QCRM_TENANT_SECRET_BIND_SOURCE:?set QCRM_TENANT_SECRET_BIND_SOURCE}"
         target: /run/tenant-secrets
+        read_only: false
+      - type: bind
+        source: "${QCRM_TENANT_CONFIGURATION_BIND_SOURCE:?set QCRM_TENANT_CONFIGURATION_BIND_SOURCE}"
+        target: /run/tenant-configuration
         read_only: false
     healthcheck:
       test:

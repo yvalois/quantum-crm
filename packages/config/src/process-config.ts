@@ -29,6 +29,7 @@ const processEnvironmentKeys = [
   "QCRM_SHUTDOWN_TIMEOUT_MS",
 ] as const;
 const tenantSecretEnvironmentKey = "QCRM_TENANT_SECRET_DIRECTORY" as const;
+const tenantConfigurationEnvironmentKey = "QCRM_TENANT_CONFIGURATION_DIRECTORY" as const;
 const safeDefaultEnvironments = new Set<QcrmEnvironment>(["local", "test"]);
 const placeholderPattern = /^(?:change[_-]?me|example|placeholder|todo)$/i;
 
@@ -60,6 +61,7 @@ export const processDefinitions = Object.freeze({
     defaultPort: 3102,
     database: Object.freeze({ target: "platform", requiresTenant: false, requiresAdmin: true }),
     requiresTenantSecretDirectory: true,
+    requiresTenantConfigurationDirectory: true,
     requiresStorageAdmin: true,
   }),
   "agent-runtime": Object.freeze({
@@ -78,6 +80,7 @@ export interface ProcessDefinition {
   readonly database?: DatabaseDefinition;
   readonly oidc?: OidcDefinition;
   readonly requiresTenantSecretDirectory?: boolean;
+  readonly requiresTenantConfigurationDirectory?: boolean;
   readonly requiresStorageAdmin?: boolean;
 }
 
@@ -91,6 +94,7 @@ export interface ProcessConfig {
   readonly database?: DatabaseConfig;
   readonly oidc?: OidcConfig;
   readonly tenantSecretDirectory?: string;
+  readonly tenantConfigurationDirectory?: string;
   readonly storage?: StorageConfig;
 }
 
@@ -141,6 +145,7 @@ export function parseProcessConfig(
     ...(definition.database?.requiresAdmin ? databaseAdminEnvironmentKeys : []),
     ...(definition.oidc ? oidcEnvironmentKeys : []),
     ...(definition.requiresTenantSecretDirectory ? [tenantSecretEnvironmentKey] : []),
+    ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
   ]);
   const unknownKeys = Object.keys(environment)
@@ -212,6 +217,21 @@ export function parseProcessConfig(
     tenantSecretDirectory = configured;
   }
 
+  let tenantConfigurationDirectory: string | undefined;
+  if (definition.requiresTenantConfigurationDirectory) {
+    const configured = environment[tenantConfigurationEnvironmentKey];
+    if (
+      !configured ||
+      !configured.startsWith("/") ||
+      configured.length > 255 ||
+      /[\0\r\n]/u.test(configured) ||
+      configured === "/"
+    ) {
+      throw new ConfigurationError(definition.serviceName, [tenantConfigurationEnvironmentKey]);
+    }
+    tenantConfigurationDirectory = configured;
+  }
+
   const storage = definition.requiresStorageAdmin
     ? parseStorageConfig(definition.serviceName, result.data.QCRM_ENV, environment, fileSystem)
     : undefined;
@@ -226,6 +246,7 @@ export function parseProcessConfig(
     ...(database ? { database } : {}),
     ...(oidc ? { oidc } : {}),
     ...(tenantSecretDirectory ? { tenantSecretDirectory } : {}),
+    ...(tenantConfigurationDirectory ? { tenantConfigurationDirectory } : {}),
     ...(storage ? { storage } : {}),
   });
 }

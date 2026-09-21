@@ -42,6 +42,7 @@ function repository(overrides: Partial<ProvisioningOperationRepository> = {}) {
     completeDatabase: vi.fn(async () => null),
     completeSecrets: vi.fn(async () => null),
     completeStorage: vi.fn(async () => null),
+    completeConfiguration: vi.fn(async () => null),
     ...overrides,
   } satisfies ProvisioningOperationRepository;
 }

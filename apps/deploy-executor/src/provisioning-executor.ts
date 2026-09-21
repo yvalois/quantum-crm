@@ -7,6 +7,7 @@ import {
   tenantStorageSecretReference,
   type ProvisioningOperationRepository,
   type TenantDatabaseSecretsProvisioner,
+  type TenantConfigurationProvisioner,
   type TenantDatabaseProvisioner,
   type TenantStorageProvisioner,
 } from "@quantum-crm/platform-domain";
@@ -15,6 +16,7 @@ import {
   TenantDatabaseSecretsProvisioningError,
 } from "@quantum-crm/database";
 import { TenantStorageProvisioningError } from "./seaweed-storage-provisioner.js";
+import { TenantConfigurationProvisioningError } from "./tenant-configuration-provisioner.js";
 
 export interface ProvisioningExecutorOptions {
   readonly workerId: string;
@@ -51,6 +53,7 @@ export class ProvisioningExecutor {
     private readonly databaseProvisioner?: TenantDatabaseProvisioner,
     private readonly secretsProvisioner?: TenantDatabaseSecretsProvisioner,
     private readonly storageProvisioner?: TenantStorageProvisioner,
+    private readonly configurationProvisioner?: TenantConfigurationProvisioner,
   ) {}
 
   public runOnce(): Promise<boolean> {
@@ -80,7 +83,15 @@ export class ProvisioningExecutor {
     const supportedSteps = this.databaseProvisioner
       ? this.secretsProvisioner
         ? this.storageProvisioner
-          ? (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS", "CREATE_STORAGE"] as const)
+          ? this.configurationProvisioner
+            ? ([
+                "VALIDATE",
+                "CREATE_DATABASE",
+                "CREATE_SECRETS",
+                "CREATE_STORAGE",
+                "WRITE_CONFIGURATION",
+              ] as const)
+            : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS", "CREATE_STORAGE"] as const)
           : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS"] as const)
         : (["VALIDATE", "CREATE_DATABASE"] as const)
       : (["VALIDATE"] as const);
@@ -189,6 +200,61 @@ export class ProvisioningExecutor {
           quotaMiB: operation.requestedCapacity.storageMiB,
           buckets,
           secrets,
+          ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
+        });
+      } catch {
+        return true;
+      }
+      return true;
+    }
+    if (operation.currentStep === "WRITE_CONFIGURATION" && this.configurationProvisioner) {
+      let provisioningFailure:
+        | "CONFIGURATION_TARGET_CONFLICT"
+        | "CONFIGURATION_UNAVAILABLE"
+        | "CONFIGURATION_PERMISSION_DENIED"
+        | "CONFIGURATION_IDENTITY_MISMATCH"
+        | undefined;
+      let manifestRef = `tenant/${operation.tenantProfileId}/configuration.json`;
+      let revision = 1n;
+      try {
+        const result = await this.configurationProvisioner.provision({
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          quotaMiB: operation.requestedCapacity.storageMiB,
+        });
+        manifestRef = result.manifestRef;
+        revision = result.revision;
+      } catch (error) {
+        if (
+          error instanceof TenantConfigurationProvisioningError &&
+          error.reason === "UNAVAILABLE"
+        ) {
+          return true;
+        }
+        provisioningFailure =
+          error instanceof TenantConfigurationProvisioningError &&
+          error.reason === "PERMISSION_DENIED"
+            ? "CONFIGURATION_PERMISSION_DENIED"
+            : error instanceof TenantConfigurationProvisioningError &&
+                error.reason === "TARGET_CONFLICT"
+              ? "CONFIGURATION_TARGET_CONFLICT"
+              : error instanceof TenantConfigurationProvisioningError &&
+                  error.reason === "IDENTITY_MISMATCH"
+                ? "CONFIGURATION_IDENTITY_MISMATCH"
+                : "CONFIGURATION_UNAVAILABLE";
+      }
+      try {
+        await this.repository.completeConfiguration({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+          manifestRef,
+          revision,
           ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
         });
       } catch {

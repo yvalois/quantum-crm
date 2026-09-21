@@ -2,6 +2,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
 const correlationIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
 const workerIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
+const configurationRefPattern = /^tenant\/[0-9a-f-]{36}\/configuration\.json$/u;
 
 export const provisioningOperationStatuses = [
   "PENDING",
@@ -45,6 +46,10 @@ export const provisioningValidationFailureCodes = [
   "STORAGE_UNAVAILABLE",
   "STORAGE_PERMISSION_DENIED",
   "STORAGE_IDENTITY_MISMATCH",
+  "CONFIGURATION_TARGET_CONFLICT",
+  "CONFIGURATION_UNAVAILABLE",
+  "CONFIGURATION_PERMISSION_DENIED",
+  "CONFIGURATION_IDENTITY_MISMATCH",
 ] as const;
 export type ProvisioningValidationFailureCode = (typeof provisioningValidationFailureCodes)[number];
 
@@ -183,6 +188,19 @@ export interface CompleteProvisioningStorageCommand {
   readonly failureCode?: ProvisioningValidationFailureCode;
 }
 
+export interface CompleteProvisioningConfigurationCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+  readonly releaseId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+  readonly manifestRef: string;
+  readonly revision: bigint;
+  readonly failureCode?: ProvisioningValidationFailureCode;
+}
+
 export interface TenantStorageProvisioningCommand {
   readonly tenantProfileId: string;
   readonly serverId: string;
@@ -199,6 +217,25 @@ export interface TenantStorageProvisioner {
   readonly provision: (
     command: TenantStorageProvisioningCommand,
   ) => Promise<TenantStorageProvisioningResult>;
+}
+
+export interface TenantConfigurationProvisioningCommand {
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+  readonly releaseId: string;
+  readonly quotaMiB: number;
+}
+
+export interface TenantConfigurationProvisioningResult {
+  readonly manifestRef: string;
+  readonly revision: bigint;
+  readonly reconciled: boolean;
+}
+
+export interface TenantConfigurationProvisioner {
+  readonly provision: (
+    command: TenantConfigurationProvisioningCommand,
+  ) => Promise<TenantConfigurationProvisioningResult>;
 }
 
 export interface ProvisioningValidationResult {
@@ -284,6 +321,9 @@ export interface ProvisioningOperationRepository {
   ) => Promise<ProvisioningValidationResult | null>;
   readonly completeStorage: (
     command: CompleteProvisioningStorageCommand,
+  ) => Promise<ProvisioningValidationResult | null>;
+  readonly completeConfiguration: (
+    command: CompleteProvisioningConfigurationCommand,
   ) => Promise<ProvisioningValidationResult | null>;
 }
 
@@ -625,6 +665,47 @@ export function validateCompleteProvisioningStorage(
     quotaMiB: input.quotaMiB,
     buckets: Object.freeze(input.buckets.map((bucket) => Object.freeze({ ...bucket }))),
     secrets: Object.freeze(input.secrets.map((secret) => Object.freeze({ ...secret }))),
+    ...(input.failureCode ? { failureCode: input.failureCode } : {}),
+  });
+}
+
+export function validateCompleteProvisioningConfiguration(
+  input: CompleteProvisioningConfigurationCommand,
+): CompleteProvisioningConfigurationCommand {
+  const tenantProfileId = uuid("tenantProfileId", input.tenantProfileId);
+  uuid("serverId", input.serverId);
+  uuid("releaseId", input.releaseId);
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
+  if (!configurationRefPattern.test(input.manifestRef)) {
+    throw new ProvisioningOperationValidationError("manifestRef");
+  }
+  if (input.manifestRef !== `tenant/${tenantProfileId}/configuration.json`) {
+    throw new ProvisioningOperationValidationError("manifestRef");
+  }
+  if (input.revision < 1n) {
+    throw new ProvisioningOperationValidationError("revision");
+  }
+  if (input.failureCode && !provisioningValidationFailureCodes.includes(input.failureCode)) {
+    throw new ProvisioningOperationValidationError("failureCode");
+  }
+  return Object.freeze({
+    operationId: uuid("operationId", input.operationId),
+    tenantProfileId,
+    serverId: uuid("serverId", input.serverId),
+    releaseId: uuid("releaseId", input.releaseId),
+    workerId: input.workerId,
+    expectedVersion: input.expectedVersion,
+    attempt: input.attempt,
+    manifestRef: input.manifestRef,
+    revision: input.revision,
     ...(input.failureCode ? { failureCode: input.failureCode } : {}),
   });
 }
