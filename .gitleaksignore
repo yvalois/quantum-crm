@@ -1,0 +1,5 @@
+# False positives historicos: claves de idempotencia sinteticas usadas unicamente
+# para comprobar rechazos atomicos de ADM-05. La excepcion se limita a cada
+# hallazgo exacto; el archivo y la regla generic-api-key siguen bajo escaneo.
+1deb8a727ba5f000834b29068969edc21c672a6a:tests/integration/platform-tenant-profile.test.ts:generic-api-key:400
+1deb8a727ba5f000834b29068969edc21c672a6a:tests/integration/platform-tenant-profile.test.ts:generic-api-key:407
