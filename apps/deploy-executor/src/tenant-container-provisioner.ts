@@ -7,22 +7,16 @@ import {
   type TenantContainerProvisioningResult,
 } from "@quantum-crm/platform-domain";
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const manifestPattern = /^tenant\/([0-9a-f-]{36})\/configuration\.json$/u;
 const projectPattern = /^qcrm-t-[0-9a-f-]{36}$/u;
 const serviceNames = ["crm-web", "portal-web", "api", "worker", "agent-runtime"] as const;
 
 export type TenantContainerProvisioningFailureReason =
-  | "UNAVAILABLE"
-  | "PERMISSION_DENIED"
-  | "TARGET_CONFLICT"
-  | "IDENTITY_MISMATCH";
+  "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT" | "IDENTITY_MISMATCH";
 
 export class TenantContainerProvisioningError extends Error {
-  public constructor(
-    public readonly reason: TenantContainerProvisioningFailureReason,
-  ) {
+  public constructor(public readonly reason: TenantContainerProvisioningFailureReason) {
     super(`tenant container provisioning failed: ${reason}`);
     this.name = "TenantContainerProvisioningError";
   }
