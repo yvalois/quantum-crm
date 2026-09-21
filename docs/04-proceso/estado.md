@@ -29,7 +29,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 | ID       | Descripcion                                  | Bloqueo                                                                           | Responsable | Desde      | Condicion para continuar                                                         |
 | -------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ----------- | ---------- | -------------------------------------------------------------------------------- |
-| PROY-004 | Publicar y proteger el repositorio en GitHub | No existe un remoto `origin` ni se ha definido organizacion, nombre o visibilidad | Por asignar | 2026-09-16 | Crear el repositorio remoto, hacer el primer push y activar el ruleset de `main` |
+| PROY-004 | Publicar y proteger el repositorio en GitHub | GitHub exige Pro para aplicar un ruleset al repositorio privado; el propietario decidio mantener GitHub Free y no hacerlo publico | Propietario | 2026-09-20 | Si la decision cambia, habilitar Pro o migrar a una forja con proteccion privada; mientras tanto integrar solo por PR, siete checks verdes, aviso de Codex y squash manual del propietario |
 
 ## Terminado
 

@@ -10,6 +10,13 @@
     "node": ">=24.0.0 <25",
     "pnpm": "9.13.2"
   },
+  "pnpm": {
+    "overrides": {
+      "deepmerge-ts": "8.0.0",
+      "multer": "2.4.0",
+      "mysql2": "3.22.0"
+    }
+  },
   "scripts": {
     "format:check": "prettier --check \"*.{json,mjs,ts,yaml}\" \"apps/**/*.{css,json,ts,tsx}\" \"packages/**/*.{json,ts,tsx}\" \"tests/**/*.ts\" \"infra/**/*.{json,md,ts,yaml,yml}\"",
     "lint": "eslint apps packages tests",

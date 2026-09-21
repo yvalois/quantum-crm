@@ -1,0 +1,158 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  static:
+    name: ci / static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:architecture
+
+  unit:
+    name: ci / unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  integration:
+    name: ci / integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres@sha256:cc9f4143a8d2fa8cf3749d0cb4d26ecf2d53a77a2ac807e9ebd67ae22426221a
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis@sha256:5fa2edb1e408fa8235e6db8fab01d1afaaae96c9403ba67b70feceb8661e8621
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare isolated integration data
+        env:
+          PGPASSWORD: postgres
+        run: |
+          sudo install -d -m 0700 -o "$USER" -g "$(id -gn)" /run/secrets
+          printf '%s\n' 'postgresql://qcrm_test_a_runtime:test-only-tenant-a@127.0.0.1:5432/qcrm_test_a?sslmode=disable' > /run/secrets/tenant_a_database_url
+          printf '%s\n' 'postgresql://qcrm_test_b_runtime:test-only-tenant-b@127.0.0.1:5432/qcrm_test_b?sslmode=disable' > /run/secrets/tenant_b_database_url
+          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' > /run/secrets/platform_database_url
+          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' > /run/secrets/platform_runtime_database_url
+          printf '%s\n' 'postgresql://qcrm_test_a_runtime:test-only-tenant-a@127.0.0.1:5432/qcrm_test_b?sslmode=disable' > /run/secrets/tenant_a_to_b_database_url
+          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_a?sslmode=disable' > /run/secrets/platform_to_a_database_url
+          printf '%s\n' 'postgresql://qcrm_test_platform_migrator:test-only-migrator-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' > /run/secrets/qcrm_migration_database_url
+          printf '%s\n' 'redis://127.0.0.1:6379/0' > /run/secrets/qcrm_test_session_redis_url
+          chmod 0600 /run/secrets/*
+          psql --host 127.0.0.1 --username postgres --dbname postgres --file tests/integration/fixtures/postgres-bootstrap.sql
+          pnpm --filter @quantum-crm/config build
+          QCRM_ENV=test QCRM_MIGRATION_DATABASE_URL_FILE=/run/secrets/qcrm_migration_database_url pnpm --filter @quantum-crm/database db:migrate:platform
+          PGPASSWORD=test-only-migrator-platform psql --host 127.0.0.1 --username qcrm_test_platform_migrator --dbname qcrm_test_platform <<'SQL'
+          GRANT USAGE ON SCHEMA infrastructure, operations, platform_iam, tenants TO qcrm_test_platform_runtime;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA infrastructure, operations, platform_iam, tenants TO qcrm_test_platform_runtime;
+          GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA infrastructure, operations, platform_iam, tenants TO qcrm_test_platform_runtime;
+          SQL
+      - run: pnpm test:integration
+        env:
+          QCRM_TEST_SESSION_REDIS_URL_FILE: /run/secrets/qcrm_test_session_redis_url
+
+  contracts:
+    name: ci / contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run packages/contracts/src
+
+  build:
+    name: ci / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  secrets:
+    name: security / secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  dependencies:
+    name: security / dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - run: pnpm audit --audit-level=high --prod
