@@ -32,7 +32,7 @@ La primera migracion desde Nginx es una operacion excepcional de bootstrap. `inf
 
 El host instala `infra/redis/99-quantum-redis.conf` en `/etc/sysctl.d/99-quantum-redis.conf` y aplica `sysctl --system` antes de arrancar Redis. Esta configuracion permite que su persistencia en segundo plano funcione bajo presion de memoria.
 
-Las cuatro imagenes de fundacion se construyen desde los Dockerfiles fijados por digest en `infra/docker/`. PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`; los wrappers de Redis y Keycloak adaptan los archivos montados a sus interfaces nativas sin colocar valores en Compose ni en argumentos. `infra/platform/provision-secrets.sh` crea de forma reanudable los secretos ausentes y valida los existentes sin imprimirlos ni sustituirlos. Se ejecuta como `root` con `QCRM_SECRET_DIRECTORY=/opt/quantum/secrets/<entorno>/platform`.
+Las cinco imagenes de fundacion se construyen o espejan por digest; PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`, Redis y Keycloak adaptan los archivos montados a sus interfaces nativas, y SeaweedFS lee su configuracion S3 desde un secreto fuera del checkout. `infra/platform/provision-secrets.sh` crea de forma reanudable los secretos ausentes y valida los existentes sin imprimirlos ni sustituirlos. Se ejecuta como `root` con `QCRM_SECRET_DIRECTORY=/opt/quantum/secrets/<entorno>/platform`.
 
 Los archivos viven fuera del checkout bajo un directorio `0700`. Los usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. La fundacion consume los primeros ocho; los cuatro siguientes son conexiones derivadas para migracion, runtime, aprovisionamiento y sesion. `provision-secrets.sh` crea ademas `/opt/quantum/secrets/<entorno>/tenants` con propietario del UID del executor; `CREATE_SECRETS` solo escribe dentro de esa raiz y conserva referencias relativas en plataforma.
 
@@ -49,6 +49,9 @@ platform-migration-database-url
 platform-database-url
 platform-provisioner-database-url
 admin-web-session-redis-url
+storage-s3-admin-access-key
+storage-s3-admin-secret-key
+seaweedfs-s3.json
 ```
 
 El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases.sh` desde la imagen inmutable. El servicio `platform-migrator`, activado explicitamente con el perfil `tools`, aplica las migraciones y despues concede al rol runtime solo uso de schemas y DML; las aplicaciones nunca ejecutan migraciones. El rol `qcrm_platform_provisioner` solo crea y reconcilia bases y roles de perfiles mediante el paso tipado `CREATE_DATABASE`; no es superusuario y no recibe el runtime. La importacion de Keycloak omite el realm si ya existe; no es un mecanismo de actualizacion ni de backup.
