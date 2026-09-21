@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ConfigurationError } from "./configuration-error.js";
 import {
   databaseEnvironmentKeys,
+  databaseAdminEnvironmentKeys,
   parseDatabaseConfig,
   type DatabaseConfig,
   type DatabaseDefinition,
@@ -51,7 +52,7 @@ export const processDefinitions = Object.freeze({
     serviceName: "deploy-executor",
     defaultHost: "127.0.0.1",
     defaultPort: 3102,
-    database: Object.freeze({ target: "platform", requiresTenant: false }),
+    database: Object.freeze({ target: "platform", requiresTenant: false, requiresAdmin: true }),
   }),
   "agent-runtime": Object.freeze({
     serviceName: "agent-runtime",
@@ -125,6 +126,7 @@ export function parseProcessConfig(
   const allowedKeys = new Set<string>([
     ...processEnvironmentKeys,
     ...(definition.database ? databaseEnvironmentKeys : []),
+    ...(definition.database?.requiresAdmin ? databaseAdminEnvironmentKeys : []),
     ...(definition.oidc ? oidcEnvironmentKeys : []),
   ]);
   const unknownKeys = Object.keys(environment)

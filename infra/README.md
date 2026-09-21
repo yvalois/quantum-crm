@@ -34,32 +34,34 @@ El host instala `infra/redis/99-quantum-redis.conf` en `/etc/sysctl.d/99-quantum
 
 Las cuatro imagenes de fundacion se construyen desde los Dockerfiles fijados por digest en `infra/docker/`. PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`; los wrappers de Redis y Keycloak adaptan los archivos montados a sus interfaces nativas sin colocar valores en Compose ni en argumentos. `infra/platform/provision-secrets.sh` crea de forma reanudable los secretos ausentes y valida los existentes sin imprimirlos ni sustituirlos. Se ejecuta como `root` con `QCRM_SECRET_DIRECTORY=/opt/quantum/secrets/<entorno>/platform`.
 
-Los archivos viven fuera del checkout bajo un directorio `0700`. Los usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. La fundacion consume los primeros ocho; los dos ultimos son las conexiones runtime derivadas para `platform.yaml`:
+Los archivos viven fuera del checkout bajo un directorio `0700`. Los usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. La fundacion consume los primeros ocho; los cuatro siguientes son conexiones derivadas para migracion, runtime, aprovisionamiento y sesion:
 
 ```text
 postgres-admin-password
 platform-migrator-password
 platform-runtime-password
+platform-provisioner-password
 keycloak-database-password
 keycloak-bootstrap-admin-password
 platform-redis-password
 admin-web-oidc-client-secret
 platform-migration-database-url
 platform-database-url
+platform-provisioner-database-url
 admin-web-session-redis-url
 ```
 
-El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases.sh` desde la imagen inmutable. El servicio `platform-migrator`, activado explicitamente con el perfil `tools`, aplica las migraciones y despues concede al rol runtime solo uso de schemas y DML; las aplicaciones nunca ejecutan migraciones. La importacion de Keycloak omite el realm si ya existe; no es un mecanismo de actualizacion ni de backup. El procedimiento de aprovisionamiento valida dos ejecuciones y una recreacion sin usar `docker compose down -v`.
+El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases.sh` desde la imagen inmutable. El servicio `platform-migrator`, activado explicitamente con el perfil `tools`, aplica las migraciones y despues concede al rol runtime solo uso de schemas y DML; las aplicaciones nunca ejecutan migraciones. El rol `qcrm_platform_provisioner` solo crea y reconcilia bases y roles de perfiles mediante el paso tipado `CREATE_DATABASE`; no es superusuario y no recibe el runtime. La importacion de Keycloak omite el realm si ya existe; no es un mecanismo de actualizacion ni de backup.
 
 ## Conexion PostgreSQL y secretos
 
 - `api` y `worker` reciben la URL runtime de la base de su perfil.
-- `admin-api` recibe una URL distinta para la base de plataforma.
-- `admin-api` y `deploy-executor` reciben la URL runtime de plataforma; el ejecutor solo reclama y actualiza operaciones durables mediante ese rol sin DDL.
+- `admin-api` recibe la URL runtime de plataforma. `deploy-executor` recibe esa URL para el estado durable y una segunda URL administrativa, separada y montada por archivo, solo para `CREATE_DATABASE`; no se entrega a ningun otro proceso.
 - Webs y `agent-runtime` no reciben credenciales PostgreSQL.
 - El valor se monta como secret de solo lectura en `/run/secrets/qcrm_database_url`; `QCRM_DATABASE_URL_FILE` contiene solo esa referencia.
 - `QCRM_TENANT_ID` identifica el perfil de `api` y `worker` mediante un UUID inmutable. No selecciona dinamicamente otra base.
 - Las variables `QCRM_CRM_DATABASE_URL_SECRET_FILE` y `QCRM_PLATFORM_DATABASE_URL_SECRET_FILE` apuntan a archivos del host fuera del checkout. Nunca contienen la URL.
+- `QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE` y `QCRM_PLATFORM_PROVISIONER_DATABASE_URL_SECRET_FILE` apuntan a los archivos del rol administrativo limitado; nunca contienen valores en Compose o Git.
 
 Las plantillas esperan que PostgreSQL ya haya sido aprovisionado con una base y un rol runtime distintos por perfil, `PUBLIC CONNECT` revocado y un rol migrador separado. Ese aprovisionamiento dinamico pertenece a `OPS-14`; las plantillas actuales no lo simulan ni lo presentan como terminado.
 

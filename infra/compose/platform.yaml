@@ -90,9 +90,12 @@ services:
       QCRM_HOST: 0.0.0.0
       QCRM_PORT: "3102"
       QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+      QCRM_DATABASE_ADMIN_URL_FILE: /run/secrets/qcrm_database_admin_url
     secrets:
       - source: platform-database-url
         target: qcrm_database_url
+      - source: platform-provisioner-database-url
+        target: qcrm_database_admin_url
     healthcheck:
       test:
         [
@@ -130,3 +133,5 @@ secrets:
     file: "${QCRM_ADMIN_WEB_SESSION_REDIS_URL_FILE:?set QCRM_ADMIN_WEB_SESSION_REDIS_URL_FILE}"
   platform-database-url:
     file: "${QCRM_PLATFORM_DATABASE_URL_SECRET_FILE:?set QCRM_PLATFORM_DATABASE_URL_SECRET_FILE}"
+  platform-provisioner-database-url:
+    file: "${QCRM_PLATFORM_PROVISIONER_DATABASE_URL_SECRET_FILE:?set QCRM_PLATFORM_PROVISIONER_DATABASE_URL_SECRET_FILE}"

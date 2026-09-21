@@ -12,3 +12,7 @@ export {
   type PostgresDatabase,
   type PostgresPoolFactory,
 } from "./postgres-database.js";
+export {
+  createTenantDatabaseProvisioner,
+  TenantDatabaseProvisioningError,
+} from "./tenant-database-provisioner.js";

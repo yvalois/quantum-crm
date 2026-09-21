@@ -38,6 +38,8 @@ services:
         target: qcrm_platform_runtime_password
       - source: keycloak-database-password
         target: qcrm_keycloak_database_password
+      - source: platform-provisioner-password
+        target: qcrm_platform_provisioner_password
     volumes:
       - platform-postgres-data:/var/lib/postgresql
     tmpfs:
@@ -198,3 +200,5 @@ secrets:
     file: "${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE:?set QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE}"
   platform-migration-database-url:
     file: "${QCRM_PLATFORM_MIGRATION_DATABASE_URL_FILE:?set QCRM_PLATFORM_MIGRATION_DATABASE_URL_FILE}"
+  platform-provisioner-password:
+    file: "${QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE:?set QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE}"
