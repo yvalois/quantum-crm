@@ -70,6 +70,50 @@ create_operator_password() {
   unset value
 }
 
+create_storage_config() {
+  local access_key_path="${secret_directory}/storage-s3-admin-access-key"
+  local secret_key_path="${secret_directory}/storage-s3-admin-secret-key"
+  local config_path="${secret_directory}/seaweedfs-s3.json"
+  local access_key secret_key temporary current
+
+  if [[ ! -e "$access_key_path" ]]; then
+    umask 077
+    openssl rand -hex 32 >"${access_key_path}.tmp"
+    chown "$app_uid:$app_uid" "${access_key_path}.tmp"
+    chmod 0400 "${access_key_path}.tmp"
+    mv "${access_key_path}.tmp" "$access_key_path"
+  fi
+  if [[ ! -e "$secret_key_path" ]]; then
+    umask 077
+    openssl rand -hex 32 >"${secret_key_path}.tmp"
+    chown "$app_uid:$app_uid" "${secret_key_path}.tmp"
+    chmod 0400 "${secret_key_path}.tmp"
+    mv "${secret_key_path}.tmp" "$secret_key_path"
+  fi
+
+  [[ -f "$access_key_path" && ! -L "$access_key_path" ]] || exit 78
+  [[ -f "$secret_key_path" && ! -L "$secret_key_path" ]] || exit 78
+  IFS= read -r access_key <"$access_key_path"
+  IFS= read -r secret_key <"$secret_key_path"
+  [[ "$access_key" =~ ^[A-Fa-f0-9]{64}$ ]] || exit 78
+  [[ "$secret_key" =~ ^[A-Fa-f0-9]{64}$ ]] || exit 78
+
+  temporary="${config_path}.tmp"
+  printf '{\n  "identities": [\n    {\n      "name": "quantum-storage-admin",\n      "credentials": [{"accessKey": "%s", "secretKey": "%s"}],\n      "actions": ["Admin", "Read", "List", "Tagging", "Write"]\n    }\n  ]\n}\n' \
+    "$access_key" "$secret_key" >"$temporary"
+  chown "$app_uid:$app_uid" "$temporary"
+  chmod 0400 "$temporary"
+  if [[ -e "$config_path" ]]; then
+    cmp -s "$temporary" "$config_path" || exit 78
+    rm -f "$temporary"
+  else
+    mv "$temporary" "$config_path"
+  fi
+  chown "$app_uid:$app_uid" "$config_path" "$access_key_path" "$secret_key_path"
+  chmod 0400 "$config_path" "$access_key_path" "$secret_key_path"
+  unset access_key secret_key
+}
+
 create_derived_url() {
   local name="$1"
   local value="$2"
@@ -102,6 +146,7 @@ create_token keycloak-bootstrap-admin-password "$app_uid" "$app_uid" 0400
 create_token platform-redis-password "$app_uid" "$data_gid" 0440
 create_token admin-web-oidc-client-secret "$app_uid" "$app_uid" 0400
 create_operator_password
+create_storage_config
 
 migrator_password="$(<"${secret_directory}/platform-migrator-password")"
 runtime_password="$(<"${secret_directory}/platform-runtime-password")"

@@ -32,7 +32,7 @@ La primera migracion desde Nginx es una operacion excepcional de bootstrap. `inf
 
 El host instala `infra/redis/99-quantum-redis.conf` en `/etc/sysctl.d/99-quantum-redis.conf` y aplica `sysctl --system` antes de arrancar Redis. Esta configuracion permite que su persistencia en segundo plano funcione bajo presion de memoria.
 
-Las cuatro imagenes de fundacion se construyen desde los Dockerfiles fijados por digest en `infra/docker/`. PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`; los wrappers de Redis y Keycloak adaptan los archivos montados a sus interfaces nativas sin colocar valores en Compose ni en argumentos. `infra/platform/provision-secrets.sh` crea de forma reanudable los secretos ausentes y valida los existentes sin imprimirlos ni sustituirlos. Se ejecuta como `root` con `QCRM_SECRET_DIRECTORY=/opt/quantum/secrets/<entorno>/platform`.
+Las cinco imagenes de fundacion se construyen o espejan por digest; PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`, Redis y Keycloak adaptan los archivos montados a sus interfaces nativas, y SeaweedFS lee su configuracion S3 desde un secreto fuera del checkout. `infra/platform/provision-secrets.sh` crea de forma reanudable los secretos ausentes y valida los existentes sin imprimirlos ni sustituirlos. Se ejecuta como `root` con `QCRM_SECRET_DIRECTORY=/opt/quantum/secrets/<entorno>/platform`.
 
 Los archivos viven fuera del checkout bajo un directorio `0700`. Los usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. La fundacion consume los primeros ocho; los cuatro siguientes son conexiones derivadas para migracion, runtime, aprovisionamiento y sesion. `provision-secrets.sh` crea ademas `/opt/quantum/secrets/<entorno>/tenants` con propietario del UID del executor; `CREATE_SECRETS` solo escribe dentro de esa raiz y conserva referencias relativas en plataforma.
 
@@ -49,6 +49,9 @@ platform-migration-database-url
 platform-database-url
 platform-provisioner-database-url
 admin-web-session-redis-url
+storage-s3-admin-access-key
+storage-s3-admin-secret-key
+seaweedfs-s3.json
 ```
 
 El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases.sh` desde la imagen inmutable. El servicio `platform-migrator`, activado explicitamente con el perfil `tools`, aplica las migraciones y despues concede al rol runtime solo uso de schemas y DML; las aplicaciones nunca ejecutan migraciones. El rol `qcrm_platform_provisioner` solo crea y reconcilia bases y roles de perfiles mediante el paso tipado `CREATE_DATABASE`; no es superusuario y no recibe el runtime. La importacion de Keycloak omite el realm si ya existe; no es un mecanismo de actualizacion ni de backup.
@@ -64,6 +67,9 @@ El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases
 - `QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE` y `QCRM_PLATFORM_PROVISIONER_DATABASE_URL_SECRET_FILE` apuntan a los archivos del rol administrativo limitado; nunca contienen valores en Compose o Git.
 - `deploy-executor` recibe `QCRM_TENANT_SECRET_DIRECTORY=/run/tenant-secrets` y un bind mount de escritura cuyo origen se declara como `QCRM_TENANT_SECRET_BIND_SOURCE` fuera del checkout. Ningun servicio comercial monta esa raiz completa.
 - `CREATE_SECRETS` instala `tenant/<uuid>/migrator-password` y `tenant/<uuid>/runtime-password` con modo `0400`; `WRITE_CONFIGURATION` derivara las URLs exactas para cada servicio posteriormente.
+- `deploy-executor` es el unico proceso que recibe las credenciales administrativas de SeaweedFS mediante `/run/secrets/qcrm_storage_s3_admin_access_key` y `/run/secrets/qcrm_storage_s3_admin_secret_key`; el adaptador crea credenciales por perfil y solo persiste sus referencias en la base de plataforma.
+- La cuota de cada perfil se deriva de `requested_storage_mib` y se aplica a ambos buckets mediante la extension `seaweedfs-quota`; el digest elegido debe soportar esa operacion y se comprueba en la verificacion del VPS.
+- `platform-storage` permanece en la red privada `platform-storage`; no se publican sus puertos administrativos ni se entrega el secreto S3 de plataforma a `api`, `worker` o `agent-runtime`.
 
 Las plantillas esperan que PostgreSQL ya haya sido aprovisionado con una base y un rol runtime distintos por perfil, `PUBLIC CONNECT` revocado y un rol migrador separado. Ese aprovisionamiento dinamico pertenece a `OPS-14`; las plantillas actuales no lo simulan ni lo presentan como terminado.
 
@@ -112,6 +118,11 @@ QCRM_TENANT_ID=00000000-0000-4000-8000-000000000001
 QCRM_CRM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/crm-database-url
 QCRM_PLATFORM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/platform-database-url
 QCRM_TENANT_SECRET_BIND_SOURCE=/opt/quantum/secrets/staging/tenants
+QCRM_PLATFORM_STORAGE_NETWORK=quantum-platform-storage
+QCRM_PLATFORM_STORAGE_VOLUME=quantum-platform-storage-data
+QCRM_STORAGE_S3_CONFIG_FILE=/opt/quantum/secrets/staging/platform/seaweedfs-s3.json
+QCRM_STORAGE_S3_ADMIN_ACCESS_KEY_FILE=/opt/quantum/secrets/staging/platform/storage-s3-admin-access-key
+QCRM_STORAGE_S3_ADMIN_SECRET_KEY_FILE=/opt/quantum/secrets/staging/platform/storage-s3-admin-secret-key
 QCRM_PLATFORM_OIDC_ISSUER=https://identity.example.test/realms/quantum-platform
 QCRM_PLATFORM_OIDC_AUDIENCE=quantum-admin-api
 QCRM_PLATFORM_OIDC_REQUIRED_ACR=2
@@ -125,7 +136,14 @@ Las plantillas de plataforma y perfil requieren valores sinteticos o referencias
 ```text
 QCRM_IMAGE_REGISTRY=ghcr.io/example/quantum-crm
 QCRM_API_DIGEST=<64 caracteres hexadecimales>
+QCRM_SEAWEEDFS_IMAGE_DIGEST=<64 caracteres hexadecimales>
 ```
+
+La red externa `QCRM_PLATFORM_STORAGE_NETWORK` se crea una sola vez en el VPS antes de levantar
+`platform-foundation`, `platform` o un perfil de tenant. Solo los servicios que necesitan S3 se
+unen a ella; no se publican puertos administrativos de SeaweedFS. El archivo referenciado por
+`QCRM_STORAGE_S3_CONFIG_FILE` vive fuera del checkout y contiene las identidades S3 generadas por
+el procedimiento de secretos, nunca valores dentro de Git.
 
 El perfil se valida y ejecuta con un nombre derivado de un UUID registrado, nunca de entrada libre:
 

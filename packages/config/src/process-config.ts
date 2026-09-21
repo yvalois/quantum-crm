@@ -15,6 +15,11 @@ import {
   type OidcDefinition,
 } from "./oidc-config.js";
 import type { SecretFileSystem } from "./secret-value.js";
+import {
+  parseStorageConfig,
+  storageEnvironmentKeys,
+  type StorageConfig,
+} from "./storage-config.js";
 
 const qcrmEnvironmentSchema = z.enum(["local", "test", "preview", "staging", "production"]);
 const processEnvironmentKeys = [
@@ -55,6 +60,7 @@ export const processDefinitions = Object.freeze({
     defaultPort: 3102,
     database: Object.freeze({ target: "platform", requiresTenant: false, requiresAdmin: true }),
     requiresTenantSecretDirectory: true,
+    requiresStorageAdmin: true,
   }),
   "agent-runtime": Object.freeze({
     serviceName: "agent-runtime",
@@ -72,6 +78,7 @@ export interface ProcessDefinition {
   readonly database?: DatabaseDefinition;
   readonly oidc?: OidcDefinition;
   readonly requiresTenantSecretDirectory?: boolean;
+  readonly requiresStorageAdmin?: boolean;
 }
 
 export interface ProcessConfig {
@@ -84,6 +91,7 @@ export interface ProcessConfig {
   readonly database?: DatabaseConfig;
   readonly oidc?: OidcConfig;
   readonly tenantSecretDirectory?: string;
+  readonly storage?: StorageConfig;
 }
 
 function readEnvironment(): NodeJS.ProcessEnv {
@@ -133,6 +141,7 @@ export function parseProcessConfig(
     ...(definition.database?.requiresAdmin ? databaseAdminEnvironmentKeys : []),
     ...(definition.oidc ? oidcEnvironmentKeys : []),
     ...(definition.requiresTenantSecretDirectory ? [tenantSecretEnvironmentKey] : []),
+    ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
   ]);
   const unknownKeys = Object.keys(environment)
     .filter((key) => key.startsWith("QCRM_") && !allowedKeys.has(key))
@@ -203,6 +212,10 @@ export function parseProcessConfig(
     tenantSecretDirectory = configured;
   }
 
+  const storage = definition.requiresStorageAdmin
+    ? parseStorageConfig(definition.serviceName, result.data.QCRM_ENV, environment, fileSystem)
+    : undefined;
+
   return Object.freeze({
     schemaVersion: "process-config/v1",
     serviceName: definition.serviceName,
@@ -213,5 +226,6 @@ export function parseProcessConfig(
     ...(database ? { database } : {}),
     ...(oidc ? { oidc } : {}),
     ...(tenantSecretDirectory ? { tenantSecretDirectory } : {}),
+    ...(storage ? { storage } : {}),
   });
 }

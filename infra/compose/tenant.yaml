@@ -84,7 +84,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [tenant-edge, tenant-internal]
+    networks: [tenant-edge, tenant-internal, platform-storage]
 
   worker:
     <<: *service-defaults
@@ -111,7 +111,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [tenant-internal]
+    networks: [tenant-internal, platform-storage]
 
   agent-runtime:
     <<: *service-defaults
@@ -141,6 +141,9 @@ networks:
     name: "${QCRM_TENANT_EDGE_NETWORK:?set QCRM_TENANT_EDGE_NETWORK}"
   tenant-internal:
     internal: true
+  platform-storage:
+    external: true
+    name: "${QCRM_PLATFORM_STORAGE_NETWORK:?set QCRM_PLATFORM_STORAGE_NETWORK}"
 
 secrets:
   crm-database-url:
