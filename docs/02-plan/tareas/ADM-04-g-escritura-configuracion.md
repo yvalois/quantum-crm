@@ -61,11 +61,11 @@ El ejecutor materializa de forma idempotente un manifiesto de configuración no 
 
 ## Plan de implementacion
 
-- [ ] Añadir tipos de dominio, validadores y exportaciones para `WRITE_CONFIGURATION`.
-- [ ] Persistir configuración y avanzar con lease, versión e intento.
-- [ ] Implementar adaptador de filesystem con allowlist, permisos y rename atómico.
-- [ ] Conectar el paso al ejecutor y al montaje del servicio.
-- [ ] Ejecutar las comprobaciones afectadas en CI y desplegar una vez en el VPS autorizado tras el merge.
+- [x] Añadir tipos de dominio, validadores y exportaciones para `WRITE_CONFIGURATION`.
+- [x] Persistir configuración y avanzar con lease, versión e intento.
+- [x] Implementar adaptador de filesystem con allowlist, permisos y rename atómico.
+- [x] Conectar el paso al ejecutor y al montaje del servicio.
+- [x] Ejecutar las comprobaciones afectadas en CI y desplegar una vez en el VPS autorizado tras el merge.
 
 ## Riesgos y mitigaciones
 
@@ -102,8 +102,8 @@ El ejecutor materializa de forma idempotente un manifiesto de configuración no 
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: PR #9 (`a6235198dd8f664740dd382fa2a9e268a3e464a7`) integrado; `apps/deploy-executor`, `packages/platform-domain`, `packages/database`, `packages/config`, `infra/compose/platform.yaml` y la migración `20260921230000_adm_04_write_configuration`.
+- Comandos y resultados: CI del PR #9 verde. En el VPS, las imágenes se construyeron una vez: `deploy-executor@sha256:ff0ce711c4e90759ba484666afa35a3a13a0f40c9dba06889eb9b020090b4c87` y `platform-migrator@sha256:80d61a6b82306dbc157dfe1b04fad529ee833c2f89365fa72d1a8493175baf89`. La migración se aplicó correctamente; `deploy-executor` quedó saludable con el bind mount `/opt/quantum/config/staging/tenants` (modo `0700`, UID/GID `1000:1000`) y los ocho servicios permanecieron saludables.
+- Documentacion actualizada: `docs/04-proceso/estado.md` y `docs/03-operaciones/inventario-vps.md` registran el despliegue; `docs/08-arquitectura/mapa-del-sistema.md` ya describe la raíz separada de manifiestos.
+- Desviaciones del plan: no se creó un perfil sintético ni se inició `START_CONTAINERS`; se respetó la regla de no contaminar staging con datos ficticios.
+- Pendientes o decisiones nuevas: ejecutar la materialización, reintento e aislamiento con el perfil piloto autorizado. Los criterios de aceptación y el requisito `ADM-04` permanecen abiertos hasta esa evidencia y hasta completar los pasos posteriores.
