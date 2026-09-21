@@ -96,9 +96,12 @@ jobs:
           pnpm --filter @quantum-crm/config build
           QCRM_ENV=test QCRM_MIGRATION_DATABASE_URL_FILE=/run/secrets/qcrm_migration_database_url pnpm --filter @quantum-crm/database db:migrate:platform
           PGPASSWORD=test-only-migrator-platform psql --host 127.0.0.1 --username qcrm_test_platform_migrator --dbname qcrm_test_platform <<'SQL'
-          GRANT USAGE ON SCHEMA infrastructure, operations, platform_iam, tenants TO qcrm_test_platform_runtime;
-          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA infrastructure, operations, platform_iam, tenants TO qcrm_test_platform_runtime;
-          GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA infrastructure, operations, platform_iam, tenants TO qcrm_test_platform_runtime;
+          GRANT USAGE ON SCHEMA infrastructure, operations, platform_iam, releases, tenants TO qcrm_test_platform_runtime;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA infrastructure, operations, platform_iam, releases, tenants TO qcrm_test_platform_runtime;
+          GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA infrastructure, operations, platform_iam, releases, tenants TO qcrm_test_platform_runtime;
+          GRANT EXECUTE ON FUNCTION releases.has_complete_artifact_set(uuid) TO qcrm_test_platform_runtime;
+          GRANT EXECUTE ON FUNCTION releases.assert_release_artifacts_from_release() TO qcrm_test_platform_runtime;
+          GRANT EXECUTE ON FUNCTION releases.assert_release_artifacts_from_artifact() TO qcrm_test_platform_runtime;
           SQL
       - run: pnpm test:integration
         env:
