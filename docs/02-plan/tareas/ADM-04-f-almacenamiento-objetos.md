@@ -68,7 +68,7 @@ El ejecutor procesa `CREATE_STORAGE` de forma idempotente para un perfil: crea o
 - [x] Persistir el resultado de `CREATE_STORAGE` con lease, versión e intento.
 - [x] Implementar adaptador S3/SeaweedFS con operaciones idempotentes y mínimo privilegio.
 - [x] Conectar el paso al ejecutor sin shell arbitrario ni acceso desde otros procesos.
-- [ ] Ejecutar la verificación afectada una vez en el VPS y reutilizar la evidencia en CI/PR.
+- [x] Ejecutar la verificación afectada una vez en el VPS y reutilizar la evidencia en CI/PR.
 
 ## Riesgos y mitigaciones
 
@@ -104,8 +104,8 @@ El ejecutor procesa `CREATE_STORAGE` de forma idempotente para un perfil: crea o
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: rama `feat/ADM-04-create-storage`; cambios de código y migración pendientes de PR.
-- Comandos y resultados: pendiente de la verificación VPS.
+- Archivos, commits o PR: PR #7 integrado en `origin/main`, commit `dba1d75c8ac56e31f709e6558961c8515cab9305`; checkout inmutable en `/opt/quantum/builds/dba1d75c8ac56e31f709e6558961c8515cab9305`.
+- Comandos y resultados: en el VPS se construyeron `deploy-executor` (`sha256:0b7c252f73c6ae97c6ffa0b51b370eada492c7bc06b308e009c6265b431197f2`) y el migrador (`sha256:3c86bb5bf3822f83aa5ef8b5f68d68955e0fa4d09a2e3f6fefa7035aac37a805`); se aplicó `20260921220000_adm_04_create_tenant_storage`; SeaweedFS 4.47 quedó saludable por digest `sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882`; plataforma, PostgreSQL, `admin-api` y `deploy-executor` quedaron saludables.
 - Documentación actualizada: ficha, estado del proyecto, Compose y README de infraestructura.
 - Desviaciones del plan: ninguna conocida.
-- Pendientes o decisiones nuevas: publicar la rama, ejecutar una sola verificación afectada en VPS y conservar su evidencia para CI/PR.
+- Pendientes o decisiones nuevas: ejecutar la creación, reintento e intento cruzado con un perfil piloto autorizado; no se inventaron perfiles ni datos sintéticos en staging.
