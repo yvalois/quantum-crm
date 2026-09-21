@@ -105,7 +105,7 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
 - [ ] **ADM-09 — Administrar el catálogo de versiones publicadas.**
   - [ ] Recibir de CI/CD el identificador de release, commit y digests de artefactos.
   - [ ] Mostrar notas de cambios, migraciones necesarias y compatibilidad de configuración y agentes.
-  - [ ] Distinguir versiones candidatas, validadas y retiradas.
+  - [x] Distinguir versiones candidatas, validadas y retiradas.
   - [ ] Permitir desplegar únicamente artefactos registrados y autorizados.
 
 - [ ] **ADM-10 — Actualizar un perfil individual.**

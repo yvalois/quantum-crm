@@ -55,47 +55,47 @@ La plataforma conserva un catalogo durable de releases con identificador, versio
 
 ## Impacto tecnico
 
-| Area | Impacto previsto |
-|---|---|
-| Aplicaciones y modulos | `admin-api`, nuevo dominio `releases`, adaptador PostgreSQL de plataforma. |
-| Contratos y eventos | Contrato `platform-release/v1`; sin comandos libres ni datos secretos. |
-| Datos y migraciones | Schema `releases`, release, artefactos, enum de estado y FK desde perfiles, reservas y operaciones. |
-| Permisos y aislamiento | Reutiliza permisos administrativos de despliegue; denegacion por defecto en servidor. |
-| Configuracion y secretos | Sin variables ni secretos nuevos. |
-| Observabilidad y operacion | Conflictos diferenciados por version, identidad duplicada y release no desplegable. |
-| Documentacion | Ficha, estado, checklist solo para subtareas acreditadas e inventario al desplegar. |
+| Area                       | Impacto previsto                                                                                    |
+| -------------------------- | --------------------------------------------------------------------------------------------------- |
+| Aplicaciones y modulos     | `admin-api`, nuevo dominio `releases`, adaptador PostgreSQL de plataforma.                          |
+| Contratos y eventos        | Contrato `platform-release/v1`; sin comandos libres ni datos secretos.                              |
+| Datos y migraciones        | Schema `releases`, release, artefactos, enum de estado y FK desde perfiles, reservas y operaciones. |
+| Permisos y aislamiento     | Reutiliza permisos administrativos de despliegue; denegacion por defecto en servidor.               |
+| Configuracion y secretos   | Sin variables ni secretos nuevos.                                                                   |
+| Observabilidad y operacion | Conflictos diferenciados por version, identidad duplicada y release no desplegable.                 |
+| Documentacion              | Ficha, estado, checklist solo para subtareas acreditadas e inventario al desplegar.                 |
 
 ## Plan de implementacion
 
-- [ ] Definir agregado, artefactos obligatorios, estados y transiciones.
-- [ ] Publicar schemas v1 de entrada y salida.
-- [ ] Crear migracion forward-only con invariantes y relaciones.
-- [ ] Implementar repositorio y servicio de aplicacion.
-- [ ] Exponer endpoints protegidos y control optimista.
-- [ ] Exigir una release validada en la admision de aprovisionamiento.
-- [ ] Cubrir validacion, permisos, concurrencia, idempotencia y ausencia de efectos parciales.
-- [ ] Verificar en Node 24 y PostgreSQL 18 del VPS, migrar y desplegar por digest.
-- [ ] Registrar evidencia y preparar pull request.
+- [x] Definir agregado, artefactos obligatorios, estados y transiciones.
+- [x] Publicar schemas v1 de entrada y salida.
+- [x] Crear migracion forward-only con invariantes y relaciones.
+- [x] Implementar repositorio y servicio de aplicacion.
+- [x] Exponer endpoints protegidos y control optimista.
+- [x] Exigir una release validada en la admision de aprovisionamiento.
+- [x] Cubrir validacion, permisos, concurrencia, idempotencia y ausencia de efectos parciales.
+- [x] Verificar en Node 24 y PostgreSQL 18 del VPS, migrar y desplegar por digest.
+- [x] Registrar evidencia y preparar pull request.
 
 ## Riesgos y mitigaciones
 
-| Riesgo | Mitigacion | Verificacion |
-|---|---|---|
-| Se despliega un tag mutable o digest incompleto | Nombres cerrados, ocho artefactos exactos y regex OCI `sha256`. | Dominio, contrato y constraints SQL. |
-| Se admite una release candidata o retirada | Bloqueo/lectura de la release dentro de la transaccion de admision. | Integracion comprueba rollback total. |
-| Dos publicaciones crean identidades ambiguas | Unicidad de version y commit, mas `If-Match` para transiciones. | Pruebas de conflicto y concurrencia. |
-| Una release validada cambia su contenido | Metadatos y artefactos inmutables; solo cambia estado/version. | API no expone edicion de contenido. |
-| Se confunde catalogar con publicar desde CI | Dejar el workflow fuera de esta rebanada y no marcar esa subtarea. | Checklist y evidencia explicitos. |
+| Riesgo                                          | Mitigacion                                                          | Verificacion                          |
+| ----------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------- |
+| Se despliega un tag mutable o digest incompleto | Nombres cerrados, ocho artefactos exactos y regex OCI `sha256`.     | Dominio, contrato y constraints SQL.  |
+| Se admite una release candidata o retirada      | Bloqueo/lectura de la release dentro de la transaccion de admision. | Integracion comprueba rollback total. |
+| Dos publicaciones crean identidades ambiguas    | Unicidad de version y commit, mas `If-Match` para transiciones.     | Pruebas de conflicto y concurrencia.  |
+| Una release validada cambia su contenido        | Metadatos y artefactos inmutables; solo cambia estado/version.      | API no expone edicion de contenido.   |
+| Se confunde catalogar con publicar desde CI     | Dejar el workflow fuera de esta rebanada y no marcar esa subtarea.  | Checklist y evidencia explicitos.     |
 
 ## Criterios de aceptacion
 
-- [ ] Una release valida conserva exactamente los ocho artefactos y metadatos requeridos.
-- [ ] Version, commit, nombres de artefacto, digests y compatibilidad invalidos se rechazan en dominio, HTTP y PostgreSQL.
-- [ ] Una release solo transita `CANDIDATE -> VALIDATED -> RETIRED`, con version esperada.
-- [ ] Lectura y administracion requieren permisos distintos ya existentes.
-- [ ] Una solicitud con release inexistente, candidata o retirada no crea operacion, reserva ni cambio del perfil.
-- [ ] Una solicitud con release validada conserva la admision atomica e idempotente existente.
-- [ ] Migraciones desde cero y desde el estado desplegado terminan sin datos huerfanos.
+- [x] Una release valida conserva exactamente los ocho artefactos y metadatos requeridos.
+- [x] Version, commit, nombres de artefacto, digests y compatibilidad invalidos se rechazan en dominio, HTTP y PostgreSQL.
+- [x] Una release solo transita `CANDIDATE -> VALIDATED -> RETIRED`, con version esperada.
+- [x] Lectura y administracion requieren permisos distintos ya existentes.
+- [x] Una solicitud con release inexistente, candidata o retirada no crea operacion, reserva ni cambio del perfil.
+- [x] Una solicitud con release validada conserva la admision atomica e idempotente existente.
+- [x] Migraciones desde cero y desde el estado desplegado terminan sin datos huerfanos.
 
 ## Plan de verificacion
 
@@ -115,8 +115,8 @@ La plataforma conserva un catalogo durable de releases con identificador, versio
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: ninguna al iniciar.
-- Pendientes o decisiones nuevas: publicacion autenticada desde CI/CD y uso de la release validada por `ADM-04-c`.
+- Archivos, commits o PR: dominio `packages/platform-domain/src/releases`, contratos `packages/contracts/src/releases/v1`, persistencia y migracion `20260921160000_adm_09_release_catalog`, controlador `apps/admin-api/src/releases.controller.ts`; commits `5aea6ac`, `bf0acf2`, `76d3960` y `aaa1b1e`; [PR #3](https://github.com/yvalois/quantum-crm/pull/3).
+- Comandos y resultados: siete checks de GitHub aprobados; Node 24 aprobo 206/206 pruebas generales, 20/20 de arquitectura y los 17 builds; PostgreSQL 18 desechable aplico siete migraciones desde cero y aprobo 18/18 pruebas de integracion. Staging aplico la septima migracion, conserva cero releases sinteticas, concedio al rol runtime la ejecucion de las funciones de integridad y respondio `200` en readiness y `401` en `/api/v1/releases` sin autenticacion.
+- Documentacion actualizada: checklist, estado, esta ficha e inventario operativo del VPS.
+- Desviaciones del plan: los `GRANT` dependientes de roles se separaron de la migracion estructural y se ejecutan en el paso controlado de permisos. La prueba desechable ajusto el `tmpfs` a `/var/lib/postgresql`, requerido por PostgreSQL 18. La limpieza del fixture del catalogo se hizo atomica para respetar sus constraints diferibles.
+- Pendientes o decisiones nuevas: publicacion autenticada desde CI/CD, interfaz visual del catalogo y consumo de la release validada por los efectos tipados de `ADM-04-c`.
