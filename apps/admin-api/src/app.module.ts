@@ -13,6 +13,7 @@ import {
   PlatformAuthorizationGuard,
 } from "./platform-security.js";
 import { ProblemDetailsFilter } from "./problem-details.filter.js";
+import { PLATFORM_RELEASE_SERVICE, ReleasesController } from "./releases.controller.js";
 import {
   INFRASTRUCTURE_SERVER_SERVICE,
   InfrastructureServersController,
@@ -24,6 +25,7 @@ import {
 } from "./tenant-profiles.controller.js";
 import {
   InfrastructureServerService,
+  PlatformReleaseService,
   TenantProfileService,
   TenantProvisioningService,
 } from "@quantum-crm/platform-domain";
@@ -41,6 +43,7 @@ export class AppModule {
         HealthController,
         InfrastructureServersController,
         OperatorsController,
+        ReleasesController,
         TenantProfilesController,
       ],
       providers: [
@@ -59,6 +62,10 @@ export class AppModule {
         {
           provide: TENANT_PROVISIONING_SERVICE,
           useFactory: () => new TenantProvisioningService(database.provisioningOperations),
+        },
+        {
+          provide: PLATFORM_RELEASE_SERVICE,
+          useFactory: () => new PlatformReleaseService(database.releases),
         },
         { provide: APP_GUARD, useClass: PlatformAuthenticationGuard },
         { provide: APP_GUARD, useClass: PlatformAuthorizationGuard },

@@ -34,6 +34,7 @@ import {
   InfrastructureCapacityExceededError,
   InfrastructureServerNotAdmissibleError,
   ProvisioningOperationValidationError,
+  PlatformReleaseNotDeployableError,
   TenantProfileLifecycleTransitionError,
   TenantProfileConflictError,
   TenantProfileNotFoundError,
@@ -150,6 +151,7 @@ function translate(error: unknown): never {
     error instanceof ProvisioningOperationConflictError ||
     error instanceof InfrastructureCapacityExceededError ||
     error instanceof InfrastructureServerNotAdmissibleError ||
+    error instanceof PlatformReleaseNotDeployableError ||
     error instanceof TenantProfileLifecycleTransitionError
   ) {
     throw new ConflictException();

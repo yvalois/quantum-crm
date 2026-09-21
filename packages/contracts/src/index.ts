@@ -49,3 +49,17 @@ export {
   type InfrastructureServerContract,
   type UpdateInfrastructureServer,
 } from "./infrastructure/v1/infrastructure-server.js";
+export {
+  CreatePlatformReleaseSchema,
+  PlatformReleaseArtifactNameSchema,
+  PlatformReleaseArtifactSchema,
+  PlatformReleaseCompatibilitySchema,
+  PlatformReleaseListQuerySchema,
+  PlatformReleaseListResponseSchema,
+  PlatformReleaseResponseSchema,
+  PlatformReleaseSchema,
+  PlatformReleaseStatusSchema,
+  UpdatePlatformReleaseStatusSchema,
+  type CreatePlatformRelease,
+  type PlatformReleaseContract,
+} from "./releases/v1/platform-release.js";
