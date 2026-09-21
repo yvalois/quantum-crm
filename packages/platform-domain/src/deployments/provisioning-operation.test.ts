@@ -17,6 +17,7 @@ const command = {
   requestedByOperatorId: "01995f7e-7b52-7000-8000-000000000101",
   idempotencyKey: "provision-acme-001",
   correlationId: "request-001",
+  requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
   expectedTenantVersion: 1n,
 } as const;
 
@@ -29,6 +30,7 @@ describe("tenant provisioning operation", () => {
       requestedByOperatorId: command.requestedByOperatorId,
       idempotencyKey: command.idempotencyKey,
       correlationId: command.correlationId,
+      requestedCapacity: command.requestedCapacity,
       status: "PENDING",
       currentStep: "VALIDATE",
     });
@@ -41,6 +43,10 @@ describe("tenant provisioning operation", () => {
     ["requestedByOperatorId", { requestedByOperatorId: "bad" }],
     ["idempotencyKey", { idempotencyKey: "short" }],
     ["correlationId", { correlationId: "contains space" }],
+    [
+      "requestedCapacity.cpuMillicores",
+      { requestedCapacity: { cpuMillicores: 0, memoryMiB: 1, storageMiB: 1 } },
+    ],
   ] as const)("rejects invalid %s", (field, overrides) => {
     expect(() => createProvisioningOperationDraft({ ...command, ...overrides })).toThrow(
       new ProvisioningOperationValidationError(field),
@@ -77,6 +83,10 @@ describe("tenant provisioning operation", () => {
       },
       createdAt: new Date("2026-09-20T11:59:00.000Z"),
       updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+      capacityReservation: {
+        id: "01995f7e-7b52-7000-8000-000000000501",
+        capacity: command.requestedCapacity,
+      },
     });
 
     expect(operation).toMatchObject({
@@ -99,6 +109,10 @@ describe("tenant provisioning operation", () => {
         lease: null,
         createdAt: new Date("2026-09-20T11:59:00.000Z"),
         updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+        capacityReservation: {
+          id: "01995f7e-7b52-7000-8000-000000000501",
+          capacity: command.requestedCapacity,
+        },
       }),
     ).toThrow(new ProvisioningOperationValidationError("lease"));
     expect(() =>

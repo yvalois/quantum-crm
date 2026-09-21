@@ -15,7 +15,6 @@ const input = {
   architecture: "X86_64",
   status: "AVAILABLE",
   totalCapacity: { cpuMillicores: 4000, memoryMiB: 8192, storageMiB: 102400 },
-  reservedCapacity: { cpuMillicores: 1000, memoryMiB: 2048, storageMiB: 20480 },
   operationCredentialRef: "secret://staging/servers/primary/ssh-key",
   confirmedAt: "2026-09-20T12:00:00.000Z",
 };
@@ -27,11 +26,11 @@ describe("infrastructure server contract", () => {
     });
   });
 
-  it("rejects over-reservation and literal credentials", () => {
+  it("rejects client-controlled reservations and literal credentials", () => {
     expect(
       CreateInfrastructureServerSchema.safeParse({
         ...input,
-        reservedCapacity: { ...input.reservedCapacity, memoryMiB: 9000 },
+        reservedCapacity: { cpuMillicores: 1, memoryMiB: 1, storageMiB: 1 },
       }).success,
     ).toBe(false);
     expect(
@@ -49,6 +48,7 @@ describe("infrastructure server contract", () => {
       schemaVersion: "infrastructure-server/v1",
       data: {
         ...publicInput,
+        reservedCapacity: { cpuMillicores: 1000, memoryMiB: 2048, storageMiB: 20480 },
         id: "01995f7e-7b52-7000-8000-000000000301",
         availableCapacity: { cpuMillicores: 3000, memoryMiB: 6144, storageMiB: 81920 },
         credentialConfigured: true,

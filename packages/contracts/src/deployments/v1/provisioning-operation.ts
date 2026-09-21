@@ -4,6 +4,13 @@ export const RequestTenantProvisioningSchema = z
   .object({
     serverId: z.string().uuid(),
     releaseId: z.string().uuid(),
+    requestedCapacity: z
+      .object({
+        cpuMillicores: z.number().int().positive(),
+        memoryMiB: z.number().int().positive(),
+        storageMiB: z.number().int().positive(),
+      })
+      .strict(),
   })
   .strict();
 
@@ -13,6 +20,18 @@ export const ProvisioningOperationSchema = z
     tenantProfileId: z.string().uuid(),
     serverId: z.string().uuid(),
     releaseId: z.string().uuid(),
+    requestedCapacity: z
+      .object({
+        cpuMillicores: z.number().int().positive(),
+        memoryMiB: z.number().int().positive(),
+        storageMiB: z.number().int().positive(),
+      })
+      .strict(),
+    capacityReservation: z
+      .object({
+        id: z.string().uuid(),
+      })
+      .strict(),
     status: z.enum(["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]),
     currentStep: z.enum([
       "VALIDATE",

@@ -191,9 +191,6 @@ export class InfrastructureServersController {
       ...(parsed.data.totalCapacity !== undefined
         ? { totalCapacity: parsed.data.totalCapacity }
         : {}),
-      ...(parsed.data.reservedCapacity !== undefined
-        ? { reservedCapacity: parsed.data.reservedCapacity }
-        : {}),
       ...(parsed.data.operationCredentialRef !== undefined
         ? { operationCredentialRef: parsed.data.operationCredentialRef }
         : {}),

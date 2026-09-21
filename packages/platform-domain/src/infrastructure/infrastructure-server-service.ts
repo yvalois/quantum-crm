@@ -56,7 +56,6 @@ export interface CreateInfrastructureServerCommand {
   readonly architecture: InfrastructureServerArchitecture;
   readonly status: InfrastructureServerStatus;
   readonly totalCapacity: ServerCapacity;
-  readonly reservedCapacity: ServerCapacity;
   readonly operationCredentialRef: string;
   readonly confirmedAt: Date;
 }
@@ -67,7 +66,12 @@ export class InfrastructureServerService {
   public constructor(private readonly repository: InfrastructureServerRepository) {}
 
   public create(command: CreateInfrastructureServerCommand): Promise<InfrastructureServer> {
-    return this.repository.create(createInfrastructureServerDraft(command));
+    return this.repository.create(
+      createInfrastructureServerDraft({
+        ...command,
+        reservedCapacity: { cpuMillicores: 0, memoryMiB: 0, storageMiB: 0 },
+      }),
+    );
   }
 
   public async get(id: string): Promise<InfrastructureServer> {
@@ -98,7 +102,7 @@ export class InfrastructureServerService {
       architecture: changes.architecture ?? current.architecture,
       status: changes.status ?? current.status,
       totalCapacity: changes.totalCapacity ?? current.totalCapacity,
-      reservedCapacity: changes.reservedCapacity ?? current.reservedCapacity,
+      reservedCapacity: current.reservedCapacity,
       operationCredentialRef: changes.operationCredentialRef ?? current.operationCredentialRef,
       confirmedAt: changes.confirmedAt ?? current.confirmedAt,
     });

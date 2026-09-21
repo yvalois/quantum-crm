@@ -31,6 +31,8 @@ import {
 import { DatabaseUnavailableError } from "@quantum-crm/database";
 import {
   ProvisioningOperationConflictError,
+  InfrastructureCapacityExceededError,
+  InfrastructureServerNotAdmissibleError,
   ProvisioningOperationValidationError,
   TenantProfileLifecycleTransitionError,
   TenantProfileConflictError,
@@ -80,6 +82,10 @@ function provisioningOperationContract(
     tenantProfileId: operation.tenantProfileId,
     serverId: operation.serverId,
     releaseId: operation.releaseId,
+    requestedCapacity: operation.requestedCapacity,
+    capacityReservation: {
+      id: operation.capacityReservation.id,
+    },
     status: operation.status,
     currentStep: operation.currentStep,
     attempt: operation.attempt,
@@ -142,6 +148,8 @@ function translate(error: unknown): never {
   }
   if (
     error instanceof ProvisioningOperationConflictError ||
+    error instanceof InfrastructureCapacityExceededError ||
+    error instanceof InfrastructureServerNotAdmissibleError ||
     error instanceof TenantProfileLifecycleTransitionError
   ) {
     throw new ConflictException();
@@ -279,6 +287,7 @@ export class TenantProfilesController {
         tenantProfileId: id,
         serverId: parsed.data.serverId,
         releaseId: parsed.data.releaseId,
+        requestedCapacity: parsed.data.requestedCapacity,
         requestedByOperatorId: auth.principal.id,
         idempotencyKey: idempotencyKey(rawIdempotencyKey),
         correlationId: auth.correlationId,

@@ -33,6 +33,7 @@ beforeAll(async () => {
     requestedByOperatorId: "01995f7e-7b52-7000-8000-000000000101",
     idempotencyKey: "provision-acme-001",
     correlationId: "request-001",
+    requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
     status: "PENDING",
     currentStep: "VALIDATE",
     attempt: 0,
@@ -40,6 +41,10 @@ beforeAll(async () => {
     lease: null,
     createdAt: new Date("2026-09-20T12:00:00.000Z"),
     updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+    capacityReservation: {
+      id: "01995f7e-7b52-7000-8000-000000000501",
+      capacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
+    },
   });
   const infrastructureServer = hydrateInfrastructureServer({
     id: "01995f7e-7b52-7000-8000-000000000301",
@@ -190,7 +195,6 @@ describe("admin API authentication boundary", () => {
         architecture: "X86_64",
         status: "AVAILABLE",
         totalCapacity: { cpuMillicores: 4000, memoryMiB: 8192, storageMiB: 102400 },
-        reservedCapacity: { cpuMillicores: 1000, memoryMiB: 2048, storageMiB: 20480 },
         operationCredentialRef: "secret://staging/servers/primary/ssh-key",
         confirmedAt: "2026-09-20T12:00:00.000Z",
       }),
@@ -283,6 +287,7 @@ describe("admin API authentication boundary", () => {
         body: JSON.stringify({
           serverId: "01995f7e-7b52-7000-8000-000000000301",
           releaseId: "01995f7e-7b52-7000-8000-000000000302",
+          requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
         }),
       },
     );
