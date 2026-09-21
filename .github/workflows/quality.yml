@@ -93,6 +93,7 @@ jobs:
           printf '%s\n' 'redis://127.0.0.1:6379/0' > /run/secrets/qcrm_test_session_redis_url
           chmod 0600 /run/secrets/*
           psql --host 127.0.0.1 --username postgres --dbname postgres --file tests/integration/fixtures/postgres-bootstrap.sql
+          pnpm --filter @quantum-crm/config build
           QCRM_ENV=test QCRM_MIGRATION_DATABASE_URL_FILE=/run/secrets/qcrm_migration_database_url pnpm --filter @quantum-crm/database db:migrate:platform
           PGPASSWORD=test-only-migrator-platform psql --host 127.0.0.1 --username qcrm_test_platform_migrator --dbname qcrm_test_platform <<'SQL'
           GRANT USAGE ON SCHEMA infrastructure, operations, platform_iam, tenants TO qcrm_test_platform_runtime;
