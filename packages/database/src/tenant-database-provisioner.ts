@@ -6,18 +6,14 @@ import {
   type TenantDatabaseProvisioner,
 } from "@quantum-crm/platform-domain";
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const identifierPattern = /^qcrm_[tmr]_[0-9a-f]{32}$/u;
 const roleIdentifierPattern = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/u;
 
 export class TenantDatabaseProvisioningError extends Error {
   public constructor(
     public readonly reason:
-      | "UNAVAILABLE"
-      | "PERMISSION_DENIED"
-      | "IDENTITY_MISMATCH"
-      | "TARGET_CONFLICT",
+      "UNAVAILABLE" | "PERMISSION_DENIED" | "IDENTITY_MISMATCH" | "TARGET_CONFLICT",
   ) {
     super(`Tenant database provisioning failed: ${reason}`);
     this.name = "TenantDatabaseProvisioningError";
@@ -39,10 +35,7 @@ function quoteRoleIdentifier(value: string): string {
 }
 
 function databaseIdentity(command: TenantDatabaseProvisionCommand) {
-  if (
-    !uuidPattern.test(command.tenantProfileId) ||
-    !uuidPattern.test(command.serverId)
-  ) {
+  if (!uuidPattern.test(command.tenantProfileId) || !uuidPattern.test(command.serverId)) {
     throw new TenantDatabaseProvisioningError("IDENTITY_MISMATCH");
   }
   return tenantDatabaseIdentity(command.tenantProfileId);
@@ -79,10 +72,7 @@ export function createTenantDatabaseProvisioner(
     idle_in_transaction_session_timeout: 10_000,
   });
 
-  const verifyRole = async (
-    client: PoolClient,
-    roleName: string,
-  ): Promise<void> => {
+  const verifyRole = async (client: PoolClient, roleName: string): Promise<void> => {
     const result = await client.query<RoleRow>(
       `
         SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolinherit, rolcanlogin
@@ -150,10 +140,7 @@ export function createTenantDatabaseProvisioner(
         `${command.serverId}:${identity.databaseName}`,
       ]);
       await client.query("BEGIN");
-      for (const roleName of [
-        identity.migratorRoleName,
-        identity.runtimeRoleName,
-      ]) {
+      for (const roleName of [identity.migratorRoleName, identity.runtimeRoleName]) {
         const roleResult = await client.query<{ readonly rolname: string }>(
           "SELECT rolname FROM pg_roles WHERE rolname = $1",
           [roleName],
@@ -175,32 +162,22 @@ export function createTenantDatabaseProvisioner(
         readonly current_user: string;
       }>("SELECT current_user");
       currentUser = currentUserResult.rows[0]?.current_user;
-      if (!currentUser)
-        throw new TenantDatabaseProvisioningError("UNAVAILABLE");
+      if (!currentUser) throw new TenantDatabaseProvisioningError("UNAVAILABLE");
       const quotedCurrentUser = quoteRoleIdentifier(currentUser);
       await client.query(`GRANT ${migratorRoleName} TO ${quotedCurrentUser}`);
       membershipGranted = true;
       if (!databaseResult.rows[0]) {
         try {
-          await client.query(
-            `CREATE DATABASE ${databaseName} OWNER ${migratorRoleName}`,
-          );
+          await client.query(`CREATE DATABASE ${databaseName} OWNER ${migratorRoleName}`);
         } catch (error) {
-          if ((error as { readonly code?: string }).code !== "42P04")
-            throw error;
+          if ((error as { readonly code?: string }).code !== "42P04") throw error;
         }
       }
       await client.query(`SET ROLE ${migratorRoleName}`);
-      await client.query(
-        `REVOKE CONNECT ON DATABASE ${databaseName} FROM PUBLIC`,
-      );
-      await client.query(
-        `GRANT CONNECT ON DATABASE ${databaseName} TO ${runtimeRoleName}`,
-      );
+      await client.query(`REVOKE CONNECT ON DATABASE ${databaseName} FROM PUBLIC`);
+      await client.query(`GRANT CONNECT ON DATABASE ${databaseName} TO ${runtimeRoleName}`);
       await client.query("RESET ROLE");
-      await client.query(
-        `REVOKE ${migratorRoleName} FROM ${quotedCurrentUser}`,
-      );
+      await client.query(`REVOKE ${migratorRoleName} FROM ${quotedCurrentUser}`);
       membershipGranted = false;
       await verifyDatabase(
         client,
@@ -216,17 +193,14 @@ export function createTenantDatabaseProvisioner(
       await client?.query("ROLLBACK").catch(() => undefined);
       if (error instanceof TenantDatabaseProvisioningError) throw error;
       const code = (error as { readonly code?: string }).code;
-      if (code === "42501")
-        throw new TenantDatabaseProvisioningError("PERMISSION_DENIED");
+      if (code === "42501") throw new TenantDatabaseProvisioningError("PERMISSION_DENIED");
       throw new TenantDatabaseProvisioningError("UNAVAILABLE");
     } finally {
       if (client) {
         if (membershipGranted && currentUser) {
           await client.query("RESET ROLE").catch(() => undefined);
           await client
-            .query(
-              `REVOKE ${migratorRoleName} FROM ${quoteRoleIdentifier(currentUser)}`,
-            )
+            .query(`REVOKE ${migratorRoleName} FROM ${quoteRoleIdentifier(currentUser)}`)
             .catch(() => undefined);
         }
         await client
