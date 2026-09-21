@@ -188,7 +188,8 @@ export function parseProcessConfig(
     : undefined;
   let tenantSecretDirectory: string | undefined;
   if (definition.requiresTenantSecretDirectory) {
-    const configured = environment[tenantSecretEnvironmentKey] ??
+    const configured =
+      environment[tenantSecretEnvironmentKey] ??
       (allowSafeDefaults ? "/tmp/qcrm-tenant-secrets" : undefined);
     if (
       !configured ||

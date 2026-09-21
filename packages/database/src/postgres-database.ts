@@ -638,14 +638,20 @@ export function createPostgresDatabase(
 async function completeProvisioningSecrets(
   pool: PostgresPool,
   command: CompleteProvisioningSecretsCommand,
-): Promise<ReturnType<ProvisioningOperationRepository["completeSecrets"]> extends Promise<infer Result> ? Result : never> {
+): Promise<
+  ReturnType<ProvisioningOperationRepository["completeSecrets"]> extends Promise<infer Result>
+    ? Result
+    : never
+> {
   const completion = validateCompleteProvisioningSecrets(command);
   const failureCode = completion.failureCode?.toLowerCase() ?? null;
   let client: PoolClient | undefined;
   try {
     client = await pool.connect();
     await client.query("BEGIN");
-    const result = await client.query<ProvisioningOperationRow & { readonly tenant_version: string }>(
+    const result = await client.query<
+      ProvisioningOperationRow & { readonly tenant_version: string }
+    >(
       `
         SELECT ${provisioningOperationSelection}, profile.version::text AS tenant_version
         FROM operations.provisioning_operations AS operation
@@ -704,7 +710,10 @@ async function completeProvisioningSecrets(
       const target = targetResult.rows[0];
       if (!target || target.server_id !== row.server_id) throw new DatabaseUnavailableError();
       for (const secret of completion.secrets) {
-        const existingResult = await client.query<{ readonly secret_ref: string; readonly version: string }>(
+        const existingResult = await client.query<{
+          readonly secret_ref: string;
+          readonly version: string;
+        }>(
           `
             SELECT secret_ref, version::text FROM tenants.tenant_database_secrets
             WHERE tenant_database_id = $1::uuid AND kind = $2::tenants.tenant_database_secret_kind
@@ -713,7 +722,10 @@ async function completeProvisioningSecrets(
           [target.id, secret.kind.toLowerCase()],
         );
         const existing = existingResult.rows[0];
-        if (existing && (existing.secret_ref !== secret.secretRef || BigInt(existing.version) !== secret.version)) {
+        if (
+          existing &&
+          (existing.secret_ref !== secret.secretRef || BigInt(existing.version) !== secret.version)
+        ) {
           throw new DatabaseUnavailableError();
         }
         if (existing) {
@@ -777,7 +789,12 @@ async function completeProvisioningSecrets(
           AND reserved_memory_mib >= $3
           AND reserved_storage_mib >= $4
       `,
-      [row.server_id, row.requested_cpu_millicores, row.requested_memory_mib, row.requested_storage_mib],
+      [
+        row.server_id,
+        row.requested_cpu_millicores,
+        row.requested_memory_mib,
+        row.requested_storage_mib,
+      ],
     );
     const tenantUpdate = await client.query<{ readonly version: string }>(
       `
@@ -804,7 +821,9 @@ async function completeProvisioningSecrets(
     await client.query("COMMIT");
     return Object.freeze({
       operation: provisioningOperationFromRow(updatedOperation),
-      tenantVersion: tenantUpdate.rows[0] ? BigInt(tenantUpdate.rows[0].version) : BigInt(row.tenant_version),
+      tenantVersion: tenantUpdate.rows[0]
+        ? BigInt(tenantUpdate.rows[0].version)
+        : BigInt(row.tenant_version),
       outcome: "FAILED" as const,
       failureCode: completion.failureCode ?? null,
     });

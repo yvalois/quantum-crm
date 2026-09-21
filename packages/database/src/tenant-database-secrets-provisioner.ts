@@ -19,10 +19,7 @@ const passwordPattern = /^[A-Za-z0-9_-]{43,128}$/u;
 export class TenantDatabaseSecretsProvisioningError extends Error {
   public constructor(
     public readonly reason:
-      | "UNAVAILABLE"
-      | "PERMISSION_DENIED"
-      | "IDENTITY_MISMATCH"
-      | "TARGET_CONFLICT",
+      "UNAVAILABLE" | "PERMISSION_DENIED" | "IDENTITY_MISMATCH" | "TARGET_CONFLICT",
   ) {
     super(`Tenant database secrets provisioning failed: ${reason}`);
     this.name = "TenantDatabaseSecretsProvisioningError";
@@ -64,7 +61,11 @@ function expectedFileName(kind: TenantDatabaseSecretKind): string {
   return kind === "MIGRATOR_PASSWORD" ? "migrator-password" : "runtime-password";
 }
 
-function secretPath(rootDirectory: string, tenantProfileId: string, kind: TenantDatabaseSecretKind): string {
+function secretPath(
+  rootDirectory: string,
+  tenantProfileId: string,
+  kind: TenantDatabaseSecretKind,
+): string {
   if (!uuidPattern.test(tenantProfileId)) {
     throw new TenantDatabaseSecretsProvisioningError("IDENTITY_MISMATCH");
   }
@@ -87,7 +88,12 @@ function normalizeSecret(value: string): string {
 async function readExistingSecret(path: string): Promise<string | undefined> {
   try {
     const metadata = await lstat(path);
-    if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size < 44 || metadata.size > 129) {
+    if (
+      !metadata.isFile() ||
+      metadata.isSymbolicLink() ||
+      metadata.size < 44 ||
+      metadata.size > 129
+    ) {
       throw new TenantDatabaseSecretsProvisioningError("TARGET_CONFLICT");
     }
     return normalizeSecret(await readFile(path, "utf8"));
@@ -206,7 +212,11 @@ export function createTenantDatabaseSecretsProvisioner(
         if (!role || role.rolsuper || role.rolcreaterole || role.rolcreatedb) {
           throw new TenantDatabaseSecretsProvisioningError("IDENTITY_MISMATCH");
         }
-        const value = values.find((entry) => entry.kind === (roleName === identity.migratorRoleName ? "MIGRATOR_PASSWORD" : "RUNTIME_PASSWORD"));
+        const value = values.find(
+          (entry) =>
+            entry.kind ===
+            (roleName === identity.migratorRoleName ? "MIGRATOR_PASSWORD" : "RUNTIME_PASSWORD"),
+        );
         if (!value) throw new TenantDatabaseSecretsProvisioningError("IDENTITY_MISMATCH");
         await client.query(
           `ALTER ROLE ${quoteIdentifier(roleName)} LOGIN PASSWORD ${quoteLiteral(value.value)}`,
@@ -223,7 +233,9 @@ export function createTenantDatabaseSecretsProvisioner(
       );
       if (
         roleCheck.rows.length !== 2 ||
-        roleCheck.rows.some((role) => role.rolsuper || role.rolcreaterole || role.rolcreatedb || !role.rolcanlogin)
+        roleCheck.rows.some(
+          (role) => role.rolsuper || role.rolcreaterole || role.rolcreatedb || !role.rolcanlogin,
+        )
       ) {
         throw new TenantDatabaseSecretsProvisioningError("IDENTITY_MISMATCH");
       }

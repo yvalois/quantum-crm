@@ -153,9 +153,11 @@ export class ProvisioningExecutor {
         return true;
       }
       provisioningFailure =
-        error instanceof TenantDatabaseSecretsProvisioningError && error.reason === "PERMISSION_DENIED"
+        error instanceof TenantDatabaseSecretsProvisioningError &&
+        error.reason === "PERMISSION_DENIED"
           ? "SECRET_PERMISSION_DENIED"
-          : error instanceof TenantDatabaseSecretsProvisioningError && error.reason === "TARGET_CONFLICT"
+          : error instanceof TenantDatabaseSecretsProvisioningError &&
+              error.reason === "TARGET_CONFLICT"
             ? "SECRET_TARGET_CONFLICT"
             : "SECRET_IDENTITY_MISMATCH";
     }

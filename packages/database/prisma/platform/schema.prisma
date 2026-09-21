@@ -223,7 +223,6 @@ model TenantProfile {
   provisioningOperations ProvisioningOperation[]
   capacityReservations InfrastructureCapacityReservation[]
   database             TenantDatabase?
-  databaseSecrets      TenantDatabaseSecret[]
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
