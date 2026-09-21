@@ -82,16 +82,16 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          sudo install -d -m 0700 /run/secrets
-          printf '%s\n' 'postgresql://qcrm_test_a_runtime:test-only-tenant-a@127.0.0.1:5432/qcrm_test_a?sslmode=disable' | sudo tee /run/secrets/tenant_a_database_url >/dev/null
-          printf '%s\n' 'postgresql://qcrm_test_b_runtime:test-only-tenant-b@127.0.0.1:5432/qcrm_test_b?sslmode=disable' | sudo tee /run/secrets/tenant_b_database_url >/dev/null
-          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' | sudo tee /run/secrets/platform_database_url >/dev/null
-          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' | sudo tee /run/secrets/platform_runtime_database_url >/dev/null
-          printf '%s\n' 'postgresql://qcrm_test_a_runtime:test-only-tenant-a@127.0.0.1:5432/qcrm_test_b?sslmode=disable' | sudo tee /run/secrets/tenant_a_to_b_database_url >/dev/null
-          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_a?sslmode=disable' | sudo tee /run/secrets/platform_to_a_database_url >/dev/null
-          printf '%s\n' 'postgresql://qcrm_test_platform_migrator:test-only-migrator-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' | sudo tee /run/secrets/qcrm_migration_database_url >/dev/null
-          printf '%s\n' 'redis://127.0.0.1:6379/0' | sudo tee /run/secrets/qcrm_test_session_redis_url >/dev/null
-          sudo chmod 0600 /run/secrets/*
+          sudo install -d -m 0700 -o "$USER" -g "$(id -gn)" /run/secrets
+          printf '%s\n' 'postgresql://qcrm_test_a_runtime:test-only-tenant-a@127.0.0.1:5432/qcrm_test_a?sslmode=disable' > /run/secrets/tenant_a_database_url
+          printf '%s\n' 'postgresql://qcrm_test_b_runtime:test-only-tenant-b@127.0.0.1:5432/qcrm_test_b?sslmode=disable' > /run/secrets/tenant_b_database_url
+          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' > /run/secrets/platform_database_url
+          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' > /run/secrets/platform_runtime_database_url
+          printf '%s\n' 'postgresql://qcrm_test_a_runtime:test-only-tenant-a@127.0.0.1:5432/qcrm_test_b?sslmode=disable' > /run/secrets/tenant_a_to_b_database_url
+          printf '%s\n' 'postgresql://qcrm_test_platform_runtime:test-only-platform@127.0.0.1:5432/qcrm_test_a?sslmode=disable' > /run/secrets/platform_to_a_database_url
+          printf '%s\n' 'postgresql://qcrm_test_platform_migrator:test-only-migrator-platform@127.0.0.1:5432/qcrm_test_platform?sslmode=disable' > /run/secrets/qcrm_migration_database_url
+          printf '%s\n' 'redis://127.0.0.1:6379/0' > /run/secrets/qcrm_test_session_redis_url
+          chmod 0600 /run/secrets/*
           psql --host 127.0.0.1 --username postgres --dbname postgres --file tests/integration/fixtures/postgres-bootstrap.sql
           QCRM_ENV=test QCRM_MIGRATION_DATABASE_URL_FILE=/run/secrets/qcrm_migration_database_url pnpm --filter @quantum-crm/database db:migrate:platform
           PGPASSWORD=test-only-migrator-platform psql --host 127.0.0.1 --username qcrm_test_platform_migrator --dbname qcrm_test_platform <<'SQL'
