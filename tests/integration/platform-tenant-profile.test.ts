@@ -389,7 +389,7 @@ describe("platform tenant profile migration", () => {
       releaseId: "01995f7e-7b52-7000-8000-000000000520",
       requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10000 },
       requestedByOperatorId: operatorId,
-      correlationId: "capacity-rejected-001",
+      correlationId: "reject-01",
       expectedTenantVersion: profile.version,
     } as const;
 
@@ -397,14 +397,14 @@ describe("platform tenant profile migration", () => {
       database.provisioningOperations.request({
         ...baseCommand,
         serverId: unavailableServer.id,
-        idempotencyKey: "capacity-unavailable-001",
+        idempotencyKey: "blocked-01",
       }),
     ).rejects.toBeInstanceOf(InfrastructureServerNotAdmissibleError);
     await expect(
       database.provisioningOperations.request({
         ...baseCommand,
         serverId: "01995f7e-7b52-7000-8000-000000000599",
-        idempotencyKey: "capacity-missing-001",
+        idempotencyKey: "missing-01",
       }),
     ).rejects.toBeInstanceOf(InfrastructureServerNotAdmissibleError);
 
@@ -417,11 +417,12 @@ describe("platform tenant profile migration", () => {
       [profile.id],
     );
     expect(effects.rows[0]).toEqual({ reservations: "0", operations: "0" });
-    await expect(database.tenantProfiles.findById(profile.id)).resolves.toMatchObject({
+    const unchanged = await database.tenantProfiles.findById(profile.id);
+    expect(unchanged).toMatchObject({
       status: "PENDING",
-      serverId: undefined,
       version: 1n,
     });
+    expect(unchanged?.serverId).toBeUndefined();
   });
 
   it("claims once, fences renewal and recovers an expired lease", async () => {
