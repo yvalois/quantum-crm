@@ -24,7 +24,9 @@ export class TenantDatabaseProvisioningError extends Error {
 }
 
 function quoteIdentifier(value: string): string {
-  if (!identifierPattern.test(value)) throw new TenantDatabaseProvisioningError("IDENTITY_MISMATCH");
+  if (!identifierPattern.test(value)) {
+    throw new TenantDatabaseProvisioningError("IDENTITY_MISMATCH");
+  }
   return `"${value}"`;
 }
 
@@ -59,7 +61,9 @@ interface DatabaseRow {
   readonly runtime_connect: boolean;
 }
 
-export function createTenantDatabaseProvisioner(connectionUrl: string): TenantDatabaseProvisioner & {
+export function createTenantDatabaseProvisioner(
+  connectionUrl: string,
+): TenantDatabaseProvisioner & {
   readonly close: () => Promise<void>;
 } {
   const pool = new Pool({

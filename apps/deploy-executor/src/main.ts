@@ -40,11 +40,16 @@ async function bootstrap(): Promise<void> {
     });
 
     await healthServer.start();
-    const executor = new ProvisioningExecutor(database.provisioningOperations, {
-      workerId: `deploy-executor:${hostname()}`,
-      leaseDurationSeconds: 60,
-      idlePollMilliseconds: 2_000,
-    }, undefined, databaseProvisioner);
+    const executor = new ProvisioningExecutor(
+      database.provisioningOperations,
+      {
+        workerId: `deploy-executor:${hostname()}`,
+        leaseDurationSeconds: 60,
+        idlePollMilliseconds: 2_000,
+      },
+      undefined,
+      databaseProvisioner,
+    );
     ready = true;
     const close = async (): Promise<void> => {
       if (closing) return;
