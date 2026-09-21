@@ -102,6 +102,8 @@ Ese mismo dia, `ADM-02-c` actualizo exclusivamente `admin-web` desde el build pe
 
 `ADM-05-a` aplico `20260921010000_adm_05_create_infrastructure_servers` y desplego `admin-api` desde el commit `593077e86d8b0b88347c5cc8a09a782ab84f8708`. El registro `staging-primary` conserva la IPv4 `2.25.172.119`, Hostinger, Ubuntu 26.04.1 LTS, `x86_64`, 1000 millicores, 3910 MiB de RAM y 48 484 MiB de almacenamiento; la referencia de acceso se reduce a un indicador booleano en la API. La region contractual continua sin confirmar. El servidor queda deliberadamente `UNAVAILABLE`, con reserva cero, hasta medir el consumo base y enlazar reservas por perfil: la capacidad fisica calculada no autoriza aun un alta. El respaldo `platform.env.before-adm05a-593077e` conserva el digest anterior de aplicacion.
 
+`ADM-05-b` aplico `20260921030000_adm_05_capacity_reservations` y desplego `admin-api` desde el commit `c3e0d6f9af045000aaf7bb7bcdc7347c1141487b`, con digest `sha256:ffebb9c50dd5c67038709413fd2554aeb1adf24b046359042677f1ed547db518`. El migrador `sha256:323be25f62cf02eac7b6b1044cd7104e3bda35d4c85b73f43df84dba7d1fac8f` confirmo seis migraciones y ninguna pendiente. El servicio quedo saludable y el respaldo `platform.env.before-adm05b-c3e0d6f` conserva el digest anterior. `staging-primary` continua `UNAVAILABLE`, con reservas cero y sin perfiles admitidos: la entrega instala la garantia atomica, pero no inventa capacidad operativa ni activa al cliente piloto antes de medirla.
+
 ## Builds y smoke aislados
 
 La validacion del 2026-09-19 uso el commit `e2389a81e71eaf054a3e00bac7283206161505d4`, transferido a `/opt/quantum/builds/e2389a81e71eaf054a3e00bac7283206161505d4`. Las pruebas no modificaron Nginx ni publicaron servicios hacia Internet.

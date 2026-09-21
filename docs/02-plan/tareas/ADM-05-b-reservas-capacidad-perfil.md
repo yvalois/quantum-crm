@@ -66,14 +66,14 @@ Al solicitar el aprovisionamiento, el sistema registra una colocacion durable qu
 
 ## Plan de implementacion
 
-- [ ] Definir el contrato y el dominio de capacidad/colocacion.
-- [ ] Crear una migracion forward-only con invariantes, FK e indices.
-- [ ] Integrar la reserva en la transaccion idempotente de aprovisionamiento.
-- [ ] Exponer la colocacion sin credenciales ni detalles internos del host.
-- [ ] Cubrir validacion, insuficiencia, servidor no disponible, repeticion y carrera concurrente.
-- [ ] Ejecutar puertas locales que no requieren Docker.
-- [ ] Aplicar migracion y ejecutar pruebas reales en el VPS autorizado.
-- [ ] Actualizar evidencia y preparar pull request.
+- [x] Definir el contrato y el dominio de capacidad/colocacion.
+- [x] Crear una migracion forward-only con invariantes, FK e indices.
+- [x] Integrar la reserva en la transaccion idempotente de aprovisionamiento.
+- [x] Exponer la colocacion sin credenciales ni detalles internos del host.
+- [x] Cubrir validacion, insuficiencia, servidor no disponible, repeticion y carrera concurrente.
+- [x] Ejecutar puertas locales que no requieren Docker.
+- [x] Aplicar migracion y ejecutar pruebas reales en el VPS autorizado.
+- [x] Actualizar evidencia y preparar pull request.
 
 ## Riesgos y mitigaciones
 
@@ -87,13 +87,13 @@ Al solicitar el aprovisionamiento, el sistema registra una colocacion durable qu
 
 ## Criterios de aceptacion
 
-- [ ] Una solicitud valida crea una sola colocacion reservada y descuenta los tres recursos disponibles.
-- [ ] Un servidor inexistente, no disponible o sin capacidad no crea operacion, colocacion ni mutacion del perfil.
-- [ ] Una repeticion exacta devuelve la misma operacion y colocacion sin variar la capacidad.
-- [ ] Una misma clave con carga distinta responde conflicto.
-- [ ] Bajo concurrencia nunca se exceden los totales ni se aceptan dos solicitudes incompatibles con el remanente.
-- [ ] PostgreSQL impide relaciones huerfanas y capacidades no positivas.
-- [ ] Los contratos, pruebas y documentacion coinciden con el comportamiento desplegado.
+- [x] Una solicitud valida crea una sola colocacion reservada y descuenta los tres recursos disponibles.
+- [x] Un servidor inexistente, no disponible o sin capacidad no crea operacion, colocacion ni mutacion del perfil.
+- [x] Una repeticion exacta devuelve la misma operacion y colocacion sin variar la capacidad.
+- [x] Una misma clave con carga distinta responde conflicto.
+- [x] Bajo concurrencia nunca se exceden los totales ni se aceptan dos solicitudes incompatibles con el remanente.
+- [x] PostgreSQL impide relaciones huerfanas y capacidades no positivas.
+- [x] Los contratos, pruebas y documentacion coinciden con el comportamiento desplegado.
 
 ## Plan de verificacion
 
@@ -113,8 +113,9 @@ Al solicitar el aprovisionamiento, el sistema registra una colocacion durable qu
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: ninguna al iniciar.
-- Pendientes o decisiones nuevas: definir liberacion/activacion con las transiciones terminales del ejecutor `ADM-04`.
+- Archivos, commits o PR: implementacion `125c5ea`, pruebas de rechazo `1deb8a7` y `8757662`, toolchain final `c3e0d6f`, excepcion exacta de falsos positivos historicos `c6d3850` y PR [#2](https://github.com/yvalois/quantum-crm/pull/2).
+- Comandos y resultados: 191/191 pruebas generales y 20/20 de arquitectura aprobadas; CI completo de Node 24 aprobo formato, lint, tipos, 41 pruebas de configuracion, 191 generales, 20 de arquitectura y los 17 builds; PostgreSQL 18 desechable aplico las seis migraciones y aprobo 14/14 escenarios seleccionados, incluida la carrera atomica.
+- Despliegue: migracion `20260921030000_adm_05_capacity_reservations` aplicada en staging y reejecutada sin pendientes. `admin-api` quedo saludable con digest `sha256:ffebb9c50dd5c67038709413fd2554aeb1adf24b046359042677f1ed547db518`; el migrador se verifico con digest `sha256:323be25f62cf02eac7b6b1044cd7104e3bda35d4c85b73f43df84dba7d1fac8f`.
+- Documentacion actualizada: ficha, estado, checklist e inventario operativo. El servidor real conserva `UNAVAILABLE` y reservas cero; no se simulo una admision de cliente.
+- Desviaciones del plan: las operaciones anteriores a esta migracion que siguieran pendientes o ejecutandose sin reserva se cancelan de forma explicita para impedir continuar con semantica incompleta. El toolchain y el migrador usan la imagen Node Bookworm fijada por digest para disponer de OpenSSL; la imagen final del servicio sigue siendo `slim`.
+- Pendientes o decisiones nuevas: implementar activacion, liberacion y reconciliacion con las transiciones terminales tipadas del ejecutor `ADM-04`, y despues inventariar los recursos realmente observados. Esto mantiene `ADM-05` abierto sin invalidar esta rebanada.
