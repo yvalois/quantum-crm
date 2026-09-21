@@ -59,8 +59,8 @@ El ejecutor reconcilia de forma idempotente el proyecto Compose privado de un pe
 
 ## Plan de implementacion
 
-- [ ] Añadir contrato y validadores de acciones de host.
-- [ ] Implementar el adaptador Unix privado y su allowlist de Compose.
+- [x] Añadir contrato y validadores de acciones de host.
+- [x] Implementar el adaptador cliente Unix privado y su allowlist contractual de respuesta.
 - [ ] Persistir observación, fencing y transición a `CONFIGURE_HTTPS`.
 - [ ] Conectar `START_CONTAINERS` al ejecutor sin entregar el socket Docker.
 - [ ] Cubrir idempotencia, concurrencia, rechazo de entradas y readiness en CI y VPS.
@@ -101,7 +101,7 @@ El ejecutor reconcilia de forma idempotente el proyecto Compose privado de un pe
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
+- Archivos, commits o PR: contrato `TenantContainerProvisioner` en `packages/platform-domain` y adaptador cliente Unix en `apps/deploy-executor` (PR de implementación en curso).
 - Comandos y resultados:
 - Documentacion actualizada:
 - Desviaciones del plan:

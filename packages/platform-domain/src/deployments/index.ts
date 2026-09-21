@@ -59,6 +59,9 @@ export {
   type TenantConfigurationProvisioningCommand,
   type TenantConfigurationProvisioningResult,
   type TenantConfigurationProvisioner,
+  type TenantContainerProvisioner,
+  type TenantContainerProvisioningCommand,
+  type TenantContainerProvisioningResult,
   type TenantStorageSecretKind,
   type TenantStorageSecretReference,
 } from "./provisioning-operation.js";
