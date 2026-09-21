@@ -100,7 +100,13 @@ describe("container manifests", () => {
     const platform = read("infra/compose/platform.yaml");
 
     expect(serviceNames(foundation).sort()).toEqual(
-      ["platform-keycloak", "platform-migrator", "platform-postgres", "platform-redis"].sort(),
+      [
+        "platform-keycloak",
+        "platform-migrator",
+        "platform-postgres",
+        "platform-redis",
+        "platform-storage",
+      ].sort(),
     );
     expect(foundation).not.toMatch(/^    ports:/m);
     expect(foundation).not.toContain("start-dev");
@@ -108,12 +114,14 @@ describe("container manifests", () => {
       "platform-postgres-data:/var/lib/postgresql",
     );
     expect(serviceBlock(foundation, "platform-redis")).toContain("platform-redis-data:/data");
+    expect(serviceBlock(foundation, "platform-storage")).toContain("platform-storage-data:/data");
     expect(serviceBlock(foundation, "platform-postgres")).toContain(
       "networks: [platform-database]",
     );
     expect(serviceBlock(foundation, "platform-postgres")).toContain("DAC_OVERRIDE");
     expect(serviceBlock(foundation, "platform-redis")).toContain("networks: [platform-session]");
     expect(serviceBlock(foundation, "platform-redis")).toContain("DAC_OVERRIDE");
+    expect(serviceBlock(foundation, "platform-storage")).toContain("networks: [platform-storage]");
     expect(serviceBlock(foundation, "platform-keycloak")).toContain(
       "networks: [platform-edge, platform-database]",
     );
