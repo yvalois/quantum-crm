@@ -233,7 +233,8 @@ export class ProvisioningExecutor {
           return true;
         }
         provisioningFailure =
-          error instanceof TenantConfigurationProvisioningError && error.reason === "PERMISSION_DENIED"
+          error instanceof TenantConfigurationProvisioningError &&
+          error.reason === "PERMISSION_DENIED"
             ? "CONFIGURATION_PERMISSION_DENIED"
             : error instanceof TenantConfigurationProvisioningError &&
                 error.reason === "TARGET_CONFLICT"

@@ -19,10 +19,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 export class TenantConfigurationProvisioningError extends Error {
   public constructor(
     public readonly reason:
-      | "UNAVAILABLE"
-      | "PERMISSION_DENIED"
-      | "IDENTITY_MISMATCH"
-      | "TARGET_CONFLICT",
+      "UNAVAILABLE" | "PERMISSION_DENIED" | "IDENTITY_MISMATCH" | "TARGET_CONFLICT",
   ) {
     super(`Tenant configuration provisioning failed: ${reason}`);
     this.name = "TenantConfigurationProvisioningError";
@@ -117,7 +114,7 @@ export function createTenantConfigurationProvisioner(
     } catch {
       throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
     }
-    if (!['http:', 'https:'].includes(endpoint.protocol)) {
+    if (!["http:", "https:"].includes(endpoint.protocol)) {
       throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
     }
 
@@ -144,7 +141,10 @@ export function createTenantConfigurationProvisioner(
         if (error instanceof TenantConfigurationProvisioningError) throw error;
         if ((error as { readonly code?: string }).code !== "ENOENT") throw error;
       }
-      const temporaryPath = join(profileDirectory, `.configuration.${process.pid}.${randomUUID()}.tmp`);
+      const temporaryPath = join(
+        profileDirectory,
+        `.configuration.${process.pid}.${randomUUID()}.tmp`,
+      );
       try {
         await writeFile(temporaryPath, content, { encoding: "utf8", mode: 0o600, flag: "wx" });
         await chmod(temporaryPath, 0o600);
