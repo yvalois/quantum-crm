@@ -67,9 +67,10 @@ El historial local queda publicado sin secretos en el repositorio privado `yvalo
 - [x] Configurar `yvalois <yeison.valopez@gmail.com>` solo para este repositorio.
 - [x] Revisar nombres sensibles, firmas de secretos conocidas, la credencial del VPS y objetos grandes en todo el historial.
 - [x] Publicar `main` una sola vez y verificar que local y remoto apuntan al mismo commit.
-- [ ] Incorporar los checks iniciales de CI en una rama corta.
+- [x] Incorporar los checks iniciales de CI en una rama corta.
 - [ ] Configurar el ruleset de `main` sin bypass ordinario.
-- [ ] Abrir, validar e integrar el pull request de prueba.
+- [x] Abrir y validar el pull request de prueba.
+- [ ] Integrar el pull request mediante el ruleset activo.
 - [ ] Registrar evidencia final y cerrar `PROY-004`.
 
 ## Riesgos y mitigaciones
@@ -87,7 +88,7 @@ El historial local queda publicado sin secretos en el repositorio privado `yvalo
 - [x] `origin` es `https://github.com/yvalois/quantum-crm.git` y `main` sigue el remoto.
 - [x] El commit remoto de `main` coincide con el commit local publicado.
 - [x] La revision previa no encuentra secretos de alta confianza, la credencial conocida del VPS ni objetos mayores de 25 MiB.
-- [ ] Los checks configurados se ejecutan sin secretos ni permisos de escritura.
+- [x] Los checks configurados se ejecutan sin secretos ni permisos de escritura.
 - [ ] `main` exige pull request, historial lineal, conversaciones resueltas y checks verdes; no permite force push ni eliminacion.
 - [ ] La rama de esta tarea llega a `main` mediante un pull request aprobado por las reglas disponibles.
 - [ ] La documentacion contiene la evidencia y no afirma completadas capacidades posteriores de release.
@@ -110,8 +111,8 @@ El historial local queda publicado sin secretos en el repositorio privado `yvalo
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente del pull request de esta rama.
-- Comandos y resultados: remoto vacio verificado; revision de 124 commits sin nombres sensibles, secretos de alta confianza, credencial conocida del VPS ni objetos mayores de 25 MiB; primer push de `main` en `21b3e75c7b14c9239256798436bc0fefa7b3b46d`.
-- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
-- Desviaciones del plan: ninguna hasta el momento.
-- Pendientes o decisiones nuevas: completar checks, ruleset y pull request; la entrega continua completa permanece bajo sus requisitos operativos.
+- Archivos, commits o PR: [PR #1](https://github.com/yvalois/quantum-crm/pull/1), `.github/workflows/quality.yml`, `package.json`, `pnpm-lock.yaml`, esta ficha y `docs/04-proceso/estado.md`.
+- Comandos y resultados: remoto vacio verificado; revision de 124 commits sin nombres sensibles, secretos de alta confianza, credencial conocida del VPS ni objetos mayores de 25 MiB; primer push de `main` en `21b3e75c7b14c9239256798436bc0fefa7b3b46d`. La ejecucion `35549032643` aprobo los siete checks: static, unit, integration con PostgreSQL 18 y Redis aislados, contracts, build, secrets y dependencies.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`; el repositorio privado permite solo squash merge y elimina la rama al integrar.
+- Desviaciones del plan: GitHub rechazo crear el ruleset con HTTP 403 porque una cuenta personal requiere GitHub Pro para proteger un repositorio privado. No se relajo ningun check ni se cambio la visibilidad.
+- Pendientes o decisiones nuevas: elegir entre habilitar GitHub Pro o hacer publico el repositorio; despues activar el ruleset, integrar el PR y cerrar `PROY-004`. La entrega continua completa permanece bajo sus requisitos operativos.

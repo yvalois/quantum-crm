@@ -10,7 +10,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Aplicacion implementada: acceso administrativo real desplegado; existe el bootstrap ejecutable de las ocho aplicaciones/procesos, pero todavia no hay un flujo comercial del CRM acreditado.
 - Requisitos funcionales completados: `ADM-01`.
 - Requisitos operativos completados: ninguno acreditado.
-- Trabajo activo: perfil de cliente, ciclo de vida, aprovisionamiento, inventario de servidores, arquitectura operativa, persistencia aislada, validacion del VPS, acceso seguro y gobierno del repositorio (`ADM-02`, `ADM-03`, `ADM-04`, `ADM-05`, `OPS-01`, `OPS-02`, `OPS-04`, `OPS-23`, `PROY-004`).
+- Trabajo activo: perfil de cliente, ciclo de vida, aprovisionamiento, inventario de servidores, arquitectura operativa, persistencia aislada, validacion del VPS y acceso seguro (`ADM-02`, `ADM-03`, `ADM-04`, `ADM-05`, `OPS-01`, `OPS-02`, `OPS-04`, `OPS-23`).
 
 ## En curso
 
@@ -24,12 +24,12 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | OPS-02 | Validar el VPS antes de instalar                    | Codex       | `feat/ADM-02-admin-ui` (sin remoto configurado)               | 2026-09-19 | 2026-09-20           | Disco auditado y depurado de artefactos reproducibles: tras construir y desplegar `ADM-05-a` quedo en 29 %, con 34 GiB libres, siete servicios saludables y datos persistentes intactos. Falta confirmar plan, region y firewall de Hostinger, respaldo externo y dimensionamiento integrado segun [`OPS-02-validacion-vps.md`](../02-plan/tareas/OPS-02-validacion-vps.md). |
 | OPS-04 | Aislar conexiones y persistencia                    | Codex       | `feat/OPS-04-postgres-base` (sin remoto configurado)          | 2026-09-20 | 2026-09-20           | [`OPS-04-a`](../02-plan/tareas/OPS-04-a-postgres-base.md) y la primera historia `platform` de [`ADM-02-a`](../02-plan/tareas/ADM-02-a-perfil-cliente-plataforma.md) cerradas. Siguiente: agregar historias `crm` y `agent` cuando comiencen sus requisitos propietarios, sin marcar `OPS-04` completo                                                                        |
 | OPS-23 | Administrar secretos y acceso operativo             | Codex       | `chore/OPS-23-vps-access` (sin remoto configurado)            | 2026-09-19 | 2026-09-19           | [`OPS-23-a`](../02-plan/tareas/OPS-23-a-acceso-operativo-vps.md) aplicado: SSH solo por clave y usuario operativo; comprobar consola del proveedor, retirar fallback root y reducir privilegios antes del cierre de OPS-23                                                                                                                                                   |
-| PROY-004 | Publicar y proteger el repositorio en GitHub       | Codex       | `chore/PROY-004-github-governance`                            | 2026-09-20 | 2026-09-20           | `main` publicada una sola vez en el repositorio privado `yvalois/quantum-crm` tras revisar el historial sin hallazgos; completar checks, ruleset y PR de prueba segun [`PROY-004`](../02-plan/tareas/PROY-004-publicacion-github.md).                                                                                                                                            |
 
 ## Bloqueado
 
 | ID       | Descripcion                                  | Bloqueo                                                                           | Responsable | Desde      | Condicion para continuar                                                         |
 | -------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ----------- | ---------- | -------------------------------------------------------------------------------- |
+| PROY-004 | Publicar y proteger el repositorio en GitHub | GitHub exige Pro para aplicar un ruleset a este repositorio privado; el PR #1 tiene sus siete checks verdes pero no se integra sin proteccion | Propietario | 2026-09-20 | Habilitar GitHub Pro o autorizar que el repositorio sea publico; activar el ruleset de `main` e integrar el PR |
 
 ## Terminado
 
