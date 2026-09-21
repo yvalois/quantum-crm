@@ -3,7 +3,9 @@ import { NestFactory } from "@nestjs/core";
 import type { PlatformPostgresDatabase } from "@quantum-crm/database";
 import {
   hydrateInfrastructureServer,
+  hydratePlatformRelease,
   hydrateProvisioningOperation,
+  platformReleaseArtifactNames,
   hydrateTenantProfile,
 } from "@quantum-crm/platform-domain";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -12,6 +14,7 @@ import { AppModule } from "./app.module.js";
 
 let application: INestApplication;
 let origin: string;
+let platformRelease: ReturnType<typeof hydratePlatformRelease>;
 
 beforeAll(async () => {
   const tenantProfile = hydrateTenantProfile({
@@ -64,6 +67,25 @@ beforeAll(async () => {
     createdAt: new Date("2026-09-20T12:00:00.000Z"),
     updatedAt: new Date("2026-09-20T12:00:00.000Z"),
   });
+  platformRelease = hydratePlatformRelease({
+    id: "01995f7e-7b52-7000-8000-000000000302",
+    semanticVersion: "1.0.0-candidate.1",
+    commitSha: "a".repeat(40),
+    releaseNotes: "Release candidata.",
+    compatibility: {
+      configurationSchemaVersion: 1,
+      agentContractVersion: "agent/v1",
+      databaseMigrationRequired: false,
+    },
+    artifacts: platformReleaseArtifactNames.map((name, index) => ({
+      name,
+      digest: `sha256:${index.toString(16).padStart(64, "0")}`,
+    })),
+    status: "CANDIDATE",
+    version: 1n,
+    createdAt: new Date("2026-09-20T12:00:00.000Z"),
+    updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+  });
   const database: PlatformPostgresDatabase = {
     connect: vi.fn(async () => undefined),
     isReady: vi.fn(async () => true),
@@ -87,6 +109,20 @@ beforeAll(async () => {
           ? hydrateInfrastructureServer({
               ...infrastructureServer,
               status: "DRAINING",
+              version: 2n,
+            })
+          : null,
+      ),
+    },
+    releases: {
+      create: vi.fn(async () => platformRelease),
+      findById: vi.fn(async () => platformRelease),
+      list: vi.fn(async () => [platformRelease]),
+      updateStatus: vi.fn(async (_id, expectedVersion) =>
+        expectedVersion === 1n
+          ? hydratePlatformRelease({
+              ...platformRelease,
+              status: "VALIDATED",
               version: 2n,
             })
           : null,
@@ -271,6 +307,48 @@ describe("admin API authentication boundary", () => {
       body: JSON.stringify({ slug: "invalid" }),
     });
     expect(invalid.status).toBe(400);
+  });
+
+  it("registers, lists and validates an immutable release", async () => {
+    const authorization = { authorization: "Bearer signed.token.value" };
+    const listed = await fetch(`${origin}/api/v1/releases?status=CANDIDATE&pageSize=10`, {
+      headers: authorization,
+    });
+    expect(listed.status).toBe(200);
+    await expect(listed.json()).resolves.toMatchObject({
+      schemaVersion: "platform-release-list/v1",
+      data: [{ semanticVersion: "1.0.0-candidate.1", status: "CANDIDATE" }],
+    });
+
+    const created = await fetch(`${origin}/api/v1/releases`, {
+      method: "POST",
+      headers: { ...authorization, "content-type": "application/json" },
+      body: JSON.stringify({
+        id: platformRelease.id,
+        semanticVersion: platformRelease.semanticVersion,
+        commitSha: platformRelease.commitSha,
+        releaseNotes: platformRelease.releaseNotes,
+        compatibility: platformRelease.compatibility,
+        artifacts: platformRelease.artifacts,
+      }),
+    });
+    expect(created.status).toBe(201);
+    expect(created.headers.get("etag")).toBe('"1"');
+
+    const validated = await fetch(`${origin}/api/v1/releases/${platformRelease.id}/status`, {
+      method: "PATCH",
+      headers: {
+        ...authorization,
+        "content-type": "application/json",
+        "if-match": '"1"',
+      },
+      body: JSON.stringify({ status: "VALIDATED" }),
+    });
+    expect(validated.status).toBe(200);
+    expect(validated.headers.get("etag")).toBe('"2"');
+    await expect(validated.json()).resolves.toMatchObject({
+      data: { status: "VALIDATED" },
+    });
   });
 
   it("accepts a typed idempotent provisioning request", async () => {

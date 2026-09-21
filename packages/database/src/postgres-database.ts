@@ -8,6 +8,11 @@ import {
   InfrastructureServerNotAdmissibleError,
   infrastructureServerArchitectures,
   infrastructureServerStatuses,
+  hydratePlatformRelease,
+  PlatformReleaseConflictError,
+  PlatformReleaseNotDeployableError,
+  platformReleaseArtifactNames,
+  platformReleaseStatuses,
   ProvisioningOperationConflictError,
   provisioningOperationStatuses,
   provisioningOperationSteps,
@@ -27,6 +32,12 @@ import {
   type InfrastructureServerListCriteria,
   type InfrastructureServerRepository,
   type InfrastructureServerStatus,
+  type PlatformRelease,
+  type PlatformReleaseArtifactName,
+  type PlatformReleaseDraft,
+  type PlatformReleaseListCriteria,
+  type PlatformReleaseRepository,
+  type PlatformReleaseStatus,
   type ProvisioningOperation,
   type ProvisioningOperationRepository,
   type ProvisioningOperationStatus,
@@ -62,6 +73,7 @@ export interface PlatformPostgresDatabase extends PostgresDatabase {
   readonly infrastructureServers: InfrastructureServerRepository;
   readonly tenantProfiles: TenantProfileRepository;
   readonly provisioningOperations: ProvisioningOperationRepository;
+  readonly releases: PlatformReleaseRepository;
 }
 
 export interface PlatformMembershipRepository {
@@ -134,6 +146,83 @@ interface InfrastructureServerRow {
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
+}
+
+interface PlatformReleaseRow {
+  readonly id: string;
+  readonly semantic_version: string;
+  readonly commit_sha: string;
+  readonly status: string;
+  readonly release_notes: string;
+  readonly configuration_schema_version: number;
+  readonly agent_contract_version: string;
+  readonly database_migration_required: boolean;
+  readonly minimum_source_version: string | null;
+  readonly version: string;
+  readonly created_at: Date;
+  readonly updated_at: Date;
+  readonly artifacts: readonly { readonly name: string; readonly digest: string }[];
+}
+
+const platformReleaseSelection = `
+  release.id::text,
+  release.semantic_version,
+  release.commit_sha,
+  release.status::text,
+  release.release_notes,
+  release.configuration_schema_version,
+  release.agent_contract_version,
+  release.database_migration_required,
+  release.minimum_source_version,
+  release.version::text,
+  release.created_at,
+  release.updated_at,
+  COALESCE(
+    jsonb_agg(
+      jsonb_build_object('name', artifact.name::text, 'digest', artifact.digest)
+      ORDER BY artifact.name::text
+    ) FILTER (WHERE artifact.name IS NOT NULL),
+    '[]'::jsonb
+  ) AS artifacts
+`;
+
+function platformReleaseStatus(value: string): PlatformReleaseStatus {
+  const normalized = value.toUpperCase();
+  if (platformReleaseStatuses.includes(normalized as PlatformReleaseStatus)) {
+    return normalized as PlatformReleaseStatus;
+  }
+  throw new DatabaseUnavailableError();
+}
+
+function platformReleaseArtifactName(value: string): PlatformReleaseArtifactName {
+  const normalized = value.toUpperCase().replaceAll("-", "_");
+  if (platformReleaseArtifactNames.includes(normalized as PlatformReleaseArtifactName)) {
+    return normalized as PlatformReleaseArtifactName;
+  }
+  throw new DatabaseUnavailableError();
+}
+
+function platformReleaseFromRow(row: PlatformReleaseRow): PlatformRelease {
+  return hydratePlatformRelease({
+    id: row.id,
+    semanticVersion: row.semantic_version,
+    commitSha: row.commit_sha,
+    releaseNotes: row.release_notes,
+    compatibility: {
+      configurationSchemaVersion: row.configuration_schema_version,
+      agentContractVersion: row.agent_contract_version,
+      databaseMigrationRequired: row.database_migration_required,
+      ...(row.minimum_source_version ? { minimumSourceVersion: row.minimum_source_version } : {}),
+    },
+    artifacts: row.artifacts.map((artifact) => ({
+      name: platformReleaseArtifactName(artifact.name),
+      digest: artifact.digest,
+    })),
+    status: platformReleaseStatus(row.status),
+    version: BigInt(row.version),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
 }
 
 const infrastructureServerSelection = `
@@ -509,6 +598,134 @@ export function createPlatformPostgresDatabase(
     },
   });
 
+  const releases: PlatformReleaseRepository = Object.freeze({
+    create: async (draft: PlatformReleaseDraft): Promise<PlatformRelease> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query(
+          `
+            INSERT INTO releases.releases (
+              id, semantic_version, commit_sha, release_notes,
+              configuration_schema_version, agent_contract_version,
+              database_migration_required, minimum_source_version
+            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
+          `,
+          [
+            draft.id,
+            draft.semanticVersion,
+            draft.commitSha,
+            draft.releaseNotes,
+            draft.compatibility.configurationSchemaVersion,
+            draft.compatibility.agentContractVersion,
+            draft.compatibility.databaseMigrationRequired,
+            draft.compatibility.minimumSourceVersion ?? null,
+          ],
+        );
+        for (const artifact of draft.artifacts) {
+          await client.query(
+            `
+              INSERT INTO releases.release_artifacts (release_id, name, digest)
+              VALUES ($1::uuid, $2::releases.release_artifact_name, $3)
+            `,
+            [draft.id, artifact.name.toLowerCase().replaceAll("_", "-"), artifact.digest],
+          );
+        }
+        const result = await client.query<PlatformReleaseRow>(
+          `
+            SELECT ${platformReleaseSelection}
+            FROM releases.releases AS release
+            LEFT JOIN releases.release_artifacts AS artifact ON artifact.release_id = release.id
+            WHERE release.id = $1::uuid
+            GROUP BY release.id
+          `,
+          [draft.id],
+        );
+        const row = result.rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        await client.query("COMMIT");
+        return platformReleaseFromRow(row);
+      } catch (error) {
+        if (client) await client.query("ROLLBACK").catch(() => undefined);
+        if (isUniqueViolation(error)) throw new PlatformReleaseConflictError();
+        if (error instanceof PlatformReleaseConflictError) throw error;
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
+    findById: async (id: string): Promise<PlatformRelease | null> => {
+      try {
+        const result = (await pool.query(
+          `
+            SELECT ${platformReleaseSelection}
+            FROM releases.releases AS release
+            LEFT JOIN releases.release_artifacts AS artifact ON artifact.release_id = release.id
+            WHERE release.id = $1::uuid
+            GROUP BY release.id
+          `,
+          [id],
+        )) as { readonly rows: PlatformReleaseRow[] };
+        return result.rows[0] ? platformReleaseFromRow(result.rows[0]) : null;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    list: async (criteria: PlatformReleaseListCriteria) => {
+      try {
+        const values: unknown[] = [];
+        const where = criteria.status ? "WHERE release.status = $1::releases.release_status" : "";
+        if (criteria.status) values.push(criteria.status.toLowerCase());
+        values.push(criteria.limit);
+        const result = (await pool.query(
+          `
+            SELECT ${platformReleaseSelection}
+            FROM releases.releases AS release
+            LEFT JOIN releases.release_artifacts AS artifact ON artifact.release_id = release.id
+            ${where}
+            GROUP BY release.id
+            ORDER BY release.created_at DESC, release.id DESC
+            LIMIT $${values.length}
+          `,
+          values,
+        )) as { readonly rows: PlatformReleaseRow[] };
+        return Object.freeze(result.rows.map(platformReleaseFromRow));
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    updateStatus: async (id: string, expectedVersion: bigint, status: PlatformReleaseStatus) => {
+      try {
+        const updated = (await pool.query(
+          `
+            UPDATE releases.releases
+            SET status = $3::releases.release_status,
+                version = version + 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid AND version = $2
+            RETURNING id::text
+          `,
+          [id, expectedVersion.toString(), status.toLowerCase()],
+        )) as { readonly rows: readonly { readonly id: string }[] };
+        if (!updated.rows[0]) return null;
+        const result = (await pool.query(
+          `
+            SELECT ${platformReleaseSelection}
+            FROM releases.releases AS release
+            LEFT JOIN releases.release_artifacts AS artifact ON artifact.release_id = release.id
+            WHERE release.id = $1::uuid
+            GROUP BY release.id
+          `,
+          [id],
+        )) as { readonly rows: PlatformReleaseRow[] };
+        return result.rows[0] ? platformReleaseFromRow(result.rows[0]) : null;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+  });
+
   const infrastructureServers: InfrastructureServerRepository = Object.freeze({
     create: async (draft: InfrastructureServerDraft): Promise<InfrastructureServer> => {
       try {
@@ -844,6 +1061,19 @@ export function createPlatformPostgresDatabase(
           "START_PROVISIONING",
         );
 
+        const releaseResult = await client.query<{ readonly status: string }>(
+          `
+            SELECT status::text
+            FROM releases.releases
+            WHERE id = $1::uuid
+            FOR KEY SHARE
+          `,
+          [draft.releaseId],
+        );
+        if (releaseResult.rows[0]?.status !== "validated") {
+          throw new PlatformReleaseNotDeployableError();
+        }
+
         const serverResult = await client.query<{
           readonly status: string;
           readonly total_cpu_millicores: number;
@@ -997,7 +1227,8 @@ export function createPlatformPostgresDatabase(
           error instanceof TenantProfileNotFoundError ||
           error instanceof TenantProfileVersionConflictError ||
           error instanceof InfrastructureServerNotAdmissibleError ||
-          error instanceof InfrastructureCapacityExceededError
+          error instanceof InfrastructureCapacityExceededError ||
+          error instanceof PlatformReleaseNotDeployableError
         ) {
           throw error;
         }
@@ -1086,6 +1317,7 @@ export function createPlatformPostgresDatabase(
     ...database,
     memberships,
     infrastructureServers,
+    releases,
     tenantProfiles,
     provisioningOperations,
   });

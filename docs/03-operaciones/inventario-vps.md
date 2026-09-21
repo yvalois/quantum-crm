@@ -82,7 +82,7 @@ El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el 
 | ----------------- | ------------------------------------------------------- | ----------------- |
 | Caddy             | `qcrm-edge/caddy@sha256:e9c93188...66448`               | `healthy`         |
 | `admin-web`       | `qcrm-platform/admin-web@sha256:abc03081...5590e`       | `healthy`         |
-| `admin-api`       | `qcrm-platform/admin-api@sha256:50849758...d60e4`       | `healthy`         |
+| `admin-api`       | `qcrm-platform/admin-api@sha256:8b2e42a3...66690c`      | `healthy`         |
 | `deploy-executor` | `qcrm-platform/deploy-executor@sha256:343c6d73...74651` | `healthy`         |
 | Keycloak          | persistente, realm `quantum-platform`                   | `healthy`         |
 | PostgreSQL        | persistente, base y roles de plataforma                 | `healthy`         |
@@ -103,6 +103,8 @@ Ese mismo dia, `ADM-02-c` actualizo exclusivamente `admin-web` desde el build pe
 `ADM-05-a` aplico `20260921010000_adm_05_create_infrastructure_servers` y desplego `admin-api` desde el commit `593077e86d8b0b88347c5cc8a09a782ab84f8708`. El registro `staging-primary` conserva la IPv4 `2.25.172.119`, Hostinger, Ubuntu 26.04.1 LTS, `x86_64`, 1000 millicores, 3910 MiB de RAM y 48 484 MiB de almacenamiento; la referencia de acceso se reduce a un indicador booleano en la API. La region contractual continua sin confirmar. El servidor queda deliberadamente `UNAVAILABLE`, con reserva cero, hasta medir el consumo base y enlazar reservas por perfil: la capacidad fisica calculada no autoriza aun un alta. El respaldo `platform.env.before-adm05a-593077e` conserva el digest anterior de aplicacion.
 
 `ADM-05-b` aplico `20260921030000_adm_05_capacity_reservations` y desplego `admin-api` desde el commit `c3e0d6f9af045000aaf7bb7bcdc7347c1141487b`, con digest `sha256:ffebb9c50dd5c67038709413fd2554aeb1adf24b046359042677f1ed547db518`. El migrador `sha256:323be25f62cf02eac7b6b1044cd7104e3bda35d4c85b73f43df84dba7d1fac8f` confirmo seis migraciones y ninguna pendiente. El servicio quedo saludable y el respaldo `platform.env.before-adm05b-c3e0d6f` conserva el digest anterior. `staging-primary` continua `UNAVAILABLE`, con reservas cero y sin perfiles admitidos: la entrega instala la garantia atomica, pero no inventa capacidad operativa ni activa al cliente piloto antes de medirla.
+
+`ADM-09-a` aplico `20260921160000_adm_09_release_catalog` y desplego exclusivamente `admin-api` desde el commit `aaa1b1ee04d710e215c7c6655774052ef85a243b`, con digest `sha256:8b2e42a31d3b362a0ade684cc7d32c1aa8ad1bc9eb36c0f6a0dcd8252c66690c`. El migrador inmutable `sha256:e843657d1a0b21e5cbbc8c3ee7b50cedd31530a16979f7047ef3fe64a582de03` aplico la septima migracion y concedio los permisos runtime fuera del SQL estructural. El catalogo quedo deliberadamente vacio: no se inventaron releases ni digests. Readiness respondio `200`, la ruta protegida `/api/v1/releases` respondio `401` sin identidad, los otros cinco servicios siguieron saludables y `platform.env.before-adm09a-aaa1b1e` conserva el digest anterior. El laboratorio PostgreSQL 18, su red, secretos sinteticos y dos checkouts intermedios fueron retirados; el filesystem raiz quedo en 61 %.
 
 ## Builds y smoke aislados
 

@@ -6,6 +6,8 @@ import {
 import {
   InfrastructureCapacityExceededError,
   InfrastructureServerNotAdmissibleError,
+  PlatformReleaseNotDeployableError,
+  platformReleaseArtifactNames,
   ProvisioningOperationConflictError,
   TenantProfileConflictError,
   TenantProfileVersionConflictError,
@@ -25,11 +27,30 @@ let database: PlatformPostgresDatabase;
 let operatorId: string;
 let serverId: string;
 
+const releaseIds = [
+  "01995f7e-7b52-7000-8000-000000000020",
+  "01995f7e-7b52-7000-8000-000000000302",
+  "01995f7e-7b52-7000-8000-000000000303",
+  "01995f7e-7b52-7000-8000-000000000402",
+  "01995f7e-7b52-7000-8000-000000000500",
+  "01995f7e-7b52-7000-8000-000000000501",
+  "01995f7e-7b52-7000-8000-000000000520",
+] as const;
+
+const releaseArtifacts = platformReleaseArtifactNames.map((name, index) => ({
+  name,
+  digest: `sha256:${index.toString(16).padStart(64, "0")}`,
+}));
+
 beforeAll(async () => {
   await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
   await pool.query("DELETE FROM infrastructure.servers");
+  await pool.query("BEGIN");
+  await pool.query("DELETE FROM releases.release_artifacts");
+  await pool.query("DELETE FROM releases.releases");
+  await pool.query("COMMIT");
   await pool.query("DELETE FROM platform_iam.operator_permissions");
   await pool.query("DELETE FROM platform_iam.operator_memberships");
   const operator = await pool.query<{ id: string }>(`
@@ -51,6 +72,29 @@ beforeAll(async () => {
     RETURNING id::text
   `);
   serverId = server.rows[0]!.id;
+  await pool.query("BEGIN");
+  for (const [index, releaseId] of releaseIds.entries()) {
+    await pool.query(
+      `
+        INSERT INTO releases.releases (
+          id, semantic_version, commit_sha, status, release_notes,
+          configuration_schema_version, agent_contract_version,
+          database_migration_required
+        ) VALUES ($1::uuid, $2, $3, 'validated', 'Integration fixture', 1, 'agent/v1', false)
+      `,
+      [releaseId, `0.0.${index + 1}`, (index + 1).toString(16).padStart(40, "0")],
+    );
+    for (const artifact of releaseArtifacts) {
+      await pool.query(
+        `
+          INSERT INTO releases.release_artifacts (release_id, name, digest)
+          VALUES ($1::uuid, $2::releases.release_artifact_name, $3)
+        `,
+        [releaseId, artifact.name.toLowerCase().replaceAll("_", "-"), artifact.digest],
+      );
+    }
+  }
+  await pool.query("COMMIT");
   database = createPlatformPostgresDatabase(config, "tenant-profile-integration");
   await database.connect();
 });
@@ -60,6 +104,10 @@ afterAll(async () => {
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
   await pool.query("DELETE FROM infrastructure.servers");
+  await pool.query("BEGIN");
+  await pool.query("DELETE FROM releases.release_artifacts");
+  await pool.query("DELETE FROM releases.releases");
+  await pool.query("COMMIT");
   await pool.query("DELETE FROM platform_iam.operator_permissions");
   await pool.query("DELETE FROM platform_iam.operator_memberships");
   await database.close();
@@ -67,6 +115,59 @@ afterAll(async () => {
 });
 
 describe("platform tenant profile migration", () => {
+  it("persists and transitions an exact release catalog entry", async () => {
+    const candidate = await database.releases.create({
+      id: "01995f7e-7b52-7000-8000-000000000601",
+      semanticVersion: "1.0.0-candidate.1",
+      commitSha: "a".repeat(40),
+      releaseNotes: "Integration candidate.",
+      compatibility: {
+        configurationSchemaVersion: 1,
+        agentContractVersion: "agent/v1",
+        databaseMigrationRequired: false,
+      },
+      artifacts: releaseArtifacts,
+    });
+    expect(candidate).toMatchObject({ status: "CANDIDATE", version: 1n });
+    expect(candidate.artifacts).toHaveLength(8);
+
+    const validated = await database.releases.updateStatus(candidate.id, 1n, "VALIDATED");
+    expect(validated).toMatchObject({ status: "VALIDATED", version: 2n });
+    await expect(database.releases.list({ status: "VALIDATED", limit: 20 })).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: candidate.id })]),
+    );
+    await expect(database.releases.updateStatus(candidate.id, 1n, "RETIRED")).resolves.toBeNull();
+  });
+
+  it("rejects an incomplete artifact set at transaction commit", async () => {
+    await pool.query("BEGIN");
+    try {
+      await pool.query(`
+        INSERT INTO releases.releases (
+          id, semantic_version, commit_sha, release_notes,
+          configuration_schema_version, agent_contract_version,
+          database_migration_required
+        ) VALUES (
+          '01995f7e-7b52-7000-8000-000000000603',
+          '1.0.0-incomplete.1',
+          'cccccccccccccccccccccccccccccccccccccccc',
+          'Incomplete fixture', 1, 'agent/v1', false
+        )
+      `);
+      await pool.query(`
+        INSERT INTO releases.release_artifacts (release_id, name, digest)
+        VALUES (
+          '01995f7e-7b52-7000-8000-000000000603',
+          'api',
+          'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+        )
+      `);
+      await expect(pool.query("COMMIT")).rejects.toMatchObject({ code: "23514" });
+    } finally {
+      await pool.query("ROLLBACK");
+    }
+  });
+
   it("creates a UUIDv7 profile with normalized constraints and filter indexes", async () => {
     const inserted = await pool.query<{
       id: string;
@@ -423,6 +524,55 @@ describe("platform tenant profile migration", () => {
       version: 1n,
     });
     expect(unchanged?.serverId).toBeUndefined();
+  });
+
+  it("rejects a nonvalidated release without partial effects", async () => {
+    const candidate = await database.releases.create({
+      id: "01995f7e-7b52-7000-8000-000000000602",
+      semanticVersion: "1.0.0-candidate.2",
+      commitSha: "b".repeat(40),
+      releaseNotes: "Candidate not approved.",
+      compatibility: {
+        configurationSchemaVersion: 1,
+        agentContractVersion: "agent/v1",
+        databaseMigrationRequired: false,
+      },
+      artifacts: releaseArtifacts,
+    });
+    const profile = await database.tenantProfiles.create({
+      name: "Release Rejected",
+      slug: "release-rejected",
+      adminContactName: "Rita",
+      adminContactEmail: "rita@example.test",
+      status: "PENDING",
+    });
+
+    await expect(
+      database.provisioningOperations.request({
+        tenantProfileId: profile.id,
+        serverId,
+        releaseId: candidate.id,
+        requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10000 },
+        requestedByOperatorId: operatorId,
+        idempotencyKey: "release-rejected-01",
+        correlationId: "release-rejected-01",
+        expectedTenantVersion: profile.version,
+      }),
+    ).rejects.toBeInstanceOf(PlatformReleaseNotDeployableError);
+
+    const effects = await pool.query<{ reservations: string; operations: string }>(
+      `
+        SELECT
+          (SELECT count(*)::text FROM infrastructure.capacity_reservations WHERE tenant_profile_id = $1::uuid) AS reservations,
+          (SELECT count(*)::text FROM operations.provisioning_operations WHERE tenant_profile_id = $1::uuid) AS operations
+      `,
+      [profile.id],
+    );
+    expect(effects.rows[0]).toEqual({ reservations: "0", operations: "0" });
+    await expect(database.tenantProfiles.findById(profile.id)).resolves.toMatchObject({
+      status: "PENDING",
+      version: 1n,
+    });
   });
 
   it("claims once, fences renewal and recovers an expired lease", async () => {
