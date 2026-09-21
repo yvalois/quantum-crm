@@ -22,6 +22,7 @@ Los registros ADR explican decisiones estructurales y evitan discutir o implemen
 | [0014](ADR-0014-arquitectura-frontends-sistema-visual.md) | Arquitectura de frontends y sistema visual | aceptado | 2026-09-18 |
 | [0015](ADR-0015-respaldo-restauracion-continuidad.md) | Respaldo, restauracion y continuidad | aceptado | 2026-09-18 |
 | [0016](ADR-0016-aprovisionamiento-bases-perfil.md) | Aprovisionamiento idempotente de bases por perfil | aceptado | 2026-09-21 |
+| [0017](ADR-0017-secretos-perfil.md) | Secretos idempotentes de base por perfil | aceptado | 2026-09-21 |
 
 ## Convencion
 

@@ -37,6 +37,10 @@ export const provisioningValidationFailureCodes = [
   "DATABASE_UNAVAILABLE",
   "DATABASE_PERMISSION_DENIED",
   "DATABASE_IDENTITY_MISMATCH",
+  "SECRET_TARGET_CONFLICT",
+  "SECRET_UNAVAILABLE",
+  "SECRET_PERMISSION_DENIED",
+  "SECRET_IDENTITY_MISMATCH",
 ] as const;
 export type ProvisioningValidationFailureCode = (typeof provisioningValidationFailureCodes)[number];
 
@@ -128,6 +132,25 @@ export interface CompleteProvisioningDatabaseCommand {
   readonly failureCode?: ProvisioningValidationFailureCode;
 }
 
+export const tenantDatabaseSecretKinds = ["MIGRATOR_PASSWORD", "RUNTIME_PASSWORD"] as const;
+export type TenantDatabaseSecretKind = (typeof tenantDatabaseSecretKinds)[number];
+
+export interface TenantDatabaseSecretReference {
+  readonly kind: TenantDatabaseSecretKind;
+  readonly secretRef: string;
+  readonly version: bigint;
+}
+
+export interface CompleteProvisioningSecretsCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+  readonly secrets: readonly TenantDatabaseSecretReference[];
+  readonly failureCode?: ProvisioningValidationFailureCode;
+}
+
 export interface ProvisioningValidationResult {
   readonly operation: ProvisioningOperation;
   readonly tenantVersion: bigint;
@@ -154,6 +177,22 @@ export interface TenantDatabaseProvisioner {
   readonly provision: (
     command: TenantDatabaseProvisionCommand,
   ) => Promise<TenantDatabaseProvisioningResult>;
+}
+
+export interface TenantDatabaseSecretsProvisionCommand {
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+}
+
+export interface TenantDatabaseSecretsProvisioningResult {
+  readonly secrets: readonly TenantDatabaseSecretReference[];
+  readonly reconciled: boolean;
+}
+
+export interface TenantDatabaseSecretsProvisioner {
+  readonly provision: (
+    command: TenantDatabaseSecretsProvisionCommand,
+  ) => Promise<TenantDatabaseSecretsProvisioningResult>;
 }
 
 export interface ProvisioningValidationSnapshot {
@@ -190,6 +229,9 @@ export interface ProvisioningOperationRepository {
   readonly completeDatabase: (
     command: CompleteProvisioningDatabaseCommand,
   ) => Promise<ProvisioningValidationResult | null>;
+  readonly completeSecrets: (
+    command: CompleteProvisioningSecretsCommand,
+  ) => Promise<ProvisioningValidationResult | null>;
 }
 
 export function tenantDatabaseIdentity(tenantProfileId: string): TenantDatabaseIdentity {
@@ -199,6 +241,22 @@ export function tenantDatabaseIdentity(tenantProfileId: string): TenantDatabaseI
     databaseName: `qcrm_t_${compact}`,
     migratorRoleName: `qcrm_m_${compact}`,
     runtimeRoleName: `qcrm_r_${compact}`,
+  });
+}
+
+export function tenantDatabaseSecretReference(
+  tenantProfileId: string,
+  kind: TenantDatabaseSecretKind,
+): TenantDatabaseSecretReference {
+  const normalized = uuid("tenantProfileId", tenantProfileId);
+  if (!tenantDatabaseSecretKinds.includes(kind)) {
+    throw new ProvisioningOperationValidationError("secret.kind");
+  }
+  const fileName = kind === "MIGRATOR_PASSWORD" ? "migrator-password" : "runtime-password";
+  return Object.freeze({
+    kind,
+    secretRef: `tenant/${normalized}/${fileName}`,
+    version: 1n,
   });
 }
 
@@ -368,6 +426,49 @@ export function validateCompleteProvisioningDatabase(
     databaseName: input.databaseName,
     migratorRoleName: input.migratorRoleName,
     runtimeRoleName: input.runtimeRoleName,
+    ...(input.failureCode ? { failureCode: input.failureCode } : {}),
+  });
+}
+
+export function validateCompleteProvisioningSecrets(
+  input: CompleteProvisioningSecretsCommand,
+): CompleteProvisioningSecretsCommand {
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
+  const expected = tenantDatabaseSecretKinds.map((kind) =>
+    tenantDatabaseSecretReference(input.tenantProfileId, kind),
+  );
+  if (
+    input.secrets.length !== expected.length ||
+    input.secrets.some(
+      (secret) =>
+        !expected.some(
+          (candidate) =>
+            candidate.kind === secret.kind &&
+            candidate.secretRef === secret.secretRef &&
+            candidate.version === secret.version,
+        ),
+    )
+  ) {
+    throw new ProvisioningOperationValidationError("secrets");
+  }
+  if (input.failureCode && !provisioningValidationFailureCodes.includes(input.failureCode)) {
+    throw new ProvisioningOperationValidationError("failureCode");
+  }
+  return Object.freeze({
+    operationId: uuid("operationId", input.operationId),
+    tenantProfileId: uuid("tenantProfileId", input.tenantProfileId),
+    workerId: input.workerId,
+    expectedVersion: input.expectedVersion,
+    attempt: input.attempt,
+    secrets: Object.freeze(input.secrets.map((secret) => Object.freeze({ ...secret }))),
     ...(input.failureCode ? { failureCode: input.failureCode } : {}),
   });
 }

@@ -29,9 +29,11 @@ import {
   validateProvisioningLeaseRenewal,
   validateCompleteProvisioningValidation,
   validateCompleteProvisioningDatabase,
+  validateCompleteProvisioningSecrets,
   type ClaimProvisioningOperationCommand,
   type CompleteProvisioningValidationCommand,
   type CompleteProvisioningDatabaseCommand,
+  type CompleteProvisioningSecretsCommand,
   type InfrastructureServer,
   type InfrastructureServerArchitecture,
   type InfrastructureServerDraft,
@@ -633,6 +635,188 @@ export function createPostgresDatabase(
   });
 }
 
+async function completeProvisioningSecrets(
+  pool: PostgresPool,
+  command: CompleteProvisioningSecretsCommand,
+): Promise<ReturnType<ProvisioningOperationRepository["completeSecrets"]> extends Promise<infer Result> ? Result : never> {
+  const completion = validateCompleteProvisioningSecrets(command);
+  const failureCode = completion.failureCode?.toLowerCase() ?? null;
+  let client: PoolClient | undefined;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const result = await client.query<ProvisioningOperationRow & { readonly tenant_version: string }>(
+      `
+        SELECT ${provisioningOperationSelection}, profile.version::text AS tenant_version
+        FROM operations.provisioning_operations AS operation
+        JOIN tenants.tenant_profiles AS profile ON profile.id = operation.tenant_profile_id
+        WHERE operation.id = $1::uuid AND operation.tenant_profile_id = $2::uuid
+          AND operation.status = 'running' AND operation.current_step = 'create_secrets'
+          AND operation.lease_owner = $3 AND operation.version = $4 AND operation.attempt = $5
+          AND operation.lease_expires_at > CURRENT_TIMESTAMP
+        FOR UPDATE OF operation, profile
+      `,
+      [
+        completion.operationId,
+        completion.tenantProfileId,
+        completion.workerId,
+        completion.expectedVersion.toString(),
+        completion.attempt,
+      ],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      await client.query("COMMIT");
+      return null;
+    }
+    if (
+      !row.capacity_reservation_id ||
+      row.requested_cpu_millicores === null ||
+      row.requested_memory_mib === null ||
+      row.requested_storage_mib === null
+    ) {
+      throw new DatabaseUnavailableError();
+    }
+    await client.query(
+      `
+        INSERT INTO operations.provisioning_step_results
+          (operation_id, step, attempt, outcome, worker_id, operation_version, failure_code)
+        VALUES ($1::uuid, 'create_secrets', $2, $3::operations.provisioning_step_outcome,
+                $4, $5, $6::operations.provisioning_validation_failure_code)
+      `,
+      [
+        completion.operationId,
+        completion.attempt,
+        failureCode ? "failed" : "succeeded",
+        completion.workerId,
+        completion.expectedVersion.toString(),
+        failureCode,
+      ],
+    );
+    if (!failureCode) {
+      const targetResult = await client.query<{ readonly id: string; readonly server_id: string }>(
+        `
+          SELECT id::text, server_id::text FROM tenants.tenant_databases
+          WHERE tenant_profile_id = $1::uuid AND status = 'created' FOR UPDATE
+        `,
+        [completion.tenantProfileId],
+      );
+      const target = targetResult.rows[0];
+      if (!target || target.server_id !== row.server_id) throw new DatabaseUnavailableError();
+      for (const secret of completion.secrets) {
+        const existingResult = await client.query<{ readonly secret_ref: string; readonly version: string }>(
+          `
+            SELECT secret_ref, version::text FROM tenants.tenant_database_secrets
+            WHERE tenant_database_id = $1::uuid AND kind = $2::tenants.tenant_database_secret_kind
+            FOR UPDATE
+          `,
+          [target.id, secret.kind.toLowerCase()],
+        );
+        const existing = existingResult.rows[0];
+        if (existing && (existing.secret_ref !== secret.secretRef || BigInt(existing.version) !== secret.version)) {
+          throw new DatabaseUnavailableError();
+        }
+        if (existing) {
+          await client.query(
+            `
+              UPDATE tenants.tenant_database_secrets
+              SET status = 'ready', updated_at = CURRENT_TIMESTAMP
+              WHERE tenant_database_id = $1::uuid AND kind = $2::tenants.tenant_database_secret_kind
+            `,
+            [target.id, secret.kind.toLowerCase()],
+          );
+        } else {
+          await client.query(
+            `
+              INSERT INTO tenants.tenant_database_secrets
+                (tenant_database_id, kind, secret_ref, status, version)
+              VALUES ($1::uuid, $2::tenants.tenant_database_secret_kind, $3, 'ready', $4)
+            `,
+            [target.id, secret.kind.toLowerCase(), secret.secretRef, secret.version.toString()],
+          );
+        }
+      }
+      const updatedResult = await client.query<ProvisioningOperationRow>(
+        `
+          UPDATE operations.provisioning_operations AS operation
+          SET status = 'pending', current_step = 'create_storage', failure_code = NULL,
+              lease_owner = NULL, lease_expires_at = NULL, last_heartbeat_at = NULL,
+              version = operation.version + 1, updated_at = CURRENT_TIMESTAMP
+          WHERE operation.id = $1::uuid
+          RETURNING ${provisioningOperationSelection}
+        `,
+        [completion.operationId],
+      );
+      const updatedOperation = updatedResult.rows[0];
+      if (!updatedOperation) throw new DatabaseUnavailableError();
+      await client.query("COMMIT");
+      return Object.freeze({
+        operation: provisioningOperationFromRow(updatedOperation),
+        tenantVersion: BigInt(row.tenant_version),
+        outcome: "ADVANCED" as const,
+        failureCode: null,
+      });
+    }
+    await client.query(
+      `
+        UPDATE infrastructure.capacity_reservations
+        SET status = 'released', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1::uuid AND status = 'reserved'
+      `,
+      [row.capacity_reservation_id],
+    );
+    await client.query(
+      `
+        UPDATE infrastructure.servers
+        SET reserved_cpu_millicores = reserved_cpu_millicores - $2,
+            reserved_memory_mib = reserved_memory_mib - $3,
+            reserved_storage_mib = reserved_storage_mib - $4,
+            version = version + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1::uuid
+          AND reserved_cpu_millicores >= $2
+          AND reserved_memory_mib >= $3
+          AND reserved_storage_mib >= $4
+      `,
+      [row.server_id, row.requested_cpu_millicores, row.requested_memory_mib, row.requested_storage_mib],
+    );
+    const tenantUpdate = await client.query<{ readonly version: string }>(
+      `
+        UPDATE tenants.tenant_profiles
+        SET status = 'error', version = version + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1::uuid AND status = 'provisioning'
+        RETURNING version::text
+      `,
+      [completion.tenantProfileId],
+    );
+    const updatedResult = await client.query<ProvisioningOperationRow>(
+      `
+        UPDATE operations.provisioning_operations AS operation
+        SET status = 'failed', failure_code = $2::operations.provisioning_validation_failure_code,
+            lease_owner = NULL, lease_expires_at = NULL, last_heartbeat_at = NULL,
+            version = operation.version + 1, updated_at = CURRENT_TIMESTAMP
+        WHERE operation.id = $1::uuid
+        RETURNING ${provisioningOperationSelection}
+      `,
+      [completion.operationId, failureCode],
+    );
+    const updatedOperation = updatedResult.rows[0];
+    if (!updatedOperation) throw new DatabaseUnavailableError();
+    await client.query("COMMIT");
+    return Object.freeze({
+      operation: provisioningOperationFromRow(updatedOperation),
+      tenantVersion: tenantUpdate.rows[0] ? BigInt(tenantUpdate.rows[0].version) : BigInt(row.tenant_version),
+      outcome: "FAILED" as const,
+      failureCode: completion.failureCode ?? null,
+    });
+  } catch (error) {
+    await client?.query("ROLLBACK").catch(() => undefined);
+    if (error instanceof DatabaseUnavailableError) throw error;
+    throw new DatabaseUnavailableError();
+  } finally {
+    client?.release();
+  }
+}
+
 export function createPlatformPostgresDatabase(
   config: DatabaseConfig,
   serviceName: string,
@@ -1081,7 +1265,7 @@ export function createPlatformPostgresDatabase(
     },
   });
 
-  const provisioningOperations: ProvisioningOperationRepository = Object.freeze({
+  const provisioningOperations = Object.freeze({
     request: async (command: RequestProvisioningCommand) => {
       const draft = createProvisioningOperationDraft(command);
       let client: PoolClient | undefined;
@@ -1826,6 +2010,10 @@ export function createPlatformPostgresDatabase(
     infrastructureServers,
     releases,
     tenantProfiles,
-    provisioningOperations,
+    provisioningOperations: Object.freeze({
+      ...provisioningOperations,
+      completeSecrets: (command: CompleteProvisioningSecretsCommand) =>
+        completeProvisioningSecrets(pool, command),
+    }),
   });
 }

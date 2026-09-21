@@ -121,6 +121,7 @@ describe("process configuration", () => {
         defaultHost: "127.0.0.1",
         defaultPort: 3102,
         database: { target: "platform", requiresTenant: false, requiresAdmin: true },
+        requiresTenantSecretDirectory: true,
       },
       "agent-runtime": {
         serviceName: "agent-runtime",

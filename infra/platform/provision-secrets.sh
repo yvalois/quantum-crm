@@ -21,6 +21,8 @@ data_gid="${QCRM_DATA_GID:-999}"
 }
 
 install -d -m 0700 -o root -g root "$secret_directory"
+tenant_secret_directory="${secret_directory%/platform}/tenants"
+install -d -m 0700 -o "$app_uid" -g "$app_uid" "$tenant_secret_directory"
 
 create_token() {
   local name="$1"

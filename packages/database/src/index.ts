@@ -16,3 +16,7 @@ export {
   createTenantDatabaseProvisioner,
   TenantDatabaseProvisioningError,
 } from "./tenant-database-provisioner.js";
+export {
+  createTenantDatabaseSecretsProvisioner,
+  TenantDatabaseSecretsProvisioningError,
+} from "./tenant-database-secrets-provisioner.js";

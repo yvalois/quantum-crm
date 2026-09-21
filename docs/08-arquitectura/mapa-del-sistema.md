@@ -115,12 +115,12 @@ La especificacion logica anterior es mas amplia que el codigo disponible. El inc
 |---|---|---|
 | `quantum-local` | ocho aplicaciones | Build integrado en el VPS de pruebas y puertos limitados a loopback; monta referencias PostgreSQL sinteticas solo en procesos autorizados |
 | `quantum-test` | `crm-web`, `api` | Smoke de los dos tipos de imagen, sin datos comerciales |
-| `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor` | Plantilla por digest; el executor usa solo operaciones tipadas y una credencial administrativa acotada para `CREATE_DATABASE`, sin Docker socket ni shell |
+| `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor` | Plantilla por digest; el executor usa operaciones tipadas, una credencial administrativa acotada para `CREATE_DATABASE` y una raiz de secretos de perfil, sin Docker socket ni shell |
 | `qcrm-t-<uuid>` | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla por perfil y digest; `api` y `worker` reciben una conexion PostgreSQL por archivo secreto; identidad, colas y archivos siguen pendientes |
 
 `infra/docker/Dockerfile.web` produce las tres variantes Next.js standalone y `infra/docker/Dockerfile.node` produce los cinco procesos Node compilados. Caddy sera el unico publicador de trafico en los despliegues no locales; las redes externas declaradas son puntos de conexion controlados, no autorizacion para publicar puertos internos.
 
-`OPS-04-a` materializa la frontera inicial de PostgreSQL: `api` y `worker` consumen la base exclusiva de su perfil, `admin-api` consume la base de plataforma y readiness prueba la conexion sin exponer identidad ni URL. `agent-runtime` y las webs no reciben esos secretos. `ADM-04-d` agrega al `deploy-executor` una referencia administrativa separada y de privilegio minimo para crear y reconciliar una base por perfil; no recibe Docker socket, shell ni SQL libre. Los schemas comerciales, migrador de perfil y pasos posteriores siguen pendientes.
+`OPS-04-a` materializa la frontera inicial de PostgreSQL: `api` y `worker` consumen la base exclusiva de su perfil, `admin-api` consume la base de plataforma y readiness prueba la conexion sin exponer identidad ni URL. `agent-runtime` y las webs no reciben esos secretos. `ADM-04-d` agrega al `deploy-executor` una referencia administrativa separada y de privilegio minimo para crear y reconciliar una base por perfil; `ADM-04-e` agrega credenciales idempotentes en archivos privados y referencias sin valores. El executor no recibe Docker socket, shell ni SQL libre. Los schemas comerciales, migrador de perfil y pasos posteriores siguen pendientes.
 
 Los componentes de identidad, Redis, archivos, proxy, telemetria y respaldo permanecen como arquitectura aprobada pendiente de sus requisitos operativos. La existencia de una plantilla Compose no acredita instalacion persistente en el VPS, imagen publicada, SBOM, procedencia, escaneo ni release desplegada.
 
@@ -404,6 +404,7 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 - `ADR-0006`: persistencia y migraciones.
 - `ADR-0007`: pruebas y calidad.
 - `ADR-0008`: entornos, configuracion y secretos.
+- `ADR-0017`: secretos idempotentes de base por perfil.
 - `ADR-0009`: integracion, entrega y releases.
 - `ADR-0010`: observabilidad y manejo de fallos.
 - `ADR-0011`: trabajos asincronos y automatizaciones durables.

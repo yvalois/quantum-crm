@@ -223,6 +223,7 @@ model TenantProfile {
   provisioningOperations ProvisioningOperation[]
   capacityReservations InfrastructureCapacityReservation[]
   database             TenantDatabase?
+  databaseSecrets      TenantDatabaseSecret[]
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -305,10 +306,45 @@ model TenantDatabase {
   updatedAt        DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   tenantProfile    TenantProfile      @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   server           InfrastructureServer @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  secrets          TenantDatabaseSecret[]
 
   @@index([serverId], map: "tenant_databases_server_id_idx")
   @@index([status, updatedAt, id], map: "tenant_databases_status_updated_id_idx")
   @@map("tenant_databases")
+  @@schema("tenants")
+}
+
+enum TenantDatabaseSecretKind {
+  MIGRATOR_PASSWORD @map("migrator_password")
+  RUNTIME_PASSWORD  @map("runtime_password")
+
+  @@map("tenant_database_secret_kind")
+  @@schema("tenants")
+}
+
+enum TenantDatabaseSecretStatus {
+  READY @map("ready")
+  ERROR @map("error")
+
+  @@map("tenant_database_secret_status")
+  @@schema("tenants")
+}
+
+model TenantDatabaseSecret {
+  id             String                    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantDatabaseId String                  @map("tenant_database_id") @db.Uuid
+  kind           TenantDatabaseSecretKind
+  secretRef      String                    @map("secret_ref") @db.VarChar(128)
+  status         TenantDatabaseSecretStatus @default(READY)
+  version        BigInt                    @default(1)
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantDatabase TenantDatabase             @relation(fields: [tenantDatabaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantDatabaseId, kind], map: "tenant_database_secrets_database_kind_key")
+  @@unique([secretRef], map: "tenant_database_secrets_secret_ref_key")
+  @@index([status, updatedAt, id], map: "tenant_database_secrets_status_updated_id_idx")
+  @@map("tenant_database_secrets")
   @@schema("tenants")
 }
 
