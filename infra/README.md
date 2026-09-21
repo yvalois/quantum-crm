@@ -67,6 +67,9 @@ El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases
 - `QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE` y `QCRM_PLATFORM_PROVISIONER_DATABASE_URL_SECRET_FILE` apuntan a los archivos del rol administrativo limitado; nunca contienen valores en Compose o Git.
 - `deploy-executor` recibe `QCRM_TENANT_SECRET_DIRECTORY=/run/tenant-secrets` y un bind mount de escritura cuyo origen se declara como `QCRM_TENANT_SECRET_BIND_SOURCE` fuera del checkout. Ningun servicio comercial monta esa raiz completa.
 - `CREATE_SECRETS` instala `tenant/<uuid>/migrator-password` y `tenant/<uuid>/runtime-password` con modo `0400`; `WRITE_CONFIGURATION` derivara las URLs exactas para cada servicio posteriormente.
+- `deploy-executor` es el unico proceso que recibe las credenciales administrativas de SeaweedFS mediante `/run/secrets/qcrm_storage_s3_admin_access_key` y `/run/secrets/qcrm_storage_s3_admin_secret_key`; el adaptador crea credenciales por perfil y solo persiste sus referencias en la base de plataforma.
+- La cuota de cada perfil se deriva de `requested_storage_mib` y se aplica a ambos buckets mediante la extension `seaweedfs-quota`; el digest elegido debe soportar esa operacion y se comprueba en la verificacion del VPS.
+- `platform-storage` permanece en la red privada `platform-storage`; no se publican sus puertos administrativos ni se entrega el secreto S3 de plataforma a `api`, `worker` o `agent-runtime`.
 
 Las plantillas esperan que PostgreSQL ya haya sido aprovisionado con una base y un rol runtime distintos por perfil, `PUBLIC CONNECT` revocado y un rol migrador separado. Ese aprovisionamiento dinamico pertenece a `OPS-14`; las plantillas actuales no lo simulan ni lo presentan como terminado.
 
@@ -118,6 +121,8 @@ QCRM_TENANT_SECRET_BIND_SOURCE=/opt/quantum/secrets/staging/tenants
 QCRM_PLATFORM_STORAGE_NETWORK=quantum-platform-storage
 QCRM_PLATFORM_STORAGE_VOLUME=quantum-platform-storage-data
 QCRM_STORAGE_S3_CONFIG_FILE=/opt/quantum/secrets/staging/platform/seaweedfs-s3.json
+QCRM_STORAGE_S3_ADMIN_ACCESS_KEY_FILE=/opt/quantum/secrets/staging/platform/storage-s3-admin-access-key
+QCRM_STORAGE_S3_ADMIN_SECRET_KEY_FILE=/opt/quantum/secrets/staging/platform/storage-s3-admin-secret-key
 QCRM_PLATFORM_OIDC_ISSUER=https://identity.example.test/realms/quantum-platform
 QCRM_PLATFORM_OIDC_AUDIENCE=quantum-admin-api
 QCRM_PLATFORM_OIDC_REQUIRED_ACR=2

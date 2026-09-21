@@ -64,10 +64,10 @@ El ejecutor procesa `CREATE_STORAGE` de forma idempotente para un perfil: crea o
 
 - [x] Anadir la base de plataforma SeaweedFS con imagen por digest, volumen, secreto de configuracion y red privada.
 
-- [ ] Añadir el contrato de finalización y sus validaciones.
-- [ ] Persistir el resultado de `CREATE_STORAGE` con lease, versión e intento.
-- [ ] Implementar adaptador S3/SeaweedFS con operaciones idempotentes y mínimo privilegio.
-- [ ] Conectar el paso al ejecutor sin shell arbitrario ni acceso desde otros procesos.
+- [x] Añadir el contrato de finalización y sus validaciones.
+- [x] Persistir el resultado de `CREATE_STORAGE` con lease, versión e intento.
+- [x] Implementar adaptador S3/SeaweedFS con operaciones idempotentes y mínimo privilegio.
+- [x] Conectar el paso al ejecutor sin shell arbitrario ni acceso desde otros procesos.
 - [ ] Ejecutar la verificación afectada una vez en el VPS y reutilizar la evidencia en CI/PR.
 
 ## Riesgos y mitigaciones
@@ -104,8 +104,8 @@ El ejecutor procesa `CREATE_STORAGE` de forma idempotente para un perfil: crea o
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
+- Archivos, commits o PR: rama `feat/ADM-04-create-storage`; cambios de código y migración pendientes de PR.
 - Comandos y resultados: pendiente de la verificación VPS.
-- Documentacion actualizada: pendiente.
+- Documentación actualizada: ficha, estado del proyecto, Compose y README de infraestructura.
 - Desviaciones del plan: ninguna conocida.
-- Pendientes o decisiones nuevas: confirmar versión/digest de SeaweedFS disponible en el VPS antes de ejecutar.
+- Pendientes o decisiones nuevas: publicar la rama, ejecutar una sola verificación afectada en VPS y conservar su evidencia para CI/PR.

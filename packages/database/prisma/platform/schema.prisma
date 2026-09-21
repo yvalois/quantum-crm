@@ -111,6 +111,7 @@ model InfrastructureServer {
   capacityReservations   InfrastructureCapacityReservation[]
   provisioningOperations ProvisioningOperation[]
   tenantDatabases        TenantDatabase[]
+  tenantStorage           TenantStorage[]
 
   @@index([status, createdAt, id], map: "infrastructure_servers_status_created_id_idx")
   @@map("servers")
@@ -223,6 +224,7 @@ model TenantProfile {
   provisioningOperations ProvisioningOperation[]
   capacityReservations InfrastructureCapacityReservation[]
   database             TenantDatabase?
+  storage              TenantStorage?
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -278,6 +280,10 @@ enum ProvisioningValidationFailureCode {
   DATABASE_UNAVAILABLE         @map("database_unavailable")
   DATABASE_PERMISSION_DENIED   @map("database_permission_denied")
   DATABASE_IDENTITY_MISMATCH   @map("database_identity_mismatch")
+  STORAGE_TARGET_CONFLICT      @map("storage_target_conflict")
+  STORAGE_UNAVAILABLE          @map("storage_unavailable")
+  STORAGE_PERMISSION_DENIED    @map("storage_permission_denied")
+  STORAGE_IDENTITY_MISMATCH    @map("storage_identity_mismatch")
 
   @@map("provisioning_validation_failure_code")
   @@schema("operations")
@@ -344,6 +350,59 @@ model TenantDatabaseSecret {
   @@unique([secretRef], map: "tenant_database_secrets_secret_ref_key")
   @@index([status, updatedAt, id], map: "tenant_database_secrets_status_updated_id_idx")
   @@map("tenant_database_secrets")
+  @@schema("tenants")
+}
+
+enum TenantStorageStatus {
+  READY @map("ready")
+  ERROR @map("error")
+
+  @@map("tenant_storage_status")
+  @@schema("tenants")
+}
+
+enum TenantStorageSecretKind {
+  ACCESS_KEY @map("access_key")
+  SECRET_KEY @map("secret_key")
+
+  @@map("tenant_storage_secret_kind")
+  @@schema("tenants")
+}
+
+model TenantStorage {
+  id              String                    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId String                    @unique(map: "tenant_storage_tenant_profile_id_key") @map("tenant_profile_id") @db.Uuid
+  serverId        String                    @map("server_id") @db.Uuid
+  incomingBucket  String                    @unique(map: "tenant_storage_incoming_bucket_key") @map("incoming_bucket") @db.VarChar(63)
+  objectsBucket   String                    @unique(map: "tenant_storage_objects_bucket_key") @map("objects_bucket") @db.VarChar(63)
+  quotaMiB        Int                       @map("quota_mib")
+  status          TenantStorageStatus       @default(READY)
+  version         BigInt                    @default(1)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile   TenantProfile             @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  server          InfrastructureServer     @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  secrets         TenantStorageSecret[]
+
+  @@index([serverId], map: "tenant_storage_server_id_idx")
+  @@index([status, updatedAt, id], map: "tenant_storage_status_updated_id_idx")
+  @@map("tenant_storage")
+  @@schema("tenants")
+}
+
+model TenantStorageSecret {
+  id              String                    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantStorageId String                    @map("tenant_storage_id") @db.Uuid
+  kind            TenantStorageSecretKind
+  secretRef       String                    @unique(map: "tenant_storage_secrets_secret_ref_key") @map("secret_ref") @db.VarChar(128)
+  version         BigInt                    @default(1)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantStorage   TenantStorage             @relation(fields: [tenantStorageId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantStorageId, kind], map: "tenant_storage_secrets_storage_kind_key")
+  @@index([updatedAt, id], map: "tenant_storage_secrets_updated_id_idx")
+  @@map("tenant_storage_secrets")
   @@schema("tenants")
 }
 

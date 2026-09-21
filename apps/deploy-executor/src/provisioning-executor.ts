@@ -2,14 +2,19 @@ import {
   tenantDatabaseIdentity,
   tenantDatabaseSecretKinds,
   tenantDatabaseSecretReference,
+  tenantStorageBucketReference,
+  tenantStorageSecretKinds,
+  tenantStorageSecretReference,
   type ProvisioningOperationRepository,
   type TenantDatabaseSecretsProvisioner,
   type TenantDatabaseProvisioner,
+  type TenantStorageProvisioner,
 } from "@quantum-crm/platform-domain";
 import {
   TenantDatabaseProvisioningError,
   TenantDatabaseSecretsProvisioningError,
 } from "@quantum-crm/database";
+import { TenantStorageProvisioningError } from "./seaweed-storage-provisioner.js";
 
 export interface ProvisioningExecutorOptions {
   readonly workerId: string;
@@ -45,6 +50,7 @@ export class ProvisioningExecutor {
     private readonly wait: AbortableWait = defaultWait,
     private readonly databaseProvisioner?: TenantDatabaseProvisioner,
     private readonly secretsProvisioner?: TenantDatabaseSecretsProvisioner,
+    private readonly storageProvisioner?: TenantStorageProvisioner,
   ) {}
 
   public runOnce(): Promise<boolean> {
@@ -73,7 +79,9 @@ export class ProvisioningExecutor {
   private async executeOne(): Promise<boolean> {
     const supportedSteps = this.databaseProvisioner
       ? this.secretsProvisioner
-        ? (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS"] as const)
+        ? this.storageProvisioner
+          ? (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS", "CREATE_STORAGE"] as const)
+          : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS"] as const)
         : (["VALIDATE", "CREATE_DATABASE"] as const)
       : (["VALIDATE"] as const);
     const operation = await this.repository.claimNext({
@@ -122,6 +130,68 @@ export class ProvisioningExecutor {
           expectedVersion: operation.version,
           attempt: operation.attempt,
           ...identity,
+          ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
+        });
+      } catch {
+        return true;
+      }
+      return true;
+    }
+    if (operation.currentStep === "CREATE_STORAGE" && this.storageProvisioner) {
+      let provisioningFailure:
+        | "STORAGE_TARGET_CONFLICT"
+        | "STORAGE_UNAVAILABLE"
+        | "STORAGE_PERMISSION_DENIED"
+        | "STORAGE_IDENTITY_MISMATCH"
+        | undefined;
+      let buckets: Awaited<ReturnType<TenantStorageProvisioner["provision"]>>["buckets"] = [
+        tenantStorageBucketReference(
+          operation.tenantProfileId,
+          "INCOMING",
+          operation.requestedCapacity.storageMiB,
+        ),
+        tenantStorageBucketReference(
+          operation.tenantProfileId,
+          "OBJECTS",
+          operation.requestedCapacity.storageMiB,
+        ),
+      ];
+      let secrets: Awaited<ReturnType<TenantStorageProvisioner["provision"]>>["secrets"] =
+        tenantStorageSecretKinds.map((kind) =>
+          tenantStorageSecretReference(operation.tenantProfileId, kind),
+        );
+      try {
+        const result = await this.storageProvisioner.provision({
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          quotaMiB: operation.requestedCapacity.storageMiB,
+        });
+        buckets = result.buckets;
+        secrets = result.secrets;
+      } catch (error) {
+        if (
+          error instanceof TenantStorageProvisioningError &&
+          error.reason === "UNAVAILABLE"
+        ) {
+          return true;
+        }
+        provisioningFailure =
+          error instanceof TenantStorageProvisioningError && error.reason === "PERMISSION_DENIED"
+            ? "STORAGE_PERMISSION_DENIED"
+            : error instanceof TenantStorageProvisioningError && error.reason === "TARGET_CONFLICT"
+              ? "STORAGE_TARGET_CONFLICT"
+              : "STORAGE_IDENTITY_MISMATCH";
+      }
+      try {
+        await this.repository.completeStorage({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+          quotaMiB: operation.requestedCapacity.storageMiB,
+          buckets,
+          secrets,
           ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
         });
       } catch {

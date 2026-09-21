@@ -104,15 +104,14 @@ create_storage_config() {
   chown "$app_uid:$app_uid" "$temporary"
   chmod 0400 "$temporary"
   if [[ -e "$config_path" ]]; then
-    IFS= read -r current <"$config_path"
-    [[ "$current" == "{" ]] || exit 78
+    cmp -s "$temporary" "$config_path" || exit 78
     rm -f "$temporary"
   else
     mv "$temporary" "$config_path"
   fi
   chown "$app_uid:$app_uid" "$config_path" "$access_key_path" "$secret_key_path"
   chmod 0400 "$config_path" "$access_key_path" "$secret_key_path"
-  unset access_key secret_key current
+  unset access_key secret_key
 }
 
 create_derived_url() {

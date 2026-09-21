@@ -13,6 +13,7 @@ import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-c
 
 import { AppModule } from "./app.module.js";
 import { ProvisioningExecutor } from "./provisioning-executor.js";
+import { createTenantStorageProvisioner } from "./seaweed-storage-provisioner.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("deploy-executor");
@@ -25,11 +26,18 @@ async function bootstrap(): Promise<void> {
   if (!config.tenantSecretDirectory) {
     throw new Error("deploy-executor tenant secret directory configuration missing");
   }
+  if (!config.storage) throw new Error("deploy-executor storage configuration missing");
   const databaseProvisioner = createTenantDatabaseProvisioner(adminConnectionUrl);
   const secretsProvisioner = createTenantDatabaseSecretsProvisioner(
     adminConnectionUrl,
     config.tenantSecretDirectory,
   );
+  const storageProvisioner = createTenantStorageProvisioner({
+    endpoint: config.storage.endpoint,
+    adminAccessKey: config.storage.adminAccessKey.expose(),
+    adminSecretKey: config.storage.adminSecretKey.expose(),
+    tenantSecretDirectory: config.tenantSecretDirectory,
+  });
   let application: Awaited<ReturnType<typeof NestFactory.createApplicationContext>> | undefined;
   try {
     await database.connect();
@@ -58,6 +66,7 @@ async function bootstrap(): Promise<void> {
       undefined,
       databaseProvisioner,
       secretsProvisioner,
+      storageProvisioner,
     );
     ready = true;
     const close = async (): Promise<void> => {

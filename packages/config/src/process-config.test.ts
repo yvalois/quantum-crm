@@ -122,6 +122,7 @@ describe("process configuration", () => {
         defaultPort: 3102,
         database: { target: "platform", requiresTenant: false, requiresAdmin: true },
         requiresTenantSecretDirectory: true,
+        requiresStorageAdmin: true,
       },
       "agent-runtime": {
         serviceName: "agent-runtime",

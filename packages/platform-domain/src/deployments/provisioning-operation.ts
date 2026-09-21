@@ -41,6 +41,10 @@ export const provisioningValidationFailureCodes = [
   "SECRET_UNAVAILABLE",
   "SECRET_PERMISSION_DENIED",
   "SECRET_IDENTITY_MISMATCH",
+  "STORAGE_TARGET_CONFLICT",
+  "STORAGE_UNAVAILABLE",
+  "STORAGE_PERMISSION_DENIED",
+  "STORAGE_IDENTITY_MISMATCH",
 ] as const;
 export type ProvisioningValidationFailureCode = (typeof provisioningValidationFailureCodes)[number];
 
@@ -151,6 +155,52 @@ export interface CompleteProvisioningSecretsCommand {
   readonly failureCode?: ProvisioningValidationFailureCode;
 }
 
+export const tenantStorageSecretKinds = ["ACCESS_KEY", "SECRET_KEY"] as const;
+export type TenantStorageSecretKind = (typeof tenantStorageSecretKinds)[number];
+
+export interface TenantStorageSecretReference {
+  readonly kind: TenantStorageSecretKind;
+  readonly secretRef: string;
+  readonly version: bigint;
+}
+
+export interface TenantStorageBucketReference {
+  readonly kind: "INCOMING" | "OBJECTS";
+  readonly bucketName: string;
+  readonly quotaMiB: number;
+  readonly versioning: "ENABLED";
+}
+
+export interface CompleteProvisioningStorageCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+  readonly quotaMiB: number;
+  readonly buckets: readonly TenantStorageBucketReference[];
+  readonly secrets: readonly TenantStorageSecretReference[];
+  readonly failureCode?: ProvisioningValidationFailureCode;
+}
+
+export interface TenantStorageProvisioningCommand {
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+  readonly quotaMiB: number;
+}
+
+export interface TenantStorageProvisioningResult {
+  readonly buckets: readonly TenantStorageBucketReference[];
+  readonly secrets: readonly TenantStorageSecretReference[];
+  readonly reconciled: boolean;
+}
+
+export interface TenantStorageProvisioner {
+  readonly provision: (
+    command: TenantStorageProvisioningCommand,
+  ) => Promise<TenantStorageProvisioningResult>;
+}
+
 export interface ProvisioningValidationResult {
   readonly operation: ProvisioningOperation;
   readonly tenantVersion: bigint;
@@ -232,6 +282,9 @@ export interface ProvisioningOperationRepository {
   readonly completeSecrets: (
     command: CompleteProvisioningSecretsCommand,
   ) => Promise<ProvisioningValidationResult | null>;
+  readonly completeStorage: (
+    command: CompleteProvisioningStorageCommand,
+  ) => Promise<ProvisioningValidationResult | null>;
 }
 
 export function tenantDatabaseIdentity(tenantProfileId: string): TenantDatabaseIdentity {
@@ -253,6 +306,43 @@ export function tenantDatabaseSecretReference(
     throw new ProvisioningOperationValidationError("secret.kind");
   }
   const fileName = kind === "MIGRATOR_PASSWORD" ? "migrator-password" : "runtime-password";
+  return Object.freeze({
+    kind,
+    secretRef: `tenant/${normalized}/${fileName}`,
+    version: 1n,
+  });
+}
+
+export function tenantStorageBucketReference(
+  tenantProfileId: string,
+  kind: TenantStorageBucketReference["kind"],
+  quotaMiB: number,
+): TenantStorageBucketReference {
+  const normalized = uuid("tenantProfileId", tenantProfileId);
+  if (kind !== "INCOMING" && kind !== "OBJECTS") {
+    throw new ProvisioningOperationValidationError("storage.bucket.kind");
+  }
+  if (!Number.isInteger(quotaMiB) || quotaMiB < 1) {
+    throw new ProvisioningOperationValidationError("storage.bucket.quotaMiB");
+  }
+  const compact = normalized.replaceAll("-", "");
+  return Object.freeze({
+    kind,
+    bucketName: `qcrm-${compact}-${kind.toLowerCase()}`,
+    quotaMiB,
+    versioning: "ENABLED" as const,
+  });
+}
+
+export function tenantStorageSecretReference(
+  tenantProfileId: string,
+  kind: TenantStorageSecretKind,
+): TenantStorageSecretReference {
+  const normalized = uuid("tenantProfileId", tenantProfileId);
+  if (!tenantStorageSecretKinds.includes(kind)) {
+    throw new ProvisioningOperationValidationError("storage.secret.kind");
+  }
+  const fileName = kind === "ACCESS_KEY" ? "storage-access-key" : "storage-secret-key";
   return Object.freeze({
     kind,
     secretRef: `tenant/${normalized}/${fileName}`,
@@ -468,6 +558,72 @@ export function validateCompleteProvisioningSecrets(
     workerId: input.workerId,
     expectedVersion: input.expectedVersion,
     attempt: input.attempt,
+    secrets: Object.freeze(input.secrets.map((secret) => Object.freeze({ ...secret }))),
+    ...(input.failureCode ? { failureCode: input.failureCode } : {}),
+  });
+}
+
+export function validateCompleteProvisioningStorage(
+  input: CompleteProvisioningStorageCommand,
+): CompleteProvisioningStorageCommand {
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
+  if (!Number.isInteger(input.quotaMiB) || input.quotaMiB < 1) {
+    throw new ProvisioningOperationValidationError("quotaMiB");
+  }
+  const expectedBuckets = [
+    tenantStorageBucketReference(input.tenantProfileId, "INCOMING", input.quotaMiB),
+    tenantStorageBucketReference(input.tenantProfileId, "OBJECTS", input.quotaMiB),
+  ];
+  const expectedSecrets = tenantStorageSecretKinds.map((kind) =>
+    tenantStorageSecretReference(input.tenantProfileId, kind),
+  );
+  const bucketKeys = new Set(
+    input.buckets.map(
+      (bucket) => `${bucket.kind}:${bucket.bucketName}:${bucket.quotaMiB}:${bucket.versioning}`,
+    ),
+  );
+  const expectedBucketKeys = new Set(
+    expectedBuckets.map(
+      (bucket) => `${bucket.kind}:${bucket.bucketName}:${bucket.quotaMiB}:${bucket.versioning}`,
+    ),
+  );
+  if (
+    bucketKeys.size !== expectedBucketKeys.size ||
+    [...expectedBucketKeys].some((key) => !bucketKeys.has(key))
+  ) {
+    throw new ProvisioningOperationValidationError("buckets");
+  }
+  const secretKeys = new Set(
+    input.secrets.map((secret) => `${secret.kind}:${secret.secretRef}:${secret.version}`),
+  );
+  const expectedSecretKeys = new Set(
+    expectedSecrets.map((secret) => `${secret.kind}:${secret.secretRef}:${secret.version}`),
+  );
+  if (
+    secretKeys.size !== expectedSecretKeys.size ||
+    [...expectedSecretKeys].some((key) => !secretKeys.has(key))
+  ) {
+    throw new ProvisioningOperationValidationError("storage.secrets");
+  }
+  if (input.failureCode && !provisioningValidationFailureCodes.includes(input.failureCode)) {
+    throw new ProvisioningOperationValidationError("failureCode");
+  }
+  return Object.freeze({
+    operationId: uuid("operationId", input.operationId),
+    tenantProfileId: uuid("tenantProfileId", input.tenantProfileId),
+    workerId: input.workerId,
+    expectedVersion: input.expectedVersion,
+    attempt: input.attempt,
+    quotaMiB: input.quotaMiB,
+    buckets: Object.freeze(input.buckets.map((bucket) => Object.freeze({ ...bucket }))),
     secrets: Object.freeze(input.secrets.map((secret) => Object.freeze({ ...secret }))),
     ...(input.failureCode ? { failureCode: input.failureCode } : {}),
   });
