@@ -57,13 +57,12 @@ export function parseStorageConfig(
     const pathResult = z.string().trim().min(1).safeParse(path);
     if (!pathResult.success) throw new ConfigurationError(serviceName, [key]);
     try {
-      loaded.push(
-        loadSecretFile(logicalName, pathResult.data, {
-          environment: environmentName,
-          expectedProtectedPath: expectedPath,
-          fileSystem,
-        }),
-      );
+      const secretOptions = {
+        environment: environmentName,
+        expectedProtectedPath: expectedPath,
+        ...(fileSystem ? { fileSystem } : {}),
+      };
+      loaded.push(loadSecretFile(logicalName, pathResult.data, secretOptions));
     } catch (error) {
       if (error instanceof SecretFileError) throw new ConfigurationError(serviceName, [key]);
       throw error;
