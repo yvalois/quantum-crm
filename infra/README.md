@@ -34,7 +34,7 @@ El host instala `infra/redis/99-quantum-redis.conf` en `/etc/sysctl.d/99-quantum
 
 Las cuatro imagenes de fundacion se construyen desde los Dockerfiles fijados por digest en `infra/docker/`. PostgreSQL consume directamente `POSTGRES_PASSWORD_FILE`; los wrappers de Redis y Keycloak adaptan los archivos montados a sus interfaces nativas sin colocar valores en Compose ni en argumentos. `infra/platform/provision-secrets.sh` crea de forma reanudable los secretos ausentes y valida los existentes sin imprimirlos ni sustituirlos. Se ejecuta como `root` con `QCRM_SECRET_DIRECTORY=/opt/quantum/secrets/<entorno>/platform`.
 
-Los archivos viven fuera del checkout bajo un directorio `0700`. Los usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. La fundacion consume los primeros ocho; los cuatro siguientes son conexiones derivadas para migracion, runtime, aprovisionamiento y sesion:
+Los archivos viven fuera del checkout bajo un directorio `0700`. Los usados por un solo UID usan `0400`; las dos credenciales compartidas por los UID 1000 y 999 usan propietario 1000, grupo 999 y modo `0440`. La fundacion consume los primeros ocho; los cuatro siguientes son conexiones derivadas para migracion, runtime, aprovisionamiento y sesion. `provision-secrets.sh` crea ademas `/opt/quantum/secrets/<entorno>/tenants` con propietario del UID del executor; `CREATE_SECRETS` solo escribe dentro de esa raiz y conserva referencias relativas en plataforma.
 
 ```text
 postgres-admin-password
@@ -62,6 +62,8 @@ El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases
 - `QCRM_TENANT_ID` identifica el perfil de `api` y `worker` mediante un UUID inmutable. No selecciona dinamicamente otra base.
 - Las variables `QCRM_CRM_DATABASE_URL_SECRET_FILE` y `QCRM_PLATFORM_DATABASE_URL_SECRET_FILE` apuntan a archivos del host fuera del checkout. Nunca contienen la URL.
 - `QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE` y `QCRM_PLATFORM_PROVISIONER_DATABASE_URL_SECRET_FILE` apuntan a los archivos del rol administrativo limitado; nunca contienen valores en Compose o Git.
+- `deploy-executor` recibe `QCRM_TENANT_SECRET_DIRECTORY=/run/tenant-secrets` y un bind mount de escritura cuyo origen se declara como `QCRM_TENANT_SECRET_BIND_SOURCE` fuera del checkout. Ningun servicio comercial monta esa raiz completa.
+- `CREATE_SECRETS` instala `tenant/<uuid>/migrator-password` y `tenant/<uuid>/runtime-password` con modo `0400`; `WRITE_CONFIGURATION` derivara las URLs exactas para cada servicio posteriormente.
 
 Las plantillas esperan que PostgreSQL ya haya sido aprovisionado con una base y un rol runtime distintos por perfil, `PUBLIC CONNECT` revocado y un rol migrador separado. Ese aprovisionamiento dinamico pertenece a `OPS-14`; las plantillas actuales no lo simulan ni lo presentan como terminado.
 
@@ -109,6 +111,7 @@ Ambos comandos requieren rutas a archivos sinteticos existentes y un UUID de pru
 QCRM_TENANT_ID=00000000-0000-4000-8000-000000000001
 QCRM_CRM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/crm-database-url
 QCRM_PLATFORM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/platform-database-url
+QCRM_TENANT_SECRET_BIND_SOURCE=/opt/quantum/secrets/staging/tenants
 QCRM_PLATFORM_OIDC_ISSUER=https://identity.example.test/realms/quantum-platform
 QCRM_PLATFORM_OIDC_AUDIENCE=quantum-admin-api
 QCRM_PLATFORM_OIDC_REQUIRED_ACR=2

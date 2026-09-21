@@ -7,6 +7,7 @@ import { loadServiceConfig, requireDatabaseConfig } from "@quantum-crm/config";
 import {
   createPlatformPostgresDatabase,
   createTenantDatabaseProvisioner,
+  createTenantDatabaseSecretsProvisioner,
 } from "@quantum-crm/database";
 import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
 
@@ -21,7 +22,14 @@ async function bootstrap(): Promise<void> {
   );
   const adminConnectionUrl = config.database?.adminConnectionUrl?.expose();
   if (!adminConnectionUrl) throw new Error("deploy-executor database admin configuration missing");
+  if (!config.tenantSecretDirectory) {
+    throw new Error("deploy-executor tenant secret directory configuration missing");
+  }
   const databaseProvisioner = createTenantDatabaseProvisioner(adminConnectionUrl);
+  const secretsProvisioner = createTenantDatabaseSecretsProvisioner(
+    adminConnectionUrl,
+    config.tenantSecretDirectory,
+  );
   let application: Awaited<ReturnType<typeof NestFactory.createApplicationContext>> | undefined;
   try {
     await database.connect();
@@ -49,6 +57,7 @@ async function bootstrap(): Promise<void> {
       },
       undefined,
       databaseProvisioner,
+      secretsProvisioner,
     );
     ready = true;
     const close = async (): Promise<void> => {
@@ -60,6 +69,7 @@ async function bootstrap(): Promise<void> {
       await applicationContext.close();
       await database.close();
       await databaseProvisioner.close();
+      await secretsProvisioner.close();
     };
     registerGracefulShutdown([{ close }], config.shutdownTimeoutMs);
     void executor.start().catch(async () => {
@@ -71,6 +81,7 @@ async function bootstrap(): Promise<void> {
     await application?.close();
     await database.close();
     await databaseProvisioner.close();
+    await secretsProvisioner.close();
     throw error;
   }
 }

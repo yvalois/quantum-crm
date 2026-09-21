@@ -1,9 +1,15 @@
 import {
   tenantDatabaseIdentity,
+  tenantDatabaseSecretKinds,
+  tenantDatabaseSecretReference,
   type ProvisioningOperationRepository,
+  type TenantDatabaseSecretsProvisioner,
   type TenantDatabaseProvisioner,
 } from "@quantum-crm/platform-domain";
-import { TenantDatabaseProvisioningError } from "@quantum-crm/database";
+import {
+  TenantDatabaseProvisioningError,
+  TenantDatabaseSecretsProvisioningError,
+} from "@quantum-crm/database";
 
 export interface ProvisioningExecutorOptions {
   readonly workerId: string;
@@ -38,6 +44,7 @@ export class ProvisioningExecutor {
     private readonly options: ProvisioningExecutorOptions,
     private readonly wait: AbortableWait = defaultWait,
     private readonly databaseProvisioner?: TenantDatabaseProvisioner,
+    private readonly secretsProvisioner?: TenantDatabaseSecretsProvisioner,
   ) {}
 
   public runOnce(): Promise<boolean> {
@@ -65,7 +72,9 @@ export class ProvisioningExecutor {
 
   private async executeOne(): Promise<boolean> {
     const supportedSteps = this.databaseProvisioner
-      ? (["VALIDATE", "CREATE_DATABASE"] as const)
+      ? this.secretsProvisioner
+        ? (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS"] as const)
+        : (["VALIDATE", "CREATE_DATABASE"] as const)
       : (["VALIDATE"] as const);
     const operation = await this.repository.claimNext({
       workerId: this.options.workerId,
@@ -82,37 +91,84 @@ export class ProvisioningExecutor {
       });
       return true;
     }
-    if (operation.currentStep !== "CREATE_DATABASE" || !this.databaseProvisioner) return false;
-    const identity = tenantDatabaseIdentity(operation.tenantProfileId);
+    if (operation.currentStep === "CREATE_DATABASE" && this.databaseProvisioner) {
+      const identity = tenantDatabaseIdentity(operation.tenantProfileId);
+      let provisioningFailure:
+        | "DATABASE_TARGET_CONFLICT"
+        | "DATABASE_PERMISSION_DENIED"
+        | "DATABASE_IDENTITY_MISMATCH"
+        | undefined;
+      try {
+        await this.databaseProvisioner.provision({
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+        });
+      } catch (error) {
+        if (error instanceof TenantDatabaseProvisioningError && error.reason === "UNAVAILABLE") {
+          return true;
+        }
+        provisioningFailure =
+          error instanceof TenantDatabaseProvisioningError && error.reason === "PERMISSION_DENIED"
+            ? "DATABASE_PERMISSION_DENIED"
+            : error instanceof TenantDatabaseProvisioningError && error.reason === "TARGET_CONFLICT"
+              ? "DATABASE_TARGET_CONFLICT"
+              : "DATABASE_IDENTITY_MISMATCH";
+      }
+      try {
+        await this.repository.completeDatabase({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+          ...identity,
+          ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
+        });
+      } catch {
+        return true;
+      }
+      return true;
+    }
+    if (operation.currentStep !== "CREATE_SECRETS" || !this.secretsProvisioner) return false;
     let provisioningFailure:
-      | "DATABASE_TARGET_CONFLICT"
-      | "DATABASE_PERMISSION_DENIED"
-      | "DATABASE_IDENTITY_MISMATCH"
+      | "SECRET_TARGET_CONFLICT"
+      | "SECRET_PERMISSION_DENIED"
+      | "SECRET_IDENTITY_MISMATCH"
       | undefined;
+    let secrets: Awaited<ReturnType<TenantDatabaseSecretsProvisioner["provision"]>>["secrets"] =
+      tenantDatabaseSecretKinds.map((kind) =>
+        tenantDatabaseSecretReference(operation.tenantProfileId, kind),
+      );
     try {
-      await this.databaseProvisioner.provision({
+      const result = await this.secretsProvisioner.provision({
         tenantProfileId: operation.tenantProfileId,
         serverId: operation.serverId,
       });
+      secrets = result.secrets;
     } catch (error) {
-      if (error instanceof TenantDatabaseProvisioningError && error.reason === "UNAVAILABLE") {
+      if (
+        error instanceof TenantDatabaseSecretsProvisioningError &&
+        error.reason === "UNAVAILABLE"
+      ) {
         return true;
       }
       provisioningFailure =
-        error instanceof TenantDatabaseProvisioningError && error.reason === "PERMISSION_DENIED"
-          ? "DATABASE_PERMISSION_DENIED"
-          : error instanceof TenantDatabaseProvisioningError && error.reason === "TARGET_CONFLICT"
-            ? "DATABASE_TARGET_CONFLICT"
-            : "DATABASE_IDENTITY_MISMATCH";
+        error instanceof TenantDatabaseSecretsProvisioningError &&
+        error.reason === "PERMISSION_DENIED"
+          ? "SECRET_PERMISSION_DENIED"
+          : error instanceof TenantDatabaseSecretsProvisioningError &&
+              error.reason === "TARGET_CONFLICT"
+            ? "SECRET_TARGET_CONFLICT"
+            : "SECRET_IDENTITY_MISMATCH";
     }
     try {
-      await this.repository.completeDatabase({
+      await this.repository.completeSecrets({
         operationId: operation.id,
         tenantProfileId: operation.tenantProfileId,
         workerId: this.options.workerId,
         expectedVersion: operation.version,
         attempt: operation.attempt,
-        ...identity,
+        secrets,
         ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
       });
     } catch {
