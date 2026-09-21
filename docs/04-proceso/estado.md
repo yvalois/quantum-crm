@@ -29,7 +29,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 | ID       | Descripcion                                  | Bloqueo                                                                           | Responsable | Desde      | Condicion para continuar                                                         |
 | -------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ----------- | ---------- | -------------------------------------------------------------------------------- |
-| PROY-004 | Publicar y proteger el repositorio en GitHub | GitHub exige Pro para aplicar un ruleset a este repositorio privado; el PR #1 tiene sus siete checks verdes pero no se integra sin proteccion | Propietario | 2026-09-20 | Habilitar GitHub Pro o autorizar que el repositorio sea publico; activar el ruleset de `main` e integrar el PR |
+| PROY-004 | Publicar y proteger el repositorio en GitHub | GitHub exige Pro para aplicar un ruleset al repositorio privado; el propietario decidio mantener GitHub Free y no hacerlo publico | Propietario | 2026-09-20 | Si la decision cambia, habilitar Pro o migrar a una forja con proteccion privada; mientras tanto integrar solo por PR, siete checks verdes, aviso de Codex y squash manual del propietario |
 
 ## Terminado
 
