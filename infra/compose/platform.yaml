@@ -114,7 +114,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [platform-internal, platform-database]
+    networks: [platform-internal, platform-database, platform-storage]
 
 networks:
   platform-edge:
@@ -131,6 +131,9 @@ networks:
   platform-oidc:
     external: true
     name: "${QCRM_PLATFORM_OIDC_NETWORK:?set QCRM_PLATFORM_OIDC_NETWORK}"
+  platform-storage:
+    external: true
+    name: "${QCRM_PLATFORM_STORAGE_NETWORK:?set QCRM_PLATFORM_STORAGE_NETWORK}"
 
 secrets:
   admin-web-oidc-client-secret:

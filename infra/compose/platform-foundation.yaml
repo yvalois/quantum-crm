@@ -89,6 +89,34 @@ services:
     cpus: 0.2
     networks: [platform-session]
 
+  platform-storage:
+    <<: *stateful-defaults
+    image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/seaweedfs@sha256:${QCRM_SEAWEEDFS_IMAGE_DIGEST:?set QCRM_SEAWEEDFS_IMAGE_DIGEST}"
+    pull_policy: always
+    command:
+      - server
+      - -dir=/data
+      - -s3
+      - -s3.config=/run/secrets/seaweedfs_s3_config
+      - -ip.bind=0.0.0.0
+      - -metricsPort=9327
+    secrets:
+      - source: seaweedfs-s3-config
+        target: seaweedfs_s3_config
+    volumes:
+      - platform-storage-data:/data
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test: [CMD-SHELL, "curl --fail --silent http://127.0.0.1:9333/cluster/healthz >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 768m
+    cpus: 0.5
+    networks: [platform-storage]
+
   platform-keycloak:
     <<: *stateful-defaults
     init: false
@@ -176,12 +204,17 @@ networks:
   platform-session:
     internal: true
     name: "${QCRM_PLATFORM_SESSION_NETWORK:?set QCRM_PLATFORM_SESSION_NETWORK}"
+  platform-storage:
+    external: true
+    name: "${QCRM_PLATFORM_STORAGE_NETWORK:?set QCRM_PLATFORM_STORAGE_NETWORK}"
 
 volumes:
   platform-postgres-data:
     name: "${QCRM_PLATFORM_POSTGRES_VOLUME:?set QCRM_PLATFORM_POSTGRES_VOLUME}"
   platform-redis-data:
     name: "${QCRM_PLATFORM_REDIS_VOLUME:?set QCRM_PLATFORM_REDIS_VOLUME}"
+  platform-storage-data:
+    name: "${QCRM_PLATFORM_STORAGE_VOLUME:?set QCRM_PLATFORM_STORAGE_VOLUME}"
 
 secrets:
   postgres-admin-password:
@@ -202,3 +235,5 @@ secrets:
     file: "${QCRM_PLATFORM_MIGRATION_DATABASE_URL_FILE:?set QCRM_PLATFORM_MIGRATION_DATABASE_URL_FILE}"
   platform-provisioner-password:
     file: "${QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE:?set QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE}"
+  seaweedfs-s3-config:
+    file: "${QCRM_STORAGE_S3_CONFIG_FILE:?set QCRM_STORAGE_S3_CONFIG_FILE}"

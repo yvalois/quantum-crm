@@ -112,6 +112,9 @@ QCRM_TENANT_ID=00000000-0000-4000-8000-000000000001
 QCRM_CRM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/crm-database-url
 QCRM_PLATFORM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/platform-database-url
 QCRM_TENANT_SECRET_BIND_SOURCE=/opt/quantum/secrets/staging/tenants
+QCRM_PLATFORM_STORAGE_NETWORK=quantum-platform-storage
+QCRM_PLATFORM_STORAGE_VOLUME=quantum-platform-storage-data
+QCRM_STORAGE_S3_CONFIG_FILE=/opt/quantum/secrets/staging/platform/seaweedfs-s3.json
 QCRM_PLATFORM_OIDC_ISSUER=https://identity.example.test/realms/quantum-platform
 QCRM_PLATFORM_OIDC_AUDIENCE=quantum-admin-api
 QCRM_PLATFORM_OIDC_REQUIRED_ACR=2
@@ -125,7 +128,14 @@ Las plantillas de plataforma y perfil requieren valores sinteticos o referencias
 ```text
 QCRM_IMAGE_REGISTRY=ghcr.io/example/quantum-crm
 QCRM_API_DIGEST=<64 caracteres hexadecimales>
+QCRM_SEAWEEDFS_IMAGE_DIGEST=<64 caracteres hexadecimales>
 ```
+
+La red externa `QCRM_PLATFORM_STORAGE_NETWORK` se crea una sola vez en el VPS antes de levantar
+`platform-foundation`, `platform` o un perfil de tenant. Solo los servicios que necesitan S3 se
+unen a ella; no se publican puertos administrativos de SeaweedFS. El archivo referenciado por
+`QCRM_STORAGE_S3_CONFIG_FILE` vive fuera del checkout y contiene las identidades S3 generadas por
+el procedimiento de secretos, nunca valores dentro de Git.
 
 El perfil se valida y ejecuta con un nombre derivado de un UUID registrado, nunca de entrada libre:
 

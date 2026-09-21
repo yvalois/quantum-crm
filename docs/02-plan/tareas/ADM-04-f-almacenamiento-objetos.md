@@ -9,7 +9,7 @@
 - Fase del MVP: Plataforma Quantum
 - Estado oficial: [`estado.md`](../../04-proceso/estado.md)
 - Responsable: Codex
-- Dependencias: `ADM-04-e` integrado; SeaweedFS disponible dentro del VPS de desarrollo; secretos del tenant ya referenciados.
+- Dependencias: `ADM-04-e` integrado; la composicion de plataforma debe provisionar SeaweedFS dentro del VPS; secretos del tenant ya referenciados.
 - Bloquea a: `ADM-04` pasos `WRITE_CONFIGURATION` y posteriores.
 - ADR, arquitectura o diseno aplicables: `ADR-0013`, [`archivos-objetos.md`](../../08-arquitectura/archivos-objetos.md), reglas de archivos y objetos.
 
@@ -36,6 +36,7 @@ El ejecutor procesa `CREATE_STORAGE` de forma idempotente para un perfil: crea o
 ### Incluido
 
 - Contrato de finalizacion y persistencia durable del paso `CREATE_STORAGE`.
+- Servicio SeaweedFS de plataforma con imagen por digest, volumen persistente, configuracion fuera del checkout y red privada compartida.
 - Adaptador restringido del ejecutor para SeaweedFS S3.
 - Buckets privados `incoming` y `objects`, versionado y permisos por perfil.
 - Referencias de credenciales sin valores en PostgreSQL, respuestas o logs.
@@ -60,6 +61,8 @@ El ejecutor procesa `CREATE_STORAGE` de forma idempotente para un perfil: crea o
 | Documentacion | Estado, ficha, inventario y reglas si cambia el procedimiento |
 
 ## Plan de implementacion
+
+- [x] Anadir la base de plataforma SeaweedFS con imagen por digest, volumen, secreto de configuracion y red privada.
 
 - [ ] Añadir el contrato de finalización y sus validaciones.
 - [ ] Persistir el resultado de `CREATE_STORAGE` con lease, versión e intento.
