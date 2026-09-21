@@ -108,7 +108,7 @@
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: dominio y pruebas en `packages/platform-domain/src/deployments`, migracion `20260921170000_adm_04_validation_executor`, repositorio PostgreSQL, loop en `apps/deploy-executor/src/provisioning-executor.ts`; commits `e1773ee` y `2747572`; pull request pendiente de apertura.
+- Archivos, commits o PR: dominio y pruebas en `packages/platform-domain/src/deployments`, migracion `20260921170000_adm_04_validation_executor`, repositorio PostgreSQL, loop en `apps/deploy-executor/src/provisioning-executor.ts`; commits `e1773ee`, `2747572` y `a3092c6`; [PR #4](https://github.com/yvalois/quantum-crm/pull/4).
 - Comandos y resultados: Node 24 aprobo formato, lint, tipos, schema Prisma, 210/210 pruebas unitarias, 20/20 de arquitectura y los 17 builds. PostgreSQL 18 desechable aplico ocho migraciones desde cero y aprobo 13/13 pruebas de integracion. Staging aplico la octava migracion y ejecuto `deploy-executor` saludable por el digest `sha256:ea57e9c1a3b9f5b95267befacdd63c06d7dde881b9fa7e5556f35b06894808bc`, sin socket Docker y conservando cero perfiles, operaciones y resultados sinteticos.
 - Documentacion actualizada: estado, esta ficha e inventario operativo del VPS; ninguna casilla global de `trabajo.md` se marco porque el aprovisionamiento completo todavia no existe.
 - Desviaciones del plan: el equipo local usa Node 20, por lo que la puerta oficial completa se ejecuto en el VPS con Node 24; no hubo desviacion funcional. PostgreSQL 18 desechable uso `tmpfs` en `/var/lib/postgresql` como exige esa imagen.
