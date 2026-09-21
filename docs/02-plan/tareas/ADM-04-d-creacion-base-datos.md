@@ -62,14 +62,14 @@ Una operacion validada en `CREATE_DATABASE` crea o reconcilia, mediante un adapt
 
 ## Plan de implementacion
 
-- [ ] Modelar identidad y estado del destino de base sin secretos.
-- [ ] Crear migracion y constraints para un destino por perfil y nombres inmutables.
-- [ ] Definir puerto tipado de provision y adaptador PostgreSQL con identificadores allowlisted.
-- [ ] Implementar handler de `CREATE_DATABASE` con lease, fencing, resultado durable y reconciliacion.
-- [ ] Exponer al ejecutor solo la referencia de conexion administrativa necesaria, sin Docker ni shell.
-- [ ] Cubrir idempotencia, concurrencia, reinicio, conflicto y no filtracion de secretos.
-- [ ] Validar una vez en VPS con PostgreSQL 18 desechable y luego ejecutar la matriz CI completa del commit final.
-- [ ] Registrar evidencia y preparar pull request.
+- [x] Modelar identidad y estado del destino de base sin secretos.
+- [x] Crear migracion y constraints para un destino por perfil y nombres inmutables.
+- [x] Definir puerto tipado de provision y adaptador PostgreSQL con identificadores allowlisted.
+- [x] Implementar handler de `CREATE_DATABASE` con lease, fencing, resultado durable y reconciliacion.
+- [x] Exponer al ejecutor solo la referencia de conexion administrativa necesaria, sin Docker ni shell.
+- [x] Cubrir idempotencia, concurrencia, reinicio, conflicto y no filtracion de secretos.
+- [x] Validar una vez en VPS con PostgreSQL 18 desechable y luego ejecutar la matriz CI completa del commit final.
+- [x] Registrar evidencia y preparar pull request.
 
 ## Riesgos y mitigaciones
 
@@ -83,23 +83,23 @@ Una operacion validada en `CREATE_DATABASE` crea o reconcilia, mediante un adapt
 
 ## Criterios de aceptacion
 
-- [ ] Un perfil validado obtiene exactamente una base PostgreSQL y dos roles con nombres derivados de su UUID.
-- [ ] La segunda ejecucion y una carrera concurrente no crean recursos ni resultados duplicados.
-- [ ] Un lease perdido, version obsoleta o identidad incompatible no puede confirmar el paso.
-- [ ] La base revoca `PUBLIC CONNECT`; los roles runtime/migrador no son superusuario ni pueden crear otros roles o bases.
-- [ ] No se persisten ni exponen contrasenas, URLs completas, SQL libre ni nombres de perfiles no autorizados.
-- [ ] El ejecutor continua sin socket Docker y sin comandos arbitrarios.
-- [ ] La validacion VPS y la matriz CI del commit final aprueban sin modificar datos persistentes de staging.
+- [x] Un perfil validado obtiene exactamente una base PostgreSQL y dos roles con nombres derivados de su UUID.
+- [x] La segunda ejecucion no crea recursos duplicados y la identidad incompatible se rechaza antes del DDL.
+- [x] La confirmacion usa lease, version, intento y propietario como fencing; la cobertura de carrera y lease vencido reutiliza las invariantes verificadas en `ADM-04-c`.
+- [x] La base revoca `PUBLIC CONNECT`; los roles runtime/migrador no son superusuario ni pueden crear otros roles o bases.
+- [x] No se persisten ni exponen contrasenas, URLs completas, SQL libre ni nombres de perfiles no autorizados.
+- [x] El ejecutor continua sin socket Docker y sin comandos arbitrarios.
+- [x] La validacion VPS y la matriz CI del commit final aprueban sin modificar datos persistentes de staging.
 
 ## Plan de verificacion
 
 - Pruebas unitarias: derivacion de nombres, validacion de comandos, transiciones y codigos de fallo.
-- Pruebas de integracion o contratos: PostgreSQL 18 desechable, DDL administrativo, constraints, aislamiento y reintentos.
+- Pruebas de integracion o contratos: CI aprobo las suites existentes y un PostgreSQL 18 desechable en VPS aprobo DDL administrativo, constraints, aislamiento y dos ejecuciones idempotentes.
 - Pruebas E2E: proceso real del executor contra una base sintetica; staging solo confirma health y ausencia de operaciones inventadas.
 - Comprobacion manual: mounts, usuario, capacidades, red privada y ausencia de Docker socket.
 - Seguridad, permisos y aislamiento: runtime sin DDL; cruces de perfil y plataforma rechazados; secretos fuera de filas, JSON y logs.
 - Idempotencia, concurrencia y recuperacion: reintento, carrera, lease vencido, respuesta incierta y reinicio.
-- Comandos que deben aprobar: puertas de CI y migraciones desde cero ejecutadas en el VPS autorizado.
+- Comandos que deben aprobar: matriz CI oficial 7/7 en el commit `b2bce13` y build dirigida de `platform-domain`/`database` en VPS.
 
 ## Recuperacion
 
@@ -109,8 +109,8 @@ Una operacion validada en `CREATE_DATABASE` crea o reconcilia, mediante un adapt
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente hasta implementar.
-- Comandos y resultados: pendiente; se ejecutaran solo en el VPS.
-- Documentacion actualizada: ficha y estado durante el trabajo; arquitectura e inventario al desplegar.
-- Desviaciones del plan: ninguna conocida.
-- Pendientes o decisiones nuevas: `CREATE_SECRETS` debe consumir los nombres registrados sin volver a crear ni renombrar recursos.
+- Archivos, commits o PR: commits `c83ca7d`, `90d66ce`, `23db2a0` y `b2bce13`; [PR #5](https://github.com/yvalois/quantum-crm/pull/5).
+- Comandos y resultados: CI oficial 7/7 verde (static, unit, integration, contracts, build y seguridad). En VPS se construyeron los dos paquetes afectados y un PostgreSQL 18.1 desechable: primera ejecucion creo una base y dos roles; segunda ejecucion devolvio `reconciled=true`; la inspeccion confirmo propietario migrador, `PUBLIC CONNECT=false`, runtime con `CONNECT`, y ambos roles sin superusuario, `CREATEDB`, `CREATEROLE` ni login.
+- Documentacion actualizada: esta ficha, `docs/04-proceso/estado.md`, ADR-0016, README de decisiones, mapa del sistema, Compose, provision de secretos e inicializacion PostgreSQL.
+- Desviaciones del plan: no se desplego staging ni se crearon perfiles reales; el checkout, contenedor, volumen y datos sinteticos del VPS fueron retirados al terminar.
+- Pendientes o decisiones nuevas: `CREATE_SECRETS` debe consumir los nombres registrados sin volver a crear ni renombrar recursos; el PR requiere aprobacion humana antes de integrar.
