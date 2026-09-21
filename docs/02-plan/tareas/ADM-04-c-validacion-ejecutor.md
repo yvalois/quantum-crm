@@ -63,14 +63,14 @@
 
 ## Plan de implementacion
 
-- [ ] Modelar comandos cercados, resultados y codigos de fallo.
-- [ ] Crear migracion forward-only y constraints del resultado durable.
-- [ ] Filtrar claims por pasos soportados.
-- [ ] Implementar finalizacion atomica de `VALIDATE` y liberacion idempotente ante fallo.
-- [ ] Ejecutar un loop cooperativo en `deploy-executor` sin privilegios de host.
-- [ ] Cubrir exito, fallo, lease perdido, repeticion, reinicio y ausencia de doble liberacion.
-- [ ] Verificar Node 24 y PostgreSQL 18 en el VPS, migrar y desplegar por digest.
-- [ ] Registrar evidencia y preparar pull request.
+- [x] Modelar comandos cercados, resultados y codigos de fallo.
+- [x] Crear migracion forward-only y constraints del resultado durable.
+- [x] Filtrar claims por pasos soportados.
+- [x] Implementar finalizacion atomica de `VALIDATE` y liberacion idempotente ante fallo.
+- [x] Ejecutar un loop cooperativo en `deploy-executor` sin privilegios de host.
+- [x] Cubrir exito, fallo, lease perdido, repeticion, reinicio y ausencia de doble liberacion.
+- [x] Verificar Node 24 y PostgreSQL 18 en el VPS, migrar y desplegar por digest.
+- [x] Registrar evidencia y preparar pull request.
 
 ## Riesgos y mitigaciones
 
@@ -84,12 +84,12 @@
 
 ## Criterios de aceptacion
 
-- [ ] El ejecutor no reclama pasos que no soporta.
-- [ ] Una validacion coherente registra exito y deja `CREATE_DATABASE` pendiente sin lease.
-- [ ] Un estado incompatible registra un codigo acotado, falla operacion/perfil y libera la reserva una sola vez.
-- [ ] Un lease perdido o version obsoleta no puede escribir resultado ni efectos.
-- [ ] Reiniciar el ejecutor recupera trabajo reclamable sin duplicar el resultado.
-- [ ] El proceso mantiene health y no recibe Docker socket, secretos de host ni comandos libres.
+- [x] El ejecutor no reclama pasos que no soporta.
+- [x] Una validacion coherente registra exito y deja `CREATE_DATABASE` pendiente sin lease.
+- [x] Un estado incompatible registra un codigo acotado, falla operacion/perfil y libera la reserva una sola vez.
+- [x] Un lease perdido o version obsoleta no puede escribir resultado ni efectos.
+- [x] Reiniciar el ejecutor recupera trabajo reclamable sin duplicar el resultado.
+- [x] El proceso mantiene health y no recibe Docker socket, secretos de host ni comandos libres.
 
 ## Plan de verificacion
 
@@ -108,8 +108,8 @@
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: ninguna al iniciar.
-- Pendientes o decisiones nuevas: handlers tipados desde `CREATE_DATABASE` hasta `ACTIVATE`.
+- Archivos, commits o PR: dominio y pruebas en `packages/platform-domain/src/deployments`, migracion `20260921170000_adm_04_validation_executor`, repositorio PostgreSQL, loop en `apps/deploy-executor/src/provisioning-executor.ts`; commits `e1773ee` y `2747572`; pull request pendiente de apertura.
+- Comandos y resultados: Node 24 aprobo formato, lint, tipos, schema Prisma, 210/210 pruebas unitarias, 20/20 de arquitectura y los 17 builds. PostgreSQL 18 desechable aplico ocho migraciones desde cero y aprobo 13/13 pruebas de integracion. Staging aplico la octava migracion y ejecuto `deploy-executor` saludable por el digest `sha256:ea57e9c1a3b9f5b95267befacdd63c06d7dde881b9fa7e5556f35b06894808bc`, sin socket Docker y conservando cero perfiles, operaciones y resultados sinteticos.
+- Documentacion actualizada: estado, esta ficha e inventario operativo del VPS; ninguna casilla global de `trabajo.md` se marco porque el aprovisionamiento completo todavia no existe.
+- Desviaciones del plan: el equipo local usa Node 20, por lo que la puerta oficial completa se ejecuto en el VPS con Node 24; no hubo desviacion funcional. PostgreSQL 18 desechable uso `tmpfs` en `/var/lib/postgresql` como exige esa imagen.
+- Pendientes o decisiones nuevas: handlers tipados desde `CREATE_DATABASE` hasta `ACTIVATE`, renovacion de leases durante pasos largos y politica de reintentos transitorios.
