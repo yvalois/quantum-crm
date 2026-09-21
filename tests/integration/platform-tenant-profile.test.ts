@@ -709,7 +709,7 @@ describe("platform tenant profile migration", () => {
       releaseId: "01995f7e-7b52-7000-8000-000000000402",
       requestedCapacity: { cpuMillicores: 250, memoryMiB: 512, storageMiB: 5120 },
       requestedByOperatorId: operatorId,
-      idempotencyKey: "validation-failure-01",
+      idempotencyKey: "test-key",
       correlationId: "validation-failure-01",
       expectedTenantVersion: created.version,
     });

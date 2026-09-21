@@ -3,3 +3,8 @@
 # hallazgo exacto; el archivo y la regla generic-api-key siguen bajo escaneo.
 1deb8a727ba5f000834b29068969edc21c672a6a:tests/integration/platform-tenant-profile.test.ts:generic-api-key:400
 1deb8a727ba5f000834b29068969edc21c672a6a:tests/integration/platform-tenant-profile.test.ts:generic-api-key:407
+
+# Falso positivo historico: una clave de idempotencia sintetica de ADM-04-c.
+# El valor vigente usa una fixture de baja entropia; se conserva el commit sin
+# reescribir la historia compartida de la rama.
+2747572d7993728f7fe503264f897c7668d1575e:tests/integration/platform-tenant-profile.test.ts:generic-api-key:712
