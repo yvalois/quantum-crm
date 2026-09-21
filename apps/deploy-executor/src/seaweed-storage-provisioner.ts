@@ -9,7 +9,8 @@ import {
   type TenantStorageProvisioningResult,
 } from "@quantum-crm/platform-domain";
 
-type StorageProvisioningReason = "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT" | "IDENTITY_MISMATCH";
+type StorageProvisioningReason =
+  "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT" | "IDENTITY_MISMATCH";
 
 export class TenantStorageProvisioningError extends Error {
   public constructor(public readonly reason: StorageProvisioningReason) {
@@ -64,7 +65,9 @@ async function signedRequest(
   path: string,
   body: string,
   query = "",
-  contentType = service === "iam" ? "application/x-www-form-urlencoded; charset=utf-8" : "application/xml",
+  contentType = service === "iam"
+    ? "application/x-www-form-urlencoded; charset=utf-8"
+    : "application/xml",
 ): Promise<HttpResult> {
   const endpoint = new URL(options.endpoint);
   const host = endpoint.host;
@@ -172,9 +175,7 @@ function writeSecret(path: string, value: string): void {
 }
 
 function xmlValues(xml: string, tag: string): string[] {
-  return [...xml.matchAll(new RegExp(`<${tag}>([^<]+)</${tag}>`, "gu"))].map(
-    (match) => match[1]!,
-  );
+  return [...xml.matchAll(new RegExp(`<${tag}>([^<]+)</${tag}>`, "gu"))].map((match) => match[1]!);
 }
 
 export function createTenantStorageProvisioner(
@@ -192,10 +193,24 @@ export function createTenantStorageProvisioner(
         "OBJECTS",
         command.quotaMiB,
       );
-      const accessKeyReference = tenantStorageSecretReference(command.tenantProfileId, "ACCESS_KEY");
-      const secretKeyReference = tenantStorageSecretReference(command.tenantProfileId, "SECRET_KEY");
-      const accessKeyPath = secretPath(options.tenantSecretDirectory, command.tenantProfileId, "storage-access-key");
-      const secretKeyPath = secretPath(options.tenantSecretDirectory, command.tenantProfileId, "storage-secret-key");
+      const accessKeyReference = tenantStorageSecretReference(
+        command.tenantProfileId,
+        "ACCESS_KEY",
+      );
+      const secretKeyReference = tenantStorageSecretReference(
+        command.tenantProfileId,
+        "SECRET_KEY",
+      );
+      const accessKeyPath = secretPath(
+        options.tenantSecretDirectory,
+        command.tenantProfileId,
+        "storage-access-key",
+      );
+      const secretKeyPath = secretPath(
+        options.tenantSecretDirectory,
+        command.tenantProfileId,
+        "storage-secret-key",
+      );
       const userName = tenantUserName(command.tenantProfileId);
 
       const getUser = await signedRequest(
@@ -205,7 +220,10 @@ export function createTenantStorageProvisioner(
         "/",
         iamForm({ Action: "GetUser", Version: "2010-05-08", UserName: userName }),
       ).catch((error: unknown) => {
-        if (error instanceof TenantStorageProvisioningError && error.reason === "IDENTITY_MISMATCH") {
+        if (
+          error instanceof TenantStorageProvisioningError &&
+          error.reason === "IDENTITY_MISMATCH"
+        ) {
           return undefined;
         }
         throw error;
@@ -267,10 +285,7 @@ export function createTenantStorageProvisioner(
           {
             Effect: "Allow",
             Action: ["s3:ListBucket"],
-            Resource: [
-              `arn:aws:s3:::${incoming.bucketName}`,
-              `arn:aws:s3:::${objects.bucketName}`,
-            ],
+            Resource: [`arn:aws:s3:::${incoming.bucketName}`, `arn:aws:s3:::${objects.bucketName}`],
           },
           {
             Effect: "Allow",
@@ -297,9 +312,15 @@ export function createTenantStorageProvisioner(
       );
 
       for (const bucket of [incoming, objects]) {
-        await signedRequest(options, "s3", "PUT", `/${bucket.bucketName}`, "").catch((error: unknown) => {
-          if (!(error instanceof TenantStorageProvisioningError) || error.reason !== "TARGET_CONFLICT") throw error;
-        });
+        await signedRequest(options, "s3", "PUT", `/${bucket.bucketName}`, "").catch(
+          (error: unknown) => {
+            if (
+              !(error instanceof TenantStorageProvisioningError) ||
+              error.reason !== "TARGET_CONFLICT"
+            )
+              throw error;
+          },
+        );
         await signedRequest(
           options,
           "s3",
@@ -322,10 +343,7 @@ export function createTenantStorageProvisioner(
 
       return Object.freeze({
         buckets: Object.freeze([incoming, objects]),
-        secrets: Object.freeze([
-          accessKeyReference,
-          secretKeyReference,
-        ]),
+        secrets: Object.freeze([accessKeyReference, secretKeyReference]),
         reconciled: Boolean(getUser && accessKey && secretKey),
       });
     },

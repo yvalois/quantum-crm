@@ -169,10 +169,7 @@ export class ProvisioningExecutor {
         buckets = result.buckets;
         secrets = result.secrets;
       } catch (error) {
-        if (
-          error instanceof TenantStorageProvisioningError &&
-          error.reason === "UNAVAILABLE"
-        ) {
+        if (error instanceof TenantStorageProvisioningError && error.reason === "UNAVAILABLE") {
           return true;
         }
         provisioningFailure =

@@ -15,7 +15,11 @@ import {
   type OidcDefinition,
 } from "./oidc-config.js";
 import type { SecretFileSystem } from "./secret-value.js";
-import { parseStorageConfig, storageEnvironmentKeys, type StorageConfig } from "./storage-config.js";
+import {
+  parseStorageConfig,
+  storageEnvironmentKeys,
+  type StorageConfig,
+} from "./storage-config.js";
 
 const qcrmEnvironmentSchema = z.enum(["local", "test", "preview", "staging", "production"]);
 const processEnvironmentKeys = [

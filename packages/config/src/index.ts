@@ -49,4 +49,8 @@ export {
   type MigrationDatabaseConfig,
   type MigrationHistory,
 } from "./migration-database-config.js";
-export { parseStorageConfig, storageEnvironmentKeys, type StorageConfig } from "./storage-config.js";
+export {
+  parseStorageConfig,
+  storageEnvironmentKeys,
+  type StorageConfig,
+} from "./storage-config.js";

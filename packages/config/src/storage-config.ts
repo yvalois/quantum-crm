@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 import { ConfigurationError } from "./configuration-error.js";
-import { loadSecretFile, SecretFileError, type SecretFileSystem, type SecretValue } from "./secret-value.js";
+import {
+  loadSecretFile,
+  SecretFileError,
+  type SecretFileSystem,
+  type SecretValue,
+} from "./secret-value.js";
 import type { QcrmEnvironment } from "./process-config.js";
 
 const accessKeyFile = "/run/secrets/qcrm_storage_s3_admin_access_key";
@@ -34,19 +39,31 @@ export function parseStorageConfig(
     throw new ConfigurationError(serviceName, ["QCRM_STORAGE_S3_ENDPOINT"]);
   }
   const files: Array<[string, string | undefined, string, string]> = [
-    ["QCRM_STORAGE_S3_ADMIN_ACCESS_KEY_FILE", environment.QCRM_STORAGE_S3_ADMIN_ACCESS_KEY_FILE, accessKeyFile, "storage S3 admin access key"],
-    ["QCRM_STORAGE_S3_ADMIN_SECRET_KEY_FILE", environment.QCRM_STORAGE_S3_ADMIN_SECRET_KEY_FILE, secretKeyFile, "storage S3 admin secret key"],
+    [
+      "QCRM_STORAGE_S3_ADMIN_ACCESS_KEY_FILE",
+      environment.QCRM_STORAGE_S3_ADMIN_ACCESS_KEY_FILE,
+      accessKeyFile,
+      "storage S3 admin access key",
+    ],
+    [
+      "QCRM_STORAGE_S3_ADMIN_SECRET_KEY_FILE",
+      environment.QCRM_STORAGE_S3_ADMIN_SECRET_KEY_FILE,
+      secretKeyFile,
+      "storage S3 admin secret key",
+    ],
   ];
   const loaded: SecretValue[] = [];
   for (const [key, path, expectedPath, logicalName] of files) {
     const pathResult = z.string().trim().min(1).safeParse(path);
     if (!pathResult.success) throw new ConfigurationError(serviceName, [key]);
     try {
-      loaded.push(loadSecretFile(logicalName, pathResult.data, {
-        environment: environmentName,
-        expectedProtectedPath: expectedPath,
-        fileSystem,
-      }));
+      loaded.push(
+        loadSecretFile(logicalName, pathResult.data, {
+          environment: environmentName,
+          expectedProtectedPath: expectedPath,
+          fileSystem,
+        }),
+      );
     } catch (error) {
       if (error instanceof SecretFileError) throw new ConfigurationError(serviceName, [key]);
       throw error;
