@@ -37,12 +37,14 @@ describe("tenant container provisioner", () => {
           configurationRevision: "1",
         });
         response.writeHead(200, { "content-type": "application/json" });
-        response.end(JSON.stringify({
-          projectName: `qcrm-t-${command.tenantProfileId}`,
-          services: ["agent-runtime", "api", "crm-web", "portal-web", "worker"],
-          ready: true,
-          reconciled: false,
-        }));
+        response.end(
+          JSON.stringify({
+            projectName: `qcrm-t-${command.tenantProfileId}`,
+            services: ["agent-runtime", "api", "crm-web", "portal-web", "worker"],
+            ready: true,
+            reconciled: false,
+          }),
+        );
       });
     });
     await new Promise<void>((resolve) => server.listen(socketPath, resolve));

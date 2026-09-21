@@ -75,12 +75,13 @@ function parseFailureReason(value: unknown): TenantContainerProvisioningFailureR
 }
 
 function parseResult(value: HostAdapterResponse): TenantContainerProvisioningResult {
+  const services = Array.isArray(value.services) ? value.services : undefined;
   if (
     typeof value.projectName !== "string" ||
     !projectPattern.test(value.projectName) ||
-    !Array.isArray(value.services) ||
-    !value.services.every((service): service is string => typeof service === "string") ||
-    !serviceNames.every((service) => value.services?.includes(service)) ||
+    !services ||
+    !services.every((service): service is string => typeof service === "string") ||
+    !serviceNames.every((service) => services.includes(service)) ||
     typeof value.ready !== "boolean" ||
     typeof value.reconciled !== "boolean"
   ) {
@@ -88,7 +89,7 @@ function parseResult(value: HostAdapterResponse): TenantContainerProvisioningRes
   }
   return Object.freeze({
     projectName: value.projectName,
-    services: Object.freeze([...value.services].sort()),
+    services: Object.freeze([...services].sort()),
     ready: value.ready,
     reconciled: value.reconciled,
   });
