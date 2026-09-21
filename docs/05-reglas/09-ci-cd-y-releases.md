@@ -15,6 +15,8 @@ Estas reglas aplican a workflows, imagenes, manifiestos, promociones y operacion
 
 ## Puertas obligatorias
 
+- Aplicar [Ejecucion eficiente de verificaciones](15-ejecucion-verificaciones-vps.md): el VPS ejecuta solo comprobaciones afectadas y operativas; GitHub Actions ejecuta una sola matriz completa sobre el commit candidato consolidado.
+
 - Ejecutar formato, lint, tipos, unitarias, cobertura, arquitectura, contratos, integracion afectada, build y E2E aplicable antes de integrar.
 - En `main`, agregar integracion completa, migraciones, aislamiento entre perfiles y recorridos criticos.
 - Ejecutar `pnpm secrets:scan` con Gitleaks fijado y verificado.
@@ -26,7 +28,8 @@ Estas reglas aplican a workflows, imagenes, manifiestos, promociones y operacion
 ## Artefactos
 
 - No iniciar Docker Desktop, construir imagenes ni levantar Compose en el equipo local del propietario.
-- Ejecutar la validacion real de contenedores en el VPS de desarrollo o pruebas autorizado, separado de produccion y con datos sinteticos.
+- No ejecutar localmente ninguna prueba, lint, typecheck, build, generador o script del proyecto; el equipo local se limita a edicion y Git.
+- Ejecutar la validacion real de codigo, datos y contenedores en el VPS de desarrollo o pruebas autorizado, separado de produccion y con datos sinteticos.
 - Construir cada imagen una sola vez por commit aceptado.
 - Publicar en GHCR con identidad por digest OCI.
 - No desplegar `latest`, nombres de rama ni tags mutables.

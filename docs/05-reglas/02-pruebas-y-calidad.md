@@ -73,6 +73,8 @@ Cuando correspondan, probar:
 
 ## Puertas de calidad
 
+La ubicacion, frecuencia y reutilizacion de cada comprobacion cumplen [Ejecucion eficiente de verificaciones](15-ejecucion-verificaciones-vps.md). Las puertas siguientes deben aprobarse, pero no se ejecutan localmente ni se duplican cuando ya existe evidencia vigente para el mismo commit y entorno.
+
 Antes de integrar deben pasar formato, lint, tipos, unitarias, cobertura, arquitectura, contratos, integracion afectada, build de consumidores afectados y el smoke E2E aplicable.
 
 En `main` tambien pasan la integracion completa, las migraciones desde cero y desde la version anterior, el aislamiento entre dos perfiles y los recorridos E2E criticos. Una release agrega la matriz Chromium, Firefox y WebKit y liga resultados al commit y artefactos candidatos.

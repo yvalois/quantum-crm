@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createProvisioningOperationDraft,
+  evaluateProvisioningValidation,
   hydrateProvisioningOperation,
   ProvisioningOperationValidationError,
   TenantProvisioningService,
@@ -63,6 +64,7 @@ describe("tenant provisioning operation", () => {
       request,
       claimNext: vi.fn(),
       renewLease: vi.fn(),
+      completeValidation: vi.fn(),
     } satisfies ProvisioningOperationRepository);
     await expect(service.request(command)).resolves.toMatchObject({ tenantVersion: 2n });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING" }));
@@ -76,6 +78,7 @@ describe("tenant provisioning operation", () => {
       currentStep: "VALIDATE",
       attempt: 1,
       version: 2n,
+      failureCode: null,
       lease: {
         owner: "executor-01",
         lastHeartbeatAt: new Date("2026-09-20T12:00:00.000Z"),
@@ -106,6 +109,7 @@ describe("tenant provisioning operation", () => {
         currentStep: "VALIDATE",
         attempt: 1,
         version: 2n,
+        failureCode: null,
         lease: null,
         createdAt: new Date("2026-09-20T11:59:00.000Z"),
         updatedAt: new Date("2026-09-20T12:00:00.000Z"),
@@ -116,7 +120,11 @@ describe("tenant provisioning operation", () => {
       }),
     ).toThrow(new ProvisioningOperationValidationError("lease"));
     expect(() =>
-      validateProvisioningLeaseClaim({ workerId: "executor 01", leaseDurationSeconds: 60 }),
+      validateProvisioningLeaseClaim({
+        workerId: "executor 01",
+        leaseDurationSeconds: 60,
+        supportedSteps: ["VALIDATE"],
+      }),
     ).toThrow(new ProvisioningOperationValidationError("workerId"));
     expect(() =>
       validateProvisioningLeaseRenewal({
@@ -126,5 +134,58 @@ describe("tenant provisioning operation", () => {
         expectedVersion: 0n,
       }),
     ).toThrow(new ProvisioningOperationValidationError("expectedVersion"));
+  });
+
+  it("evaluates the durable validation snapshot with closed failure codes", () => {
+    const operation = hydrateProvisioningOperation({
+      ...command,
+      id: "01995f7e-7b52-7000-8000-000000000401",
+      status: "RUNNING",
+      currentStep: "VALIDATE",
+      attempt: 1,
+      version: 2n,
+      failureCode: null,
+      lease: {
+        owner: "executor-01",
+        lastHeartbeatAt: new Date("2026-09-20T12:00:00.000Z"),
+        expiresAt: new Date("2026-09-20T12:01:00.000Z"),
+      },
+      createdAt: new Date("2026-09-20T11:59:00.000Z"),
+      updatedAt: new Date("2026-09-20T12:00:00.000Z"),
+      capacityReservation: {
+        id: "01995f7e-7b52-7000-8000-000000000501",
+        capacity: command.requestedCapacity,
+      },
+    });
+    const snapshot = {
+      tenant: {
+        status: "PROVISIONING" as const,
+        serverId: command.serverId,
+        releaseId: command.releaseId,
+      },
+      server: { status: "AVAILABLE" as const, reservedCapacity: command.requestedCapacity },
+      release: { status: "VALIDATED" as const },
+      reservation: {
+        tenantProfileId: command.tenantProfileId,
+        serverId: command.serverId,
+        releaseId: command.releaseId,
+        status: "RESERVED" as const,
+        capacity: command.requestedCapacity,
+      },
+    };
+
+    expect(evaluateProvisioningValidation(operation, snapshot)).toBeNull();
+    expect(
+      evaluateProvisioningValidation(operation, {
+        ...snapshot,
+        release: { status: "RETIRED" },
+      }),
+    ).toBe("RELEASE_NOT_VALIDATED");
+    expect(
+      evaluateProvisioningValidation(operation, {
+        ...snapshot,
+        reservation: { ...snapshot.reservation, status: "RELEASED" },
+      }),
+    ).toBe("RESERVATION_INVALID");
   });
 });

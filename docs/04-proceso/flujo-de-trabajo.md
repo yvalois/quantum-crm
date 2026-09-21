@@ -44,13 +44,15 @@ Las casillas del checklist solo distinguen pendiente y hecho. Los estados interm
 
 ## Revision y cierre
 
-1. Ejecutar pruebas automaticas y comprobaciones manuales pertinentes.
+1. Ejecutar una sola vez las pruebas automaticas y comprobaciones manuales pertinentes en los lugares definidos por [`15-ejecucion-verificaciones-vps.md`](../05-reglas/15-ejecucion-verificaciones-vps.md); nunca en el equipo local.
 2. Revisar seguridad, aislamiento, errores, idempotencia y observabilidad segun el riesgo.
 3. Cumplir `definicion-de-terminado.md`.
 4. Registrar archivos, pruebas, comandos y resultados como evidencia.
 5. Completar la evidencia y los pendientes de la ficha, si existe.
 6. Marcar solo las subtareas demostradas; marcar el requisito principal cuando todas esten completas.
 7. Mover el registro a `Terminado` y conservar la ficha para trazabilidad.
+
+Un cierre documental no invalida evidencia tecnica vigente. Antes de repetir una comprobacion se compara commit, alcance, entorno y entradas con la evidencia registrada.
 
 ## Ficha de implementacion
 

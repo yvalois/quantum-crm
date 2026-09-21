@@ -43,6 +43,7 @@ const releaseArtifacts = platformReleaseArtifactNames.map((name, index) => ({
 }));
 
 beforeAll(async () => {
+  await pool.query("DELETE FROM operations.provisioning_step_results");
   await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
@@ -100,6 +101,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM operations.provisioning_step_results");
   await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
   await pool.query("DELETE FROM tenants.tenant_profiles");
@@ -576,6 +578,7 @@ describe("platform tenant profile migration", () => {
   });
 
   it("claims once, fences renewal and recovers an expired lease", async () => {
+    await pool.query("DELETE FROM operations.provisioning_step_results");
     await pool.query("DELETE FROM operations.provisioning_operations");
     const created = await database.tenantProfiles.create({
       name: "Lease Provisioning",
@@ -599,10 +602,12 @@ describe("platform tenant profile migration", () => {
       database.provisioningOperations.claimNext({
         workerId: "executor-01",
         leaseDurationSeconds: 60,
+        supportedSteps: ["VALIDATE"],
       }),
       database.provisioningOperations.claimNext({
         workerId: "executor-02",
         leaseDurationSeconds: 60,
+        supportedSteps: ["VALIDATE"],
       }),
     ]);
     const claimed = claims.find((operation) => operation !== null);
@@ -644,6 +649,7 @@ describe("platform tenant profile migration", () => {
     const recovered = await database.provisioningOperations.claimNext({
       workerId: "executor-recovery",
       leaseDurationSeconds: 60,
+      supportedSteps: ["VALIDATE"],
     });
     expect(recovered).toMatchObject({
       id: claimed.id,
@@ -651,5 +657,119 @@ describe("platform tenant profile migration", () => {
       attempt: 2,
       lease: { owner: "executor-recovery" },
     });
+    if (!recovered) throw new Error("Expected an expired lease to be recovered");
+    await expect(
+      database.provisioningOperations.completeValidation({
+        operationId: claimed.id,
+        workerId: claimed.lease.owner,
+        expectedVersion: claimed.version,
+        attempt: claimed.attempt,
+      }),
+    ).resolves.toBeNull();
+    const completed = await database.provisioningOperations.completeValidation({
+      operationId: recovered.id,
+      workerId: "executor-recovery",
+      expectedVersion: recovered.version,
+      attempt: recovered.attempt,
+    });
+    expect(completed).toMatchObject({
+      outcome: "ADVANCED",
+      failureCode: null,
+      operation: {
+        id: recovered.id,
+        status: "PENDING",
+        currentStep: "CREATE_DATABASE",
+        lease: null,
+      },
+    });
+    await expect(
+      database.provisioningOperations.claimNext({
+        workerId: "executor-unsupported",
+        leaseDurationSeconds: 60,
+        supportedSteps: ["VALIDATE"],
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("fails validation atomically and releases reserved capacity once", async () => {
+    await pool.query("DELETE FROM operations.provisioning_step_results");
+    await pool.query("DELETE FROM operations.provisioning_operations");
+    const before = await database.infrastructureServers.findById(serverId);
+    if (!before) throw new Error("Expected the integration server");
+    const created = await database.tenantProfiles.create({
+      name: "Validation Failure",
+      slug: "validation-failure",
+      adminContactName: "Val",
+      adminContactEmail: "val@example.test",
+      status: "PENDING",
+    });
+    const requested = await database.provisioningOperations.request({
+      tenantProfileId: created.id,
+      serverId,
+      releaseId: "01995f7e-7b52-7000-8000-000000000402",
+      requestedCapacity: { cpuMillicores: 250, memoryMiB: 512, storageMiB: 5120 },
+      requestedByOperatorId: operatorId,
+      idempotencyKey: "test-key",
+      correlationId: "validation-failure-01",
+      expectedTenantVersion: created.version,
+    });
+    const claimed = await database.provisioningOperations.claimNext({
+      workerId: "executor-validation",
+      leaseDurationSeconds: 60,
+      supportedSteps: ["VALIDATE"],
+    });
+    if (!claimed) throw new Error("Expected validation work");
+    await pool.query("UPDATE infrastructure.servers SET status = 'draining' WHERE id = $1::uuid", [
+      serverId,
+    ]);
+
+    const failed = await database.provisioningOperations.completeValidation({
+      operationId: claimed.id,
+      workerId: "executor-validation",
+      expectedVersion: claimed.version,
+      attempt: claimed.attempt,
+    });
+    expect(failed).toMatchObject({
+      outcome: "FAILED",
+      failureCode: "SERVER_UNAVAILABLE",
+      operation: { id: requested.operation.id, status: "FAILED", lease: null },
+    });
+    await expect(
+      database.provisioningOperations.completeValidation({
+        operationId: claimed.id,
+        workerId: "executor-validation",
+        expectedVersion: claimed.version,
+        attempt: claimed.attempt,
+      }),
+    ).resolves.toBeNull();
+    await expect(database.tenantProfiles.findById(created.id)).resolves.toMatchObject({
+      status: "ERROR",
+    });
+    await expect(database.infrastructureServers.findById(serverId)).resolves.toMatchObject({
+      reservedCapacity: before.reservedCapacity,
+    });
+    const durable = await pool.query<{
+      readonly reservation_status: string;
+      readonly result_count: string;
+    }>(
+      `
+        SELECT
+          reservation.status::text AS reservation_status,
+          (
+            SELECT count(*)::text
+            FROM operations.provisioning_step_results AS result
+            WHERE result.operation_id = operation.id
+          ) AS result_count
+        FROM operations.provisioning_operations AS operation
+        JOIN infrastructure.capacity_reservations AS reservation
+          ON reservation.id = operation.capacity_reservation_id
+        WHERE operation.id = $1::uuid
+      `,
+      [claimed.id],
+    );
+    expect(durable.rows[0]).toEqual({ reservation_status: "released", result_count: "1" });
+    await pool.query("UPDATE infrastructure.servers SET status = 'available' WHERE id = $1::uuid", [
+      serverId,
+    ]);
   });
 });

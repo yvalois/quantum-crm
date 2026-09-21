@@ -257,6 +257,26 @@ enum ProvisioningOperationStep {
   @@schema("operations")
 }
 
+enum ProvisioningStepOutcome {
+  SUCCEEDED @map("succeeded")
+  FAILED    @map("failed")
+
+  @@map("provisioning_step_outcome")
+  @@schema("operations")
+}
+
+enum ProvisioningValidationFailureCode {
+  TENANT_STATE_INVALID         @map("tenant_state_invalid")
+  TENANT_PLACEMENT_MISMATCH    @map("tenant_placement_mismatch")
+  SERVER_UNAVAILABLE           @map("server_unavailable")
+  RELEASE_NOT_VALIDATED        @map("release_not_validated")
+  RESERVATION_INVALID          @map("reservation_invalid")
+  CAPACITY_ACCOUNTING_INVALID  @map("capacity_accounting_invalid")
+
+  @@map("provisioning_validation_failure_code")
+  @@schema("operations")
+}
+
 model ProvisioningOperation {
   id                    String                      @id @default(dbgenerated("uuidv7()")) @db.Uuid
   tenantProfileId       String                      @map("tenant_profile_id") @db.Uuid
@@ -273,6 +293,7 @@ model ProvisioningOperation {
   currentStep           ProvisioningOperationStep   @default(VALIDATE) @map("current_step")
   attempt               Int                         @default(0)
   version               BigInt                      @default(1)
+  failureCode           ProvisioningValidationFailureCode? @map("failure_code")
   leaseOwner            String?                     @map("lease_owner") @db.VarChar(128)
   leaseExpiresAt        DateTime?                   @map("lease_expires_at") @db.Timestamptz(6)
   lastHeartbeatAt       DateTime?                   @map("last_heartbeat_at") @db.Timestamptz(6)
@@ -283,6 +304,7 @@ model ProvisioningOperation {
   capacityReservation   InfrastructureCapacityReservation? @relation(fields: [capacityReservationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   requestedByOperator   PlatformOperatorMembership  @relation(fields: [requestedByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   release               PlatformRelease              @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  stepResults           ProvisioningStepResult[]
 
   @@unique([requestedByOperatorId, idempotencyKey], map: "provisioning_operations_actor_idempotency_key_key")
   @@index([status, createdAt, id], map: "provisioning_operations_status_created_id_idx")
@@ -290,5 +312,23 @@ model ProvisioningOperation {
   @@index([status, leaseExpiresAt, createdAt, id], map: "provisioning_operations_claimable_idx", where: raw("\"status\" IN ('pending', 'running')"))
   @@unique([tenantProfileId], map: "provisioning_operations_one_open_per_tenant_idx", where: raw("\"status\" IN ('pending', 'running')"))
   @@map("provisioning_operations")
+  @@schema("operations")
+}
+
+model ProvisioningStepResult {
+  id               String                             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  operationId      String                             @map("operation_id") @db.Uuid
+  step             ProvisioningOperationStep
+  attempt          Int
+  outcome          ProvisioningStepOutcome
+  workerId         String                             @map("worker_id") @db.VarChar(128)
+  operationVersion BigInt                             @map("operation_version")
+  failureCode      ProvisioningValidationFailureCode? @map("failure_code")
+  completedAt      DateTime                           @default(now()) @map("completed_at") @db.Timestamptz(6)
+  operation        ProvisioningOperation              @relation(fields: [operationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([operationId, step, attempt], map: "provisioning_step_results_operation_step_attempt_key")
+  @@index([operationId, completedAt, id], map: "provisioning_step_results_operation_completed_id_idx")
+  @@map("provisioning_step_results")
   @@schema("operations")
 }
