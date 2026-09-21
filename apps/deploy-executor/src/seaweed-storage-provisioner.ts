@@ -6,6 +6,7 @@ import {
   tenantStorageBucketReference,
   tenantStorageSecretReference,
   type TenantStorageProvisioner,
+  type TenantStorageProvisioningCommand,
   type TenantStorageProvisioningResult,
 } from "@quantum-crm/platform-domain";
 
@@ -169,7 +170,11 @@ function writeSecret(path: string, value: string): void {
     writeFileSync(temporary, `${value}\n`, { encoding: "utf8", mode: 0o400, flag: "wx" });
     renameSync(temporary, path);
   } catch (error) {
-    unlinkSync(temporary, { force: true });
+    try {
+      unlinkSync(temporary);
+    } catch {
+      // The temporary file may not have been created.
+    }
     throw error;
   }
 }
@@ -182,7 +187,9 @@ export function createTenantStorageProvisioner(
   options: StorageProvisionerOptions,
 ): TenantStorageProvisioner {
   return Object.freeze({
-    provision: async (command): Promise<TenantStorageProvisioningResult> => {
+    provision: async (
+      command: TenantStorageProvisioningCommand,
+    ): Promise<TenantStorageProvisioningResult> => {
       const incoming = tenantStorageBucketReference(
         command.tenantProfileId,
         "INCOMING",
