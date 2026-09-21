@@ -62,14 +62,14 @@ Una operacion validada en `CREATE_SECRETS` genera o reutiliza las contrasenas cr
 
 ## Plan de implementacion
 
-- [ ] Registrar la decision de almacenamiento de secretos de perfil y su referencia relativa.
-- [ ] Crear migracion, enums, constraints y modelo Prisma para referencias sin valores.
-- [ ] Definir puerto y adaptador idempotente de PostgreSQL/filesystem con aleatoriedad criptografica.
-- [ ] Implementar handler de `CREATE_SECRETS` con lease, fencing y avance durable.
-- [ ] Montar la raiz de perfiles solo en `deploy-executor` y preparar el directorio del host.
-- [ ] Cubrir repeticion, symlink/path traversal, conflicto, permisos, fencing y ausencia de valores en resultados.
-- [ ] Validar una vez en VPS con datos desechables y luego ejecutar la matriz CI del commit final.
-- [ ] Registrar evidencia y preparar pull request.
+- [x] Registrar la decision de almacenamiento de secretos de perfil y su referencia relativa.
+- [x] Crear migracion, enums, constraints y modelo Prisma para referencias sin valores.
+- [x] Definir puerto y adaptador idempotente de PostgreSQL/filesystem con aleatoriedad criptografica.
+- [x] Implementar handler de `CREATE_SECRETS` con lease, fencing y avance durable.
+- [x] Montar la raiz de perfiles solo en `deploy-executor` y preparar el directorio del host.
+- [x] Cubrir repeticion, symlink/path traversal, conflicto, permisos, fencing y ausencia de valores en resultados.
+- [x] Validar una vez en VPS con datos desechables y luego ejecutar la matriz CI del commit final.
+- [x] Registrar evidencia y preparar pull request.
 
 ## Riesgos y mitigaciones
 
@@ -82,13 +82,13 @@ Una operacion validada en `CREATE_SECRETS` genera o reutiliza las contrasenas cr
 
 ## Criterios de aceptacion
 
-- [ ] Cada base creada obtiene exactamente dos referencias: migrador y runtime.
-- [ ] Los roles quedan con `LOGIN`, sin privilegios administrativos y con contraseña no vacia.
-- [ ] Los archivos existen fuera del checkout, son regulares, no son symlinks y tienen modo `0400`.
-- [ ] La segunda ejecucion es idempotente y no rota bytes existentes.
-- [ ] La plataforma no contiene valores, URLs completas ni material criptografico.
-- [ ] Un lease perdido no permite confirmar el resultado ni avanzar el paso.
-- [ ] El executor conserva ausencia de shell y Docker socket.
+- [x] Cada base creada obtiene exactamente dos referencias: migrador y runtime.
+- [x] Los roles quedan con `LOGIN`, sin privilegios administrativos y con contraseña no vacia.
+- [x] Los archivos existen fuera del checkout, son regulares, no son symlinks y tienen modo `0400`.
+- [x] La segunda ejecucion es idempotente y no rota bytes existentes.
+- [x] La plataforma no contiene valores, URLs completas ni material criptografico.
+- [x] Un lease perdido no permite confirmar el resultado ni avanzar el paso.
+- [x] El executor conserva ausencia de shell y Docker socket.
 
 ## Plan de verificacion
 
@@ -108,8 +108,8 @@ Una operacion validada en `CREATE_SECRETS` genera o reutiliza las contrasenas cr
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: commits `db39a0d` y `513845b`; [PR #6](https://github.com/yvalois/quantum-crm/pull/6).
+- Comandos y resultados: CI oficial 7/7 verde (static, unit, integration, contracts, build y seguridad). En VPS se construyeron `platform-domain` y `database` con Node 24; PostgreSQL 18.1 desechable aplico las 10 migraciones. La primera ejecucion creo dos archivos de 65 bytes y habilito ambos roles; la segunda devolvio `reconciled=true` con las mismas referencias. `stat` confirmo archivos regulares `0400`; PostgreSQL confirmo `LOGIN=true`, `SUPERUSER=false`, `CREATEROLE=false`, `CREATEDB=false` para migrador y runtime.
+- Documentacion actualizada: esta ficha, `docs/04-proceso/estado.md`, ADR-0017, README de decisiones, mapa del sistema, README de infraestructura, Compose y provision de secretos.
+- Desviaciones del plan: no se desplego staging ni se crearon perfiles reales; el checkout, contenedor PostgreSQL, volumen y secretos sinteticos del VPS fueron retirados al terminar. No se expusieron valores de contrasena.
+- Pendientes o decisiones nuevas: `WRITE_CONFIGURATION` debe derivar las URLs de conexion y montar cada archivo exacto por servicio; el PR requiere aprobacion humana antes de integrar.
