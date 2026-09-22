@@ -6,6 +6,19 @@ export {
   type AdminWebAuthConfig,
 } from "./admin-web-auth-config.js";
 export {
+  crmWebOidcClientSecretPath,
+  crmWebSessionRedisUrlPath,
+  loadCrmWebAuthConfig,
+  parseCrmWebAuthConfig,
+  type CrmWebAuthConfig,
+} from "./crm-web-auth-config.js";
+export {
+  parseWebAuthConfig,
+  type ParsedWebAuthConfig,
+  type WebAuthConfig,
+  type WebAuthConfigOptions,
+} from "./web-auth-config.js";
+export {
   loadProcessConfig,
   loadServiceConfig,
   parseProcessConfig,

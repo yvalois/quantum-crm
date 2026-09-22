@@ -1,7 +1,7 @@
 import { createClient, type RedisClientType } from "redis";
 import { z } from "zod";
 
-import type { AdminWebAuthConfig } from "@quantum-crm/config";
+import type { WebAuthConfig } from "@quantum-crm/config";
 import { SecretValue } from "@quantum-crm/config";
 
 import {
@@ -57,14 +57,17 @@ function secondsUntil(date: Date, now: Date): number {
 }
 
 export class RedisPlatformSessionStore implements PlatformSessionStore {
-  public constructor(private readonly redis: PlatformSessionRedisClient) {}
+  public constructor(
+    private readonly redis: PlatformSessionRedisClient,
+    private readonly sessionNamespace: string = "platform",
+  ) {}
 
   public async createLoginTransaction(transaction: PlatformLoginTransaction): Promise<SecretValue> {
     const handle = newOpaqueHandle();
     const ttl = secondsUntil(transaction.expiresAt, new Date());
     if (ttl < 1) throw new PlatformSessionError();
     const result = await this.redis.set(
-      sessionKey("login", handle),
+      sessionKey(this.sessionNamespace, "login", handle),
       JSON.stringify({
         ...transaction,
         codeVerifier: transaction.codeVerifier.expose(),
@@ -81,7 +84,7 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
     now: Date,
   ): Promise<PlatformLoginTransaction | null> {
     try {
-      const raw = await this.redis.getDel(sessionKey("login", handle));
+      const raw = await this.redis.getDel(sessionKey(this.sessionNamespace, "login", handle));
       if (!raw) return null;
       const value = loginSchema.parse(JSON.parse(raw));
       const expiresAt = new Date(value.expiresAt);
@@ -112,7 +115,7 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
     now: Date,
     idleTtlSeconds: number,
   ): Promise<PlatformWebSession | null> {
-    const key = sessionKey("session", handle);
+    const key = sessionKey(this.sessionNamespace, "session", handle);
     try {
       const raw = await this.redis.get(key);
       if (!raw) return null;
@@ -148,10 +151,14 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
   ): Promise<SecretValue | null> {
     try {
       const lease = newOpaqueHandle();
-      const result = await this.redis.set(sessionKey("refresh", handle), lease.expose(), {
-        EX: ttlSeconds,
-        NX: true,
-      });
+      const result = await this.redis.set(
+        sessionKey(this.sessionNamespace, "refresh", handle),
+        lease.expose(),
+        {
+          EX: ttlSeconds,
+          NX: true,
+        },
+      );
       return result === "OK" ? lease : null;
     } catch {
       throw new PlatformSessionError();
@@ -167,7 +174,10 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
     const ttl = this.sessionTtl(session, idleTtlSeconds);
     try {
       const result = await this.redis.eval(updateWithLeaseScript, {
-        keys: [sessionKey("refresh", handle), sessionKey("session", handle)],
+        keys: [
+          sessionKey(this.sessionNamespace, "refresh", handle),
+          sessionKey(this.sessionNamespace, "session", handle),
+        ],
         arguments: [lease.expose(), this.serializeSession(session), String(ttl)],
       });
       if (result !== 1) throw new PlatformSessionError();
@@ -179,7 +189,7 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
   public async releaseSessionRefresh(handle: SecretValue, lease: SecretValue): Promise<void> {
     try {
       await this.redis.eval(releaseLeaseScript, {
-        keys: [sessionKey("refresh", handle)],
+        keys: [sessionKey(this.sessionNamespace, "refresh", handle)],
         arguments: [lease.expose()],
       });
     } catch {
@@ -190,7 +200,10 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
   public async invalidateSessionRefresh(handle: SecretValue, lease: SecretValue): Promise<void> {
     try {
       await this.redis.eval(invalidateWithLeaseScript, {
-        keys: [sessionKey("refresh", handle), sessionKey("session", handle)],
+        keys: [
+          sessionKey(this.sessionNamespace, "refresh", handle),
+          sessionKey(this.sessionNamespace, "session", handle),
+        ],
         arguments: [lease.expose()],
       });
     } catch {
@@ -200,7 +213,7 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
 
   public async deleteSession(handle: SecretValue): Promise<void> {
     try {
-      await this.redis.del(sessionKey("session", handle));
+      await this.redis.del(sessionKey(this.sessionNamespace, "session", handle));
     } catch {
       throw new PlatformSessionError();
     }
@@ -214,7 +227,7 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
   ): Promise<void> {
     const ttl = this.sessionTtl(session, idleTtlSeconds);
     const result = await this.redis.set(
-      sessionKey("session", handle),
+      sessionKey(this.sessionNamespace, "session", handle),
       this.serializeSession(session),
       { EX: ttl, ...(create ? { NX: true as const } : { XX: true as const }) },
     );
@@ -247,7 +260,7 @@ export class RedisPlatformSessionStore implements PlatformSessionStore {
 }
 
 export async function createRedisPlatformSessionStore(
-  config: AdminWebAuthConfig,
+  config: WebAuthConfig,
 ): Promise<{ readonly store: RedisPlatformSessionStore; readonly close: () => Promise<void> }> {
   const client = createClient({
     url: config.redisUrl.expose(),
@@ -264,7 +277,7 @@ export async function createRedisPlatformSessionStore(
     throw new PlatformSessionError();
   }
   return Object.freeze({
-    store: new RedisPlatformSessionStore(client),
+    store: new RedisPlatformSessionStore(client, config.sessionNamespace),
     close: async () => client.destroy(),
   });
 }

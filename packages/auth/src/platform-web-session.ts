@@ -56,15 +56,16 @@ export function newCsrfToken(): string {
 }
 
 export function sessionKey(
+  sessionNamespace: string,
   namespace: "login" | "session" | "refresh",
   handle: SecretValue,
 ): string {
   const exposed = handle.expose();
-  if (!handlePattern.test(exposed)) {
+  if (!handlePattern.test(exposed) || !/^[a-z][a-z0-9:-]{0,127}$/u.test(sessionNamespace)) {
     throw new PlatformSessionError();
   }
   const digest = createHash("sha256").update(exposed).digest("base64url");
-  return `qcrm:platform:${namespace}:v1:${digest}`;
+  return `qcrm:${sessionNamespace}:${namespace}:v1:${digest}`;
 }
 
 export function safeReturnTo(value: string | null | undefined): string {

@@ -1,4 +1,4 @@
-import type { AdminWebAuthConfig, SecretValue } from "@quantum-crm/config";
+import type { SecretValue, WebAuthConfig } from "@quantum-crm/config";
 import { SecretValue as ProtectedValue } from "@quantum-crm/config";
 import {
   allowInsecureRequests,
@@ -75,7 +75,7 @@ export class PlatformWebAuthenticationError extends Error {
 export class KeycloakPlatformOidcProvider implements PlatformOidcProvider {
   readonly #configuration: Configuration;
 
-  public constructor(private readonly config: AdminWebAuthConfig) {
+  public constructor(private readonly config: WebAuthConfig) {
     const issuer = config.issuer;
     this.#configuration = new Configuration(
       {
@@ -204,7 +204,7 @@ export class KeycloakPlatformOidcProvider implements PlatformOidcProvider {
 
 export class PlatformWebAuthService {
   public constructor(
-    private readonly config: AdminWebAuthConfig,
+    private readonly config: WebAuthConfig,
     private readonly store: PlatformSessionStore,
     private readonly provider: PlatformOidcProvider,
     private readonly clock: () => Date = () => new Date(),

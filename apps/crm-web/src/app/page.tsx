@@ -1,9 +1,12 @@
-export default function BootstrapPage() {
+export default function CrmHomePage() {
   return (
-    <main>
-      <p className="eyebrow">Equipo de la empresa</p>
+    <main className="workspace-page">
+      <p className="eyebrow">Espacio de trabajo</p>
       <h1>Quantum CRM</h1>
-      <p>Bootstrap tecnico activo. Las funcionalidades de producto aun no estan implementadas.</p>
+      <p>
+        Tu sesión de empresa está protegida. La gestión de miembros se conectará a este espacio en
+        el siguiente bloque del mismo requisito.
+      </p>
     </main>
   );
 }
