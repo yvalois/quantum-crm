@@ -63,7 +63,7 @@ El ejecutor registra o reconcilia de forma idempotente el hostname nip.io del pe
 ## Plan de implementación
 
 - [x] Añadir contrato y validadores de hostname, upstream, red, generación e idempotency key.
-- [ ] Persistir la ruta deseada y la observada con fencing por perfil.
+- [x] Persistir la ruta deseada y la observada con fencing por perfil.
 - [ ] Implementar el adaptador privado de Caddy con snapshot, validación, reemplazo atómico y rollback.
 - [ ] Conectar `CONFIGURE_HTTPS` al ejecutor sin entregar Docker socket ni shell.
 - [ ] Probar configuración, concurrencia, aislamiento, recarga y recuperación en VPS autorizado.
@@ -104,8 +104,8 @@ El ejecutor registra o reconcilia de forma idempotente el hostname nip.io del pe
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: contrato y validadores en la rama `feat/ADM-04-i-route-contract`; PR pendiente de apertura.
+- Archivos, commits o PR: contrato integrado en PR #22; persistencia en la rama `feat/ADM-04-i-route-persistence`; PR pendiente de apertura.
 - Comandos y resultados: la auditoría documental confirma que no existe todavía una ruta HTTPS dinámica ni evidencia de certificado externo.
 - Documentación actualizada: ADR-0019, esta ficha y estado del proyecto.
 - Desviaciones del plan: ninguna; el bloque se separa de `ADM-04-h` porque requiere una decisión estructural y pruebas externas.
-- Pendientes o decisiones nuevas: implementar el contrato y adaptador; después completar `CREATE_ADMINISTRATOR`, `VERIFY` y `ACTIVATE`.
+- Pendientes o decisiones nuevas: conectar el handler del executor y el adaptador Caddy; después completar `CREATE_ADMINISTRATOR`, `VERIFY` y `ACTIVATE`.

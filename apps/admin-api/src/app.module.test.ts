@@ -152,6 +152,7 @@ beforeAll(async () => {
       completeStorage: vi.fn(async () => null),
       completeConfiguration: vi.fn(async () => null),
       completeContainers: vi.fn(async () => null),
+      completeHttps: vi.fn(async () => null),
     },
   };
   application = await NestFactory.create(

@@ -9,6 +9,7 @@ import {
   validateProvisioningLeaseClaim,
   validateProvisioningLeaseRenewal,
   validateCompleteProvisioningContainers,
+  validateCompleteProvisioningHttps,
   type ProvisioningOperationRepository,
 } from "./provisioning-operation.js";
 
@@ -71,6 +72,7 @@ describe("tenant provisioning operation", () => {
       completeStorage: vi.fn(),
       completeConfiguration: vi.fn(),
       completeContainers: vi.fn(),
+      completeHttps: vi.fn(),
     } satisfies ProvisioningOperationRepository);
     await expect(service.request(command)).resolves.toMatchObject({ tenantVersion: 2n });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING" }));
@@ -162,6 +164,29 @@ describe("tenant provisioning operation", () => {
     expect(() =>
       validateCompleteProvisioningContainers({ ...valid, projectName: "unsafe" }),
     ).toThrow(new ProvisioningOperationValidationError("projectName"));
+  });
+
+  it("validates a configured HTTPS route observation", () => {
+    const valid = validateCompleteProvisioningHttps({
+      operationId: "01995f7e-7b52-7000-8000-000000000401",
+      tenantProfileId: command.tenantProfileId,
+      serverId: command.serverId,
+      releaseId: command.releaseId,
+      workerId: "executor-01",
+      expectedVersion: 3n,
+      attempt: 1,
+      hostname: "acme.2-25-172-119.nip.io",
+      edgeNetworkName: `qcrm-tenant-edge-${command.tenantProfileId}`,
+      upstreamServices: ["api", "crm-web", "portal-web"],
+      configurationRevision: 1n,
+      routeGeneration: 1n,
+      configured: true,
+      reconciled: true,
+    });
+    expect(valid.upstreamServices).toEqual(["api", "crm-web", "portal-web"]);
+    expect(() => validateCompleteProvisioningHttps({ ...valid, configured: false })).toThrow(
+      new ProvisioningOperationValidationError("configured"),
+    );
   });
 
   it("evaluates the durable validation snapshot with closed failure codes", () => {
