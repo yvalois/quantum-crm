@@ -15,6 +15,7 @@ import { AppModule } from "./app.module.js";
 import { ProvisioningExecutor } from "./provisioning-executor.js";
 import { createTenantStorageProvisioner } from "./seaweed-storage-provisioner.js";
 import { createTenantConfigurationProvisioner } from "./tenant-configuration-provisioner.js";
+import { createTenantContainerProvisioner } from "./tenant-container-provisioner.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("deploy-executor");
@@ -29,6 +30,9 @@ async function bootstrap(): Promise<void> {
   }
   if (!config.tenantConfigurationDirectory) {
     throw new Error("deploy-executor tenant configuration directory configuration missing");
+  }
+  if (!config.deployHostSocketPath) {
+    throw new Error("deploy-executor host adapter socket configuration missing");
   }
   if (!config.storage) throw new Error("deploy-executor storage configuration missing");
   const databaseProvisioner = createTenantDatabaseProvisioner(adminConnectionUrl);
@@ -45,6 +49,9 @@ async function bootstrap(): Promise<void> {
   const configurationProvisioner = createTenantConfigurationProvisioner({
     configurationDirectory: config.tenantConfigurationDirectory,
     storageEndpoint: config.storage.endpoint,
+  });
+  const containerProvisioner = createTenantContainerProvisioner({
+    socketPath: config.deployHostSocketPath,
   });
   let application: Awaited<ReturnType<typeof NestFactory.createApplicationContext>> | undefined;
   try {
@@ -76,6 +83,7 @@ async function bootstrap(): Promise<void> {
       secretsProvisioner,
       storageProvisioner,
       configurationProvisioner,
+      containerProvisioner,
     );
     ready = true;
     const close = async (): Promise<void> => {

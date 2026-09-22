@@ -66,6 +66,7 @@ El primer arranque de PostgreSQL ejecuta `infra/postgres/init-platform-databases
 - Las variables `QCRM_CRM_DATABASE_URL_SECRET_FILE` y `QCRM_PLATFORM_DATABASE_URL_SECRET_FILE` apuntan a archivos del host fuera del checkout. Nunca contienen la URL.
 - `QCRM_PLATFORM_PROVISIONER_PASSWORD_FILE` y `QCRM_PLATFORM_PROVISIONER_DATABASE_URL_SECRET_FILE` apuntan a los archivos del rol administrativo limitado; nunca contienen valores en Compose o Git.
 - `deploy-executor` recibe `QCRM_TENANT_SECRET_DIRECTORY=/run/tenant-secrets` y `QCRM_TENANT_CONFIGURATION_DIRECTORY=/run/tenant-configuration`, cada uno con un bind mount de escritura separado cuyo origen se declara fuera del checkout mediante `QCRM_TENANT_SECRET_BIND_SOURCE` y `QCRM_TENANT_CONFIGURATION_BIND_SOURCE`. Ningun servicio comercial monta esas raices completas.
+- `deploy-executor` recibe `QCRM_DEPLOY_HOST_SOCKET_PATH=/run/deploy-host/adapter.sock` y solo un bind mount de lectura del directorio del adaptador; el socket Docker permanece fuera del contenedor y nunca se monta en el executor.
 - `CREATE_SECRETS` instala `tenant/<uuid>/migrator-password` y `tenant/<uuid>/runtime-password` con modo `0400`; `WRITE_CONFIGURATION` derivara las URLs exactas para cada servicio posteriormente.
 - `deploy-executor` es el unico proceso que recibe las credenciales administrativas de SeaweedFS mediante `/run/secrets/qcrm_storage_s3_admin_access_key` y `/run/secrets/qcrm_storage_s3_admin_secret_key`; el adaptador crea credenciales por perfil y solo persiste sus referencias en la base de plataforma.
 - La cuota de cada perfil se deriva de `requested_storage_mib` y se aplica a ambos buckets mediante la extension `seaweedfs-quota`; el digest elegido debe soportar esa operacion y se comprueba en la verificacion del VPS.
@@ -119,6 +120,7 @@ QCRM_CRM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/crm-database-url
 QCRM_PLATFORM_DATABASE_URL_SECRET_FILE=/ruta/fuera/del/repositorio/platform-database-url
 QCRM_TENANT_SECRET_BIND_SOURCE=/opt/quantum/secrets/staging/tenants
 QCRM_TENANT_CONFIGURATION_BIND_SOURCE=/opt/quantum/config/staging/tenants
+QCRM_DEPLOY_HOST_SOCKET_BIND_SOURCE=/run/qcrm/deploy-host
 QCRM_PLATFORM_STORAGE_NETWORK=quantum-platform-storage
 QCRM_PLATFORM_STORAGE_VOLUME=quantum-platform-storage-data
 QCRM_STORAGE_S3_CONFIG_FILE=/opt/quantum/secrets/staging/platform/seaweedfs-s3.json

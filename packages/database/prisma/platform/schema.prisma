@@ -52,6 +52,7 @@ model PlatformRelease {
   capacityReservations      InfrastructureCapacityReservation[]
   provisioningOperations    ProvisioningOperation[]
   tenantConfigurations      TenantConfiguration[]
+  tenantContainers          TenantContainer[]
 
   @@index([status, createdAt, id], map: "releases_status_created_id_idx")
   @@map("releases")
@@ -114,6 +115,7 @@ model InfrastructureServer {
   tenantDatabases        TenantDatabase[]
   tenantStorage           TenantStorage[]
   tenantConfigurations    TenantConfiguration[]
+  tenantContainers         TenantContainer[]
 
   @@index([status, createdAt, id], map: "infrastructure_servers_status_created_id_idx")
   @@map("servers")
@@ -228,6 +230,7 @@ model TenantProfile {
   database             TenantDatabase?
   storage              TenantStorage?
   configuration        TenantConfiguration?
+  container            TenantContainer?
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -291,6 +294,10 @@ enum ProvisioningValidationFailureCode {
   CONFIGURATION_UNAVAILABLE     @map("configuration_unavailable")
   CONFIGURATION_PERMISSION_DENIED @map("configuration_permission_denied")
   CONFIGURATION_IDENTITY_MISMATCH @map("configuration_identity_mismatch")
+  CONTAINERS_TARGET_CONFLICT      @map("containers_target_conflict")
+  CONTAINERS_UNAVAILABLE          @map("containers_unavailable")
+  CONTAINERS_PERMISSION_DENIED    @map("containers_permission_denied")
+  CONTAINERS_IDENTITY_MISMATCH    @map("containers_identity_mismatch")
 
   @@map("provisioning_validation_failure_code")
   @@schema("operations")
@@ -442,6 +449,44 @@ model TenantConfiguration {
   @@schema("tenants")
 }
 
+enum TenantContainerStatus {
+  STARTING @map("starting")
+  READY    @map("ready")
+  ERROR    @map("error")
+
+  @@map("tenant_container_status")
+  @@schema("tenants")
+}
+
+model TenantContainer {
+  id                    String                @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId       String                @unique(map: "tenant_containers_tenant_profile_id_key") @map("tenant_profile_id") @db.Uuid
+  serverId              String                @map("server_id") @db.Uuid
+  releaseId             String                @map("release_id") @db.Uuid
+  operationId           String                @unique(map: "tenant_containers_operation_id_key") @map("operation_id") @db.Uuid
+  manifestRef           String                @map("manifest_ref") @db.VarChar(256)
+  configurationRevision BigInt                @map("configuration_revision")
+  operationVersion      BigInt                @map("operation_version")
+  attempt               Int
+  projectName           String                @map("project_name") @db.VarChar(80)
+  services              Json                  @db.JsonB
+  ready                 Boolean               @default(false)
+  reconciled            Boolean               @default(false)
+  status                TenantContainerStatus @default(STARTING)
+  version               BigInt                @default(1)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile         TenantProfile         @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  server                InfrastructureServer  @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  release               PlatformRelease       @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  operation             ProvisioningOperation @relation(fields: [operationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([serverId], map: "tenant_containers_server_id_idx")
+  @@index([status, updatedAt, id], map: "tenant_containers_status_updated_id_idx")
+  @@map("tenant_containers")
+  @@schema("tenants")
+}
+
 model ProvisioningOperation {
   id                    String                      @id @default(dbgenerated("uuidv7()")) @db.Uuid
   tenantProfileId       String                      @map("tenant_profile_id") @db.Uuid
@@ -470,6 +515,7 @@ model ProvisioningOperation {
   requestedByOperator   PlatformOperatorMembership  @relation(fields: [requestedByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   release               PlatformRelease              @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   stepResults           ProvisioningStepResult[]
+  tenantContainer       TenantContainer?
 
   @@unique([requestedByOperatorId, idempotencyKey], map: "provisioning_operations_actor_idempotency_key_key")
   @@index([status, createdAt, id], map: "provisioning_operations_status_created_id_idx")
