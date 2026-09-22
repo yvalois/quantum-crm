@@ -10,7 +10,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Aplicacion implementada: acceso administrativo real desplegado; existe el bootstrap ejecutable de las ocho aplicaciones/procesos, pero todavia no hay un flujo comercial del CRM acreditado.
 - Requisitos funcionales completados: `ADM-01`.
 - Requisitos operativos completados: ninguno acreditado.
-- Trabajo activo: perfil de cliente, ciclo de vida, aprovisionamiento, inventario de servidores, arquitectura operativa, persistencia aislada, validacion del VPS y acceso seguro (`ADM-02`, `ADM-03`, `ADM-04`, `ADM-05`, `OPS-01`, `OPS-02`, `OPS-04`, `OPS-23`).
+- Trabajo activo: perfil de cliente, ciclo de vida, aprovisionamiento, inventario de servidores, arquitectura operativa, persistencia aislada, validacion del VPS y acceso seguro (`ADM-02`, `ADM-03`, `ADM-04`, `ADM-05`, `OPS-01`, `OPS-02`, `OPS-04`, `OPS-23`). `PROY-024` fija que el desarrollo prioriza rebanadas verticales de producto y difiere los refinamientos globales hasta la fase 10 o su prerequisito real.
 
 ## En curso
 
