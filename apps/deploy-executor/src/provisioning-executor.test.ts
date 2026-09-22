@@ -45,6 +45,7 @@ function repository(overrides: Partial<ProvisioningOperationRepository> = {}) {
     completeConfiguration: vi.fn(async () => null),
     completeContainers: vi.fn(async () => null),
     completeHttps: vi.fn(async () => null),
+    resolveHttpsContext: vi.fn(async () => null),
     ...overrides,
   } satisfies ProvisioningOperationRepository;
 }
@@ -153,5 +154,49 @@ describe("provisioning executor", () => {
       ready: true,
       reconciled: false,
     });
+  });
+
+  it("reconciles the derived HTTPS route and persists its observed generation", async () => {
+    const httpsOperation = hydrateProvisioningOperation({
+      ...operation,
+      currentStep: "CONFIGURE_HTTPS",
+    });
+    const claimNext = vi.fn(async () => httpsOperation);
+    const resolveHttpsContext = vi.fn(async () => ({
+      hostname: "acme.2-25-172-119.nip.io",
+      edgeNetworkName: `qcrm-tenant-edge-${httpsOperation.tenantProfileId}`,
+      upstreamServices: ["crm-web"] as const,
+      configurationRevision: 1n,
+    }));
+    const completeHttps = vi.fn(async () => null);
+    const provision = vi.fn(async () => ({
+      hostname: "acme.2-25-172-119.nip.io",
+      edgeNetworkName: `qcrm-tenant-edge-${httpsOperation.tenantProfileId}`,
+      routeGeneration: 1n,
+      configured: true,
+      reconciled: true,
+    }));
+    const executor = new ProvisioningExecutor(
+      repository({ claimNext, resolveHttpsContext, completeHttps }),
+      options,
+      undefined,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { provision },
+    );
+
+    await expect(executor.runOnce()).resolves.toBe(true);
+    expect(provision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: "acme.2-25-172-119.nip.io",
+        upstreamServices: ["crm-web"],
+      }),
+    );
+    expect(completeHttps).toHaveBeenCalledWith(
+      expect.objectContaining({ routeGeneration: 1n, configured: true, reconciled: true }),
+    );
   });
 });

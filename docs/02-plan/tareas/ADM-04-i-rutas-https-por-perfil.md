@@ -104,8 +104,8 @@ El ejecutor registra o reconcilia de forma idempotente el hostname nip.io del pe
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: contrato integrado en PR #22; persistencia en la rama `feat/ADM-04-i-route-persistence`; PR pendiente de apertura.
-- Comandos y resultados: la auditoría documental confirma que no existe todavía una ruta HTTPS dinámica ni evidencia de certificado externo.
+- Archivos, commits o PR: contrato integrado en PR #22; persistencia integrada en PR #23; adaptador y conexión del executor en `feat/ADM-04-i-caddy-adapter`, pendientes de verificación en VPS y CI.
+- Comandos y resultados: en el VPS autorizado, las pruebas unitarias afectadas terminaron con 22 archivos y 135 casos verdes; `packages/database` superó su typecheck tras la corrección literal del upstream. Los typechecks consumidores de `deploy-host` y `deploy-executor` quedan para CI: el sandbox desechable conserva enlaces `workspace:` de un checkout anterior y no puede resolver sus artefactos, sin señalar un defecto de la rama.
 - Documentación actualizada: ADR-0019, esta ficha y estado del proyecto.
 - Desviaciones del plan: ninguna; el bloque se separa de `ADM-04-h` porque requiere una decisión estructural y pruebas externas.
-- Pendientes o decisiones nuevas: conectar el handler del executor y el adaptador Caddy; después completar `CREATE_ADMINISTRATOR`, `VERIFY` y `ACTIVATE`.
+- Pendientes o decisiones nuevas: verificar el adaptador Caddy y el handler en VPS; después completar `CREATE_ADMINISTRATOR`, `VERIFY` y `ACTIVATE`.

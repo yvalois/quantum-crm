@@ -94,6 +94,7 @@ describe("tenant compose runner", () => {
     const results: ComposeCommandResult[] = [
       { exitCode: 0, stdout: "", stderr: "" },
       { exitCode: 0, stdout: "", stderr: "" },
+      { exitCode: 0, stdout: "", stderr: "" },
       { exitCode: 0, stdout: psOutput(), stderr: "" },
     ];
     const run = vi.fn(async () => results.shift() ?? { exitCode: 1, stdout: "", stderr: "" });
@@ -105,8 +106,8 @@ describe("tenant compose runner", () => {
         ready: true,
         reconciled: true,
       });
-      expect(run).toHaveBeenCalledTimes(3);
-      expect(run.mock.calls[0]?.[0]).toEqual([
+      expect(run).toHaveBeenCalledTimes(4);
+      expect(run.mock.calls[1]?.[0]).toEqual([
         "compose",
         "-f",
         "/opt/quantum/infra/compose/tenant.yaml",
@@ -115,7 +116,7 @@ describe("tenant compose runner", () => {
         "config",
         "--quiet",
       ]);
-      expect(run.mock.calls[1]?.[0]).toContain("--remove-orphans");
+      expect(run.mock.calls[2]?.[0]).toContain("--remove-orphans");
       expect(run.mock.calls[0]?.[1]).toMatchObject({
         QCRM_TENANT_EDGE_NETWORK: `qcrm-tenant-edge-${request.tenantProfileId}`,
       });
@@ -127,6 +128,7 @@ describe("tenant compose runner", () => {
   it("returns pending readiness when one service is not healthy", async () => {
     const { root, configurationRoot, databaseSecretRoot } = await createFixture();
     const results: ComposeCommandResult[] = [
+      { exitCode: 0, stdout: "", stderr: "" },
       { exitCode: 0, stdout: "", stderr: "" },
       { exitCode: 0, stdout: "", stderr: "" },
       { exitCode: 0, stdout: psOutput("worker"), stderr: "" },

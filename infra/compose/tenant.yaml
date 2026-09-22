@@ -35,7 +35,10 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [tenant-edge]
+    networks:
+      tenant-edge:
+        aliases:
+          - "${QCRM_TENANT_CRM_WEB_EDGE_ALIAS:?set QCRM_TENANT_CRM_WEB_EDGE_ALIAS}"
 
   portal-web:
     <<: *service-defaults
@@ -57,7 +60,10 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [tenant-edge]
+    networks:
+      tenant-edge:
+        aliases:
+          - "${QCRM_TENANT_PORTAL_WEB_EDGE_ALIAS:?set QCRM_TENANT_PORTAL_WEB_EDGE_ALIAS}"
 
   api:
     <<: *service-defaults
@@ -84,7 +90,13 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [tenant-edge, tenant-internal, platform-database, platform-storage]
+    networks:
+      tenant-edge:
+        aliases:
+          - "${QCRM_TENANT_API_EDGE_ALIAS:?set QCRM_TENANT_API_EDGE_ALIAS}"
+      tenant-internal: {}
+      platform-database: {}
+      platform-storage: {}
 
   worker:
     <<: *service-defaults

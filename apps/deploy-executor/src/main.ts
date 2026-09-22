@@ -16,6 +16,7 @@ import { ProvisioningExecutor } from "./provisioning-executor.js";
 import { createTenantStorageProvisioner } from "./seaweed-storage-provisioner.js";
 import { createTenantConfigurationProvisioner } from "./tenant-configuration-provisioner.js";
 import { createTenantContainerProvisioner } from "./tenant-container-provisioner.js";
+import { createTenantHttpsRouteProvisioner } from "./tenant-https-route-provisioner.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("deploy-executor");
@@ -57,6 +58,9 @@ async function bootstrap(): Promise<void> {
   const containerProvisioner = createTenantContainerProvisioner({
     socketPath: config.deployHostSocketPath,
   });
+  const httpsRouteProvisioner = createTenantHttpsRouteProvisioner({
+    socketPath: config.deployHostSocketPath,
+  });
   let application: Awaited<ReturnType<typeof NestFactory.createApplicationContext>> | undefined;
   try {
     await database.connect();
@@ -88,6 +92,7 @@ async function bootstrap(): Promise<void> {
       storageProvisioner,
       configurationProvisioner,
       containerProvisioner,
+      httpsRouteProvisioner,
     );
     ready = true;
     const close = async (): Promise<void> => {

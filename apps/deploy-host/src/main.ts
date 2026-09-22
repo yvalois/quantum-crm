@@ -1,6 +1,7 @@
 import { loadServiceConfig } from "@quantum-crm/config";
 
 import { createTenantComposeReconciler } from "./compose-runner.js";
+import { createTenantCaddyRouteReconciler } from "./caddy-route-runner.js";
 import { createHostAdapterServer } from "./host-adapter.js";
 
 const config = loadServiceConfig("deploy-host");
@@ -12,7 +13,8 @@ if (
   !config.deployHostTenantEdgeNetwork ||
   !config.deployHostPlatformDatabaseNetwork ||
   !config.deployHostPlatformStorageNetwork ||
-  !config.deployHostDatabaseSecretRoot
+  !config.deployHostDatabaseSecretRoot ||
+  !config.deployHostTenantRouteRoot
 ) {
   throw new Error("deploy-host compose runtime configuration missing");
 }
@@ -31,6 +33,9 @@ const server = createHostAdapterServer({
     platformDatabaseNetwork: config.deployHostPlatformDatabaseNetwork,
     platformStorageNetwork: config.deployHostPlatformStorageNetwork,
     databaseSecretRoot: config.deployHostDatabaseSecretRoot,
+  }),
+  httpsRouteReconciler: createTenantCaddyRouteReconciler({
+    routeRoot: config.deployHostTenantRouteRoot,
   }),
 });
 

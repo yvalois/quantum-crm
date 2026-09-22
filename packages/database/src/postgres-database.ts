@@ -34,6 +34,9 @@ import {
   validateCompleteProvisioningConfiguration,
   validateCompleteProvisioningContainers,
   validateCompleteProvisioningHttps,
+  validateResolveProvisioningHttpsContext,
+  tenantHttpsEdgeNetworkName,
+  tenantHttpsHostname,
   type ClaimProvisioningOperationCommand,
   type CompleteProvisioningValidationCommand,
   type CompleteProvisioningDatabaseCommand,
@@ -42,6 +45,8 @@ import {
   type CompleteProvisioningConfigurationCommand,
   type CompleteProvisioningContainersCommand,
   type CompleteProvisioningHttpsCommand,
+  type ProvisioningHttpsContext,
+  type ResolveProvisioningHttpsContextCommand,
   type InfrastructureServer,
   type InfrastructureServerArchitecture,
   type InfrastructureServerDraft,
@@ -1535,6 +1540,73 @@ async function completeProvisioningContainers(
   }
 }
 
+async function resolveProvisioningHttpsContext(
+  pool: PostgresPool,
+  command: ResolveProvisioningHttpsContextCommand,
+): Promise<ProvisioningHttpsContext | null> {
+  const resolved = validateResolveProvisioningHttpsContext(command);
+  try {
+    const result = (await pool.query(
+      `
+        SELECT profile.slug, server.public_ipv4, configuration.configuration_revision::text
+        FROM operations.provisioning_operations AS operation
+        JOIN tenants.tenant_profiles AS profile ON profile.id = operation.tenant_profile_id
+        JOIN infrastructure.servers AS server ON server.id = operation.server_id
+        JOIN tenants.tenant_configurations AS configuration
+          ON configuration.tenant_profile_id = operation.tenant_profile_id
+          AND configuration.server_id = operation.server_id
+          AND configuration.release_id = operation.release_id
+          AND configuration.status = 'ready'
+        JOIN tenants.tenant_containers AS container
+          ON container.tenant_profile_id = operation.tenant_profile_id
+          AND container.server_id = operation.server_id
+          AND container.release_id = operation.release_id
+          AND container.operation_id = operation.id
+          AND container.status = 'ready'
+          AND container.ready = TRUE
+        WHERE operation.id = $1::uuid
+          AND operation.tenant_profile_id = $2::uuid
+          AND operation.server_id = $3::uuid
+          AND operation.release_id = $4::uuid
+          AND operation.status = 'running'
+          AND operation.current_step = 'configure_https'
+          AND operation.lease_owner = $5
+          AND operation.version = $6
+          AND operation.attempt = $7
+          AND operation.lease_expires_at > CURRENT_TIMESTAMP
+      `,
+      [
+        resolved.operationId,
+        resolved.tenantProfileId,
+        resolved.serverId,
+        resolved.releaseId,
+        resolved.workerId,
+        resolved.expectedVersion.toString(),
+        resolved.attempt,
+      ],
+    )) as {
+      readonly rows: readonly {
+      readonly slug: string;
+      readonly public_ipv4: string;
+      readonly configuration_revision: string;
+      }[];
+    };
+    const row = result.rows[0];
+    if (!row) return null;
+    const configurationRevision = BigInt(row.configuration_revision);
+    if (configurationRevision < 1n) throw new DatabaseUnavailableError();
+    return Object.freeze({
+      hostname: tenantHttpsHostname(row.slug, row.public_ipv4),
+      edgeNetworkName: tenantHttpsEdgeNetworkName(resolved.tenantProfileId),
+      upstreamServices: Object.freeze(["crm-web"] as const),
+      configurationRevision,
+    });
+  } catch (error) {
+    if (error instanceof DatabaseUnavailableError) throw error;
+    throw new DatabaseUnavailableError();
+  }
+}
+
 async function completeProvisioningHttps(
   pool: PostgresPool,
   command: CompleteProvisioningHttpsCommand,
@@ -2982,6 +3054,8 @@ export function createPlatformPostgresDatabase(
         completeProvisioningContainers(pool, command),
       completeHttps: (command: CompleteProvisioningHttpsCommand) =>
         completeProvisioningHttps(pool, command),
+      resolveHttpsContext: (command: ResolveProvisioningHttpsContextCommand) =>
+        resolveProvisioningHttpsContext(pool, command),
     }),
   });
 }

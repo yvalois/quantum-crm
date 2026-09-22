@@ -226,6 +226,29 @@ function composeArgs(plan: TenantComposePlan, command: "config" | "up" | "ps"): 
   return [...prefix, "ps", "--format", "json"];
 }
 
+async function ensureTenantEdgeNetwork(
+  runner: ComposeCommandRunner,
+  environment: Readonly<Record<string, string>>,
+  timeout: number,
+  networkName: string,
+): Promise<void> {
+  const inspected = await runner.run(["network", "inspect", networkName], environment, timeout);
+  if (inspected.exitCode === 0) return;
+  if (inspected.exitCode !== 1) throw new HostAdapterError("UNAVAILABLE");
+  const created = await runner.run(
+    ["network", "create", "--driver", "bridge", networkName],
+    environment,
+    timeout,
+  );
+  if (created.exitCode === 0) return;
+  const observedAfterRace = await runner.run(
+    ["network", "inspect", networkName],
+    environment,
+    timeout,
+  );
+  if (observedAfterRace.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+}
+
 export function createTenantComposeReconciler(
   options: TenantComposeRunnerOptions,
 ): TenantComposeReconciler {
@@ -276,6 +299,12 @@ export function createTenantComposeReconciler(
       }
       await assertSecretFile(plan.environment.QCRM_CRM_DATABASE_URL_SECRET_FILE as string);
       const environment = plan.environment;
+      await ensureTenantEdgeNetwork(
+        runner,
+        environment,
+        timeout,
+        plan.environment.QCRM_TENANT_EDGE_NETWORK as string,
+      );
       for (const command of ["config", "up"] as const) {
         const result = await runner.run(composeArgs(plan, command), environment, timeout);
         if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
