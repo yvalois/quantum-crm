@@ -14,6 +14,7 @@ const applications = [
   "agent-runtime",
   "admin-api",
   "deploy-executor",
+  "deploy-host",
 ] as const;
 
 const packages = [
@@ -40,7 +41,7 @@ function readPackageName(group: "apps" | "packages", name: string): string {
 }
 
 describe("workspace inventory", () => {
-  it("declares the eight approved applications", () => {
+  it("declares the approved applications and infrastructure adapter", () => {
     expect(applications.map((name) => readPackageName("apps", name))).toEqual(
       applications.map((name) => `@quantum-crm/${name}`),
     );

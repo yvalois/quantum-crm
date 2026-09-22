@@ -66,6 +66,12 @@ export const processDefinitions = Object.freeze({
     requiresStorageAdmin: true,
     requiresDeployHostSocket: true,
   }),
+  "deploy-host": Object.freeze({
+    serviceName: "deploy-host",
+    defaultHost: "127.0.0.1",
+    defaultPort: 3200,
+    requiresDeployHostSocket: true,
+  }),
   "agent-runtime": Object.freeze({
     serviceName: "agent-runtime",
     defaultHost: "127.0.0.1",
