@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG NODE_IMAGE=node:24.21.0-bookworm@sha256:64af3819f9275802414d7cdc38c27e9d82bd564dec4d4da87d008255d36c63b4
+ARG NODE_IMAGE=node:24.21.0-trixie@sha256:be40f6a87b9b22215ddb20da0a2320a5c6d583fe3ee3b0024d9fa4f05b40c8fd
 
 FROM ${NODE_IMAGE} AS runtime
 ENV PNPM_HOME=/pnpm
@@ -9,7 +9,9 @@ WORKDIR /workspace
 RUN corepack enable && corepack prepare pnpm@9.13.2 --activate
 COPY . .
 RUN pnpm install --frozen-lockfile \
-    && pnpm --filter "@quantum-crm/database..." build
+    && pnpm --filter "@quantum-crm/database..." build \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 ENV NODE_ENV=production
 USER node
 CMD ["sh", "-c", "./packages/database/node_modules/.bin/prisma migrate deploy --config packages/database/prisma/platform/prisma7.config.ts && node packages/database/dist/grant-platform-runtime.js"]
