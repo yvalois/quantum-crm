@@ -12,11 +12,15 @@ import {
 import { Reflector } from "@nestjs/core";
 import {
   authenticatePlatformOperator,
+  GITHUB_ACTIONS_RELEASE_PUBLISHER_VERIFIER,
+  GithubActionsReleasePublisherVerificationError,
   OIDC_ACCESS_TOKEN_VERIFIER,
   PlatformAuthenticationError,
   PlatformAuthorizationError,
   requirePlatformPermission,
   type OidcAccessTokenVerifier,
+  type GithubActionsReleasePublisherVerifier,
+  type VerifiedGithubActionsReleasePublisher,
   type PlatformAuthContext,
   type PlatformAuthPolicy,
   type PlatformMembershipReader,
@@ -28,6 +32,9 @@ import { randomUUID } from "node:crypto";
 export const PLATFORM_MEMBERSHIPS = Symbol("PLATFORM_MEMBERSHIPS");
 export const PLATFORM_AUTH_POLICY = Symbol("PLATFORM_AUTH_POLICY");
 export const PLATFORM_AUTH_CONTEXT = Symbol("PLATFORM_AUTH_CONTEXT");
+export const GITHUB_ACTIONS_RELEASE_PUBLISHER_CONTEXT = Symbol(
+  "GITHUB_ACTIONS_RELEASE_PUBLISHER_CONTEXT",
+);
 export const PUBLIC_ROUTE = "quantum:public-route";
 export const REQUIRED_PLATFORM_PERMISSION = "quantum:platform-permission";
 
@@ -39,6 +46,30 @@ export const RequirePlatformPermission = (
 interface HttpRequest {
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
   [PLATFORM_AUTH_CONTEXT]?: PlatformAuthContext;
+  [GITHUB_ACTIONS_RELEASE_PUBLISHER_CONTEXT]?: VerifiedGithubActionsReleasePublisher;
+}
+
+@Injectable()
+export class GithubActionsReleasePublisherGuard implements CanActivate {
+  public constructor(
+    @Inject(GITHUB_ACTIONS_RELEASE_PUBLISHER_VERIFIER)
+    private readonly verifier: GithubActionsReleasePublisherVerifier,
+  ) {}
+
+  public async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<HttpRequest>();
+    const token = bearerToken(request.headers.authorization);
+    if (!token) throw new UnauthorizedException();
+    try {
+      request[GITHUB_ACTIONS_RELEASE_PUBLISHER_CONTEXT] = await this.verifier.verify(token);
+      return true;
+    } catch (error) {
+      if (error instanceof GithubActionsReleasePublisherVerificationError) {
+        throw new UnauthorizedException();
+      }
+      throw new ServiceUnavailableException();
+    }
+  }
 }
 
 function bearerToken(header: string | string[] | undefined): SecretValue | null {
@@ -114,6 +145,14 @@ export class PlatformAuthorizationGuard implements CanActivate {
 
 export function platformAuthContext(request: HttpRequest): PlatformAuthContext {
   const context = request[PLATFORM_AUTH_CONTEXT];
+  if (!context) throw new UnauthorizedException();
+  return context;
+}
+
+export function githubActionsReleasePublisherContext(
+  request: HttpRequest,
+): VerifiedGithubActionsReleasePublisher {
+  const context = request[GITHUB_ACTIONS_RELEASE_PUBLISHER_CONTEXT];
   if (!context) throw new UnauthorizedException();
   return context;
 }

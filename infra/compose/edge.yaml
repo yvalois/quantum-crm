@@ -51,6 +51,9 @@ services:
       platform-oidc:
         aliases:
           - "${QCRM_IDENTITY_HOST:?set QCRM_IDENTITY_HOST}"
+      platform-github-actions-oidc:
+        aliases:
+          - github-actions-oidc
 
 networks:
   platform-edge:
@@ -59,6 +62,9 @@ networks:
   platform-oidc:
     external: true
     name: "${QCRM_PLATFORM_OIDC_NETWORK:?set QCRM_PLATFORM_OIDC_NETWORK}"
+  platform-github-actions-oidc:
+    external: true
+    name: "${QCRM_PLATFORM_GITHUB_ACTIONS_OIDC_NETWORK:?set QCRM_PLATFORM_GITHUB_ACTIONS_OIDC_NETWORK}"
 
 volumes:
   edge-caddy-data:

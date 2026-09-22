@@ -12,12 +12,18 @@ export {
   parseServiceConfig,
   processDefinitions,
   requireDatabaseConfig,
+  requireGithubActionsReleasePublisherConfig,
   requireOidcConfig,
   type ProcessConfig,
   type ProcessDefinition,
   type ProcessName,
   type QcrmEnvironment,
 } from "./process-config.js";
+export {
+  githubActionsReleasePublisherEnvironmentKeys,
+  parseGithubActionsReleasePublisherConfig,
+  type GithubActionsReleasePublisherConfig,
+} from "./github-actions-release-publisher-config.js";
 export {
   oidcEnvironmentKeys,
   parseOidcConfig,

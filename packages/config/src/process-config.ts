@@ -14,6 +14,11 @@ import {
   type OidcConfig,
   type OidcDefinition,
 } from "./oidc-config.js";
+import {
+  githubActionsReleasePublisherEnvironmentKeys,
+  parseGithubActionsReleasePublisherConfig,
+  type GithubActionsReleasePublisherConfig,
+} from "./github-actions-release-publisher-config.js";
 import type { SecretFileSystem } from "./secret-value.js";
 import {
   parseStorageConfig,
@@ -59,6 +64,7 @@ export const processDefinitions = Object.freeze({
     defaultPort: 3002,
     database: Object.freeze({ target: "platform", requiresTenant: false }),
     oidc: Object.freeze({ provider: "keycloak", boundary: "platform" }),
+    requiresGithubActionsReleasePublisher: true,
   }),
   worker: Object.freeze({
     serviceName: "worker",
@@ -98,6 +104,7 @@ export interface ProcessDefinition {
   readonly defaultPort: number;
   readonly database?: DatabaseDefinition;
   readonly oidc?: OidcDefinition;
+  readonly requiresGithubActionsReleasePublisher?: boolean;
   readonly requiresTenantSecretDirectory?: boolean;
   readonly requiresTenantConfigurationDirectory?: boolean;
   readonly requiresStorageAdmin?: boolean;
@@ -114,6 +121,7 @@ export interface ProcessConfig {
   readonly shutdownTimeoutMs: number;
   readonly database?: DatabaseConfig;
   readonly oidc?: OidcConfig;
+  readonly githubActionsReleasePublisher?: GithubActionsReleasePublisherConfig;
   readonly tenantSecretDirectory?: string;
   readonly tenantConfigurationDirectory?: string;
   readonly deployHostSocketPath?: string;
@@ -156,6 +164,16 @@ export function requireOidcConfig(config: ProcessConfig): OidcConfig {
   return config.oidc;
 }
 
+export function requireGithubActionsReleasePublisherConfig(
+  config: ProcessConfig,
+): GithubActionsReleasePublisherConfig {
+  if (!config.githubActionsReleasePublisher) {
+    throw new ConfigurationError(config.serviceName, ["QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE"]);
+  }
+
+  return config.githubActionsReleasePublisher;
+}
+
 export function parseServiceConfig(
   serviceName: ProcessName,
   environment: Readonly<Record<string, string | undefined>>,
@@ -174,6 +192,9 @@ export function parseProcessConfig(
     ...(definition.database ? databaseEnvironmentKeys : []),
     ...(definition.database?.requiresAdmin ? databaseAdminEnvironmentKeys : []),
     ...(definition.oidc ? oidcEnvironmentKeys : []),
+    ...(definition.requiresGithubActionsReleasePublisher
+      ? githubActionsReleasePublisherEnvironmentKeys
+      : []),
     ...(definition.requiresTenantSecretDirectory ? [tenantSecretEnvironmentKey] : []),
     ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
@@ -242,6 +263,13 @@ export function parseProcessConfig(
     : undefined;
   const oidc = definition.oidc
     ? parseOidcConfig(definition.serviceName, definition.oidc, result.data.QCRM_ENV, environment)
+    : undefined;
+  const githubActionsReleasePublisher = definition.requiresGithubActionsReleasePublisher
+    ? parseGithubActionsReleasePublisherConfig(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        environment,
+      )
     : undefined;
   let tenantSecretDirectory: string | undefined;
   if (definition.requiresTenantSecretDirectory) {
@@ -368,6 +396,7 @@ export function parseProcessConfig(
     shutdownTimeoutMs: result.data.QCRM_SHUTDOWN_TIMEOUT_MS,
     ...(database ? { database } : {}),
     ...(oidc ? { oidc } : {}),
+    ...(githubActionsReleasePublisher ? { githubActionsReleasePublisher } : {}),
     ...(tenantSecretDirectory ? { tenantSecretDirectory } : {}),
     ...(tenantConfigurationDirectory ? { tenantConfigurationDirectory } : {}),
     ...(deployHostSocketPath ? { deployHostSocketPath } : {}),
