@@ -2,16 +2,16 @@ import { request } from "node:http";
 
 import {
   ProvisioningOperationValidationError,
+  tenantContainerServiceNames,
   type TenantContainerProvisioner,
   type TenantContainerProvisioningCommand,
   type TenantContainerProvisioningResult,
+  type TenantContainerServiceName,
 } from "@quantum-crm/platform-domain";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const manifestPattern = /^tenant\/([0-9a-f-]{36})\/configuration\.json$/u;
 const projectPattern = /^qcrm-t-[0-9a-f-]{36}$/u;
-const serviceNames = ["crm-web", "portal-web", "api", "worker", "agent-runtime"] as const;
-
 export type TenantContainerProvisioningFailureReason =
   "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT" | "IDENTITY_MISMATCH";
 
@@ -75,7 +75,7 @@ function parseResult(value: HostAdapterResponse): TenantContainerProvisioningRes
     !projectPattern.test(value.projectName) ||
     !services ||
     !services.every((service): service is string => typeof service === "string") ||
-    !serviceNames.every((service) => services.includes(service)) ||
+    !tenantContainerServiceNames.every((service) => services.includes(service)) ||
     typeof value.ready !== "boolean" ||
     typeof value.reconciled !== "boolean"
   ) {
@@ -83,7 +83,7 @@ function parseResult(value: HostAdapterResponse): TenantContainerProvisioningRes
   }
   return Object.freeze({
     projectName: value.projectName,
-    services: Object.freeze([...services].sort()),
+    services: Object.freeze([...services].sort() as TenantContainerServiceName[]),
     ready: value.ready,
     reconciled: value.reconciled,
   });

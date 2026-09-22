@@ -30,6 +30,7 @@ const processEnvironmentKeys = [
 ] as const;
 const tenantSecretEnvironmentKey = "QCRM_TENANT_SECRET_DIRECTORY" as const;
 const tenantConfigurationEnvironmentKey = "QCRM_TENANT_CONFIGURATION_DIRECTORY" as const;
+const deployHostSocketEnvironmentKey = "QCRM_DEPLOY_HOST_SOCKET_PATH" as const;
 const safeDefaultEnvironments = new Set<QcrmEnvironment>(["local", "test"]);
 const placeholderPattern = /^(?:change[_-]?me|example|placeholder|todo)$/i;
 
@@ -63,6 +64,7 @@ export const processDefinitions = Object.freeze({
     requiresTenantSecretDirectory: true,
     requiresTenantConfigurationDirectory: true,
     requiresStorageAdmin: true,
+    requiresDeployHostSocket: true,
   }),
   "agent-runtime": Object.freeze({
     serviceName: "agent-runtime",
@@ -82,6 +84,7 @@ export interface ProcessDefinition {
   readonly requiresTenantSecretDirectory?: boolean;
   readonly requiresTenantConfigurationDirectory?: boolean;
   readonly requiresStorageAdmin?: boolean;
+  readonly requiresDeployHostSocket?: boolean;
 }
 
 export interface ProcessConfig {
@@ -95,6 +98,7 @@ export interface ProcessConfig {
   readonly oidc?: OidcConfig;
   readonly tenantSecretDirectory?: string;
   readonly tenantConfigurationDirectory?: string;
+  readonly deployHostSocketPath?: string;
   readonly storage?: StorageConfig;
 }
 
@@ -147,6 +151,7 @@ export function parseProcessConfig(
     ...(definition.requiresTenantSecretDirectory ? [tenantSecretEnvironmentKey] : []),
     ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
+    ...(definition.requiresDeployHostSocket ? [deployHostSocketEnvironmentKey] : []),
   ]);
   const unknownKeys = Object.keys(environment)
     .filter((key) => key.startsWith("QCRM_") && !allowedKeys.has(key))
@@ -232,6 +237,23 @@ export function parseProcessConfig(
     tenantConfigurationDirectory = configured;
   }
 
+  let deployHostSocketPath: string | undefined;
+  if (definition.requiresDeployHostSocket) {
+    const configured =
+      environment[deployHostSocketEnvironmentKey] ??
+      (allowSafeDefaults ? "/run/deploy-host/adapter.sock" : undefined);
+    if (
+      !configured ||
+      !configured.startsWith("/") ||
+      configured.length > 255 ||
+      /[\0\r\n]/u.test(configured) ||
+      configured === "/"
+    ) {
+      throw new ConfigurationError(definition.serviceName, [deployHostSocketEnvironmentKey]);
+    }
+    deployHostSocketPath = configured;
+  }
+
   const storage = definition.requiresStorageAdmin
     ? parseStorageConfig(definition.serviceName, result.data.QCRM_ENV, environment, fileSystem)
     : undefined;
@@ -247,6 +269,7 @@ export function parseProcessConfig(
     ...(oidc ? { oidc } : {}),
     ...(tenantSecretDirectory ? { tenantSecretDirectory } : {}),
     ...(tenantConfigurationDirectory ? { tenantConfigurationDirectory } : {}),
+    ...(deployHostSocketPath ? { deployHostSocketPath } : {}),
     ...(storage ? { storage } : {}),
   });
 }

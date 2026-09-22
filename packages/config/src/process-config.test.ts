@@ -124,6 +124,7 @@ describe("process configuration", () => {
         requiresTenantSecretDirectory: true,
         requiresTenantConfigurationDirectory: true,
         requiresStorageAdmin: true,
+        requiresDeployHostSocket: true,
       },
       "agent-runtime": {
         serviceName: "agent-runtime",

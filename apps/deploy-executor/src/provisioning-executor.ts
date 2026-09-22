@@ -8,6 +8,7 @@ import {
   type ProvisioningOperationRepository,
   type TenantDatabaseSecretsProvisioner,
   type TenantConfigurationProvisioner,
+  type TenantContainerProvisioner,
   type TenantDatabaseProvisioner,
   type TenantStorageProvisioner,
 } from "@quantum-crm/platform-domain";
@@ -17,6 +18,7 @@ import {
 } from "@quantum-crm/database";
 import { TenantStorageProvisioningError } from "./seaweed-storage-provisioner.js";
 import { TenantConfigurationProvisioningError } from "./tenant-configuration-provisioner.js";
+import { TenantContainerProvisioningError } from "./tenant-container-provisioner.js";
 
 export interface ProvisioningExecutorOptions {
   readonly workerId: string;
@@ -54,6 +56,7 @@ export class ProvisioningExecutor {
     private readonly secretsProvisioner?: TenantDatabaseSecretsProvisioner,
     private readonly storageProvisioner?: TenantStorageProvisioner,
     private readonly configurationProvisioner?: TenantConfigurationProvisioner,
+    private readonly containerProvisioner?: TenantContainerProvisioner,
   ) {}
 
   public runOnce(): Promise<boolean> {
@@ -84,13 +87,22 @@ export class ProvisioningExecutor {
       ? this.secretsProvisioner
         ? this.storageProvisioner
           ? this.configurationProvisioner
-            ? ([
-                "VALIDATE",
-                "CREATE_DATABASE",
-                "CREATE_SECRETS",
-                "CREATE_STORAGE",
-                "WRITE_CONFIGURATION",
-              ] as const)
+            ? this.containerProvisioner
+              ? ([
+                  "VALIDATE",
+                  "CREATE_DATABASE",
+                  "CREATE_SECRETS",
+                  "CREATE_STORAGE",
+                  "WRITE_CONFIGURATION",
+                  "START_CONTAINERS",
+                ] as const)
+              : ([
+                  "VALIDATE",
+                  "CREATE_DATABASE",
+                  "CREATE_SECRETS",
+                  "CREATE_STORAGE",
+                  "WRITE_CONFIGURATION",
+                ] as const)
             : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS", "CREATE_STORAGE"] as const)
           : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS"] as const)
         : (["VALIDATE", "CREATE_DATABASE"] as const)
@@ -259,6 +271,74 @@ export class ProvisioningExecutor {
         });
       } catch {
         return true;
+      }
+      return true;
+    }
+    if (operation.currentStep === "START_CONTAINERS" && this.containerProvisioner) {
+      let provisioningFailure:
+        | "CONTAINERS_TARGET_CONFLICT"
+        | "CONTAINERS_PERMISSION_DENIED"
+        | "CONTAINERS_IDENTITY_MISMATCH"
+        | undefined;
+      let result: Awaited<ReturnType<TenantContainerProvisioner["provision"]>> | undefined;
+      try {
+        result = await this.containerProvisioner.provision({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          manifestRef: `tenant/${operation.tenantProfileId}/configuration.json`,
+          configurationRevision: 1n,
+          attempt: operation.attempt,
+        });
+      } catch (error) {
+        if (error instanceof TenantContainerProvisioningError && error.reason === "UNAVAILABLE") {
+          return true;
+        }
+        provisioningFailure =
+          error instanceof TenantContainerProvisioningError && error.reason === "PERMISSION_DENIED"
+            ? "CONTAINERS_PERMISSION_DENIED"
+            : error instanceof TenantContainerProvisioningError &&
+                error.reason === "TARGET_CONFLICT"
+              ? "CONTAINERS_TARGET_CONFLICT"
+              : "CONTAINERS_IDENTITY_MISMATCH";
+      }
+      if (result) {
+        if (!result.ready) return true;
+        await this.repository.completeContainers({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+          manifestRef: `tenant/${operation.tenantProfileId}/configuration.json`,
+          configurationRevision: 1n,
+          projectName: result.projectName,
+          services: result.services,
+          ready: result.ready,
+          reconciled: result.reconciled,
+        });
+        return true;
+      }
+      if (provisioningFailure) {
+        await this.repository.completeContainers({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+          manifestRef: `tenant/${operation.tenantProfileId}/configuration.json`,
+          configurationRevision: 1n,
+          projectName: `qcrm-t-${operation.tenantProfileId}`,
+          services: ["agent-runtime", "api", "crm-web", "portal-web", "worker"],
+          ready: false,
+          reconciled: false,
+          failureCode: provisioningFailure,
+        });
       }
       return true;
     }

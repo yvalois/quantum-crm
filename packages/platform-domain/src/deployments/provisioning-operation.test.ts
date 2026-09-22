@@ -8,6 +8,7 @@ import {
   TenantProvisioningService,
   validateProvisioningLeaseClaim,
   validateProvisioningLeaseRenewal,
+  validateCompleteProvisioningContainers,
   type ProvisioningOperationRepository,
 } from "./provisioning-operation.js";
 
@@ -69,6 +70,7 @@ describe("tenant provisioning operation", () => {
       completeSecrets: vi.fn(),
       completeStorage: vi.fn(),
       completeConfiguration: vi.fn(),
+      completeContainers: vi.fn(),
     } satisfies ProvisioningOperationRepository);
     await expect(service.request(command)).resolves.toMatchObject({ tenantVersion: 2n });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING" }));
@@ -138,6 +140,28 @@ describe("tenant provisioning operation", () => {
         expectedVersion: 0n,
       }),
     ).toThrow(new ProvisioningOperationValidationError("expectedVersion"));
+  });
+
+  it("validates the fenced container observation", () => {
+    const valid = validateCompleteProvisioningContainers({
+      operationId: "01995f7e-7b52-7000-8000-000000000401",
+      tenantProfileId: command.tenantProfileId,
+      serverId: command.serverId,
+      releaseId: command.releaseId,
+      workerId: "executor-01",
+      expectedVersion: 2n,
+      attempt: 1,
+      manifestRef: `tenant/${command.tenantProfileId}/configuration.json`,
+      configurationRevision: 1n,
+      projectName: `qcrm-t-${command.tenantProfileId}`,
+      services: ["agent-runtime", "api", "crm-web", "portal-web", "worker"],
+      ready: true,
+      reconciled: false,
+    });
+    expect(valid.services).toEqual(["agent-runtime", "api", "crm-web", "portal-web", "worker"]);
+    expect(() =>
+      validateCompleteProvisioningContainers({ ...valid, projectName: "unsafe" }),
+    ).toThrow(new ProvisioningOperationValidationError("projectName"));
   });
 
   it("evaluates the durable validation snapshot with closed failure codes", () => {

@@ -43,6 +43,7 @@ function repository(overrides: Partial<ProvisioningOperationRepository> = {}) {
     completeSecrets: vi.fn(async () => null),
     completeStorage: vi.fn(async () => null),
     completeConfiguration: vi.fn(async () => null),
+    completeContainers: vi.fn(async () => null),
     ...overrides,
   } satisfies ProvisioningOperationRepository;
 }
@@ -97,5 +98,59 @@ describe("provisioning executor", () => {
 
     await executor.close();
     await expect(execution).resolves.toBeUndefined();
+  });
+
+  it("reconciles ready containers and advances with the observed fence", async () => {
+    const startOperation = hydrateProvisioningOperation({
+      ...operation,
+      currentStep: "START_CONTAINERS",
+    });
+    const claimNext = vi.fn(async () => startOperation);
+    const completeContainers = vi.fn(async () => null);
+    const containerProvision = vi.fn(async () => ({
+      projectName: `qcrm-t-${startOperation.tenantProfileId}`,
+      services: ["agent-runtime", "api", "crm-web", "portal-web", "worker"] as const,
+      ready: true,
+      reconciled: false,
+    }));
+    const executor = new ProvisioningExecutor(
+      repository({ claimNext, completeContainers }),
+      options,
+      undefined,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { provision: containerProvision },
+    );
+
+    await expect(executor.runOnce()).resolves.toBe(true);
+    expect(claimNext).toHaveBeenCalledWith({
+      workerId: options.workerId,
+      leaseDurationSeconds: 60,
+      supportedSteps: [
+        "VALIDATE",
+        "CREATE_DATABASE",
+        "CREATE_SECRETS",
+        "CREATE_STORAGE",
+        "WRITE_CONFIGURATION",
+        "START_CONTAINERS",
+      ],
+    });
+    expect(completeContainers).toHaveBeenCalledWith({
+      operationId: startOperation.id,
+      tenantProfileId: startOperation.tenantProfileId,
+      serverId: startOperation.serverId,
+      releaseId: startOperation.releaseId,
+      workerId: options.workerId,
+      expectedVersion: startOperation.version,
+      attempt: startOperation.attempt,
+      manifestRef: `tenant/${startOperation.tenantProfileId}/configuration.json`,
+      configurationRevision: 1n,
+      projectName: `qcrm-t-${startOperation.tenantProfileId}`,
+      services: ["agent-runtime", "api", "crm-web", "portal-web", "worker"],
+      ready: true,
+      reconciled: false,
+    });
   });
 });
