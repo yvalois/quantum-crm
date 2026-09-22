@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Actualizado: 2026-09-21
+Actualizado: 2026-09-22
 
 Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No sustituye el checklist.
 
@@ -66,6 +66,12 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - PR #19 (`80195ad`) está integrado y añade cobertura de readiness, manifiestos inválidos, concurrencia y `runtime-url` idempotente; todos sus checks están verdes.
 - En el VPS autorizado, `docker compose -f /tmp/qcrm-tenant-runner.yaml config --quiet` pasó con valores sintéticos; no se levantaron contenedores ni se tocaron datos reales.
 - El PR sigue pendiente de merge humano y de la validación de arranque/readiness del perfil piloto.
+
+## Preparación de ADM-04-i
+
+- La auditoría del 2026-09-22 confirmó que Caddy solo tiene hosts estáticos; no se encontró persistencia de rutas por perfil ni handler `CONFIGURE_HTTPS`.
+- [ADR-0019](../06-decisiones/ADR-0019-rutas-https-por-perfil.md) fija el adaptador privado y tipado, snapshot atómico, generación observada y verificación externa antes de `ACTIVE`.
+- La ficha [ADM-04-i](../02-plan/tareas/ADM-04-i-rutas-https-por-perfil.md) queda preparada para implementación; todavía no se marca ninguna casilla funcional de `ADM-04`, `OPS-05` u `OPS-14`.
 
 ## Decisiones pendientes
 
