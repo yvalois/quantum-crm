@@ -109,6 +109,7 @@ describe("process configuration", () => {
         defaultPort: 3002,
         database: { target: "platform", requiresTenant: false },
         oidc: { provider: "keycloak", boundary: "platform" },
+        requiresGithubActionsReleasePublisher: true,
       },
       worker: {
         serviceName: "worker",
@@ -212,6 +213,12 @@ describe("process configuration", () => {
         issuer: "http://keycloak:8080/realms/quantum-platform",
         audience: "quantum-admin-api",
         requiredAcr: "2",
+      },
+      githubActionsReleasePublisher: {
+        audience: "quantum-release-publisher",
+        repository: "example/quantum-crm",
+        repositoryId: "1",
+        repositoryOwnerId: "1",
       },
     });
   });

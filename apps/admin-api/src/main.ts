@@ -2,8 +2,16 @@ import "reflect-metadata";
 
 import type { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { createKeycloakOidcAccessTokenVerifier } from "@quantum-crm/auth";
-import { loadServiceConfig, requireDatabaseConfig, requireOidcConfig } from "@quantum-crm/config";
+import {
+  createGithubActionsReleasePublisherVerifier,
+  createKeycloakOidcAccessTokenVerifier,
+} from "@quantum-crm/auth";
+import {
+  loadServiceConfig,
+  requireDatabaseConfig,
+  requireGithubActionsReleasePublisherConfig,
+  requireOidcConfig,
+} from "@quantum-crm/config";
 import { createPlatformPostgresDatabase } from "@quantum-crm/database";
 import { platformPermissions } from "@quantum-crm/platform-domain";
 
@@ -17,6 +25,9 @@ async function bootstrap(): Promise<void> {
   );
   const oidc = requireOidcConfig(config);
   const oidcAccessTokenVerifier = createKeycloakOidcAccessTokenVerifier(oidc);
+  const githubActionsReleasePublisherVerifier = createGithubActionsReleasePublisherVerifier(
+    requireGithubActionsReleasePublisherConfig(config),
+  );
   let application: INestApplication | undefined;
 
   try {
@@ -26,7 +37,7 @@ async function bootstrap(): Promise<void> {
         issuer: oidc.issuer,
         audience: oidc.audience,
         allowedPermissions: platformPermissions,
-      }),
+      }, githubActionsReleasePublisherVerifier),
       {
         abortOnError: true,
         bufferLogs: true,

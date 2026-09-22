@@ -65,6 +65,26 @@
 	}
 }
 
+# Solo admin-api alcanza este nombre por una red Docker interna dedicada. El
+# handler acepta exactamente el JWKS de GitHub Actions y Caddy fija el destino,
+# Host y SNI; ninguna solicitud controla una URL, host o path de salida.
+http://github-actions-oidc:8081 {
+
+	@github_actions_jwks path /.well-known/jwks
+	handle @github_actions_jwks {
+		reverse_proxy https://token.actions.githubusercontent.com {
+			header_up Host token.actions.githubusercontent.com
+			transport http {
+				tls_server_name token.actions.githubusercontent.com
+				dial_timeout 3s
+				response_header_timeout 5s
+			}
+		}
+	}
+
+	respond "Not Found" 404
+}
+
 # El glob vacio es valido. deploy-host genera exclusivamente bloques por UUID
 # en este directorio montado de solo lectura y recarga el conjunto completo.
 import tenant-routes/*.caddy

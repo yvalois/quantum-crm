@@ -18,6 +18,17 @@ export {
 } from "./keycloak-oidc-verifier.js";
 
 export const OIDC_ACCESS_TOKEN_VERIFIER = Symbol("OIDC_ACCESS_TOKEN_VERIFIER");
+export const GITHUB_ACTIONS_RELEASE_PUBLISHER_VERIFIER = Symbol(
+  "GITHUB_ACTIONS_RELEASE_PUBLISHER_VERIFIER",
+);
+
+export {
+  createGithubActionsReleasePublisherVerifier,
+  GithubActionsReleasePublisherVerificationError,
+  type GithubActionsReleasePublisherVerifier,
+  type GithubActionsReleasePublisherVerifierOptions,
+  type VerifiedGithubActionsReleasePublisher,
+} from "./github-actions-release-publisher-verifier.js";
 
 export {
   KeycloakPlatformOidcProvider,

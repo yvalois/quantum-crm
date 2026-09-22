@@ -64,6 +64,10 @@ services:
       QCRM_OIDC_AUDIENCE: "${QCRM_PLATFORM_OIDC_AUDIENCE:?set QCRM_PLATFORM_OIDC_AUDIENCE}"
       QCRM_OIDC_REQUIRED_ACR: "${QCRM_PLATFORM_OIDC_REQUIRED_ACR:?set QCRM_PLATFORM_OIDC_REQUIRED_ACR}"
       QCRM_OIDC_MAX_TOKEN_AGE_SECONDS: "${QCRM_PLATFORM_OIDC_MAX_TOKEN_AGE_SECONDS:-300}"
+      QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE: "${QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE:?set QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE}"
+      QCRM_GITHUB_ACTIONS_REPOSITORY: "${QCRM_GITHUB_ACTIONS_REPOSITORY:?set QCRM_GITHUB_ACTIONS_REPOSITORY}"
+      QCRM_GITHUB_ACTIONS_REPOSITORY_ID: "${QCRM_GITHUB_ACTIONS_REPOSITORY_ID:?set QCRM_GITHUB_ACTIONS_REPOSITORY_ID}"
+      QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID: "${QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID:?set QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID}"
     secrets:
       - source: platform-database-url
         target: qcrm_database_url
@@ -79,7 +83,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [platform-internal, platform-database, platform-oidc]
+    networks: [platform-internal, platform-database, platform-oidc, platform-github-actions-oidc]
 
   deploy-executor:
     <<: *service-defaults
@@ -148,6 +152,9 @@ networks:
   platform-oidc:
     external: true
     name: "${QCRM_PLATFORM_OIDC_NETWORK:?set QCRM_PLATFORM_OIDC_NETWORK}"
+  platform-github-actions-oidc:
+    external: true
+    name: "${QCRM_PLATFORM_GITHUB_ACTIONS_OIDC_NETWORK:?set QCRM_PLATFORM_GITHUB_ACTIONS_OIDC_NETWORK}"
   platform-storage:
     external: true
     name: "${QCRM_PLATFORM_STORAGE_NETWORK:?set QCRM_PLATFORM_STORAGE_NETWORK}"

@@ -179,6 +179,20 @@ beforeAll(async () => {
           "tenants:manage",
         ],
       },
+      {
+        verify: vi.fn(async () => ({
+          verification: "github-actions-release-publisher/v1",
+          repository: "yvalois/quantum-crm",
+          repositoryId: "1378875885",
+          repositoryOwnerId: "90980150",
+          workflowRef:
+            "yvalois/quantum-crm/.github/workflows/release-candidate.yml@refs/heads/main",
+          commitSha: platformRelease.commitSha,
+          runId: "35759155797",
+          runAttempt: "1",
+          jti: "release-publisher-test",
+        })),
+      },
     ),
     { abortOnError: false, logger: false },
   );
@@ -356,6 +370,39 @@ describe("admin API authentication boundary", () => {
     await expect(validated.json()).resolves.toMatchObject({
       data: { status: "VALIDATED" },
     });
+  });
+
+  it("accepts only the isolated release publisher for a matching candidate", async () => {
+    const response = await fetch(`${origin}/api/v1/release-candidates`, {
+      method: "POST",
+      headers: { authorization: "Bearer github.actions.token", "content-type": "application/json" },
+      body: JSON.stringify({
+        id: platformRelease.id,
+        semanticVersion: platformRelease.semanticVersion,
+        commitSha: platformRelease.commitSha,
+        releaseNotes: platformRelease.releaseNotes,
+        compatibility: platformRelease.compatibility,
+        artifacts: platformRelease.artifacts,
+      }),
+    });
+    expect(response.status).toBe(201);
+    expect(response.headers.get("etag")).toBe('"1"');
+
+    const mismatchedCommit = await fetch(`${origin}/api/v1/release-candidates`, {
+      method: "POST",
+      headers: { authorization: "Bearer github.actions.token", "content-type": "application/json" },
+      body: JSON.stringify({
+        id: platformRelease.id,
+        semanticVersion: platformRelease.semanticVersion,
+        commitSha: "b".repeat(40),
+        releaseNotes: platformRelease.releaseNotes,
+        compatibility: platformRelease.compatibility,
+        artifacts: platformRelease.artifacts,
+      }),
+    });
+    expect(mismatchedCommit.status).toBe(400);
+
+    expect((await fetch(`${origin}/api/v1/releases`)).status).toBe(401);
   });
 
   it("accepts a typed idempotent provisioning request", async () => {

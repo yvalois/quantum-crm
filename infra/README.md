@@ -17,7 +17,7 @@ La fundacion persistente separa el ciclo de vida de PostgreSQL, Redis y Keycloak
 
 ## Entrada HTTPS
 
-`edge.yaml` publica exclusivamente Caddy en 80/443 y persiste su estado ACME. Los sitios estaticos preexistentes se montan desde `/var/www` en solo lectura; `admin-web` y Keycloak se alcanzan por `platform-edge`. La red interna `platform-oidc` une solo Caddy y `admin-api` y registra el host publico de identidad como alias de Caddy, de modo que la API obtiene JWKS por HTTPS con el issuer exacto sin recibir acceso general a Internet. La imagen personalizada conserva la version oficial fijada por digest y ejecuta Caddy sin privilegios, con solo `NET_BIND_SERVICE`.
+`edge.yaml` publica exclusivamente Caddy en 80/443 y persiste su estado ACME. Los sitios estaticos preexistentes se montan desde `/var/www` en solo lectura; `admin-web` y Keycloak se alcanzan por `platform-edge`. La red interna `platform-oidc` une solo Caddy y `admin-api` y registra el host publico de identidad como alias de Caddy, de modo que la API obtiene JWKS por HTTPS con el issuer exacto sin recibir acceso general a Internet. La red distinta `platform-github-actions-oidc` une solo Caddy y `admin-api`: Caddy resuelve unicamente `/.well-known/jwks` contra el host fijo de GitHub Actions, con Host y SNI fijados. La imagen personalizada conserva la version oficial fijada por digest y ejecuta Caddy sin privilegios, con solo `NET_BIND_SERVICE`.
 
 La primera migracion desde Nginx es una operacion excepcional de bootstrap. `infra/caddy/migrate-from-nginx.sh` valida DNS, Nginx, Compose y Caddy antes de liberar los puertos; si falla cualquier comprobacion posterior, detiene Caddy y reactiva Nginx y Certbot. `infra/caddy/rollback-to-nginx.sh` permite la recuperacion explicita. Ambos requieren un checkout inmutable bajo `/opt/quantum/builds/` y un archivo de configuracion no secreto bajo `/opt/quantum/config/`. Los cambios posteriores de ingreso pertenecen al flujo tipado de `deploy-executor`.
 
@@ -132,6 +132,11 @@ QCRM_PLATFORM_OIDC_ISSUER=https://identity.example.test/realms/quantum-platform
 QCRM_PLATFORM_OIDC_AUDIENCE=quantum-admin-api
 QCRM_PLATFORM_OIDC_REQUIRED_ACR=2
 QCRM_PLATFORM_OIDC_MAX_TOKEN_AGE_SECONDS=300
+QCRM_PLATFORM_GITHUB_ACTIONS_OIDC_NETWORK=qcrm-platform-github-actions-oidc
+QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE=quantum-release-publisher
+QCRM_GITHUB_ACTIONS_REPOSITORY=example/quantum-crm
+QCRM_GITHUB_ACTIONS_REPOSITORY_ID=1
+QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID=1
 ```
 
 La validacion real de roles usa `tests/integration/fixtures/postgres-bootstrap.sql` exclusivamente contra PostgreSQL 18 desechable en el VPS autorizado. Las contrasenas de ese fixture son marcadores sinteticos y no se reutilizan en ningun entorno persistente.

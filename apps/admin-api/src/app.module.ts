@@ -1,16 +1,23 @@
 import { type DynamicModule, Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
-import { OIDC_ACCESS_TOKEN_VERIFIER, type OidcAccessTokenVerifier } from "@quantum-crm/auth";
+import {
+  GITHUB_ACTIONS_RELEASE_PUBLISHER_VERIFIER,
+  OIDC_ACCESS_TOKEN_VERIFIER,
+  type GithubActionsReleasePublisherVerifier,
+  type OidcAccessTokenVerifier,
+} from "@quantum-crm/auth";
 import type { PlatformAuthPolicy } from "@quantum-crm/auth";
 import { POSTGRES_DATABASE, type PlatformPostgresDatabase } from "@quantum-crm/database";
 
 import { HealthController } from "./health.controller.js";
+import { ReleaseCandidatePublisherController } from "./release-candidate-publisher.controller.js";
 import { OperatorsController } from "./operators.controller.js";
 import {
   PLATFORM_AUTH_POLICY,
   PLATFORM_MEMBERSHIPS,
   PlatformAuthenticationGuard,
   PlatformAuthorizationGuard,
+  GithubActionsReleasePublisherGuard,
 } from "./platform-security.js";
 import { ProblemDetailsFilter } from "./problem-details.filter.js";
 import { PLATFORM_RELEASE_SERVICE, ReleasesController } from "./releases.controller.js";
@@ -36,6 +43,7 @@ export class AppModule {
     database: PlatformPostgresDatabase,
     oidcAccessTokenVerifier: OidcAccessTokenVerifier,
     authPolicy: PlatformAuthPolicy,
+    githubActionsReleasePublisherVerifier: GithubActionsReleasePublisherVerifier,
   ): DynamicModule {
     return {
       module: AppModule,
@@ -43,12 +51,17 @@ export class AppModule {
         HealthController,
         InfrastructureServersController,
         OperatorsController,
+        ReleaseCandidatePublisherController,
         ReleasesController,
         TenantProfilesController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: oidcAccessTokenVerifier },
+        {
+          provide: GITHUB_ACTIONS_RELEASE_PUBLISHER_VERIFIER,
+          useValue: githubActionsReleasePublisherVerifier,
+        },
         { provide: PLATFORM_MEMBERSHIPS, useValue: database.memberships },
         { provide: PLATFORM_AUTH_POLICY, useValue: authPolicy },
         {
@@ -69,6 +82,7 @@ export class AppModule {
         },
         { provide: APP_GUARD, useClass: PlatformAuthenticationGuard },
         { provide: APP_GUARD, useClass: PlatformAuthorizationGuard },
+        GithubActionsReleasePublisherGuard,
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
       ],
     };

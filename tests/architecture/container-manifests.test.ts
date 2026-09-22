@@ -180,12 +180,18 @@ describe("container manifests", () => {
     expect(edge).toContain("/var/www/mr-business:/srv/mr-business:ro");
     expect(edge).toContain("edge-caddy-data:/data");
     expect(edge).toContain("platform-oidc:");
+    expect(edge).toContain("platform-github-actions-oidc:");
     expect(edge).toContain("QCRM_IDENTITY_HOST");
     expect(serviceBlock(platform, "admin-api")).toContain("platform-oidc");
+    expect(serviceBlock(platform, "admin-api")).toContain("platform-github-actions-oidc");
+    expect(serviceBlock(platform, "admin-api")).toContain("QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE");
     expect(dockerfile).toContain("caddy:2.11.4-alpine@sha256:");
     expect(dockerfile).toContain("USER caddy-runtime");
     expect(caddyfile).toContain("reverse_proxy admin-web:3000");
     expect(caddyfile).toContain("reverse_proxy platform-keycloak:8080");
+    expect(caddyfile).toContain("http://github-actions-oidc:8081");
+    expect(caddyfile).toContain("https://token.actions.githubusercontent.com");
+    expect(caddyfile).toContain("@github_actions_jwks path /.well-known/jwks");
     expect(caddyfile).toContain("root * /srv/quantum");
     expect(caddyfile).toContain("root * /srv/mr-business");
     expect(caddyfile).not.toContain("tls_insecure_skip_verify");
