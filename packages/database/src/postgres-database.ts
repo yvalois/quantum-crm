@@ -75,7 +75,7 @@ import {
 } from "@quantum-crm/platform-domain";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
-interface PostgresPool {
+export interface PostgresPool {
   readonly connect: () => Promise<PoolClient>;
   readonly end: () => Promise<void>;
   readonly on: (event: "error", listener: (error: Error) => void) => unknown;
@@ -560,7 +560,11 @@ function platformStatus(value: string): PlatformMembershipRecord["status"] {
   throw new DatabaseUnavailableError();
 }
 
-function createPool(config: DatabaseConfig, serviceName: string, poolFactory: PostgresPoolFactory) {
+export function createPostgresPool(
+  config: DatabaseConfig,
+  serviceName: string,
+  poolFactory: PostgresPoolFactory = defaultPoolFactory,
+): PostgresPool {
   return poolFactory({
     connectionString: config.connectionUrl.expose(),
     application_name: `quantum-crm:${serviceName}`,
@@ -580,7 +584,10 @@ export function createPostgresDatabase(
   serviceName: string,
   poolFactory: PostgresPoolFactory = defaultPoolFactory,
 ): PostgresDatabase {
-  const pool = createPool(config, serviceName, poolFactory);
+  return createPostgresDatabaseFromPool(createPostgresPool(config, serviceName, poolFactory));
+}
+
+export function createPostgresDatabaseFromPool(pool: PostgresPool): PostgresDatabase {
   let initialized = false;
   let closed = false;
 
@@ -1864,8 +1871,8 @@ export function createPlatformPostgresDatabase(
     throw new DatabaseUnavailableError();
   }
 
-  const pool = createPool(config, serviceName, poolFactory);
-  const database = createPostgresDatabase(config, serviceName, () => pool);
+  const pool = createPostgresPool(config, serviceName, poolFactory);
+  const database = createPostgresDatabaseFromPool(pool);
   const memberships: PlatformMembershipRepository = Object.freeze({
     findByOidcSubject: async (oidcSubject: string): Promise<PlatformMembershipRecord | null> => {
       try {

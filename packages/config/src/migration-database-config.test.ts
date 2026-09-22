@@ -37,6 +37,19 @@ describe("migration database configuration", () => {
     expect(Object.isFrozen(config)).toBe(true);
   });
 
+  it("keeps CRM migrations in their own history", () => {
+    const config = parseMigrationDatabaseConfig(
+      "crm",
+      {
+        QCRM_ENV: "production",
+        QCRM_MIGRATION_DATABASE_URL_FILE: expectedMigrationDatabaseSecretPath,
+      },
+      fileSystem(url.replace("/platform", "/qcrm_t_01995f7e7b5270008000000000000201")),
+    );
+
+    expect(config.history).toBe("crm");
+  });
+
   it.each([
     [{}, ["QCRM_ENV", "QCRM_MIGRATION_DATABASE_URL_FILE"]],
     [

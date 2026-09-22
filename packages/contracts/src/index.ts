@@ -6,6 +6,25 @@ export {
   type HealthStatus,
 } from "./health/v1/health.js";
 export {
+  CreateMemberInvitationSchema,
+  InvitationResponseSchema,
+  InvitationSchema,
+  InitialRoleCodeSchema,
+  MemberListQuerySchema,
+  MemberListResponseSchema,
+  MemberResponseSchema,
+  MemberSchema,
+  MemberStatusSchema,
+  UpdateMemberSchema,
+  type CreateMemberInvitation,
+  type Invitation,
+  type InitialRoleCode,
+  type Member,
+  type MemberListQuery,
+  type MemberListResponse,
+  type UpdateMember,
+} from "./iam/v1/member.js";
+export {
   createPlatformOperatorSelf,
   PlatformOperatorSelfSchema,
   PlatformPermissionSchema,

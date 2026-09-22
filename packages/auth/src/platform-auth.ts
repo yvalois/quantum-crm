@@ -1,23 +1,13 @@
 import type { SecretValue } from "@quantum-crm/config";
 
+import type { OidcAccessTokenVerifier, VerifiedOidcIdentity } from "./oidc-access-token.js";
+
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const subjectPattern = /^[!-~]{1,255}$/u;
 const correlationIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
 const permissionPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/u;
 
-export interface VerifiedOidcIdentity {
-  readonly verification: "oidc-access-token/v1";
-  readonly subject: string;
-  readonly issuer: string;
-  readonly audiences: readonly string[];
-  readonly principalType: "human" | "service" | "agent" | "automation";
-  readonly multiFactorAuthenticated: boolean;
-  readonly authenticatedAt: Date;
-}
-
-export interface OidcAccessTokenVerifier {
-  verifyAccessToken(accessToken: SecretValue): Promise<VerifiedOidcIdentity>;
-}
+export type { OidcAccessTokenVerifier, VerifiedOidcIdentity } from "./oidc-access-token.js";
 
 export interface PlatformMembershipSnapshot {
   readonly id: string;
