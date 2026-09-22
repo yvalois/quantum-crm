@@ -99,6 +99,8 @@ Para trabajos pendientes se propone un registro duradero en PostgreSQL y un outb
 
 ## 4. HTTPS temporal con nip.io
 
+La reconciliación de rutas por perfil seguirá el contrato de [ADR-0019](../06-decisiones/ADR-0019-rutas-https-por-perfil.md): el ejecutor no edita Caddyfile ni usa su API; solicita una operación tipada al adaptador privado y `VERIFY` confirma desde fuera del VPS la resolución, el certificado y el tráfico antes de activar el perfil.
+
 **nip.io resuelve DNS; Caddy obtiene y renueva los certificados HTTPS.** El hostname contiene la IP pública del VPS. El servicio nip.io permite certificados para hosts individuales y actualmente no ofrece certificados wildcard. Se utilizarán nombres explícitos por entorno. [Documentación de nip.io](https://nip.io/)
 
 | Entorno        | Patrón de hostname, pendiente de sustituir la IP |

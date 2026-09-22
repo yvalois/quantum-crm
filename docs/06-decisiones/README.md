@@ -25,6 +25,8 @@ Los registros ADR explican decisiones estructurales y evitan discutir o implemen
 | [0017](ADR-0017-secretos-perfil.md) | Secretos idempotentes de base por perfil | aceptado | 2026-09-21 |
 | [0018](ADR-0018-ejecucion-restringida-compose-perfil.md) | Ejecución restringida de Compose por perfil | aceptado | 2026-09-21 |
 
+| [0019](ADR-0019-rutas-https-por-perfil.md) | Rutas HTTPS por perfil | aceptado | 2026-09-22 |
+
 ## Convencion
 
 - Nombre: `ADR-0001-titulo-breve.md`.

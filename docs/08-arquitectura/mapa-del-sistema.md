@@ -417,6 +417,7 @@ La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones
 - `ADR-0013`: archivos y almacenamiento de objetos.
 - `ADR-0014`: tres frontends y sistema visual.
 - `ADR-0015`: respaldo, restauracion y continuidad.
+- `ADR-0019`: rutas HTTPS por perfil.
 
 ## Aspectos pendientes
 
