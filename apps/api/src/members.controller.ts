@@ -27,7 +27,11 @@ export class MembersController {
         memberId: context.principal.id,
         permissions: context.permissions as readonly IamPermission[],
       },
-      criteria,
+      {
+        limit: criteria.limit,
+        ...(criteria.cursor === undefined ? {} : { cursor: criteria.cursor }),
+        ...(criteria.status === undefined ? {} : { status: criteria.status }),
+      },
     );
     return MemberListResponseSchema.parse({
       data: result.members.map((member) => ({
