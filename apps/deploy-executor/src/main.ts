@@ -49,6 +49,7 @@ async function bootstrap(): Promise<void> {
   const configurationProvisioner = createTenantConfigurationProvisioner({
     configurationDirectory: config.tenantConfigurationDirectory,
     storageEndpoint: config.storage.endpoint,
+    releaseRepository: database.releases,
   });
   const containerProvisioner = createTenantContainerProvisioner({
     socketPath: config.deployHostSocketPath,
