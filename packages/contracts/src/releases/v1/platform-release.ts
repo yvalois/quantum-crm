@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const PlatformReleaseStatusSchema = z.enum(["CANDIDATE", "VALIDATED", "RETIRED"]);
-export const PlatformReleaseArtifactNameSchema = z.enum([
+export const PlatformReleaseArtifactNames = [
   "CRM_WEB",
   "PORTAL_WEB",
   "ADMIN_WEB",
@@ -10,7 +10,9 @@ export const PlatformReleaseArtifactNameSchema = z.enum([
   "WORKER",
   "DEPLOY_EXECUTOR",
   "AGENT_RUNTIME",
-]);
+] as const;
+
+export const PlatformReleaseArtifactNameSchema = z.enum(PlatformReleaseArtifactNames);
 
 export const PlatformReleaseArtifactSchema = z
   .object({

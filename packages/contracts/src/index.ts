@@ -57,6 +57,7 @@ export {
 } from "./infrastructure/v1/infrastructure-server.js";
 export {
   CreatePlatformReleaseSchema,
+  PlatformReleaseArtifactNames,
   PlatformReleaseArtifactNameSchema,
   PlatformReleaseArtifactSchema,
   PlatformReleaseCompatibilitySchema,
@@ -69,3 +70,11 @@ export {
   type CreatePlatformRelease,
   type PlatformReleaseContract,
 } from "./releases/v1/platform-release.js";
+export {
+  createReleaseManifest,
+  ReleaseManifestArtifactSchema,
+  ReleaseManifestScanSchema,
+  ReleaseManifestSchema,
+  serializeReleaseManifest,
+  type ReleaseManifest,
+} from "./releases/v1/release-manifest.js";

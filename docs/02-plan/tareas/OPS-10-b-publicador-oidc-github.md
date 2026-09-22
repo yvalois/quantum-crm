@@ -104,8 +104,8 @@ Tras publicar los ocho digests de un commit integrado de `main`, solo el job `re
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: ejecución GHCR 35759155797 aprobada, ocho jobs publicados por `c7b498db75e5f460948a7acd6e802e9de890736a`; pendientes pruebas del incremento.
-- Documentación actualizada: ficha y estado oficial en esta rama.
+- Archivos, commits o PR: PR #26 integrada como `fd767e99fd577c12fe53f750baf02d55bafec288`; implementación en `7ce100167c209d437194c4b38d9d9735435a2901`.
+- Comandos y resultados: ejecución GHCR 35759155797 aprobada, ocho jobs publicados por `c7b498db75e5f460948a7acd6e802e9de890736a`; matriz de PR 35762747794 aprobó contratos, estático, unitarias, integración, build, dependencias y secretos.
+- Documentación actualizada: ficha y estado oficial actualizados al iniciar `OPS-10-c`.
 - Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: desplegar por digest el `admin-api` que contenga el verificador antes de que GitHub pueda registrar candidatas reales en el VPS.
+- Pendientes o decisiones nuevas: el incremento quedó integrado; `OPS-10-c` debe producir el manifiesto completo antes de desplegar por digest el `admin-api` que contiene el verificador y registrar candidatas reales en el VPS.
