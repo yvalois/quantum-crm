@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { ConfigurationError } from "./configuration-error.js";
-import { parseGithubActionsReleasePublisherConfig } from "./github-actions-release-publisher-config.js";
+import {
+  parseGithubActionsReleasePublisherConfig,
+} from "./github-actions-release-publisher-config.js";
 
 const environment = {
   QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE: "quantum-release-publisher",

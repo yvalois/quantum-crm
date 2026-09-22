@@ -49,6 +49,15 @@ function requiredString(value: unknown, pattern: RegExp): string {
 
 const opaqueClaimPattern = /^[A-Za-z0-9._:-]{1,255}$/u;
 const shaPattern = /^[0-9a-f]{40}$/u;
+const workflowRefPattern = new RegExp(
+  [
+    "^",
+    "[a-z0-9][a-z0-9_.-]{0,38}/",
+    "[a-z0-9][a-z0-9_.-]{0,99}/",
+    "\\.github/workflows/release-candidate\\.yml@refs/heads/main$",
+  ].join(""),
+  "u",
+);
 
 export function createGithubActionsReleasePublisherVerifier(
   config: GithubActionsReleasePublisherConfig,
@@ -107,13 +116,16 @@ export function createGithubActionsReleasePublisherVerifier(
           /^[a-z0-9][a-z0-9_.-]{0,38}\/[a-z0-9][a-z0-9_.-]{0,99}$/u,
         ).toLowerCase();
         const repositoryId = requiredString(payload.repository_id, /^[1-9][0-9]{0,19}$/u);
-        const repositoryOwnerId = requiredString(payload.repository_owner_id, /^[1-9][0-9]{0,19}$/u);
+        const repositoryOwnerId = requiredString(
+          payload.repository_owner_id,
+          /^[1-9][0-9]{0,19}$/u,
+        );
         const visibility = requiredString(payload.repository_visibility, /^private$/u);
         const ref = requiredString(payload.ref, /^refs\/heads\/main$/u);
         const eventName = requiredString(payload.event_name, /^workflow_run$/u);
         const workflowRef = requiredString(
           payload.workflow_ref,
-          /^[a-z0-9][a-z0-9_.-]{0,38}\/[a-z0-9][a-z0-9_.-]{0,99}\/\.github\/workflows\/release-candidate\.yml@refs\/heads\/main$/u,
+          workflowRefPattern,
         ).toLowerCase();
         const commitSha = requiredString(payload.sha, shaPattern);
         const runId = requiredString(payload.run_id, opaqueClaimPattern);

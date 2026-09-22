@@ -62,7 +62,8 @@ function sameRelease(
     left.compatibility.configurationSchemaVersion ===
       right.compatibility.configurationSchemaVersion &&
     left.compatibility.agentContractVersion === right.compatibility.agentContractVersion &&
-    left.compatibility.databaseMigrationRequired === right.compatibility.databaseMigrationRequired &&
+    left.compatibility.databaseMigrationRequired ===
+      right.compatibility.databaseMigrationRequired &&
     left.compatibility.minimumSourceVersion === right.compatibility.minimumSourceVersion &&
     right.artifacts.every((artifact) => leftArtifacts.get(artifact.name) === artifact.digest)
   );
@@ -89,7 +90,17 @@ export class ReleaseCandidatePublisherController {
     }
 
     try {
-      const release = await this.releases.create(parsed.data);
+      const release = await this.releases.create({
+        ...parsed.data,
+        compatibility: {
+          configurationSchemaVersion: parsed.data.compatibility.configurationSchemaVersion,
+          agentContractVersion: parsed.data.compatibility.agentContractVersion,
+          databaseMigrationRequired: parsed.data.compatibility.databaseMigrationRequired,
+          ...(parsed.data.compatibility.minimumSourceVersion
+            ? { minimumSourceVersion: parsed.data.compatibility.minimumSourceVersion }
+            : {}),
+        },
+      });
       response.status(201);
       response.setHeader("ETag", `"${release.version.toString()}"`);
       response.setHeader("Location", `/api/v1/releases/${release.id}`);
