@@ -72,6 +72,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - La auditoría del 2026-09-22 confirmó que Caddy solo tiene hosts estáticos; no se encontró persistencia de rutas por perfil ni handler `CONFIGURE_HTTPS`.
 - [ADR-0019](../06-decisiones/ADR-0019-rutas-https-por-perfil.md) fija el adaptador privado y tipado, snapshot atómico, generación observada y verificación externa antes de `ACTIVE`.
 - La ficha [ADM-04-i](../02-plan/tareas/ADM-04-i-rutas-https-por-perfil.md) queda preparada para implementación; todavía no se marca ninguna casilla funcional de `ADM-04`, `OPS-05` u `OPS-14`.
+- El primer bloque de `ADM-04-i` añade el contrato público y los validadores de hostname, red y upstreams; el adaptador Caddy y la persistencia siguen pendientes.
 
 ## Decisiones pendientes
 

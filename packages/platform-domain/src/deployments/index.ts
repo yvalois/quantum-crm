@@ -69,3 +69,18 @@ export {
   type TenantStorageSecretKind,
   type TenantStorageSecretReference,
 } from "./provisioning-operation.js";
+
+export {
+  tenantHttpsEdgeNetworkName,
+  tenantHttpsHostname,
+  tenantHttpsRouteStatuses,
+  tenantHttpsUpstreamServiceNames,
+  TenantHttpsRouteValidationError,
+  validateTenantHttpsRouteProvisioningCommand,
+  type TenantHttpsRouteIdentity,
+  type TenantHttpsRouteProvisioningCommand,
+  type TenantHttpsRouteProvisioningResult,
+  type TenantHttpsRouteProvisioner,
+  type TenantHttpsRouteStatus,
+  type TenantHttpsUpstreamServiceName,
+} from "./tenant-https-route.js";
