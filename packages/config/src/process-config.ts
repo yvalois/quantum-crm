@@ -31,6 +31,15 @@ const processEnvironmentKeys = [
 const tenantSecretEnvironmentKey = "QCRM_TENANT_SECRET_DIRECTORY" as const;
 const tenantConfigurationEnvironmentKey = "QCRM_TENANT_CONFIGURATION_DIRECTORY" as const;
 const deployHostSocketEnvironmentKey = "QCRM_DEPLOY_HOST_SOCKET_PATH" as const;
+const deployHostConfigurationRootEnvironmentKey = "QCRM_DEPLOY_HOST_CONFIGURATION_ROOT" as const;
+const deployHostComposeTemplateEnvironmentKey = "QCRM_DEPLOY_HOST_COMPOSE_TEMPLATE" as const;
+const deployHostImageRegistryEnvironmentKey = "QCRM_DEPLOY_HOST_IMAGE_REGISTRY" as const;
+const deployHostTenantEdgeNetworkEnvironmentKey = "QCRM_DEPLOY_HOST_TENANT_EDGE_NETWORK" as const;
+const deployHostPlatformStorageNetworkEnvironmentKey =
+  "QCRM_DEPLOY_HOST_PLATFORM_STORAGE_NETWORK" as const;
+const deployHostPlatformDatabaseNetworkEnvironmentKey =
+  "QCRM_DEPLOY_HOST_PLATFORM_DATABASE_NETWORK" as const;
+const deployHostDatabaseSecretRootEnvironmentKey = "QCRM_DEPLOY_HOST_DATABASE_SECRET_ROOT" as const;
 const safeDefaultEnvironments = new Set<QcrmEnvironment>(["local", "test"]);
 const placeholderPattern = /^(?:change[_-]?me|example|placeholder|todo)$/i;
 
@@ -71,6 +80,7 @@ export const processDefinitions = Object.freeze({
     defaultHost: "127.0.0.1",
     defaultPort: 3200,
     requiresDeployHostSocket: true,
+    requiresDeployHostComposeRuntime: true,
   }),
   "agent-runtime": Object.freeze({
     serviceName: "agent-runtime",
@@ -91,6 +101,7 @@ export interface ProcessDefinition {
   readonly requiresTenantConfigurationDirectory?: boolean;
   readonly requiresStorageAdmin?: boolean;
   readonly requiresDeployHostSocket?: boolean;
+  readonly requiresDeployHostComposeRuntime?: boolean;
 }
 
 export interface ProcessConfig {
@@ -105,6 +116,13 @@ export interface ProcessConfig {
   readonly tenantSecretDirectory?: string;
   readonly tenantConfigurationDirectory?: string;
   readonly deployHostSocketPath?: string;
+  readonly deployHostConfigurationRoot?: string;
+  readonly deployHostComposeTemplate?: string;
+  readonly deployHostImageRegistry?: string;
+  readonly deployHostTenantEdgeNetwork?: string;
+  readonly deployHostPlatformStorageNetwork?: string;
+  readonly deployHostPlatformDatabaseNetwork?: string;
+  readonly deployHostDatabaseSecretRoot?: string;
   readonly storage?: StorageConfig;
 }
 
@@ -158,6 +176,17 @@ export function parseProcessConfig(
     ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
     ...(definition.requiresDeployHostSocket ? [deployHostSocketEnvironmentKey] : []),
+    ...(definition.requiresDeployHostComposeRuntime
+      ? [
+          deployHostConfigurationRootEnvironmentKey,
+          deployHostComposeTemplateEnvironmentKey,
+          deployHostImageRegistryEnvironmentKey,
+          deployHostTenantEdgeNetworkEnvironmentKey,
+          deployHostPlatformStorageNetworkEnvironmentKey,
+          deployHostPlatformDatabaseNetworkEnvironmentKey,
+          deployHostDatabaseSecretRootEnvironmentKey,
+        ]
+      : []),
   ]);
   const unknownKeys = Object.keys(environment)
     .filter((key) => key.startsWith("QCRM_") && !allowedKeys.has(key))
@@ -260,6 +289,64 @@ export function parseProcessConfig(
     deployHostSocketPath = configured;
   }
 
+  let deployHostConfigurationRoot: string | undefined;
+  let deployHostComposeTemplate: string | undefined;
+  let deployHostImageRegistry: string | undefined;
+  let deployHostTenantEdgeNetwork: string | undefined;
+  let deployHostPlatformStorageNetwork: string | undefined;
+  let deployHostPlatformDatabaseNetwork: string | undefined;
+  let deployHostDatabaseSecretRoot: string | undefined;
+  if (definition.requiresDeployHostComposeRuntime) {
+    const configuredPath = (key: string, fallback: string | undefined): string => {
+      const value = environment[key] ?? fallback;
+      if (
+        !value ||
+        !value.startsWith("/") ||
+        value.length > 255 ||
+        /[\0\r\n]/u.test(value) ||
+        value === "/"
+      ) {
+        throw new ConfigurationError(definition.serviceName, [key]);
+      }
+      return value;
+    };
+    const configuredName = (key: string, fallback: string | undefined): string => {
+      const value = environment[key] ?? fallback;
+      if (!value || value.length > 255 || !/^[A-Za-z0-9][A-Za-z0-9./_-]*$/u.test(value)) {
+        throw new ConfigurationError(definition.serviceName, [key]);
+      }
+      return value;
+    };
+    deployHostConfigurationRoot = configuredPath(
+      deployHostConfigurationRootEnvironmentKey,
+      allowSafeDefaults ? "/tmp/qcrm-tenant-configuration" : undefined,
+    );
+    deployHostComposeTemplate = configuredPath(
+      deployHostComposeTemplateEnvironmentKey,
+      allowSafeDefaults ? "/tmp/qcrm-tenant.yaml" : undefined,
+    );
+    deployHostImageRegistry = configuredName(
+      deployHostImageRegistryEnvironmentKey,
+      allowSafeDefaults ? "ghcr.io/example/quantum-crm" : undefined,
+    );
+    deployHostTenantEdgeNetwork = configuredName(
+      deployHostTenantEdgeNetworkEnvironmentKey,
+      allowSafeDefaults ? "qcrm-tenant-edge" : undefined,
+    );
+    deployHostPlatformStorageNetwork = configuredName(
+      deployHostPlatformStorageNetworkEnvironmentKey,
+      allowSafeDefaults ? "qcrm-platform-storage" : undefined,
+    );
+    deployHostPlatformDatabaseNetwork = configuredName(
+      deployHostPlatformDatabaseNetworkEnvironmentKey,
+      allowSafeDefaults ? "qcrm-platform-database" : undefined,
+    );
+    deployHostDatabaseSecretRoot = configuredPath(
+      deployHostDatabaseSecretRootEnvironmentKey,
+      allowSafeDefaults ? "/tmp/qcrm-tenant-secrets" : undefined,
+    );
+  }
+
   const storage = definition.requiresStorageAdmin
     ? parseStorageConfig(definition.serviceName, result.data.QCRM_ENV, environment, fileSystem)
     : undefined;
@@ -276,6 +363,13 @@ export function parseProcessConfig(
     ...(tenantSecretDirectory ? { tenantSecretDirectory } : {}),
     ...(tenantConfigurationDirectory ? { tenantConfigurationDirectory } : {}),
     ...(deployHostSocketPath ? { deployHostSocketPath } : {}),
+    ...(deployHostConfigurationRoot ? { deployHostConfigurationRoot } : {}),
+    ...(deployHostComposeTemplate ? { deployHostComposeTemplate } : {}),
+    ...(deployHostImageRegistry ? { deployHostImageRegistry } : {}),
+    ...(deployHostTenantEdgeNetwork ? { deployHostTenantEdgeNetwork } : {}),
+    ...(deployHostPlatformStorageNetwork ? { deployHostPlatformStorageNetwork } : {}),
+    ...(deployHostPlatformDatabaseNetwork ? { deployHostPlatformDatabaseNetwork } : {}),
+    ...(deployHostDatabaseSecretRoot ? { deployHostDatabaseSecretRoot } : {}),
     ...(storage ? { storage } : {}),
   });
 }

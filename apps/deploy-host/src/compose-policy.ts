@@ -65,8 +65,18 @@ export interface ComposePolicyOptions {
   readonly imageRegistry: string;
   readonly environment: "preview" | "staging" | "production";
   readonly tenantEdgeNetwork: string;
+  readonly platformDatabaseNetwork: string;
   readonly platformStorageNetwork: string;
   readonly crmDatabaseSecretFile: string;
+}
+
+export function tenantEdgeNetworkName(prefix: string, tenantProfileId: string): string {
+  if (!networkPattern.test(prefix) || !uuidPattern.test(tenantProfileId)) {
+    throw new ComposePolicyValidationError("tenantEdgeNetwork");
+  }
+  const name = `${prefix}-${tenantProfileId}`;
+  if (!networkPattern.test(name)) throw new ComposePolicyValidationError("tenantEdgeNetwork");
+  return name;
 }
 
 export interface TenantComposePlan {
@@ -197,6 +207,7 @@ export function createTenantComposePlan(
   }
   if (
     !networkPattern.test(options.tenantEdgeNetwork) ||
+    !networkPattern.test(options.platformDatabaseNetwork) ||
     !networkPattern.test(options.platformStorageNetwork)
   ) {
     throw new ComposePolicyValidationError("network");
@@ -209,6 +220,7 @@ export function createTenantComposePlan(
     QCRM_IMAGE_REGISTRY: options.imageRegistry,
     QCRM_TENANT_ID: request.tenantProfileId,
     QCRM_TENANT_EDGE_NETWORK: options.tenantEdgeNetwork,
+    QCRM_PLATFORM_DATABASE_NETWORK: options.platformDatabaseNetwork,
     QCRM_PLATFORM_STORAGE_NETWORK: options.platformStorageNetwork,
     QCRM_CRM_DATABASE_URL_SECRET_FILE: crmDatabaseSecretFile,
   };

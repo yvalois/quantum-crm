@@ -32,6 +32,9 @@ export interface TenantConfigurationProvisionerOptions {
   readonly configurationDirectory: string;
   readonly storageEndpoint: string;
   readonly releaseRepository: Pick<PlatformReleaseRepository, "findById">;
+  readonly tenantSecretDirectory?: string;
+  readonly databaseHost?: string;
+  readonly databasePort?: number;
 }
 
 function assertUuid(value: string): void {
@@ -50,6 +53,56 @@ async function assertDirectory(path: string): Promise<void> {
     if (error instanceof TenantConfigurationProvisioningError) throw error;
     if ((error as { readonly code?: string }).code !== "ENOENT") throw error;
     await mkdir(path, { recursive: true, mode: 0o700 });
+  }
+}
+
+async function ensureRuntimeDatabaseUrl(
+  rootDirectory: string,
+  tenantProfileId: string,
+  databaseName: string,
+  runtimeRoleName: string,
+  databaseHost: string,
+  databasePort: number,
+): Promise<void> {
+  const directory = join(rootDirectory, tenantProfileId);
+  const passwordPath = join(directory, "runtime-password");
+  const urlPath = join(directory, "runtime-url");
+  const passwordMetadata = await lstat(passwordPath);
+  if (!passwordMetadata.isFile() || passwordMetadata.isSymbolicLink()) {
+    throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+  }
+  const password = (await readFile(passwordPath, "utf8")).trim();
+  if (!password || /[\0\r\n]/u.test(password)) {
+    throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+  }
+  const url = new URL("postgresql://localhost");
+  url.username = runtimeRoleName;
+  url.password = password;
+  url.hostname = databaseHost;
+  url.port = String(databasePort);
+  url.pathname = `/${databaseName}`;
+  const content = `${url.toString()}\n`;
+  try {
+    const metadata = await lstat(urlPath);
+    if (!metadata.isFile() || metadata.isSymbolicLink()) {
+      throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+    }
+    if ((await readFile(urlPath, "utf8")) !== content) {
+      throw new TenantConfigurationProvisioningError("TARGET_CONFLICT");
+    }
+    await chmod(urlPath, 0o400);
+    return;
+  } catch (error) {
+    if (error instanceof TenantConfigurationProvisioningError) throw error;
+    if ((error as { readonly code?: string }).code !== "ENOENT") throw error;
+  }
+  const temporaryPath = join(directory, `.runtime-url.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporaryPath, content, { encoding: "utf8", mode: 0o400, flag: "wx" });
+    await chmod(temporaryPath, 0o400);
+    await rename(temporaryPath, urlPath);
+  } finally {
+    await unlink(temporaryPath).catch(() => undefined);
   }
 }
 
@@ -129,6 +182,38 @@ export function createTenantConfigurationProvisioner(
     const release = await options.releaseRepository.findById(command.releaseId);
     if (!release || release.status !== "VALIDATED" || release.id !== command.releaseId) {
       throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+    }
+    const database = tenantDatabaseIdentity(command.tenantProfileId);
+    if (options.tenantSecretDirectory) {
+      const databaseHost = options.databaseHost ?? "platform-postgres";
+      const databasePort = options.databasePort ?? 5432;
+      if (
+        !databaseHost ||
+        /[\0\r\n]/u.test(databaseHost) ||
+        !Number.isInteger(databasePort) ||
+        databasePort < 1 ||
+        databasePort > 65_535
+      ) {
+        throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+      }
+      try {
+        await ensureRuntimeDatabaseUrl(
+          options.tenantSecretDirectory,
+          command.tenantProfileId,
+          database.databaseName,
+          database.runtimeRoleName,
+          databaseHost,
+          databasePort,
+        );
+      } catch (error) {
+        if (error instanceof TenantConfigurationProvisioningError) throw error;
+        const code = (error as { readonly code?: string }).code;
+        if (code === "ENOENT") throw new TenantConfigurationProvisioningError("UNAVAILABLE");
+        if (code === "EACCES" || code === "EPERM") {
+          throw new TenantConfigurationProvisioningError("PERMISSION_DENIED");
+        }
+        throw new TenantConfigurationProvisioningError("UNAVAILABLE");
+      }
     }
 
     const tenantDirectory = join(options.configurationDirectory, "tenant");
