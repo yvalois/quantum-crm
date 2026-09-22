@@ -63,6 +63,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 ## Evidencia reciente de ADM-04-h
 
 - PR #18 (`38b465c`) tiene todos los checks obligatorios en verde.
+- PR #19 (`80195ad`) está integrado y añade cobertura de readiness, manifiestos inválidos, concurrencia y `runtime-url` idempotente; todos sus checks están verdes.
 - En el VPS autorizado, `docker compose -f /tmp/qcrm-tenant-runner.yaml config --quiet` pasó con valores sintéticos; no se levantaron contenedores ni se tocaron datos reales.
 - El PR sigue pendiente de merge humano y de la validación de arranque/readiness del perfil piloto.
 
