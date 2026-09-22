@@ -87,7 +87,10 @@ describe("release manifest contract", () => {
         ...manifest,
         artifacts: [
           ...manifest.artifacts.slice(0, 7),
-          { ...manifest.artifacts[0], sbom: { ...manifest.artifacts[0].sbom, subjectDigest: sha256(999) } },
+          {
+            ...manifest.artifacts[0],
+            sbom: { ...manifest.artifacts[0].sbom, subjectDigest: sha256(999) },
+          },
         ],
       }).success,
     ).toBe(false);
@@ -106,9 +109,10 @@ describe("release manifest contract", () => {
         artifacts: manifest.artifacts.map((item) => ({ ...item, digest: "latest" })),
       }).success,
     ).toBe(false);
-    expect(ReleaseManifestSchema.safeParse({ ...manifest, deploymentUrl: "https://example.test" }).success).toBe(
-      false,
-    );
+    expect(
+      ReleaseManifestSchema.safeParse({ ...manifest, deploymentUrl: "https://example.test" })
+        .success,
+    ).toBe(false);
     expect(
       ReleaseManifestSchema.safeParse({
         ...manifest,

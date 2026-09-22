@@ -7,8 +7,7 @@ import {
 } from "./platform-release.js";
 
 const sha256Pattern = /^sha256:[0-9a-f]{64}$/u;
-const semanticVersionPattern =
-  /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
+const semanticVersionPattern = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
 
 const Sha256Schema = z.string().regex(sha256Pattern);
 const CommitShaSchema = z
@@ -61,7 +60,9 @@ export const ReleaseManifestScanSchema = z
       })
       .strict(),
     outcome: z.literal("PASSED"),
-    artifacts: z.array(ReleaseManifestScanArtifactSchema).length(PlatformReleaseArtifactNames.length),
+    artifacts: z
+      .array(ReleaseManifestScanArtifactSchema)
+      .length(PlatformReleaseArtifactNames.length),
   })
   .strict();
 
@@ -83,8 +84,12 @@ export const ReleaseManifestSchema = z
   })
   .strict()
   .superRefine((manifest, context) => {
-    const artifactDigests = new Map(manifest.artifacts.map((artifact) => [artifact.name, artifact.digest]));
-    const scanDigests = new Map(manifest.scan.artifacts.map((artifact) => [artifact.name, artifact.digest]));
+    const artifactDigests = new Map(
+      manifest.artifacts.map((artifact) => [artifact.name, artifact.digest]),
+    );
+    const scanDigests = new Map(
+      manifest.scan.artifacts.map((artifact) => [artifact.name, artifact.digest]),
+    );
 
     for (const name of PlatformReleaseArtifactNames) {
       const artifact = manifest.artifacts.find((candidate) => candidate.name === name);
@@ -97,7 +102,10 @@ export const ReleaseManifestSchema = z
         return;
       }
       if (artifact.sbom.subjectDigest !== artifact.digest) {
-        context.addIssue({ code: "custom", message: "SBOM subject digest must match artifact digest" });
+        context.addIssue({
+          code: "custom",
+          message: "SBOM subject digest must match artifact digest",
+        });
       }
       if (artifact.provenance.subjectDigest !== artifact.digest) {
         context.addIssue({
@@ -124,7 +132,10 @@ function compareArtifactNames(
   left: { readonly name: z.infer<typeof PlatformReleaseArtifactNameSchema> },
   right: { readonly name: z.infer<typeof PlatformReleaseArtifactNameSchema> },
 ): number {
-  return PlatformReleaseArtifactNames.indexOf(left.name) - PlatformReleaseArtifactNames.indexOf(right.name);
+  return (
+    PlatformReleaseArtifactNames.indexOf(left.name) -
+    PlatformReleaseArtifactNames.indexOf(right.name)
+  );
 }
 
 export function createReleaseManifest(input: unknown): ReleaseManifest {
