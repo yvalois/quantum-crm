@@ -12,9 +12,7 @@ export type TenantHttpsRouteProvisioningFailureReason =
   "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT" | "IDENTITY_MISMATCH";
 
 export class TenantHttpsRouteProvisioningError extends Error {
-  public constructor(
-    public readonly reason: TenantHttpsRouteProvisioningFailureReason,
-  ) {
+  public constructor(public readonly reason: TenantHttpsRouteProvisioningFailureReason) {
     super(`tenant HTTPS route provisioning failed: ${reason}`);
     this.name = "TenantHttpsRouteProvisioningError";
   }
@@ -34,9 +32,7 @@ interface HostAdapterHttpsResponse {
   readonly reason?: unknown;
 }
 
-function parseFailureReason(
-  value: unknown,
-): TenantHttpsRouteProvisioningFailureReason {
+function parseFailureReason(value: unknown): TenantHttpsRouteProvisioningFailureReason {
   if (
     value === "UNAVAILABLE" ||
     value === "PERMISSION_DENIED" ||
@@ -84,8 +80,7 @@ export function createTenantHttpsRouteProvisioner(
     ): Promise<TenantHttpsRouteProvisioningResult> => {
       let command: TenantHttpsRouteProvisioningCommand;
       try {
-        command =
-          validateTenantHttpsRouteProvisioningCommand(unvalidatedCommand);
+        command = validateTenantHttpsRouteProvisioningCommand(unvalidatedCommand);
       } catch (error) {
         if (error instanceof TenantHttpsRouteValidationError) throw error;
         throw new TenantHttpsRouteProvisioningError("IDENTITY_MISMATCH");
@@ -123,8 +118,7 @@ export function createTenantHttpsRouteProvisioner(
             response.setEncoding("utf8");
             response.on("data", (chunk: string) => {
               body += chunk;
-              if (body.length > 32_768)
-                response.destroy(new Error("response too large"));
+              if (body.length > 32_768) response.destroy(new Error("response too large"));
             });
             response.on("end", () => {
               clearTimeout(timer);
@@ -132,9 +126,7 @@ export function createTenantHttpsRouteProvisioner(
               try {
                 parsed = JSON.parse(body) as HostAdapterHttpsResponse;
               } catch {
-                reject(
-                  new TenantHttpsRouteProvisioningError("IDENTITY_MISMATCH"),
-                );
+                reject(new TenantHttpsRouteProvisioningError("IDENTITY_MISMATCH"));
                 return;
               }
               if (response.statusCode === 200) {
@@ -145,11 +137,7 @@ export function createTenantHttpsRouteProvisioner(
                 }
                 return;
               }
-              reject(
-                new TenantHttpsRouteProvisioningError(
-                  parseFailureReason(parsed.reason),
-                ),
-              );
+              reject(new TenantHttpsRouteProvisioningError(parseFailureReason(parsed.reason)));
             });
           },
         );

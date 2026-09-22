@@ -4,14 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  createTenantCaddyRouteReconciler,
-  type CaddyCommandResult,
-} from "./caddy-route-runner.js";
-import {
-  HostAdapterError,
-  type HostAdapterHttpsRequest,
-} from "./host-adapter.js";
+import { createTenantCaddyRouteReconciler, type CaddyCommandResult } from "./caddy-route-runner.js";
+import { HostAdapterError, type HostAdapterHttpsRequest } from "./host-adapter.js";
 
 const request: HostAdapterHttpsRequest = {
   action: "RECONCILE_TENANT_HTTPS",
@@ -53,9 +47,7 @@ describe("tenant Caddy route runner", () => {
       });
       await expect(
         readFile(join(routeRoot, `${request.tenantProfileId}.caddy`), "utf8"),
-      ).resolves.toContain(
-        "qcrm-01995f7e7b5270008000000000000201-crm-web:3000",
-      );
+      ).resolves.toContain("qcrm-01995f7e7b5270008000000000000201-crm-web:3000");
       expect(run.mock.calls.map(([args]) => args)).toEqual([
         expect.arrayContaining(["ps", "--no-trunc"]),
         ["network", "connect", request.edgeNetworkName, caddyContainerId],

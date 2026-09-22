@@ -28,10 +28,7 @@ export interface ProvisioningExecutorOptions {
   readonly idlePollMilliseconds: number;
 }
 
-type AbortableWait = (
-  milliseconds: number,
-  signal: AbortSignal,
-) => Promise<void>;
+type AbortableWait = (milliseconds: number, signal: AbortSignal) => Promise<void>;
 
 const defaultWait: AbortableWait = (milliseconds, signal) =>
   new Promise((resolve) => {
@@ -83,10 +80,7 @@ export class ProvisioningExecutor {
     while (!this.abortController.signal.aborted) {
       const processed = await this.executeOne();
       if (!processed) {
-        await this.wait(
-          this.options.idlePollMilliseconds,
-          this.abortController.signal,
-        );
+        await this.wait(this.options.idlePollMilliseconds, this.abortController.signal);
       }
     }
   }
@@ -122,12 +116,7 @@ export class ProvisioningExecutor {
                   "CREATE_STORAGE",
                   "WRITE_CONFIGURATION",
                 ] as const)
-            : ([
-                "VALIDATE",
-                "CREATE_DATABASE",
-                "CREATE_SECRETS",
-                "CREATE_STORAGE",
-              ] as const)
+            : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS", "CREATE_STORAGE"] as const)
           : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS"] as const)
         : (["VALIDATE", "CREATE_DATABASE"] as const)
       : (["VALIDATE"] as const);
@@ -146,10 +135,7 @@ export class ProvisioningExecutor {
       });
       return true;
     }
-    if (
-      operation.currentStep === "CREATE_DATABASE" &&
-      this.databaseProvisioner
-    ) {
+    if (operation.currentStep === "CREATE_DATABASE" && this.databaseProvisioner) {
       const identity = tenantDatabaseIdentity(operation.tenantProfileId);
       let provisioningFailure:
         | "DATABASE_TARGET_CONFLICT"
@@ -162,18 +148,13 @@ export class ProvisioningExecutor {
           serverId: operation.serverId,
         });
       } catch (error) {
-        if (
-          error instanceof TenantDatabaseProvisioningError &&
-          error.reason === "UNAVAILABLE"
-        ) {
+        if (error instanceof TenantDatabaseProvisioningError && error.reason === "UNAVAILABLE") {
           return true;
         }
         provisioningFailure =
-          error instanceof TenantDatabaseProvisioningError &&
-          error.reason === "PERMISSION_DENIED"
+          error instanceof TenantDatabaseProvisioningError && error.reason === "PERMISSION_DENIED"
             ? "DATABASE_PERMISSION_DENIED"
-            : error instanceof TenantDatabaseProvisioningError &&
-                error.reason === "TARGET_CONFLICT"
+            : error instanceof TenantDatabaseProvisioningError && error.reason === "TARGET_CONFLICT"
               ? "DATABASE_TARGET_CONFLICT"
               : "DATABASE_IDENTITY_MISMATCH";
       }
@@ -199,9 +180,7 @@ export class ProvisioningExecutor {
         | "STORAGE_PERMISSION_DENIED"
         | "STORAGE_IDENTITY_MISMATCH"
         | undefined;
-      let buckets: Awaited<
-        ReturnType<TenantStorageProvisioner["provision"]>
-      >["buckets"] = [
+      let buckets: Awaited<ReturnType<TenantStorageProvisioner["provision"]>>["buckets"] = [
         tenantStorageBucketReference(
           operation.tenantProfileId,
           "INCOMING",
@@ -213,11 +192,10 @@ export class ProvisioningExecutor {
           operation.requestedCapacity.storageMiB,
         ),
       ];
-      let secrets: Awaited<
-        ReturnType<TenantStorageProvisioner["provision"]>
-      >["secrets"] = tenantStorageSecretKinds.map((kind) =>
-        tenantStorageSecretReference(operation.tenantProfileId, kind),
-      );
+      let secrets: Awaited<ReturnType<TenantStorageProvisioner["provision"]>>["secrets"] =
+        tenantStorageSecretKinds.map((kind) =>
+          tenantStorageSecretReference(operation.tenantProfileId, kind),
+        );
       try {
         const result = await this.storageProvisioner.provision({
           tenantProfileId: operation.tenantProfileId,
@@ -227,18 +205,13 @@ export class ProvisioningExecutor {
         buckets = result.buckets;
         secrets = result.secrets;
       } catch (error) {
-        if (
-          error instanceof TenantStorageProvisioningError &&
-          error.reason === "UNAVAILABLE"
-        ) {
+        if (error instanceof TenantStorageProvisioningError && error.reason === "UNAVAILABLE") {
           return true;
         }
         provisioningFailure =
-          error instanceof TenantStorageProvisioningError &&
-          error.reason === "PERMISSION_DENIED"
+          error instanceof TenantStorageProvisioningError && error.reason === "PERMISSION_DENIED"
             ? "STORAGE_PERMISSION_DENIED"
-            : error instanceof TenantStorageProvisioningError &&
-                error.reason === "TARGET_CONFLICT"
+            : error instanceof TenantStorageProvisioningError && error.reason === "TARGET_CONFLICT"
               ? "STORAGE_TARGET_CONFLICT"
               : "STORAGE_IDENTITY_MISMATCH";
       }
@@ -259,10 +232,7 @@ export class ProvisioningExecutor {
       }
       return true;
     }
-    if (
-      operation.currentStep === "WRITE_CONFIGURATION" &&
-      this.configurationProvisioner
-    ) {
+    if (operation.currentStep === "WRITE_CONFIGURATION" && this.configurationProvisioner) {
       let provisioningFailure:
         | "CONFIGURATION_TARGET_CONFLICT"
         | "CONFIGURATION_UNAVAILABLE"
@@ -317,18 +287,13 @@ export class ProvisioningExecutor {
       }
       return true;
     }
-    if (
-      operation.currentStep === "START_CONTAINERS" &&
-      this.containerProvisioner
-    ) {
+    if (operation.currentStep === "START_CONTAINERS" && this.containerProvisioner) {
       let provisioningFailure:
         | "CONTAINERS_TARGET_CONFLICT"
         | "CONTAINERS_PERMISSION_DENIED"
         | "CONTAINERS_IDENTITY_MISMATCH"
         | undefined;
-      let result:
-        | Awaited<ReturnType<TenantContainerProvisioner["provision"]>>
-        | undefined;
+      let result: Awaited<ReturnType<TenantContainerProvisioner["provision"]>> | undefined;
       try {
         result = await this.containerProvisioner.provision({
           operationId: operation.id,
@@ -340,15 +305,11 @@ export class ProvisioningExecutor {
           attempt: operation.attempt,
         });
       } catch (error) {
-        if (
-          error instanceof TenantContainerProvisioningError &&
-          error.reason === "UNAVAILABLE"
-        ) {
+        if (error instanceof TenantContainerProvisioningError && error.reason === "UNAVAILABLE") {
           return true;
         }
         provisioningFailure =
-          error instanceof TenantContainerProvisioningError &&
-          error.reason === "PERMISSION_DENIED"
+          error instanceof TenantContainerProvisioningError && error.reason === "PERMISSION_DENIED"
             ? "CONTAINERS_PERMISSION_DENIED"
             : error instanceof TenantContainerProvisioningError &&
                 error.reason === "TARGET_CONFLICT"
@@ -394,10 +355,7 @@ export class ProvisioningExecutor {
       }
       return true;
     }
-    if (
-      operation.currentStep === "CONFIGURE_HTTPS" &&
-      this.httpsRouteProvisioner
-    ) {
+    if (operation.currentStep === "CONFIGURE_HTTPS" && this.httpsRouteProvisioner) {
       let provisioningFailure:
         | "HTTPS_TARGET_CONFLICT"
         | "HTTPS_UNAVAILABLE"
@@ -414,9 +372,7 @@ export class ProvisioningExecutor {
         attempt: operation.attempt,
       });
       if (!context) return true;
-      let result:
-        | Awaited<ReturnType<TenantHttpsRouteProvisioner["provision"]>>
-        | undefined;
+      let result: Awaited<ReturnType<TenantHttpsRouteProvisioner["provision"]>> | undefined;
       try {
         result = await this.httpsRouteProvisioner.provision({
           operationId: operation.id,
@@ -430,15 +386,11 @@ export class ProvisioningExecutor {
           attempt: operation.attempt,
         });
       } catch (error) {
-        if (
-          error instanceof TenantHttpsRouteProvisioningError &&
-          error.reason === "UNAVAILABLE"
-        ) {
+        if (error instanceof TenantHttpsRouteProvisioningError && error.reason === "UNAVAILABLE") {
           return true;
         }
         provisioningFailure =
-          error instanceof TenantHttpsRouteProvisioningError &&
-          error.reason === "PERMISSION_DENIED"
+          error instanceof TenantHttpsRouteProvisioningError && error.reason === "PERMISSION_DENIED"
             ? "HTTPS_PERMISSION_DENIED"
             : error instanceof TenantHttpsRouteProvisioningError &&
                 error.reason === "TARGET_CONFLICT"
@@ -463,8 +415,7 @@ export class ProvisioningExecutor {
           edgeNetworkName: result?.edgeNetworkName ?? context.edgeNetworkName,
           upstreamServices: context.upstreamServices,
           configurationRevision: context.configurationRevision,
-          routeGeneration:
-            result?.routeGeneration ?? context.configurationRevision,
+          routeGeneration: result?.routeGeneration ?? context.configurationRevision,
           configured: result?.configured ?? false,
           reconciled: result?.reconciled ?? false,
           ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
@@ -474,18 +425,16 @@ export class ProvisioningExecutor {
       }
       return true;
     }
-    if (operation.currentStep !== "CREATE_SECRETS" || !this.secretsProvisioner)
-      return false;
+    if (operation.currentStep !== "CREATE_SECRETS" || !this.secretsProvisioner) return false;
     let provisioningFailure:
       | "SECRET_TARGET_CONFLICT"
       | "SECRET_PERMISSION_DENIED"
       | "SECRET_IDENTITY_MISMATCH"
       | undefined;
-    let secrets: Awaited<
-      ReturnType<TenantDatabaseSecretsProvisioner["provision"]>
-    >["secrets"] = tenantDatabaseSecretKinds.map((kind) =>
-      tenantDatabaseSecretReference(operation.tenantProfileId, kind),
-    );
+    let secrets: Awaited<ReturnType<TenantDatabaseSecretsProvisioner["provision"]>>["secrets"] =
+      tenantDatabaseSecretKinds.map((kind) =>
+        tenantDatabaseSecretReference(operation.tenantProfileId, kind),
+      );
     try {
       const result = await this.secretsProvisioner.provision({
         tenantProfileId: operation.tenantProfileId,

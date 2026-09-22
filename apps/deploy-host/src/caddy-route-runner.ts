@@ -1,13 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import {
-  lstat,
-  mkdir,
-  readFile,
-  rename,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import {
@@ -98,9 +91,7 @@ function createCommandRunner(binary: string): CaddyCommandRunner {
         });
         child.once("error", (error) => finish(() => reject(error)));
         child.once("close", (exitCode) =>
-          finish(() =>
-            resolveResult({ exitCode: exitCode ?? 1, stdout, stderr }),
-          ),
+          finish(() => resolveResult({ exitCode: exitCode ?? 1, stdout, stderr })),
         );
       }),
   });
@@ -110,12 +101,7 @@ function safeChildPath(rootDirectory: string, name: string): string {
   const root = resolve(rootDirectory);
   const target = resolve(root, name);
   const relation = relative(root, target);
-  if (
-    !relation ||
-    relation.startsWith(`..${sep}`) ||
-    relation === ".." ||
-    isAbsolute(relation)
-  ) {
+  if (!relation || relation.startsWith(`..${sep}`) || relation === ".." || isAbsolute(relation)) {
     throw new HostAdapterError("IDENTITY_MISMATCH");
   }
   return target;
@@ -130,8 +116,7 @@ async function assertRouteRoot(rootDirectory: string): Promise<void> {
   } catch (error) {
     if (error instanceof HostAdapterError) throw error;
     const code = (error as { readonly code?: string }).code;
-    if (code === "EACCES" || code === "EPERM")
-      throw new HostAdapterError("PERMISSION_DENIED");
+    if (code === "EACCES" || code === "EPERM") throw new HostAdapterError("PERMISSION_DENIED");
     throw new HostAdapterError("UNAVAILABLE");
   }
 }
@@ -139,11 +124,7 @@ async function assertRouteRoot(rootDirectory: string): Promise<void> {
 async function readRoute(path: string): Promise<string | undefined> {
   try {
     const metadata = await lstat(path);
-    if (
-      !metadata.isFile() ||
-      metadata.isSymbolicLink() ||
-      metadata.size > 65_536
-    ) {
+    if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > 65_536) {
       throw new HostAdapterError("IDENTITY_MISMATCH");
     }
     return await readFile(path, "utf8");
@@ -151,8 +132,7 @@ async function readRoute(path: string): Promise<string | undefined> {
     if (error instanceof HostAdapterError) throw error;
     const code = (error as { readonly code?: string }).code;
     if (code === "ENOENT") return undefined;
-    if (code === "EACCES" || code === "EPERM")
-      throw new HostAdapterError("PERMISSION_DENIED");
+    if (code === "EACCES" || code === "EPERM") throw new HostAdapterError("PERMISSION_DENIED");
     throw new HostAdapterError("UNAVAILABLE");
   }
 }
@@ -169,16 +149,12 @@ async function replaceAtomically(path: string, content: string): Promise<void> {
   } catch (error) {
     await unlink(temporary).catch(() => undefined);
     const code = (error as { readonly code?: string }).code;
-    if (code === "EACCES" || code === "EPERM")
-      throw new HostAdapterError("PERMISSION_DENIED");
+    if (code === "EACCES" || code === "EPERM") throw new HostAdapterError("PERMISSION_DENIED");
     throw new HostAdapterError("UNAVAILABLE");
   }
 }
 
-async function restoreRoute(
-  path: string,
-  priorContent: string | undefined,
-): Promise<void> {
+async function restoreRoute(path: string, priorContent: string | undefined): Promise<void> {
   if (priorContent !== undefined) {
     await replaceAtomically(path, priorContent);
     return;
@@ -206,24 +182,18 @@ async function savePriorSnapshot(
       throw new HostAdapterError("IDENTITY_MISMATCH");
     }
     await replaceAtomically(
-      safeChildPath(
-        history,
-        `${tenantProfileId}-${generation.toString()}.caddy`,
-      ),
+      safeChildPath(history, `${tenantProfileId}-${generation.toString()}.caddy`),
       content,
     );
   } catch (error) {
     if (error instanceof HostAdapterError) throw error;
     const code = (error as { readonly code?: string }).code;
-    if (code === "EACCES" || code === "EPERM")
-      throw new HostAdapterError("PERMISSION_DENIED");
+    if (code === "EACCES" || code === "EPERM") throw new HostAdapterError("PERMISSION_DENIED");
     throw new HostAdapterError("UNAVAILABLE");
   }
 }
 
-function routeCommand(
-  request: HostAdapterHttpsRequest,
-): TenantHttpsRouteProvisioningCommand {
+function routeCommand(request: HostAdapterHttpsRequest): TenantHttpsRouteProvisioningCommand {
   return validateTenantHttpsRouteProvisioningCommand({
     operationId: request.operationId,
     tenantProfileId: request.tenantProfileId,
@@ -238,10 +208,7 @@ function routeCommand(
 }
 
 function routeContent(request: TenantHttpsRouteProvisioningCommand): string {
-  if (
-    request.upstreamServices.length !== 1 ||
-    request.upstreamServices[0] !== "crm-web"
-  ) {
+  if (request.upstreamServices.length !== 1 || request.upstreamServices[0] !== "crm-web") {
     throw new HostAdapterError("IDENTITY_MISMATCH");
   }
   const crmWeb = tenantEdgeServiceAlias(request.tenantProfileId, "crm-web");
@@ -254,10 +221,7 @@ function caddyContainerId(result: CaddyCommandResult): string {
     .split(/\r?\n/u)
     .map((value) => value.trim())
     .filter(Boolean);
-  if (
-    identifiers.length !== 1 ||
-    !/^[0-9a-f]{64}$/u.test(identifiers[0] as string)
-  ) {
+  if (identifiers.length !== 1 || !/^[0-9a-f]{64}$/u.test(identifiers[0] as string)) {
     throw new HostAdapterError("UNAVAILABLE");
   }
   return identifiers[0] as string;
@@ -354,16 +318,12 @@ export function createTenantCaddyRouteReconciler(
     throw new Error("invalid tenant route root");
   }
   const runner =
-    options.commandRunner ??
-    createCommandRunner(options.dockerBinary ?? "/usr/bin/docker");
-  const timeout =
-    options.commandTimeoutMilliseconds ?? defaultTimeoutMilliseconds;
+    options.commandRunner ?? createCommandRunner(options.dockerBinary ?? "/usr/bin/docker");
+  const timeout = options.commandTimeoutMilliseconds ?? defaultTimeoutMilliseconds;
   let tail: Promise<void> = Promise.resolve();
 
   return Object.freeze({
-    reconcile: async (
-      request: HostAdapterHttpsRequest,
-    ): Promise<HostAdapterHttpsResult> => {
+    reconcile: async (request: HostAdapterHttpsRequest): Promise<HostAdapterHttpsResult> => {
       let releaseQueue!: () => void;
       const next = new Promise<void>((resolve) => {
         releaseQueue = resolve;
@@ -374,10 +334,7 @@ export function createTenantCaddyRouteReconciler(
       try {
         const command = routeCommand(request);
         await assertRouteRoot(options.routeRoot);
-        const path = safeChildPath(
-          options.routeRoot,
-          `${command.tenantProfileId}.caddy`,
-        );
+        const path = safeChildPath(options.routeRoot, `${command.tenantProfileId}.caddy`);
         const content = routeContent(command);
         const priorContent = await readRoute(path);
         const containerId = await attachCaddyToTenantNetwork(
@@ -403,9 +360,7 @@ export function createTenantCaddyRouteReconciler(
             await caddyCommand(runner, timeout, containerId, "reload");
           } catch (error) {
             await restoreRoute(path, priorContent).catch(() => undefined);
-            await caddyCommand(runner, timeout, containerId, "reload").catch(
-              () => undefined,
-            );
+            await caddyCommand(runner, timeout, containerId, "reload").catch(() => undefined);
             throw error;
           }
         }

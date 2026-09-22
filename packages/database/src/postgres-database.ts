@@ -100,9 +100,7 @@ export interface PlatformPostgresDatabase extends PostgresDatabase {
 }
 
 export interface PlatformMembershipRepository {
-  readonly findByOidcSubject: (
-    oidcSubject: string,
-  ) => Promise<PlatformMembershipRecord | null>;
+  readonly findByOidcSubject: (oidcSubject: string) => Promise<PlatformMembershipRecord | null>;
 }
 
 export interface PlatformMembershipRecord {
@@ -222,15 +220,9 @@ function platformReleaseStatus(value: string): PlatformReleaseStatus {
   throw new DatabaseUnavailableError();
 }
 
-function platformReleaseArtifactName(
-  value: string,
-): PlatformReleaseArtifactName {
+function platformReleaseArtifactName(value: string): PlatformReleaseArtifactName {
   const normalized = value.toUpperCase().replaceAll("-", "_");
-  if (
-    platformReleaseArtifactNames.includes(
-      normalized as PlatformReleaseArtifactName,
-    )
-  ) {
+  if (platformReleaseArtifactNames.includes(normalized as PlatformReleaseArtifactName)) {
     return normalized as PlatformReleaseArtifactName;
   }
   throw new DatabaseUnavailableError();
@@ -246,9 +238,7 @@ function platformReleaseFromRow(row: PlatformReleaseRow): PlatformRelease {
       configurationSchemaVersion: row.configuration_schema_version,
       agentContractVersion: row.agent_contract_version,
       databaseMigrationRequired: row.database_migration_required,
-      ...(row.minimum_source_version
-        ? { minimumSourceVersion: row.minimum_source_version }
-        : {}),
+      ...(row.minimum_source_version ? { minimumSourceVersion: row.minimum_source_version } : {}),
     },
     artifacts: row.artifacts.map((artifact) => ({
       name: platformReleaseArtifactName(artifact.name),
@@ -286,33 +276,21 @@ const infrastructureServerSelection = `
 
 function infrastructureServerStatus(value: string): InfrastructureServerStatus {
   const normalized = value.toUpperCase();
-  if (
-    infrastructureServerStatuses.includes(
-      normalized as InfrastructureServerStatus,
-    )
-  ) {
+  if (infrastructureServerStatuses.includes(normalized as InfrastructureServerStatus)) {
     return normalized as InfrastructureServerStatus;
   }
   throw new DatabaseUnavailableError();
 }
 
-function infrastructureServerArchitecture(
-  value: string,
-): InfrastructureServerArchitecture {
+function infrastructureServerArchitecture(value: string): InfrastructureServerArchitecture {
   const normalized = value.toUpperCase();
-  if (
-    infrastructureServerArchitectures.includes(
-      normalized as InfrastructureServerArchitecture,
-    )
-  ) {
+  if (infrastructureServerArchitectures.includes(normalized as InfrastructureServerArchitecture)) {
     return normalized as InfrastructureServerArchitecture;
   }
   throw new DatabaseUnavailableError();
 }
 
-function infrastructureServerFromRow(
-  row: InfrastructureServerRow,
-): InfrastructureServer {
+function infrastructureServerFromRow(row: InfrastructureServerRow): InfrastructureServer {
   return hydrateInfrastructureServer({
     id: row.id,
     code: row.code,
@@ -408,9 +386,7 @@ const provisioningOperationSelection = `
   operation.updated_at
 `;
 
-function provisioningOperationFromRow(
-  row: ProvisioningOperationRow,
-): ProvisioningOperation {
+function provisioningOperationFromRow(row: ProvisioningOperationRow): ProvisioningOperation {
   if (
     !row.capacity_reservation_id ||
     row.requested_cpu_millicores === null ||
@@ -458,15 +434,9 @@ function provisioningOperationFromRow(
   });
 }
 
-function provisioningOperationStatus(
-  value: string,
-): ProvisioningOperationStatus {
+function provisioningOperationStatus(value: string): ProvisioningOperationStatus {
   const normalized = value.toUpperCase();
-  if (
-    provisioningOperationStatuses.includes(
-      normalized as ProvisioningOperationStatus,
-    )
-  ) {
+  if (provisioningOperationStatuses.includes(normalized as ProvisioningOperationStatus)) {
     return normalized as ProvisioningOperationStatus;
   }
   throw new DatabaseUnavailableError();
@@ -474,9 +444,7 @@ function provisioningOperationStatus(
 
 function provisioningOperationStep(value: string): ProvisioningOperationStep {
   const normalized = value.toUpperCase();
-  if (
-    provisioningOperationSteps.includes(normalized as ProvisioningOperationStep)
-  ) {
+  if (provisioningOperationSteps.includes(normalized as ProvisioningOperationStep)) {
     return normalized as ProvisioningOperationStep;
   }
   throw new DatabaseUnavailableError();
@@ -488,9 +456,7 @@ function provisioningValidationFailureCode(
   if (value === null) return null;
   const normalized = value.toUpperCase();
   if (
-    provisioningValidationFailureCodes.includes(
-      normalized as ProvisioningValidationFailureCode,
-    )
+    provisioningValidationFailureCodes.includes(normalized as ProvisioningValidationFailureCode)
   ) {
     return normalized as ProvisioningValidationFailureCode;
   }
@@ -533,11 +499,7 @@ function capacityReservationStatus(
   value: string,
 ): ProvisioningValidationSnapshot["reservation"]["status"] {
   const normalized = value.toUpperCase();
-  if (
-    normalized === "RESERVED" ||
-    normalized === "ACTIVE" ||
-    normalized === "RELEASED"
-  ) {
+  if (normalized === "RESERVED" || normalized === "ACTIVE" || normalized === "RELEASED") {
     return normalized;
   }
   throw new DatabaseUnavailableError();
@@ -592,21 +554,13 @@ function isUniqueViolation(error: unknown): boolean {
 
 function platformStatus(value: string): PlatformMembershipRecord["status"] {
   const normalized = value.toUpperCase();
-  if (
-    normalized === "PENDING" ||
-    normalized === "ACTIVE" ||
-    normalized === "SUSPENDED"
-  ) {
+  if (normalized === "PENDING" || normalized === "ACTIVE" || normalized === "SUSPENDED") {
     return normalized;
   }
   throw new DatabaseUnavailableError();
 }
 
-function createPool(
-  config: DatabaseConfig,
-  serviceName: string,
-  poolFactory: PostgresPoolFactory,
-) {
+function createPool(config: DatabaseConfig, serviceName: string, poolFactory: PostgresPoolFactory) {
   return poolFactory({
     connectionString: config.connectionUrl.expose(),
     application_name: `quantum-crm:${serviceName}`,
@@ -701,9 +655,7 @@ async function completeProvisioningSecrets(
   pool: PostgresPool,
   command: CompleteProvisioningSecretsCommand,
 ): Promise<
-  ReturnType<
-    ProvisioningOperationRepository["completeSecrets"]
-  > extends Promise<infer Result>
+  ReturnType<ProvisioningOperationRepository["completeSecrets"]> extends Promise<infer Result>
     ? Result
     : never
 > {
@@ -775,8 +727,7 @@ async function completeProvisioningSecrets(
         [completion.tenantProfileId],
       );
       const target = targetResult.rows[0];
-      if (!target || target.server_id !== row.server_id)
-        throw new DatabaseUnavailableError();
+      if (!target || target.server_id !== row.server_id) throw new DatabaseUnavailableError();
       for (const secret of completion.secrets) {
         const existingResult = await client.query<{
           readonly secret_ref: string;
@@ -792,8 +743,7 @@ async function completeProvisioningSecrets(
         const existing = existingResult.rows[0];
         if (
           existing &&
-          (existing.secret_ref !== secret.secretRef ||
-            BigInt(existing.version) !== secret.version)
+          (existing.secret_ref !== secret.secretRef || BigInt(existing.version) !== secret.version)
         ) {
           throw new DatabaseUnavailableError();
         }
@@ -813,12 +763,7 @@ async function completeProvisioningSecrets(
                 (tenant_database_id, kind, secret_ref, status, version)
               VALUES ($1::uuid, $2::tenants.tenant_database_secret_kind, $3, 'ready', $4)
             `,
-            [
-              target.id,
-              secret.kind.toLowerCase(),
-              secret.secretRef,
-              secret.version.toString(),
-            ],
+            [target.id, secret.kind.toLowerCase(), secret.secretRef, secret.version.toString()],
           );
         }
       }
@@ -914,9 +859,7 @@ async function completeProvisioningStorage(
   pool: PostgresPool,
   command: CompleteProvisioningStorageCommand,
 ): Promise<
-  ReturnType<
-    ProvisioningOperationRepository["completeStorage"]
-  > extends Promise<infer Result>
+  ReturnType<ProvisioningOperationRepository["completeStorage"]> extends Promise<infer Result>
     ? Result
     : never
 > {
@@ -977,12 +920,8 @@ async function completeProvisioningStorage(
       ],
     );
     if (!failureCode) {
-      const incoming = completion.buckets.find(
-        (bucket) => bucket.kind === "INCOMING",
-      );
-      const objects = completion.buckets.find(
-        (bucket) => bucket.kind === "OBJECTS",
-      );
+      const incoming = completion.buckets.find((bucket) => bucket.kind === "INCOMING");
+      const objects = completion.buckets.find((bucket) => bucket.kind === "OBJECTS");
       if (!incoming || !objects) throw new DatabaseUnavailableError();
       const existingResult = await client.query<{
         readonly id: string;
@@ -1054,8 +993,7 @@ async function completeProvisioningStorage(
         const current = existingSecret.rows[0];
         if (
           current &&
-          (current.secret_ref !== secret.secretRef ||
-            BigInt(current.version) !== secret.version)
+          (current.secret_ref !== secret.secretRef || BigInt(current.version) !== secret.version)
         ) {
           throw new DatabaseUnavailableError();
         }
@@ -1075,12 +1013,7 @@ async function completeProvisioningStorage(
                 (tenant_storage_id, kind, secret_ref, version)
               VALUES ($1::uuid, $2::tenants.tenant_storage_secret_kind, $3, $4)
             `,
-            [
-              storageId,
-              secret.kind.toLowerCase(),
-              secret.secretRef,
-              secret.version.toString(),
-            ],
+            [storageId, secret.kind.toLowerCase(), secret.secretRef, secret.version.toString()],
           );
         }
       }
@@ -1176,9 +1109,7 @@ async function completeProvisioningConfiguration(
   pool: PostgresPool,
   command: CompleteProvisioningConfigurationCommand,
 ): Promise<
-  ReturnType<
-    ProvisioningOperationRepository["completeConfiguration"]
-  > extends Promise<infer Result>
+  ReturnType<ProvisioningOperationRepository["completeConfiguration"]> extends Promise<infer Result>
     ? Result
     : never
 > {
@@ -1385,9 +1316,7 @@ async function completeProvisioningContainers(
   pool: PostgresPool,
   command: CompleteProvisioningContainersCommand,
 ): Promise<
-  ReturnType<
-    ProvisioningOperationRepository["completeContainers"]
-  > extends Promise<infer Result>
+  ReturnType<ProvisioningOperationRepository["completeContainers"]> extends Promise<infer Result>
     ? Result
     : never
 > {
@@ -1477,8 +1406,7 @@ async function completeProvisioningContainers(
           existing.release_id !== completion.releaseId ||
           existing.operation_id !== completion.operationId ||
           existing.manifest_ref !== completion.manifestRef ||
-          BigInt(existing.configuration_revision) !==
-            completion.configurationRevision ||
+          BigInt(existing.configuration_revision) !== completion.configurationRevision ||
           BigInt(existing.operation_version) > completion.expectedVersion ||
           existing.attempt > completion.attempt)
       ) {
@@ -1689,9 +1617,7 @@ async function completeProvisioningHttps(
   pool: PostgresPool,
   command: CompleteProvisioningHttpsCommand,
 ): Promise<
-  ReturnType<ProvisioningOperationRepository["completeHttps"]> extends Promise<
-    infer Result
-  >
+  ReturnType<ProvisioningOperationRepository["completeHttps"]> extends Promise<infer Result>
     ? Result
     : never
 > {
@@ -1785,8 +1711,7 @@ async function completeProvisioningHttps(
           existing.operation_id !== completion.operationId ||
           existing.hostname !== completion.hostname ||
           existing.edge_network_name !== completion.edgeNetworkName ||
-          BigInt(existing.configuration_revision) !==
-            completion.configurationRevision ||
+          BigInt(existing.configuration_revision) !== completion.configurationRevision ||
           BigInt(existing.operation_version) > completion.expectedVersion ||
           existing.attempt > completion.attempt ||
           BigInt(existing.route_generation) > completion.routeGeneration)
@@ -1942,9 +1867,7 @@ export function createPlatformPostgresDatabase(
   const pool = createPool(config, serviceName, poolFactory);
   const database = createPostgresDatabase(config, serviceName, () => pool);
   const memberships: PlatformMembershipRepository = Object.freeze({
-    findByOidcSubject: async (
-      oidcSubject: string,
-    ): Promise<PlatformMembershipRecord | null> => {
+    findByOidcSubject: async (oidcSubject: string): Promise<PlatformMembershipRecord | null> => {
       try {
         const result = (await pool.query(
           `
@@ -2012,11 +1935,7 @@ export function createPlatformPostgresDatabase(
               INSERT INTO releases.release_artifacts (release_id, name, digest)
               VALUES ($1::uuid, $2::releases.release_artifact_name, $3)
             `,
-            [
-              draft.id,
-              artifact.name.toLowerCase().replaceAll("_", "-"),
-              artifact.digest,
-            ],
+            [draft.id, artifact.name.toLowerCase().replaceAll("_", "-"), artifact.digest],
           );
         }
         const result = await client.query<PlatformReleaseRow>(
@@ -2062,9 +1981,7 @@ export function createPlatformPostgresDatabase(
     list: async (criteria: PlatformReleaseListCriteria) => {
       try {
         const values: unknown[] = [];
-        const where = criteria.status
-          ? "WHERE release.status = $1::releases.release_status"
-          : "";
+        const where = criteria.status ? "WHERE release.status = $1::releases.release_status" : "";
         if (criteria.status) values.push(criteria.status.toLowerCase());
         values.push(criteria.limit);
         const result = (await pool.query(
@@ -2084,11 +2001,7 @@ export function createPlatformPostgresDatabase(
         throw new DatabaseUnavailableError();
       }
     },
-    updateStatus: async (
-      id: string,
-      expectedVersion: bigint,
-      status: PlatformReleaseStatus,
-    ) => {
+    updateStatus: async (id: string, expectedVersion: bigint, status: PlatformReleaseStatus) => {
       try {
         const updated = (await pool.query(
           `
@@ -2120,9 +2033,7 @@ export function createPlatformPostgresDatabase(
   });
 
   const infrastructureServers: InfrastructureServerRepository = Object.freeze({
-    create: async (
-      draft: InfrastructureServerDraft,
-    ): Promise<InfrastructureServer> => {
+    create: async (draft: InfrastructureServerDraft): Promise<InfrastructureServer> => {
       try {
         const result = (await pool.query(
           `
@@ -2160,8 +2071,7 @@ export function createPlatformPostgresDatabase(
         if (!row) throw new DatabaseUnavailableError();
         return infrastructureServerFromRow(row);
       } catch (error) {
-        if (isUniqueViolation(error))
-          throw new InfrastructureServerConflictError();
+        if (isUniqueViolation(error)) throw new InfrastructureServerConflictError();
         if (error instanceof InfrastructureServerConflictError) throw error;
         throw new DatabaseUnavailableError();
       }
@@ -2172,9 +2082,7 @@ export function createPlatformPostgresDatabase(
           `SELECT ${infrastructureServerSelection} FROM infrastructure.servers WHERE id = $1::uuid`,
           [id],
         )) as { readonly rows: InfrastructureServerRow[] };
-        return result.rows[0]
-          ? infrastructureServerFromRow(result.rows[0])
-          : null;
+        return result.rows[0] ? infrastructureServerFromRow(result.rows[0]) : null;
       } catch {
         throw new DatabaseUnavailableError();
       }
@@ -2182,9 +2090,7 @@ export function createPlatformPostgresDatabase(
     list: async (criteria: InfrastructureServerListCriteria) => {
       try {
         const values: unknown[] = [];
-        const where = criteria.status
-          ? "WHERE status = $1::infrastructure.server_status"
-          : "";
+        const where = criteria.status ? "WHERE status = $1::infrastructure.server_status" : "";
         if (criteria.status) values.push(criteria.status.toLowerCase());
         values.push(criteria.limit);
         const result = (await pool.query(
@@ -2254,12 +2160,9 @@ export function createPlatformPostgresDatabase(
             draft.confirmedAt,
           ],
         )) as { readonly rows: InfrastructureServerRow[] };
-        return result.rows[0]
-          ? infrastructureServerFromRow(result.rows[0])
-          : null;
+        return result.rows[0] ? infrastructureServerFromRow(result.rows[0]) : null;
       } catch (error) {
-        if (isUniqueViolation(error))
-          throw new InfrastructureServerConflictError();
+        if (isUniqueViolation(error)) throw new InfrastructureServerConflictError();
         if (error instanceof InfrastructureServerConflictError) throw error;
         throw new DatabaseUnavailableError();
       }
@@ -2315,8 +2218,7 @@ export function createPlatformPostgresDatabase(
         conditions.push(condition.replace("?", `$${values.length}`));
       };
 
-      if (criteria.status)
-        add("status = ?::tenants.tenant_status", criteria.status.toLowerCase());
+      if (criteria.status) add("status = ?::tenants.tenant_status", criteria.status.toLowerCase());
       if (criteria.serverId) add("server_id = ?::uuid", criteria.serverId);
       if (criteria.releaseId) add("release_id = ?::uuid", criteria.releaseId);
       if (criteria.search) {
@@ -2337,8 +2239,7 @@ export function createPlatformPostgresDatabase(
         );
       }
       values.push(criteria.limit + 1);
-      const where =
-        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+      const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
       try {
         const result = (await pool.query(
@@ -2352,26 +2253,18 @@ export function createPlatformPostgresDatabase(
           values,
         )) as { readonly rows: TenantProfileRow[] };
         const hasMore = result.rows.length > criteria.limit;
-        const rows = hasMore
-          ? result.rows.slice(0, criteria.limit)
-          : result.rows;
+        const rows = hasMore ? result.rows.slice(0, criteria.limit) : result.rows;
         const items = rows.map(tenantProfileFromRow);
         const last = hasMore ? items.at(-1) : undefined;
         return Object.freeze({
           items: Object.freeze(items),
-          nextCursor: last
-            ? Object.freeze({ createdAt: last.createdAt, id: last.id })
-            : null,
+          nextCursor: last ? Object.freeze({ createdAt: last.createdAt, id: last.id }) : null,
         });
       } catch {
         throw new DatabaseUnavailableError();
       }
     },
-    update: async (
-      id: string,
-      expectedVersion: bigint,
-      draft: TenantProfileDraft,
-    ) => {
+    update: async (id: string, expectedVersion: bigint, draft: TenantProfileDraft) => {
       try {
         const result = (await pool.query(
           `
@@ -2417,10 +2310,9 @@ export function createPlatformPostgresDatabase(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
-        await client.query(
-          "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-          [`${draft.requestedByOperatorId}:${draft.idempotencyKey}`],
-        );
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `${draft.requestedByOperatorId}:${draft.idempotencyKey}`,
+        ]);
 
         const existingResult = await client.query<ProvisioningOperationRow>(
           `
@@ -2439,12 +2331,9 @@ export function createPlatformPostgresDatabase(
             existing.tenant_profile_id !== draft.tenantProfileId ||
             existing.server_id !== draft.serverId ||
             existing.release_id !== draft.releaseId ||
-            existing.requested_cpu_millicores !==
-              draft.requestedCapacity.cpuMillicores ||
-            existing.requested_memory_mib !==
-              draft.requestedCapacity.memoryMiB ||
-            existing.requested_storage_mib !==
-              draft.requestedCapacity.storageMiB
+            existing.requested_cpu_millicores !== draft.requestedCapacity.cpuMillicores ||
+            existing.requested_memory_mib !== draft.requestedCapacity.memoryMiB ||
+            existing.requested_storage_mib !== draft.requestedCapacity.storageMiB
           ) {
             throw new ProvisioningOperationConflictError();
           }
@@ -2520,8 +2409,7 @@ export function createPlatformPostgresDatabase(
           throw new InfrastructureServerNotAdmissibleError();
         }
         if (
-          server.reserved_cpu_millicores +
-            draft.requestedCapacity.cpuMillicores >
+          server.reserved_cpu_millicores + draft.requestedCapacity.cpuMillicores >
             server.total_cpu_millicores ||
           server.reserved_memory_mib + draft.requestedCapacity.memoryMiB >
             server.total_memory_mib ||
@@ -2650,8 +2538,7 @@ export function createPlatformPostgresDatabase(
         ) {
           throw error;
         }
-        if (isUniqueViolation(error))
-          throw new ProvisioningOperationConflictError();
+        if (isUniqueViolation(error)) throw new ProvisioningOperationConflictError();
         throw new DatabaseUnavailableError();
       } finally {
         client?.release();
@@ -2702,9 +2589,7 @@ export function createPlatformPostgresDatabase(
             claim.supportedSteps.map((step) => step.toLowerCase()),
           ],
         )) as { readonly rows: ProvisioningOperationRow[] };
-        return result.rows[0]
-          ? provisioningOperationFromRow(result.rows[0])
-          : null;
+        return result.rows[0] ? provisioningOperationFromRow(result.rows[0]) : null;
       } catch {
         throw new DatabaseUnavailableError();
       }
@@ -2734,16 +2619,12 @@ export function createPlatformPostgresDatabase(
             renewal.leaseDurationSeconds,
           ],
         )) as { readonly rows: ProvisioningOperationRow[] };
-        return result.rows[0]
-          ? provisioningOperationFromRow(result.rows[0])
-          : null;
+        return result.rows[0] ? provisioningOperationFromRow(result.rows[0]) : null;
       } catch {
         throw new DatabaseUnavailableError();
       }
     },
-    completeValidation: async (
-      command: CompleteProvisioningValidationCommand,
-    ) => {
+    completeValidation: async (command: CompleteProvisioningValidationCommand) => {
       const completion = validateCompleteProvisioningValidation(command);
       let client: PoolClient | undefined;
       try {
@@ -2858,20 +2739,14 @@ export function createPlatformPostgresDatabase(
           updatedOperation = updatedResult.rows[0];
         } else {
           const reservationMatches =
-            snapshot.reservation.tenantProfileId ===
-              operation.tenantProfileId &&
+            snapshot.reservation.tenantProfileId === operation.tenantProfileId &&
             snapshot.reservation.serverId === operation.serverId &&
             snapshot.reservation.releaseId === operation.releaseId &&
             snapshot.reservation.capacity.cpuMillicores ===
               operation.requestedCapacity.cpuMillicores &&
-            snapshot.reservation.capacity.memoryMiB ===
-              operation.requestedCapacity.memoryMiB &&
-            snapshot.reservation.capacity.storageMiB ===
-              operation.requestedCapacity.storageMiB;
-          if (
-            snapshot.reservation.status === "RESERVED" &&
-            reservationMatches
-          ) {
+            snapshot.reservation.capacity.memoryMiB === operation.requestedCapacity.memoryMiB &&
+            snapshot.reservation.capacity.storageMiB === operation.requestedCapacity.storageMiB;
+          if (snapshot.reservation.status === "RESERVED" && reservationMatches) {
             const released = await client.query<{ readonly id: string }>(
               `
                 UPDATE infrastructure.capacity_reservations
@@ -2919,8 +2794,7 @@ export function createPlatformPostgresDatabase(
             `,
             [operation.tenantProfileId],
           );
-          if (tenantUpdate.rows[0])
-            tenantVersion = BigInt(tenantUpdate.rows[0].version);
+          if (tenantUpdate.rows[0]) tenantVersion = BigInt(tenantUpdate.rows[0].version);
 
           const updatedResult = await client.query<ProvisioningOperationRow>(
             `
@@ -3052,8 +2926,7 @@ export function createPlatformPostgresDatabase(
             existingTarget &&
             (existingTarget.server_id !== row.server_id ||
               existingTarget.database_name !== completion.databaseName ||
-              existingTarget.migrator_role_name !==
-                completion.migratorRoleName ||
+              existingTarget.migrator_role_name !== completion.migratorRoleName ||
               existingTarget.runtime_role_name !== completion.runtimeRoleName)
           ) {
             throw new DatabaseUnavailableError();
@@ -3139,8 +3012,7 @@ export function createPlatformPostgresDatabase(
             `,
             [completion.tenantProfileId],
           );
-          if (tenantUpdate.rows[0])
-            tenantVersion = BigInt(tenantUpdate.rows[0].version);
+          if (tenantUpdate.rows[0]) tenantVersion = BigInt(tenantUpdate.rows[0].version);
           const updatedResult = await client.query<ProvisioningOperationRow>(
             `
               UPDATE operations.provisioning_operations AS operation
@@ -3184,9 +3056,8 @@ export function createPlatformPostgresDatabase(
         completeProvisioningSecrets(pool, command),
       completeStorage: (command: CompleteProvisioningStorageCommand) =>
         completeProvisioningStorage(pool, command),
-      completeConfiguration: (
-        command: CompleteProvisioningConfigurationCommand,
-      ) => completeProvisioningConfiguration(pool, command),
+      completeConfiguration: (command: CompleteProvisioningConfigurationCommand) =>
+        completeProvisioningConfiguration(pool, command),
       completeContainers: (command: CompleteProvisioningContainersCommand) =>
         completeProvisioningContainers(pool, command),
       completeHttps: (command: CompleteProvisioningHttpsCommand) =>
