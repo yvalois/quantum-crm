@@ -50,7 +50,9 @@ describe("tenant HTTPS route provisioner", () => {
     });
     await new Promise<void>((resolve) => server.listen(socketPath, resolve));
     try {
-      await expect(createTenantHttpsRouteProvisioner({ socketPath }).provision(command)).resolves.toEqual({
+      await expect(
+        createTenantHttpsRouteProvisioner({ socketPath }).provision(command),
+      ).resolves.toEqual({
         hostname: command.hostname,
         edgeNetworkName: command.edgeNetworkName,
         routeGeneration: 1n,

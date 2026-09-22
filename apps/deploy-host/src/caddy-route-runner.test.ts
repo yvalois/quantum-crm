@@ -4,8 +4,14 @@ import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createTenantCaddyRouteReconciler, type CaddyCommandResult } from "./caddy-route-runner.js";
-import { HostAdapterError, type HostAdapterHttpsRequest } from "./host-adapter.js";
+import {
+  createTenantCaddyRouteReconciler,
+  type CaddyCommandResult,
+} from "./caddy-route-runner.js";
+import {
+  HostAdapterError,
+  type HostAdapterHttpsRequest,
+} from "./host-adapter.js";
 
 const request: HostAdapterHttpsRequest = {
   action: "RECONCILE_TENANT_HTTPS",
@@ -45,7 +51,9 @@ describe("tenant Caddy route runner", () => {
         configured: true,
         reconciled: true,
       });
-      await expect(readFile(join(routeRoot, `${request.tenantProfileId}.caddy`), "utf8")).resolves.toContain(
+      await expect(
+        readFile(join(routeRoot, `${request.tenantProfileId}.caddy`), "utf8"),
+      ).resolves.toContain(
         "qcrm-01995f7e7b5270008000000000000201-crm-web:3000",
       );
       expect(run.mock.calls.map(([args]) => args)).toEqual([
@@ -73,7 +81,9 @@ describe("tenant Caddy route runner", () => {
       commandRunner: { run },
     });
     try {
-      await expect(reconciler.reconcile(request)).rejects.toEqual(new HostAdapterError("UNAVAILABLE"));
+      await expect(reconciler.reconcile(request)).rejects.toEqual(
+        new HostAdapterError("UNAVAILABLE"),
+      );
       await expect(readFile(routePath, "utf8")).resolves.toBe("prior-route\n");
     } finally {
       await rm(routeRoot, { recursive: true, force: true });
