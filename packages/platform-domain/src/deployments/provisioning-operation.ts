@@ -238,6 +238,29 @@ export interface TenantConfigurationProvisioner {
   ) => Promise<TenantConfigurationProvisioningResult>;
 }
 
+export interface TenantContainerProvisioningCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+  readonly releaseId: string;
+  readonly manifestRef: string;
+  readonly configurationRevision: bigint;
+  readonly attempt: number;
+}
+
+export interface TenantContainerProvisioningResult {
+  readonly projectName: string;
+  readonly services: readonly string[];
+  readonly ready: boolean;
+  readonly reconciled: boolean;
+}
+
+export interface TenantContainerProvisioner {
+  readonly provision: (
+    command: TenantContainerProvisioningCommand,
+  ) => Promise<TenantContainerProvisioningResult>;
+}
+
 export interface ProvisioningValidationResult {
   readonly operation: ProvisioningOperation;
   readonly tenantVersion: bigint;
