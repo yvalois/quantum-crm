@@ -27,8 +27,8 @@ El ejecutor reconcilia de forma idempotente el proyecto Compose privado de un pe
 ## Auditoria del trabajo existente
 
 - Busquedas realizadas: `START_CONTAINERS`, `tenant.yaml`, `qcrm-t-`, `deploy-executor`, Compose, mounts, digests y readiness.
-- Codigo o documentación encontrados: existe la plantilla `infra/compose/tenant.yaml` y el paso tipado, pero el ejecutor solo llega a `WRITE_CONFIGURATION`; todavía no existe un adaptador de host para operar Docker.
-- Pruebas e historial encontrados: CI y despliegues previos acreditan la plataforma central, no un proyecto de tenant real.
+- Codigo o documentación encontrados: existe la plantilla `infra/compose/tenant.yaml`, el paso tipado y el adaptador `apps/deploy-host`; el transporte Unix y su allowlist ya están integrados, pero el reconciliador fijo de Compose todavía no opera Docker.
+- Pruebas e historial encontrados: CI de los PR #12, #13 y #14 acredita contratos, persistencia, cliente y transporte del adaptador, no un proyecto de tenant real.
 - Decision de reutilizacion, extension o reemplazo: extender el flujo tipado y usar el adaptador privado definido en `ADR-0018`; no montar el socket Docker ni crear un orquestador paralelo.
 
 ## Alcance
@@ -61,8 +61,9 @@ El ejecutor reconcilia de forma idempotente el proyecto Compose privado de un pe
 
 - [x] Añadir contrato y validadores de acciones de host.
 - [x] Implementar el adaptador cliente Unix privado y su allowlist contractual de respuesta.
-- [ ] Persistir observación, fencing y transición a `CONFIGURE_HTTPS`.
-- [ ] Conectar `START_CONTAINERS` al ejecutor sin entregar el socket Docker.
+- [x] Persistir observación, fencing y transición a `CONFIGURE_HTTPS`.
+- [x] Conectar `START_CONTAINERS` al ejecutor sin entregar el socket Docker.
+- [ ] Implementar el reconciliador fijo de Compose con manifiesto de release, digests y observación de los cinco servicios.
 - [ ] Cubrir idempotencia, concurrencia, rechazo de entradas y readiness en CI y VPS.
 - [ ] Desplegar una vez en el VPS autorizado y registrar evidencia sin datos sintéticos en staging.
 
@@ -101,8 +102,8 @@ El ejecutor reconcilia de forma idempotente el proyecto Compose privado de un pe
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: contrato `TenantContainerProvisioner` en `packages/platform-domain` y adaptador cliente Unix en `apps/deploy-executor` (PR de implementación en curso).
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: contrato y cliente en PR #12 (`7026c41`), persistencia y conexión de `START_CONTAINERS` en PR #13 (`a36709a`), adaptador Unix privado y allowlist en PR #14 (`521ae6d`).
+- Comandos y resultados: checks obligatorios de GitHub Actions de los tres PR aprobados; no se ejecutaron pruebas ni builds en el equipo local.
+- Documentacion actualizada: estado del proyecto, mapa del sistema y esta ficha.
+- Desviaciones del plan: el proceso `deploy-host` arranca fail-closed hasta disponer del reconciliador fijo, del manifiesto con digests y de la observación real de Compose.
+- Pendientes o decisiones nuevas: implementar el runner allowlisted, validar mounts/redes/puertos/readiness y desplegar una vez en el VPS autorizado.
