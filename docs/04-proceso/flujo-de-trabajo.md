@@ -36,6 +36,7 @@ Las casillas del checklist solo distinguen pendiente y hecho. Los estados interm
 ## Implementacion
 
 - Construir la ruta vertical minima que produzca comportamiento real.
+- Mantener el foco en el requisito activo: no interrumpirlo por refinamientos de release, observabilidad, rendimiento, recuperacion, pulido visual o documentacion final, salvo que sean un prerequisito tecnico concreto de esa ruta.
 - Reutilizar servicios y componentes existentes cuando sus contratos sean correctos.
 - Validar entradas y permisos en el servidor.
 - Agregar pruebas mientras se implementa, no despues del cierre.

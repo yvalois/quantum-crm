@@ -239,6 +239,21 @@ Este alcance contiene subsistemas independientes y no debe convertirse en un uni
 
 El orden de las fases es la ruta de integracion; no impide preparar decisiones diferidas justo antes de necesitarlas. Las decisiones pendientes por capacidad se resuelven desde [el backlog documental](documentacion-tecnica.md) antes de implementar el modulo correspondiente; sus numeros reservados no se tratan como ADR existentes hasta que se aprueben y registren.
 
+### Prioridad durante la construccion funcional
+
+Mientras se construyen los modulos de producto, la prioridad es una rebanada vertical real: interfaz, API, datos, permisos y comportamiento observable del requisito activo. No se interrumpe esa rebanada para pulir infraestructura, automatizaciones de release, tableros operativos o validaciones globales que no sean un prerequisito tecnico concreto de su funcionamiento.
+
+Se reservan para la fase 10, o para el instante exacto en que habiliten una integracion que ya se va a activar:
+
+- afinamiento de CI/CD, catalogo de releases, promociones globales, rollback automatizado y politicas detalladas de escaneo;
+- observabilidad completa, dashboards, alertas, SLO y optimizacion de logs;
+- pruebas de carga, rendimiento, matriz completa de navegadores y auditorias de seguridad globales;
+- backups externos, simulacros de restauracion y runbooks de continuidad;
+- pulido visual no funcional, analitica operativa y documentacion final de entrega;
+- proveedores externos que pertenecen a modulos posteriores, hasta que se alcance su requisito (canales, calendario, correo, pagos y facturacion).
+
+Este diferimiento nunca autoriza a ignorar ni rebajar esas actividades: todas siguen siendo obligatorias antes del piloto conforme a la puerta final. Tampoco permite aplazar dentro de una funcion activa la persistencia real, migracion aplicable, validacion y autorizacion en servidor, aislamiento por perfil, idempotencia cuando aplique, errores seguros ni una verificacion proporcional que demuestre el comportamiento creado.
+
 ## Riesgos aceptados y mitigacion
 
 | Riesgo | Mitigacion obligatoria |
