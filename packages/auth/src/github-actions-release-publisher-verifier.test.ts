@@ -1,7 +1,4 @@
-import {
-  parseGithubActionsReleasePublisherConfig,
-  SecretValue,
-} from "@quantum-crm/config";
+import { parseGithubActionsReleasePublisherConfig, SecretValue } from "@quantum-crm/config";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -84,8 +81,7 @@ describe("GitHub Actions release publisher verifier", () => {
       repository: "yvalois/quantum-crm",
       repositoryId: "1378875885",
       repositoryOwnerId: "90980150",
-      workflowRef:
-        "yvalois/quantum-crm/.github/workflows/release-candidate.yml@refs/heads/main",
+      workflowRef: "yvalois/quantum-crm/.github/workflows/release-candidate.yml@refs/heads/main",
       commitSha: "a".repeat(40),
       runId: "35759155797",
       runAttempt: "1",

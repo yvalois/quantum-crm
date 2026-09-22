@@ -51,9 +51,7 @@ function sameRelease(
   left: PlatformRelease,
   right: ReturnType<typeof CreatePlatformReleaseSchema.parse>,
 ): boolean {
-  const leftArtifacts = new Map(
-    left.artifacts.map((artifact) => [artifact.name, artifact.digest]),
-  );
+  const leftArtifacts = new Map(left.artifacts.map((artifact) => [artifact.name, artifact.digest]));
   return (
     left.id === right.id &&
     left.semanticVersion === right.semanticVersion &&

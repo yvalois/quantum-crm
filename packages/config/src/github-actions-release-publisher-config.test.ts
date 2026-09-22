@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ConfigurationError } from "./configuration-error.js";
-import {
-  parseGithubActionsReleasePublisherConfig,
-} from "./github-actions-release-publisher-config.js";
+import { parseGithubActionsReleasePublisherConfig } from "./github-actions-release-publisher-config.js";
 
 const environment = {
   QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE: "quantum-release-publisher",
@@ -24,8 +22,7 @@ describe("GitHub Actions release publisher configuration", () => {
       repositoryId: "1378875885",
       repositoryOwnerId: "90980150",
       ref: "refs/heads/main",
-      workflowRef:
-        "yvalois/quantum-crm/.github/workflows/release-candidate.yml@refs/heads/main",
+      workflowRef: "yvalois/quantum-crm/.github/workflows/release-candidate.yml@refs/heads/main",
       subject: "repo:yvalois/quantum-crm:ref:refs/heads/main",
       eventName: "workflow_run",
       repositoryVisibility: "private",
@@ -33,12 +30,11 @@ describe("GitHub Actions release publisher configuration", () => {
   });
 
   it("uses synthetic defaults only in local and test", () => {
-    expect(
-      parseGithubActionsReleasePublisherConfig("admin-api", "test", {}),
-    ).toMatchObject({ repository: "example/quantum-crm", repositoryId: "1" });
-    expect(
-      () => parseGithubActionsReleasePublisherConfig("admin-api", "staging", {}),
-    ).toThrow(
+    expect(parseGithubActionsReleasePublisherConfig("admin-api", "test", {})).toMatchObject({
+      repository: "example/quantum-crm",
+      repositoryId: "1",
+    });
+    expect(() => parseGithubActionsReleasePublisherConfig("admin-api", "staging", {})).toThrow(
       new ConfigurationError("admin-api", [
         "QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE",
         "QCRM_GITHUB_ACTIONS_REPOSITORY",
@@ -54,9 +50,7 @@ describe("GitHub Actions release publisher configuration", () => {
     ["owner identifier", { ...environment, QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID: "x" }],
     ["audience", { ...environment, QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE: "invalid value" }],
   ])("rejects an invalid %s", (_case, invalid) => {
-    expect(
-      () => parseGithubActionsReleasePublisherConfig("admin-api", "staging", invalid),
-    ).toThrow(
+    expect(() => parseGithubActionsReleasePublisherConfig("admin-api", "staging", invalid)).toThrow(
       ConfigurationError,
     );
   });

@@ -75,11 +75,7 @@ export function createGithubActionsReleasePublisherVerifier(
     verify: async (token: SecretValue): Promise<VerifiedGithubActionsReleasePublisher> => {
       try {
         const compactToken = token.expose();
-        if (
-          compactToken.length < 1 ||
-          compactToken.length > 16_384 ||
-          /\s/u.test(compactToken)
-        ) {
+        if (compactToken.length < 1 || compactToken.length > 16_384 || /\s/u.test(compactToken)) {
           throw new GithubActionsReleasePublisherVerificationError();
         }
 
@@ -123,10 +119,7 @@ export function createGithubActionsReleasePublisherVerifier(
         const visibility = requiredString(payload.repository_visibility, /^private$/u);
         const ref = requiredString(payload.ref, /^refs\/heads\/main$/u);
         const eventName = requiredString(payload.event_name, /^workflow_run$/u);
-        const workflowRef = requiredString(
-          payload.workflow_ref,
-          workflowRefPattern,
-        ).toLowerCase();
+        const workflowRef = requiredString(payload.workflow_ref, workflowRefPattern).toLowerCase();
         const commitSha = requiredString(payload.sha, shaPattern);
         const runId = requiredString(payload.run_id, opaqueClaimPattern);
         const runAttempt = requiredString(payload.run_attempt, opaqueClaimPattern);

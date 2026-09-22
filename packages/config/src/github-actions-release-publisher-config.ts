@@ -42,8 +42,14 @@ const repositorySchema = z
   .trim()
   .toLowerCase()
   .regex(/^[a-z0-9][a-z0-9_.-]{0,38}\/[a-z0-9][a-z0-9_.-]{0,99}$/u);
-const identifierSchema = z.string().trim().regex(/^[1-9][0-9]{0,19}$/u);
-const audienceSchema = z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u);
+const identifierSchema = z
+  .string()
+  .trim()
+  .regex(/^[1-9][0-9]{0,19}$/u);
+const audienceSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u);
 
 function valuesFor(environment: QcrmEnvironment): Readonly<Record<string, string>> {
   if (environment !== "local" && environment !== "test") return {};
@@ -63,15 +69,13 @@ export function parseGithubActionsReleasePublisherConfig(
 ): GithubActionsReleasePublisherConfig {
   const defaults = valuesFor(environmentName);
   const audience = audienceSchema.safeParse(
-    environment.QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE ??
-      defaults.QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE,
+    environment.QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE ?? defaults.QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE,
   );
   const repository = repositorySchema.safeParse(
     environment.QCRM_GITHUB_ACTIONS_REPOSITORY ?? defaults.QCRM_GITHUB_ACTIONS_REPOSITORY,
   );
   const repositoryId = identifierSchema.safeParse(
-    environment.QCRM_GITHUB_ACTIONS_REPOSITORY_ID ??
-      defaults.QCRM_GITHUB_ACTIONS_REPOSITORY_ID,
+    environment.QCRM_GITHUB_ACTIONS_REPOSITORY_ID ?? defaults.QCRM_GITHUB_ACTIONS_REPOSITORY_ID,
   );
   const repositoryOwnerId = identifierSchema.safeParse(
     environment.QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID ??
