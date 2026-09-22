@@ -50,6 +50,9 @@ async function bootstrap(): Promise<void> {
     configurationDirectory: config.tenantConfigurationDirectory,
     storageEndpoint: config.storage.endpoint,
     releaseRepository: database.releases,
+    tenantSecretDirectory: config.tenantSecretDirectory,
+    databaseHost: new URL(adminConnectionUrl).hostname,
+    databasePort: Number(new URL(adminConnectionUrl).port || "5432"),
   });
   const containerProvisioner = createTenantContainerProvisioner({
     socketPath: config.deployHostSocketPath,

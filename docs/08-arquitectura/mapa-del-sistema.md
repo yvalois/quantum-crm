@@ -113,33 +113,33 @@ Los cuadros son limites logicos. PostgreSQL, Redis, SeaweedFS, ClamAV, Keycloak 
 
 La especificacion logica anterior es mas amplia que el codigo disponible. El incremento `OPS-01-c` materializa solo los ocho procesos de aplicacion y sus fronteras de contenedor:
 
-| Proyecto Compose | Procesos incluidos | Estado y limite |
-|---|---|---|
-| `quantum-local` | ocho aplicaciones | Build integrado en el VPS de pruebas y puertos limitados a loopback; monta referencias PostgreSQL sinteticas solo en procesos autorizados |
-| `quantum-test` | `crm-web`, `api` | Smoke de los dos tipos de imagen, sin datos comerciales |
-| `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor` | Plantilla por digest; el executor usa operaciones tipadas, una credencial administrativa acotada para `CREATE_DATABASE`, una raiz de secretos y una raiz separada de manifestos por perfil, sin Docker socket ni shell |
-| `qcrm-t-<uuid>` | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla por perfil y digest; `api` y `worker` reciben una conexion PostgreSQL por archivo secreto; identidad, colas y archivos siguen pendientes |
-| `host-adapter` (fuera de Compose) | `deploy-host` | Proceso de infraestructura fuera del plano de aplicación; único propietario del socket Docker y del futuro runner allowlisted, accesible desde `deploy-executor` solo por Unix privado |
+| Proyecto Compose                  | Procesos incluidos                                        | Estado y limite                                                                                                                                                                                                        |
+| --------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `quantum-local`                   | ocho aplicaciones                                         | Build integrado en el VPS de pruebas y puertos limitados a loopback; monta referencias PostgreSQL sinteticas solo en procesos autorizados                                                                              |
+| `quantum-test`                    | `crm-web`, `api`                                          | Smoke de los dos tipos de imagen, sin datos comerciales                                                                                                                                                                |
+| `quantum-platform`                | `admin-web`, `admin-api`, `deploy-executor`               | Plantilla por digest; el executor usa operaciones tipadas, una credencial administrativa acotada para `CREATE_DATABASE`, una raiz de secretos y una raiz separada de manifestos por perfil, sin Docker socket ni shell |
+| `qcrm-t-<uuid>`                   | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla por perfil y digest; `api` y `worker` reciben una conexion PostgreSQL por archivo secreto; identidad, colas y archivos siguen pendientes                                                                     |
+| `host-adapter` (fuera de Compose) | `deploy-host`                                             | Proceso de infraestructura fuera del plano de aplicación; único propietario del socket Docker y del futuro runner allowlisted, accesible desde `deploy-executor` solo por Unix privado                                 |
 
 `infra/docker/Dockerfile.web` produce las tres variantes Next.js standalone y `infra/docker/Dockerfile.node` produce los procesos Node compilados, incluido el adaptador de infraestructura `deploy-host`. Caddy sera el unico publicador de trafico en los despliegues no locales; las redes externas declaradas son puntos de conexion controlados, no autorizacion para publicar puertos internos.
 
-`OPS-04-a` materializa la frontera inicial de PostgreSQL: `api` y `worker` consumen la base exclusiva de su perfil, `admin-api` consume la base de plataforma y readiness prueba la conexion sin exponer identidad ni URL. `agent-runtime` y las webs no reciben esos secretos. `ADM-04-d` agrega al `deploy-executor` una referencia administrativa separada y de privilegio minimo para crear y reconciliar una base por perfil; `ADM-04-e` agrega credenciales idempotentes en archivos privados y referencias sin valores; `ADM-04-g` materializa un manifiesto no secreto y su referencia durable fuera del checkout antes de iniciar contenedores. `ADM-04-h` define un adaptador Unix privado para que el ejecutor pueda reconciliar Compose sin recibir el socket Docker. Los schemas comerciales, migrador de perfil y pasos posteriores siguen pendientes.
+`OPS-04-a` materializa la frontera inicial de PostgreSQL: `api` y `worker` consumen la base exclusiva de su perfil, `admin-api` consume la base de plataforma y readiness prueba la conexion sin exponer identidad ni URL. `agent-runtime` y las webs no reciben esos secretos. `ADM-04-d` agrega al `deploy-executor` una referencia administrativa separada y de privilegio minimo para crear y reconciliar una base por perfil; `ADM-04-e` agrega credenciales idempotentes en archivos privados y referencias sin valores; `ADM-04-g` materializa un manifiesto no secreto y su referencia durable fuera del checkout antes de iniciar contenedores. `ADM-04-h` implementa el adaptador Unix privado y el runner allowlisted: solo ejecuta `docker compose config`, `up` y `ps` con proyecto, plantilla, red por UUID, red de base, digests y secreto derivados de configuración fija. Los schemas comerciales, migrador de perfil y pasos posteriores siguen pendientes.
 
 Los componentes de identidad, Redis, archivos, proxy, telemetria y respaldo permanecen como arquitectura aprobada pendiente de sus requisitos operativos. La existencia de una plantilla Compose no acredita instalacion persistente en el VPS, imagen publicada, SBOM, procedencia, escaneo ni release desplegada.
 
 ## Responsabilidad de cada aplicacion
 
-| Aplicacion | Responsabilidad | No debe hacer |
-|---|---|---|
-| `crm-web` | Experiencia de usuarios de cada CRM, BFF y sesion web | Acceder a bases, contener reglas comerciales o exponer tokens OIDC |
-| `portal-web` | Autoservicio responsive y white-label para clientes finales, con BFF y audiencia propia | Exponer operacion interna, datos ajenos, telemetria o funciones de plataforma |
-| `admin-web` | Experiencia de operadores de Quantum | Usar sesiones de CRM o ejecutar comandos de host |
-| `api` | HTTP, WebSocket y casos de uso comerciales | Ejecutar trabajos largos, migraciones o acceder a otros perfiles |
-| `worker` | Outbox, inbox, automatizaciones, integraciones y trabajos duraderos | Exponer controladores publicos innecesarios o saltar autorizacion de comandos |
-| `agent-runtime` | Agente principal, subagentes internos, grafo, checkpoints e interrupciones | Acceder directamente a datos comerciales, proveedores, secretos o infraestructura interna |
-| `admin-api` | Perfiles, releases, servidores, operaciones y auditoria de plataforma | Consultar tablas comerciales o acceder al daemon Docker |
-| `deploy-executor` | Ejecutar operaciones de infraestructura tipadas y reportar estado mediante el adaptador Unix | Aceptar shell arbitrario, el socket Docker o credenciales de usuarios comerciales |
-| `deploy-host` | Ejecutar el futuro runner allowlisted de Compose y observar recursos del perfil | Aceptar shell, rutas libres, proyectos no derivados del UUID o solicitudes fuera del contrato |
+| Aplicacion        | Responsabilidad                                                                              | No debe hacer                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `crm-web`         | Experiencia de usuarios de cada CRM, BFF y sesion web                                        | Acceder a bases, contener reglas comerciales o exponer tokens OIDC                            |
+| `portal-web`      | Autoservicio responsive y white-label para clientes finales, con BFF y audiencia propia      | Exponer operacion interna, datos ajenos, telemetria o funciones de plataforma                 |
+| `admin-web`       | Experiencia de operadores de Quantum                                                         | Usar sesiones de CRM o ejecutar comandos de host                                              |
+| `api`             | HTTP, WebSocket y casos de uso comerciales                                                   | Ejecutar trabajos largos, migraciones o acceder a otros perfiles                              |
+| `worker`          | Outbox, inbox, automatizaciones, integraciones y trabajos duraderos                          | Exponer controladores publicos innecesarios o saltar autorizacion de comandos                 |
+| `agent-runtime`   | Agente principal, subagentes internos, grafo, checkpoints e interrupciones                   | Acceder directamente a datos comerciales, proveedores, secretos o infraestructura interna     |
+| `admin-api`       | Perfiles, releases, servidores, operaciones y auditoria de plataforma                        | Consultar tablas comerciales o acceder al daemon Docker                                       |
+| `deploy-executor` | Ejecutar operaciones de infraestructura tipadas y reportar estado mediante el adaptador Unix | Aceptar shell arbitrario, el socket Docker o credenciales de usuarios comerciales             |
+| `deploy-host`     | Ejecutar el futuro runner allowlisted de Compose y observar recursos del perfil              | Aceptar shell, rutas libres, proyectos no derivados del UUID o solicitudes fuera del contrato |
 
 ## Modulos comerciales
 
@@ -189,16 +189,16 @@ El diagrama muestra relaciones representativas, no una lista de imports. Todos l
 
 ## Modulos de plataforma
 
-| Modulo | Datos y responsabilidad |
-|---|---|
-| `platform-iam` | Operadores, membresias, roles y MFA requerido |
-| `tenants` | Identidad, estado, hostname, ubicacion y ciclo de vida de perfiles |
-| `infrastructure` | VPS, capacidad, recursos y asignaciones |
-| `releases` | Versiones, commits, digests, contratos y compatibilidad |
-| `deployments` | Operaciones, locks, pasos, progreso y resultado observado |
-| `backups` | Inventario, politicas, ejecuciones y pruebas de restauracion |
-| `platform-monitoring` | Salud, capacidad, alertas y estado observado |
-| `platform-audit` | Acciones administrativas append-only |
+| Modulo                | Datos y responsabilidad                                            |
+| --------------------- | ------------------------------------------------------------------ |
+| `platform-iam`        | Operadores, membresias, roles y MFA requerido                      |
+| `tenants`             | Identidad, estado, hostname, ubicacion y ciclo de vida de perfiles |
+| `infrastructure`      | VPS, capacidad, recursos y asignaciones                            |
+| `releases`            | Versiones, commits, digests, contratos y compatibilidad            |
+| `deployments`         | Operaciones, locks, pasos, progreso y resultado observado          |
+| `backups`             | Inventario, politicas, ejecuciones y pruebas de restauracion       |
+| `platform-monitoring` | Salud, capacidad, alertas y estado observado                       |
+| `platform-audit`      | Acciones administrativas append-only                               |
 
 ## Fronteras de datos
 
@@ -362,41 +362,41 @@ sequenceDiagram
 
 ## Protocolos
 
-| Necesidad | Mecanismo |
-|---|---|
-| Comandos y consultas | REST JSON y OpenAPI 3.1.x |
-| Chat y eventos interactivos | WebSocket autenticado y reanudable |
-| Progreso administrativo | SSE mas recurso REST de operacion |
-| Efectos asincronos | Outbox, BullMQ e inbox idempotente |
-| Automatizaciones y esperas | Revisiones y ejecuciones en PostgreSQL; BullMQ como distribucion recuperable |
-| Eventos entre procesos o sistemas | Envelope CloudEvents y AsyncAPI |
-| Ejecucion de agentes | `/agent/v1` sobre HTTP con JSON Schema versionado y cancelacion explicita |
-| Contexto y acciones agentivas | MCP Streamable HTTP en `/mcp`, con resources, tools y prompts acotados |
-| Proveedores | Adaptadores y webhooks autenticados |
+| Necesidad                         | Mecanismo                                                                    |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| Comandos y consultas              | REST JSON y OpenAPI 3.1.x                                                    |
+| Chat y eventos interactivos       | WebSocket autenticado y reanudable                                           |
+| Progreso administrativo           | SSE mas recurso REST de operacion                                            |
+| Efectos asincronos                | Outbox, BullMQ e inbox idempotente                                           |
+| Automatizaciones y esperas        | Revisiones y ejecuciones en PostgreSQL; BullMQ como distribucion recuperable |
+| Eventos entre procesos o sistemas | Envelope CloudEvents y AsyncAPI                                              |
+| Ejecucion de agentes              | `/agent/v1` sobre HTTP con JSON Schema versionado y cancelacion explicita    |
+| Contexto y acciones agentivas     | MCP Streamable HTTP en `/mcp`, con resources, tools y prompts acotados       |
+| Proveedores                       | Adaptadores y webhooks autenticados                                          |
 
 La telemetria no es autoridad de auditoria ni estado comercial. Las aplicaciones emiten OpenTelemetry y logs JSON hacia un Collector interno; el backend puede ser el perfil Grafana autocontenido o un servicio OTLP administrado segun capacidad y requisitos operativos.
 
 ## Fallos y recuperacion
 
-| Fallo | Comportamiento esperado |
-|---|---|
-| Redis se pierde | PostgreSQL conserva operaciones pendientes recuperables |
-| Worker reinicia | Lease expira y otro consumidor reanuda sin duplicar efectos |
-| Trabajo se entrega dos veces | Inbox, clave idempotente y transicion condicional conservan un solo efecto |
-| Worker termina despues de perder el lease | Su resultado tardio se rechaza y la ejecucion continua desde el ultimo checkpoint |
-| Proveedor no responde | Se registra intento y se reintenta segun politica |
-| Resultado externo queda incierto | Se concilia antes de repetir pagos, reservas, mensajes o emisiones |
-| WebSocket o SSE se corta | Cliente reanuda con cursor o reconstruye snapshot |
-| Agente responde tarde | Callback autenticado valida ejecucion, intento, lease, generacion, conversacion y modo actual antes de transicionar |
-| `agent-runtime` reinicia | Reanuda solo un thread compatible desde checkpoint; en otro caso migra o reinicia de forma explicita |
-| MCP queda indisponible | La ejecucion se detiene o escala sin inventar contexto ni repetir efectos inciertos |
-| SeaweedFS queda indisponible | La carga, promocion o entrega permanece pendiente o falla de forma recuperable sin confirmar bytes no observados |
-| ClamAV queda indisponible o desactualizado | Los archivos permanecen en cuarentena y no alcanzan `AVAILABLE` |
-| El disco se aproxima al limite | Se bloquean nuevas escrituras antes del agotamiento y se mantienen lecturas seguras cuando sea posible |
-| Una copia o eliminacion S3 queda incierta | Un reconciliador observa estado y checksum antes de repetir o confirmar |
-| Migracion falla | Perfil no cambia a version observada nueva |
-| Release candidata falla | Trafico permanece o vuelve a version compatible anterior |
-| VPS se pierde | Se reconstruye desde inventario, imagenes y respaldo externo verificado |
+| Fallo                                      | Comportamiento esperado                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Redis se pierde                            | PostgreSQL conserva operaciones pendientes recuperables                                                             |
+| Worker reinicia                            | Lease expira y otro consumidor reanuda sin duplicar efectos                                                         |
+| Trabajo se entrega dos veces               | Inbox, clave idempotente y transicion condicional conservan un solo efecto                                          |
+| Worker termina despues de perder el lease  | Su resultado tardio se rechaza y la ejecucion continua desde el ultimo checkpoint                                   |
+| Proveedor no responde                      | Se registra intento y se reintenta segun politica                                                                   |
+| Resultado externo queda incierto           | Se concilia antes de repetir pagos, reservas, mensajes o emisiones                                                  |
+| WebSocket o SSE se corta                   | Cliente reanuda con cursor o reconstruye snapshot                                                                   |
+| Agente responde tarde                      | Callback autenticado valida ejecucion, intento, lease, generacion, conversacion y modo actual antes de transicionar |
+| `agent-runtime` reinicia                   | Reanuda solo un thread compatible desde checkpoint; en otro caso migra o reinicia de forma explicita                |
+| MCP queda indisponible                     | La ejecucion se detiene o escala sin inventar contexto ni repetir efectos inciertos                                 |
+| SeaweedFS queda indisponible               | La carga, promocion o entrega permanece pendiente o falla de forma recuperable sin confirmar bytes no observados    |
+| ClamAV queda indisponible o desactualizado | Los archivos permanecen en cuarentena y no alcanzan `AVAILABLE`                                                     |
+| El disco se aproxima al limite             | Se bloquean nuevas escrituras antes del agotamiento y se mantienen lecturas seguras cuando sea posible              |
+| Una copia o eliminacion S3 queda incierta  | Un reconciliador observa estado y checksum antes de repetir o confirmar                                             |
+| Migracion falla                            | Perfil no cambia a version observada nueva                                                                          |
+| Release candidata falla                    | Trafico permanece o vuelve a version compatible anterior                                                            |
+| VPS se pierde                              | Se reconstruye desde inventario, imagenes y respaldo externo verificado                                             |
 
 ## Decisiones relacionadas
 

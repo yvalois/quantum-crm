@@ -38,6 +38,7 @@ describe("tenant compose policy", () => {
       imageRegistry: "ghcr.io/example/quantum-crm",
       environment: "staging",
       tenantEdgeNetwork: "qcrm-tenant-edge",
+      platformDatabaseNetwork: "qcrm-platform-database",
       platformStorageNetwork: "qcrm-platform-storage",
       crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
     });
@@ -81,6 +82,7 @@ describe("tenant compose policy", () => {
         imageRegistry: "ghcr.io/example/quantum-crm",
         environment: "staging",
         tenantEdgeNetwork: "qcrm-tenant-edge",
+        platformDatabaseNetwork: "qcrm-platform-database",
         platformStorageNetwork: "qcrm-platform-storage",
         crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
       }),
@@ -91,6 +93,7 @@ describe("tenant compose policy", () => {
         imageRegistry: "ghcr.io/example/quantum-crm",
         environment: "staging",
         tenantEdgeNetwork: "qcrm-tenant-edge",
+        platformDatabaseNetwork: "qcrm-platform-database",
         platformStorageNetwork: "qcrm-platform-storage",
         crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
       }),

@@ -131,6 +131,7 @@ describe("process configuration", () => {
         defaultHost: "127.0.0.1",
         defaultPort: 3200,
         requiresDeployHostSocket: true,
+        requiresDeployHostComposeRuntime: true,
       },
       "agent-runtime": {
         serviceName: "agent-runtime",
@@ -138,6 +139,28 @@ describe("process configuration", () => {
         defaultPort: 3103,
       },
     });
+  });
+
+  it("loads the deploy host compose runtime defaults only for safe environments", () => {
+    expect(parseServiceConfig("deploy-host", {})).toMatchObject({
+      serviceName: "deploy-host",
+      deployHostConfigurationRoot: "/tmp/qcrm-tenant-configuration",
+      deployHostComposeTemplate: "/tmp/qcrm-tenant.yaml",
+      deployHostImageRegistry: "ghcr.io/example/quantum-crm",
+      deployHostTenantEdgeNetwork: "qcrm-tenant-edge",
+      deployHostPlatformDatabaseNetwork: "qcrm-platform-database",
+      deployHostPlatformStorageNetwork: "qcrm-platform-storage",
+      deployHostDatabaseSecretRoot: "/tmp/qcrm-tenant-secrets",
+    });
+
+    expect(() =>
+      parseServiceConfig("deploy-host", {
+        QCRM_ENV: "production",
+        QCRM_HOST: "127.0.0.1",
+        QCRM_PORT: "3200",
+        QCRM_DEPLOY_HOST_SOCKET_PATH: "/run/deploy-host/adapter.sock",
+      }),
+    ).toThrow(new ConfigurationError("deploy-host", ["QCRM_DEPLOY_HOST_CONFIGURATION_ROOT"]));
   });
 
   it("keeps the non-secret example valid for worker", () => {

@@ -47,15 +47,15 @@ El ejecutor reconcilia de forma idempotente el proyecto Compose privado de un pe
 
 ## Impacto tecnico
 
-| Area | Impacto previsto |
-|---|---|
-| Aplicaciones y modulos | `deploy-executor`, `platform-domain`, `database` y adaptador de host |
-| Contratos y eventos | Puerto tipado de acciones de host y resultado observado por generación |
-| Datos y migraciones | Recursos Compose por perfil, digests y estado observado |
-| Permisos y aislamiento | Socket Unix privado; proyecto, redes, mounts y secretos derivados del UUID |
-| Configuracion y secretos | Consume manifestos y archivos exactos; no serializa valores |
-| Observabilidad y operacion | Readiness por servicio, resultados durables, reconciliación y límites |
-| Documentacion | Ficha, estado, ADR, mapa e inventario del VPS |
+| Area                       | Impacto previsto                                                           |
+| -------------------------- | -------------------------------------------------------------------------- |
+| Aplicaciones y modulos     | `deploy-executor`, `platform-domain`, `database` y adaptador de host       |
+| Contratos y eventos        | Puerto tipado de acciones de host y resultado observado por generación     |
+| Datos y migraciones        | Recursos Compose por perfil, digests y estado observado                    |
+| Permisos y aislamiento     | Socket Unix privado; proyecto, redes, mounts y secretos derivados del UUID |
+| Configuracion y secretos   | Consume manifestos y archivos exactos; no serializa valores                |
+| Observabilidad y operacion | Readiness por servicio, resultados durables, reconciliación y límites      |
+| Documentacion              | Ficha, estado, ADR, mapa e inventario del VPS                              |
 
 ## Plan de implementacion
 
@@ -63,18 +63,18 @@ El ejecutor reconcilia de forma idempotente el proyecto Compose privado de un pe
 - [x] Implementar el adaptador cliente Unix privado y su allowlist contractual de respuesta.
 - [x] Persistir observación, fencing y transición a `CONFIGURE_HTTPS`.
 - [x] Conectar `START_CONTAINERS` al ejecutor sin entregar el socket Docker.
-- [ ] Implementar el reconciliador fijo de Compose con manifiesto de release, digests y observación de los cinco servicios.
+- [x] Implementar el reconciliador fijo de Compose con manifiesto de release, digests y observación de los cinco servicios.
 - [ ] Cubrir idempotencia, concurrencia, rechazo de entradas y readiness en CI y VPS.
 - [ ] Desplegar una vez en el VPS autorizado y registrar evidencia sin datos sintéticos en staging.
 
 ## Riesgos y mitigaciones
 
-| Riesgo | Mitigacion | Verificacion |
-|---|---|---|
-| El adaptador se convierte en shell remoto | Acciones cerradas y plantilla canónica | Solicitud con comando/path arbitrario rechazada |
-| Un perfil ve recursos ajenos | Nombres, mounts, redes y secretos derivados del UUID | Intento cruzado y revisión de mounts |
-| Reintento duplica contenedores | Proyecto determinista y reconciliación por digest | Dos ejecuciones concurrentes |
-| Readiness incierta confirma un despliegue | Observación por servicio y estado pendiente | Reinicio durante `up` y reconciliación |
+| Riesgo                                    | Mitigacion                                           | Verificacion                                    |
+| ----------------------------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| El adaptador se convierte en shell remoto | Acciones cerradas y plantilla canónica               | Solicitud con comando/path arbitrario rechazada |
+| Un perfil ve recursos ajenos              | Nombres, mounts, redes y secretos derivados del UUID | Intento cruzado y revisión de mounts            |
+| Reintento duplica contenedores            | Proyecto determinista y reconciliación por digest    | Dos ejecuciones concurrentes                    |
+| Readiness incierta confirma un despliegue | Observación por servicio y estado pendiente          | Reinicio durante `up` y reconciliación          |
 
 ## Criterios de aceptacion
 
@@ -102,8 +102,8 @@ El ejecutor reconcilia de forma idempotente el proyecto Compose privado de un pe
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: contrato y cliente en PR #12 (`7026c41`), persistencia y conexión de `START_CONTAINERS` en PR #13 (`a36709a`), adaptador Unix privado y allowlist en PR #14 (`521ae6d`).
-- Comandos y resultados: checks obligatorios de GitHub Actions de los tres PR aprobados; no se ejecutaron pruebas ni builds en el equipo local.
+- Archivos, commits o PR: contrato y cliente en PR #12 (`7026c41`), persistencia y conexión de `START_CONTAINERS` en PR #13 (`a36709a`), adaptador Unix privado y allowlist en PR #14 (`521ae6d`), manifiesto de release en PR #16 (`ca5e565`), política Compose en PR #17 (`5051867`) y runner actual en la rama `feat/ADM-04-h-compose-runner-impl`.
+- Comandos y resultados: PR #18 (`38b465c`) pasó `static`, `unit`, `integration`, `contracts`, `build`, `security/dependencies` y `security/secrets`. En el VPS autorizado, `docker compose -f /tmp/qcrm-tenant-runner.yaml config --quiet` pasó con UUID, redes, digests y secreto sintéticos; no se levantaron contenedores ni se ejecutaron pruebas o builds en el equipo local.
 - Documentacion actualizada: estado del proyecto, mapa del sistema y esta ficha.
-- Desviaciones del plan: el proceso `deploy-host` arranca fail-closed hasta disponer del reconciliador fijo, del manifiesto con digests y de la observación real de Compose.
-- Pendientes o decisiones nuevas: implementar el runner allowlisted, validar mounts/redes/puertos/readiness y desplegar una vez en el VPS autorizado.
+- Desviaciones del plan: el runner ya no es un placeholder; permanece sin promover hasta que CI y la validación dirigida del VPS acrediten el proyecto real, sus redes, mounts, digests y readiness.
+- Pendientes o decisiones nuevas: cubrir concurrencia/readiness con Compose desechable y ejecutar el alta vertical del perfil piloto cuando existan sus datos autorizados; confirmar que el bind de secretos del executor coincide con la raíz visible para `deploy-host`.
