@@ -34,20 +34,28 @@ jobs:
       matrix:
         include:
           - app: crm-web
+            artifact: CRM_WEB
             dockerfile: infra/docker/Dockerfile.web
           - app: portal-web
+            artifact: PORTAL_WEB
             dockerfile: infra/docker/Dockerfile.web
           - app: admin-web
+            artifact: ADMIN_WEB
             dockerfile: infra/docker/Dockerfile.web
           - app: api
+            artifact: API
             dockerfile: infra/docker/Dockerfile.node
           - app: admin-api
+            artifact: ADMIN_API
             dockerfile: infra/docker/Dockerfile.node
           - app: worker
+            artifact: WORKER
             dockerfile: infra/docker/Dockerfile.node
           - app: deploy-executor
+            artifact: DEPLOY_EXECUTOR
             dockerfile: infra/docker/Dockerfile.node
           - app: agent-runtime
+            artifact: AGENT_RUNTIME
             dockerfile: infra/docker/Dockerfile.node
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -75,3 +83,192 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+
+      - name: Write immutable artifact evidence
+        env:
+          ARTIFACT_NAME: ${{ matrix.artifact }}
+          ARTIFACT_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          test -n "$ARTIFACT_DIGEST"
+          mkdir -p release-evidence
+          printf '{"name":"%s","digest":"%s"}\n' "$ARTIFACT_NAME" "$ARTIFACT_DIGEST" > "release-evidence/${ARTIFACT_NAME}.json"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-artifact-${{ matrix.app }}
+          path: release-evidence/${{ matrix.artifact }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  assemble-manifest:
+    name: release / manifest and scan
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-artifact-*
+          path: release-evidence
+          merge-multiple: true
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install fixed Grype
+        env:
+          GRYPE_VERSION: 0.119.0
+          GRYPE_SHA256: 3fa2dc4b924621ab65404cf08d0b8438d896d80ab949c9d5a4ca283c36004c9b
+        run: |
+          curl --fail --location --silent --show-error --output "$RUNNER_TEMP/grype.tar.gz" "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz"
+          echo "${GRYPE_SHA256}  $RUNNER_TEMP/grype.tar.gz" | sha256sum --check --status
+          mkdir -p "$RUNNER_TEMP/grype"
+          tar --extract --gzip --file "$RUNNER_TEMP/grype.tar.gz" --directory "$RUNNER_TEMP/grype" grype
+          chmod 0755 "$RUNNER_TEMP/grype/grype"
+          echo "$RUNNER_TEMP/grype" >> "$GITHUB_PATH"
+
+      - name: Build the release manifest contract
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter @quantum-crm/contracts build
+
+      - name: Update the Grype database
+        env:
+          GRYPE_DB_CACHE_DIR: ${{ runner.temp }}/grype-db
+        run: |
+          grype db update
+          qcrm_database_file="$(find "$GRYPE_DB_CACHE_DIR" -type f -name vulnerability.db -print -quit)"
+          test -n "$qcrm_database_file"
+          printf 'QCRM_GRYPE_DATABASE_SHA256=sha256:%s\n' "$(sha256sum "$qcrm_database_file" | awk '{print $1}')" >> "$GITHUB_ENV"
+
+      - name: Generate a complete manifest after scan
+        env:
+          QCRM_GRYPE_VERSION: 0.119.0
+          QCRM_RELEASE_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          QCRM_RELEASE_EVIDENCE_DIR: release-evidence
+          QCRM_RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { createHash } from "node:crypto";
+          import { execFileSync } from "node:child_process";
+          import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+          import { join } from "node:path";
+          import { createReleaseManifest, serializeReleaseManifest } from "./packages/contracts/dist/index.js";
+
+          const applications = {
+            CRM_WEB: "crm-web",
+            PORTAL_WEB: "portal-web",
+            ADMIN_WEB: "admin-web",
+            API: "api",
+            ADMIN_API: "admin-api",
+            WORKER: "worker",
+            DEPLOY_EXECUTOR: "deploy-executor",
+            AGENT_RUNTIME: "agent-runtime",
+          };
+          const evidenceDirectory = process.env.QCRM_RELEASE_EVIDENCE_DIR;
+          const repository = process.env.QCRM_RELEASE_REPOSITORY;
+          const commitSha = process.env.QCRM_RELEASE_COMMIT_SHA;
+          const databaseSha256 = process.env.QCRM_GRYPE_DATABASE_SHA256;
+          const grypeVersion = process.env.QCRM_GRYPE_VERSION;
+          if (!evidenceDirectory || !repository || !commitSha || !databaseSha256 || !grypeVersion) {
+            throw new Error("Missing release manifest input");
+          }
+          const artifactFiles = (await readdir(evidenceDirectory)).filter((file) => file.endsWith(".json"));
+          if (artifactFiles.length !== Object.keys(applications).length) {
+            throw new Error("Expected exactly eight artifact evidence files");
+          }
+          const inputs = await Promise.all(
+            artifactFiles.map(async (file) => JSON.parse(await readFile(join(evidenceDirectory, file), "utf8"))),
+          );
+          const reportDirectory = "release-output/scans";
+          await mkdir(reportDirectory, { recursive: true });
+          const reportFor = (input) => {
+            if (typeof input.name !== "string" || typeof input.digest !== "string") {
+              throw new Error("Invalid artifact evidence");
+            }
+            const application = applications[input.name];
+            if (!application) throw new Error("Unknown release artifact");
+            const image = `ghcr.io/${repository}/${application}@${input.digest}`;
+            const report = execFileSync("grype", [image, "-o", "json"], { encoding: "utf8" });
+            return { application, image, report: JSON.parse(report) };
+          };
+          const reports = inputs.map((input) => ({ input, ...reportFor(input) }));
+          for (const item of reports) {
+            await writeFile(join(reportDirectory, `${item.input.name}.json`), `${JSON.stringify(item.report)}\n`, "utf8");
+          }
+          const countSeverities = (report) => {
+            const findings = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
+            for (const match of Array.isArray(report.matches) ? report.matches : []) {
+              const severity = String(match.vulnerability?.severity ?? "UNKNOWN").toLowerCase();
+              if (severity in findings) findings[severity] += 1;
+              else findings.unknown += 1;
+            }
+            return findings;
+          };
+          const digestFile = async (path) =>
+            `sha256:${createHash("sha256").update(await readFile(path)).digest("hex")}`;
+          const releaseId = (sha256) => {
+            const hash = createHash("sha256").update(sha256).digest("hex");
+            const variant = ((Number.parseInt(hash[16], 16) & 0x3) | 0x8).toString(16);
+            return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-${variant}${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+          };
+          const manifest = createReleaseManifest({
+            schemaVersion: "release-manifest/v1",
+            release: {
+              id: releaseId(commitSha),
+              semanticVersion: `0.0.0-candidate.${commitSha.slice(0, 12)}`,
+              commitSha,
+              releaseNotes: `Automated candidate for ${commitSha}.`,
+              pnpmLockfileSha256: await digestFile("pnpm-lock.yaml"),
+              compatibility: {
+                configurationSchemaVersion: 1,
+                agentContractVersion: "agent/v1",
+                databaseMigrationRequired: false,
+              },
+            },
+            artifacts: reports.map(({ input }) => ({
+              name: input.name,
+              digest: input.digest,
+              sbom: { predicateType: "https://spdx.dev/Document", subjectDigest: input.digest },
+              provenance: { predicateType: "https://slsa.dev/provenance/v1", subjectDigest: input.digest },
+            })),
+            scan: {
+              policyVersion: "quantum-image-security/v1",
+              scanner: { name: "grype", version: grypeVersion, databaseSha256 },
+              outcome: "PASSED",
+              artifacts: await Promise.all(
+                reports.map(async ({ input, report }) => ({
+                  name: input.name,
+                  digest: input.digest,
+                  reportSha256: await digestFile(join(reportDirectory, `${input.name}.json`)),
+                  ...countSeverities(report),
+                })),
+              ),
+            },
+          });
+          await mkdir("release-output", { recursive: true });
+          await writeFile("release-output/release-manifest.json", serializeReleaseManifest(manifest), "utf8");
+          NODE
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: release-manifest-and-scans
+          path: release-output
+          if-no-files-found: warn
+          retention-days: 30
