@@ -30,20 +30,16 @@ export const CRM_AUTH_CONTEXT = Symbol("CRM_AUTH_CONTEXT");
 export const CRM_PUBLIC_ROUTE = "quantum:crm-public-route";
 export const REQUIRED_CRM_PERMISSION = "quantum:crm-permission";
 
-export const CrmPublicRoute = (): CustomDecorator<string> =>
-  SetMetadata(CRM_PUBLIC_ROUTE, true);
-export const RequireCrmPermission = (
-  permission: IamPermission,
-): CustomDecorator<string> => SetMetadata(REQUIRED_CRM_PERMISSION, permission);
+export const CrmPublicRoute = (): CustomDecorator<string> => SetMetadata(CRM_PUBLIC_ROUTE, true);
+export const RequireCrmPermission = (permission: IamPermission): CustomDecorator<string> =>
+  SetMetadata(REQUIRED_CRM_PERMISSION, permission);
 
 interface HttpRequest {
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
   [CRM_AUTH_CONTEXT]?: CrmAuthContext;
 }
 
-function bearerToken(
-  header: string | string[] | undefined,
-): SecretValue | null {
+function bearerToken(header: string | string[] | undefined): SecretValue | null {
   if (typeof header !== "string" || header.length > 16_384) return null;
   const match = /^Bearer ([A-Za-z0-9._~+\/-]+=*)$/u.exec(header);
   return match?.[1] ? new SecretValue(match[1]) : null;
@@ -87,8 +83,7 @@ export class CrmAuthenticationGuard implements CanActivate {
       });
       return true;
     } catch (error) {
-      if (error instanceof CrmAuthenticationError)
-        throw new UnauthorizedException();
+      if (error instanceof CrmAuthenticationError) throw new UnauthorizedException();
       throw error;
     }
   }
@@ -99,21 +94,18 @@ export class CrmAuthorizationGuard implements CanActivate {
   public constructor(private readonly reflector: Reflector) {}
 
   public canActivate(context: ExecutionContext): boolean {
-    const permission = this.reflector.getAllAndOverride<IamPermission>(
-      REQUIRED_CRM_PERMISSION,
-      [context.getHandler(), context.getClass()],
-    );
+    const permission = this.reflector.getAllAndOverride<IamPermission>(REQUIRED_CRM_PERMISSION, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (!permission) return true;
-    const auth = context.switchToHttp().getRequest<HttpRequest>()[
-      CRM_AUTH_CONTEXT
-    ];
+    const auth = context.switchToHttp().getRequest<HttpRequest>()[CRM_AUTH_CONTEXT];
     if (!auth) throw new UnauthorizedException();
     try {
       requireCrmPermission(auth, permission);
       return true;
     } catch (error) {
-      if (error instanceof CrmAuthorizationError)
-        throw new ForbiddenException();
+      if (error instanceof CrmAuthorizationError) throw new ForbiddenException();
       throw error;
     }
   }

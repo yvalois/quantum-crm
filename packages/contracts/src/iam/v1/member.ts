@@ -12,11 +12,7 @@ const EmailSchema = z
 const IsoDateTimeSchema = z.string().datetime({ offset: true });
 
 export const MemberStatusSchema = z.enum(["INVITED", "ACTIVE", "DEACTIVATED"]);
-export const InitialRoleCodeSchema = z.enum([
-  "ADMINISTRATOR",
-  "SUPERVISOR",
-  "ADVISOR",
-]);
+export const InitialRoleCodeSchema = z.enum(["ADMINISTRATOR", "SUPERVISOR", "ADVISOR"]);
 
 export const MemberSchema = z.object({
   id: UuidSchema,
@@ -55,12 +51,9 @@ export const UpdateMemberSchema = z
     displayName: DisplayNameSchema.optional(),
     email: EmailSchema.optional(),
   })
-  .refine(
-    (value) => value.displayName !== undefined || value.email !== undefined,
-    {
-      message: "At least one member field is required",
-    },
-  );
+  .refine((value) => value.displayName !== undefined || value.email !== undefined, {
+    message: "At least one member field is required",
+  });
 
 export const InvitationSchema = z.object({
   id: UuidSchema,
@@ -76,9 +69,7 @@ export const InvitationResponseSchema = z.object({ data: InvitationSchema });
 export type Member = z.infer<typeof MemberSchema>;
 export type MemberListQuery = z.infer<typeof MemberListQuerySchema>;
 export type MemberListResponse = z.infer<typeof MemberListResponseSchema>;
-export type CreateMemberInvitation = z.infer<
-  typeof CreateMemberInvitationSchema
->;
+export type CreateMemberInvitation = z.infer<typeof CreateMemberInvitationSchema>;
 export type InitialRoleCode = z.infer<typeof InitialRoleCodeSchema>;
 export type UpdateMember = z.infer<typeof UpdateMemberSchema>;
 export type Invitation = z.infer<typeof InvitationSchema>;

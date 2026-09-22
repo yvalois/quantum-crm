@@ -1,7 +1,4 @@
-export {
-  type OidcAccessTokenVerifier,
-  type VerifiedOidcIdentity,
-} from "./oidc-access-token.js";
+export { type OidcAccessTokenVerifier, type VerifiedOidcIdentity } from "./oidc-access-token.js";
 export {
   authenticatePlatformOperator,
   PlatformAuthenticationError,

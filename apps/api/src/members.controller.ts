@@ -12,9 +12,7 @@ export const IAM_MEMBER_SERVICE = Symbol("IAM_MEMBER_SERVICE");
 
 @Controller("api/v1/members")
 export class MembersController {
-  public constructor(
-    @Inject(IAM_MEMBER_SERVICE) private readonly service: IamMemberService,
-  ) {}
+  public constructor(@Inject(IAM_MEMBER_SERVICE) private readonly service: IamMemberService) {}
 
   @Get()
   @RequireCrmPermission("iam:members:read")

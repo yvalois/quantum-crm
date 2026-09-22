@@ -3,11 +3,7 @@ import "reflect-metadata";
 import type { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { createKeycloakOidcAccessTokenVerifier } from "@quantum-crm/auth";
-import {
-  loadServiceConfig,
-  requireDatabaseConfig,
-  requireOidcConfig,
-} from "@quantum-crm/config";
+import { loadServiceConfig, requireDatabaseConfig, requireOidcConfig } from "@quantum-crm/config";
 import { createCrmPostgresDatabase } from "@quantum-crm/database";
 import { iamPermissions } from "@quantum-crm/domain";
 
@@ -17,10 +13,7 @@ async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("api");
   const databaseConfig = requireDatabaseConfig(config);
   const oidcConfig = requireOidcConfig(config);
-  const database = createCrmPostgresDatabase(
-    databaseConfig,
-    config.serviceName,
-  );
+  const database = createCrmPostgresDatabase(databaseConfig, config.serviceName);
   const verifier = createKeycloakOidcAccessTokenVerifier(oidcConfig);
   let application: INestApplication | undefined;
 

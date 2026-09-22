@@ -30,9 +30,7 @@ export interface CrmMembershipAuthorization {
 }
 
 export interface CrmMembershipRepository {
-  findAuthorizationByOidcSubject(
-    oidcSubject: string,
-  ): Promise<CrmMembershipAuthorization | null>;
+  findAuthorizationByOidcSubject(oidcSubject: string): Promise<CrmMembershipAuthorization | null>;
 }
 
 export class IamMemberConflictError extends Error {
@@ -77,8 +75,7 @@ const memberSelection = `
 
 function memberStatus(value: string): IamMember["status"] {
   const status = value.toUpperCase();
-  if (status === "INVITED" || status === "ACTIVE" || status === "DEACTIVATED")
-    return status;
+  if (status === "INVITED" || status === "ACTIVE" || status === "DEACTIVATED") return status;
   throw new DatabaseUnavailableError();
 }
 
@@ -135,21 +132,16 @@ function decodeCursor(value: string): {
   readonly id: string;
 } {
   try {
-    const parsed = JSON.parse(
-      Buffer.from(value, "base64url").toString("utf8"),
-    ) as unknown;
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as unknown;
     if (
       !parsed ||
       typeof parsed !== "object" ||
-      typeof (parsed as { readonly createdAt?: unknown }).createdAt !==
-        "string" ||
+      typeof (parsed as { readonly createdAt?: unknown }).createdAt !== "string" ||
       typeof (parsed as { readonly id?: unknown }).id !== "string"
     ) {
       throw new Error("Invalid cursor");
     }
-    const createdAt = new Date(
-      (parsed as { readonly createdAt: string }).createdAt,
-    );
+    const createdAt = new Date((parsed as { readonly createdAt: string }).createdAt);
     if (Number.isNaN(createdAt.getTime())) throw new Error("Invalid cursor");
     return Object.freeze({
       createdAt,
@@ -182,21 +174,13 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             ORDER BY created_at ASC, id ASC
             LIMIT $4
           `,
-          [
-            status ?? null,
-            after?.createdAt ?? null,
-            after?.id ?? null,
-            limit + 1,
-          ],
+          [status ?? null, after?.createdAt ?? null, after?.id ?? null, limit + 1],
         )) as { readonly rows: readonly IamMemberRow[] };
         const rows = result.rows.slice(0, limit).map(memberFromRow);
         const overflow = result.rows[limit];
         return Object.freeze({
           members: Object.freeze(rows),
-          nextCursor:
-            overflow && rows.length > 0
-              ? encodeCursor(rows[rows.length - 1]!)
-              : null,
+          nextCursor: overflow && rows.length > 0 ? encodeCursor(rows[rows.length - 1]!) : null,
         });
       } catch (error) {
         if (error instanceof IamMemberConflictError) throw error;
@@ -215,9 +199,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         throw new DatabaseUnavailableError();
       }
     },
-    findByOidcSubject: async (
-      oidcSubject: string,
-    ): Promise<IamMember | null> => {
+    findByOidcSubject: async (oidcSubject: string): Promise<IamMember | null> => {
       try {
         const result = (await pool.query(
           `SELECT ${memberSelection} FROM iam.members WHERE oidc_subject = $1`,
@@ -229,9 +211,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         throw new DatabaseUnavailableError();
       }
     },
-    createInvitation: async (
-      input: Parameters<IamMemberRepository["createInvitation"]>[0],
-    ) => {
+    createInvitation: async (input: Parameters<IamMemberRepository["createInvitation"]>[0]) => {
       let client: PoolClient | undefined;
       try {
         client = await pool.connect();
@@ -359,10 +339,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         if (!row) throw new IamMemberConflictError();
         return memberFromRow(row);
       } catch (error) {
-        if (
-          error instanceof IamMemberConflictError ||
-          isUniqueViolation(error)
-        ) {
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
           throw new IamMemberConflictError();
         }
         throw new DatabaseUnavailableError();
@@ -391,10 +368,9 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
           return null;
         }
         if (invitation.expires_at <= input.now) {
-          await client.query(
-            `UPDATE iam.invitations SET status = 'expired' WHERE id = $1::uuid`,
-            [input.invitationId],
-          );
+          await client.query(`UPDATE iam.invitations SET status = 'expired' WHERE id = $1::uuid`, [
+            input.invitationId,
+          ]);
           await client.query("COMMIT");
           return null;
         }
@@ -419,10 +395,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         return memberFromRow(member);
       } catch (error) {
         await client?.query("ROLLBACK").catch(() => undefined);
-        if (
-          error instanceof IamMemberConflictError ||
-          isUniqueViolation(error)
-        ) {
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
           throw new IamMemberConflictError();
         }
         throw new DatabaseUnavailableError();
@@ -433,9 +406,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
   });
 }
 
-function createCrmMembershipRepository(
-  pool: PostgresPool,
-): CrmMembershipRepository {
+function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipRepository {
   return Object.freeze({
     findAuthorizationByOidcSubject: async (
       oidcSubject: string,
@@ -490,8 +461,7 @@ export function createCrmPostgresDatabase(
   serviceName: string,
   poolFactory?: PostgresPoolFactory,
 ): CrmPostgresDatabase {
-  if (config.target !== "crm" || !config.tenantId)
-    throw new DatabaseUnavailableError();
+  if (config.target !== "crm" || !config.tenantId) throw new DatabaseUnavailableError();
   const pool = createPostgresPool(config, serviceName, poolFactory);
   return Object.freeze({
     ...createPostgresDatabaseFromPool(pool),

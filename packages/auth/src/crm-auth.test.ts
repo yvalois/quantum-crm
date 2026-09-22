@@ -1,11 +1,7 @@
 import { SecretValue } from "@quantum-crm/config";
 import { describe, expect, it } from "vitest";
 
-import {
-  authenticateCrmMember,
-  CrmAuthenticationError,
-  requireCrmPermission,
-} from "./crm-auth.js";
+import { authenticateCrmMember, CrmAuthenticationError, requireCrmPermission } from "./crm-auth.js";
 
 const tenantId = "01995f7e-7b52-7000-8000-000000000201";
 const memberId = "01995f7e-7b52-7000-8000-000000000202";
