@@ -82,6 +82,14 @@ export function parseGithubActionsReleasePublisherConfig(
     ...(repositoryOwnerId.success ? [] : ["QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID"]),
   ];
   if (invalidKeys.length > 0) throw new ConfigurationError(serviceName, invalidKeys);
+  if (
+    !audience.success ||
+    !repository.success ||
+    !repositoryId.success ||
+    !repositoryOwnerId.success
+  ) {
+    throw new ConfigurationError(serviceName, invalidKeys);
+  }
 
   const workflowRef = `${repository.data}/${releaseCandidateWorkflow}@${releaseCandidateRef}`;
   return Object.freeze({

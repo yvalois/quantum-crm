@@ -47,14 +47,20 @@ function toContract(release: PlatformRelease): PlatformReleaseContract {
   };
 }
 
-function sameRelease(left: PlatformRelease, right: ReturnType<typeof CreatePlatformReleaseSchema.parse>): boolean {
-  const leftArtifacts = new Map(left.artifacts.map((artifact) => [artifact.name, artifact.digest]));
+function sameRelease(
+  left: PlatformRelease,
+  right: ReturnType<typeof CreatePlatformReleaseSchema.parse>,
+): boolean {
+  const leftArtifacts = new Map(
+    left.artifacts.map((artifact) => [artifact.name, artifact.digest]),
+  );
   return (
     left.id === right.id &&
     left.semanticVersion === right.semanticVersion &&
     left.commitSha === right.commitSha &&
     left.releaseNotes === right.releaseNotes &&
-    left.compatibility.configurationSchemaVersion === right.compatibility.configurationSchemaVersion &&
+    left.compatibility.configurationSchemaVersion ===
+      right.compatibility.configurationSchemaVersion &&
     left.compatibility.agentContractVersion === right.compatibility.agentContractVersion &&
     left.compatibility.databaseMigrationRequired === right.compatibility.databaseMigrationRequired &&
     left.compatibility.minimumSourceVersion === right.compatibility.minimumSourceVersion &&

@@ -32,7 +32,11 @@ let trustedJwk: JWK;
 beforeAll(async () => {
   const trusted = await generateKeyPair("RS256");
   privateKey = trusted.privateKey;
-  trustedJwk = { ...(await exportJWK(trusted.publicKey)), kid: "github-actions", alg: "RS256" };
+  trustedJwk = {
+    ...(await exportJWK(trusted.publicKey)),
+    kid: "github-actions",
+    alg: "RS256",
+  };
 });
 
 function verifier() {
@@ -43,7 +47,10 @@ function verifier() {
 }
 
 async function token(
-  input: Readonly<{ readonly claims?: Readonly<Record<string, unknown>>; readonly subject?: string }> = {},
+  input: Readonly<{
+    readonly claims?: Readonly<Record<string, unknown>>;
+    readonly subject?: string;
+  }> = {},
 ): Promise<SecretValue> {
   const claims = {
     jti: "test-jti",
@@ -92,7 +99,10 @@ describe("GitHub Actions release publisher verifier", () => {
     ["visibility", { repository_visibility: "public" }],
     ["pull request ref", { ref: "refs/pull/25/merge" }],
     ["event", { event_name: "pull_request" }],
-    ["workflow", { workflow_ref: "yvalois/quantum-crm/.github/workflows/quality.yml@refs/heads/main" }],
+    [
+      "workflow",
+      { workflow_ref: "yvalois/quantum-crm/.github/workflows/quality.yml@refs/heads/main" },
+    ],
     ["commit", { sha: "not-a-sha" }],
   ])("rejects an invalid %s claim", async (_case, claims) => {
     const signed = await token({ claims });

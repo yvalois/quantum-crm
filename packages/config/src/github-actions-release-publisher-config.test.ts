@@ -34,7 +34,9 @@ describe("GitHub Actions release publisher configuration", () => {
     expect(
       parseGithubActionsReleasePublisherConfig("admin-api", "test", {}),
     ).toMatchObject({ repository: "example/quantum-crm", repositoryId: "1" });
-    expect(() => parseGithubActionsReleasePublisherConfig("admin-api", "staging", {})).toThrow(
+    expect(
+      () => parseGithubActionsReleasePublisherConfig("admin-api", "staging", {}),
+    ).toThrow(
       new ConfigurationError("admin-api", [
         "QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE",
         "QCRM_GITHUB_ACTIONS_REPOSITORY",
@@ -50,7 +52,9 @@ describe("GitHub Actions release publisher configuration", () => {
     ["owner identifier", { ...environment, QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID: "x" }],
     ["audience", { ...environment, QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE: "invalid value" }],
   ])("rejects an invalid %s", (_case, invalid) => {
-    expect(() => parseGithubActionsReleasePublisherConfig("admin-api", "staging", invalid)).toThrow(
+    expect(
+      () => parseGithubActionsReleasePublisherConfig("admin-api", "staging", invalid),
+    ).toThrow(
       ConfigurationError,
     );
   });

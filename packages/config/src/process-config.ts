@@ -265,7 +265,11 @@ export function parseProcessConfig(
     ? parseOidcConfig(definition.serviceName, definition.oidc, result.data.QCRM_ENV, environment)
     : undefined;
   const githubActionsReleasePublisher = definition.requiresGithubActionsReleasePublisher
-    ? parseGithubActionsReleasePublisherConfig(definition.serviceName, result.data.QCRM_ENV, environment)
+    ? parseGithubActionsReleasePublisherConfig(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        environment,
+      )
     : undefined;
   let tenantSecretDirectory: string | undefined;
   if (definition.requiresTenantSecretDirectory) {

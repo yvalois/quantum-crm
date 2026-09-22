@@ -33,11 +33,16 @@ async function bootstrap(): Promise<void> {
   try {
     await database.connect();
     application = await NestFactory.create(
-      AppModule.register(database, oidcAccessTokenVerifier, {
-        issuer: oidc.issuer,
-        audience: oidc.audience,
-        allowedPermissions: platformPermissions,
-      }, githubActionsReleasePublisherVerifier),
+      AppModule.register(
+        database,
+        oidcAccessTokenVerifier,
+        {
+          issuer: oidc.issuer,
+          audience: oidc.audience,
+          allowedPermissions: platformPermissions,
+        },
+        githubActionsReleasePublisherVerifier,
+      ),
       {
         abortOnError: true,
         bufferLogs: true,

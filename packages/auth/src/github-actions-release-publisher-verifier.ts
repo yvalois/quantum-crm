@@ -66,7 +66,11 @@ export function createGithubActionsReleasePublisherVerifier(
     verify: async (token: SecretValue): Promise<VerifiedGithubActionsReleasePublisher> => {
       try {
         const compactToken = token.expose();
-        if (compactToken.length < 1 || compactToken.length > 16_384 || /\s/u.test(compactToken)) {
+        if (
+          compactToken.length < 1 ||
+          compactToken.length > 16_384 ||
+          /\s/u.test(compactToken)
+        ) {
           throw new GithubActionsReleasePublisherVerificationError();
         }
 
@@ -94,8 +98,14 @@ export function createGithubActionsReleasePublisherVerifier(
           ...(options.currentDate ? { currentDate: options.currentDate() } : {}),
         });
 
-        const subject = requiredString(payload.sub, /^repo:[a-z0-9][a-z0-9_.-]{0,38}\/[a-z0-9][a-z0-9_.-]{0,99}:ref:refs\/heads\/main$/u);
-        const repository = requiredString(payload.repository, /^[a-z0-9][a-z0-9_.-]{0,38}\/[a-z0-9][a-z0-9_.-]{0,99}$/u).toLowerCase();
+        const subject = requiredString(
+          payload.sub,
+          /^repo:[a-z0-9][a-z0-9_.-]{0,38}\/[a-z0-9][a-z0-9_.-]{0,99}:ref:refs\/heads\/main$/u,
+        );
+        const repository = requiredString(
+          payload.repository,
+          /^[a-z0-9][a-z0-9_.-]{0,38}\/[a-z0-9][a-z0-9_.-]{0,99}$/u,
+        ).toLowerCase();
         const repositoryId = requiredString(payload.repository_id, /^[1-9][0-9]{0,19}$/u);
         const repositoryOwnerId = requiredString(payload.repository_owner_id, /^[1-9][0-9]{0,19}$/u);
         const visibility = requiredString(payload.repository_visibility, /^private$/u);
