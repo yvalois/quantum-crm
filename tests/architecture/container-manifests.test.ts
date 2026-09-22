@@ -29,15 +29,22 @@ describe("container manifests", () => {
     }
   });
 
-  it("pins the toolchain and runs both runtime images without root", () => {
+  it("pins Trixie Node bases, removes package managers and runs without root", () => {
     for (const dockerfile of ["infra/docker/Dockerfile.web", "infra/docker/Dockerfile.node"]) {
       const source = read(dockerfile);
 
-      expect(source).toContain("node:24.21.0-bookworm-slim@sha256:");
+      expect(source).toContain("node:24.21.0-trixie-slim@sha256:");
       expect(source).toContain("pnpm@9.13.2");
+      expect(source).toContain("rm -rf /usr/local/lib/node_modules/npm");
+      expect(source).toContain("rm -f /usr/local/bin/npm");
       expect(source).toContain("USER node");
       expect(source).not.toContain(":latest");
     }
+
+    const migrator = read("infra/docker/Dockerfile.migrator");
+    expect(migrator).toContain("node:24.21.0-trixie@sha256:");
+    expect(migrator).toContain("rm -rf /usr/local/lib/node_modules/npm");
+    expect(migrator).toContain("USER node");
   });
 
   it("builds workspace dependencies before each application image", () => {

@@ -59,11 +59,11 @@ Un contrato `release-manifest/v1` permite generar y validar de forma determinist
 
 ## Plan de implementacion
 
-- [ ] Definir `release-manifest/v1` y sus invariantes de identidad, orden y completitud.
-- [ ] Implementar constructor canonico que produzca exactamente el mismo manifiesto ante las mismas entradas.
-- [ ] Declarar la evidencia exigida de SBOM, procedencia y politica de escaneo, sin ejecutar aun el scanner.
-- [ ] Agregar pruebas de contrato positivas, de mutabilidad, completitud, duplicados y resultados rechazados.
-- [ ] Actualizar el workflow solo cuando pueda consumir el contrato sin emitir una candidata incompleta.
+- [x] Definir `release-manifest/v1` y sus invariantes de identidad, orden y completitud.
+- [x] Implementar constructor canonico que produzca exactamente el mismo manifiesto ante las mismas entradas.
+- [x] Declarar la evidencia exigida de SBOM, procedencia y politica de escaneo, sin ejecutar aun el scanner.
+- [x] Agregar pruebas de contrato positivas, de mutabilidad, completitud, duplicados y resultados rechazados.
+- [x] Actualizar el workflow solo cuando pueda consumir el contrato sin emitir una candidata incompleta.
 
 ## Riesgos y mitigaciones
 
@@ -76,10 +76,10 @@ Un contrato `release-manifest/v1` permite generar y validar de forma determinist
 
 ## Criterios de aceptacion
 
-- [ ] El manifiesto completo contiene commit, hash de lockfile, ocho artefactos por digest, compatibilidad, SBOM, procedencia y politica de escaneo.
-- [ ] Entradas equivalentes, aunque lleguen desordenadas, producen bytes canonicos iguales.
-- [ ] Faltantes, duplicados, tags, hashes invalidos, versiones incompatibles, claves libres o politica no admisible se rechazan.
-- [ ] El contrato es aditivo y no permite registrar ni desplegar nada por si solo.
+- [x] El manifiesto completo contiene commit, hash de lockfile, ocho artefactos por digest, compatibilidad, SBOM, procedencia y politica de escaneo.
+- [x] Entradas equivalentes, aunque lleguen desordenadas, producen bytes canonicos iguales.
+- [x] Faltantes, duplicados, tags, hashes invalidos, versiones incompatibles, claves libres o politica no admisible se rechazan.
+- [x] El contrato es aditivo y no permite registrar ni desplegar nada por si solo.
 
 ## Plan de verificacion
 
@@ -99,8 +99,8 @@ Un contrato `release-manifest/v1` permite generar y validar de forma determinist
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: ficha y estado al inicio.
-- Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: integrar la ejecucion fijada por checksum de la politica de escaneo y el registro OIDC solo tras desplegar el `admin-api` por digest.
+- Archivos, commits o PR: PR #27, integrado como `e90a1620cc2f8cfd60ab812f338dc8bb4da92605`.
+- Comandos y resultados: la matriz de `main` 35765820704 aprobo sus siete checks. El workflow `release-candidate` 35766034546 publico los ocho artefactos y ejecuto Grype 0.119.0 con base `sha256:46386cd5f544929c3339f7032266fe708f58624ce42b9ac24c9c22f618de4c9c`; el contrato rechazo correctamente los ocho resultados por hallazgos altos o criticos y el artefacto `release-manifest-and-scans` conserva los reportes. No se creo manifiesto, candidata, despliegue ni cambio de trafico.
+- Documentacion actualizada: ficha y estado; la remediacion continua en [`OPS-10-d`](OPS-10-d-remediacion-imagenes-release.md).
+- Desviaciones del plan: el workflow incorporo el escaneo fijado antes de cerrar esta ficha para comprobar el contrato extremo a extremo. El primer resultado fue un bloqueo de politica esperado, no una candidata ni una excepcion.
+- Pendientes o decisiones nuevas: `OPS-10-d` actualiza las bases y la superficie de runtime; el registro OIDC espera una imagen admisible y el `admin-api` desplegado por digest.
