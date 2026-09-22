@@ -11,6 +11,9 @@ const absolutePathPattern = /^\/(?!\/)[^\0\r\n]*$/u;
 const registryPattern = /^[A-Za-z0-9][A-Za-z0-9./_-]{0,254}$/u;
 const networkPattern = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/u;
 
+export const tenantEdgeRouteServiceNames = ["crm-web", "portal-web", "api"] as const;
+export type TenantEdgeRouteServiceName = (typeof tenantEdgeRouteServiceNames)[number];
+
 const tenantArtifactByService: Readonly<
   Record<TenantContainerServiceName, PlatformReleaseArtifactName>
 > = Object.freeze({
@@ -77,6 +80,18 @@ export function tenantEdgeNetworkName(prefix: string, tenantProfileId: string): 
   const name = `${prefix}-${tenantProfileId}`;
   if (!networkPattern.test(name)) throw new ComposePolicyValidationError("tenantEdgeNetwork");
   return name;
+}
+
+export function tenantEdgeServiceAlias(
+  tenantProfileId: string,
+  service: TenantEdgeRouteServiceName,
+): string {
+  if (!uuidPattern.test(tenantProfileId) || !tenantEdgeRouteServiceNames.includes(service)) {
+    throw new ComposePolicyValidationError("tenantEdgeServiceAlias");
+  }
+  const alias = `qcrm-${tenantProfileId.replaceAll("-", "")}-${service}`;
+  if (!networkPattern.test(alias)) throw new ComposePolicyValidationError("tenantEdgeServiceAlias");
+  return alias;
 }
 
 export interface TenantComposePlan {
@@ -223,6 +238,12 @@ export function createTenantComposePlan(
     QCRM_PLATFORM_DATABASE_NETWORK: options.platformDatabaseNetwork,
     QCRM_PLATFORM_STORAGE_NETWORK: options.platformStorageNetwork,
     QCRM_CRM_DATABASE_URL_SECRET_FILE: crmDatabaseSecretFile,
+    QCRM_TENANT_CRM_WEB_EDGE_ALIAS: tenantEdgeServiceAlias(request.tenantProfileId, "crm-web"),
+    QCRM_TENANT_PORTAL_WEB_EDGE_ALIAS: tenantEdgeServiceAlias(
+      request.tenantProfileId,
+      "portal-web",
+    ),
+    QCRM_TENANT_API_EDGE_ALIAS: tenantEdgeServiceAlias(request.tenantProfileId, "api"),
   };
   for (const service of tenantContainerServiceNames) {
     const artifact = tenantArtifactByService[service];

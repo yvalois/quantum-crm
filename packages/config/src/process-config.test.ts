@@ -151,6 +151,7 @@ describe("process configuration", () => {
       deployHostPlatformDatabaseNetwork: "qcrm-platform-database",
       deployHostPlatformStorageNetwork: "qcrm-platform-storage",
       deployHostDatabaseSecretRoot: "/tmp/qcrm-tenant-secrets",
+      deployHostTenantRouteRoot: "/tmp/qcrm-tenant-routes",
     });
 
     expect(() =>

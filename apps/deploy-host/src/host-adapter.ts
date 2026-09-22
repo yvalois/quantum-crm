@@ -4,13 +4,15 @@ import { unlink } from "node:fs/promises";
 import {
   ProvisioningOperationValidationError,
   tenantContainerServiceNames,
+  tenantHttpsUpstreamServiceNames,
   type TenantContainerServiceName,
+  type TenantHttpsUpstreamServiceName,
 } from "@quantum-crm/platform-domain";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const manifestPattern = /^tenant\/([0-9a-f-]{36})\/configuration\.json$/u;
 const projectPattern = /^qcrm-t-[0-9a-f-]{36}$/u;
-const allowedRequestKeys = new Set([
+const allowedContainerRequestKeys = new Set([
   "action",
   "operationId",
   "tenantProfileId",
@@ -20,6 +22,20 @@ const allowedRequestKeys = new Set([
   "configurationRevision",
   "attempt",
 ]);
+const allowedHttpsRequestKeys = new Set([
+  "action",
+  "operationId",
+  "tenantProfileId",
+  "serverId",
+  "releaseId",
+  "hostname",
+  "edgeNetworkName",
+  "upstreamServices",
+  "configurationRevision",
+  "attempt",
+]);
+const hostnamePattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.[0-9-]+\.nip\.io$/u;
+const edgeNetworkPattern = /^qcrm-tenant-edge-[0-9a-f-]{36}$/u;
 
 export type HostAdapterFailureReason =
   "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT" | "IDENTITY_MISMATCH";
@@ -43,13 +59,39 @@ export interface HostAdapterResult {
   readonly reconciled: boolean;
 }
 
+export interface HostAdapterHttpsRequest {
+  readonly action: "RECONCILE_TENANT_HTTPS";
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+  readonly releaseId: string;
+  readonly hostname: string;
+  readonly edgeNetworkName: string;
+  readonly upstreamServices: readonly TenantHttpsUpstreamServiceName[];
+  readonly configurationRevision: bigint;
+  readonly attempt: number;
+}
+
+export interface HostAdapterHttpsResult {
+  readonly hostname: string;
+  readonly edgeNetworkName: string;
+  readonly routeGeneration: bigint;
+  readonly configured: boolean;
+  readonly reconciled: boolean;
+}
+
 export interface TenantComposeReconciler {
   readonly reconcile: (request: HostAdapterRequest) => Promise<HostAdapterResult>;
+}
+
+export interface TenantHttpsRouteReconciler {
+  readonly reconcile: (request: HostAdapterHttpsRequest) => Promise<HostAdapterHttpsResult>;
 }
 
 export interface HostAdapterServerOptions {
   readonly socketPath: string;
   readonly reconciler: TenantComposeReconciler;
+  readonly httpsRouteReconciler?: TenantHttpsRouteReconciler;
   readonly requestTimeoutMilliseconds?: number;
 }
 
@@ -68,7 +110,7 @@ function parseRequest(value: unknown): HostAdapterRequest {
     throw new HostAdapterError("IDENTITY_MISMATCH");
   }
   const input = value as Record<string, unknown>;
-  if ([...Object.keys(input)].some((key) => !allowedRequestKeys.has(key))) {
+  if ([...Object.keys(input)].some((key) => !allowedContainerRequestKeys.has(key))) {
     throw new HostAdapterError("IDENTITY_MISMATCH");
   }
   if (input.action !== "RECONCILE_TENANT_COMPOSE") {
@@ -123,6 +165,76 @@ function parseRequest(value: unknown): HostAdapterRequest {
   });
 }
 
+function parseHttpsRequest(value: unknown): HostAdapterHttpsRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const input = value as Record<string, unknown>;
+  if ([...Object.keys(input)].some((key) => !allowedHttpsRequestKeys.has(key))) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  if (input.action !== "RECONCILE_TENANT_HTTPS") throw new HostAdapterError("IDENTITY_MISMATCH");
+  const operationId = input.operationId;
+  const tenantProfileId = input.tenantProfileId;
+  const serverId = input.serverId;
+  const releaseId = input.releaseId;
+  const hostname = input.hostname;
+  const edgeNetworkName = input.edgeNetworkName;
+  if (
+    typeof operationId !== "string" ||
+    !uuidPattern.test(operationId) ||
+    typeof tenantProfileId !== "string" ||
+    !uuidPattern.test(tenantProfileId) ||
+    typeof serverId !== "string" ||
+    !uuidPattern.test(serverId) ||
+    typeof releaseId !== "string" ||
+    !uuidPattern.test(releaseId) ||
+    typeof hostname !== "string" ||
+    !hostnamePattern.test(hostname) ||
+    typeof edgeNetworkName !== "string" ||
+    edgeNetworkName !== `qcrm-tenant-edge-${tenantProfileId}` ||
+    !edgeNetworkPattern.test(edgeNetworkName)
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  if (
+    !Array.isArray(input.upstreamServices) ||
+    input.upstreamServices.length === 0 ||
+    input.upstreamServices.length > tenantHttpsUpstreamServiceNames.length ||
+    new Set(input.upstreamServices).size !== input.upstreamServices.length ||
+    input.upstreamServices.some(
+      (service) =>
+        typeof service !== "string" ||
+        !tenantHttpsUpstreamServiceNames.includes(service as TenantHttpsUpstreamServiceName),
+    )
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  if (
+    typeof input.configurationRevision !== "string" ||
+    !/^[1-9][0-9]*$/u.test(input.configurationRevision) ||
+    typeof input.attempt !== "number" ||
+    !Number.isSafeInteger(input.attempt) ||
+    input.attempt < 1
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  return Object.freeze({
+    action: "RECONCILE_TENANT_HTTPS",
+    operationId,
+    tenantProfileId,
+    serverId,
+    releaseId,
+    hostname,
+    edgeNetworkName,
+    upstreamServices: Object.freeze(
+      [...input.upstreamServices].sort() as TenantHttpsUpstreamServiceName[],
+    ),
+    configurationRevision: BigInt(input.configurationRevision),
+    attempt: input.attempt,
+  });
+}
+
 function parseResult(value: HostAdapterResult, projectName: string): HostAdapterResult {
   if (
     typeof value !== "object" ||
@@ -141,6 +253,31 @@ function parseResult(value: HostAdapterResult, projectName: string): HostAdapter
     projectName: value.projectName,
     services: Object.freeze([...value.services].sort() as TenantContainerServiceName[]),
     ready: value.ready,
+    reconciled: value.reconciled,
+  });
+}
+
+function parseHttpsResult(
+  value: HostAdapterHttpsResult,
+  request: HostAdapterHttpsRequest,
+): HostAdapterHttpsResult {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    value.hostname !== request.hostname ||
+    value.edgeNetworkName !== request.edgeNetworkName ||
+    typeof value.routeGeneration !== "bigint" ||
+    value.routeGeneration < 1n ||
+    typeof value.configured !== "boolean" ||
+    typeof value.reconciled !== "boolean"
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  return Object.freeze({
+    hostname: value.hostname,
+    edgeNetworkName: value.edgeNetworkName,
+    routeGeneration: value.routeGeneration,
+    configured: value.configured,
     reconciled: value.reconciled,
   });
 }
@@ -176,7 +313,9 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
   }
   const timeout = options.requestTimeoutMilliseconds ?? 15_000;
   const server = createServer(async (request, response) => {
-    if (request.method !== "POST" || request.url !== "/v1/tenant-containers/reconcile") {
+    const isContainerRequest = request.url === "/v1/tenant-containers/reconcile";
+    const isHttpsRequest = request.url === "/v1/tenant-https/reconcile";
+    if (request.method !== "POST" || (!isContainerRequest && !isHttpsRequest)) {
       writeJson(response, 404, { reason: "IDENTITY_MISMATCH" });
       return;
     }
@@ -189,9 +328,20 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
         if (error instanceof HostAdapterError) throw error;
         throw new HostAdapterError("IDENTITY_MISMATCH");
       }
-      const validated = parseRequest(parsed);
-      const result = await options.reconciler.reconcile(validated);
-      writeJson(response, 200, parseResult(result, validated.projectName));
+      if (isContainerRequest) {
+        const validated = parseRequest(parsed);
+        const result = await options.reconciler.reconcile(validated);
+        writeJson(response, 200, parseResult(result, validated.projectName));
+        return;
+      }
+      if (!options.httpsRouteReconciler) throw new HostAdapterError("UNAVAILABLE");
+      const validated = parseHttpsRequest(parsed);
+      const result = await options.httpsRouteReconciler.reconcile(validated);
+      const responseValue = parseHttpsResult(result, validated);
+      writeJson(response, 200, {
+        ...responseValue,
+        routeGeneration: responseValue.routeGeneration.toString(),
+      });
     } catch (error) {
       const failure =
         error instanceof HostAdapterError

@@ -1,5 +1,7 @@
 {
-	admin off
+	# Solo el proceso deploy-host usa este endpoint desde dentro del contenedor
+	# mediante una operacion fija de Docker. No se publica en el host ni en una red.
+	admin 127.0.0.1:2019
 }
 
 (static_headers) {
@@ -62,3 +64,7 @@
 		}
 	}
 }
+
+# El glob vacio es valido. deploy-host genera exclusivamente bloques por UUID
+# en este directorio montado de solo lectura y recarga el conjunto completo.
+import tenant-routes/*.caddy

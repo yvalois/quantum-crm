@@ -21,13 +21,14 @@ const requestBody = {
 function requestOverSocket(
   socketPath: string,
   body: unknown,
+  path = "/v1/tenant-containers/reconcile",
 ): Promise<{ status: number; body: unknown }> {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
     const client = request(
       {
         socketPath,
-        path: "/v1/tenant-containers/reconcile",
+        path,
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -101,6 +102,50 @@ describe("deploy host adapter", () => {
         composePath: "/etc/passwd",
       });
       expect(response.status).toBe(409);
+    } finally {
+      await adapter.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("forwards only a validated tenant HTTPS reconciliation over the private socket", async () => {
+    const root = await mkdtemp(join(tmpdir(), "qcrm-host-adapter-"));
+    const socketPath = join(root, "adapter.sock");
+    const reconcile = vi.fn(async () => ({
+      hostname: "acme.2-25-172-119.nip.io",
+      edgeNetworkName: "qcrm-tenant-edge-01995f7e-7b52-7000-8000-000000000201",
+      routeGeneration: 1n,
+      configured: true,
+      reconciled: true,
+    }));
+    const adapter = createHostAdapterServer({
+      socketPath,
+      reconciler: { reconcile: vi.fn() },
+      httpsRouteReconciler: { reconcile },
+    });
+    await adapter.listen();
+    try {
+      const response = await requestOverSocket(
+        socketPath,
+        {
+          action: "RECONCILE_TENANT_HTTPS",
+          operationId: requestBody.operationId,
+          tenantProfileId: requestBody.tenantProfileId,
+          serverId: requestBody.serverId,
+          releaseId: requestBody.releaseId,
+          hostname: "acme.2-25-172-119.nip.io",
+          edgeNetworkName: "qcrm-tenant-edge-01995f7e-7b52-7000-8000-000000000201",
+          upstreamServices: ["crm-web"],
+          configurationRevision: "1",
+          attempt: 1,
+        },
+        "/v1/tenant-https/reconcile",
+      );
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({ routeGeneration: "1", configured: true });
+      expect(reconcile).toHaveBeenCalledWith(
+        expect.objectContaining({ upstreamServices: ["crm-web"], configurationRevision: 1n }),
+      );
     } finally {
       await adapter.close();
       await rm(root, { recursive: true, force: true });

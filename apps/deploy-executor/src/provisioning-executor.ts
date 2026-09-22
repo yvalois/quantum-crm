@@ -10,6 +10,7 @@ import {
   type TenantConfigurationProvisioner,
   type TenantContainerProvisioner,
   type TenantDatabaseProvisioner,
+  type TenantHttpsRouteProvisioner,
   type TenantStorageProvisioner,
 } from "@quantum-crm/platform-domain";
 import {
@@ -19,6 +20,7 @@ import {
 import { TenantStorageProvisioningError } from "./seaweed-storage-provisioner.js";
 import { TenantConfigurationProvisioningError } from "./tenant-configuration-provisioner.js";
 import { TenantContainerProvisioningError } from "./tenant-container-provisioner.js";
+import { TenantHttpsRouteProvisioningError } from "./tenant-https-route-provisioner.js";
 
 export interface ProvisioningExecutorOptions {
   readonly workerId: string;
@@ -57,6 +59,7 @@ export class ProvisioningExecutor {
     private readonly storageProvisioner?: TenantStorageProvisioner,
     private readonly configurationProvisioner?: TenantConfigurationProvisioner,
     private readonly containerProvisioner?: TenantContainerProvisioner,
+    private readonly httpsRouteProvisioner?: TenantHttpsRouteProvisioner,
   ) {}
 
   public runOnce(): Promise<boolean> {
@@ -88,14 +91,24 @@ export class ProvisioningExecutor {
         ? this.storageProvisioner
           ? this.configurationProvisioner
             ? this.containerProvisioner
-              ? ([
-                  "VALIDATE",
-                  "CREATE_DATABASE",
-                  "CREATE_SECRETS",
-                  "CREATE_STORAGE",
-                  "WRITE_CONFIGURATION",
-                  "START_CONTAINERS",
-                ] as const)
+              ? this.httpsRouteProvisioner
+                ? ([
+                    "VALIDATE",
+                    "CREATE_DATABASE",
+                    "CREATE_SECRETS",
+                    "CREATE_STORAGE",
+                    "WRITE_CONFIGURATION",
+                    "START_CONTAINERS",
+                    "CONFIGURE_HTTPS",
+                  ] as const)
+                : ([
+                    "VALIDATE",
+                    "CREATE_DATABASE",
+                    "CREATE_SECRETS",
+                    "CREATE_STORAGE",
+                    "WRITE_CONFIGURATION",
+                    "START_CONTAINERS",
+                  ] as const)
               : ([
                   "VALIDATE",
                   "CREATE_DATABASE",
@@ -339,6 +352,76 @@ export class ProvisioningExecutor {
           reconciled: false,
           failureCode: provisioningFailure,
         });
+      }
+      return true;
+    }
+    if (operation.currentStep === "CONFIGURE_HTTPS" && this.httpsRouteProvisioner) {
+      let provisioningFailure:
+        | "HTTPS_TARGET_CONFLICT"
+        | "HTTPS_UNAVAILABLE"
+        | "HTTPS_PERMISSION_DENIED"
+        | "HTTPS_IDENTITY_MISMATCH"
+        | undefined;
+      const context = await this.repository.resolveHttpsContext({
+        operationId: operation.id,
+        tenantProfileId: operation.tenantProfileId,
+        serverId: operation.serverId,
+        releaseId: operation.releaseId,
+        workerId: this.options.workerId,
+        expectedVersion: operation.version,
+        attempt: operation.attempt,
+      });
+      if (!context) return true;
+      let result: Awaited<ReturnType<TenantHttpsRouteProvisioner["provision"]>> | undefined;
+      try {
+        result = await this.httpsRouteProvisioner.provision({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          hostname: context.hostname,
+          edgeNetworkName: context.edgeNetworkName,
+          upstreamServices: context.upstreamServices,
+          configurationRevision: context.configurationRevision,
+          attempt: operation.attempt,
+        });
+      } catch (error) {
+        if (error instanceof TenantHttpsRouteProvisioningError && error.reason === "UNAVAILABLE") {
+          return true;
+        }
+        provisioningFailure =
+          error instanceof TenantHttpsRouteProvisioningError && error.reason === "PERMISSION_DENIED"
+            ? "HTTPS_PERMISSION_DENIED"
+            : error instanceof TenantHttpsRouteProvisioningError &&
+                error.reason === "TARGET_CONFLICT"
+              ? "HTTPS_TARGET_CONFLICT"
+              : error instanceof TenantHttpsRouteProvisioningError &&
+                  error.reason === "IDENTITY_MISMATCH"
+                ? "HTTPS_IDENTITY_MISMATCH"
+                : "HTTPS_UNAVAILABLE";
+      }
+      if (!result && !provisioningFailure) return true;
+      if (result && !result.configured) return true;
+      try {
+        await this.repository.completeHttps({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+          hostname: result?.hostname ?? context.hostname,
+          edgeNetworkName: result?.edgeNetworkName ?? context.edgeNetworkName,
+          upstreamServices: context.upstreamServices,
+          configurationRevision: context.configurationRevision,
+          routeGeneration: result?.routeGeneration ?? context.configurationRevision,
+          configured: result?.configured ?? false,
+          reconciled: result?.reconciled ?? false,
+          ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
+        });
+      } catch {
+        return true;
       }
       return true;
     }

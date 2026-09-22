@@ -27,6 +27,8 @@ La reconciliación escribirá un snapshot temporal, validará el conjunto comple
 
 El canal entre `deploy-executor` y el adaptador seguirá siendo el transporte Unix privado existente. El acceso administrativo de Caddy permanecerá en una red privada y solo el adaptador podrá usarlo. `deploy-executor` nunca recibirá Docker socket, credenciales ACME ni acceso directo a Caddy. El cambio de tráfico de una actualización será otra operación tipada y solo podrá ejecutarse después de readiness.
 
+Para el VPS piloto, Caddy conserva su endpoint administrativo exclusivamente en `127.0.0.1` dentro del contenedor. `deploy-host` identifica el único contenedor de borde por las etiquetas fijas del proyecto `quantum-edge`, conecta la red derivada del perfil y ejecuta únicamente `caddy validate` y `caddy reload` con el `Caddyfile` fijo. Cada servicio de borde del perfil recibe un alias DNS derivado del UUID, de modo que Caddy nunca resuelve un nombre genérico compartido como `api` o `crm-web` entre perfiles.
+
 ## Alternativas consideradas
 
 - Editar el `Caddyfile` mediante SSH o shell: se rechaza porque permite inyección de directivas, rompe la trazabilidad y mezcla operación manual con el flujo durable.

@@ -256,6 +256,23 @@ export interface CompleteProvisioningHttpsCommand {
   readonly failureCode?: ProvisioningValidationFailureCode;
 }
 
+export interface ResolveProvisioningHttpsContextCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+  readonly releaseId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+}
+
+export interface ProvisioningHttpsContext {
+  readonly hostname: string;
+  readonly edgeNetworkName: string;
+  readonly upstreamServices: readonly TenantHttpsUpstreamServiceName[];
+  readonly configurationRevision: bigint;
+}
+
 export interface TenantStorageProvisioningCommand {
   readonly tenantProfileId: string;
   readonly serverId: string;
@@ -409,6 +426,28 @@ export interface ProvisioningOperationRepository {
   readonly completeHttps: (
     command: CompleteProvisioningHttpsCommand,
   ) => Promise<ProvisioningValidationResult | null>;
+  readonly resolveHttpsContext: (
+    command: ResolveProvisioningHttpsContextCommand,
+  ) => Promise<ProvisioningHttpsContext | null>;
+}
+
+export function validateResolveProvisioningHttpsContext(
+  input: ResolveProvisioningHttpsContextCommand,
+): ResolveProvisioningHttpsContextCommand {
+  uuid("operationId", input.operationId);
+  uuid("tenantProfileId", input.tenantProfileId);
+  uuid("serverId", input.serverId);
+  uuid("releaseId", input.releaseId);
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
+  return Object.freeze({ ...input });
 }
 
 export function tenantDatabaseIdentity(tenantProfileId: string): TenantDatabaseIdentity {

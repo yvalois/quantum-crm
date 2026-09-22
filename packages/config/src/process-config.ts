@@ -40,6 +40,7 @@ const deployHostPlatformStorageNetworkEnvironmentKey =
 const deployHostPlatformDatabaseNetworkEnvironmentKey =
   "QCRM_DEPLOY_HOST_PLATFORM_DATABASE_NETWORK" as const;
 const deployHostDatabaseSecretRootEnvironmentKey = "QCRM_DEPLOY_HOST_DATABASE_SECRET_ROOT" as const;
+const deployHostTenantRouteRootEnvironmentKey = "QCRM_DEPLOY_HOST_TENANT_ROUTE_ROOT" as const;
 const safeDefaultEnvironments = new Set<QcrmEnvironment>(["local", "test"]);
 const placeholderPattern = /^(?:change[_-]?me|example|placeholder|todo)$/i;
 
@@ -123,6 +124,7 @@ export interface ProcessConfig {
   readonly deployHostPlatformStorageNetwork?: string;
   readonly deployHostPlatformDatabaseNetwork?: string;
   readonly deployHostDatabaseSecretRoot?: string;
+  readonly deployHostTenantRouteRoot?: string;
   readonly storage?: StorageConfig;
 }
 
@@ -185,6 +187,7 @@ export function parseProcessConfig(
           deployHostPlatformStorageNetworkEnvironmentKey,
           deployHostPlatformDatabaseNetworkEnvironmentKey,
           deployHostDatabaseSecretRootEnvironmentKey,
+          deployHostTenantRouteRootEnvironmentKey,
         ]
       : []),
   ]);
@@ -296,6 +299,7 @@ export function parseProcessConfig(
   let deployHostPlatformStorageNetwork: string | undefined;
   let deployHostPlatformDatabaseNetwork: string | undefined;
   let deployHostDatabaseSecretRoot: string | undefined;
+  let deployHostTenantRouteRoot: string | undefined;
   if (definition.requiresDeployHostComposeRuntime) {
     const configuredPath = (key: string, fallback: string | undefined): string => {
       const value = environment[key] ?? fallback;
@@ -345,6 +349,10 @@ export function parseProcessConfig(
       deployHostDatabaseSecretRootEnvironmentKey,
       allowSafeDefaults ? "/tmp/qcrm-tenant-secrets" : undefined,
     );
+    deployHostTenantRouteRoot = configuredPath(
+      deployHostTenantRouteRootEnvironmentKey,
+      allowSafeDefaults ? "/tmp/qcrm-tenant-routes" : undefined,
+    );
   }
 
   const storage = definition.requiresStorageAdmin
@@ -370,6 +378,7 @@ export function parseProcessConfig(
     ...(deployHostPlatformStorageNetwork ? { deployHostPlatformStorageNetwork } : {}),
     ...(deployHostPlatformDatabaseNetwork ? { deployHostPlatformDatabaseNetwork } : {}),
     ...(deployHostDatabaseSecretRoot ? { deployHostDatabaseSecretRoot } : {}),
+    ...(deployHostTenantRouteRoot ? { deployHostTenantRouteRoot } : {}),
     ...(storage ? { storage } : {}),
   });
 }
