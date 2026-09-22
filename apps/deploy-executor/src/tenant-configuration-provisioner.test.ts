@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { platformReleaseArtifactNames, type PlatformRelease } from "@quantum-crm/platform-domain";
+
 import {
   createTenantConfigurationProvisioner,
   TenantConfigurationProvisioningError,
@@ -16,6 +18,31 @@ const command = {
   quotaMiB: 10240,
 } as const;
 
+const release: PlatformRelease = {
+  id: command.releaseId,
+  semanticVersion: "1.0.0",
+  commitSha: "a".repeat(40),
+  releaseNotes: "Validated release for the configuration test.",
+  compatibility: {
+    configurationSchemaVersion: 1,
+    agentContractVersion: "agent/v1",
+    databaseMigrationRequired: false,
+  },
+  artifacts: platformReleaseArtifactNames.map((name, index) => ({
+    name,
+    digest: `sha256:${index.toString(16).padStart(64, "0")}`,
+  })),
+  status: "VALIDATED",
+  version: 1n,
+  createdAt: new Date("2026-01-01T00:00:00.000Z"),
+  updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+};
+
+const releaseRepository = {
+  findById: async (id: string): Promise<PlatformRelease | null> =>
+    id === release.id ? release : { ...release, id },
+};
+
 describe("tenant configuration provisioner", () => {
   it("installs a deterministic non-secret manifest and reconciles it", async () => {
     const root = await mkdtemp(join(tmpdir(), "qcrm-config-"));
@@ -23,6 +50,7 @@ describe("tenant configuration provisioner", () => {
       const provisioner = createTenantConfigurationProvisioner({
         configurationDirectory: root,
         storageEndpoint: "http://platform-storage:8333/",
+        releaseRepository,
       });
 
       await expect(provisioner.provision(command)).resolves.toMatchObject({
@@ -33,6 +61,7 @@ describe("tenant configuration provisioner", () => {
       const path = join(root, "tenant", command.tenantProfileId, "configuration.json");
       const content = await readFile(path, "utf8");
       expect(content).toContain('"schemaVersion": 1');
+      expect(content).toContain('"artifacts"');
       expect(content).toContain("migrator-password");
       expect(content).not.toContain("test-only-secret");
       await expect(provisioner.provision(command)).resolves.toMatchObject({ reconciled: true });
@@ -47,6 +76,7 @@ describe("tenant configuration provisioner", () => {
       const provisioner = createTenantConfigurationProvisioner({
         configurationDirectory: root,
         storageEndpoint: "http://platform-storage:8333",
+        releaseRepository,
       });
       await provisioner.provision(command);
       await expect(

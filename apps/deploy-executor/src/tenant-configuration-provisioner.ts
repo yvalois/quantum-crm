@@ -12,6 +12,8 @@ import {
   type TenantConfigurationProvisioner,
   type TenantConfigurationProvisioningCommand,
   type TenantConfigurationProvisioningResult,
+  type PlatformRelease,
+  type PlatformReleaseRepository,
 } from "@quantum-crm/platform-domain";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -29,6 +31,7 @@ export class TenantConfigurationProvisioningError extends Error {
 export interface TenantConfigurationProvisionerOptions {
   readonly configurationDirectory: string;
   readonly storageEndpoint: string;
+  readonly releaseRepository: Pick<PlatformReleaseRepository, "findById">;
 }
 
 function assertUuid(value: string): void {
@@ -53,6 +56,7 @@ async function assertDirectory(path: string): Promise<void> {
 function manifestFor(
   command: TenantConfigurationProvisioningCommand,
   storageEndpoint: string,
+  release: PlatformRelease,
 ): string {
   const database = tenantDatabaseIdentity(command.tenantProfileId);
   const databaseSecrets = tenantDatabaseSecretKinds.map((kind) =>
@@ -71,6 +75,11 @@ function manifestFor(
       tenantProfileId: command.tenantProfileId,
       serverId: command.serverId,
       releaseId: command.releaseId,
+      release: {
+        id: release.id,
+        version: release.version.toString(),
+        artifacts: release.artifacts,
+      },
       database: {
         databaseName: database.databaseName,
         migratorRoleName: database.migratorRoleName,
@@ -117,12 +126,16 @@ export function createTenantConfigurationProvisioner(
     if (!["http:", "https:"].includes(endpoint.protocol)) {
       throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
     }
+    const release = await options.releaseRepository.findById(command.releaseId);
+    if (!release || release.status !== "VALIDATED" || release.id !== command.releaseId) {
+      throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+    }
 
     const tenantDirectory = join(options.configurationDirectory, "tenant");
     const profileDirectory = join(tenantDirectory, command.tenantProfileId);
     const manifestRef = `tenant/${command.tenantProfileId}/configuration.json`;
     const manifestPath = join(profileDirectory, "configuration.json");
-    const content = manifestFor(command, endpoint.toString().replace(/\/$/u, ""));
+    const content = manifestFor(command, endpoint.toString().replace(/\/$/u, ""), release);
     try {
       await assertDirectory(options.configurationDirectory);
       await assertDirectory(tenantDirectory);
