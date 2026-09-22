@@ -36,6 +36,12 @@ export {
   type RequestTenantProvisioning,
 } from "./deployments/v1/provisioning-operation.js";
 export {
+  TenantHttpsRouteProvisioningRequestSchema,
+  TenantHttpsRouteProvisioningResponseSchema,
+  type TenantHttpsRouteProvisioningRequest,
+  type TenantHttpsRouteProvisioningResponse,
+} from "./deployments/v1/tenant-https-route.js";
+export {
   CreateInfrastructureServerSchema,
   InfrastructureServerArchitectureSchema,
   InfrastructureServerListQuerySchema,
