@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -84,6 +84,36 @@ describe("tenant configuration provisioner", () => {
       ).rejects.toEqual(new TenantConfigurationProvisioningError("TARGET_CONFLICT"));
     } finally {
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("derives and reuses the runtime database URL outside the manifest", async () => {
+    const root = await mkdtemp(join(tmpdir(), "qcrm-config-"));
+    const secrets = await mkdtemp(join(tmpdir(), "qcrm-secrets-"));
+    try {
+      const secretDirectory = join(secrets, command.tenantProfileId);
+      await mkdir(secretDirectory, { recursive: true, mode: 0o700 });
+      await writeFile(join(secretDirectory, "runtime-password"), "synthetic-runtime-password\n", {
+        mode: 0o400,
+      });
+      const provisioner = createTenantConfigurationProvisioner({
+        configurationDirectory: root,
+        storageEndpoint: "http://platform-storage:8333",
+        releaseRepository,
+        tenantSecretDirectory: secrets,
+        databaseHost: "platform-postgres",
+        databasePort: 5432,
+      });
+
+      await provisioner.provision(command);
+      const runtimeUrlPath = join(secretDirectory, "runtime-url");
+      const first = await readFile(runtimeUrlPath, "utf8");
+      expect(first).toContain("platform-postgres:5432");
+      await expect(provisioner.provision(command)).resolves.toMatchObject({ reconciled: true });
+      expect(await readFile(runtimeUrlPath, "utf8")).toBe(first);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(secrets, { recursive: true, force: true });
     }
   });
 });
