@@ -12,7 +12,7 @@ FROM toolchain AS build
 ARG APP
 WORKDIR /workspace
 COPY . .
-RUN case "${APP}" in api|admin-api|worker|deploy-executor|agent-runtime) ;; *) exit 64 ;; esac \
+RUN case "${APP}" in api|admin-api|worker|deploy-executor|deploy-host|agent-runtime) ;; *) exit 64 ;; esac \
     && pnpm install --frozen-lockfile \
     && pnpm --filter "@quantum-crm/${APP}..." build \
     && pnpm --filter "@quantum-crm/${APP}" deploy --prod /runtime

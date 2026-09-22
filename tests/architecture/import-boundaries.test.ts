@@ -98,6 +98,7 @@ describe("architectural import boundaries", () => {
       "apps/admin-api/src/main.ts": "admin-api",
       "apps/worker/src/main.ts": "worker",
       "apps/deploy-executor/src/main.ts": "deploy-executor",
+      "apps/deploy-host/src/main.ts": "deploy-host",
       "apps/agent-runtime/src/main.ts": "agent-runtime",
     } as const;
 

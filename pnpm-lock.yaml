@@ -192,6 +192,15 @@ importers:
         specifier: 7.8.2
         version: 7.8.2
 
+  apps/deploy-host:
+    dependencies:
+      "@quantum-crm/config":
+        specifier: workspace:*
+        version: link:../../packages/config
+      "@quantum-crm/platform-domain":
+        specifier: workspace:*
+        version: link:../../packages/platform-domain
+
   apps/portal-web:
     dependencies:
       "@quantum-crm/contracts":

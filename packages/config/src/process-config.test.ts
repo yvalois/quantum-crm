@@ -126,6 +126,12 @@ describe("process configuration", () => {
         requiresStorageAdmin: true,
         requiresDeployHostSocket: true,
       },
+      "deploy-host": {
+        serviceName: "deploy-host",
+        defaultHost: "127.0.0.1",
+        defaultPort: 3200,
+        requiresDeployHostSocket: true,
+      },
       "agent-runtime": {
         serviceName: "agent-runtime",
         defaultHost: "127.0.0.1",
