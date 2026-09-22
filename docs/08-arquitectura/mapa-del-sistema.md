@@ -58,6 +58,7 @@ flowchart TB
     subgraph Central[Plataforma central]
         adminApi[admin-api\nNestJS]
         executor[deploy-executor\nNestJS standalone]
+        hostAdapter[deploy-host\nadaptador Unix privado]
         platformDb[(PostgreSQL\nbase administrativa)]
         platformRealm[Keycloak\nrealm de plataforma]
     end
@@ -91,7 +92,8 @@ flowchart TB
     adminApi --> platformDb
     adminApi --> platformRealm
     adminApi -->|operacion autorizada| executor
-    executor -->|Compose, migraciones y estado observado| Tenant
+    executor -->|socket Unix privado| hostAdapter
+    hostAdapter -->|Docker socket solo en host| Tenant
     executor -->|backup coordinado y cifrado| backupTarget
     backupTarget -.->|restauracion aislada| executor
     crmWeb --> collector
@@ -117,8 +119,9 @@ La especificacion logica anterior es mas amplia que el codigo disponible. El inc
 | `quantum-test` | `crm-web`, `api` | Smoke de los dos tipos de imagen, sin datos comerciales |
 | `quantum-platform` | `admin-web`, `admin-api`, `deploy-executor` | Plantilla por digest; el executor usa operaciones tipadas, una credencial administrativa acotada para `CREATE_DATABASE`, una raiz de secretos y una raiz separada de manifestos por perfil, sin Docker socket ni shell |
 | `qcrm-t-<uuid>` | `crm-web`, `portal-web`, `api`, `worker`, `agent-runtime` | Plantilla por perfil y digest; `api` y `worker` reciben una conexion PostgreSQL por archivo secreto; identidad, colas y archivos siguen pendientes |
+| `host-adapter` (fuera de Compose) | `deploy-host` | Proceso de infraestructura fuera del plano de aplicación; único propietario del socket Docker y del futuro runner allowlisted, accesible desde `deploy-executor` solo por Unix privado |
 
-`infra/docker/Dockerfile.web` produce las tres variantes Next.js standalone y `infra/docker/Dockerfile.node` produce los cinco procesos Node compilados. Caddy sera el unico publicador de trafico en los despliegues no locales; las redes externas declaradas son puntos de conexion controlados, no autorizacion para publicar puertos internos.
+`infra/docker/Dockerfile.web` produce las tres variantes Next.js standalone y `infra/docker/Dockerfile.node` produce los procesos Node compilados, incluido el adaptador de infraestructura `deploy-host`. Caddy sera el unico publicador de trafico en los despliegues no locales; las redes externas declaradas son puntos de conexion controlados, no autorizacion para publicar puertos internos.
 
 `OPS-04-a` materializa la frontera inicial de PostgreSQL: `api` y `worker` consumen la base exclusiva de su perfil, `admin-api` consume la base de plataforma y readiness prueba la conexion sin exponer identidad ni URL. `agent-runtime` y las webs no reciben esos secretos. `ADM-04-d` agrega al `deploy-executor` una referencia administrativa separada y de privilegio minimo para crear y reconciliar una base por perfil; `ADM-04-e` agrega credenciales idempotentes en archivos privados y referencias sin valores; `ADM-04-g` materializa un manifiesto no secreto y su referencia durable fuera del checkout antes de iniciar contenedores. `ADM-04-h` define un adaptador Unix privado para que el ejecutor pueda reconciliar Compose sin recibir el socket Docker. Los schemas comerciales, migrador de perfil y pasos posteriores siguen pendientes.
 
@@ -135,7 +138,8 @@ Los componentes de identidad, Redis, archivos, proxy, telemetria y respaldo perm
 | `worker` | Outbox, inbox, automatizaciones, integraciones y trabajos duraderos | Exponer controladores publicos innecesarios o saltar autorizacion de comandos |
 | `agent-runtime` | Agente principal, subagentes internos, grafo, checkpoints e interrupciones | Acceder directamente a datos comerciales, proveedores, secretos o infraestructura interna |
 | `admin-api` | Perfiles, releases, servidores, operaciones y auditoria de plataforma | Consultar tablas comerciales o acceder al daemon Docker |
-| `deploy-executor` | Ejecutar operaciones de infraestructura tipadas y reportar estado | Aceptar shell arbitrario o credenciales de usuarios comerciales |
+| `deploy-executor` | Ejecutar operaciones de infraestructura tipadas y reportar estado mediante el adaptador Unix | Aceptar shell arbitrario, el socket Docker o credenciales de usuarios comerciales |
+| `deploy-host` | Ejecutar el futuro runner allowlisted de Compose y observar recursos del perfil | Aceptar shell, rutas libres, proyectos no derivados del UUID o solicitudes fuera del contrato |
 
 ## Modulos comerciales
 
