@@ -1,3 +1,5 @@
+import type { TenantHttpsUpstreamServiceName } from "./tenant-https-route.js";
+
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
 const correlationIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
@@ -54,6 +56,10 @@ export const provisioningValidationFailureCodes = [
   "CONTAINERS_UNAVAILABLE",
   "CONTAINERS_PERMISSION_DENIED",
   "CONTAINERS_IDENTITY_MISMATCH",
+  "HTTPS_TARGET_CONFLICT",
+  "HTTPS_UNAVAILABLE",
+  "HTTPS_PERMISSION_DENIED",
+  "HTTPS_IDENTITY_MISMATCH",
 ] as const;
 export type ProvisioningValidationFailureCode = (typeof provisioningValidationFailureCodes)[number];
 
@@ -232,6 +238,24 @@ export interface CompleteProvisioningContainersCommand {
   readonly failureCode?: ProvisioningValidationFailureCode;
 }
 
+export interface CompleteProvisioningHttpsCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+  readonly releaseId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+  readonly hostname: string;
+  readonly edgeNetworkName: string;
+  readonly upstreamServices: readonly TenantHttpsUpstreamServiceName[];
+  readonly configurationRevision: bigint;
+  readonly routeGeneration: bigint;
+  readonly configured: boolean;
+  readonly reconciled: boolean;
+  readonly failureCode?: ProvisioningValidationFailureCode;
+}
+
 export interface TenantStorageProvisioningCommand {
   readonly tenantProfileId: string;
   readonly serverId: string;
@@ -381,6 +405,9 @@ export interface ProvisioningOperationRepository {
   ) => Promise<ProvisioningValidationResult | null>;
   readonly completeContainers: (
     command: CompleteProvisioningContainersCommand,
+  ) => Promise<ProvisioningValidationResult | null>;
+  readonly completeHttps: (
+    command: CompleteProvisioningHttpsCommand,
   ) => Promise<ProvisioningValidationResult | null>;
 }
 
@@ -823,6 +850,68 @@ export function validateCompleteProvisioningContainers(
     projectName: input.projectName,
     services: Object.freeze([...services].sort() as TenantContainerServiceName[]),
     ready: input.ready,
+    reconciled: input.reconciled,
+    ...(input.failureCode ? { failureCode: input.failureCode } : {}),
+  });
+}
+
+export function validateCompleteProvisioningHttps(
+  input: CompleteProvisioningHttpsCommand,
+): CompleteProvisioningHttpsCommand {
+  const tenantProfileId = uuid("tenantProfileId", input.tenantProfileId);
+  uuid("serverId", input.serverId);
+  uuid("releaseId", input.releaseId);
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.[0-9-]+\.nip\.io$/u.test(input.hostname)) {
+    throw new ProvisioningOperationValidationError("hostname");
+  }
+  if (input.edgeNetworkName !== `qcrm-tenant-edge-${tenantProfileId}`) {
+    throw new ProvisioningOperationValidationError("edgeNetworkName");
+  }
+  const upstreams = [...new Set(input.upstreamServices)];
+  if (
+    upstreams.length === 0 ||
+    upstreams.some((service) => !["api", "crm-web", "portal-web"].includes(service))
+  ) {
+    throw new ProvisioningOperationValidationError("upstreamServices");
+  }
+  if (input.configurationRevision < 1n) {
+    throw new ProvisioningOperationValidationError("configurationRevision");
+  }
+  if (input.routeGeneration < 1n) {
+    throw new ProvisioningOperationValidationError("routeGeneration");
+  }
+  if (typeof input.configured !== "boolean" || typeof input.reconciled !== "boolean") {
+    throw new ProvisioningOperationValidationError("routeState");
+  }
+  if (!input.failureCode && !input.configured) {
+    throw new ProvisioningOperationValidationError("configured");
+  }
+  if (input.failureCode && !provisioningValidationFailureCodes.includes(input.failureCode)) {
+    throw new ProvisioningOperationValidationError("failureCode");
+  }
+  return Object.freeze({
+    operationId: uuid("operationId", input.operationId),
+    tenantProfileId,
+    serverId: uuid("serverId", input.serverId),
+    releaseId: uuid("releaseId", input.releaseId),
+    workerId: input.workerId,
+    expectedVersion: input.expectedVersion,
+    attempt: input.attempt,
+    hostname: input.hostname,
+    edgeNetworkName: input.edgeNetworkName,
+    upstreamServices: Object.freeze(upstreams.sort() as TenantHttpsUpstreamServiceName[]),
+    configurationRevision: input.configurationRevision,
+    routeGeneration: input.routeGeneration,
+    configured: input.configured,
     reconciled: input.reconciled,
     ...(input.failureCode ? { failureCode: input.failureCode } : {}),
   });

@@ -53,6 +53,7 @@ model PlatformRelease {
   provisioningOperations    ProvisioningOperation[]
   tenantConfigurations      TenantConfiguration[]
   tenantContainers          TenantContainer[]
+  tenantHttpsRoutes         TenantHttpsRoute[]
 
   @@index([status, createdAt, id], map: "releases_status_created_id_idx")
   @@map("releases")
@@ -116,6 +117,7 @@ model InfrastructureServer {
   tenantStorage           TenantStorage[]
   tenantConfigurations    TenantConfiguration[]
   tenantContainers         TenantContainer[]
+  tenantHttpsRoutes        TenantHttpsRoute[]
 
   @@index([status, createdAt, id], map: "infrastructure_servers_status_created_id_idx")
   @@map("servers")
@@ -231,6 +233,7 @@ model TenantProfile {
   storage              TenantStorage?
   configuration        TenantConfiguration?
   container            TenantContainer?
+  httpsRoute           TenantHttpsRoute?
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -298,6 +301,10 @@ enum ProvisioningValidationFailureCode {
   CONTAINERS_UNAVAILABLE          @map("containers_unavailable")
   CONTAINERS_PERMISSION_DENIED    @map("containers_permission_denied")
   CONTAINERS_IDENTITY_MISMATCH    @map("containers_identity_mismatch")
+  HTTPS_TARGET_CONFLICT            @map("https_target_conflict")
+  HTTPS_UNAVAILABLE                @map("https_unavailable")
+  HTTPS_PERMISSION_DENIED          @map("https_permission_denied")
+  HTTPS_IDENTITY_MISMATCH          @map("https_identity_mismatch")
 
   @@map("provisioning_validation_failure_code")
   @@schema("operations")
@@ -487,6 +494,47 @@ model TenantContainer {
   @@schema("tenants")
 }
 
+enum TenantHttpsRouteStatus {
+  CONFIGURING @map("configuring")
+  CONFIGURED  @map("configured")
+  VERIFIED    @map("verified")
+  ERROR       @map("error")
+
+  @@map("tenant_https_route_status")
+  @@schema("tenants")
+}
+
+model TenantHttpsRoute {
+  id                    String                @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId       String                @unique(map: "tenant_https_routes_tenant_profile_id_key") @map("tenant_profile_id") @db.Uuid
+  serverId              String                @map("server_id") @db.Uuid
+  releaseId             String                @map("release_id") @db.Uuid
+  operationId           String                @unique(map: "tenant_https_routes_operation_id_key") @map("operation_id") @db.Uuid
+  hostname              String                @unique(map: "tenant_https_routes_hostname_key") @db.VarChar(255)
+  edgeNetworkName       String                @map("edge_network_name") @db.VarChar(80)
+  upstreamServices      Json                  @map("upstream_services") @db.JsonB
+  configurationRevision BigInt                @map("configuration_revision")
+  operationVersion      BigInt                @map("operation_version")
+  attempt               Int
+  routeGeneration       BigInt                @default(1) @map("route_generation")
+  observedGeneration    BigInt?               @map("observed_generation")
+  configured            Boolean               @default(false)
+  reconciled            Boolean               @default(false)
+  status                TenantHttpsRouteStatus @default(CONFIGURING)
+  version               BigInt                @default(1)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile         TenantProfile         @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  server                InfrastructureServer  @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  release               PlatformRelease       @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  operation             ProvisioningOperation @relation(fields: [operationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([serverId], map: "tenant_https_routes_server_id_idx")
+  @@index([status, updatedAt, id], map: "tenant_https_routes_status_updated_id_idx")
+  @@map("tenant_https_routes")
+  @@schema("tenants")
+}
+
 model ProvisioningOperation {
   id                    String                      @id @default(dbgenerated("uuidv7()")) @db.Uuid
   tenantProfileId       String                      @map("tenant_profile_id") @db.Uuid
@@ -516,6 +564,7 @@ model ProvisioningOperation {
   release               PlatformRelease              @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   stepResults           ProvisioningStepResult[]
   tenantContainer       TenantContainer?
+  tenantHttpsRoute      TenantHttpsRoute?
 
   @@unique([requestedByOperatorId, idempotencyKey], map: "provisioning_operations_actor_idempotency_key_key")
   @@index([status, createdAt, id], map: "provisioning_operations_status_created_id_idx")
