@@ -77,7 +77,8 @@ const memberSelection = `
 
 function memberStatus(value: string): IamMember["status"] {
   const status = value.toUpperCase();
-  if (status === "INVITED" || status === "ACTIVE" || status === "DEACTIVATED") return status;
+  if (status === "INVITED" || status === "ACTIVE" || status === "DEACTIVATED")
+    return status;
   throw new DatabaseUnavailableError();
 }
 
@@ -121,25 +122,39 @@ function invitationFromRow(row: IamInvitationRow): IamInvitation {
 
 function encodeCursor(member: IamMember): string {
   return Buffer.from(
-    JSON.stringify({ createdAt: member.createdAt.toISOString(), id: member.id }),
+    JSON.stringify({
+      createdAt: member.createdAt.toISOString(),
+      id: member.id,
+    }),
     "utf8",
   ).toString("base64url");
 }
 
-function decodeCursor(value: string): { readonly createdAt: Date; readonly id: string } {
+function decodeCursor(value: string): {
+  readonly createdAt: Date;
+  readonly id: string;
+} {
   try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as unknown;
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as unknown;
     if (
       !parsed ||
       typeof parsed !== "object" ||
-      typeof (parsed as { readonly createdAt?: unknown }).createdAt !== "string" ||
+      typeof (parsed as { readonly createdAt?: unknown }).createdAt !==
+        "string" ||
       typeof (parsed as { readonly id?: unknown }).id !== "string"
     ) {
       throw new Error("Invalid cursor");
     }
-    const createdAt = new Date((parsed as { readonly createdAt: string }).createdAt);
+    const createdAt = new Date(
+      (parsed as { readonly createdAt: string }).createdAt,
+    );
     if (Number.isNaN(createdAt.getTime())) throw new Error("Invalid cursor");
-    return Object.freeze({ createdAt, id: (parsed as { readonly id: string }).id });
+    return Object.freeze({
+      createdAt,
+      id: (parsed as { readonly id: string }).id,
+    });
   } catch {
     throw new IamMemberConflictError();
   }
@@ -151,7 +166,11 @@ function isUniqueViolation(error: unknown): boolean {
 
 function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
   return Object.freeze({
-    list: async ({ cursor, limit, status }): Promise<IamMemberPage> => {
+    list: async ({
+      cursor,
+      limit,
+      status,
+    }: Parameters<IamMemberRepository["list"]>[0]): Promise<IamMemberPage> => {
       const after = cursor ? decodeCursor(cursor) : undefined;
       try {
         const result = (await pool.query(
@@ -163,20 +182,28 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             ORDER BY created_at ASC, id ASC
             LIMIT $4
           `,
-          [status ?? null, after?.createdAt ?? null, after?.id ?? null, limit + 1],
+          [
+            status ?? null,
+            after?.createdAt ?? null,
+            after?.id ?? null,
+            limit + 1,
+          ],
         )) as { readonly rows: readonly IamMemberRow[] };
         const rows = result.rows.slice(0, limit).map(memberFromRow);
         const overflow = result.rows[limit];
         return Object.freeze({
           members: Object.freeze(rows),
-          nextCursor: overflow && rows.length > 0 ? encodeCursor(rows[rows.length - 1]!) : null,
+          nextCursor:
+            overflow && rows.length > 0
+              ? encodeCursor(rows[rows.length - 1]!)
+              : null,
         });
       } catch (error) {
         if (error instanceof IamMemberConflictError) throw error;
         throw new DatabaseUnavailableError();
       }
     },
-    findById: async (memberId): Promise<IamMember | null> => {
+    findById: async (memberId: string): Promise<IamMember | null> => {
       try {
         const result = (await pool.query(
           `SELECT ${memberSelection} FROM iam.members WHERE id = $1::uuid`,
@@ -188,7 +215,9 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         throw new DatabaseUnavailableError();
       }
     },
-    findByOidcSubject: async (oidcSubject): Promise<IamMember | null> => {
+    findByOidcSubject: async (
+      oidcSubject: string,
+    ): Promise<IamMember | null> => {
       try {
         const result = (await pool.query(
           `SELECT ${memberSelection} FROM iam.members WHERE oidc_subject = $1`,
@@ -200,7 +229,9 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         throw new DatabaseUnavailableError();
       }
     },
-    createInvitation: async (input) => {
+    createInvitation: async (
+      input: Parameters<IamMemberRepository["createInvitation"]>[0],
+    ) => {
       let client: PoolClient | undefined;
       try {
         client = await pool.connect();
@@ -304,7 +335,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         client?.release();
       }
     },
-    update: async (member): Promise<IamMember> => {
+    update: async (member: IamMember): Promise<IamMember> => {
       try {
         const result = (await pool.query(
           `
@@ -328,13 +359,18 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         if (!row) throw new IamMemberConflictError();
         return memberFromRow(row);
       } catch (error) {
-        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
+        if (
+          error instanceof IamMemberConflictError ||
+          isUniqueViolation(error)
+        ) {
           throw new IamMemberConflictError();
         }
         throw new DatabaseUnavailableError();
       }
     },
-    acceptInvitation: async (input): Promise<IamMember | null> => {
+    acceptInvitation: async (
+      input: Parameters<IamMemberRepository["acceptInvitation"]>[0],
+    ): Promise<IamMember | null> => {
       let client: PoolClient | undefined;
       try {
         client = await pool.connect();
@@ -383,7 +419,10 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         return memberFromRow(member);
       } catch (error) {
         await client?.query("ROLLBACK").catch(() => undefined);
-        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
+        if (
+          error instanceof IamMemberConflictError ||
+          isUniqueViolation(error)
+        ) {
           throw new IamMemberConflictError();
         }
         throw new DatabaseUnavailableError();
@@ -394,7 +433,9 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
   });
 }
 
-function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipRepository {
+function createCrmMembershipRepository(
+  pool: PostgresPool,
+): CrmMembershipRepository {
   return Object.freeze({
     findAuthorizationByOidcSubject: async (
       oidcSubject: string,
@@ -449,7 +490,8 @@ export function createCrmPostgresDatabase(
   serviceName: string,
   poolFactory?: PostgresPoolFactory,
 ): CrmPostgresDatabase {
-  if (config.target !== "crm" || !config.tenantId) throw new DatabaseUnavailableError();
+  if (config.target !== "crm" || !config.tenantId)
+    throw new DatabaseUnavailableError();
   const pool = createPostgresPool(config, serviceName, poolFactory);
   return Object.freeze({
     ...createPostgresDatabaseFromPool(pool),

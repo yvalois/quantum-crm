@@ -9,8 +9,17 @@ describe("member contracts", () => {
         displayName: "Ana Pérez",
         email: "ANA@EXAMPLE.TEST",
       }),
-    ).toEqual({ displayName: "Ana Pérez", email: "ana@example.test" });
-    expect(() => CreateMemberInvitationSchema.parse({ displayName: " ", email: "ana@example.test" })).toThrow();
+    ).toEqual({
+      displayName: "Ana Pérez",
+      email: "ana@example.test",
+      roleCode: "ADVISOR",
+    });
+    expect(() =>
+      CreateMemberInvitationSchema.parse({
+        displayName: " ",
+        email: "ana@example.test",
+      }),
+    ).toThrow();
   });
 
   it("requires an actual profile edit", () => {

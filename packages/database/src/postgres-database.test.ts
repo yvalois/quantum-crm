@@ -71,7 +71,11 @@ function createPoolDouble(options: { readonly connectFails?: boolean } = {}): {
 describe("PostgreSQL database", () => {
   it("uses bounded pool settings and becomes ready after its initial probe", async () => {
     const pool = createPoolDouble();
-    const database = createPostgresDatabase(databaseConfig, "api", pool.factory);
+    const database = createPostgresDatabase(
+      databaseConfig,
+      "api",
+      pool.factory,
+    );
 
     expect(await database.isReady()).toBe(false);
     await database.connect();
@@ -89,15 +93,25 @@ describe("PostgreSQL database", () => {
 
   it("fails closed with a generic error when the initial connection is unavailable", async () => {
     const pool = createPoolDouble({ connectFails: true });
-    const database = createPostgresDatabase(databaseConfig, "api", pool.factory);
+    const database = createPostgresDatabase(
+      databaseConfig,
+      "api",
+      pool.factory,
+    );
 
-    await expect(database.connect()).rejects.toEqual(new DatabaseUnavailableError());
+    await expect(database.connect()).rejects.toEqual(
+      new DatabaseUnavailableError(),
+    );
     expect(await database.isReady()).toBe(false);
   });
 
   it("closes the pool once and remains not ready", async () => {
     const pool = createPoolDouble();
-    const database = createPostgresDatabase(databaseConfig, "worker", pool.factory);
+    const database = createPostgresDatabase(
+      databaseConfig,
+      "worker",
+      pool.factory,
+    );
 
     await database.connect();
     await database.close();
@@ -105,7 +119,9 @@ describe("PostgreSQL database", () => {
 
     expect(pool.end).toHaveBeenCalledTimes(1);
     expect(await database.isReady()).toBe(false);
-    await expect(database.connect()).rejects.toEqual(new DatabaseUnavailableError());
+    await expect(database.connect()).rejects.toEqual(
+      new DatabaseUnavailableError(),
+    );
   });
 
   it("reads and validates a platform membership through the shared pool", async () => {
@@ -140,7 +156,11 @@ describe("PostgreSQL database", () => {
       end: vi.fn(async () => undefined),
       on: vi.fn(),
     });
-    const database = createPlatformPostgresDatabase(platformDatabaseConfig, "admin-api", factory);
+    const database = createPlatformPostgresDatabase(
+      platformDatabaseConfig,
+      "admin-api",
+      factory,
+    );
     await database.connect();
 
     await expect(
@@ -191,7 +211,9 @@ describe("PostgreSQL database", () => {
     await database.connect();
 
     await expect(
-      database.memberships.findAuthorizationByOidcSubject("keycloak-crm-member"),
+      database.memberships.findAuthorizationByOidcSubject(
+        "keycloak-crm-member",
+      ),
     ).resolves.toMatchObject({
       oidcSubject: "keycloak-crm-member",
       status: "ACTIVE",

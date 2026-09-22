@@ -5,7 +5,7 @@ import type { OidcAccessTokenVerifier, VerifiedOidcIdentity } from "./oidc-acces
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const subjectPattern = /^[!-~]{1,255}$/u;
 const correlationIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
-const permissionPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/u;
+const permissionPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/u;
 
 export interface CrmMembershipSnapshot {
   readonly id: string;

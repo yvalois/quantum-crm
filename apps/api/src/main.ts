@@ -17,7 +17,10 @@ async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("api");
   const databaseConfig = requireDatabaseConfig(config);
   const oidcConfig = requireOidcConfig(config);
-  const database = createCrmPostgresDatabase(databaseConfig, config.serviceName);
+  const database = createCrmPostgresDatabase(
+    databaseConfig,
+    config.serviceName,
+  );
   const verifier = createKeycloakOidcAccessTokenVerifier(oidcConfig);
   let application: INestApplication | undefined;
 
