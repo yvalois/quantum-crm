@@ -8,6 +8,7 @@ import {
   DatabaseUnavailableError,
   type PostgresPoolFactory,
 } from "./postgres-database.js";
+import { createCrmPostgresDatabase } from "./crm-postgres-database.js";
 
 const databaseConfig: DatabaseConfig = Object.freeze({
   schemaVersion: "database-config/v1",
@@ -154,5 +155,51 @@ describe("PostgreSQL database", () => {
       expect.stringContaining("WHERE membership.oidc_subject = $1"),
       ["keycloak-platform-operator"],
     );
+  });
+
+  it("resolves effective CRM permissions only from the profile database", async () => {
+    const query = vi.fn(async (statement: string) =>
+      statement.includes("iam.role_permissions")
+        ? {
+            rows: [
+              {
+                id: "01995f7e-7b52-7000-8000-000000000201",
+                oidc_subject: "keycloak-crm-member",
+                status: "active",
+                authorization_revision: "2",
+                permissions: ["iam:members:create", "iam:members:read"],
+              },
+            ],
+          }
+        : {
+            rows: [
+              {
+                server_version_num: 180_000,
+                can_create_database_objects: false,
+                can_create_public_objects: false,
+              },
+            ],
+          },
+    );
+    const factory: PostgresPoolFactory = () => ({
+      connect: async () => ({ query, release: vi.fn() }) as never,
+      query,
+      end: vi.fn(async () => undefined),
+      on: vi.fn(),
+    });
+    const database = createCrmPostgresDatabase(databaseConfig, "api", factory);
+    await database.connect();
+
+    await expect(
+      database.memberships.findAuthorizationByOidcSubject("keycloak-crm-member"),
+    ).resolves.toMatchObject({
+      oidcSubject: "keycloak-crm-member",
+      status: "ACTIVE",
+      permissions: ["iam:members:create", "iam:members:read"],
+      authorizationRevision: 2n,
+    });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("FROM iam.members AS member"), [
+      "keycloak-crm-member",
+    ]);
   });
 });

@@ -1,0 +1,110 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../../generated/crm"
+  runtime      = "nodejs"
+  moduleFormat = "esm"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["iam"]
+}
+
+enum IamMemberStatus {
+  INVITED     @map("invited")
+  ACTIVE      @map("active")
+  DEACTIVATED @map("deactivated")
+
+  @@map("member_status")
+  @@schema("iam")
+}
+
+enum IamInvitationStatus {
+  PENDING  @map("pending")
+  ACCEPTED @map("accepted")
+  REVOKED  @map("revoked")
+  EXPIRED  @map("expired")
+
+  @@map("invitation_status")
+  @@schema("iam")
+}
+
+model IamMember {
+  id                       String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  oidcSubject              String?         @unique(map: "iam_members_oidc_subject_key") @map("oidc_subject") @db.VarChar(255)
+  displayName              String          @map("display_name") @db.VarChar(160)
+  email                    String          @unique(map: "iam_members_email_key") @db.Citext
+  status                   IamMemberStatus @default(INVITED)
+  authorizationRevision    BigInt          @default(1) @map("authorization_revision")
+  deactivatedAt            DateTime?       @map("deactivated_at") @db.Timestamptz(6)
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  invitations              IamInvitation[] @relation("member_invitations")
+  createdInvitations       IamInvitation[] @relation("invitation_creator")
+  roles                    IamMemberRole[]
+
+  @@index([status, createdAt, id], map: "iam_members_status_created_id_idx")
+  @@map("members")
+  @@schema("iam")
+}
+
+model IamInvitation {
+  id                    String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  memberId              String              @map("member_id") @db.Uuid
+  createdByMemberId     String              @map("created_by_member_id") @db.Uuid
+  roleId                String              @map("role_id") @db.Uuid
+  tokenHash             String              @unique(map: "iam_invitations_token_hash_key") @map("token_hash") @db.Char(64)
+  idempotencyKey        String              @map("idempotency_key") @db.VarChar(128)
+  status                IamInvitationStatus @default(PENDING)
+  expiresAt             DateTime            @map("expires_at") @db.Timestamptz(6)
+  acceptedAt            DateTime?           @map("accepted_at") @db.Timestamptz(6)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  member                IamMember           @relation("member_invitations", fields: [memberId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByMember       IamMember           @relation("invitation_creator", fields: [createdByMemberId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role                  IamRole             @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([createdByMemberId, idempotencyKey], map: "iam_invitations_creator_idempotency_key")
+  @@index([memberId, status, expiresAt], map: "iam_invitations_member_status_expiry_idx")
+  @@map("invitations")
+  @@schema("iam")
+}
+
+model IamRole {
+  id          String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  code        String              @unique(map: "iam_roles_code_key") @db.VarChar(80)
+  displayName String              @map("display_name") @db.VarChar(160)
+  system      Boolean             @default(true)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  permissions IamRolePermission[]
+  members     IamMemberRole[]
+  invitations IamInvitation[]
+
+  @@map("roles")
+  @@schema("iam")
+}
+
+model IamRolePermission {
+  roleId     String   @map("role_id") @db.Uuid
+  permission String   @db.VarChar(128)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  role       IamRole  @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([roleId, permission], map: "iam_role_permissions_pkey")
+  @@map("role_permissions")
+  @@schema("iam")
+}
+
+model IamMemberRole {
+  memberId  String   @map("member_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  member    IamMember @relation(fields: [memberId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role      IamRole   @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([memberId, roleId], map: "iam_member_roles_pkey")
+  @@index([roleId, memberId], map: "iam_member_roles_role_member_idx")
+  @@map("member_roles")
+  @@schema("iam")
+}

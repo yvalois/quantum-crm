@@ -12,7 +12,7 @@ import {
 const environmentSchema = z.enum(["local", "test", "preview", "staging", "production"]);
 const migrationSecretPath = "/run/secrets/qcrm_migration_database_url";
 
-export type MigrationHistory = "platform";
+export type MigrationHistory = "crm" | "platform";
 
 export interface MigrationDatabaseConfig {
   readonly schemaVersion: "migration-database-config/v1";

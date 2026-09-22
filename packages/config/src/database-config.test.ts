@@ -44,6 +44,9 @@ function crmEnvironment(
     QCRM_PORT: "3001",
     QCRM_TENANT_ID: tenantId,
     QCRM_DATABASE_URL_FILE: expectedDatabaseSecretPath,
+    QCRM_OIDC_ISSUER: "https://identity.example.test/realms/profile-a",
+    QCRM_OIDC_AUDIENCE: "quantum-crm-web",
+    QCRM_OIDC_REQUIRED_ACR: "1",
     ...overrides,
   };
 }

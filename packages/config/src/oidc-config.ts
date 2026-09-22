@@ -12,13 +12,13 @@ export const oidcEnvironmentKeys = Object.freeze([
 
 export interface OidcDefinition {
   readonly provider: "keycloak";
-  readonly boundary: "platform";
+  readonly boundary: "crm" | "platform";
 }
 
 export interface OidcConfig {
   readonly schemaVersion: "oidc-config/v1";
   readonly provider: "keycloak";
-  readonly boundary: "platform";
+  readonly boundary: "crm" | "platform";
   readonly issuer: string;
   readonly audience: string;
   readonly jwksUrl: string;

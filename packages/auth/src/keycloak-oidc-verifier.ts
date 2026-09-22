@@ -7,7 +7,7 @@ import {
   type JWSHeaderParameters,
 } from "jose";
 
-import type { OidcAccessTokenVerifier, VerifiedOidcIdentity } from "./platform-auth.js";
+import type { OidcAccessTokenVerifier, VerifiedOidcIdentity } from "./oidc-access-token.js";
 
 type JwksResolver = (
   protectedHeader?: JWSHeaderParameters,

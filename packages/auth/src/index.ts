@@ -1,16 +1,26 @@
+export { type OidcAccessTokenVerifier, type VerifiedOidcIdentity } from "./oidc-access-token.js";
 export {
   authenticatePlatformOperator,
   PlatformAuthenticationError,
   PlatformAuthorizationError,
   requirePlatformPermission,
-  type OidcAccessTokenVerifier,
   type PlatformAuthContext,
   type PlatformAuthenticationFailure,
   type PlatformAuthPolicy,
   type PlatformMembershipReader,
   type PlatformMembershipSnapshot,
-  type VerifiedOidcIdentity,
 } from "./platform-auth.js";
+export {
+  authenticateCrmMember,
+  CrmAuthenticationError,
+  CrmAuthorizationError,
+  requireCrmPermission,
+  type CrmAuthContext,
+  type CrmAuthenticationFailure,
+  type CrmAuthPolicy,
+  type CrmMembershipReader,
+  type CrmMembershipSnapshot,
+} from "./crm-auth.js";
 export {
   createKeycloakOidcAccessTokenVerifier,
   OidcAccessTokenVerificationError,

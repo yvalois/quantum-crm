@@ -102,6 +102,7 @@ describe("process configuration", () => {
         defaultHost: "0.0.0.0",
         defaultPort: 3001,
         database: { target: "crm", requiresTenant: true },
+        oidc: { provider: "keycloak", boundary: "crm" },
       },
       "admin-api": {
         serviceName: "admin-api",

@@ -57,6 +57,7 @@ export const processDefinitions = Object.freeze({
     defaultHost: "0.0.0.0",
     defaultPort: 3001,
     database: Object.freeze({ target: "crm", requiresTenant: true }),
+    oidc: Object.freeze({ provider: "keycloak", boundary: "crm" }),
   }),
   "admin-api": Object.freeze({
     serviceName: "admin-api",
