@@ -29,22 +29,30 @@ describe("container manifests", () => {
     }
   });
 
-  it("pins Trixie Node bases, removes package managers and runs without root", () => {
+  it("pins compatible Alpine Node bases, removes package managers and runs without root", () => {
+    const alpineNode =
+      "node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1";
+
     for (const dockerfile of ["infra/docker/Dockerfile.web", "infra/docker/Dockerfile.node"]) {
       const source = read(dockerfile);
 
-      expect(source).toContain("node:24.21.0-trixie-slim@sha256:");
+      expect(source).toContain(alpineNode);
       expect(source).toContain("pnpm@9.13.2");
       expect(source).toContain("rm -rf /usr/local/lib/node_modules/npm");
       expect(source).toContain("rm -f /usr/local/bin/npm");
       expect(source).toContain("USER node");
+      expect(source).not.toContain("trixie");
+      expect(source).not.toContain("bookworm");
       expect(source).not.toContain(":latest");
     }
 
     const migrator = read("infra/docker/Dockerfile.migrator");
-    expect(migrator).toContain("node:24.21.0-trixie@sha256:");
+    expect(migrator).toContain(alpineNode);
     expect(migrator).toContain("rm -rf /usr/local/lib/node_modules/npm");
     expect(migrator).toContain("USER node");
+    expect(migrator).not.toContain("trixie");
+    expect(migrator).not.toContain("bookworm");
+    expect(migrator).not.toContain(":latest");
   });
 
   it("builds workspace dependencies before each application image", () => {
