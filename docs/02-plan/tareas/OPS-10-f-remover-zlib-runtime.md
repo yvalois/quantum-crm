@@ -15,7 +15,7 @@
 
 ## Resultado esperado
 
-Las capas finales Alpine eliminan `zlib` y el binario `apk` despues de reunir los artefactos de aplicacion. La imagen conserva su base oficial Node 24.21.0 Alpine fijada por digest, `libstdc++`, usuario `node`, registro de paquetes verificable y los mismos entrypoints. La siguiente release se construye una sola vez desde un commit nuevo y genera manifiesto solo si Grype no detecta hallazgos altos ni criticos.
+Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de reunir los artefactos de aplicacion. La imagen conserva su base oficial Node 24.21.0 Alpine fijada por digest, `libstdc++`, usuario `node`, registro de paquetes verificable y los mismos entrypoints. La siguiente release se construye una sola vez desde un commit nuevo y genera manifiesto solo si Grype no detecta hallazgos altos ni criticos.
 
 ## Lectura obligatoria aplicada
 
@@ -28,16 +28,16 @@ Las capas finales Alpine eliminan `zlib` y el binario `apk` despues de reunir lo
 ## Auditoria del trabajo existente
 
 - Busquedas realizadas: `release-candidate`, `grype`, `CVE-2026-85091`, `zlib`, `apk`, `Dockerfile.node`, `Dockerfile.web` y `Dockerfile.migrator`.
-- Codigo o documentacion encontrados: `OPS-10-e` establecio Node Alpine en toolchain y runtime y conserva los runtime como capas separadas. La guia oficial de Node para Alpine compone su runtime minimo con el binario Node y `libstdc++`; este cambio comprueba `node --version` inmediatamente despues de retirar `zlib` durante el build.
-- Pruebas e historial encontrados: PR #36 aprobo los siete checks. El reporte `release-manifest-and-scans` del workflow 35875997635 contiene ocho reportes, cada uno con exactamente un hallazgo alto, cero criticos y sin version reparada: `CVE-2026-85091` en `zlib 1.3.2-r0`.
-- Decision de reutilizacion, extension o reemplazo: conservar Alpine, BuildKit, Grype, los digests, los entrypoints y la politica. Remover solamente el paquete vulnerable del runtime tras el build, sin eliminar la base de datos de paquetes ni esconderla del scanner.
+- Codigo o documentacion encontrados: `OPS-10-e` establecio Node Alpine en toolchain y runtime y conserva los runtime como capas separadas. La guia oficial de Node para Alpine compone su runtime minimo con el binario Node y `libstdc++`; este cambio comprueba `node --version` inmediatamente despues de retirar los paquetes durante el build.
+- Pruebas e historial encontrados: PR #36 aprobo los siete checks. El reporte `release-manifest-and-scans` del workflow 35875997635 contiene ocho reportes, cada uno con exactamente un hallazgo alto, cero criticos y sin version reparada: `CVE-2026-85091` en `zlib 1.3.2-r0`. La release 35879407176 del commit `58c03e4` repitio exactamente ese resultado: el build revelo que `apk-tools` conserva `zlib` como dependencia (`zlib: apk-tools`), por lo que borrar solo `/sbin/apk` no eliminaba el paquete.
+- Decision de reutilizacion, extension o reemplazo: conservar Alpine, BuildKit, Grype, los digests, los entrypoints y la politica. Remover `apk-tools` junto a su dependencia vulnerable `zlib` del runtime tras el build, sin borrar la base de datos de paquetes ni esconderla del scanner.
 
 ## Alcance
 
 ### Incluido
 
-- Eliminar `zlib` sin red de las tres capas finales Alpine, despues de instalar o copiar los artefactos necesarios, y comprobar `node --version` en la misma capa.
-- Eliminar el binario `apk` del runtime tras usarlo, sin borrar su inventario de paquetes.
+- Eliminar `apk-tools` y su dependencia `zlib` sin red de las tres capas finales Alpine, despues de instalar o copiar los artefactos necesarios, y comprobar `node --version` en la misma capa.
+- Eliminar el gestor de paquetes del runtime sin borrar su inventario de paquetes.
 - Proteger ambas condiciones en la prueba arquitectonica existente.
 - Verificar unicamente con la matriz CI del PR y la release automatica posterior al merge.
 
@@ -61,7 +61,7 @@ Las capas finales Alpine eliminan `zlib` y el binario `apk` despues de reunir lo
 
 ## Plan de implementacion
 
-- [x] Remover `zlib` y `apk` de cada runtime Alpine despues de preparar los artefactos.
+- [x] Remover `apk-tools` y `zlib` de cada runtime Alpine despues de preparar los artefactos.
 - [x] Actualizar la prueba de manifests contra regresiones de `zlib` o `apk` en runtime.
 - [ ] Abrir PR y usar una sola matriz CI como evidencia.
 - [ ] Tras el merge, inspeccionar una sola release automatica y registrar el resultado sin repetirla.
@@ -71,12 +71,12 @@ Las capas finales Alpine eliminan `zlib` y el binario `apk` despues de reunir lo
 | Riesgo | Mitigacion | Verificacion |
 | --- | --- | --- |
 | Un binario depende de `zlib` en runtime | La base oficial de Node solo requiere `libstdc++`; toolchain y runtime siguen en Alpine. | Build y smokes de CI; release por digest. |
-| Se oculta el inventario al scanner | Solo se borra el ejecutable `apk`; se conserva la base de datos de paquetes. | Reporte Grype de release. |
+| Se oculta el inventario al scanner | Se desinstala `apk-tools` con su dependencia, pero se conserva la base de datos de paquetes. | Reporte Grype de release. |
 | El hallazgo se exceptua para publicar | Scanner y schema de manifiesto no cambian. | Reportes y bloqueo si persiste high/critical. |
 
 ## Criterios de aceptacion
 
-- [ ] Los tres Dockerfiles eliminan `zlib` y el binario `apk` de sus runtimes Alpine, sin `latest` y sin root.
+- [ ] Los tres Dockerfiles eliminan `apk-tools` y `zlib` de sus runtimes Alpine, sin `latest` y sin root.
 - [ ] La prueba arquitectonica protege digest Alpine, ausencia de gestores de paquetes Node y ausencia de `zlib`/`apk` en runtime.
 - [ ] CI aprueba el commit y su unica release posterior conserva los reportes y crea candidata solo sin highs ni criticals.
 
@@ -102,4 +102,4 @@ Las capas finales Alpine eliminan `zlib` y el binario `apk` despues de reunir lo
 - Comandos y resultados: pendiente; se reutilizara la evidencia de CI y release del commit correspondiente.
 - Documentacion actualizada: ficha y estado al inicio.
 - Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: si el reporte mantiene hallazgos altos o criticos, se abrira otra remediacion especifica sin aceptar excepciones automaticas.
+- Pendientes o decisiones nuevas: la primera correccion fue insuficiente porque `apk-tools` retenia el paquete. Esta correccion elimina ambos paquetes; si el reporte mantiene hallazgos altos o criticos, se abrira otra remediacion especifica sin aceptar excepciones automaticas.

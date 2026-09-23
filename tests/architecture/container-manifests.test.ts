@@ -38,11 +38,11 @@ describe("container manifests", () => {
 
       expect(source).toContain(alpineNode);
       expect(source).toContain("pnpm@9.13.2");
-      expect(source).toContain("apk del --no-network zlib");
+      expect(source).toContain("apk del --no-network apk-tools zlib");
       expect(source).toContain("node --version");
       expect(source).toContain("rm -rf /usr/local/lib/node_modules/npm");
       expect(source).toContain("rm -f /usr/local/bin/npm");
-      expect(source).toContain("/sbin/apk");
+      expect(source).not.toContain("/sbin/apk");
       expect(source).toContain("USER node");
       expect(source).not.toContain("trixie");
       expect(source).not.toContain("bookworm");
@@ -51,10 +51,10 @@ describe("container manifests", () => {
 
     const migrator = read("infra/docker/Dockerfile.migrator");
     expect(migrator).toContain(alpineNode);
-    expect(migrator).toContain("apk del --no-network zlib");
+    expect(migrator).toContain("apk del --no-network apk-tools zlib");
     expect(migrator).toContain("node --version");
     expect(migrator).toContain("rm -rf /usr/local/lib/node_modules/npm");
-    expect(migrator).toContain("/sbin/apk");
+    expect(migrator).not.toContain("/sbin/apk");
     expect(migrator).toContain("USER node");
     expect(migrator).not.toContain("trixie");
     expect(migrator).not.toContain("bookworm");
