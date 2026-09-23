@@ -63,8 +63,8 @@ Las imagenes Node de Quantum usan la imagen oficial `node:24.21.0-alpine` fijada
 
 - [x] Fijar el indice oficial Node 24.21.0 Alpine en las etapas de toolchain y runtime afectadas.
 - [x] Actualizar la prueba de manifests para impedir el regreso a Debian o una referencia mutable.
-- [ ] Abrir PR y usar una unica matriz CI como evidencia del cambio.
-- [ ] Tras el merge, inspeccionar una sola ejecucion de release del commit nuevo y registrar el resultado sin repetirla.
+- [x] Abrir PR y usar una unica matriz CI como evidencia del cambio.
+- [x] Tras el merge, inspeccionar una sola ejecucion de release del commit nuevo y registrar el resultado sin repetirla.
 
 ## Riesgos y mitigaciones
 
@@ -100,8 +100,8 @@ Las imagenes Node de Quantum usan la imagen oficial `node:24.21.0-alpine` fijada
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente; se reutilizara la evidencia de CI y release del commit correspondiente.
-- Documentacion actualizada: ficha y estado al inicio.
-- Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: si Alpine conserva hallazgos altos o criticos, se abrira una remediacion especifica sin aceptar excepciones automaticas.
+- Archivos, commits o PR: PR #36, merge `d34a136480713584a8027b25b1953b6f0b0cbb63`.
+- Comandos y resultados: matriz CI 35875731543 aprobada; release 35875997635 publico los ocho digests y guardo ocho reportes, pero no genero manifiesto porque cada imagen tuvo un high (`CVE-2026-85091`, `zlib 1.3.2-r0`) y cero criticals.
+- Documentacion actualizada: ficha, estado, `infra/README.md` y prueba de manifests.
+- Desviaciones del plan: Alpine redujo 57 hallazgos altos y 7 criticos por imagen a un high, pero no satisface la politica.
+- Pendientes o decisiones nuevas: [`OPS-10-f`](OPS-10-f-remover-zlib-runtime.md) elimina exclusivamente el paquete vulnerable, sin excepcion.
