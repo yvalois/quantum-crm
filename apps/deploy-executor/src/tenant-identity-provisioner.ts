@@ -307,11 +307,20 @@ async function provisionKeycloak(
   let realm = await request(realmUrl, { headers }, [200, 404]);
   let reconciled = realm.status === 200;
   if (realm.status === 404) {
-    await request(
-      new URL("/admin/realms", adminOrigin),
-      { method: "POST", headers, body: JSON.stringify(realmRepresentation(realmName)) },
-      [201],
-    );
+    try {
+      await request(
+        new URL("/admin/realms", adminOrigin),
+        { method: "POST", headers, body: JSON.stringify(realmRepresentation(realmName)) },
+        [201],
+      );
+    } catch (error) {
+      if (
+        !(error instanceof TenantIdentityProvisioningError) ||
+        error.reason !== "TARGET_CONFLICT"
+      ) {
+        throw error;
+      }
+    }
     realm = await request(realmUrl, { headers }, [200]);
   }
   if (typeof realm.body !== "object" || realm.body === null) {
@@ -324,11 +333,20 @@ async function provisionKeycloak(
   let clients = await request(clientsUrl, { headers }, [200]);
   if (!Array.isArray(clients.body)) throw new TenantIdentityProvisioningError("UNAVAILABLE");
   if (clients.body.length === 0) {
-    await request(
-      clientsUrl,
-      { method: "POST", headers, body: JSON.stringify(clientRepresentation(clientId, origin)) },
-      [201],
-    );
+    try {
+      await request(
+        clientsUrl,
+        { method: "POST", headers, body: JSON.stringify(clientRepresentation(clientId, origin)) },
+        [201],
+      );
+    } catch (error) {
+      if (
+        !(error instanceof TenantIdentityProvisioningError) ||
+        error.reason !== "TARGET_CONFLICT"
+      ) {
+        throw error;
+      }
+    }
     clients = await request(clientsUrl, { headers }, [200]);
     reconciled = false;
   }
@@ -429,7 +447,6 @@ export function createTenantIdentityProvisioner(
           return decodeURIComponent(parsed.password);
         })()
       : randomBytes(48).toString("base64url");
-    await provisionRedisAcl(options.redisAdminUrl, identity.tenantProfileId, password);
     const redisUrl = new URL(options.redisAdminUrl);
     redisUrl.username = username;
     redisUrl.password = password;
@@ -437,6 +454,7 @@ export function createTenantIdentityProvisioner(
     redisUrl.search = "";
     redisUrl.hash = "";
     const redisSecretReconciled = await writeSecretIfMissing(redisUrlPath, redisUrl.toString());
+    await provisionRedisAcl(options.redisAdminUrl, identity.tenantProfileId, password);
     return Object.freeze({
       identity,
       reconciled:

@@ -147,6 +147,8 @@ describe("container manifests", () => {
     const foundation = read("infra/compose/platform-foundation.yaml");
     const redisEntrypoint = read("infra/redis/platform-entrypoint.sh");
     const keycloakEntrypoint = read("infra/keycloak/platform-entrypoint.sh");
+    const keycloakBootstrap = read("infra/keycloak/bootstrap-provisioner.sh");
+    const provisionOperator = read("infra/platform/provision-operator.sh");
 
     expect(foundation).not.toMatch(/PASSWORD:\s*[^/\s]/);
     expect(foundation).not.toContain("--requirepass");
@@ -154,8 +156,18 @@ describe("container manifests", () => {
     expect(redisEntrypoint).toContain("/run/secrets/qcrm_redis_password");
     expect(redisEntrypoint).toContain("--aclfile /tmp/users.acl");
     expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_DB_PASSWORD_FILE");
-    expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE");
+    expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE");
     expect(keycloakEntrypoint).not.toContain("set -x");
+    expect(foundation).toContain("KC_BOOTSTRAP_ADMIN_CLIENT_ID: quantum-provisioner");
+    expect(foundation).not.toContain("KC_BOOTSTRAP_ADMIN_PASSWORD");
+    expect(keycloakBootstrap).toContain("QCRM_KEYCLOAK_ALL_NODES_STOPPED=confirmed");
+    expect(keycloakBootstrap).toContain(
+      "--client-secret:env=QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET",
+    );
+    expect(keycloakBootstrap).not.toContain("set -x");
+    expect(provisionOperator).toContain("grant_type=client_credentials");
+    expect(provisionOperator).not.toContain("grant_type=password");
+    expect(provisionOperator).not.toContain("keycloak-bootstrap-admin-password");
   });
 
   it("provisions platform secrets without overwriting or printing their values", () => {
@@ -166,6 +178,7 @@ describe("container manifests", () => {
     expect(provisioner).toContain("platform-migration-database-url");
     expect(provisioner).toContain("platform-database-url");
     expect(provisioner).toContain("admin-web-session-redis-url");
+    expect(provisioner).toContain("keycloak-provisioner-client-secret");
     expect(provisioner).not.toContain("set -x");
   });
 
