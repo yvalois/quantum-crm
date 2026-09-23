@@ -4,8 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { CrmAuthRuntime } from "./crm-auth-http.js";
 import {
   handleCrmCallback,
+  handleCrmMemberDeactivation,
+  handleCrmMemberInvitation,
   handleCrmLogin,
   handleCrmMemberList,
+  handleCrmMemberUpdate,
   handleCrmSession,
 } from "./crm-auth-http.js";
 
@@ -126,6 +129,92 @@ describe("CRM web authentication HTTP boundary", () => {
         headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
       }),
       runtime(upstream),
+    );
+
+    expect(response.status).toBe(400);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("forwards a validated invitation with server-only credentials", async () => {
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        data: {
+          id: "01995f7e-7b52-7000-8000-000000000103",
+          memberId: "01995f7e-7b52-7000-8000-000000000102",
+          status: "PENDING",
+          expiresAt: "2026-09-27T15:00:00.000Z",
+          acceptedAt: null,
+          createdAt: "2026-09-20T15:00:00.000Z",
+        },
+      }),
+    );
+    const response = await handleCrmMemberInvitation(
+      new Request("https://crm.example.test/api/members/invitations", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          "idempotency-key": "invite-00000001",
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({
+          displayName: "Ada Lovelace",
+          email: "ADA@EXAMPLE.TEST",
+          roleCode: "ADVISOR",
+        }),
+      }),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(upstream).toHaveBeenCalledOnce();
+    const [target, init] = upstream.mock.calls[0]!;
+    expect(response.status).toBe(200);
+    expect(target.toString()).toBe("http://api:3001/api/v1/members/invitations");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer server-only-access-token");
+    expect(new Headers(init?.headers).get("idempotency-key")).toBe("invite-00000001");
+    expect(init?.body).toBe(
+      JSON.stringify({
+        displayName: "Ada Lovelace",
+        email: "ada@example.test",
+        roleCode: "ADVISOR",
+      }),
+    );
+    expect(await response.text()).not.toContain("server-only-access-token");
+  });
+
+  it("rejects member mutations without a same-origin CSRF-protected request", async () => {
+    const upstream = vi.fn(fetch);
+    const response = await handleCrmMemberUpdate(
+      new Request("https://crm.example.test/api/members/01995f7e-7b52-7000-8000-000000000102", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+        },
+        body: JSON.stringify({ displayName: "Ada Lovelace" }),
+      }),
+      runtime(upstream),
+      "01995f7e-7b52-7000-8000-000000000102",
+    );
+
+    expect(response.status).toBe(403);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("validates member IDs before forwarding a deactivation", async () => {
+    const upstream = vi.fn(fetch);
+    const response = await handleCrmMemberDeactivation(
+      new Request("https://crm.example.test/api/members/not-a-member", {
+        method: "DELETE",
+        headers: {
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+        },
+      }),
+      runtime(upstream),
+      "not-a-member",
     );
 
     expect(response.status).toBe(400);
