@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const MemberIdSchema = z.string().uuid();
+const UuidSchema = z.string().uuid();
+export const MemberIdSchema = UuidSchema;
 const VersionSchema = z.string().regex(/^[1-9][0-9]*$/u);
 const DisplayNameSchema = z.string().trim().min(1).max(160);
 const EmailSchema = z
