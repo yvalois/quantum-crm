@@ -15,7 +15,7 @@ describe("platform web session primitives", () => {
   it("creates opaque random handles and stores only their digest in keys", () => {
     const first = newOpaqueHandle();
     const second = newOpaqueHandle();
-    const key = sessionKey("session", first);
+    const key = sessionKey("platform", "session", first);
 
     expect(first.expose()).toMatch(/^[A-Za-z0-9_-]{43}$/u);
     expect(second.expose()).not.toBe(first.expose());
@@ -23,8 +23,16 @@ describe("platform web session primitives", () => {
     expect(key).not.toContain(first.expose());
   });
 
+  it("separates the same opaque handle between platform and CRM namespaces", () => {
+    const handle = newOpaqueHandle();
+
+    expect(sessionKey("platform", "session", handle)).not.toBe(
+      sessionKey("crm:01995f7e-7b52-7000-8000-000000000101", "session", handle),
+    );
+  });
+
   it("rejects malformed session handles", () => {
-    expect(() => sessionKey("session", new SecretValue("predictable"))).toThrow(
+    expect(() => sessionKey("platform", "session", new SecretValue("predictable"))).toThrow(
       PlatformSessionError,
     );
   });

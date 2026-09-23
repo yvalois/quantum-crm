@@ -27,6 +27,7 @@ const config: AdminWebAuthConfig = {
   sessionIdleTtlSeconds: 1800,
   sessionAbsoluteTtlSeconds: 28800,
   secureCookies: true,
+  sessionNamespace: "platform",
 };
 const loginHandle = new SecretValue("a".repeat(43));
 const sessionHandle = new SecretValue("b".repeat(43));

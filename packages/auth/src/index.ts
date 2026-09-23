@@ -42,8 +42,11 @@ export {
 
 export {
   KeycloakPlatformOidcProvider,
+  KeycloakPlatformOidcProvider as KeycloakOidcProvider,
   PlatformWebAuthenticationError,
+  PlatformWebAuthenticationError as WebAuthenticationError,
   PlatformWebAuthService,
+  PlatformWebAuthService as WebAuthService,
   type PlatformLoginCompletion,
   type PlatformLoginStart,
   type PlatformOidcProvider,

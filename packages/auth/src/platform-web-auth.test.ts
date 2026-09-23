@@ -34,6 +34,7 @@ const config: AdminWebAuthConfig = {
   sessionIdleTtlSeconds: 1800,
   sessionAbsoluteTtlSeconds: 28800,
   secureCookies: false,
+  sessionNamespace: "platform",
 };
 
 class MemoryStore implements PlatformSessionStore {

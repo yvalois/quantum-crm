@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@quantum-crm/auth": "workspace:*",
+    "@quantum-crm/config": "workspace:*",
     "@quantum-crm/contracts": "workspace:*",
     "next": "16.3.5",
     "react": "19.3.0",

@@ -151,6 +151,12 @@ importers:
 
   apps/crm-web:
     dependencies:
+      "@quantum-crm/auth":
+        specifier: workspace:*
+        version: link:../../packages/auth
+      "@quantum-crm/config":
+        specifier: workspace:*
+        version: link:../../packages/config
       "@quantum-crm/contracts":
         specifier: workspace:*
         version: link:../../packages/contracts
