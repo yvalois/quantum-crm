@@ -88,7 +88,15 @@ Las plantillas esperan que PostgreSQL ya haya sido aprovisionado con una base y 
 
 La definicion importable inicial vive en `infra/keycloak/quantum-platform-realm.json`. No contiene usuarios, contrasenas, semillas OTP ni client secrets. Antes de importarla, el entorno debe definir `QCRM_ADMIN_WEB_ORIGIN` con el origen HTTPS exacto de `admin-web`; el redirect permitido se limita a `/api/auth/callback/keycloak`. El cliente confidencial recibe su credencial fuera de Git durante el aprovisionamiento y `admin-api` continua rechazando cualquier token que no pruebe ACR 2.
 
-Keycloak arranca con el principal de servicio de recuperacion `quantum-provisioner`, cuya credencial se entrega por archivo y se monta tambien, exclusivamente, en `deploy-executor`. Ese principal reconcilia los realms y clientes OIDC de perfiles; no se crean usuarios de CRM durante ese paso. Para una base de Keycloak existente que aun no tenga el principal, se detienen todos los nodos de Keycloak y se ejecuta la orden de recuperacion de la imagen con `QCRM_KEYCLOAK_ALL_NODES_STOPPED=confirmed`; `infra/keycloak/bootstrap-provisioner.sh` falla si no existe esa confirmacion. La operacion crea o recupera el principal sin exponer su secreto por argumentos ni logs. `infra/platform/provision-operator.sh` usa la misma credencial desde archivo para crear el operador humano de plataforma, sin conservar un administrador humano bootstrap.
+Keycloak arranca con el principal de servicio de recuperacion `quantum-provisioner`, cuya
+credencial se entrega por archivo y se monta tambien, exclusivamente, en `deploy-executor`. Ese
+principal reconcilia los realms y clientes OIDC de perfiles; no se crean usuarios de CRM durante
+ese paso. Para una base de Keycloak existente que aun no tenga el principal, se detienen todos los
+nodos de Keycloak y se ejecuta la orden de recuperacion de la imagen con
+`QCRM_KEYCLOAK_ALL_NODES_STOPPED=confirmed`; `infra/keycloak/bootstrap-provisioner.sh` falla si
+no existe esa confirmacion. La operacion crea o recupera el principal sin exponer su secreto por
+argumentos ni logs. `infra/platform/provision-operator.sh` usa la misma credencial desde archivo
+para crear el operador humano de plataforma, sin conservar un administrador humano bootstrap.
 
 `bash infra/keycloak/validate-realm.sh` ejecuta la prueba repetible solo en el VPS autorizado. Arranca un Keycloak 26.7.4 desechable por digest, importa el realm con datos sinteticos, inspecciona discovery, JWKS, cliente, grants, PKCE, mappers y flujo OTP mediante la Admin API y elimina el contenedor y sus datos al terminar. No instala ni modifica la identidad persistente.
 

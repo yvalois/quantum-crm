@@ -314,7 +314,10 @@ async function provisionKeycloak(
         [201],
       );
     } catch (error) {
-      if (!(error instanceof TenantIdentityProvisioningError) || error.reason !== "TARGET_CONFLICT") {
+      if (
+        !(error instanceof TenantIdentityProvisioningError) ||
+        error.reason !== "TARGET_CONFLICT"
+      ) {
         throw error;
       }
     }
@@ -337,7 +340,10 @@ async function provisionKeycloak(
         [201],
       );
     } catch (error) {
-      if (!(error instanceof TenantIdentityProvisioningError) || error.reason !== "TARGET_CONFLICT") {
+      if (
+        !(error instanceof TenantIdentityProvisioningError) ||
+        error.reason !== "TARGET_CONFLICT"
+      ) {
         throw error;
       }
     }

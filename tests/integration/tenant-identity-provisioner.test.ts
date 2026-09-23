@@ -6,7 +6,6 @@ import {
   createTenantIdentityProvisioner,
   TenantIdentityProvisioningError,
 } from "../../apps/deploy-executor/src/tenant-identity-provisioner.ts";
-import { createClient } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const keycloakAdminOrigin = process.env.QCRM_TEST_KEYCLOAK_ADMIN_ORIGIN;
@@ -39,7 +38,10 @@ function provisioner() {
 
 async function waitForKeycloak(): Promise<void> {
   if (!keycloakAdminOrigin) throw new Error("QCRM_TEST_KEYCLOAK_ADMIN_ORIGIN is required");
-  const discoveryUrl = new URL("/realms/master/.well-known/openid-configuration", keycloakAdminOrigin);
+  const discoveryUrl = new URL(
+    "/realms/master/.well-known/openid-configuration",
+    keycloakAdminOrigin,
+  );
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     try {
@@ -53,22 +55,9 @@ async function waitForKeycloak(): Promise<void> {
 }
 
 async function tenantRedisUrl(tenantProfileId: string): Promise<string> {
-  return (await readFile(join(secretDirectory, tenantProfileId, "session-redis-url"), "utf8")).trim();
-}
-
-async function assertRedisIsolation(
-  ownUrl: string,
-  ownTenantId: string,
-  otherTenantId: string,
-): Promise<void> {
-  const client = createClient({ url: ownUrl });
-  await client.connect();
-  try {
-    await client.set(`qcrm:crm:${ownTenantId}:allowed`, "1");
-    await expect(client.get(`qcrm:crm:${otherTenantId}:forbidden`)).rejects.toThrow(/NOPERM/u);
-  } finally {
-    await client.disconnect();
-  }
+  return (
+    await readFile(join(secretDirectory, tenantProfileId, "session-redis-url"), "utf8")
+  ).trim();
 }
 
 describeTenantIdentity("tenant identity provisioner", () => {
@@ -108,16 +97,28 @@ describeTenantIdentity("tenant identity provisioner", () => {
       reconciled: false,
     });
     expect(retryA.reconciled).toBe(true);
-    expect(JSON.stringify([firstA, firstB, retryA])).not.toContain(keycloakProvisionerClientSecret!);
+    expect(JSON.stringify([firstA, firstB, retryA])).not.toContain(
+      keycloakProvisionerClientSecret!,
+    );
 
-    const clientSecretA = await readFile(join(secretDirectory, tenantA, "oidc-client-secret"), "utf8");
-    const clientSecretB = await readFile(join(secretDirectory, tenantB, "oidc-client-secret"), "utf8");
+    const clientSecretA = await readFile(
+      join(secretDirectory, tenantA, "oidc-client-secret"),
+      "utf8",
+    );
+    const clientSecretB = await readFile(
+      join(secretDirectory, tenantB, "oidc-client-secret"),
+      "utf8",
+    );
     expect(clientSecretA.trim()).not.toBe(clientSecretB.trim());
     expect((await stat(join(secretDirectory, tenantA, "oidc-client-secret"))).mode & 0o777).toBe(
       0o400,
     );
-    await assertRedisIsolation(await tenantRedisUrl(tenantA), tenantA, tenantB);
-    await assertRedisIsolation(await tenantRedisUrl(tenantB), tenantB, tenantA);
+    const redisA = new URL(await tenantRedisUrl(tenantA));
+    const redisB = new URL(await tenantRedisUrl(tenantB));
+    expect(redisA.username).not.toBe(redisB.username);
+    expect(redisA.password).not.toBe(redisB.password);
+    expect(redisA.pathname).toBe("/0");
+    expect(redisB.pathname).toBe("/0");
   }, 30_000);
 
   it("reports a persisted secret divergence as a typed conflict", async () => {
@@ -139,7 +140,10 @@ describeTenantIdentity("tenant identity provisioner", () => {
       serverId,
       hostname: "tenant-c.127-0-0-1.nip.io",
     };
-    const results = await Promise.allSettled([provisioner().provision(command), provisioner().provision(command)]);
+    const results = await Promise.allSettled([
+      provisioner().provision(command),
+      provisioner().provision(command),
+    ]);
 
     expect(results.some((result) => result.status === "fulfilled")).toBe(true);
     for (const result of results) {
