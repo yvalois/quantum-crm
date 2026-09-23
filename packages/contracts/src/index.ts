@@ -9,6 +9,7 @@ export {
   CreateMemberInvitationSchema,
   InvitationResponseSchema,
   InvitationSchema,
+  MemberIdSchema,
   InitialRoleCodeSchema,
   MemberListQuerySchema,
   MemberListResponseSchema,

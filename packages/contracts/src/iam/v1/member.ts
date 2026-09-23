@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const UuidSchema = z.string().uuid();
+export const MemberIdSchema = z.string().uuid();
 const VersionSchema = z.string().regex(/^[1-9][0-9]*$/u);
 const DisplayNameSchema = z.string().trim().min(1).max(160);
 const EmailSchema = z
@@ -15,7 +15,7 @@ export const MemberStatusSchema = z.enum(["INVITED", "ACTIVE", "DEACTIVATED"]);
 export const InitialRoleCodeSchema = z.enum(["ADMINISTRATOR", "SUPERVISOR", "ADVISOR"]);
 
 export const MemberSchema = z.object({
-  id: UuidSchema,
+  id: MemberIdSchema,
   displayName: DisplayNameSchema,
   email: EmailSchema,
   status: MemberStatusSchema,

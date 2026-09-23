@@ -17,12 +17,12 @@ import {
 import {
   CreateMemberInvitationSchema,
   InvitationResponseSchema,
+  MemberIdSchema,
   MemberListQuerySchema,
   MemberListResponseSchema,
   MemberResponseSchema,
   UpdateMemberSchema,
   type MemberListResponse,
-  type MemberResponse,
 } from "@quantum-crm/contracts";
 import {
   IamAuthorizationError,
@@ -32,13 +32,10 @@ import {
   type IamMember,
   type IamPermission,
 } from "@quantum-crm/domain";
-import { z } from "zod";
 
 import { crmAuthContext, RequireCrmPermission } from "./crm-security.js";
 
 export const IAM_MEMBER_SERVICE = Symbol("IAM_MEMBER_SERVICE");
-
-const MemberIdSchema = z.string().uuid();
 
 function actor(request: Parameters<typeof crmAuthContext>[0]): {
   readonly memberId: string;
@@ -51,7 +48,7 @@ function actor(request: Parameters<typeof crmAuthContext>[0]): {
   });
 }
 
-function memberResponse(member: IamMember): MemberResponse {
+function memberResponse(member: IamMember) {
   return MemberResponseSchema.parse({
     data: {
       id: member.id,
@@ -136,14 +133,15 @@ export class MembersController {
     @Req() request: Parameters<typeof crmAuthContext>[0],
     @Param("memberId") memberId: string,
     @Body() body: unknown,
-  ): Promise<MemberResponse> {
+  ) {
     try {
       const input = UpdateMemberSchema.parse(body);
       return memberResponse(
         await this.service.updateProfile({
-          ...input,
           actor: actor(request),
           memberId: MemberIdSchema.parse(memberId),
+          ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+          ...(input.email === undefined ? {} : { email: input.email }),
         }),
       );
     } catch (error) {
@@ -156,7 +154,7 @@ export class MembersController {
   public async deactivate(
     @Req() request: Parameters<typeof crmAuthContext>[0],
     @Param("memberId") memberId: string,
-  ): Promise<MemberResponse> {
+  ) {
     try {
       return memberResponse(
         await this.service.deactivate({
