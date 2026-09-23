@@ -65,12 +65,12 @@ Cada perfil dispone de un realm OIDC separado y un administrador inicial. Un adm
 
 - [x] Crear el módulo `iam`, contratos públicos y la historia `crm` con membresías e invitaciones inmutables.
 - [x] Implementar repositorio PostgreSQL y casos de uso de crear, invitar, editar, aceptar y desactivar; la invitación persiste una clave de idempotencia y la aceptación se bloquea transaccionalmente.
-- [ ] Generalizar de forma segura las primitivas de sesión/OIDC y añadir la composición exclusiva de CRM.
-- [x] Conectar autorización CRM en API; el BFF protegido de `crm-web` continúa pendiente junto con su sesión propia.
+- [x] Generalizar de forma segura las primitivas de sesión/OIDC y añadir la composición exclusiva de CRM: namespace Redis por perfil, cliente OIDC CRM, sesión opaca, PKCE, CSRF y BFF de lectura con ruta upstream fija.
+- [x] Conectar autorización CRM en API y el BFF protegido de `crm-web`; la configuración real del realm, cliente y secretos continúa en `ADM-04`.
 - [ ] Completar la administración visual de miembros y el flujo de aceptación.
 - [ ] Extender `ADM-04` con aprovisionamiento idempotente del realm, cliente y administrador inicial, sin exponer administración Keycloak al CRM.
 - [ ] Añadir pruebas proporcionales de dominio, contrato, aislamiento, revocación e invitación de un único uso.
-- [ ] Ejecutar una única verificación afectada en VPS y la matriz CI del commit candidato; actualizar evidencia antes de cerrar.
+- [x] Ejecutar una única verificación afectada en VPS; la matriz CI del commit candidato continúa pendiente antes de integrar.
 
 ## Riesgos y mitigaciones
 
@@ -107,8 +107,8 @@ Cada perfil dispone de un realm OIDC separado y un administrador inicial. Un adm
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: cambios sin publicar en `feat/USR-01-miembros-crm`.
-- Comandos y resultados: pendiente de la comprobación afectada única en VPS y CI del commit candidato; no se ejecutó ninguna comprobación técnica local.
-- Documentación actualizada: ficha creada y `estado.md` marcado `EN_CURSO` antes del código; se registra la base `iam` implementada sin afirmar que el flujo completo está cerrado.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: `USR-03` a `USR-10` permanecen abiertos; los roles mínimos de bootstrap no los dan por terminados.
+- Archivos, commits o PR: `d9a1fbc` y `21f805d` en `feat/USR-01-sesion-crm`; PR y matriz CI pendientes.
+- Comandos y resultados: en el VPS, Prettier de los archivos afectados y typecheck de `config`, `auth`, `admin-web` y `crm-web` aprobados. Las pruebas existentes afectadas y `apps/crm-web/src/server/crm-auth-http.test.ts` aprobaron; esta última ejecutó 4 pruebas. No se ejecutó ninguna comprobación técnica local.
+- Documentación actualizada: ficha y `estado.md` mantienen `USR-01` en `EN_CURSO`; se registra la base IAM y la sesión/BFF CRM sin afirmar que el flujo completo está cerrado.
+- Desviaciones del plan: no se desplegó ni se probó contra un realm real; `ADM-04` aún debe aprovisionar realm, cliente, administrador inicial y archivos secretos por perfil.
+- Pendientes o decisiones nuevas: interfaz completa de miembros, invitación, aceptación, revocación, realm real y pruebas de aislamiento de dos perfiles siguen abiertos; `USR-03` a `USR-10` no se consideran terminados.
