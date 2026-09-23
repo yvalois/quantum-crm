@@ -142,7 +142,7 @@ create_token platform-migrator-password "$data_uid" "$data_gid" 0400
 create_token platform-runtime-password "$data_uid" "$data_gid" 0400
 create_token platform-provisioner-password "$app_uid" "$app_uid" 0400
 create_token keycloak-database-password "$app_uid" "$data_gid" 0440
-create_token keycloak-bootstrap-admin-password "$app_uid" "$app_uid" 0400
+create_token keycloak-provisioner-client-secret "$app_uid" "$app_uid" 0400
 create_token platform-redis-password "$app_uid" "$data_gid" 0440
 create_token admin-web-oidc-client-secret "$app_uid" "$app_uid" 0400
 create_operator_password

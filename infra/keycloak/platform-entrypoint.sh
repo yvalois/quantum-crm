@@ -13,7 +13,7 @@ read_secret() {
 }
 
 read_secret KC_DB_PASSWORD "${QCRM_KEYCLOAK_DB_PASSWORD_FILE:-/run/secrets/qcrm_keycloak_database_password}"
-read_secret KC_BOOTSTRAP_ADMIN_PASSWORD "${QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE:-/run/secrets/qcrm_keycloak_bootstrap_admin_password}"
+read_secret KC_BOOTSTRAP_ADMIN_CLIENT_SECRET "${QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE:-/run/secrets/qcrm_keycloak_provisioner_client_secret}"
 read_secret QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET "${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE:-/run/secrets/qcrm_admin_web_oidc_client_secret}"
 
 exec /opt/keycloak/bin/kc.sh "$@"

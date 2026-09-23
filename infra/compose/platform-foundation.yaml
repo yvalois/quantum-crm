@@ -124,7 +124,7 @@ services:
     pull_policy: always
     read_only: true
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: qcrm-bootstrap-admin
+      KC_BOOTSTRAP_ADMIN_CLIENT_ID: quantum-provisioner
       KC_DB: postgres
       KC_DB_URL_DATABASE: qcrm_keycloak
       KC_DB_URL_HOST: platform-postgres
@@ -138,13 +138,13 @@ services:
       KC_SERVER_ASYNC_BOOTSTRAP: "false"
       QCRM_ADMIN_WEB_ORIGIN: "${QCRM_ADMIN_WEB_ORIGIN:?set QCRM_ADMIN_WEB_ORIGIN}"
       QCRM_KEYCLOAK_DB_PASSWORD_FILE: /run/secrets/qcrm_keycloak_database_password
-      QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/qcrm_keycloak_bootstrap_admin_password
+      QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE: /run/secrets/qcrm_keycloak_provisioner_client_secret
       QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE: /run/secrets/qcrm_admin_web_oidc_client_secret
     secrets:
       - source: keycloak-database-password
         target: qcrm_keycloak_database_password
-      - source: keycloak-bootstrap-admin-password
-        target: qcrm_keycloak_bootstrap_admin_password
+      - source: keycloak-provisioner-client-secret
+        target: qcrm_keycloak_provisioner_client_secret
       - source: admin-web-oidc-client-secret
         target: qcrm_admin_web_oidc_client_secret
     tmpfs:
@@ -225,8 +225,8 @@ secrets:
     file: "${QCRM_PLATFORM_RUNTIME_PASSWORD_FILE:?set QCRM_PLATFORM_RUNTIME_PASSWORD_FILE}"
   keycloak-database-password:
     file: "${QCRM_KEYCLOAK_DATABASE_PASSWORD_FILE:?set QCRM_KEYCLOAK_DATABASE_PASSWORD_FILE}"
-  keycloak-bootstrap-admin-password:
-    file: "${QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE:?set QCRM_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE}"
+  keycloak-provisioner-client-secret:
+    file: "${QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE:?set QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE}"
   redis-password:
     file: "${QCRM_PLATFORM_REDIS_PASSWORD_FILE:?set QCRM_PLATFORM_REDIS_PASSWORD_FILE}"
   admin-web-oidc-client-secret:
