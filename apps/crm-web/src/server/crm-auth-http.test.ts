@@ -97,7 +97,9 @@ describe("CRM web authentication HTTP boundary", () => {
       updatedAt: "2026-09-20T15:00:00.000Z",
       deactivatedAt: null,
     };
-    const upstream = vi.fn(async () => Response.json({ data: [member], page: { nextCursor: null } }));
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ data: [member], page: { nextCursor: null } }),
+    );
     const request = new Request("https://crm.example.test/api/members?limit=25", {
       headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
     });

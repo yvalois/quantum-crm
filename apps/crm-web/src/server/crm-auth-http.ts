@@ -11,7 +11,10 @@ const maximumResponseBytes = 1_048_576;
 
 export interface CrmAuthRuntime {
   readonly config: CrmWebAuthConfig;
-  readonly auth: Pick<PlatformWebAuthService, "beginLogin" | "completeLogin" | "logout" | "session">;
+  readonly auth: Pick<
+    PlatformWebAuthService,
+    "beginLogin" | "completeLogin" | "logout" | "session"
+  >;
   readonly crmApiFetch: typeof fetch;
 }
 
@@ -19,7 +22,10 @@ export function crmSessionCookieName(config: CrmWebAuthConfig): string {
   return `${config.secureCookies ? "__Host-" : ""}qcrm_crm_session`;
 }
 
-function cookieNames(config: CrmWebAuthConfig): { readonly login: string; readonly session: string } {
+function cookieNames(config: CrmWebAuthConfig): {
+  readonly login: string;
+  readonly session: string;
+} {
   const prefix = config.secureCookies ? "__Host-" : "";
   return {
     login: `${prefix}qcrm_crm_login`,
@@ -97,9 +103,7 @@ async function authorizedSession(
   }
 }
 
-function isResponse(
-  value: AuthorizedCrmSession | Response,
-): value is Response {
+function isResponse(value: AuthorizedCrmSession | Response): value is Response {
   return value instanceof Response;
 }
 
@@ -134,7 +138,9 @@ async function readBoundedJson(response: Response): Promise<unknown> {
 
 export async function handleCrmLogin(request: Request, runtime: CrmAuthRuntime): Promise<Response> {
   try {
-    const started = await runtime.auth.beginLogin(new URL(request.url).searchParams.get("returnTo"));
+    const started = await runtime.auth.beginLogin(
+      new URL(request.url).searchParams.get("returnTo"),
+    );
     return redirect(
       started.authorizationUrl.toString(),
       serializeCookie(cookieNames(runtime.config).login, started.transactionHandle.expose(), {
@@ -166,7 +172,10 @@ export async function handleCrmCallback(
     const received = new URL(request.url);
     const callback = new URL(runtime.config.callbackUrl);
     callback.search = received.search;
-    const completed = await runtime.auth.completeLogin(callback, new SecretValue(transactionHandle));
+    const completed = await runtime.auth.completeLogin(
+      callback,
+      new SecretValue(transactionHandle),
+    );
     const headers = crmNoStoreHeaders();
     headers.set("location", new URL(completed.returnTo, runtime.config.origin).toString());
     headers.append("set-cookie", clearLogin);
@@ -185,7 +194,10 @@ export async function handleCrmCallback(
   }
 }
 
-export async function handleCrmSession(request: Request, runtime: CrmAuthRuntime): Promise<Response> {
+export async function handleCrmSession(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
   const authorized = await authorizedSession(request, runtime);
   if (isResponse(authorized)) {
     if (authorized.status === 401) {
@@ -203,7 +215,10 @@ export async function handleCrmSession(request: Request, runtime: CrmAuthRuntime
   );
 }
 
-export async function handleCrmLogout(request: Request, runtime: CrmAuthRuntime): Promise<Response> {
+export async function handleCrmLogout(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
   const names = cookieNames(runtime.config);
   const handle = crmCookie(request, names.session);
   if (!handle || !validateRequestOrigin(runtime.config.origin, request.headers.get("origin"))) {

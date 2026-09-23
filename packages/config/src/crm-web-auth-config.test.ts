@@ -48,10 +48,22 @@ describe("CRM web authentication configuration", () => {
 
   it.each([
     ["missing tenant", { QCRM_TENANT_ID: undefined }, "QCRM_TENANT_ID"],
-    ["invalid CRM origin", { QCRM_CRM_WEB_ORIGIN: "https://crm.example.test/path" }, "QCRM_CRM_WEB_ORIGIN"],
+    [
+      "invalid CRM origin",
+      { QCRM_CRM_WEB_ORIGIN: "https://crm.example.test/path" },
+      "QCRM_CRM_WEB_ORIGIN",
+    ],
     ["missing CRM API", { QCRM_CRM_API_ORIGIN: undefined }, "QCRM_CRM_API_ORIGIN"],
-    ["missing client secret", { QCRM_OIDC_CLIENT_SECRET_FILE: undefined }, "QCRM_OIDC_CLIENT_SECRET_FILE"],
-    ["missing Redis secret", { QCRM_SESSION_REDIS_URL_FILE: undefined }, "QCRM_SESSION_REDIS_URL_FILE"],
+    [
+      "missing client secret",
+      { QCRM_OIDC_CLIENT_SECRET_FILE: undefined },
+      "QCRM_OIDC_CLIENT_SECRET_FILE",
+    ],
+    [
+      "missing Redis secret",
+      { QCRM_SESSION_REDIS_URL_FILE: undefined },
+      "QCRM_SESSION_REDIS_URL_FILE",
+    ],
   ])("rejects %s", (_case, override, key) => {
     expect(() => parseCrmWebAuthConfig({ ...valid, ...override }, fileSystem)).toThrow(
       new ConfigurationError("crm-web", [key]),

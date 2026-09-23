@@ -1,8 +1,5 @@
 import type { SecretFileSystem } from "./secret-value.js";
-import {
-  parseWebAuthConfig,
-  type WebAuthConfig,
-} from "./web-auth-config.js";
+import { parseWebAuthConfig, type WebAuthConfig } from "./web-auth-config.js";
 
 export const adminWebOidcClientSecretPath = "/run/secrets/qcrm_oidc_client_secret";
 export const adminWebSessionRedisUrlPath = "/run/secrets/qcrm_session_redis_url";

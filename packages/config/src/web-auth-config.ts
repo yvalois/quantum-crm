@@ -122,7 +122,14 @@ export function parseWebAuthConfig(
     ...(clientId.success ? [] : ["QCRM_OIDC_CLIENT_ID"]),
     ...(namespace.success ? [] : ["sessionNamespace"]),
   ];
-  if (!environmentName.success || !origin || !issuer || !apiOrigin || !clientId.success || !namespace.success) {
+  if (
+    !environmentName.success ||
+    !origin ||
+    !issuer ||
+    !apiOrigin ||
+    !clientId.success ||
+    !namespace.success
+  ) {
     throw new ConfigurationError(options.application, invalid);
   }
 
@@ -156,7 +163,10 @@ export function parseWebAuthConfig(
       },
     );
     const parsedRedisUrl = new URL(redisUrl.expose());
-    if (!["redis:", "rediss:"].includes(parsedRedisUrl.protocol) || parsedRedisUrl.pathname === "") {
+    if (
+      !["redis:", "rediss:"].includes(parsedRedisUrl.protocol) ||
+      parsedRedisUrl.pathname === ""
+    ) {
       throw new Error("Invalid Redis URL");
     }
   } catch {

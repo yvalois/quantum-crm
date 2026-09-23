@@ -2,10 +2,7 @@ import { z } from "zod";
 
 import { ConfigurationError } from "./configuration-error.js";
 import type { SecretFileSystem } from "./secret-value.js";
-import {
-  parseWebAuthConfig,
-  type WebAuthConfig,
-} from "./web-auth-config.js";
+import { parseWebAuthConfig, type WebAuthConfig } from "./web-auth-config.js";
 
 export const crmWebOidcClientSecretPath = "/run/secrets/qcrm_oidc_client_secret";
 export const crmWebSessionRedisUrlPath = "/run/secrets/qcrm_session_redis_url";
