@@ -9,7 +9,10 @@ import {
   createTenantDatabaseProvisioner,
   createTenantDatabaseSecretsProvisioner,
 } from "@quantum-crm/database";
-import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
+import {
+  createInternalHealthServer,
+  registerGracefulShutdown,
+} from "@quantum-crm/observability";
 
 import { AppModule } from "./app.module.js";
 import { ProvisioningExecutor } from "./provisioning-executor.js";
@@ -26,21 +29,32 @@ async function bootstrap(): Promise<void> {
     config.serviceName,
   );
   const adminConnectionUrl = config.database?.adminConnectionUrl?.expose();
-  if (!adminConnectionUrl) throw new Error("deploy-executor database admin configuration missing");
+  if (!adminConnectionUrl)
+    throw new Error("deploy-executor database admin configuration missing");
   if (!config.tenantSecretDirectory) {
-    throw new Error("deploy-executor tenant secret directory configuration missing");
+    throw new Error(
+      "deploy-executor tenant secret directory configuration missing",
+    );
   }
   if (!config.tenantConfigurationDirectory) {
-    throw new Error("deploy-executor tenant configuration directory configuration missing");
+    throw new Error(
+      "deploy-executor tenant configuration directory configuration missing",
+    );
   }
   if (!config.deployHostSocketPath) {
-    throw new Error("deploy-executor host adapter socket configuration missing");
+    throw new Error(
+      "deploy-executor host adapter socket configuration missing",
+    );
   }
-  if (!config.storage) throw new Error("deploy-executor storage configuration missing");
+  if (!config.storage)
+    throw new Error("deploy-executor storage configuration missing");
   if (!config.identityProvisioner) {
-    throw new Error("deploy-executor identity provisioner configuration missing");
+    throw new Error(
+      "deploy-executor identity provisioner configuration missing",
+    );
   }
-  const databaseProvisioner = createTenantDatabaseProvisioner(adminConnectionUrl);
+  const databaseProvisioner =
+    createTenantDatabaseProvisioner(adminConnectionUrl);
   const secretsProvisioner = createTenantDatabaseSecretsProvisioner(
     adminConnectionUrl,
     config.tenantSecretDirectory,
@@ -62,8 +76,10 @@ async function bootstrap(): Promise<void> {
   });
   const identityProvisioner = createTenantIdentityProvisioner({
     keycloakAdminOrigin: config.identityProvisioner.keycloakAdminOrigin,
-    keycloakProvisionerClientId: config.identityProvisioner.keycloakProvisionerClientId,
-    keycloakProvisionerClientSecret: config.identityProvisioner.keycloakProvisionerClientSecret.expose(),
+    keycloakProvisionerClientId:
+      config.identityProvisioner.keycloakProvisionerClientId,
+    keycloakProvisionerClientSecret:
+      config.identityProvisioner.keycloakProvisionerClientSecret.expose(),
     identityOrigin: config.identityProvisioner.identityOrigin,
     redisAdminUrl: config.identityProvisioner.redisAdminUrl.expose(),
     tenantSecretDirectory: config.tenantSecretDirectory,
@@ -74,7 +90,9 @@ async function bootstrap(): Promise<void> {
   const httpsRouteProvisioner = createTenantHttpsRouteProvisioner({
     socketPath: config.deployHostSocketPath,
   });
-  let application: Awaited<ReturnType<typeof NestFactory.createApplicationContext>> | undefined;
+  let application:
+    | Awaited<ReturnType<typeof NestFactory.createApplicationContext>>
+    | undefined;
   try {
     await database.connect();
     application = await NestFactory.createApplicationContext(AppModule, {
