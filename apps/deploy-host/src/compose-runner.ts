@@ -51,6 +51,8 @@ export interface TenantComposeRunnerOptions {
   readonly tenantEdgeNetworkPrefix: string;
   readonly platformDatabaseNetwork: string;
   readonly platformStorageNetwork: string;
+  readonly platformSessionNetwork: string;
+  readonly platformOidcNetwork: string;
   readonly databaseSecretRoot: string;
   readonly dockerBinary?: string;
   readonly commandTimeoutMilliseconds?: number;
@@ -285,9 +287,19 @@ export function createTenantComposeReconciler(
           ),
           platformDatabaseNetwork: options.platformDatabaseNetwork,
           platformStorageNetwork: options.platformStorageNetwork,
+          platformSessionNetwork: options.platformSessionNetwork,
+          platformOidcNetwork: options.platformOidcNetwork,
           crmDatabaseSecretFile: safeChildPath(
             options.databaseSecretRoot,
             `${request.tenantProfileId}/runtime-url`,
+          ),
+          crmOidcClientSecretFile: safeChildPath(
+            options.databaseSecretRoot,
+            `${request.tenantProfileId}/oidc-client-secret`,
+          ),
+          crmSessionRedisUrlSecretFile: safeChildPath(
+            options.databaseSecretRoot,
+            `${request.tenantProfileId}/session-redis-url`,
           ),
         });
       } catch (error) {
@@ -298,6 +310,8 @@ export function createTenantComposeReconciler(
         throw new HostAdapterError("UNAVAILABLE");
       }
       await assertSecretFile(plan.environment.QCRM_CRM_DATABASE_URL_SECRET_FILE as string);
+      await assertSecretFile(plan.environment.QCRM_CRM_OIDC_CLIENT_SECRET_FILE as string);
+      await assertSecretFile(plan.environment.QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE as string);
       const environment = plan.environment;
       await ensureTenantEdgeNetwork(
         runner,

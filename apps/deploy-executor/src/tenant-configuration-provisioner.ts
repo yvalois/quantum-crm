@@ -9,6 +9,7 @@ import {
   tenantStorageBucketReference,
   tenantStorageSecretKinds,
   tenantStorageSecretReference,
+  tenantOidcIdentity,
   type TenantConfigurationProvisioner,
   type TenantConfigurationProvisioningCommand,
   type TenantConfigurationProvisioningResult,
@@ -17,6 +18,7 @@ import {
 } from "@quantum-crm/platform-domain";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const hostnamePattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.[0-9-]+\.nip\.io$/u;
 
 export class TenantConfigurationProvisioningError extends Error {
   public constructor(
@@ -35,6 +37,7 @@ export interface TenantConfigurationProvisionerOptions {
   readonly tenantSecretDirectory?: string;
   readonly databaseHost?: string;
   readonly databasePort?: number;
+  readonly identityIssuer?: string;
 }
 
 function assertUuid(value: string): void {
@@ -110,6 +113,7 @@ function manifestFor(
   command: TenantConfigurationProvisioningCommand,
   storageEndpoint: string,
   release: PlatformRelease,
+  identityIssuer: string,
 ): string {
   const database = tenantDatabaseIdentity(command.tenantProfileId);
   const databaseSecrets = tenantDatabaseSecretKinds.map((kind) =>
@@ -122,6 +126,16 @@ function manifestFor(
   const storageSecrets = tenantStorageSecretKinds.map((kind) =>
     tenantStorageSecretReference(command.tenantProfileId, kind),
   );
+  const expectedIdentity = tenantOidcIdentity(command.tenantProfileId);
+  if (
+    command.identity.realmName !== expectedIdentity.realmName ||
+    command.identity.crmWebClientId !== expectedIdentity.crmWebClientId ||
+    command.identity.apiAudience !== expectedIdentity.apiAudience ||
+    command.identity.clientSecretRef !== expectedIdentity.clientSecretRef ||
+    command.identity.sessionRedisUrlSecretRef !== expectedIdentity.sessionRedisUrlSecretRef
+  ) {
+    throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+  }
   return `${JSON.stringify(
     {
       schemaVersion: 1,
@@ -152,6 +166,14 @@ function manifestFor(
           version: secret.version.toString(),
         })),
       },
+      identity: {
+        crmWebOrigin: `https://${command.hostname}`,
+        issuer: `${identityIssuer}/realms/${command.identity.realmName}`,
+        crmWebClientId: command.identity.crmWebClientId,
+        apiAudience: command.identity.apiAudience,
+        clientSecretRef: command.identity.clientSecretRef,
+        sessionRedisUrlSecretRef: command.identity.sessionRedisUrlSecretRef,
+      },
     },
     null,
     2,
@@ -170,6 +192,9 @@ export function createTenantConfigurationProvisioner(
     if (!Number.isInteger(command.quotaMiB) || command.quotaMiB < 1) {
       throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
     }
+    if (!hostnamePattern.test(command.hostname)) {
+      throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+    }
     let endpoint: URL;
     try {
       endpoint = new URL(options.storageEndpoint);
@@ -184,6 +209,22 @@ export function createTenantConfigurationProvisioner(
       throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
     }
     const database = tenantDatabaseIdentity(command.tenantProfileId);
+    let identityIssuer: URL;
+    try {
+      identityIssuer = new URL(options.identityIssuer ?? "");
+      if (
+        identityIssuer.protocol !== "https:" ||
+        identityIssuer.username ||
+        identityIssuer.password ||
+        identityIssuer.pathname !== "/" ||
+        identityIssuer.search ||
+        identityIssuer.hash
+      ) {
+        throw new Error("invalid identity issuer");
+      }
+    } catch {
+      throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
+    }
     if (options.tenantSecretDirectory) {
       const databaseHost = options.databaseHost ?? "platform-postgres";
       const databasePort = options.databasePort ?? 5432;
@@ -220,7 +261,12 @@ export function createTenantConfigurationProvisioner(
     const profileDirectory = join(tenantDirectory, command.tenantProfileId);
     const manifestRef = `tenant/${command.tenantProfileId}/configuration.json`;
     const manifestPath = join(profileDirectory, "configuration.json");
-    const content = manifestFor(command, endpoint.toString().replace(/\/$/u, ""), release);
+    const content = manifestFor(
+      command,
+      endpoint.toString().replace(/\/$/u, ""),
+      release,
+      identityIssuer.origin,
+    );
     try {
       await assertDirectory(options.configurationDirectory);
       await assertDirectory(tenantDirectory);

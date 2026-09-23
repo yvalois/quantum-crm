@@ -13,6 +13,8 @@ if (
   !config.deployHostTenantEdgeNetwork ||
   !config.deployHostPlatformDatabaseNetwork ||
   !config.deployHostPlatformStorageNetwork ||
+  !config.deployHostPlatformSessionNetwork ||
+  !config.deployHostPlatformOidcNetwork ||
   !config.deployHostDatabaseSecretRoot ||
   !config.deployHostTenantRouteRoot
 ) {
@@ -32,6 +34,8 @@ const server = createHostAdapterServer({
     tenantEdgeNetworkPrefix: config.deployHostTenantEdgeNetwork,
     platformDatabaseNetwork: config.deployHostPlatformDatabaseNetwork,
     platformStorageNetwork: config.deployHostPlatformStorageNetwork,
+    platformSessionNetwork: config.deployHostPlatformSessionNetwork,
+    platformOidcNetwork: config.deployHostPlatformOidcNetwork,
     databaseSecretRoot: config.deployHostDatabaseSecretRoot,
   }),
   httpsRouteReconciler: createTenantCaddyRouteReconciler({

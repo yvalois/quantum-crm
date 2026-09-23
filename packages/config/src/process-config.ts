@@ -25,6 +25,11 @@ import {
   storageEnvironmentKeys,
   type StorageConfig,
 } from "./storage-config.js";
+import {
+  identityProvisionerEnvironmentKeys,
+  parseIdentityProvisionerConfig,
+  type IdentityProvisionerConfig,
+} from "./identity-provisioner-config.js";
 
 const qcrmEnvironmentSchema = z.enum(["local", "test", "preview", "staging", "production"]);
 const processEnvironmentKeys = [
@@ -42,6 +47,10 @@ const deployHostImageRegistryEnvironmentKey = "QCRM_DEPLOY_HOST_IMAGE_REGISTRY" 
 const deployHostTenantEdgeNetworkEnvironmentKey = "QCRM_DEPLOY_HOST_TENANT_EDGE_NETWORK" as const;
 const deployHostPlatformStorageNetworkEnvironmentKey =
   "QCRM_DEPLOY_HOST_PLATFORM_STORAGE_NETWORK" as const;
+const deployHostPlatformSessionNetworkEnvironmentKey =
+  "QCRM_DEPLOY_HOST_PLATFORM_SESSION_NETWORK" as const;
+const deployHostPlatformOidcNetworkEnvironmentKey =
+  "QCRM_DEPLOY_HOST_PLATFORM_OIDC_NETWORK" as const;
 const deployHostPlatformDatabaseNetworkEnvironmentKey =
   "QCRM_DEPLOY_HOST_PLATFORM_DATABASE_NETWORK" as const;
 const deployHostDatabaseSecretRootEnvironmentKey = "QCRM_DEPLOY_HOST_DATABASE_SECRET_ROOT" as const;
@@ -82,6 +91,7 @@ export const processDefinitions = Object.freeze({
     requiresTenantConfigurationDirectory: true,
     requiresStorageAdmin: true,
     requiresDeployHostSocket: true,
+    requiresIdentityProvisioner: true,
   }),
   "deploy-host": Object.freeze({
     serviceName: "deploy-host",
@@ -111,6 +121,7 @@ export interface ProcessDefinition {
   readonly requiresStorageAdmin?: boolean;
   readonly requiresDeployHostSocket?: boolean;
   readonly requiresDeployHostComposeRuntime?: boolean;
+  readonly requiresIdentityProvisioner?: boolean;
 }
 
 export interface ProcessConfig {
@@ -131,10 +142,13 @@ export interface ProcessConfig {
   readonly deployHostImageRegistry?: string;
   readonly deployHostTenantEdgeNetwork?: string;
   readonly deployHostPlatformStorageNetwork?: string;
+  readonly deployHostPlatformSessionNetwork?: string;
+  readonly deployHostPlatformOidcNetwork?: string;
   readonly deployHostPlatformDatabaseNetwork?: string;
   readonly deployHostDatabaseSecretRoot?: string;
   readonly deployHostTenantRouteRoot?: string;
   readonly storage?: StorageConfig;
+  readonly identityProvisioner?: IdentityProvisionerConfig;
 }
 
 function readEnvironment(): NodeJS.ProcessEnv {
@@ -199,6 +213,7 @@ export function parseProcessConfig(
     ...(definition.requiresTenantSecretDirectory ? [tenantSecretEnvironmentKey] : []),
     ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
+    ...(definition.requiresIdentityProvisioner ? identityProvisionerEnvironmentKeys : []),
     ...(definition.requiresDeployHostSocket ? [deployHostSocketEnvironmentKey] : []),
     ...(definition.requiresDeployHostComposeRuntime
       ? [
@@ -207,6 +222,8 @@ export function parseProcessConfig(
           deployHostImageRegistryEnvironmentKey,
           deployHostTenantEdgeNetworkEnvironmentKey,
           deployHostPlatformStorageNetworkEnvironmentKey,
+          deployHostPlatformSessionNetworkEnvironmentKey,
+          deployHostPlatformOidcNetworkEnvironmentKey,
           deployHostPlatformDatabaseNetworkEnvironmentKey,
           deployHostDatabaseSecretRootEnvironmentKey,
           deployHostTenantRouteRootEnvironmentKey,
@@ -326,6 +343,8 @@ export function parseProcessConfig(
   let deployHostImageRegistry: string | undefined;
   let deployHostTenantEdgeNetwork: string | undefined;
   let deployHostPlatformStorageNetwork: string | undefined;
+  let deployHostPlatformSessionNetwork: string | undefined;
+  let deployHostPlatformOidcNetwork: string | undefined;
   let deployHostPlatformDatabaseNetwork: string | undefined;
   let deployHostDatabaseSecretRoot: string | undefined;
   let deployHostTenantRouteRoot: string | undefined;
@@ -370,6 +389,14 @@ export function parseProcessConfig(
       deployHostPlatformStorageNetworkEnvironmentKey,
       allowSafeDefaults ? "qcrm-platform-storage" : undefined,
     );
+    deployHostPlatformSessionNetwork = configuredName(
+      deployHostPlatformSessionNetworkEnvironmentKey,
+      allowSafeDefaults ? "qcrm-platform-session" : undefined,
+    );
+    deployHostPlatformOidcNetwork = configuredName(
+      deployHostPlatformOidcNetworkEnvironmentKey,
+      allowSafeDefaults ? "qcrm-platform-oidc" : undefined,
+    );
     deployHostPlatformDatabaseNetwork = configuredName(
       deployHostPlatformDatabaseNetworkEnvironmentKey,
       allowSafeDefaults ? "qcrm-platform-database" : undefined,
@@ -386,6 +413,14 @@ export function parseProcessConfig(
 
   const storage = definition.requiresStorageAdmin
     ? parseStorageConfig(definition.serviceName, result.data.QCRM_ENV, environment, fileSystem)
+    : undefined;
+  const identityProvisioner = definition.requiresIdentityProvisioner
+    ? parseIdentityProvisionerConfig(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        environment,
+        fileSystem,
+      )
     : undefined;
 
   return Object.freeze({
@@ -406,9 +441,12 @@ export function parseProcessConfig(
     ...(deployHostImageRegistry ? { deployHostImageRegistry } : {}),
     ...(deployHostTenantEdgeNetwork ? { deployHostTenantEdgeNetwork } : {}),
     ...(deployHostPlatformStorageNetwork ? { deployHostPlatformStorageNetwork } : {}),
+    ...(deployHostPlatformSessionNetwork ? { deployHostPlatformSessionNetwork } : {}),
+    ...(deployHostPlatformOidcNetwork ? { deployHostPlatformOidcNetwork } : {}),
     ...(deployHostPlatformDatabaseNetwork ? { deployHostPlatformDatabaseNetwork } : {}),
     ...(deployHostDatabaseSecretRoot ? { deployHostDatabaseSecretRoot } : {}),
     ...(deployHostTenantRouteRoot ? { deployHostTenantRouteRoot } : {}),
     ...(storage ? { storage } : {}),
+    ...(identityProvisioner ? { identityProvisioner } : {}),
   });
 }

@@ -4,7 +4,11 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { platformReleaseArtifactNames, type PlatformRelease } from "@quantum-crm/platform-domain";
+import {
+  platformReleaseArtifactNames,
+  tenantOidcIdentity,
+  type PlatformRelease,
+} from "@quantum-crm/platform-domain";
 
 import {
   createTenantConfigurationProvisioner,
@@ -16,6 +20,8 @@ const command = {
   serverId: "01995f7e-7b52-7000-8000-000000000301",
   releaseId: "01995f7e-7b52-7000-8000-000000000302",
   quotaMiB: 10240,
+  hostname: "acme.2-25-172-119.nip.io",
+  identity: tenantOidcIdentity("01995f7e-7b52-7000-8000-000000000201"),
 } as const;
 
 const release: PlatformRelease = {
@@ -51,6 +57,7 @@ describe("tenant configuration provisioner", () => {
         configurationDirectory: root,
         storageEndpoint: "http://platform-storage:8333/",
         releaseRepository,
+        identityIssuer: "https://identity.example.test",
       });
 
       await expect(provisioner.provision(command)).resolves.toMatchObject({
@@ -77,6 +84,7 @@ describe("tenant configuration provisioner", () => {
         configurationDirectory: root,
         storageEndpoint: "http://platform-storage:8333",
         releaseRepository,
+        identityIssuer: "https://identity.example.test",
       });
       await provisioner.provision(command);
       await expect(
@@ -103,6 +111,7 @@ describe("tenant configuration provisioner", () => {
         tenantSecretDirectory: secrets,
         databaseHost: "platform-postgres",
         databasePort: 5432,
+        identityIssuer: "https://identity.example.test",
       });
 
       await provisioner.provision(command);

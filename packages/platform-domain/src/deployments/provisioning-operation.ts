@@ -1,4 +1,5 @@
 import type { TenantHttpsUpstreamServiceName } from "./tenant-https-route.js";
+import type { TenantOidcIdentity } from "./tenant-oidc-identity.js";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
@@ -60,6 +61,10 @@ export const provisioningValidationFailureCodes = [
   "HTTPS_UNAVAILABLE",
   "HTTPS_PERMISSION_DENIED",
   "HTTPS_IDENTITY_MISMATCH",
+  "IDENTITY_TARGET_CONFLICT",
+  "IDENTITY_UNAVAILABLE",
+  "IDENTITY_PERMISSION_DENIED",
+  "IDENTITY_IDENTITY_MISMATCH",
 ] as const;
 export type ProvisioningValidationFailureCode = (typeof provisioningValidationFailureCodes)[number];
 
@@ -273,6 +278,20 @@ export interface ProvisioningHttpsContext {
   readonly configurationRevision: bigint;
 }
 
+export interface ResolveProvisioningIdentityContextCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly serverId: string;
+  readonly releaseId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+}
+
+export interface ProvisioningIdentityContext {
+  readonly hostname: string;
+}
+
 export interface TenantStorageProvisioningCommand {
   readonly tenantProfileId: string;
   readonly serverId: string;
@@ -296,6 +315,8 @@ export interface TenantConfigurationProvisioningCommand {
   readonly serverId: string;
   readonly releaseId: string;
   readonly quotaMiB: number;
+  readonly hostname: string;
+  readonly identity: TenantOidcIdentity;
 }
 
 export interface TenantConfigurationProvisioningResult {
@@ -429,6 +450,28 @@ export interface ProvisioningOperationRepository {
   readonly resolveHttpsContext: (
     command: ResolveProvisioningHttpsContextCommand,
   ) => Promise<ProvisioningHttpsContext | null>;
+  readonly resolveIdentityContext: (
+    command: ResolveProvisioningIdentityContextCommand,
+  ) => Promise<ProvisioningIdentityContext | null>;
+}
+
+export function validateResolveProvisioningIdentityContext(
+  input: ResolveProvisioningIdentityContextCommand,
+): ResolveProvisioningIdentityContextCommand {
+  uuid("operationId", input.operationId);
+  uuid("tenantProfileId", input.tenantProfileId);
+  uuid("serverId", input.serverId);
+  uuid("releaseId", input.releaseId);
+  if (!workerIdPattern.test(input.workerId)) {
+    throw new ProvisioningOperationValidationError("workerId");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+    throw new ProvisioningOperationValidationError("attempt");
+  }
+  return Object.freeze({ ...input });
 }
 
 export function validateResolveProvisioningHttpsContext(

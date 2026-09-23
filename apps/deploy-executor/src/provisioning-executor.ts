@@ -11,6 +11,7 @@ import {
   type TenantContainerProvisioner,
   type TenantDatabaseProvisioner,
   type TenantHttpsRouteProvisioner,
+  type TenantIdentityProvisioner,
   type TenantStorageProvisioner,
 } from "@quantum-crm/platform-domain";
 import {
@@ -21,6 +22,7 @@ import { TenantStorageProvisioningError } from "./seaweed-storage-provisioner.js
 import { TenantConfigurationProvisioningError } from "./tenant-configuration-provisioner.js";
 import { TenantContainerProvisioningError } from "./tenant-container-provisioner.js";
 import { TenantHttpsRouteProvisioningError } from "./tenant-https-route-provisioner.js";
+import { TenantIdentityProvisioningError } from "./tenant-identity-provisioner.js";
 
 export interface ProvisioningExecutorOptions {
   readonly workerId: string;
@@ -60,6 +62,7 @@ export class ProvisioningExecutor {
     private readonly configurationProvisioner?: TenantConfigurationProvisioner,
     private readonly containerProvisioner?: TenantContainerProvisioner,
     private readonly httpsRouteProvisioner?: TenantHttpsRouteProvisioner,
+    private readonly identityProvisioner?: TenantIdentityProvisioner,
   ) {}
 
   public runOnce(): Promise<boolean> {
@@ -90,32 +93,34 @@ export class ProvisioningExecutor {
       ? this.secretsProvisioner
         ? this.storageProvisioner
           ? this.configurationProvisioner
-            ? this.containerProvisioner
-              ? this.httpsRouteProvisioner
-                ? ([
-                    "VALIDATE",
-                    "CREATE_DATABASE",
-                    "CREATE_SECRETS",
-                    "CREATE_STORAGE",
-                    "WRITE_CONFIGURATION",
-                    "START_CONTAINERS",
-                    "CONFIGURE_HTTPS",
-                  ] as const)
+            ? this.identityProvisioner
+              ? this.containerProvisioner
+                ? this.httpsRouteProvisioner
+                  ? ([
+                      "VALIDATE",
+                      "CREATE_DATABASE",
+                      "CREATE_SECRETS",
+                      "CREATE_STORAGE",
+                      "WRITE_CONFIGURATION",
+                      "START_CONTAINERS",
+                      "CONFIGURE_HTTPS",
+                    ] as const)
+                  : ([
+                      "VALIDATE",
+                      "CREATE_DATABASE",
+                      "CREATE_SECRETS",
+                      "CREATE_STORAGE",
+                      "WRITE_CONFIGURATION",
+                      "START_CONTAINERS",
+                    ] as const)
                 : ([
                     "VALIDATE",
                     "CREATE_DATABASE",
                     "CREATE_SECRETS",
                     "CREATE_STORAGE",
                     "WRITE_CONFIGURATION",
-                    "START_CONTAINERS",
                   ] as const)
-              : ([
-                  "VALIDATE",
-                  "CREATE_DATABASE",
-                  "CREATE_SECRETS",
-                  "CREATE_STORAGE",
-                  "WRITE_CONFIGURATION",
-                ] as const)
+              : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS", "CREATE_STORAGE"] as const)
             : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS", "CREATE_STORAGE"] as const)
           : (["VALIDATE", "CREATE_DATABASE", "CREATE_SECRETS"] as const)
         : (["VALIDATE", "CREATE_DATABASE"] as const)
@@ -238,7 +243,62 @@ export class ProvisioningExecutor {
         | "CONFIGURATION_UNAVAILABLE"
         | "CONFIGURATION_PERMISSION_DENIED"
         | "CONFIGURATION_IDENTITY_MISMATCH"
+        | "IDENTITY_TARGET_CONFLICT"
+        | "IDENTITY_PERMISSION_DENIED"
+        | "IDENTITY_IDENTITY_MISMATCH"
         | undefined;
+      if (!this.identityProvisioner) return false;
+      const identityContext = await this.repository.resolveIdentityContext({
+        operationId: operation.id,
+        tenantProfileId: operation.tenantProfileId,
+        serverId: operation.serverId,
+        releaseId: operation.releaseId,
+        workerId: this.options.workerId,
+        expectedVersion: operation.version,
+        attempt: operation.attempt,
+      });
+      if (!identityContext) return true;
+      let identity:
+        Awaited<ReturnType<TenantIdentityProvisioner["provision"]>>["identity"] | undefined;
+      try {
+        identity = (
+          await this.identityProvisioner.provision({
+            tenantProfileId: operation.tenantProfileId,
+            serverId: operation.serverId,
+            hostname: identityContext.hostname,
+          })
+        ).identity;
+      } catch (error) {
+        if (error instanceof TenantIdentityProvisioningError && error.reason === "UNAVAILABLE") {
+          return true;
+        }
+        provisioningFailure =
+          error instanceof TenantIdentityProvisioningError && error.reason === "PERMISSION_DENIED"
+            ? "IDENTITY_PERMISSION_DENIED"
+            : error instanceof TenantIdentityProvisioningError && error.reason === "TARGET_CONFLICT"
+              ? "IDENTITY_TARGET_CONFLICT"
+              : "IDENTITY_IDENTITY_MISMATCH";
+      }
+      if (provisioningFailure) {
+        try {
+          await this.repository.completeConfiguration({
+            operationId: operation.id,
+            tenantProfileId: operation.tenantProfileId,
+            serverId: operation.serverId,
+            releaseId: operation.releaseId,
+            workerId: this.options.workerId,
+            expectedVersion: operation.version,
+            attempt: operation.attempt,
+            manifestRef: `tenant/${operation.tenantProfileId}/configuration.json`,
+            revision: 1n,
+            failureCode: provisioningFailure,
+          });
+        } catch {
+          return true;
+        }
+        return true;
+      }
+      if (!identity) return true;
       let manifestRef = `tenant/${operation.tenantProfileId}/configuration.json`;
       let revision = 1n;
       try {
@@ -247,6 +307,8 @@ export class ProvisioningExecutor {
           serverId: operation.serverId,
           releaseId: operation.releaseId,
           quotaMiB: operation.requestedCapacity.storageMiB,
+          hostname: identityContext.hostname,
+          identity,
         });
         manifestRef = result.manifestRef;
         revision = result.revision;

@@ -23,6 +23,19 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: "3000"
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
+      QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
+      QCRM_CRM_WEB_ORIGIN: "${QCRM_CRM_WEB_ORIGIN:?set QCRM_CRM_WEB_ORIGIN}"
+      QCRM_CRM_API_ORIGIN: "${QCRM_CRM_API_ORIGIN:?set QCRM_CRM_API_ORIGIN}"
+      QCRM_OIDC_ISSUER: "${QCRM_OIDC_ISSUER:?set QCRM_OIDC_ISSUER}"
+      QCRM_OIDC_CLIENT_ID: "${QCRM_OIDC_CLIENT_ID:?set QCRM_OIDC_CLIENT_ID}"
+      QCRM_OIDC_CLIENT_SECRET_FILE: /run/secrets/qcrm_oidc_client_secret
+      QCRM_SESSION_REDIS_URL_FILE: /run/secrets/qcrm_session_redis_url
+    secrets:
+      - source: crm-oidc-client-secret
+        target: qcrm_oidc_client_secret
+      - source: crm-session-redis-url
+        target: qcrm_session_redis_url
     healthcheck:
       test:
         [
@@ -39,6 +52,9 @@ services:
       tenant-edge:
         aliases:
           - "${QCRM_TENANT_CRM_WEB_EDGE_ALIAS:?set QCRM_TENANT_CRM_WEB_EDGE_ALIAS}"
+      tenant-internal: {}
+      platform-session: {}
+      platform-oidc: {}
 
   portal-web:
     <<: *service-defaults
@@ -75,6 +91,10 @@ services:
       QCRM_PORT: "3001"
       QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
       QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+      QCRM_OIDC_ISSUER: "${QCRM_OIDC_ISSUER:?set QCRM_OIDC_ISSUER}"
+      QCRM_OIDC_AUDIENCE: "${QCRM_OIDC_AUDIENCE:?set QCRM_OIDC_AUDIENCE}"
+      QCRM_OIDC_REQUIRED_ACR: "${QCRM_OIDC_REQUIRED_ACR:?set QCRM_OIDC_REQUIRED_ACR}"
+      QCRM_OIDC_MAX_TOKEN_AGE_SECONDS: "${QCRM_OIDC_MAX_TOKEN_AGE_SECONDS:?set QCRM_OIDC_MAX_TOKEN_AGE_SECONDS}"
     secrets:
       - source: crm-database-url
         target: qcrm_database_url
@@ -97,6 +117,7 @@ services:
       tenant-internal: {}
       platform-database: {}
       platform-storage: {}
+      platform-oidc: {}
 
   worker:
     <<: *service-defaults
@@ -159,7 +180,17 @@ networks:
   platform-database:
     external: true
     name: "${QCRM_PLATFORM_DATABASE_NETWORK:?set QCRM_PLATFORM_DATABASE_NETWORK}"
+  platform-session:
+    external: true
+    name: "${QCRM_PLATFORM_SESSION_NETWORK:?set QCRM_PLATFORM_SESSION_NETWORK}"
+  platform-oidc:
+    external: true
+    name: "${QCRM_PLATFORM_OIDC_NETWORK:?set QCRM_PLATFORM_OIDC_NETWORK}"
 
 secrets:
   crm-database-url:
     file: "${QCRM_CRM_DATABASE_URL_SECRET_FILE:?set QCRM_CRM_DATABASE_URL_SECRET_FILE}"
+  crm-oidc-client-secret:
+    file: "${QCRM_CRM_OIDC_CLIENT_SECRET_FILE:?set QCRM_CRM_OIDC_CLIENT_SECRET_FILE}"
+  crm-session-redis-url:
+    file: "${QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE:?set QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE}"

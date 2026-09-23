@@ -20,6 +20,7 @@ export {
   validateCompleteProvisioningContainers,
   validateCompleteProvisioningHttps,
   validateResolveProvisioningHttpsContext,
+  validateResolveProvisioningIdentityContext,
   tenantDatabaseIdentity,
   tenantDatabaseSecretKinds,
   tenantDatabaseSecretReference,
@@ -33,6 +34,8 @@ export {
   type CompleteProvisioningHttpsCommand,
   type ResolveProvisioningHttpsContextCommand,
   type ProvisioningHttpsContext,
+  type ResolveProvisioningIdentityContextCommand,
+  type ProvisioningIdentityContext,
   type CapacityReservation,
   type ProvisioningOperation,
   type ProvisioningOperationDraft,
@@ -89,3 +92,12 @@ export {
   type TenantHttpsRouteStatus,
   type TenantHttpsUpstreamServiceName,
 } from "./tenant-https-route.js";
+
+export {
+  tenantOidcIdentity,
+  TenantOidcIdentityValidationError,
+  type TenantIdentityProvisioner,
+  type TenantIdentityProvisioningCommand,
+  type TenantIdentityProvisioningResult,
+  type TenantOidcIdentity,
+} from "./tenant-oidc-identity.js";

@@ -32,6 +32,7 @@ const manifestKeys = new Set([
   "release",
   "database",
   "storage",
+  "identity",
 ]);
 
 export class ComposePolicyValidationError extends Error {
@@ -61,6 +62,12 @@ export interface TenantConfigurationManifest {
       readonly digest: string;
     }[];
   };
+  readonly identity: {
+    readonly crmWebOrigin: string;
+    readonly issuer: string;
+    readonly crmWebClientId: "quantum-crm-web";
+    readonly apiAudience: "quantum-crm-api";
+  };
 }
 
 export interface ComposePolicyOptions {
@@ -70,7 +77,11 @@ export interface ComposePolicyOptions {
   readonly tenantEdgeNetwork: string;
   readonly platformDatabaseNetwork: string;
   readonly platformStorageNetwork: string;
+  readonly platformSessionNetwork: string;
+  readonly platformOidcNetwork: string;
   readonly crmDatabaseSecretFile: string;
+  readonly crmOidcClientSecretFile: string;
+  readonly crmSessionRedisUrlSecretFile: string;
 }
 
 export function tenantEdgeNetworkName(prefix: string, tenantProfileId: string): string {
@@ -180,6 +191,36 @@ export function parseTenantConfigurationManifest(
   if (platformReleaseArtifactNames.some((name) => !artifacts.has(name))) {
     throw new ComposePolicyValidationError("release.artifacts");
   }
+  if (
+    typeof input.identity !== "object" ||
+    input.identity === null ||
+    Array.isArray(input.identity)
+  ) {
+    throw new ComposePolicyValidationError("identity");
+  }
+  const identity = input.identity as Record<string, unknown>;
+  const crmWebOrigin = requireString(identity.crmWebOrigin, "identity.crmWebOrigin");
+  const issuer = requireString(identity.issuer, "identity.issuer");
+  let webOrigin: URL;
+  let issuerUrl: URL;
+  try {
+    webOrigin = new URL(crmWebOrigin);
+    issuerUrl = new URL(issuer);
+  } catch {
+    throw new ComposePolicyValidationError("identity");
+  }
+  if (
+    webOrigin.protocol !== "https:" ||
+    webOrigin.pathname !== "/" ||
+    webOrigin.search ||
+    webOrigin.hash ||
+    issuerUrl.protocol !== "https:" ||
+    !/^\/realms\/qcrm-[0-9a-f]{32}$/u.test(issuerUrl.pathname) ||
+    identity.crmWebClientId !== "quantum-crm-web" ||
+    identity.apiAudience !== "quantum-crm-api"
+  ) {
+    throw new ComposePolicyValidationError("identity");
+  }
   return Object.freeze({
     schemaVersion: 1,
     tenantProfileId,
@@ -193,6 +234,12 @@ export function parseTenantConfigurationManifest(
           Object.freeze({ name, digest: artifacts.get(name) as string }),
         ),
       ),
+    }),
+    identity: Object.freeze({
+      crmWebOrigin: webOrigin.origin,
+      issuer: issuerUrl.toString().replace(/\/$/u, ""),
+      crmWebClientId: "quantum-crm-web" as const,
+      apiAudience: "quantum-crm-api" as const,
     }),
   });
 }
@@ -217,13 +264,23 @@ export function createTenantComposePlan(
     options.crmDatabaseSecretFile,
     "crmDatabaseSecretFile",
   );
+  const crmOidcClientSecretFile = requireAbsolutePath(
+    options.crmOidcClientSecretFile,
+    "crmOidcClientSecretFile",
+  );
+  const crmSessionRedisUrlSecretFile = requireAbsolutePath(
+    options.crmSessionRedisUrlSecretFile,
+    "crmSessionRedisUrlSecretFile",
+  );
   if (!registryPattern.test(options.imageRegistry)) {
     throw new ComposePolicyValidationError("imageRegistry");
   }
   if (
     !networkPattern.test(options.tenantEdgeNetwork) ||
     !networkPattern.test(options.platformDatabaseNetwork) ||
-    !networkPattern.test(options.platformStorageNetwork)
+    !networkPattern.test(options.platformStorageNetwork) ||
+    !networkPattern.test(options.platformSessionNetwork) ||
+    !networkPattern.test(options.platformOidcNetwork)
   ) {
     throw new ComposePolicyValidationError("network");
   }
@@ -237,7 +294,18 @@ export function createTenantComposePlan(
     QCRM_TENANT_EDGE_NETWORK: options.tenantEdgeNetwork,
     QCRM_PLATFORM_DATABASE_NETWORK: options.platformDatabaseNetwork,
     QCRM_PLATFORM_STORAGE_NETWORK: options.platformStorageNetwork,
+    QCRM_PLATFORM_SESSION_NETWORK: options.platformSessionNetwork,
+    QCRM_PLATFORM_OIDC_NETWORK: options.platformOidcNetwork,
     QCRM_CRM_DATABASE_URL_SECRET_FILE: crmDatabaseSecretFile,
+    QCRM_CRM_OIDC_CLIENT_SECRET_FILE: crmOidcClientSecretFile,
+    QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE: crmSessionRedisUrlSecretFile,
+    QCRM_CRM_WEB_ORIGIN: manifest.identity.crmWebOrigin,
+    QCRM_CRM_API_ORIGIN: "http://api:3001",
+    QCRM_OIDC_ISSUER: manifest.identity.issuer,
+    QCRM_OIDC_CLIENT_ID: manifest.identity.crmWebClientId,
+    QCRM_OIDC_AUDIENCE: manifest.identity.apiAudience,
+    QCRM_OIDC_REQUIRED_ACR: "2",
+    QCRM_OIDC_MAX_TOKEN_AGE_SECONDS: "300",
     QCRM_TENANT_CRM_WEB_EDGE_ALIAS: tenantEdgeServiceAlias(request.tenantProfileId, "crm-web"),
     QCRM_TENANT_PORTAL_WEB_EDGE_ALIAS: tenantEdgeServiceAlias(
       request.tenantProfileId,

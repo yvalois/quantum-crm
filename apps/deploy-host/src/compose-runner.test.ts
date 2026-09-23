@@ -36,6 +36,12 @@ const manifest = {
       digest: `sha256:${index.toString(16).padStart(64, "0")}`,
     })),
   },
+  identity: {
+    crmWebOrigin: "https://acme.2-25-172-119.nip.io",
+    issuer: "https://identity.example.test/realms/qcrm-01995f7e7b5270008000000000000201",
+    crmWebClientId: "quantum-crm-web",
+    apiAudience: "quantum-crm-api",
+  },
 };
 
 function psOutput(unhealthyService?: string): string {
@@ -63,6 +69,16 @@ async function createFixture(): Promise<{
   await writeFile(join(databaseSecretRoot, request.tenantProfileId, "runtime-url"), "not-a-url", {
     mode: 0o400,
   });
+  await writeFile(
+    join(databaseSecretRoot, request.tenantProfileId, "oidc-client-secret"),
+    "synthetic-oidc-secret",
+    { mode: 0o400 },
+  );
+  await writeFile(
+    join(databaseSecretRoot, request.tenantProfileId, "session-redis-url"),
+    "redis://session:synthetic@redis:6379/0",
+    { mode: 0o400 },
+  );
   return { root, configurationRoot, databaseSecretRoot };
 }
 
@@ -83,6 +99,8 @@ function createReconciler(
     tenantEdgeNetworkPrefix: "qcrm-tenant-edge",
     platformDatabaseNetwork: "qcrm-platform-database",
     platformStorageNetwork: "qcrm-platform-storage",
+    platformSessionNetwork: "qcrm-platform-session",
+    platformOidcNetwork: "qcrm-platform-oidc",
     databaseSecretRoot,
     commandRunner: { run },
   });

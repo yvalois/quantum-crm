@@ -19,6 +19,7 @@
     "@quantum-crm/observability": "workspace:*",
     "@quantum-crm/platform-domain": "workspace:*",
     "reflect-metadata": "0.2.2",
+    "redis": "6.2.1",
     "rxjs": "7.8.2"
   }
 }

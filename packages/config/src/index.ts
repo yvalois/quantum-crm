@@ -13,6 +13,11 @@ export {
   type CrmWebAuthConfig,
 } from "./crm-web-auth-config.js";
 export {
+  identityProvisionerEnvironmentKeys,
+  parseIdentityProvisionerConfig,
+  type IdentityProvisionerConfig,
+} from "./identity-provisioner-config.js";
+export {
   parseWebAuthConfig,
   type ParsedWebAuthConfig,
   type WebAuthConfig,

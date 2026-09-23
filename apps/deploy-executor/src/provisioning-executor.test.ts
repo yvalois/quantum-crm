@@ -46,6 +46,7 @@ function repository(overrides: Partial<ProvisioningOperationRepository> = {}) {
     completeContainers: vi.fn(async () => null),
     completeHttps: vi.fn(async () => null),
     resolveHttpsContext: vi.fn(async () => null),
+    resolveIdentityContext: vi.fn(async () => null),
     ...overrides,
   } satisfies ProvisioningOperationRepository;
 }
@@ -124,6 +125,8 @@ describe("provisioning executor", () => {
       {} as never,
       {} as never,
       { provision: containerProvision },
+      undefined,
+      {} as never,
     );
 
     await expect(executor.runOnce()).resolves.toBe(true);
