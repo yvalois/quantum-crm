@@ -17,6 +17,7 @@ import { createTenantStorageProvisioner } from "./seaweed-storage-provisioner.js
 import { createTenantConfigurationProvisioner } from "./tenant-configuration-provisioner.js";
 import { createTenantContainerProvisioner } from "./tenant-container-provisioner.js";
 import { createTenantHttpsRouteProvisioner } from "./tenant-https-route-provisioner.js";
+import { createTenantIdentityProvisioner } from "./tenant-identity-provisioner.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("deploy-executor");
@@ -36,6 +37,9 @@ async function bootstrap(): Promise<void> {
     throw new Error("deploy-executor host adapter socket configuration missing");
   }
   if (!config.storage) throw new Error("deploy-executor storage configuration missing");
+  if (!config.identityProvisioner) {
+    throw new Error("deploy-executor identity provisioner configuration missing");
+  }
   const databaseProvisioner = createTenantDatabaseProvisioner(adminConnectionUrl);
   const secretsProvisioner = createTenantDatabaseSecretsProvisioner(
     adminConnectionUrl,
@@ -54,6 +58,16 @@ async function bootstrap(): Promise<void> {
     tenantSecretDirectory: config.tenantSecretDirectory,
     databaseHost: new URL(adminConnectionUrl).hostname,
     databasePort: Number(new URL(adminConnectionUrl).port || "5432"),
+    identityIssuer: config.identityProvisioner.identityOrigin,
+  });
+  const identityProvisioner = createTenantIdentityProvisioner({
+    keycloakAdminOrigin: config.identityProvisioner.keycloakAdminOrigin,
+    keycloakProvisionerClientId: config.identityProvisioner.keycloakProvisionerClientId,
+    keycloakProvisionerClientSecret:
+      config.identityProvisioner.keycloakProvisionerClientSecret.expose(),
+    identityOrigin: config.identityProvisioner.identityOrigin,
+    redisAdminUrl: config.identityProvisioner.redisAdminUrl.expose(),
+    tenantSecretDirectory: config.tenantSecretDirectory,
   });
   const containerProvisioner = createTenantContainerProvisioner({
     socketPath: config.deployHostSocketPath,
@@ -93,6 +107,7 @@ async function bootstrap(): Promise<void> {
       configurationProvisioner,
       containerProvisioner,
       httpsRouteProvisioner,
+      identityProvisioner,
     );
     ready = true;
     const close = async (): Promise<void> => {

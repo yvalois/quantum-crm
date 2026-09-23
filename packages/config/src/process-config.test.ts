@@ -127,6 +127,7 @@ describe("process configuration", () => {
         requiresTenantConfigurationDirectory: true,
         requiresStorageAdmin: true,
         requiresDeployHostSocket: true,
+        requiresIdentityProvisioner: true,
       },
       "deploy-host": {
         serviceName: "deploy-host",
@@ -152,6 +153,8 @@ describe("process configuration", () => {
       deployHostTenantEdgeNetwork: "qcrm-tenant-edge",
       deployHostPlatformDatabaseNetwork: "qcrm-platform-database",
       deployHostPlatformStorageNetwork: "qcrm-platform-storage",
+      deployHostPlatformSessionNetwork: "qcrm-platform-session",
+      deployHostPlatformOidcNetwork: "qcrm-platform-oidc",
       deployHostDatabaseSecretRoot: "/tmp/qcrm-tenant-secrets",
       deployHostTenantRouteRoot: "/tmp/qcrm-tenant-routes",
     });

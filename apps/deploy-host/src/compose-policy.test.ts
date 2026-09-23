@@ -28,6 +28,12 @@ const manifest = {
       digest: `sha256:${index.toString(16).padStart(64, "0")}`,
     })),
   },
+  identity: {
+    crmWebOrigin: "https://acme.2-25-172-119.nip.io",
+    issuer: "https://identity.example.test/realms/qcrm-01995f7e7b5270008000000000000201",
+    crmWebClientId: "quantum-crm-web",
+    apiAudience: "quantum-crm-api",
+  },
 };
 
 describe("tenant compose policy", () => {
@@ -40,7 +46,11 @@ describe("tenant compose policy", () => {
       tenantEdgeNetwork: "qcrm-tenant-edge",
       platformDatabaseNetwork: "qcrm-platform-database",
       platformStorageNetwork: "qcrm-platform-storage",
+      platformSessionNetwork: "qcrm-platform-session",
+      platformOidcNetwork: "qcrm-platform-oidc",
       crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
+      crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
+      crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
     });
 
     expect(plan.projectName).toBe(request.projectName);
@@ -84,7 +94,11 @@ describe("tenant compose policy", () => {
         tenantEdgeNetwork: "qcrm-tenant-edge",
         platformDatabaseNetwork: "qcrm-platform-database",
         platformStorageNetwork: "qcrm-platform-storage",
+        platformSessionNetwork: "qcrm-platform-session",
+        platformOidcNetwork: "qcrm-platform-oidc",
         crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
+        crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
+        crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
       }),
     ).not.toThrow();
     expect(() =>
@@ -95,7 +109,11 @@ describe("tenant compose policy", () => {
         tenantEdgeNetwork: "qcrm-tenant-edge",
         platformDatabaseNetwork: "qcrm-platform-database",
         platformStorageNetwork: "qcrm-platform-storage",
+        platformSessionNetwork: "qcrm-platform-session",
+        platformOidcNetwork: "qcrm-platform-oidc",
         crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
+        crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
+        crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
       }),
     ).toThrow(new ComposePolicyValidationError("templatePath"));
   });

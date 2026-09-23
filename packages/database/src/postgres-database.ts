@@ -35,6 +35,7 @@ import {
   validateCompleteProvisioningContainers,
   validateCompleteProvisioningHttps,
   validateResolveProvisioningHttpsContext,
+  validateResolveProvisioningIdentityContext,
   tenantHttpsEdgeNetworkName,
   tenantHttpsHostname,
   type ClaimProvisioningOperationCommand,
@@ -46,7 +47,9 @@ import {
   type CompleteProvisioningContainersCommand,
   type CompleteProvisioningHttpsCommand,
   type ProvisioningHttpsContext,
+  type ProvisioningIdentityContext,
   type ResolveProvisioningHttpsContextCommand,
+  type ResolveProvisioningIdentityContextCommand,
   type InfrastructureServer,
   type InfrastructureServerArchitecture,
   type InfrastructureServerDraft,
@@ -1620,6 +1623,50 @@ async function resolveProvisioningHttpsContext(
   }
 }
 
+async function resolveProvisioningIdentityContext(
+  pool: PostgresPool,
+  command: ResolveProvisioningIdentityContextCommand,
+): Promise<ProvisioningIdentityContext | null> {
+  const resolved = validateResolveProvisioningIdentityContext(command);
+  try {
+    const result = (await pool.query(
+      `
+        SELECT profile.slug, server.public_ipv4
+        FROM operations.provisioning_operations AS operation
+        JOIN tenants.tenant_profiles AS profile ON profile.id = operation.tenant_profile_id
+        JOIN infrastructure.servers AS server ON server.id = operation.server_id
+        WHERE operation.id = $1::uuid
+          AND operation.tenant_profile_id = $2::uuid
+          AND operation.server_id = $3::uuid
+          AND operation.release_id = $4::uuid
+          AND operation.status = 'running'
+          AND operation.current_step = 'write_configuration'
+          AND operation.lease_owner = $5
+          AND operation.version = $6
+          AND operation.attempt = $7
+          AND operation.lease_expires_at > CURRENT_TIMESTAMP
+      `,
+      [
+        resolved.operationId,
+        resolved.tenantProfileId,
+        resolved.serverId,
+        resolved.releaseId,
+        resolved.workerId,
+        resolved.expectedVersion.toString(),
+        resolved.attempt,
+      ],
+    )) as {
+      readonly rows: readonly { readonly slug: string; readonly public_ipv4: string }[];
+    };
+    const row = result.rows[0];
+    if (!row) return null;
+    return Object.freeze({ hostname: tenantHttpsHostname(row.slug, row.public_ipv4) });
+  } catch (error) {
+    if (error instanceof DatabaseUnavailableError) throw error;
+    throw new DatabaseUnavailableError();
+  }
+}
+
 async function completeProvisioningHttps(
   pool: PostgresPool,
   command: CompleteProvisioningHttpsCommand,
@@ -3071,6 +3118,8 @@ export function createPlatformPostgresDatabase(
         completeProvisioningHttps(pool, command),
       resolveHttpsContext: (command: ResolveProvisioningHttpsContextCommand) =>
         resolveProvisioningHttpsContext(pool, command),
+      resolveIdentityContext: (command: ResolveProvisioningIdentityContextCommand) =>
+        resolveProvisioningIdentityContext(pool, command),
     }),
   });
 }

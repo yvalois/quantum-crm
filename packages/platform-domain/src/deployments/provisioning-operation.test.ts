@@ -74,6 +74,7 @@ describe("tenant provisioning operation", () => {
       completeContainers: vi.fn(),
       completeHttps: vi.fn(),
       resolveHttpsContext: vi.fn(),
+      resolveIdentityContext: vi.fn(),
     } satisfies ProvisioningOperationRepository);
     await expect(service.request(command)).resolves.toMatchObject({ tenantVersion: 2n });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING" }));
