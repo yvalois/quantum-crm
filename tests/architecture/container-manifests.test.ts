@@ -161,7 +161,9 @@ describe("container manifests", () => {
     expect(foundation).toContain("KC_BOOTSTRAP_ADMIN_CLIENT_ID: quantum-provisioner");
     expect(foundation).not.toContain("KC_BOOTSTRAP_ADMIN_PASSWORD");
     expect(keycloakBootstrap).toContain("QCRM_KEYCLOAK_ALL_NODES_STOPPED=confirmed");
-    expect(keycloakBootstrap).toContain("--client-secret:env=QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET");
+    expect(keycloakBootstrap).toContain(
+      "--client-secret:env=QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET",
+    );
     expect(keycloakBootstrap).not.toContain("set -x");
     expect(provisionOperator).toContain("grant_type=client_credentials");
     expect(provisionOperator).not.toContain("grant_type=password");
