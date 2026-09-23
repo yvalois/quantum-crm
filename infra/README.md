@@ -110,7 +110,7 @@ para crear el operador humano de plataforma, sin conservar un administrador huma
 
 - `infra/docker/Dockerfile.web`: genera la salida standalone de una de las tres aplicaciones Next.js.
 - `infra/docker/Dockerfile.node`: compila y despliega un workspace entre `api`, `admin-api`, `worker`, `deploy-executor`, `deploy-host` y `agent-runtime`; `deploy-host` es el adaptador de infraestructura y no un proceso comercial.
-- Ambas usan Node.js `24.21.0-bookworm-slim` fijado por digest, pnpm `9.13.2`, build multi-stage y usuario `node` sin privilegios.
+- Los tres Dockerfiles usan Node.js `24.21.0-alpine` fijado por digest de indice OCI; las etapas de toolchain y runtime que comparten binarios usan la misma familia Alpine, con pnpm `9.13.2`, build multi-stage y usuario `node` sin privilegios.
 - Los argumentos `APP` tienen allowlist; un nombre desconocido detiene el build.
 
 ## Lugar de ejecucion
