@@ -11,7 +11,7 @@
 - Responsable: Codex
 - Dependencias: Base CRM aislada por perfil creada por `ADM-04`; Keycloak como proveedor OIDC conforme a `ADR-0004`.
 - Bloquea a: `USR-02` a `USR-11` y cualquier módulo que requiera una identidad CRM autorizada.
-- ADR, arquitectura o diseño aplicables: `ADR-0002`, `ADR-0003`, `ADR-0004`, `ADR-0005`, `ADR-0006`, `ADR-0007`, `ADR-0008`, `monorepo.md` y `mapa-del-sistema.md`.
+- ADR, arquitectura o diseño aplicables: `ADR-0002`, `ADR-0003`, `ADR-0004`, `ADR-0005`, `ADR-0006`, `ADR-0007`, `ADR-0008`, `ADR-0014`, `monorepo.md`, `mapa-del-sistema.md` y `frontends-experiencia-visual.md`.
 
 ## Resultado esperado
 
@@ -62,6 +62,8 @@ Cada perfil dispone de un realm OIDC separado y un administrador inicial. Un adm
 | Documentación | Esta ficha, estado, contratos, migraciones y evidencia de verificación |
 
 ## Plan de implementación
+
+Referencia visual para el panel: el shell de productividad de `crm-web` del proyecto Stitch **Quantum CRM Enterprise Platform**. Se adopta su jerarquía de sidebar y contenido claro; las rutas, estados, permisos y textos de este flujo permanecen definidos por `USR-01` y los contratos del repositorio.
 
 - [x] Crear el módulo `iam`, contratos públicos y la historia `crm` con membresías e invitaciones inmutables.
 - [x] Implementar repositorio PostgreSQL y casos de uso de crear, invitar, editar, aceptar y desactivar; la invitación persiste una clave de idempotencia y la aceptación se bloquea transaccionalmente.

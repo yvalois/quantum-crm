@@ -5,9 +5,18 @@ import {
   validateRequestOrigin,
 } from "@quantum-crm/auth";
 import { type CrmWebAuthConfig, SecretValue } from "@quantum-crm/config";
-import { MemberListQuerySchema, MemberListResponseSchema } from "@quantum-crm/contracts";
+import {
+  CreateMemberInvitationSchema,
+  InvitationResponseSchema,
+  MemberIdSchema,
+  MemberListQuerySchema,
+  MemberListResponseSchema,
+  MemberResponseSchema,
+  UpdateMemberSchema,
+} from "@quantum-crm/contracts";
 
 const maximumResponseBytes = 1_048_576;
+const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
 
 export interface CrmAuthRuntime {
   readonly config: CrmWebAuthConfig;
@@ -134,6 +143,65 @@ async function readBoundedJson(response: Response): Promise<unknown> {
     throw new Error("Response body is too large");
   }
   return JSON.parse(body) as unknown;
+}
+
+async function readBoundedRequestJson(request: Request): Promise<unknown> {
+  const contentType = request.headers.get("content-type")?.split(";", 1)[0]?.trim();
+  if (contentType !== "application/json") throw new Error("Expected JSON request");
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (!Number.isFinite(declaredLength) || declaredLength > maximumResponseBytes) {
+    throw new Error("Request body is too large");
+  }
+  const body = await request.text();
+  if (new TextEncoder().encode(body).byteLength > maximumResponseBytes) {
+    throw new Error("Request body is too large");
+  }
+  return JSON.parse(body) as unknown;
+}
+
+async function authorizedMutation(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<AuthorizedCrmSession | Response> {
+  if (!validateRequestOrigin(runtime.config.origin, request.headers.get("origin"))) {
+    return crmProblem(403, "Request rejected");
+  }
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  if (!validateCsrf(authorized.session.csrfToken, request.headers.get("x-csrf-token"))) {
+    return crmProblem(403, "Request rejected");
+  }
+  return authorized;
+}
+
+function memberMutationHeaders(authorized: AuthorizedCrmSession, idempotencyKey?: string): Headers {
+  const headers = new Headers({
+    accept: "application/json",
+    authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+    "content-type": "application/json",
+    "x-correlation-id": authorized.correlationId,
+  });
+  if (idempotencyKey) headers.set("idempotency-key", idempotencyKey);
+  return headers;
+}
+
+async function memberMutationResponse(
+  upstream: Response,
+  responseSchema: { parse(input: unknown): unknown },
+): Promise<Response> {
+  try {
+    if (upstream.status === 400) return crmProblem(400, "Invalid request");
+    if (upstream.status === 401) return crmProblem(401, "Unauthorized");
+    if (upstream.status === 403) return crmProblem(403, "Forbidden");
+    if (upstream.status === 404) return crmProblem(404, "Not found");
+    if (upstream.status === 409) return crmProblem(409, "Request conflict");
+    if (!upstream.ok) return crmProblem(503, "CRM service temporarily unavailable");
+    return Response.json(responseSchema.parse(await readBoundedJson(upstream)), {
+      headers: crmNoStoreHeaders(),
+    });
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
 }
 
 export async function handleCrmLogin(request: Request, runtime: CrmAuthRuntime): Promise<Response> {
@@ -267,6 +335,103 @@ export async function handleCrmMemberList(
     return Response.json(MemberListResponseSchema.parse(await readBoundedJson(upstream)), {
       headers: crmNoStoreHeaders(),
     });
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmMemberInvitation(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey)) {
+    return crmProblem(400, "Invalid request");
+  }
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = CreateMemberInvitationSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/members/invitations", runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized, idempotencyKey),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return memberMutationResponse(upstream, InvitationResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmMemberUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  memberId: string,
+): Promise<Response> {
+  const parsedMemberId = MemberIdSchema.safeParse(memberId);
+  if (!parsedMemberId.success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = UpdateMemberSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/members/${parsedMemberId.data}`, runtime.config.crmApiOrigin),
+      {
+        method: "PATCH",
+        headers: memberMutationHeaders(authorized),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return memberMutationResponse(upstream, MemberResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmMemberDeactivation(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  memberId: string,
+): Promise<Response> {
+  const parsedMemberId = MemberIdSchema.safeParse(memberId);
+  if (!parsedMemberId.success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/members/${parsedMemberId.data}`, runtime.config.crmApiOrigin),
+      {
+        method: "DELETE",
+        headers: memberMutationHeaders(authorized),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return memberMutationResponse(upstream, MemberResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }
