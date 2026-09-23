@@ -48,10 +48,10 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 
 ## Plan de implementación
 
-- [ ] Añadir el puerto, identidad derivada y errores tipados en `platform-domain`.
-- [ ] Crear el adaptador de Keycloak y el provisionador de secretos Redis/OIDC, sin valores en la base ni resultados.
-- [ ] Añadir referencias y configuración de perfil; montar cada secreto solo en `crm-web` y conectar issuer/audience en API.
-- [ ] Conectar el paso durable sin avanzar a activación de administrador hasta la operación de entrega segura.
+- [x] Añadir el puerto, identidad derivada y errores tipados en `platform-domain`.
+- [x] Crear el adaptador de Keycloak y el provisionador de secretos Redis/OIDC, sin valores en la base ni resultados.
+- [x] Añadir referencias y configuración de perfil; montar cada secreto solo en `crm-web` y conectar issuer/audience en API.
+- [x] Conectar el paso durable sin avanzar a activación de administrador hasta la operación de entrega segura.
 - [ ] Probar contratos, reintentos, conflicto, aislamiento A/B y ausencia de secretos en VPS.
 
 ## Riesgos y mitigaciones
@@ -85,8 +85,8 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente; no se ejecutará comprobación técnica local.
-- Documentación actualizada: ADR-0021, esta ficha y estado antes de código.
+- Archivos y commit: `137dd1c` incorpora el puerto, el adaptador, la configuración y el wiring durable; se actualizará con el commit de evidencia del PR.
+- Comandos y resultados: en el VPS autorizado, Prettier aprobó los archivos afectados; aprobaron los typechecks de `platform-domain`, `config`, `database`, `deploy-executor` y `deploy-host`; las 42 pruebas unitarias afectadas aprobaron. No se ejecutó comprobación técnica local.
+- Documentación actualizada: ADR-0021, índice ADR, esta ficha, estado, plantilla Compose y reglas operativas de infraestructura.
 - Desviaciones del plan: la activación inicial queda separada para no almacenar o exponer un secreto.
-- Pendientes o decisiones nuevas: entrega de activación, UI de miembros y `VERIFY`/`ACTIVATE`.
+- Pendientes o decisiones nuevas: integración desechable con Keycloak/Redis de dos perfiles, bootstrap seguro y fuera de Git del principal `quantum-provisioner`, entrega de activación, UI de miembros y `VERIFY`/`ACTIVATE`.
