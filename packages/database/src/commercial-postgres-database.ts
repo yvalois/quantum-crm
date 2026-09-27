@@ -16,7 +16,7 @@ import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database
 
 interface VisibilityPredicate {
   readonly sql: string;
-  readonly params: readonly string[];
+  readonly params: string[];
 }
 
 /**
