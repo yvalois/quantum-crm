@@ -1,7 +1,4 @@
-import {
-  handleCrmTeamAddMember,
-  handleCrmTeamRemoveMember,
-} from "../../../../../server/crm-auth-http";
+import { handleCrmTeamAddMember } from "../../../../../server/crm-auth-http";
 import { withCrmAuthRuntime } from "../../../../../server/crm-auth-runtime";
 
 export const dynamic = "force-dynamic";
