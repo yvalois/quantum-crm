@@ -9,10 +9,7 @@ const subjectPattern = /^[!-~]{1,255}$/u;
 export class TenantIamInvitationAcceptanceError extends Error {
   public constructor(
     public readonly reason:
-      | "UNAVAILABLE"
-      | "PERMISSION_DENIED"
-      | "IDENTITY_MISMATCH"
-      | "TARGET_CONFLICT",
+      "UNAVAILABLE" | "PERMISSION_DENIED" | "IDENTITY_MISMATCH" | "TARGET_CONFLICT",
   ) {
     super(`IAM invitation acceptance failed: ${reason}`);
     this.name = "TenantIamInvitationAcceptanceError";
@@ -106,20 +103,17 @@ export function createTenantIamInvitationAcceptanceClient(options: {
       const alias = `qcrm-${input.tenantProfileId.replaceAll("-", "")}-bootstrap-api`;
       let response: Response;
       try {
-        response = await fetch(
-          `http://${alias}:3001/internal/iam/accept-member-invitation`,
-          {
-            method: "POST",
-            headers: {
-              authorization: `Bearer ${accessToken}`,
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({ invitationId: input.invitationId, oidcSubject: input.subject }),
-            signal: AbortSignal.timeout(5_000),
-            cache: "no-store",
-            redirect: "error",
+        response = await fetch(`http://${alias}:3001/internal/iam/accept-member-invitation`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json",
           },
-        );
+          body: JSON.stringify({ invitationId: input.invitationId, oidcSubject: input.subject }),
+          signal: AbortSignal.timeout(5_000),
+          cache: "no-store",
+          redirect: "error",
+        });
       } catch {
         throw new TenantIamInvitationAcceptanceError("UNAVAILABLE");
       }
