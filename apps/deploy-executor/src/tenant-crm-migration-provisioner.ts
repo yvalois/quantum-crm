@@ -19,13 +19,14 @@ export interface TenantCrmMigrationProvisioner {
     readonly attempt: number;
   }) => Promise<void>;
 }
+type TenantCrmMigrationCommand = Parameters<TenantCrmMigrationProvisioner["migrate"]>[0];
 export function createTenantCrmMigrationProvisioner(
   socketPath: string,
 ): TenantCrmMigrationProvisioner {
   if (!socketPath.startsWith("/") || socketPath.length > 255)
     throw new Error("invalid deploy host socket path");
   return Object.freeze({
-    migrate: async (command) => {
+    migrate: async (command: TenantCrmMigrationCommand) => {
       if (
         ![command.operationId, command.tenantProfileId, command.serverId, command.releaseId].every(
           (value) => uuidPattern.test(value),

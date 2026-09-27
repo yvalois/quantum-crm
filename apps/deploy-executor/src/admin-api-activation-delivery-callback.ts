@@ -24,7 +24,7 @@ export function createAdminApiActivationDeliveryCallback(
     throw new Error("invalid activation callback token");
   }
   return Object.freeze({
-    deliver: async (input) => {
+    deliver: async (input: Parameters<ActivationDeliveryCallback["deliver"]>[0]) => {
       const response = await fetch(
         new URL("/api/v1/internal/activation-deliveries/callback", origin),
         {

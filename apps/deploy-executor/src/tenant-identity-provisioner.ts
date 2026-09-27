@@ -276,8 +276,8 @@ function assertBootstrapClient(client: KeycloakClient): string {
     (mapper as Record<string, unknown>).protocolMapper !== "oidc-hardcoded-claim-mapper" ||
     typeof config !== "object" ||
     config === null ||
-    (config as Record<string, unknown>).claim.name !== "scope" ||
-    (config as Record<string, unknown>).claim.value !== "iam:bootstrap-initial-administrator" ||
+    (config as Record<string, unknown>)["claim.name"] !== "scope" ||
+    (config as Record<string, unknown>)["claim.value"] !== "iam:bootstrap-initial-administrator" ||
     typeof audience !== "object" ||
     audience === null ||
     (audience as Record<string, unknown>).protocolMapper !== "oidc-audience-mapper" ||
@@ -289,8 +289,8 @@ function assertBootstrapClient(client: KeycloakClient): string {
     (principal as Record<string, unknown>).protocolMapper !== "oidc-hardcoded-claim-mapper" ||
     typeof principalConfig !== "object" ||
     principalConfig === null ||
-    (principalConfig as Record<string, unknown>).claim.name !== "qcrm_principal_type" ||
-    (principalConfig as Record<string, unknown>).claim.value !== "service"
+    (principalConfig as Record<string, unknown>)["claim.name"] !== "qcrm_principal_type" ||
+    (principalConfig as Record<string, unknown>)["claim.value"] !== "service"
   )
     throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
   return client.id;

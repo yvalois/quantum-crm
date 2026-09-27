@@ -8,13 +8,14 @@ import {
   ForbiddenException,
   Get,
   Headers,
+  HttpException,
+  HttpStatus,
   Inject,
   NotFoundException,
   Param,
   Patch,
   Post,
   PreconditionFailedException,
-  PreconditionRequiredException,
   Req,
 } from "@nestjs/common";
 import {
@@ -44,7 +45,8 @@ function payloadHash(value: unknown): string {
 }
 function expectedVersion(value: string | undefined): bigint {
   const match = typeof value === "string" ? /^"([1-9][0-9]*)"$/u.exec(value) : null;
-  if (!match?.[1]) throw new PreconditionRequiredException();
+  if (!match?.[1])
+    throw new HttpException("If-Match is required", HttpStatus.PRECONDITION_REQUIRED);
   return BigInt(match[1]);
 }
 function actor(request: Parameters<typeof crmAuthContext>[0]): {
@@ -121,7 +123,9 @@ export class ContactsController {
       return contactResponse(
         await this.service.create({
           ...identity,
-          ...payload,
+          displayName: payload.displayName,
+          ...(payload.email === undefined ? {} : { email: payload.email }),
+          ...(payload.phone === undefined ? {} : { phone: payload.phone }),
           idempotencyKey,
           payloadHash: payloadHash(payload),
         }),
@@ -166,7 +170,11 @@ export class ContactsController {
         await this.service.update({
           ...identity,
           id: ContactIdSchema.parse(contactId),
-          ...payload,
+          ...(payload.displayName === undefined
+            ? {}
+            : { displayName: payload.displayName }),
+          ...(payload.email === undefined ? {} : { email: payload.email }),
+          ...(payload.phone === undefined ? {} : { phone: payload.phone }),
           expectedVersion: expectedVersion(ifMatch),
         }),
       );

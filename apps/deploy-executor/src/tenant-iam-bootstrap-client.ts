@@ -35,7 +35,8 @@ export function createTenantIamBootstrapClient(options: {
   readonly identityOrigin: string;
 }): TenantIamBootstrapClient {
   return Object.freeze({
-    bootstrap: async ({ tenantProfileId, subject, idempotencyKey, correlationId }) => {
+    bootstrap: async (input: Parameters<TenantIamBootstrapClient["bootstrap"]>[0]) => {
+      const { tenantProfileId, subject, idempotencyKey, correlationId } = input;
       if (
         !uuidPattern.test(tenantProfileId) ||
         !/^[!-~]{1,255}$/u.test(subject) ||

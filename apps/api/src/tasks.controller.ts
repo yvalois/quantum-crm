@@ -7,13 +7,14 @@ import {
   ForbiddenException,
   Get,
   Headers,
+  HttpException,
+  HttpStatus,
   Inject,
   NotFoundException,
   Param,
   Patch,
   Post,
   PreconditionFailedException,
-  PreconditionRequiredException,
   Req,
 } from "@nestjs/common";
 import {
@@ -47,7 +48,8 @@ function key(value: string | undefined): string {
 }
 function version(value: string | undefined): bigint {
   const match = typeof value === "string" ? /^"([1-9][0-9]*)"$/u.exec(value) : null;
-  if (!match?.[1]) throw new PreconditionRequiredException();
+  if (!match?.[1])
+    throw new HttpException("If-Match is required", HttpStatus.PRECONDITION_REQUIRED);
   return BigInt(match[1]);
 }
 function identity(request: Parameters<typeof crmAuthContext>[0]): {
@@ -138,7 +140,14 @@ export class TasksController {
         data: response(
           await this.service.create({
             ...actor,
-            ...payload,
+            ...(payload.contactId === undefined ? {} : { contactId: payload.contactId }),
+            ...(payload.opportunityId === undefined
+              ? {}
+              : { opportunityId: payload.opportunityId }),
+            assigneeMemberId: payload.assigneeMemberId,
+            title: payload.title,
+            description: payload.description,
+            priority: payload.priority,
             dueAt: new Date(payload.dueAt),
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash(payload),

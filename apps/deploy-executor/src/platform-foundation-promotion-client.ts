@@ -22,7 +22,7 @@ export function createPlatformFoundationPromotionClient(
   if (!socketPath.startsWith("/") || socketPath.length > 255)
     throw new Error("invalid deploy host socket path");
   return Object.freeze({
-    reconcile: async (artifacts) => {
+    reconcile: async (artifacts: readonly PlatformReleaseArtifact[]) => {
       const payload = JSON.stringify({
         action: "RECONCILE_PLATFORM_FOUNDATION_RELEASE",
         artifacts,
