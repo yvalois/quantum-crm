@@ -62,7 +62,7 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
        * handler, so a token issued before this instant is rejected even if an
        * old serialized URL is retained outside Quantum. Metadata deletion alone
        * would not invalidate the native action token. */
-      user.setNotBefore(Time.currentTime());
+      session.users().setNotBeforeForUser(realm, user, Time.currentTime());
       session.singleUseObjects().remove("qcrm:activation:jti:" + priorValue.get("jti"));
     }
     int expiration = Time.currentTime() + TTL_SECONDS;

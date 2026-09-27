@@ -50,6 +50,7 @@ describe("container manifests", () => {
     }
 
     const migrator = read("infra/docker/Dockerfile.migrator");
+    const crmMigrator = read("infra/docker/Dockerfile.crm-migrator");
     expect(migrator).toContain(alpineNode);
     expect(migrator).toContain("apk del --no-network apk-tools zlib");
     expect(migrator).toContain("node --version");
@@ -59,6 +60,12 @@ describe("container manifests", () => {
     expect(migrator).not.toContain("trixie");
     expect(migrator).not.toContain("bookworm");
     expect(migrator).not.toContain(":latest");
+
+    expect(crmMigrator).toContain(alpineNode);
+    expect(crmMigrator).toContain("pnpm install --frozen-lockfile --prod=false");
+    expect(crmMigrator).toContain('pnpm --filter "@quantum-crm/database..." build');
+    expect(crmMigrator).toContain("apk del --no-network apk-tools zlib");
+    expect(crmMigrator).toContain("USER node");
   });
 
   it("builds workspace dependencies before each application image", () => {
