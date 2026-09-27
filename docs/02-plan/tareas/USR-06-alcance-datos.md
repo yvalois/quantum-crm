@@ -109,8 +109,8 @@ Cada membresía activa tiene un alcance comercial explícito —todos los regist
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: rama `feat/USR-06-alcance-datos`; documentación `f16e149`; implementación `eaa3668`; protecciones de migración y concurrencia `db15d1f`; correcciones de seguridad/UI `c15543e`; formato `6f7527f`; ajuste final de tipos `e1afc9c` y `807df3f`.
-- Comandos y resultados: en el VPS con Node `24.21.0`, Prettier afectado, typecheck de `contracts`, `auth`, `domain`, `database`, `api` y `crm-web`, Prisma validate/generate y 19 pruebas IAM/contratos más 5 pruebas de `postgres-database` aprobaron. La matriz específica de SQL comercial queda pendiente de una base PostgreSQL integrada.
+- Archivos, commits o PR: rama `feat/USR-06-alcance-datos`; documentación `f16e149`; implementación `eaa3668`; protecciones de migración y concurrencia `db15d1f`; correcciones de seguridad/UI `c15543e`; formato `6f7527f`; ajustes de tipos `e1afc9c` y `807df3f`; corrección de desacoplamiento runtime `b8e95b7`; PR #47.
+- Comandos y resultados: en el VPS con Node `24.21.0`, Prettier afectado, typecheck de `packages/database` y seis suites unitarias afectadas (24 casos) aprobaron en `b8e95b7`. La matriz específica de SQL comercial queda pendiente de una base PostgreSQL integrada; el fallo de importación que bloqueaba unit/integration queda corregido.
 - Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
 - Desviaciones del plan: la creación y administración de equipos no se duplica aquí; queda en `USR-02`, mientras este bloque deja tablas y predicados server-side preparados.
 - Pendientes o decisiones nuevas: no se marca `USR-06` terminado hasta conectar la API completa de equipos, exportaciones/reportes y auditoría durable de `USR-11`.
