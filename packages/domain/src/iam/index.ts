@@ -39,6 +39,7 @@ export {
   IamAuthorizationError,
   IamInvitationAcceptanceError,
   IamMemberNotFoundError,
+  IamMemberRevisionConflictError,
   IamMemberService,
   type ConfirmedInvitationAcceptance,
   type IamActor,

@@ -57,6 +57,8 @@ export function MembersPanel(): React.JSX.Element {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editCommercialScope, setEditCommercialScope] =
+    useState<Member["commercialScope"]>("ASSIGNED");
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleDisplayName, setRoleDisplayName] = useState("");
   const [rolePermissions, setRolePermissions] = useState<CrmPermission[]>([]);
@@ -143,7 +145,10 @@ export function MembersPanel(): React.JSX.Element {
         method: editingRole ? "PATCH" : "POST",
         cache: "no-store",
         credentials: "same-origin",
-        headers: { "content-type": "application/json", "x-csrf-token": csrfToken },
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
         body: JSON.stringify({ displayName: roleDisplayName, permissions: rolePermissions }),
       });
       if (!response.ok) throw new Error(await responseMessage(response));
@@ -210,16 +215,32 @@ export function MembersPanel(): React.JSX.Element {
   const saveMember = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (!csrfToken || !editingMember) return;
+    const scopeChanged = editCommercialScope !== editingMember.commercialScope;
+    const profileChanged =
+      editDisplayName !== editingMember.displayName || editEmail !== editingMember.email;
+    if (scopeChanged && profileChanged) {
+      setError("Guarda el nombre/correo y el alcance en operaciones separadas.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setNotice(null);
     try {
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+        "x-csrf-token": csrfToken,
+      };
+      if (scopeChanged) headers["if-match"] = `"${editingMember.authorizationRevision}"`;
       const response = await fetch(`/api/members/${editingMember.id}`, {
         method: "PATCH",
         cache: "no-store",
         credentials: "same-origin",
-        headers: { "content-type": "application/json", "x-csrf-token": csrfToken },
-        body: JSON.stringify({ displayName: editDisplayName, email: editEmail }),
+        headers,
+        body: JSON.stringify(
+          scopeChanged
+            ? { commercialScope: editCommercialScope }
+            : { displayName: editDisplayName, email: editEmail },
+        ),
       });
       if (!response.ok) throw new Error(await responseMessage(response));
       setEditingMember(null);
@@ -259,6 +280,7 @@ export function MembersPanel(): React.JSX.Element {
     setEditingMember(member);
     setEditDisplayName(member.displayName);
     setEditEmail(member.email);
+    setEditCommercialScope(member.commercialScope);
     setError(null);
     setNotice(null);
   };
@@ -355,6 +377,7 @@ export function MembersPanel(): React.JSX.Element {
                       <strong>{member.displayName}</strong>
                       <span>{member.email}</span>
                       <small>Desde {dateLabel(member.createdAt)}</small>
+                      <small>Alcance: {member.commercialScope.toLowerCase()}</small>
                     </div>
                     <span className={`status status-${member.status.toLowerCase()}`}>
                       {memberStatus(member.status)}
@@ -403,6 +426,19 @@ export function MembersPanel(): React.JSX.Element {
                     required
                     maxLength={320}
                   />
+                </label>
+                <label>
+                  Alcance de datos
+                  <select
+                    value={editCommercialScope}
+                    onChange={(event) =>
+                      setEditCommercialScope(event.target.value as Member["commercialScope"])
+                    }
+                  >
+                    <option value="PROFILE">Todos los registros</option>
+                    <option value="TEAM">Registros del equipo</option>
+                    <option value="ASSIGNED">Solo asignados</option>
+                  </select>
                 </label>
                 <div className="form-actions">
                   <button

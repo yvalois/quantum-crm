@@ -13,7 +13,8 @@ export interface CrmMembershipSnapshot {
   readonly status: "INVITED" | "ACTIVE" | "DEACTIVATED";
   readonly permissions: readonly string[];
   readonly authorizationRevision: bigint;
-  readonly commercialScope?: "PROFILE" | "OWN";
+  /** OWN is accepted only for compatibility with pre-USR-06 readers. */
+  readonly commercialScope?: "PROFILE" | "TEAM" | "ASSIGNED" | "OWN";
 }
 
 export interface CrmMembershipReader {
@@ -38,7 +39,7 @@ export interface CrmAuthContext {
   }>;
   readonly permissions: readonly CrmPermission[];
   readonly authorizationRevision: bigint;
-  readonly commercialScope: "PROFILE" | "OWN";
+  readonly commercialScope: "PROFILE" | "TEAM" | "ASSIGNED";
   readonly authenticatedAt: string;
   readonly correlationId: string;
 }
@@ -80,6 +81,16 @@ function normalizePermissions(
     throw new CrmAuthenticationError("MEMBERSHIP_REJECTED");
   }
   return Object.freeze([...new Set(permissions as readonly CrmPermission[])].sort());
+}
+
+function normalizeCommercialScope(
+  value: CrmMembershipSnapshot["commercialScope"],
+): "PROFILE" | "TEAM" | "ASSIGNED" {
+  if (value === "PROFILE" || value === "TEAM" || value === "ASSIGNED") return value;
+  // Older memberships used OWN. Their safe equivalent in the new model is
+  // ASSIGNED; no caller-provided value can reach this function.
+  if (value === undefined || value === "OWN") return "ASSIGNED";
+  throw new CrmAuthenticationError("MEMBERSHIP_REJECTED");
 }
 
 function isValidIdentity(
@@ -142,7 +153,7 @@ export async function authenticateCrmMember(input: {
     }),
     permissions: normalizePermissions(membership.permissions, input.policy.allowedPermissions),
     authorizationRevision: membership.authorizationRevision,
-    commercialScope: membership.commercialScope === "PROFILE" ? "PROFILE" : "OWN",
+    commercialScope: normalizeCommercialScope(membership.commercialScope),
     authenticatedAt: identity.authenticatedAt.toISOString(),
     correlationId: input.correlationId,
   });

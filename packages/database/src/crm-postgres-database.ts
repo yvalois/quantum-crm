@@ -38,7 +38,7 @@ export interface CrmMembershipAuthorization {
   readonly status: "INVITED" | "ACTIVE" | "DEACTIVATED";
   readonly permissions: readonly string[];
   readonly authorizationRevision: bigint;
-  readonly commercialScope: "PROFILE" | "OWN";
+  readonly commercialScope: "PROFILE" | "TEAM" | "ASSIGNED";
 }
 
 export interface CrmMembershipRepository {
@@ -52,6 +52,12 @@ export class IamMemberConflictError extends Error {
   }
 }
 
+function createIamMemberRevisionConflictError(): Error {
+  const error = new Error("IAM member authorization revision has changed");
+  error.name = "IamMemberRevisionConflictError";
+  return error;
+}
+
 interface IamMemberRow {
   readonly id: string;
   readonly oidc_subject: string | null;
@@ -62,6 +68,7 @@ interface IamMemberRow {
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly deactivated_at: Date | null;
+  readonly commercial_scope?: string;
 }
 
 interface IamInvitationRow {
@@ -97,7 +104,8 @@ const memberSelection = `
   authorization_revision::text,
   created_at,
   updated_at,
-  deactivated_at
+  deactivated_at,
+  commercial_scope::text
 `;
 
 const roleSelection = `
@@ -118,6 +126,12 @@ const roleSelection = `
 function memberStatus(value: string): IamMember["status"] {
   const status = value.toUpperCase();
   if (status === "INVITED" || status === "ACTIVE" || status === "DEACTIVATED") return status;
+  throw new DatabaseUnavailableError();
+}
+
+function commercialScope(value: string | undefined): "PROFILE" | "TEAM" | "ASSIGNED" {
+  const scope = (value ?? "assigned").toUpperCase();
+  if (scope === "PROFILE" || scope === "TEAM" || scope === "ASSIGNED") return scope;
   throw new DatabaseUnavailableError();
 }
 
@@ -145,6 +159,7 @@ function memberFromRow(row: IamMemberRow): IamMember {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deactivatedAt: row.deactivated_at,
+    commercialScope: commercialScope(row.commercial_scope),
   });
 }
 
@@ -317,7 +332,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             SELECT
               member.id::text, member.oidc_subject, member.display_name, member.email::text,
               member.status::text, member.authorization_revision::text, member.created_at,
-              member.updated_at, member.deactivated_at,
+              member.updated_at, member.deactivated_at, member.commercial_scope::text,
               invitation.id::text AS invitation_id, invitation.member_id::text,
               invitation.status::text AS invitation_status, invitation.expires_at,
               invitation.accepted_at, invitation.created_at AS invitation_created_at
@@ -377,6 +392,18 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
           [input.member.id, input.roleCode],
         )) as { readonly rowCount: number | null };
         if (roleAssignment.rowCount !== 1) throw new IamMemberConflictError();
+        await client.query(
+          `
+            UPDATE iam.members
+            SET commercial_scope = CASE $2
+              WHEN 'ADMINISTRATOR' THEN 'profile'::iam.commercial_scope
+              WHEN 'SUPERVISOR' THEN 'team'::iam.commercial_scope
+              ELSE 'assigned'::iam.commercial_scope
+            END
+            WHERE id = $1::uuid
+          `,
+          [input.member.id, input.roleCode],
+        );
         const invitationInsert = (await client.query(
           `
             INSERT INTO iam.invitations (
@@ -397,9 +424,15 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
           ],
         )) as { readonly rowCount: number | null };
         if (invitationInsert.rowCount !== 1) throw new IamMemberConflictError();
+        const scopedMemberResult = (await client.query(
+          `SELECT ${memberSelection} FROM iam.members WHERE id = $1::uuid`,
+          [input.member.id],
+        )) as { readonly rows: readonly IamMemberRow[] };
+        const scopedMember = scopedMemberResult.rows[0];
+        if (!scopedMember) throw new IamMemberConflictError();
         await client.query("COMMIT");
         return Object.freeze({
-          member: input.member,
+          member: memberFromRow(scopedMember),
           invitation: input.invitation,
           replayed: false,
         });
@@ -411,7 +444,10 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         client?.release();
       }
     },
-    update: async (member: IamMember): Promise<IamMember> => {
+    update: async (
+      member: IamMember,
+      expectedAuthorizationRevision?: bigint,
+    ): Promise<IamMember> => {
       try {
         const result = (await pool.query(
           `
@@ -419,6 +455,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             SET display_name = $2, email = $3, status = $4::iam.member_status,
                 authorization_revision = $5::bigint, updated_at = $6, deactivated_at = $7
             WHERE id = $1::uuid
+              AND ($8::bigint IS NULL OR authorization_revision = $8::bigint)
             RETURNING ${memberSelection}
           `,
           [
@@ -429,15 +466,54 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             member.authorizationRevision.toString(),
             member.updatedAt,
             member.deactivatedAt,
+            expectedAuthorizationRevision?.toString() ?? null,
           ],
         )) as { readonly rows: readonly IamMemberRow[] };
         const row = result.rows[0];
-        if (!row) throw new IamMemberConflictError();
+        if (!row) {
+          if (expectedAuthorizationRevision !== undefined) {
+            throw createIamMemberRevisionConflictError();
+          }
+          throw new IamMemberConflictError();
+        }
         return memberFromRow(row);
       } catch (error) {
+        // Keep the database adapter free of a runtime dependency on the domain
+        // package. Vitest loads this adapter from source before the domain
+        // package is built, so preserve the typed conflict across the boundary
+        // using its stable error name.
+        if (error instanceof Error && error.name === "IamMemberRevisionConflictError") {
+          throw error;
+        }
         if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
           throw new IamMemberConflictError();
         }
+        throw new DatabaseUnavailableError();
+      }
+    },
+    updateCommercialScope: async (input) => {
+      try {
+        const result = (await pool.query(
+          `
+            UPDATE iam.members
+            SET commercial_scope = $2::iam.commercial_scope,
+                authorization_revision = authorization_revision + 1,
+                updated_at = $3
+            WHERE id = $1::uuid
+              AND authorization_revision = $4::bigint
+            RETURNING ${memberSelection}
+          `,
+          [
+            input.memberId,
+            input.scope.toLowerCase(),
+            input.now,
+            input.expectedAuthorizationRevision.toString(),
+          ],
+        )) as { readonly rows: readonly IamMemberRow[] };
+        const row = result.rows[0];
+        return row ? memberFromRow(row) : null;
+      } catch (error) {
+        if (isUniqueViolation(error)) throw new IamMemberConflictError();
         throw new DatabaseUnavailableError();
       }
     },
@@ -554,7 +630,8 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         const existing = (await client.query(
           `SELECT member.id::text, member.oidc_subject, member.display_name, member.email::text,
                   member.status::text, member.authorization_revision::text, member.created_at,
-                  member.updated_at, member.deactivated_at, bootstrap.idempotency_key
+                  member.updated_at, member.deactivated_at, member.commercial_scope::text,
+                  bootstrap.idempotency_key
              FROM iam.bootstrap_initial_administrator AS bootstrap
              JOIN iam.members AS member ON member.id = bootstrap.member_id
             WHERE bootstrap.singleton = true FOR UPDATE`,
@@ -589,12 +666,22 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         );
         if (role.rowCount !== 1) throw new IamMemberConflictError();
         await client.query(
+          `UPDATE iam.members SET commercial_scope = 'profile'::iam.commercial_scope WHERE id = $1::uuid`,
+          [input.member.id],
+        );
+        const refreshed = (await client.query(
+          `SELECT ${memberSelection} FROM iam.members WHERE id = $1::uuid`,
+          [input.member.id],
+        )) as { readonly rows: readonly IamMemberRow[] };
+        const scopedMember = refreshed.rows[0];
+        if (!scopedMember) throw new IamMemberConflictError();
+        await client.query(
           `INSERT INTO iam.bootstrap_initial_administrator (singleton, member_id, oidc_subject, idempotency_key, created_at)
            VALUES (true, $1::uuid, $2, $3, $4)`,
           [input.member.id, input.member.oidcSubject, input.idempotencyKey, input.member.createdAt],
         );
         await client.query("COMMIT");
-        return Object.freeze({ member: memberFromRow(member), replayed: false });
+        return Object.freeze({ member: memberFromRow(scopedMember), replayed: false });
       } catch (error) {
         await client?.query("ROLLBACK").catch(() => undefined);
         if (error instanceof IamMemberConflictError || isUniqueViolation(error))
@@ -822,8 +909,15 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
                   FILTER (WHERE permission.permission IS NOT NULL),
                 ARRAY[]::text[]
               ) AS permissions,
-              CASE WHEN bool_or(role.code IN ('ADMINISTRATOR', 'SUPERVISOR'))
-                THEN 'PROFILE' ELSE 'OWN' END AS commercial_scope
+              COALESCE(
+                member.commercial_scope::text,
+                CASE WHEN bool_or(role.code = 'ADMINISTRATOR')
+                  THEN 'profile'
+                  WHEN bool_or(role.code = 'SUPERVISOR')
+                  THEN 'team'
+                  ELSE 'assigned'
+                END
+              ) AS commercial_scope
             FROM iam.members AS member
             LEFT JOIN iam.member_roles AS member_role ON member_role.member_id = member.id
             LEFT JOIN iam.roles AS role ON role.id = member_role.role_id
@@ -839,7 +933,7 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
             readonly status: string;
             readonly authorization_revision: string;
             readonly permissions: readonly string[];
-            readonly commercial_scope: "PROFILE" | "OWN";
+            readonly commercial_scope?: "profile" | "team" | "assigned";
           }[];
         };
         const row = result.rows[0];
@@ -850,7 +944,7 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
           status: memberStatus(row.status),
           permissions: Object.freeze([...row.permissions]),
           authorizationRevision: BigInt(row.authorization_revision),
-          commercialScope: row.commercial_scope,
+          commercialScope: commercialScope(row.commercial_scope),
         });
       } catch {
         throw new DatabaseUnavailableError();

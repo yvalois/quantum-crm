@@ -1,6 +1,7 @@
 import type {
   ContactRecord,
   ContactRepository,
+  CommercialActor,
   Opportunity,
   Pipeline,
   PipelineStage,
@@ -12,6 +13,46 @@ import type {
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
+
+interface VisibilityPredicate {
+  readonly sql: string;
+  readonly params: string[];
+}
+
+/**
+ * Builds the only visibility predicates used by commercial repositories.
+ * The scope is resolved from the authenticated membership in the database;
+ * the client never supplies a scope or a team identifier.
+ */
+function visibility(
+  actor: CommercialActor,
+  memberPlaceholder: number,
+  recordMembers: readonly string[],
+  legacyOwnMembers = recordMembers,
+): VisibilityPredicate {
+  if (actor.scope === "PROFILE") return Object.freeze({ sql: "TRUE", params: [] });
+  if (actor.scope === "TEAM") {
+    const relation = recordMembers
+      .map((member) => `record_team.member_id = ${member}`)
+      .join(" OR ");
+    return Object.freeze({
+      sql: `EXISTS (
+        SELECT 1
+        FROM iam.team_members AS viewer_team
+        JOIN iam.team_members AS record_team ON record_team.team_id = viewer_team.team_id
+        WHERE viewer_team.member_id = $${memberPlaceholder}::uuid
+          AND (${relation})
+      )`,
+      params: [actor.memberId],
+    });
+  }
+  const members =
+    actor.scope === "OWN" ? legacyOwnMembers : [recordMembers[recordMembers.length - 1]!];
+  return Object.freeze({
+    sql: `(${members.map((member) => `${member} = $${memberPlaceholder}::uuid`).join(" OR ")})`,
+    params: [actor.memberId],
+  });
+}
 
 export class CommercialIdempotencyConflictError extends Error {
   public constructor() {
@@ -182,9 +223,10 @@ export function createCommercialPostgresRepositories(
   const contacts: ContactRepository = Object.freeze<ContactRepository>({
     list: async (actor) => {
       try {
+        const access = visibility(actor, 1, ["contact.owner_member_id"]);
         const result = (await pool.query(
-          `SELECT ${contactSelection} FROM contacts.contacts WHERE ($1::uuid IS NULL OR owner_member_id = $1::uuid) ORDER BY created_at DESC, id DESC`,
-          [actor.scope === "OWN" ? actor.memberId : null],
+          `SELECT ${contactSelection} FROM contacts.contacts AS contact WHERE ${access.sql} ORDER BY contact.created_at DESC, contact.id DESC`,
+          access.params,
         )) as { readonly rows: readonly ContactRow[] };
         return Object.freeze(result.rows.map(contactFromRow));
       } catch (error) {
@@ -193,9 +235,10 @@ export function createCommercialPostgresRepositories(
     },
     find: async (actor, id) => {
       try {
+        const access = visibility(actor, 2, ["contact.owner_member_id"]);
         const result = (await pool.query(
-          `SELECT ${contactSelection} FROM contacts.contacts WHERE id = $1::uuid AND ($2::uuid IS NULL OR owner_member_id = $2::uuid)`,
-          [id, actor.scope === "OWN" ? actor.memberId : null],
+          `SELECT ${contactSelection} FROM contacts.contacts AS contact WHERE contact.id = $1::uuid AND ${access.sql}`,
+          [id, ...access.params],
         )) as { readonly rows: readonly ContactRow[] };
         const row = result.rows[0];
         return row ? contactFromRow(row) : null;
@@ -249,8 +292,9 @@ export function createCommercialPostgresRepositories(
     },
     update: async (input) => {
       try {
+        const access = visibility(input.actor, 7, ["contact.owner_member_id"]);
         const result = (await pool.query(
-          `UPDATE contacts.contacts SET display_name = $2, email = $3, phone = $4, version = version + 1, updated_at = $5 WHERE id = $1::uuid AND version = $6::bigint AND ($7::uuid IS NULL OR owner_member_id = $7::uuid) RETURNING ${contactSelection}`,
+          `UPDATE contacts.contacts AS contact SET display_name = $2, email = $3, phone = $4, version = version + 1, updated_at = $5 WHERE contact.id = $1::uuid AND contact.version = $6::bigint AND ${access.sql} RETURNING ${contactSelection}`,
           [
             input.contact.id,
             input.contact.displayName,
@@ -258,7 +302,7 @@ export function createCommercialPostgresRepositories(
             input.contact.phone,
             input.contact.updatedAt,
             input.expectedVersion.toString(),
-            input.actor.scope === "OWN" ? input.actor.memberId : null,
+            ...access.params,
           ],
         )) as { readonly rows: readonly ContactRow[] };
         const row = result.rows[0];
@@ -370,9 +414,10 @@ export function createCommercialPostgresRepositories(
     },
     listOpportunities: async (actor) => {
       try {
+        const access = visibility(actor, 1, ["opportunity.owner_member_id"]);
         const result = (await pool.query(
-          `SELECT id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at FROM sales.opportunities WHERE ($1::uuid IS NULL OR owner_member_id = $1::uuid) ORDER BY created_at DESC, id DESC`,
-          [actor.scope === "OWN" ? actor.memberId : null],
+          `SELECT id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at FROM sales.opportunities AS opportunity WHERE ${access.sql} ORDER BY opportunity.created_at DESC, opportunity.id DESC`,
+          access.params,
         )) as { readonly rows: readonly OpportunityRow[] };
         return Object.freeze(result.rows.map(opportunityFromRow));
       } catch (error) {
@@ -381,9 +426,10 @@ export function createCommercialPostgresRepositories(
     },
     findOpportunity: async (actor, id) => {
       try {
+        const access = visibility(actor, 2, ["opportunity.owner_member_id"]);
         const result = (await pool.query(
-          `SELECT id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at FROM sales.opportunities WHERE id = $1::uuid AND ($2::uuid IS NULL OR owner_member_id = $2::uuid)`,
-          [id, actor.scope === "OWN" ? actor.memberId : null],
+          `SELECT id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql}`,
+          [id, ...access.params],
         )) as { readonly rows: readonly OpportunityRow[] };
         const row = result.rows[0];
         return row ? opportunityFromRow(row) : null;
@@ -456,6 +502,7 @@ export function createCommercialPostgresRepositories(
     moveOpportunity: async (input) => {
       let client: PoolClient | undefined;
       try {
+        const access = visibility(input.actor, 5, ["opportunity.owner_member_id"]);
         client = await pool.connect();
         await client.query("BEGIN");
         const replay = await client.query<{
@@ -473,14 +520,8 @@ export function createCommercialPostgresRepositories(
           return opportunityFromRow(previous.response);
         }
         const result = await client.query<OpportunityRow>(
-          `UPDATE sales.opportunities SET stage_id = $2::uuid, version = version + 1, updated_at = $3 WHERE id = $1::uuid AND version = $4::bigint AND ($5::uuid IS NULL OR owner_member_id = $5::uuid) RETURNING id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at`,
-          [
-            input.id,
-            input.stageId,
-            input.now,
-            input.expectedVersion.toString(),
-            input.actor.scope === "OWN" ? input.actor.memberId : null,
-          ],
+          `UPDATE sales.opportunities AS opportunity SET stage_id = $2::uuid, version = version + 1, updated_at = $3 WHERE opportunity.id = $1::uuid AND opportunity.version = $4::bigint AND ${access.sql} RETURNING id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at`,
+          [input.id, input.stageId, input.now, input.expectedVersion.toString(), ...access.params],
         );
         const row = result.rows[0];
         if (!row) {
@@ -504,9 +545,13 @@ export function createCommercialPostgresRepositories(
   const tasks: TaskRepository = Object.freeze<TaskRepository>({
     list: async (actor) => {
       try {
+        const access = visibility(actor, 1, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
         const result = (await pool.query(
-          `SELECT ${taskSelection} FROM tasks.tasks WHERE ($1::uuid IS NULL OR created_by_member_id = $1::uuid OR assignee_member_id = $1::uuid) ORDER BY due_at NULLS LAST, id DESC`,
-          [actor.scope === "OWN" ? actor.memberId : null],
+          `SELECT ${taskSelection} FROM tasks.tasks AS task WHERE ${access.sql} ORDER BY task.due_at NULLS LAST, task.id DESC`,
+          access.params,
         )) as { readonly rows: readonly TaskRow[] };
         return Object.freeze(result.rows.map(taskFromRow));
       } catch (error) {
@@ -515,9 +560,13 @@ export function createCommercialPostgresRepositories(
     },
     find: async (actor, id) => {
       try {
+        const access = visibility(actor, 2, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
         const result = (await pool.query(
-          `SELECT ${taskSelection} FROM tasks.tasks WHERE id = $1::uuid AND ($2::uuid IS NULL OR created_by_member_id = $2::uuid OR assignee_member_id = $2::uuid)`,
-          [id, actor.scope === "OWN" ? actor.memberId : null],
+          `SELECT ${taskSelection} FROM tasks.tasks AS task WHERE task.id = $1::uuid AND ${access.sql}`,
+          [id, ...access.params],
         )) as { readonly rows: readonly TaskRow[] };
         const row = result.rows[0];
         return row ? taskFromRow(row) : null;
@@ -579,6 +628,10 @@ export function createCommercialPostgresRepositories(
     updateStatus: async (input) => {
       let client: PoolClient | undefined;
       try {
+        const access = visibility(input.actor, 5, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
         client = await pool.connect();
         await client.query("BEGIN");
         const replay = await client.query<{
@@ -596,13 +649,13 @@ export function createCommercialPostgresRepositories(
           return taskFromRow(previous.response);
         }
         const result = await client.query<TaskRow>(
-          `UPDATE tasks.tasks SET status = $2, version = version + 1, updated_at = $3 WHERE id = $1::uuid AND version = $4::bigint AND ($5::uuid IS NULL OR created_by_member_id = $5::uuid OR assignee_member_id = $5::uuid) RETURNING ${taskSelection}`,
+          `UPDATE tasks.tasks AS task SET status = $2, version = version + 1, updated_at = $3 WHERE task.id = $1::uuid AND task.version = $4::bigint AND ${access.sql} RETURNING ${taskSelection}`,
           [
             input.id,
             input.status.toLowerCase(),
             input.now,
             input.expectedVersion.toString(),
-            input.actor.scope === "OWN" ? input.actor.memberId : null,
+            ...access.params,
           ],
         );
         const row = result.rows[0];
