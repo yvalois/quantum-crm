@@ -215,10 +215,10 @@ Dependencias: Base de usuarios y sesión; establecer primero roles y alcance de 
   - [x] Guardar nombre y permisos.
   - [x] Aplicar cambios a usuarios vinculados.
 
-- [ ] **USR-05 — Configurar permisos por sección: consultar, crear, editar, eliminar y exportar.**
-  - [ ] Definir permisos de consulta, creación, edición, eliminación y exportación por sección.
-  - [ ] Aplicarlos en interfaz y servidor.
-  - [ ] Rechazar acciones directas por API sin permiso.
+- [x] **USR-05 — Configurar permisos por sección: consultar, crear, editar, eliminar y exportar.**
+  - [x] Definir permisos de consulta, creación, edición, eliminación y exportación por sección.
+  - [x] Aplicarlos en interfaz y servidor.
+  - [x] Rechazar acciones directas por API sin permiso.
 
 - [ ] **USR-06 — Definir si cada usuario puede ver todos los registros, los de su equipo o únicamente los asignados.**
   - [ ] Configurar alcance de todos, equipo o asignados.

@@ -14,3 +14,15 @@ ALTER TABLE iam.role_permissions ADD CONSTRAINT iam_role_permissions_permission_
 );
 
 REVOKE ALL ON TABLE iam.role_permissions FROM PUBLIC;
+
+INSERT INTO iam.role_permissions (role_id, permission)
+SELECT role.id, permission.code
+FROM iam.roles AS role
+CROSS JOIN (VALUES
+  ('iam:members:export'),
+  ('crm:contacts:delete'), ('crm:contacts:export'),
+  ('crm:sales:update'), ('crm:sales:delete'), ('crm:sales:export'),
+  ('crm:tasks:delete'), ('crm:tasks:export')
+) AS permission(code)
+WHERE role.code = 'ADMINISTRATOR'
+ON CONFLICT DO NOTHING;

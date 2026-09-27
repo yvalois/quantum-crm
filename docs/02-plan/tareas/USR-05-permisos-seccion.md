@@ -53,11 +53,11 @@ Cada sección CRM expone permisos explícitos para consultar, crear, editar, eli
 
 ## Criterios de aceptacion
 
-- [ ] Cada sección activa tiene consultar, crear, editar, eliminar y exportar explícitos.
-- [ ] La matriz de rol solo admite valores del catálogo.
-- [ ] Los controladores y servicios mantienen autorización servidor-side.
-- [ ] Una llamada directa sin permiso devuelve `403` y no ejecuta el caso de uso.
-- [ ] La UI agrupa y edita los permisos sin confiar en ella como barrera.
+- [x] Cada sección activa tiene consultar, crear, editar, eliminar y exportar explícitos.
+- [x] La matriz de rol solo admite valores del catálogo.
+- [x] Los controladores y servicios mantienen autorización server-side.
+- [x] Una llamada directa sin permiso devuelve `403` y no ejecuta el caso de uso.
+- [x] La UI agrupa y edita los permisos sin confiar en ella como barrera.
 
 ## Plan de verificacion
 
@@ -71,8 +71,8 @@ Cada sección CRM expone permisos explícitos para consultar, crear, editar, eli
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente de validación en VPS.
-- Documentacion actualizada: pendiente.
+- Archivos, commits o PR: rama `feat/USR-05-permisos-seccion`, commit candidato pendiente de documentación final.
+- Comandos y resultados: VPS aprobó Prettier afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, Prisma CRM validate/generate y 83 pruebas de autorización/IAM.
+- Documentacion actualizada: `funcionalidades.md`, `trabajo.md`, `estado.md` y esta ficha.
 - Desviaciones del plan: ninguna.
 - Pendientes o decisiones nuevas: ninguna.

@@ -8,7 +8,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 - Fase: preparacion del proyecto; construccion de la primera rebanada funcional del CRM.
 - Aplicacion implementada: acceso administrativo real desplegado; existe el bootstrap ejecutable de las ocho aplicaciones/procesos. `USR-01` esta EN_CURSO para sustituir el placeholder del CRM por el primer flujo comercial real.
-- Requisitos funcionales completados: `ADM-01`, `USR-03`, `USR-04`.
+- Requisitos funcionales completados: `ADM-01`, `USR-03`, `USR-04`, `USR-05`.
 - Requisitos operativos completados: ninguno acreditado.
 - Trabajo activo: perfil de cliente, ciclo de vida, aprovisionamiento, inventario de servidores, arquitectura operativa, persistencia aislada, validacion del VPS y acceso seguro (`ADM-02`, `ADM-03`, `ADM-04`, `ADM-05`, `OPS-01`, `OPS-02`, `OPS-04`, `OPS-23`). `PROY-024` fija que el desarrollo prioriza rebanadas verticales de producto y difiere los refinamientos globales hasta la fase 10 o su prerequisito real.
 
@@ -31,7 +31,6 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 | OPS-23 | Administrar secretos y acceso operativo             | Codex       | `chore/OPS-23-vps-access` (sin remoto configurado)                                                                    | 2026-09-19 | 2026-09-19           | [`OPS-23-a`](../02-plan/tareas/OPS-23-a-acceso-operativo-vps.md) aplicado: SSH solo por clave y usuario operativo; comprobar consola del proveedor, retirar fallback root y reducir privilegios antes del cierre de OPS-23                                                                                                                                                            |
 | USR-03 | Definir roles de administrador, supervisor y asesor  | Codex       | `main` (PR #43)                                                                                                      | 2026-09-22 | 2026-09-27           | [`USR-03-roles-iniciales`](../02-plan/tareas/USR-03-roles-iniciales.md) integrado en `main` mediante PR #43 (`724c2ed`); permisos efectivos, asignación dedicada y matriz CI aprobada. |
 
-| USR-05 | Configurar permisos por sección | Codex | `feat/USR-05-permisos-seccion` | 2026-09-27 | 2026-09-27 | [`USR-05-permisos-seccion`](../02-plan/tareas/USR-05-permisos-seccion.md) EN_CURSO: ampliar el catálogo de acciones y uniformar su matriz y autorización server-side sin duplicar el IAM de `USR-04`. |
 
 ## Bloqueado
 
@@ -95,6 +94,11 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Rama `feat/USR-04-roles-personalizados`, commit candidato `92c51c6`.
 - API, BFF y panel CRM permiten listar, crear y editar roles personalizados; la migración conserva los roles sistema y la edición incrementa la revisión de miembros vinculados.
 - En el VPS se aprobaron Prettier afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, validación/generación Prisma CRM y 19 pruebas IAM/contratos.
+
+## Evidencia de cierre de USR-05
+
+- Rama `feat/USR-05-permisos-seccion`; catálogo explícito por sección y acción, migración forward-only y matriz visual agrupada.
+- En el VPS se aprobaron Prettier afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, validación/generación Prisma CRM y 83 pruebas de autorización/IAM.
 
 Una fila activa se actualiza cuando cambia el estado o al finalizar una sesion de trabajo. Al cerrar, se elimina de `En curso`, se agrega a `Terminado` con evidencia y se actualizan las casillas correspondientes del checklist.
 
