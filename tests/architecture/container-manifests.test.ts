@@ -62,7 +62,9 @@ describe("container manifests", () => {
     expect(migrator).not.toContain(":latest");
 
     expect(crmMigrator).toContain(alpineNode);
+    expect(crmMigrator).toContain("FROM ${NODE_IMAGE} AS build");
     expect(crmMigrator).toContain("pnpm install --frozen-lockfile --prod=false");
+    expect(crmMigrator).toContain('pnpm deploy --filter "@quantum-crm/database" --prod /runtime');
     expect(crmMigrator).toContain('pnpm --filter "@quantum-crm/database..." build');
     expect(crmMigrator).toContain("apk del --no-network apk-tools zlib");
     expect(crmMigrator).toContain("USER node");
@@ -270,6 +272,17 @@ describe("container manifests", () => {
     for (const service of ["api", "worker", "crm-web", "portal-web", "agent-runtime"]) {
       expect(serviceBlock(tenant, service)).not.toContain("crm-migrator");
     }
+  });
+
+  it("keeps Keycloak runtime dependencies patched and outside the UBI base", () => {
+    const keycloak = read("infra/docker/Dockerfile.keycloak");
+
+    expect(keycloak).toContain("eclipse-temurin:21-jre-alpine@sha256:");
+    expect(keycloak).toContain("netty-handler:4.1.137.Final");
+    expect(keycloak).toContain("bcprov-jdk18on:1.85");
+    expect(keycloak).toContain("FROM ${RUNTIME_IMAGE}");
+    expect(keycloak).toContain("USER 1000:1000");
+    expect(keycloak).not.toContain("FROM ${KEYCLOAK_IMAGE}\nCOPY --from=builder");
   });
 
   it("mounts platform web session secrets only in admin-web", () => {

@@ -45,4 +45,13 @@ describe("member contracts", () => {
     ).toBe(false);
     expect(AcceptInvitationResponseSchema.shape.data.shape.status).toBeDefined();
   });
+
+  it("keeps invitation acceptance identity-free at the HTTP boundary", () => {
+    const invitationId = "01995f7e-7b52-7000-8000-000000000202";
+    expect(AcceptInvitationParamsSchema.parse({ invitationId })).toEqual({ invitationId });
+    expect(
+      AcceptInvitationParamsSchema.safeParse({ invitationId, oidcSubject: "forged" }).success,
+    ).toBe(false);
+    expect(AcceptInvitationResponseSchema.shape.data.shape.status).toBeDefined();
+  });
 });
