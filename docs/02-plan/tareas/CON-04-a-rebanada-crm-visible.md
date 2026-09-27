@@ -11,7 +11,7 @@
 - Responsable: Codex; roles coordinados de orquestacion, desarrollo y testeo conforme a `PROY-024`.
 - Dependencias: release admisible, perfil aislado, `iam` y BFF CRM existentes; `ADM-04-j`, `USR-01` y `USR-03` siguen abiertos.
 - Bloquea a: recorrido comercial visible y las extensiones de contactos, ventas y tareas.
-- ADR, arquitectura o diseno aplicables: `ADR-0002` a `ADR-0009`, `ADR-0014`, `ADR-0016` a `ADR-0018`, `ADR-0021`, `monorepo.md`, `mapa-del-sistema.md` y `frontends-experiencia-visual.md`.
+- ADR, arquitectura o diseno aplicables: `ADR-0002` a `ADR-0009`, `ADR-0014`, `ADR-0016` a `ADR-0018`, `ADR-0021`, `ADR-0022`, `monorepo.md`, `mapa-del-sistema.md` y `frontends-experiencia-visual.md`.
 
 ## Resultado esperado
 
@@ -35,12 +35,12 @@ Un perfil de desarrollo aislado puede iniciar con su administrador inicial y usa
 
 ### Incluido
 
-- Completar el camino tipado de perfil de desarrollo necesario: migrar la historia CRM, crear el administrador inicial de forma idempotente, entregar su activacion por el canal autorizado de un solo uso y activar solo despues de verificar.
+- Completar el camino tipado de perfil de desarrollo necesario: migrar la historia CRM, crear el administrador inicial de forma idempotente, entregar su activacion por el componente interno autorizado de un solo uso y activar solo despues de verificar. SMTP queda como adaptador posterior, no como requisito de este hito.
 - Extender el catalogo `iam` con permisos tipados para contactos, ventas y tareas; conservar denegacion por defecto y revision de autorizacion.
 - Implementar los modulos propietarios `contacts`, `sales` y `tasks` con contratos Zod, migraciones forward-only, API protegida, BFF explicito y pantallas CRM reales.
-- Contacto: crear, editar, listar y ver detalle basico.
-- Ventas: pipeline, etapas ordenadas, oportunidad asociada a contacto, valor/moneda y movimiento validado de etapa.
-- Tareas: crear y asignar tarea vinculada a contacto u oportunidad con titulo, descripcion, prioridad, vencimiento y estado.
+- Contacto: crear, editar, listar y ver detalle basico; nombre obligatorio y correo o telefono opcionales.
+- Ventas: pipeline, etapas ordenadas, oportunidad asociada a contacto, valor no negativo en unidades menores con moneda ISO y movimiento validado de etapa.
+- Tareas: crear y asignar tarea vinculada a contacto u oportunidad con titulo, descripcion, prioridad, vencimiento con fecha-hora y zona, y estado. El asignado debe ser un miembro activo.
 - Sustituir la navegacion inerte por rutas reales de Equipo, Contactos, Pipeline y Tareas, segun la referencia de Stitch.
 
 ### No incluido
