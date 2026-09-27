@@ -3,8 +3,7 @@ import { resolve, sep } from "node:path";
 
 import { tenantOidcIdentity } from "@quantum-crm/platform-domain";
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const subjectPattern = /^[!-~]{1,255}$/u;
 
 export class TenantIamInvitationAcceptanceError extends Error {

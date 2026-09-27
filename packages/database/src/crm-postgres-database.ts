@@ -134,6 +134,7 @@ function invitationActivationFromRow(row: IamInvitationRow): IamInvitationActiva
   const generation = row.activation_generation;
   if (
     !row.activation_subject ||
+    typeof generation !== "number" ||
     !Number.isInteger(generation) ||
     generation < 1 ||
     !row.activation_issued_at ||
