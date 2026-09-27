@@ -460,7 +460,11 @@ export function MembersPanel(): React.JSX.Element {
                 <li key={role.id} className="member-row">
                   <div className="member-details">
                     <strong>{role.displayName}</strong>
-                    <span>{role.system ? "Plantilla del sistema" : `${role.permissions.length} permisos`}</span>
+                    <span>
+                      {role.system
+                        ? "Plantilla del sistema"
+                        : `${role.permissions.length} permisos`}
+                    </span>
                   </div>
                   {!role.system ? (
                     <button type="button" onClick={() => beginEditingRole(role)} disabled={saving}>
