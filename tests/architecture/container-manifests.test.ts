@@ -68,6 +68,11 @@ describe("container manifests", () => {
     expect(crmMigrator).toContain('pnpm --filter "@quantum-crm/database..." build');
     expect(crmMigrator).toContain("apk del --no-network apk-tools zlib");
     expect(crmMigrator).toContain("USER node");
+
+    const keycloak = read("infra/docker/Dockerfile.keycloak");
+    expect(keycloak).toContain("netty-handler-4.1.137.Final.jar");
+    expect(keycloak).toContain("bcprov-jdk18on-1.85.jar");
+    expect(keycloak).toContain("apk del --no-network apk-tools zlib");
   });
 
   it("builds workspace dependencies before each application image", () => {
