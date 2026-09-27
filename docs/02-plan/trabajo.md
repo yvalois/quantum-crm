@@ -210,10 +210,10 @@ Dependencias: Base de usuarios y sesión; establecer primero roles y alcance de 
   - [ ] Definir explícitamente sus permisos.
   - [ ] Asignar roles a usuarios.
 
-- [ ] **USR-04 — Crear roles personalizados.**
-  - [ ] Crear roles a partir de una matriz editable.
-  - [ ] Guardar nombre y permisos.
-  - [ ] Aplicar cambios a usuarios vinculados.
+- [x] **USR-04 — Crear roles personalizados.**
+  - [x] Crear roles a partir de una matriz editable.
+  - [x] Guardar nombre y permisos.
+  - [x] Aplicar cambios a usuarios vinculados.
 
 - [ ] **USR-05 — Configurar permisos por sección: consultar, crear, editar, eliminar y exportar.**
   - [ ] Definir permisos de consulta, creación, edición, eliminación y exportación por sección.

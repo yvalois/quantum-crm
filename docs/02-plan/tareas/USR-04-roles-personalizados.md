@@ -53,12 +53,12 @@ Un administrador autorizado puede listar, crear y editar roles personalizados co
 
 ## Criterios de aceptacion
 
-- [ ] Se puede crear un rol personalizado con nombre y permisos del catálogo.
-- [ ] No se pueden incluir permisos desconocidos ni modificar roles sistema.
-- [ ] Listar y editar roles exige `iam:members:roles`.
-- [ ] Invitar o editar un miembro admite una referencia de rol válida.
-- [ ] La edición de un rol se refleja en la autorización de los miembros vinculados.
-- [ ] La migración es forward-only y conserva los tres roles iniciales.
+- [x] Se puede crear un rol personalizado con nombre y permisos del catálogo.
+- [x] No se pueden incluir permisos desconocidos ni modificar roles sistema.
+- [x] Listar y editar roles exige `iam:members:roles`.
+- [x] Invitar o editar un miembro admite una referencia de rol válida.
+- [x] La edición de un rol se refleja en la autorización de los miembros vinculados.
+- [x] La migración es forward-only y conserva los tres roles iniciales.
 
 ## Plan de verificacion
 
@@ -78,8 +78,8 @@ Un administrador autorizado puede listar, crear y editar roles personalizados co
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente de validación en VPS.
-- Documentacion actualizada: pendiente.
+- Archivos, commits o PR: rama `feat/USR-04-roles-personalizados`, commit candidato `92c51c6`.
+- Comandos y resultados: VPS aprobó Prettier afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, Prisma CRM validate/generate y 19 pruebas IAM/contratos.
+- Documentacion actualizada: `funcionalidades.md`, `trabajo.md`, `estado.md` y esta ficha.
 - Desviaciones del plan: ninguna.
 - Pendientes o decisiones nuevas: ninguna.
