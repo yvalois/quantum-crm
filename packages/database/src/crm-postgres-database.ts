@@ -124,7 +124,7 @@ function memberStatus(value: string): IamMember["status"] {
   throw new DatabaseUnavailableError();
 }
 
-function commercialScope(value: string | undefined): IamMember["commercialScope"] {
+function commercialScope(value: string | undefined): "PROFILE" | "TEAM" | "ASSIGNED" {
   const scope = (value ?? "assigned").toUpperCase();
   if (scope === "PROFILE" || scope === "TEAM" || scope === "ASSIGNED") return scope;
   throw new DatabaseUnavailableError();
@@ -922,7 +922,7 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
             readonly status: string;
             readonly authorization_revision: string;
             readonly permissions: readonly string[];
-            readonly commercial_scope: "profile" | "team" | "assigned";
+            readonly commercial_scope?: "profile" | "team" | "assigned";
           }[];
         };
         const row = result.rows[0];
@@ -933,7 +933,7 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
           status: memberStatus(row.status),
           permissions: Object.freeze([...row.permissions]),
           authorizationRevision: BigInt(row.authorization_revision),
-          commercialScope: row.commercial_scope.toUpperCase() as "PROFILE" | "TEAM" | "ASSIGNED",
+          commercialScope: commercialScope(row.commercial_scope),
         });
       } catch {
         throw new DatabaseUnavailableError();

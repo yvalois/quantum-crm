@@ -243,8 +243,9 @@ describe("IAM member service", () => {
   });
 
   it("updates commercial scope through the IAM repository and returns its new revision", async () => {
+    const targetMemberId = "01995f7e-7b52-7000-8000-000000000203";
     const member = Object.freeze({
-      id: actorId,
+      id: targetMemberId,
       oidcSubject: "keycloak-crm-user",
       displayName: "Ana Pérez",
       email: "ana@example.test",
@@ -276,13 +277,14 @@ describe("IAM member service", () => {
     };
     const result = await new IamMemberService(repository, () => now).updateProfile({
       actor: { memberId: actorId, permissions: ["iam:members:update", "iam:members:roles"] },
-      memberId: actorId,
+      memberId: targetMemberId,
       commercialScope: "TEAM",
+      expectedAuthorizationRevision: 2n,
     });
     expect(result.commercialScope).toBe("TEAM");
     expect(result.authorizationRevision).toBe(3n);
     expect(updateCommercialScope).toHaveBeenCalledWith({
-      memberId: actorId,
+      memberId: targetMemberId,
       scope: "TEAM",
       now,
       expectedAuthorizationRevision: 2n,
@@ -321,6 +323,14 @@ describe("IAM member service", () => {
     await expect(
       new IamMemberService(repository, () => now).updateProfile({
         actor: { memberId: actorId, permissions: ["iam:members:update"] },
+        memberId: actorId,
+        commercialScope: "PROFILE",
+        expectedAuthorizationRevision: 2n,
+      }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+    await expect(
+      new IamMemberService(repository, () => now).updateProfile({
+        actor: { memberId: actorId, permissions: ["iam:members:update", "iam:members:roles"] },
         memberId: actorId,
         commercialScope: "PROFILE",
         expectedAuthorizationRevision: 2n,

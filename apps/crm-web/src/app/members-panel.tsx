@@ -216,24 +216,32 @@ export function MembersPanel(): React.JSX.Element {
   const saveMember = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (!csrfToken || !editingMember) return;
+    const scopeChanged = editCommercialScope !== editingMember.commercialScope;
+    const profileChanged =
+      editDisplayName !== editingMember.displayName || editEmail !== editingMember.email;
+    if (scopeChanged && profileChanged) {
+      setError("Guarda el nombre/correo y el alcance en operaciones separadas.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setNotice(null);
     try {
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+        "x-csrf-token": csrfToken,
+      };
+      if (scopeChanged) headers["if-match"] = `"${editingMember.authorizationRevision}"`;
       const response = await fetch(`/api/members/${editingMember.id}`, {
         method: "PATCH",
         cache: "no-store",
         credentials: "same-origin",
-        headers: {
-          "content-type": "application/json",
-          "x-csrf-token": csrfToken,
-          "if-match": `"${editingMember.authorizationRevision}"`,
-        },
-        body: JSON.stringify({
-          displayName: editDisplayName,
-          email: editEmail,
-          commercialScope: editCommercialScope,
-        }),
+        headers,
+        body: JSON.stringify(
+          scopeChanged
+            ? { commercialScope: editCommercialScope }
+            : { displayName: editDisplayName, email: editEmail },
+        ),
       });
       if (!response.ok) throw new Error(await responseMessage(response));
       setEditingMember(null);

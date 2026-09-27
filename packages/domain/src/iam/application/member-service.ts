@@ -157,6 +157,15 @@ export class IamMemberService {
     }
     if (input.roleCode !== undefined) requirePermission(input.actor, "iam:members:roles");
     if (input.commercialScope !== undefined) requirePermission(input.actor, "iam:members:roles");
+    if (input.commercialScope !== undefined && input.actor.memberId === input.memberId) {
+      throw new IamAuthorizationError();
+    }
+    if (
+      input.commercialScope !== undefined &&
+      (input.displayName !== undefined || input.email !== undefined || input.roleCode !== undefined)
+    ) {
+      throw new IamMemberValidationError();
+    }
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
     let updated = current;

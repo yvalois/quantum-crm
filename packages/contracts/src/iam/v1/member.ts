@@ -123,6 +123,14 @@ export const UpdateMemberSchema = z
       value.roleCode !== undefined ||
       value.commercialScope !== undefined,
     { message: "At least one member field is required" },
+  )
+  .refine(
+    (value) =>
+      value.commercialScope === undefined ||
+      (value.displayName === undefined &&
+        value.email === undefined &&
+        value.roleCode === undefined),
+    { message: "Commercial scope must be updated separately" },
   );
 
 export const InvitationSchema = z.object({

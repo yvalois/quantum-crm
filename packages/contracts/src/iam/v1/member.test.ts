@@ -39,6 +39,9 @@ describe("member contracts", () => {
       commercialScope: "TEAM",
     });
     expect(() => UpdateMemberSchema.parse({ commercialScope: "ALL" })).toThrow();
+    expect(() =>
+      UpdateMemberSchema.parse({ displayName: "Ana", commercialScope: "TEAM" }),
+    ).toThrow();
   });
 
   it("keeps invitation acceptance identity-free at the HTTP boundary", () => {
