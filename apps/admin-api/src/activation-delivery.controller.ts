@@ -26,7 +26,11 @@ import {
 } from "@quantum-crm/platform-domain";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { PublicRoute, platformAuthContext, RequirePlatformPermission } from "./platform-security.js";
+import {
+  PublicRoute,
+  platformAuthContext,
+  RequirePlatformPermission,
+} from "./platform-security.js";
 
 export const ACTIVATION_DELIVERY_REPOSITORY = Symbol("ACTIVATION_DELIVERY_REPOSITORY");
 export const ACTIVATION_DELIVERY_CALLBACK_CONFIG = Symbol("ACTIVATION_DELIVERY_CALLBACK_CONFIG");
@@ -156,7 +160,8 @@ export class ActivationDeliveryController {
       throw new BadRequestException();
     }
     const administrator = await this.deliveries.findInitialAdministrator(tenantProfileId);
-    if (!administrator?.subject || administrator.status === "CONSUMED") throw new ConflictException();
+    if (!administrator?.subject || administrator.status === "CONSUMED")
+      throw new ConflictException();
     const generation = administrator.generation + 1;
     const key = {
       correlationId: auth.correlationId,
@@ -173,7 +178,13 @@ export class ActivationDeliveryController {
         expectedTenantVersion: expectedVersion(ifMatch),
         idempotencyKey: idempotencyKey(rawIdempotencyKey),
         payloadHash: createHash("sha256")
-          .update(JSON.stringify({ tenantProfileId, administratorSubject: administrator.subject, generation }))
+          .update(
+            JSON.stringify({
+              tenantProfileId,
+              administratorSubject: administrator.subject,
+              generation,
+            }),
+          )
           .digest("hex"),
         correlationId: auth.correlationId,
         now: new Date(),

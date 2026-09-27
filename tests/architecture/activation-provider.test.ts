@@ -8,9 +8,15 @@ const read = (path: string): string => readFileSync(join(root, path), "utf8");
 
 describe("Keycloak activation provider", () => {
   it("records consumption only in the final action after password and TOTP", () => {
-    const handler = read("infra/keycloak/activation-provider/src/main/java/com/quantumcrm/keycloak/activation/QuantumActivationActionTokenHandler.java");
-    const resource = read("infra/keycloak/activation-provider/src/main/java/com/quantumcrm/keycloak/activation/QuantumActivationResourceProvider.java");
-    const completion = read("infra/keycloak/activation-provider/src/main/java/com/quantumcrm/keycloak/activation/QuantumActivationCompletionRequiredAction.java");
+    const handler = read(
+      "infra/keycloak/activation-provider/src/main/java/com/quantumcrm/keycloak/activation/QuantumActivationActionTokenHandler.java",
+    );
+    const resource = read(
+      "infra/keycloak/activation-provider/src/main/java/com/quantumcrm/keycloak/activation/QuantumActivationResourceProvider.java",
+    );
+    const completion = read(
+      "infra/keycloak/activation-provider/src/main/java/com/quantumcrm/keycloak/activation/QuantumActivationCompletionRequiredAction.java",
+    );
 
     expect(handler).toContain("AUTH_NOTE_JTI");
     expect(handler).not.toContain('"status", "consumed"');
@@ -24,7 +30,9 @@ describe("Keycloak activation provider", () => {
   });
 
   it("registers the completion action as a Keycloak provider and tenant required action", () => {
-    const service = read("infra/keycloak/activation-provider/src/main/resources/META-INF/services/org.keycloak.authentication.RequiredActionFactory");
+    const service = read(
+      "infra/keycloak/activation-provider/src/main/resources/META-INF/services/org.keycloak.authentication.RequiredActionFactory",
+    );
     const provisioner = read("apps/deploy-executor/src/tenant-identity-provisioner.ts");
 
     expect(service).toContain("QuantumActivationCompletionRequiredAction");

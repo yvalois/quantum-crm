@@ -4,9 +4,9 @@ import { createAdminApiActivationDeliveryCallback } from "./admin-api-activation
 
 describe("admin API activation callback", () => {
   it("uses the fixed callback outside the tenant-profile route", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ accepted: false }), { status: 202 }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ accepted: false }), { status: 202 }));
     try {
       await createAdminApiActivationDeliveryCallback({
         origin: "http://admin-api:3002",

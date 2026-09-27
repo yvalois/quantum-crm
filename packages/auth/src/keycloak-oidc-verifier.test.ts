@@ -110,7 +110,8 @@ describe("Keycloak OIDC access token verifier", () => {
       await token({
         principalType: "service",
         authorizedParty: "quantum-crm-bootstrap",
-        scope: "openid iam:bootstrap-initial-administrator iam:members:create unknown:service-permission",
+        scope:
+          "openid iam:bootstrap-initial-administrator iam:members:create unknown:service-permission",
       }),
     );
 

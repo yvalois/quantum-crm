@@ -36,7 +36,9 @@ const candidate = {
 
 describe("platform release HTTP contract", () => {
   it("accepts the complete contract-driven candidate", () => {
-    expect(CreatePlatformReleaseSchema.parse(candidate).artifacts).toHaveLength(PlatformReleaseArtifactNames.length);
+    expect(CreatePlatformReleaseSchema.parse(candidate).artifacts).toHaveLength(
+      PlatformReleaseArtifactNames.length,
+    );
   });
 
   it("rejects duplicate artifacts and mutable tags", () => {

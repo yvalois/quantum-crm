@@ -19,7 +19,10 @@ import {
   type ActivationDeliveryCallbackConfig,
 } from "./activation-delivery.controller.js";
 import { ReleaseCandidatePublisherController } from "./release-candidate-publisher.controller.js";
-import { PLATFORM_FOUNDATION_PROMOTION_REPOSITORY, PlatformFoundationPromotionsController } from "./platform-foundation-promotions.controller.js";
+import {
+  PLATFORM_FOUNDATION_PROMOTION_REPOSITORY,
+  PlatformFoundationPromotionsController,
+} from "./platform-foundation-promotions.controller.js";
 import { OperatorsController } from "./operators.controller.js";
 import {
   PLATFORM_AUTH_POLICY,
@@ -71,7 +74,10 @@ export class AppModule {
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
         { provide: ACTIVATION_DELIVERY_REPOSITORY, useValue: database.activationDeliveries },
-        { provide: PLATFORM_FOUNDATION_PROMOTION_REPOSITORY, useValue: database.platformFoundationPromotions },
+        {
+          provide: PLATFORM_FOUNDATION_PROMOTION_REPOSITORY,
+          useValue: database.platformFoundationPromotions,
+        },
         { provide: ACTIVATION_DELIVERY_CALLBACK_CONFIG, useValue: activationDeliveryCallback },
         ActivationDeliveryWaiters,
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: oidcAccessTokenVerifier },

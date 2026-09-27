@@ -37,8 +37,24 @@ describe("tenant provisioning operation", () => {
   });
 
   it("fences a per-tenant CRM migration completion with operation lease identity", () => {
-    expect(validateCompleteProvisioningMigration({ operationId: "01995f7e-7b52-7000-8000-000000000401", tenantProfileId: command.tenantProfileId, workerId: "deploy-executor:test", expectedVersion: 2n, attempt: 1 })).toMatchObject({ expectedVersion: 2n, attempt: 1 });
-    expect(() => validateCompleteProvisioningMigration({ operationId: "invalid", tenantProfileId: command.tenantProfileId, workerId: "deploy-executor:test", expectedVersion: 2n, attempt: 1 })).toThrow(ProvisioningOperationValidationError);
+    expect(
+      validateCompleteProvisioningMigration({
+        operationId: "01995f7e-7b52-7000-8000-000000000401",
+        tenantProfileId: command.tenantProfileId,
+        workerId: "deploy-executor:test",
+        expectedVersion: 2n,
+        attempt: 1,
+      }),
+    ).toMatchObject({ expectedVersion: 2n, attempt: 1 });
+    expect(() =>
+      validateCompleteProvisioningMigration({
+        operationId: "invalid",
+        tenantProfileId: command.tenantProfileId,
+        workerId: "deploy-executor:test",
+        expectedVersion: 2n,
+        attempt: 1,
+      }),
+    ).toThrow(ProvisioningOperationValidationError);
   });
   it("creates a closed pending operation draft", () => {
     expect(createProvisioningOperationDraft(command)).toEqual({

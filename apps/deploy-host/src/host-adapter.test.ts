@@ -147,8 +147,16 @@ describe("deploy host adapter", () => {
     await adapter.listen();
     try {
       const names = [
-        "CRM_WEB", "PORTAL_WEB", "ADMIN_WEB", "API", "ADMIN_API", "WORKER",
-        "DEPLOY_EXECUTOR", "CRM_MIGRATOR", "PLATFORM_KEYCLOAK", "AGENT_RUNTIME",
+        "CRM_WEB",
+        "PORTAL_WEB",
+        "ADMIN_WEB",
+        "API",
+        "ADMIN_API",
+        "WORKER",
+        "DEPLOY_EXECUTOR",
+        "CRM_MIGRATOR",
+        "PLATFORM_KEYCLOAK",
+        "AGENT_RUNTIME",
       ];
       const response = await requestOverSocket(
         socketPath,

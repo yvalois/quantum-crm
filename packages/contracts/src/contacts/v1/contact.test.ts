@@ -14,6 +14,8 @@ describe("contact update contract", () => {
   it("keeps update validation strict for malformed channels and unknown fields", () => {
     expect(UpdateContactSchema.safeParse({ email: "not-an-email" }).success).toBe(false);
     expect(UpdateContactSchema.safeParse({ phone: "  " }).success).toBe(false);
-    expect(UpdateContactSchema.safeParse({ email: null, ownerMemberId: "ignored" }).success).toBe(false);
+    expect(UpdateContactSchema.safeParse({ email: null, ownerMemberId: "ignored" }).success).toBe(
+      false,
+    );
   });
 });

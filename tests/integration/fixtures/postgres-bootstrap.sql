@@ -8,6 +8,7 @@ CREATE ROLE qcrm_test_b_migrator LOGIN PASSWORD 'test-only-migrator-b' NOSUPERUS
 CREATE ROLE qcrm_test_b_runtime LOGIN PASSWORD 'test-only-tenant-b' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
 CREATE ROLE qcrm_test_platform_migrator LOGIN PASSWORD 'test-only-migrator-platform' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
 CREATE ROLE qcrm_test_platform_runtime LOGIN PASSWORD 'test-only-platform' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+CREATE ROLE qcrm_platform_runtime NOLOGIN;
 
 CREATE DATABASE qcrm_test_a OWNER qcrm_test_a_migrator;
 CREATE DATABASE qcrm_test_b OWNER qcrm_test_b_migrator;

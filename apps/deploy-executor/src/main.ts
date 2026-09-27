@@ -89,7 +89,8 @@ async function bootstrap(): Promise<void> {
   const initialAdministratorProvisioner = createTenantInitialAdministratorProvisioner({
     keycloakAdminOrigin: config.identityProvisioner.keycloakAdminOrigin,
     keycloakProvisionerClientId: "quantum-provisioner",
-    keycloakProvisionerClientSecret: config.identityProvisioner.keycloakProvisionerClientSecret.expose(),
+    keycloakProvisionerClientSecret:
+      config.identityProvisioner.keycloakProvisionerClientSecret.expose(),
   });
   const activationDeliveryExecutor = new ActivationDeliveryExecutor(
     database.activationDeliveries,

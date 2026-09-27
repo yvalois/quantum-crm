@@ -234,7 +234,9 @@ export function parseProcessConfig(
     ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
     ...(definition.requiresIdentityProvisioner ? identityProvisionerEnvironmentKeys : []),
-    ...(definition.requiresActivationDeliveryCallback ? activationDeliveryCallbackEnvironmentKeys : []),
+    ...(definition.requiresActivationDeliveryCallback
+      ? activationDeliveryCallbackEnvironmentKeys
+      : []),
     ...(definition.requiresDeployHostSocket ? [deployHostSocketEnvironmentKey] : []),
     ...(definition.requiresDeployHostComposeRuntime
       ? [
@@ -465,8 +467,10 @@ export function parseProcessConfig(
     : undefined;
   const iamBootstrapClientId = definition.requiresIamBootstrapClient
     ? environment.QCRM_IAM_BOOTSTRAP_CLIENT_ID === "quantum-crm-bootstrap"
-      ? "quantum-crm-bootstrap" as const
-      : (() => { throw new ConfigurationError(definition.serviceName, [iamBootstrapClientEnvironmentKey]); })()
+      ? ("quantum-crm-bootstrap" as const)
+      : (() => {
+          throw new ConfigurationError(definition.serviceName, [iamBootstrapClientEnvironmentKey]);
+        })()
     : undefined;
 
   return Object.freeze({

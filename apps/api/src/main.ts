@@ -20,12 +20,17 @@ async function bootstrap(): Promise<void> {
   try {
     await database.connect();
     application = await NestFactory.create(
-      AppModule.register(database, verifier, {
-        tenantId: databaseConfig.tenantId!,
-        issuer: oidcConfig.issuer,
-        audience: oidcConfig.audience,
-        allowedPermissions: iamPermissions,
-      }, config.iamBootstrapClientId!),
+      AppModule.register(
+        database,
+        verifier,
+        {
+          tenantId: databaseConfig.tenantId!,
+          issuer: oidcConfig.issuer,
+          audience: oidcConfig.audience,
+          allowedPermissions: iamPermissions,
+        },
+        config.iamBootstrapClientId!,
+      ),
       {
         abortOnError: true,
         bufferLogs: true,

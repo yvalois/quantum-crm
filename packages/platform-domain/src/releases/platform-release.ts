@@ -94,9 +94,7 @@ function artifacts(
     throw new PlatformReleaseValidationError("artifacts");
   }
   return Object.freeze(
-    expectedNames.map((name) =>
-      Object.freeze({ name, digest: byName.get(name) as string }),
-    ),
+    expectedNames.map((name) => Object.freeze({ name, digest: byName.get(name) as string })),
   );
 }
 

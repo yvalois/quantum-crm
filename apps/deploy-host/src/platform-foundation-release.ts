@@ -53,9 +53,7 @@ export function createPlatformFoundationReleaseDeployer(
         PlatformReleaseArtifactNames.some(
           (name) => !command.artifacts.some((artifact) => artifact.name === name),
         ) ||
-        command.artifacts.some(
-          (artifact) => !digestPattern.test(artifact.digest),
-        )
+        command.artifacts.some((artifact) => !digestPattern.test(artifact.digest))
       ) {
         throw new HostAdapterError("IDENTITY_MISMATCH");
       }

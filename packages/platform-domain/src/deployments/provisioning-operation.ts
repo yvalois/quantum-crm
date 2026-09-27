@@ -327,10 +327,8 @@ export interface CompleteProvisioningInitialAdministratorCommand {
   readonly attempt: number;
 }
 
-export interface CompleteProvisioningVerificationCommand
-  extends CompleteProvisioningInitialAdministratorCommand {}
-export interface CompleteProvisioningActivationCommand
-  extends CompleteProvisioningInitialAdministratorCommand {}
+export interface CompleteProvisioningVerificationCommand extends CompleteProvisioningInitialAdministratorCommand {}
+export interface CompleteProvisioningActivationCommand extends CompleteProvisioningInitialAdministratorCommand {}
 
 export interface TenantStorageProvisioningCommand {
   readonly tenantProfileId: string;
@@ -515,9 +513,11 @@ function validateFinalProvisioningStep(
 ): CompleteProvisioningInitialAdministratorCommand {
   uuid("operationId", input.operationId);
   uuid("tenantProfileId", input.tenantProfileId);
-  if (!workerIdPattern.test(input.workerId)) throw new ProvisioningOperationValidationError("workerId");
+  if (!workerIdPattern.test(input.workerId))
+    throw new ProvisioningOperationValidationError("workerId");
   if (input.expectedVersion < 1n) throw new ProvisioningOperationValidationError("expectedVersion");
-  if (!Number.isInteger(input.attempt) || input.attempt < 1) throw new ProvisioningOperationValidationError("attempt");
+  if (!Number.isInteger(input.attempt) || input.attempt < 1)
+    throw new ProvisioningOperationValidationError("attempt");
   return Object.freeze({ ...input });
 }
 
@@ -864,10 +864,13 @@ export function validateCompleteProvisioningMigration(
 ): CompleteProvisioningMigrationCommand {
   uuid("operationId", input.operationId);
   uuid("tenantProfileId", input.tenantProfileId);
-  if (!workerIdPattern.test(input.workerId)) throw new ProvisioningOperationValidationError("workerId");
+  if (!workerIdPattern.test(input.workerId))
+    throw new ProvisioningOperationValidationError("workerId");
   if (input.expectedVersion < 1n) throw new ProvisioningOperationValidationError("expectedVersion");
-  if (!Number.isInteger(input.attempt) || input.attempt < 1) throw new ProvisioningOperationValidationError("attempt");
-  if (input.failureCode && !provisioningValidationFailureCodes.includes(input.failureCode)) throw new ProvisioningOperationValidationError("failureCode");
+  if (!Number.isInteger(input.attempt) || input.attempt < 1)
+    throw new ProvisioningOperationValidationError("attempt");
+  if (input.failureCode && !provisioningValidationFailureCodes.includes(input.failureCode))
+    throw new ProvisioningOperationValidationError("failureCode");
   return Object.freeze({ ...input });
 }
 

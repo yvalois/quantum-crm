@@ -1,4 +1,13 @@
-import { Body, ConflictException, Controller, Headers, HttpCode, Inject, Post, UnauthorizedException } from "@nestjs/common";
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Headers,
+  HttpCode,
+  Inject,
+  Post,
+  UnauthorizedException,
+} from "@nestjs/common";
 import {
   BootstrapInitialAdministratorResponseSchema,
   BootstrapInitialAdministratorSchema,

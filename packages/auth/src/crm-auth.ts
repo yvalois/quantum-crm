@@ -72,7 +72,9 @@ function normalizePermissions(
     allowed.size !== allowedPermissions.length ||
     allowedPermissions.some((permission) => !CrmPermissionSchema.safeParse(permission).success) ||
     permissions.some(
-      (permission) => !CrmPermissionSchema.safeParse(permission).success || !allowed.has(permission as CrmPermission),
+      (permission) =>
+        !CrmPermissionSchema.safeParse(permission).success ||
+        !allowed.has(permission as CrmPermission),
     )
   ) {
     throw new CrmAuthenticationError("MEMBERSHIP_REJECTED");
@@ -146,7 +148,10 @@ export async function authenticateCrmMember(input: {
   });
 }
 
-export function requireCrmPermission(context: CrmAuthContext, requiredPermission: CrmPermission): void {
+export function requireCrmPermission(
+  context: CrmAuthContext,
+  requiredPermission: CrmPermission,
+): void {
   if (
     context.boundary !== "crm" ||
     !CrmPermissionSchema.safeParse(requiredPermission).success ||

@@ -27,7 +27,11 @@ describe("platform foundation release deployer", () => {
       ],
     });
     expect(run).toHaveBeenCalledWith(
-      expect.arrayContaining(["--env-file", "/etc/quantum/platform-foundation.env", "platform-keycloak"]),
+      expect.arrayContaining([
+        "--env-file",
+        "/etc/quantum/platform-foundation.env",
+        "platform-keycloak",
+      ]),
       expect.objectContaining({ QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST: "a".repeat(64) }),
       expect.any(Number),
     );

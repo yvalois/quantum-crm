@@ -18,7 +18,10 @@ describe("activation delivery waiters", () => {
     const waiters = new ActivationDeliveryWaiters();
     const pending = waiters.wait(key, 1_000);
     expect(
-      waiters.deliver({ ...key, operatorId: "01995f7e-7b52-7000-8000-000000000102" }, "https://identity.example.test/action"),
+      waiters.deliver(
+        { ...key, operatorId: "01995f7e-7b52-7000-8000-000000000102" },
+        "https://identity.example.test/action",
+      ),
     ).toBe(false);
     expect(waiters.deliver(key, "https://identity.example.test/action")).toBe(true);
     await expect(pending).resolves.toBe("https://identity.example.test/action");

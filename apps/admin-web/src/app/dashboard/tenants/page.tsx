@@ -203,17 +203,20 @@ export default function TenantProfilesPage() {
       });
       if (!current.ok) throw new Error(await errorTitle(current));
       const csrf = await csrfToken();
-      const response = await fetch(`/api/platform/tenant-profiles/${profile.id}/activation-deliveries`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-csrf-token": csrf,
-          "if-match": current.headers.get("etag") ?? "",
-          "idempotency-key": `activation-${crypto.randomUUID()}`,
+      const response = await fetch(
+        `/api/platform/tenant-profiles/${profile.id}/activation-deliveries`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrf,
+            "if-match": current.headers.get("etag") ?? "",
+            "idempotency-key": `activation-${crypto.randomUUID()}`,
+          },
+          body: "{}",
+          cache: "no-store",
         },
-        body: "{}",
-        cache: "no-store",
-      });
+      );
       if (!response.ok) throw new Error(await errorTitle(response));
       const result = (await response.json()) as ActivationDeliveryResponse;
       setActivationUrl(result.data.url);
@@ -373,14 +376,14 @@ export default function TenantProfilesPage() {
                       {canManage || canActivate ? (
                         <div className="row-actions">
                           {canManage ? (
-                        <button
-                          className="row-action"
-                          type="button"
-                          onClick={() => void openEdit(profile)}
-                          aria-label={`Editar ${profile.name}`}
-                        >
-                          Editar
-                        </button>
+                            <button
+                              className="row-action"
+                              type="button"
+                              onClick={() => void openEdit(profile)}
+                              aria-label={`Editar ${profile.name}`}
+                            >
+                              Editar
+                            </button>
                           ) : null}
                           {canActivate ? (
                             <button
@@ -389,7 +392,9 @@ export default function TenantProfilesPage() {
                               disabled={activationPending !== null}
                               onClick={() => void requestActivation(profile)}
                             >
-                              {activationPending === profile.id ? "Emitiendo..." : "Activar administrador"}
+                              {activationPending === profile.id
+                                ? "Emitiendo..."
+                                : "Activar administrador"}
                             </button>
                           ) : null}
                         </div>
@@ -435,7 +440,9 @@ export default function TenantProfilesPage() {
       {activationUrl ? (
         <section className="state-block activation-link" aria-live="assertive">
           <h2>Enlace de activaciÃ³n listo</h2>
-          <p>Se muestra solo en esta sesiÃ³n. Ãbrelo ahora; no se guardarÃ¡ ni se volverÃ¡ a mostrar.</p>
+          <p>
+            Se muestra solo en esta sesiÃ³n. Ãbrelo ahora; no se guardarÃ¡ ni se volverÃ¡ a mostrar.
+          </p>
           <a href={activationUrl} target="_blank" rel="noreferrer noopener">
             Abrir activaciÃ³n segura
           </a>

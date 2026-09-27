@@ -78,13 +78,12 @@ const PlatformReleaseContentShape = z
 
 const PlatformReleaseContentSchema = PlatformReleaseContentShape.extend({
   artifacts: z.array(PlatformReleaseArtifactSchema).length(PlatformReleaseArtifactNames.length),
-})
-  .superRefine((value, context) => {
-    const names = value.artifacts.map((artifact) => artifact.name);
-    if (new Set(names).size !== PlatformReleaseArtifactNames.length) {
-      context.addIssue({ code: "custom", message: "artifact names must be unique" });
-    }
-  });
+}).superRefine((value, context) => {
+  const names = value.artifacts.map((artifact) => artifact.name);
+  if (new Set(names).size !== PlatformReleaseArtifactNames.length) {
+    context.addIssue({ code: "custom", message: "artifact names must be unique" });
+  }
+});
 
 export const CreatePlatformReleaseSchema = PlatformReleaseContentSchema;
 export const UpdatePlatformReleaseStatusSchema = z
@@ -111,7 +110,10 @@ const PlatformReleaseReadContentSchema = PlatformReleaseContentShape.extend({
     new Set(names).size !== expectedNames.length ||
     expectedNames.some((name) => !names.includes(name))
   ) {
-    context.addIssue({ code: "custom", message: "artifact names do not match the release catalog" });
+    context.addIssue({
+      code: "custom",
+      message: "artifact names do not match the release catalog",
+    });
   }
 });
 

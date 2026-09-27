@@ -12,7 +12,12 @@ export function createAdminApiActivationDeliveryCallback(
   options: AdminApiActivationDeliveryCallbackOptions,
 ): ActivationDeliveryCallback {
   const origin = new URL(options.origin);
-  if (origin.protocol !== "http:" || origin.pathname !== "/" || origin.username || origin.password) {
+  if (
+    origin.protocol !== "http:" ||
+    origin.pathname !== "/" ||
+    origin.username ||
+    origin.password
+  ) {
     throw new Error("invalid activation callback origin");
   }
   if (options.token.length < 32 || options.token.length > 512) {
@@ -38,7 +43,11 @@ export function createAdminApiActivationDeliveryCallback(
       );
       if (response.status !== 202) return Object.freeze({ accepted: false });
       const body: unknown = await response.json();
-      if (!body || typeof body !== "object" || typeof (body as { readonly accepted?: unknown }).accepted !== "boolean") {
+      if (
+        !body ||
+        typeof body !== "object" ||
+        typeof (body as { readonly accepted?: unknown }).accepted !== "boolean"
+      ) {
         return Object.freeze({ accepted: false });
       }
       return Object.freeze({ accepted: (body as { readonly accepted: boolean }).accepted });

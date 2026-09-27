@@ -59,9 +59,11 @@ export function parseActivationDeliveryCallbackConfig(
   if (environment.QCRM_ACTIVATION_CALLBACK_AUDIENCE !== "quantum-admin-api-activation-callback") {
     throw new ConfigurationError(serviceName, ["QCRM_ACTIVATION_CALLBACK_AUDIENCE"]);
   }
-  const tokenFile = z.string().trim().min(1).safeParse(
-    environment.QCRM_ACTIVATION_CALLBACK_TOKEN_FILE,
-  );
+  const tokenFile = z
+    .string()
+    .trim()
+    .min(1)
+    .safeParse(environment.QCRM_ACTIVATION_CALLBACK_TOKEN_FILE);
   if (!tokenFile.success) {
     throw new ConfigurationError(serviceName, ["QCRM_ACTIVATION_CALLBACK_TOKEN_FILE"]);
   }

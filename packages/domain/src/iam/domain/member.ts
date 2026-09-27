@@ -1,7 +1,4 @@
-import {
-  CrmPermissionCatalog,
-  type CrmPermission,
-} from "@quantum-crm/contracts";
+import { CrmPermissionCatalog, type CrmPermission } from "@quantum-crm/contracts";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
@@ -44,9 +41,29 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
     case "ADMINISTRATOR":
       return Object.freeze([...iamPermissions]);
     case "SUPERVISOR":
-      return Object.freeze(["crm:contacts:read", "crm:contacts:create", "crm:contacts:update", "crm:sales:read", "crm:sales:create", "crm:sales:move", "crm:tasks:read", "crm:tasks:create", "crm:tasks:update"]);
+      return Object.freeze([
+        "crm:contacts:read",
+        "crm:contacts:create",
+        "crm:contacts:update",
+        "crm:sales:read",
+        "crm:sales:create",
+        "crm:sales:move",
+        "crm:tasks:read",
+        "crm:tasks:create",
+        "crm:tasks:update",
+      ]);
     case "ADVISOR":
-      return Object.freeze(["crm:contacts:read", "crm:contacts:create", "crm:contacts:update", "crm:sales:read", "crm:sales:create", "crm:sales:move", "crm:tasks:read", "crm:tasks:create", "crm:tasks:update"]);
+      return Object.freeze([
+        "crm:contacts:read",
+        "crm:contacts:create",
+        "crm:contacts:update",
+        "crm:sales:read",
+        "crm:sales:create",
+        "crm:sales:move",
+        "crm:tasks:read",
+        "crm:tasks:create",
+        "crm:tasks:update",
+      ]);
   }
 }
 

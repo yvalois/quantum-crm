@@ -59,9 +59,15 @@ export class IamMemberService {
 
   /** Narrow public query port for tasks. Authorization remains with the task
    * module; this deliberately does not grant the IAM member-directory read. */
-  public async listActiveForTaskAssignment(): Promise<readonly Pick<IamMember, "id" | "displayName">[]> {
+  public async listActiveForTaskAssignment(): Promise<
+    readonly Pick<IamMember, "id" | "displayName">[]
+  > {
     const page = await this.repository.list({ limit: 100, status: "ACTIVE" });
-    return Object.freeze(page.members.map((member) => Object.freeze({ id: member.id, displayName: member.displayName })));
+    return Object.freeze(
+      page.members.map((member) =>
+        Object.freeze({ id: member.id, displayName: member.displayName }),
+      ),
+    );
   }
 
   public async invite(input: {
@@ -144,7 +150,11 @@ export class IamMemberService {
     if (!idempotencyKeyPattern.test(input.idempotencyKey)) throw new IamMemberValidationError();
     const now = this.clock();
     return this.repository.bootstrapInitialAdministrator({
-      member: createBootstrapAdministrator({ id: randomUUID(), oidcSubject: input.oidcSubject, now }),
+      member: createBootstrapAdministrator({
+        id: randomUUID(),
+        oidcSubject: input.oidcSubject,
+        now,
+      }),
       idempotencyKey: input.idempotencyKey,
     });
   }

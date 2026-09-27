@@ -29,7 +29,10 @@ export interface ContactRepository {
 }
 
 export class ContactValidationError extends Error {
-  public constructor() { super("Invalid contact"); this.name = "ContactValidationError"; }
+  public constructor() {
+    super("Invalid contact");
+    this.name = "ContactValidationError";
+  }
 }
 
 function text(value: string, max: number): string {
@@ -38,21 +41,56 @@ function text(value: string, max: number): string {
   return normalized;
 }
 
-export function createContact(input: { readonly id: string; readonly ownerMemberId: string; readonly displayName: string; readonly email?: string; readonly phone?: string; readonly now: Date }): ContactRecord {
-  if (!input.id || !input.ownerMemberId || Number.isNaN(input.now.getTime())) throw new ContactValidationError();
-  return Object.freeze({ id: input.id, ownerMemberId: input.ownerMemberId, displayName: text(input.displayName, 160), email: input.email ? text(input.email, 320).toLowerCase() : null, phone: input.phone ? text(input.phone, 40) : null, version: 1n, createdAt: input.now, updatedAt: input.now });
+export function createContact(input: {
+  readonly id: string;
+  readonly ownerMemberId: string;
+  readonly displayName: string;
+  readonly email?: string;
+  readonly phone?: string;
+  readonly now: Date;
+}): ContactRecord {
+  if (!input.id || !input.ownerMemberId || Number.isNaN(input.now.getTime()))
+    throw new ContactValidationError();
+  return Object.freeze({
+    id: input.id,
+    ownerMemberId: input.ownerMemberId,
+    displayName: text(input.displayName, 160),
+    email: input.email ? text(input.email, 320).toLowerCase() : null,
+    phone: input.phone ? text(input.phone, 40) : null,
+    version: 1n,
+    createdAt: input.now,
+    updatedAt: input.now,
+  });
 }
 
-export function updateContact(input: { readonly contact: ContactRecord; readonly displayName?: string; readonly email?: string | null; readonly phone?: string | null; readonly now: Date }): ContactRecord {
-  if ((input.displayName === undefined && input.email === undefined && input.phone === undefined) || Number.isNaN(input.now.getTime())) throw new ContactValidationError();
+export function updateContact(input: {
+  readonly contact: ContactRecord;
+  readonly displayName?: string;
+  readonly email?: string | null;
+  readonly phone?: string | null;
+  readonly now: Date;
+}): ContactRecord {
+  if (
+    (input.displayName === undefined && input.email === undefined && input.phone === undefined) ||
+    Number.isNaN(input.now.getTime())
+  )
+    throw new ContactValidationError();
   return Object.freeze({
     ...input.contact,
     ...(input.displayName === undefined ? {} : { displayName: text(input.displayName, 160) }),
-    ...(input.email === undefined ? {} : { email: input.email === null ? null : text(input.email, 320).toLowerCase() }),
-    ...(input.phone === undefined ? {} : { phone: input.phone === null ? null : text(input.phone, 40) }),
+    ...(input.email === undefined
+      ? {}
+      : { email: input.email === null ? null : text(input.email, 320).toLowerCase() }),
+    ...(input.phone === undefined
+      ? {}
+      : { phone: input.phone === null ? null : text(input.phone, 40) }),
     version: input.contact.version + 1n,
     updatedAt: input.now,
   });
 }
 
-export { ContactService, ContactNotFoundError, ContactVersionConflictError } from "./contact-service.js";
+export {
+  ContactService,
+  ContactNotFoundError,
+  ContactVersionConflictError,
+} from "./contact-service.js";

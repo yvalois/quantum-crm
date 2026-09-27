@@ -107,7 +107,8 @@ export function tenantEdgeServiceAlias(
 }
 
 export function tenantBootstrapApiAlias(tenantProfileId: string): string {
-  if (!uuidPattern.test(tenantProfileId)) throw new ComposePolicyValidationError("tenantBootstrapApiAlias");
+  if (!uuidPattern.test(tenantProfileId))
+    throw new ComposePolicyValidationError("tenantBootstrapApiAlias");
   return `qcrm-${tenantProfileId.replaceAll("-", "")}-bootstrap-api`;
 }
 

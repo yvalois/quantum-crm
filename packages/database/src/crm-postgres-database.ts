@@ -428,21 +428,27 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
           await client.query("COMMIT");
           return Object.freeze({ member: memberFromRow(prior), replayed: true });
         }
-        const preexisting = await client.query(
-          `SELECT id FROM iam.members LIMIT 1 FOR UPDATE`,
-        );
+        const preexisting = await client.query(`SELECT id FROM iam.members LIMIT 1 FOR UPDATE`);
         if ((preexisting.rowCount ?? 0) !== 0) throw new IamMemberConflictError();
         const inserted = (await client.query(
           `INSERT INTO iam.members (id, oidc_subject, display_name, email, status, authorization_revision, created_at, updated_at)
            VALUES ($1::uuid, $2, $3, $4, 'active', $5::bigint, $6, $6)
            RETURNING ${memberSelection}`,
-          [input.member.id, input.member.oidcSubject, input.member.displayName, input.member.email, input.member.authorizationRevision.toString(), input.member.createdAt],
+          [
+            input.member.id,
+            input.member.oidcSubject,
+            input.member.displayName,
+            input.member.email,
+            input.member.authorizationRevision.toString(),
+            input.member.createdAt,
+          ],
         )) as { readonly rows: readonly IamMemberRow[] };
         const member = inserted.rows[0];
         if (!member) throw new IamMemberConflictError();
         const role = await client.query(
           `INSERT INTO iam.member_roles (member_id, role_id)
-             SELECT $1::uuid, id FROM iam.roles WHERE code = 'ADMINISTRATOR'`, [input.member.id],
+             SELECT $1::uuid, id FROM iam.roles WHERE code = 'ADMINISTRATOR'`,
+          [input.member.id],
         );
         if (role.rowCount !== 1) throw new IamMemberConflictError();
         await client.query(
@@ -454,7 +460,8 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         return Object.freeze({ member: memberFromRow(member), replayed: false });
       } catch (error) {
         await client?.query("ROLLBACK").catch(() => undefined);
-        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) throw new IamMemberConflictError();
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error))
+          throw new IamMemberConflictError();
         throw new DatabaseUnavailableError();
       } finally {
         client?.release();

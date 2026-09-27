@@ -76,9 +76,10 @@ export function createKeycloakOidcAccessTokenVerifier(
           algorithms: [...config.allowedAlgorithms],
           issuer: config.issuer,
           audience: config.audience,
-          requiredClaims: expectedPrincipalType === "human"
-            ? ["sub", "iat", "exp", "auth_time", "typ", "acr", "qcrm_principal_type"]
-            : ["sub", "iat", "exp", "typ", "azp", "qcrm_principal_type"],
+          requiredClaims:
+            expectedPrincipalType === "human"
+              ? ["sub", "iat", "exp", "auth_time", "typ", "acr", "qcrm_principal_type"]
+              : ["sub", "iat", "exp", "typ", "azp", "qcrm_principal_type"],
           maxTokenAge: config.maxTokenAgeSeconds,
           clockTolerance: config.clockToleranceSeconds,
           ...(currentDate ? { currentDate } : {}),
@@ -100,13 +101,12 @@ export function createKeycloakOidcAccessTokenVerifier(
           typeof payload.sub !== "string" ||
           typeof payload.iss !== "string" ||
           typeof payload.iat !== "number" ||
-          (expectedPrincipalType === "human" && (
-            payload.acr !== config.requiredAcr ||
-            typeof payload.auth_time !== "number" ||
-            !Number.isInteger(payload.auth_time) ||
-            payload.auth_time < 0 ||
-            payload.auth_time > payload.iat + config.clockToleranceSeconds
-          )) ||
+          (expectedPrincipalType === "human" &&
+            (payload.acr !== config.requiredAcr ||
+              typeof payload.auth_time !== "number" ||
+              !Number.isInteger(payload.auth_time) ||
+              payload.auth_time < 0 ||
+              payload.auth_time > payload.iat + config.clockToleranceSeconds)) ||
           (expectedPrincipalType === "service" &&
             (typeof payload.azp !== "string" || !/^[a-z][a-z0-9-]{2,62}$/u.test(payload.azp)))
         ) {
@@ -119,9 +119,17 @@ export function createKeycloakOidcAccessTokenVerifier(
           issuer: payload.iss,
           audiences: audiences(payload.aud),
           principalType: expectedPrincipalType,
-          ...(expectedPrincipalType === "service" ? { clientId: payload.azp as string, servicePermissions: servicePermissions(payload.scope) } : {}),
+          ...(expectedPrincipalType === "service"
+            ? {
+                clientId: payload.azp as string,
+                servicePermissions: servicePermissions(payload.scope),
+              }
+            : {}),
           multiFactorAuthenticated: expectedPrincipalType === "human",
-          authenticatedAt: new Date((expectedPrincipalType === "human" ? payload.auth_time as number : payload.iat) * 1_000),
+          authenticatedAt: new Date(
+            (expectedPrincipalType === "human" ? (payload.auth_time as number) : payload.iat) *
+              1_000,
+          ),
         });
       } catch {
         throw new OidcAccessTokenVerificationError();
@@ -134,7 +142,9 @@ function payloadPrincipalTypeHint(compactToken: string): "human" | "service" {
   try {
     const encoded = compactToken.split(".")[1];
     if (!encoded) throw new Error("missing payload");
-    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as { qcrm_principal_type?: unknown };
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as {
+      qcrm_principal_type?: unknown;
+    };
     return payload.qcrm_principal_type === "service" ? "service" : "human";
   } catch {
     return "human";

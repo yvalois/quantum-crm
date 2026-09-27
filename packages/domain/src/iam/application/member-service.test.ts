@@ -65,9 +65,14 @@ describe("IAM member service", () => {
 
   it("creates only the fixed active administrator through the internal bootstrap command", async () => {
     const repository: IamMemberRepository = {
-      list: async () => ({ members: [], nextCursor: null }), findById: async () => null,
-      findByOidcSubject: async () => null, createInvitation: async () => { throw new Error("unused"); },
-      update: async (member) => member, acceptInvitation: async () => null,
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => null,
+      findByOidcSubject: async () => null,
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (member) => member,
+      acceptInvitation: async () => null,
       bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
     const result = await new IamMemberService(repository, () => now).bootstrapInitialAdministrator({

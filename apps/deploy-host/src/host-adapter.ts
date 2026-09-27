@@ -232,11 +232,17 @@ function parseFoundationReleaseRequest(value: unknown): HostAdapterFoundationRel
     ) {
       throw new HostAdapterError("IDENTITY_MISMATCH");
     }
-    return Object.freeze({ name: record.name as PlatformReleaseArtifactName, digest: record.digest });
+    return Object.freeze({
+      name: record.name as PlatformReleaseArtifactName,
+      digest: record.digest,
+    });
   });
   if (
-    new Set(artifacts.map((artifact) => artifact.name)).size !== platformReleaseArtifactNames.length ||
-    platformReleaseArtifactNames.some((name) => !artifacts.some((artifact) => artifact.name === name))
+    new Set(artifacts.map((artifact) => artifact.name)).size !==
+      platformReleaseArtifactNames.length ||
+    platformReleaseArtifactNames.some(
+      (name) => !artifacts.some((artifact) => artifact.name === name),
+    )
   ) {
     throw new HostAdapterError("IDENTITY_MISMATCH");
   }

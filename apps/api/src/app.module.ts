@@ -33,16 +33,29 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      controllers: [HealthController, MembersController, ContactsController, SalesController, TasksController, BootstrapInitialAdministratorController],
+      controllers: [
+        HealthController,
+        MembersController,
+        ContactsController,
+        SalesController,
+        TasksController,
+        BootstrapInitialAdministratorController,
+      ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: verifier },
         { provide: CRM_MEMBERSHIPS, useValue: database.memberships },
         { provide: CRM_AUTH_POLICY, useValue: policy },
-        { provide: BOOTSTRAP_SERVICE_POLICY, useValue: { clientId: iamBootstrapClientId, audience: "quantum-crm-api" } },
+        {
+          provide: BOOTSTRAP_SERVICE_POLICY,
+          useValue: { clientId: iamBootstrapClientId, audience: "quantum-crm-api" },
+        },
         BootstrapServiceGuard,
         { provide: IAM_MEMBER_SERVICE, useFactory: () => new IamMemberService(database.members) },
-        { provide: CONTACT_SERVICE, useFactory: () => new ContactService(database.commercial.contacts) },
+        {
+          provide: CONTACT_SERVICE,
+          useFactory: () => new ContactService(database.commercial.contacts),
+        },
         {
           provide: SALES_SERVICE,
           useFactory: () =>
@@ -59,8 +72,10 @@ export class AppModule {
                 (await database.commercial.contacts.find(actor, contactId)) !== null,
               opportunityExistsFor: async (actor, opportunityId) =>
                 (await database.commercial.sales.findOpportunity(actor, opportunityId)) !== null,
-              isActiveMember: async (memberId) => (await database.members.findById(memberId))?.status === "ACTIVE",
-              activeAssignees: async () => new IamMemberService(database.members).listActiveForTaskAssignment(),
+              isActiveMember: async (memberId) =>
+                (await database.members.findById(memberId))?.status === "ACTIVE",
+              activeAssignees: async () =>
+                new IamMemberService(database.members).listActiveForTaskAssignment(),
             }),
         },
         { provide: APP_GUARD, useClass: CrmAuthenticationGuard },

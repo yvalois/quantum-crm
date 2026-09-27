@@ -28,8 +28,14 @@ import {
   TenantInitialAdministratorProvisioningError,
   type TenantInitialAdministratorProvisioner,
 } from "./tenant-initial-administrator-provisioner.js";
-import { TenantIamBootstrapError, type TenantIamBootstrapClient } from "./tenant-iam-bootstrap-client.js";
-import { TenantCrmMigrationProvisioningError, type TenantCrmMigrationProvisioner } from "./tenant-crm-migration-provisioner.js";
+import {
+  TenantIamBootstrapError,
+  type TenantIamBootstrapClient,
+} from "./tenant-iam-bootstrap-client.js";
+import {
+  TenantCrmMigrationProvisioningError,
+  type TenantCrmMigrationProvisioner,
+} from "./tenant-crm-migration-provisioner.js";
 
 export interface ProvisioningExecutorOptions {
   readonly workerId: string;
@@ -108,40 +114,41 @@ export class ProvisioningExecutor {
               ? this.containerProvisioner
                 ? this.httpsRouteProvisioner
                   ? this.initialAdministratorProvisioner && this.activationDeliveries
-                  ? this.iamBootstrap && this.crmMigrationProvisioner ? ([
-                      "VALIDATE",
-                      "CREATE_DATABASE",
-                      "CREATE_SECRETS",
-                      "CREATE_STORAGE",
-                      "WRITE_CONFIGURATION",
-                      "MIGRATE_DATABASE",
-                      "START_CONTAINERS",
-                      "CONFIGURE_HTTPS",
-                      "CREATE_ADMINISTRATOR",
-                      "VERIFY",
-                      "ACTIVATE",
-                    ] as const)
-                  : ([
-                      "VALIDATE",
-                      "CREATE_DATABASE",
-                      "CREATE_SECRETS",
-                      "CREATE_STORAGE",
-                      "WRITE_CONFIGURATION",
-                      "MIGRATE_DATABASE",
-                      "START_CONTAINERS",
-                      "CONFIGURE_HTTPS",
-                      "CREATE_ADMINISTRATOR",
-                      "VERIFY",
-                    ] as const)
-                  : ([
-                      "VALIDATE",
-                      "CREATE_DATABASE",
-                      "CREATE_SECRETS",
-                      "CREATE_STORAGE",
-                      "WRITE_CONFIGURATION",
-                      "START_CONTAINERS",
-                      "CONFIGURE_HTTPS",
-                    ] as const)
+                    ? this.iamBootstrap && this.crmMigrationProvisioner
+                      ? ([
+                          "VALIDATE",
+                          "CREATE_DATABASE",
+                          "CREATE_SECRETS",
+                          "CREATE_STORAGE",
+                          "WRITE_CONFIGURATION",
+                          "MIGRATE_DATABASE",
+                          "START_CONTAINERS",
+                          "CONFIGURE_HTTPS",
+                          "CREATE_ADMINISTRATOR",
+                          "VERIFY",
+                          "ACTIVATE",
+                        ] as const)
+                      : ([
+                          "VALIDATE",
+                          "CREATE_DATABASE",
+                          "CREATE_SECRETS",
+                          "CREATE_STORAGE",
+                          "WRITE_CONFIGURATION",
+                          "MIGRATE_DATABASE",
+                          "START_CONTAINERS",
+                          "CONFIGURE_HTTPS",
+                          "CREATE_ADMINISTRATOR",
+                          "VERIFY",
+                        ] as const)
+                    : ([
+                        "VALIDATE",
+                        "CREATE_DATABASE",
+                        "CREATE_SECRETS",
+                        "CREATE_STORAGE",
+                        "WRITE_CONFIGURATION",
+                        "START_CONTAINERS",
+                        "CONFIGURE_HTTPS",
+                      ] as const)
                   : ([
                       "VALIDATE",
                       "CREATE_DATABASE",
@@ -217,12 +224,41 @@ export class ProvisioningExecutor {
     }
     if (operation.currentStep === "MIGRATE_DATABASE" && this.crmMigrationProvisioner) {
       try {
-        await this.crmMigrationProvisioner.migrate({ operationId: operation.id, tenantProfileId: operation.tenantProfileId, serverId: operation.serverId, releaseId: operation.releaseId, attempt: operation.attempt });
-        await this.repository.completeMigration({ operationId: operation.id, tenantProfileId: operation.tenantProfileId, workerId: this.options.workerId, expectedVersion: operation.version, attempt: operation.attempt });
+        await this.crmMigrationProvisioner.migrate({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          attempt: operation.attempt,
+        });
+        await this.repository.completeMigration({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+        });
       } catch (error) {
-        if (error instanceof TenantCrmMigrationProvisioningError && error.reason === "UNAVAILABLE") return true;
-        const failureCode = error instanceof TenantCrmMigrationProvisioningError && error.reason === "PERMISSION_DENIED" ? "MIGRATION_PERMISSION_DENIED" : error instanceof TenantCrmMigrationProvisioningError && error.reason === "TARGET_CONFLICT" ? "MIGRATION_TARGET_CONFLICT" : "MIGRATION_IDENTITY_MISMATCH";
-        await this.repository.completeMigration({ operationId: operation.id, tenantProfileId: operation.tenantProfileId, workerId: this.options.workerId, expectedVersion: operation.version, attempt: operation.attempt, failureCode }).catch(() => undefined);
+        if (error instanceof TenantCrmMigrationProvisioningError && error.reason === "UNAVAILABLE")
+          return true;
+        const failureCode =
+          error instanceof TenantCrmMigrationProvisioningError &&
+          error.reason === "PERMISSION_DENIED"
+            ? "MIGRATION_PERMISSION_DENIED"
+            : error instanceof TenantCrmMigrationProvisioningError &&
+                error.reason === "TARGET_CONFLICT"
+              ? "MIGRATION_TARGET_CONFLICT"
+              : "MIGRATION_IDENTITY_MISMATCH";
+        await this.repository
+          .completeMigration({
+            operationId: operation.id,
+            tenantProfileId: operation.tenantProfileId,
+            workerId: this.options.workerId,
+            expectedVersion: operation.version,
+            attempt: operation.attempt,
+            failureCode,
+          })
+          .catch(() => undefined);
       }
       return true;
     }
@@ -554,7 +590,9 @@ export class ProvisioningExecutor {
           displayName: context.displayName,
           email: context.email,
         });
-        const existing = await this.activationDeliveries.findInitialAdministrator(operation.tenantProfileId);
+        const existing = await this.activationDeliveries.findInitialAdministrator(
+          operation.tenantProfileId,
+        );
         const administrator = await this.activationDeliveries.reconcileInitialAdministrator({
           tenantProfileId: operation.tenantProfileId,
           subject: identity.subject,
@@ -576,7 +614,9 @@ export class ProvisioningExecutor {
       return true;
     }
     if (operation.currentStep === "ACTIVATE" && this.activationDeliveries && this.iamBootstrap) {
-      const administrator = await this.activationDeliveries.findInitialAdministrator(operation.tenantProfileId);
+      const administrator = await this.activationDeliveries.findInitialAdministrator(
+        operation.tenantProfileId,
+      );
       if (!administrator?.subject || administrator.status !== "CONSUMED") return true;
       try {
         await this.iamBootstrap.bootstrap({
@@ -603,7 +643,9 @@ export class ProvisioningExecutor {
       this.initialAdministratorProvisioner &&
       this.activationDeliveries
     ) {
-      const administrator = await this.activationDeliveries.findInitialAdministrator(operation.tenantProfileId);
+      const administrator = await this.activationDeliveries.findInitialAdministrator(
+        operation.tenantProfileId,
+      );
       if (!administrator?.subject || administrator.status !== "ACTIVATION_ISSUED") return true;
       try {
         const status = await this.initialAdministratorProvisioner.activationStatus({

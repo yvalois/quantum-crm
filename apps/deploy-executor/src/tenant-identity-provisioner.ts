@@ -153,7 +153,10 @@ function assertRealm(realm: KeycloakRealm, realmName: string): void {
     ? realm.requiredActions.filter((action) => {
         if (typeof action !== "object" || action === null) return false;
         const requiredAction = action as KeycloakRequiredAction;
-        return requiredAction.alias === activationCompletionAction && requiredAction.providerId === activationCompletionAction;
+        return (
+          requiredAction.alias === activationCompletionAction &&
+          requiredAction.providerId === activationCompletionAction
+        );
       })
     : [];
   const completionAction = completionActions[0] as KeycloakRequiredAction | undefined;
@@ -219,13 +222,77 @@ function assertClient(client: KeycloakClient, clientId: string, origin: string):
 }
 
 function assertBootstrapClient(client: KeycloakClient): string {
-  const mapper = Array.isArray(client.protocolMappers) ? client.protocolMappers.find((entry) => typeof entry === "object" && entry !== null && (entry as Record<string, unknown>).name === "iam-bootstrap-permission") : undefined;
-  const audience = Array.isArray(client.protocolMappers) ? client.protocolMappers.find((entry) => typeof entry === "object" && entry !== null && (entry as Record<string, unknown>).name === "quantum-crm-api-audience") : undefined;
-  const principal = Array.isArray(client.protocolMappers) ? client.protocolMappers.find((entry) => typeof entry === "object" && entry !== null && (entry as Record<string, unknown>).name === "qcrm-service-principal") : undefined;
-  const config = typeof mapper === "object" && mapper !== null ? (mapper as Record<string, unknown>).config : undefined;
-  const audienceConfig = typeof audience === "object" && audience !== null ? (audience as Record<string, unknown>).config : undefined;
-  const principalConfig = typeof principal === "object" && principal !== null ? (principal as Record<string, unknown>).config : undefined;
-  if (typeof client.id !== "string" || client.clientId !== "quantum-crm-bootstrap" || client.protocol !== "openid-connect" || client.publicClient !== false || client.standardFlowEnabled !== false || client.directAccessGrantsEnabled !== false || client.implicitFlowEnabled !== false || client.serviceAccountsEnabled !== true || !Array.isArray(client.redirectUris) || client.redirectUris.length !== 0 || !Array.isArray(client.webOrigins) || client.webOrigins.length !== 0 || typeof mapper !== "object" || mapper === null || (mapper as Record<string, unknown>).protocolMapper !== "oidc-hardcoded-claim-mapper" || typeof config !== "object" || config === null || (config as Record<string, unknown>).claim.name !== "scope" || (config as Record<string, unknown>).claim.value !== "iam:bootstrap-initial-administrator" || typeof audience !== "object" || audience === null || (audience as Record<string, unknown>).protocolMapper !== "oidc-audience-mapper" || typeof audienceConfig !== "object" || audienceConfig === null || (audienceConfig as Record<string, unknown>)["included.client.audience"] !== "quantum-crm-api" || typeof principal !== "object" || principal === null || (principal as Record<string, unknown>).protocolMapper !== "oidc-hardcoded-claim-mapper" || typeof principalConfig !== "object" || principalConfig === null || (principalConfig as Record<string, unknown>).claim.name !== "qcrm_principal_type" || (principalConfig as Record<string, unknown>).claim.value !== "service") throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  const mapper = Array.isArray(client.protocolMappers)
+    ? client.protocolMappers.find(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          (entry as Record<string, unknown>).name === "iam-bootstrap-permission",
+      )
+    : undefined;
+  const audience = Array.isArray(client.protocolMappers)
+    ? client.protocolMappers.find(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          (entry as Record<string, unknown>).name === "quantum-crm-api-audience",
+      )
+    : undefined;
+  const principal = Array.isArray(client.protocolMappers)
+    ? client.protocolMappers.find(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          (entry as Record<string, unknown>).name === "qcrm-service-principal",
+      )
+    : undefined;
+  const config =
+    typeof mapper === "object" && mapper !== null
+      ? (mapper as Record<string, unknown>).config
+      : undefined;
+  const audienceConfig =
+    typeof audience === "object" && audience !== null
+      ? (audience as Record<string, unknown>).config
+      : undefined;
+  const principalConfig =
+    typeof principal === "object" && principal !== null
+      ? (principal as Record<string, unknown>).config
+      : undefined;
+  if (
+    typeof client.id !== "string" ||
+    client.clientId !== "quantum-crm-bootstrap" ||
+    client.protocol !== "openid-connect" ||
+    client.publicClient !== false ||
+    client.standardFlowEnabled !== false ||
+    client.directAccessGrantsEnabled !== false ||
+    client.implicitFlowEnabled !== false ||
+    client.serviceAccountsEnabled !== true ||
+    !Array.isArray(client.redirectUris) ||
+    client.redirectUris.length !== 0 ||
+    !Array.isArray(client.webOrigins) ||
+    client.webOrigins.length !== 0 ||
+    typeof mapper !== "object" ||
+    mapper === null ||
+    (mapper as Record<string, unknown>).protocolMapper !== "oidc-hardcoded-claim-mapper" ||
+    typeof config !== "object" ||
+    config === null ||
+    (config as Record<string, unknown>).claim.name !== "scope" ||
+    (config as Record<string, unknown>).claim.value !== "iam:bootstrap-initial-administrator" ||
+    typeof audience !== "object" ||
+    audience === null ||
+    (audience as Record<string, unknown>).protocolMapper !== "oidc-audience-mapper" ||
+    typeof audienceConfig !== "object" ||
+    audienceConfig === null ||
+    (audienceConfig as Record<string, unknown>)["included.client.audience"] !== "quantum-crm-api" ||
+    typeof principal !== "object" ||
+    principal === null ||
+    (principal as Record<string, unknown>).protocolMapper !== "oidc-hardcoded-claim-mapper" ||
+    typeof principalConfig !== "object" ||
+    principalConfig === null ||
+    (principalConfig as Record<string, unknown>).claim.name !== "qcrm_principal_type" ||
+    (principalConfig as Record<string, unknown>).claim.value !== "service"
+  )
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
   return client.id;
 }
 
@@ -236,15 +303,17 @@ function realmRepresentation(realmName: string): Record<string, unknown> {
     registrationAllowed: false,
     bruteForceProtected: true,
     otpPolicyType: "totp",
-    requiredActions: [{
-      alias: activationCompletionAction,
-      name: "Complete Quantum activation",
-      providerId: activationCompletionAction,
-      enabled: true,
-      defaultAction: false,
-      priority: 1_000,
-      config: {},
-    }],
+    requiredActions: [
+      {
+        alias: activationCompletionAction,
+        name: "Complete Quantum activation",
+        providerId: activationCompletionAction,
+        enabled: true,
+        defaultAction: false,
+        priority: 1_000,
+        config: {},
+      },
+    ],
   };
 }
 
@@ -277,7 +346,56 @@ function clientRepresentation(clientId: string, origin: string): Record<string, 
 }
 
 function bootstrapClientRepresentation(): Record<string, unknown> {
-  return { clientId: "quantum-crm-bootstrap", enabled: true, protocol: "openid-connect", publicClient: false, standardFlowEnabled: false, directAccessGrantsEnabled: false, implicitFlowEnabled: false, serviceAccountsEnabled: true, redirectUris: [], webOrigins: [], protocolMappers: [{ name: "iam-bootstrap-permission", protocol: "openid-connect", protocolMapper: "oidc-hardcoded-claim-mapper", config: { "claim.name": "scope", "claim.value": "iam:bootstrap-initial-administrator", "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false", "jsonType.label": "String" } }, { name: "qcrm-service-principal", protocol: "openid-connect", protocolMapper: "oidc-hardcoded-claim-mapper", config: { "claim.name": "qcrm_principal_type", "claim.value": "service", "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false", "jsonType.label": "String" } }, { name: "quantum-crm-api-audience", protocol: "openid-connect", protocolMapper: "oidc-audience-mapper", config: { "included.client.audience": "quantum-crm-api", "access.token.claim": "true", "id.token.claim": "false" } }] };
+  return {
+    clientId: "quantum-crm-bootstrap",
+    enabled: true,
+    protocol: "openid-connect",
+    publicClient: false,
+    standardFlowEnabled: false,
+    directAccessGrantsEnabled: false,
+    implicitFlowEnabled: false,
+    serviceAccountsEnabled: true,
+    redirectUris: [],
+    webOrigins: [],
+    protocolMappers: [
+      {
+        name: "iam-bootstrap-permission",
+        protocol: "openid-connect",
+        protocolMapper: "oidc-hardcoded-claim-mapper",
+        config: {
+          "claim.name": "scope",
+          "claim.value": "iam:bootstrap-initial-administrator",
+          "access.token.claim": "true",
+          "id.token.claim": "false",
+          "userinfo.token.claim": "false",
+          "jsonType.label": "String",
+        },
+      },
+      {
+        name: "qcrm-service-principal",
+        protocol: "openid-connect",
+        protocolMapper: "oidc-hardcoded-claim-mapper",
+        config: {
+          "claim.name": "qcrm_principal_type",
+          "claim.value": "service",
+          "access.token.claim": "true",
+          "id.token.claim": "false",
+          "userinfo.token.claim": "false",
+          "jsonType.label": "String",
+        },
+      },
+      {
+        name: "quantum-crm-api-audience",
+        protocol: "openid-connect",
+        protocolMapper: "oidc-audience-mapper",
+        config: {
+          "included.client.audience": "quantum-crm-api",
+          "access.token.claim": "true",
+          "id.token.claim": "false",
+        },
+      },
+    ],
+  };
 }
 
 async function responseBody(response: Response): Promise<unknown> {
@@ -417,21 +535,42 @@ async function provisionKeycloak(
   return `${reconciled ? "r" : "c"}:${safeSecret(value)}`;
 }
 
-async function provisionBootstrapClient(options: TenantIdentityProvisionerOptions, realmName: string): Promise<string> {
+async function provisionBootstrapClient(
+  options: TenantIdentityProvisionerOptions,
+  realmName: string,
+): Promise<string> {
   const adminOrigin = new URL(options.keycloakAdminOrigin);
-  const headers = { authorization: `Bearer ${await keycloakAccessToken(options)}`, "content-type": "application/json" };
+  const headers = {
+    authorization: `Bearer ${await keycloakAccessToken(options)}`,
+    "content-type": "application/json",
+  };
   const clientsUrl = new URL(`/admin/realms/${encodeURIComponent(realmName)}/clients`, adminOrigin);
   clientsUrl.searchParams.set("clientId", "quantum-crm-bootstrap");
   let clients = await request(clientsUrl, { headers }, [200]);
   if (!Array.isArray(clients.body)) throw new TenantIdentityProvisioningError("UNAVAILABLE");
   if (clients.body.length === 0) {
-    await request(clientsUrl, { method: "POST", headers, body: JSON.stringify(bootstrapClientRepresentation()) }, [201, 409]);
+    await request(
+      clientsUrl,
+      { method: "POST", headers, body: JSON.stringify(bootstrapClientRepresentation()) },
+      [201, 409],
+    );
     clients = await request(clientsUrl, { headers }, [200]);
   }
-  if (!Array.isArray(clients.body) || clients.body.length !== 1) throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  if (!Array.isArray(clients.body) || clients.body.length !== 1)
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
   const clientUuid = assertBootstrapClient(clients.body[0] as KeycloakClient);
-  const secret = await request(new URL(`/admin/realms/${encodeURIComponent(realmName)}/clients/${encodeURIComponent(clientUuid)}/client-secret`, adminOrigin), { headers }, [200]);
-  const value = typeof secret.body === "object" && secret.body !== null ? (secret.body as Record<string, unknown>).value : undefined;
+  const secret = await request(
+    new URL(
+      `/admin/realms/${encodeURIComponent(realmName)}/clients/${encodeURIComponent(clientUuid)}/client-secret`,
+      adminOrigin,
+    ),
+    { headers },
+    [200],
+  );
+  const value =
+    typeof secret.body === "object" && secret.body !== null
+      ? (secret.body as Record<string, unknown>).value
+      : undefined;
   if (typeof value !== "string") throw new TenantIdentityProvisioningError("UNAVAILABLE");
   return safeSecret(value);
 }
@@ -499,12 +638,19 @@ export function createTenantIdentityProvisioner(
       identity.tenantProfileId,
       "session-redis-url",
     );
-    const bootstrapSecretPath = secretPath(options.tenantSecretDirectory, identity.tenantProfileId, "iam-bootstrap-client-secret");
+    const bootstrapSecretPath = secretPath(
+      options.tenantSecretDirectory,
+      identity.tenantProfileId,
+      "iam-bootstrap-client-secret",
+    );
     const clientSecretReconciled = await writeSecretIfMissing(
       clientSecretPath,
       keycloakSecret.slice(2),
     );
-    const bootstrapSecretReconciled = await writeSecretIfMissing(bootstrapSecretPath, bootstrapSecret);
+    const bootstrapSecretReconciled = await writeSecretIfMissing(
+      bootstrapSecretPath,
+      bootstrapSecret,
+    );
     const existingRedisUrl = await readSecret(redisUrlPath);
     const username = `qcrm_s_${identity.tenantProfileId.replaceAll("-", "")}`;
     const password = existingRedisUrl
@@ -527,7 +673,10 @@ export function createTenantIdentityProvisioner(
     return Object.freeze({
       identity,
       reconciled:
-        clientSecretReconciled && bootstrapSecretReconciled && redisSecretReconciled && keycloakSecret.startsWith("r:"),
+        clientSecretReconciled &&
+        bootstrapSecretReconciled &&
+        redisSecretReconciled &&
+        keycloakSecret.startsWith("r:"),
     });
   };
 

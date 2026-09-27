@@ -8,8 +8,16 @@ import {
   tenantContainerServiceNames,
 } from "@quantum-crm/platform-domain";
 
-import { createTenantComposeReconciler, createTenantCrmMigrationReconciler, type ComposeCommandResult } from "./compose-runner.js";
-import { HostAdapterError, type HostAdapterMigrationRequest, type HostAdapterRequest } from "./host-adapter.js";
+import {
+  createTenantComposeReconciler,
+  createTenantCrmMigrationReconciler,
+  type ComposeCommandResult,
+} from "./compose-runner.js";
+import {
+  HostAdapterError,
+  type HostAdapterMigrationRequest,
+  type HostAdapterRequest,
+} from "./host-adapter.js";
 
 const request: HostAdapterRequest = {
   action: "RECONCILE_TENANT_COMPOSE",

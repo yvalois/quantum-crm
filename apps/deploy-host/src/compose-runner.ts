@@ -257,19 +257,35 @@ async function planForTenant(
       templatePath: options.composeTemplate,
       imageRegistry: options.imageRegistry,
       environment: options.environment,
-      tenantEdgeNetwork: tenantEdgeNetworkName(options.tenantEdgeNetworkPrefix, request.tenantProfileId),
+      tenantEdgeNetwork: tenantEdgeNetworkName(
+        options.tenantEdgeNetworkPrefix,
+        request.tenantProfileId,
+      ),
       platformDatabaseNetwork: options.platformDatabaseNetwork,
       platformStorageNetwork: options.platformStorageNetwork,
       platformSessionNetwork: options.platformSessionNetwork,
       platformOidcNetwork: options.platformOidcNetwork,
-      crmDatabaseSecretFile: safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/runtime-url`),
-      crmMigrationDatabaseSecretFile: safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/migrator-url`),
-      crmOidcClientSecretFile: safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/oidc-client-secret`),
-      crmSessionRedisUrlSecretFile: safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/session-redis-url`),
+      crmDatabaseSecretFile: safeChildPath(
+        options.databaseSecretRoot,
+        `${request.tenantProfileId}/runtime-url`,
+      ),
+      crmMigrationDatabaseSecretFile: safeChildPath(
+        options.databaseSecretRoot,
+        `${request.tenantProfileId}/migrator-url`,
+      ),
+      crmOidcClientSecretFile: safeChildPath(
+        options.databaseSecretRoot,
+        `${request.tenantProfileId}/oidc-client-secret`,
+      ),
+      crmSessionRedisUrlSecretFile: safeChildPath(
+        options.databaseSecretRoot,
+        `${request.tenantProfileId}/session-redis-url`,
+      ),
     });
   } catch (error) {
     if (error instanceof HostAdapterError) throw error;
-    if (error instanceof ComposePolicyValidationError) throw new HostAdapterError("IDENTITY_MISMATCH");
+    if (error instanceof ComposePolicyValidationError)
+      throw new HostAdapterError("IDENTITY_MISMATCH");
     throw new HostAdapterError("UNAVAILABLE");
   }
 }
@@ -319,7 +335,9 @@ export function createTenantComposeReconciler(
     const operation = (async () => {
       const plan = await planForTenant(options, request);
       await assertSecretFile(plan.environment.QCRM_CRM_DATABASE_URL_SECRET_FILE as string);
-      await assertSecretFile(plan.environment.QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE as string);
+      await assertSecretFile(
+        plan.environment.QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE as string,
+      );
       await assertSecretFile(plan.environment.QCRM_CRM_OIDC_CLIENT_SECRET_FILE as string);
       await assertSecretFile(plan.environment.QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE as string);
       const environment = plan.environment;
@@ -359,13 +377,16 @@ export function createTenantComposeReconciler(
 export function createTenantCrmMigrationReconciler(
   options: TenantComposeRunnerOptions,
 ): TenantCrmMigrationReconciler {
-  const runner = options.commandRunner ?? createCommandRunner(options.dockerBinary ?? "/usr/bin/docker");
+  const runner =
+    options.commandRunner ?? createCommandRunner(options.dockerBinary ?? "/usr/bin/docker");
   const timeout = options.commandTimeoutMilliseconds ?? defaultTimeoutMilliseconds;
   return Object.freeze({
     migrate: async (request: HostAdapterMigrationRequest) => {
       const composeRequest: HostAdapterRequest = { ...request, action: "RECONCILE_TENANT_COMPOSE" };
       const plan = await planForTenant(options, composeRequest);
-      await assertSecretFile(plan.environment.QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE as string);
+      await assertSecretFile(
+        plan.environment.QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE as string,
+      );
       const result = await runner.run(migrationComposeArgs(plan), plan.environment, timeout);
       if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
       return Object.freeze({ migrated: true, reconciled: true });
