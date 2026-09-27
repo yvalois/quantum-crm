@@ -1,23 +1,25 @@
 "use client";
 
-import type { InitialRoleCode, Member } from "@quantum-crm/contracts";
+import {
+  CrmPermissionCatalog,
+  type CrmPermission,
+  type Member,
+  type Role,
+} from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 interface MemberListPayload {
   readonly data: Member[];
 }
 
+interface RoleListPayload {
+  readonly data: Role[];
+}
+
 interface SessionPayload {
   readonly authenticated: boolean;
   readonly csrfToken?: string;
 }
-
-const invitationRoles: ReadonlyArray<{ readonly value: InitialRoleCode; readonly label: string }> =
-  [
-    { value: "ADVISOR", label: "Asesor" },
-    { value: "SUPERVISOR", label: "Supervisor" },
-    { value: "ADMINISTRATOR", label: "Administrador" },
-  ];
 
 function memberStatus(status: Member["status"]): string {
   return { ACTIVE: "Activo", DEACTIVATED: "Desactivado", INVITED: "Invitado" }[status];
@@ -42,6 +44,7 @@ async function responseMessage(response: Response): Promise<string> {
 
 export function MembersPanel(): React.JSX.Element {
   const [members, setMembers] = useState<Member[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +53,9 @@ export function MembersPanel(): React.JSX.Element {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [roleDisplayName, setRoleDisplayName] = useState("");
+  const [rolePermissions, setRolePermissions] = useState<CrmPermission[]>([]);
   const invitationKey = useRef<string | null>(null);
 
   const loadMembers = useCallback(async (): Promise<void> => {
@@ -64,6 +70,17 @@ export function MembersPanel(): React.JSX.Element {
     if (!response.ok) throw new Error(await responseMessage(response));
     const payload = (await response.json()) as MemberListPayload;
     setMembers(payload.data);
+  }, []);
+
+  const loadRoles = useCallback(async (): Promise<void> => {
+    const response = await fetch("/api/roles", { cache: "no-store", credentials: "same-origin" });
+    if (response.status === 403) {
+      setRoles([]);
+      return;
+    }
+    if (!response.ok) throw new Error(await responseMessage(response));
+    const payload = (await response.json()) as RoleListPayload;
+    setRoles(payload.data);
   }, []);
 
   useEffect(() => {
@@ -84,7 +101,7 @@ export function MembersPanel(): React.JSX.Element {
           throw new Error("La sesión no es válida.");
         if (!active) return;
         setCsrfToken(session.csrfToken);
-        await loadMembers();
+        await Promise.all([loadMembers(), loadRoles()]);
       } catch (cause) {
         if (active)
           setError(cause instanceof Error ? cause.message : "No fue posible cargar miembros.");
@@ -96,19 +113,55 @@ export function MembersPanel(): React.JSX.Element {
     return () => {
       active = false;
     };
-  }, [loadMembers]);
+  }, [loadMembers, loadRoles]);
 
   const refresh = async (): Promise<void> => {
     setError(null);
     setNotice(null);
     setLoading(true);
     try {
-      await loadMembers();
+      await Promise.all([loadMembers(), loadRoles()]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible actualizar miembros.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const saveRole = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!csrfToken || !roleDisplayName.trim()) return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(editingRole ? `/api/roles/${editingRole.id}` : "/api/roles", {
+        method: editingRole ? "PATCH" : "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json", "x-csrf-token": csrfToken },
+        body: JSON.stringify({ displayName: roleDisplayName, permissions: rolePermissions }),
+      });
+      if (!response.ok) throw new Error(await responseMessage(response));
+      setEditingRole(null);
+      setRoleDisplayName("");
+      setRolePermissions([]);
+      setNotice(editingRole ? "Rol personalizado actualizado." : "Rol personalizado creado.");
+      await loadRoles();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible guardar el rol.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const beginEditingRole = (role: Role): void => {
+    if (role.system) return;
+    setEditingRole(role);
+    setRoleDisplayName(role.displayName);
+    setRolePermissions([...role.permissions]);
+    setError(null);
+    setNotice(null);
   };
 
   const inviteMember = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -379,9 +432,9 @@ export function MembersPanel(): React.JSX.Element {
                 <label>
                   Rol inicial
                   <select name="roleCode" defaultValue="ADVISOR">
-                    {invitationRoles.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
+                    {roles.map((role) => (
+                      <option key={role.code} value={role.code}>
+                        {role.displayName}
                       </option>
                     ))}
                   </select>
@@ -393,6 +446,82 @@ export function MembersPanel(): React.JSX.Element {
             )}
           </aside>
         </div>
+
+        <section className="member-card roles-card" aria-labelledby="roles-heading">
+          <div className="card-heading">
+            <div>
+              <h2 id="roles-heading">Roles y permisos</h2>
+              <p>Configura una matriz reutilizable para los miembros de este espacio.</p>
+            </div>
+          </div>
+          <div className="roles-layout">
+            <ul className="member-list" aria-label="Roles disponibles">
+              {roles.map((role) => (
+                <li key={role.id} className="member-row">
+                  <div className="member-details">
+                    <strong>{role.displayName}</strong>
+                    <span>{role.system ? "Plantilla del sistema" : `${role.permissions.length} permisos`}</span>
+                  </div>
+                  {!role.system ? (
+                    <button type="button" onClick={() => beginEditingRole(role)} disabled={saving}>
+                      Editar
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <form onSubmit={(event) => void saveRole(event)}>
+              <p className="eyebrow">{editingRole ? "Editar rol" : "Nuevo rol"}</p>
+              <label>
+                Nombre del rol
+                <input
+                  value={roleDisplayName}
+                  onChange={(event) => setRoleDisplayName(event.target.value)}
+                  required
+                  maxLength={160}
+                />
+              </label>
+              <fieldset>
+                <legend>Permisos</legend>
+                {CrmPermissionCatalog.map((permission) => (
+                  <label key={permission}>
+                    <input
+                      type="checkbox"
+                      checked={rolePermissions.includes(permission)}
+                      onChange={(event) =>
+                        setRolePermissions((current) =>
+                          event.target.checked
+                            ? [...current, permission]
+                            : current.filter((value) => value !== permission),
+                        )
+                      }
+                    />
+                    {permission}
+                  </label>
+                ))}
+              </fieldset>
+              <div className="form-actions">
+                {editingRole ? (
+                  <button
+                    type="button"
+                    className="text-action"
+                    onClick={() => {
+                      setEditingRole(null);
+                      setRoleDisplayName("");
+                      setRolePermissions([]);
+                    }}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </button>
+                ) : null}
+                <button type="submit" className="primary-action" disabled={saving || !csrfToken}>
+                  {saving ? "Guardando…" : editingRole ? "Guardar rol" : "Crear rol"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
       </section>
     </main>
   );
