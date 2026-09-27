@@ -17,7 +17,9 @@ import {
 } from "./compose-policy.js";
 import {
   HostAdapterError,
+  type HostAdapterMigrationRequest,
   type HostAdapterRequest,
+  type TenantCrmMigrationReconciler,
   type TenantComposeReconciler,
 } from "./host-adapter.js";
 
@@ -65,7 +67,7 @@ interface ComposePsEntry {
   readonly Health?: unknown;
 }
 
-function createCommandRunner(binary: string): ComposeCommandRunner {
+export function createCommandRunner(binary: string): ComposeCommandRunner {
   if (!isAbsolute(binary) || /[\0\r\n]/u.test(binary)) {
     throw new Error("invalid docker binary");
   }
@@ -228,6 +230,50 @@ function composeArgs(plan: TenantComposePlan, command: "config" | "up" | "ps"): 
   return [...prefix, "ps", "--format", "json"];
 }
 
+function migrationComposeArgs(plan: TenantComposePlan): string[] {
+  return [
+    "compose",
+    "-f",
+    plan.templatePath,
+    "--project-name",
+    plan.projectName,
+    "run",
+    "--rm",
+    "--no-deps",
+    "crm-migrator",
+  ];
+}
+
+async function planForTenant(
+  options: TenantComposeRunnerOptions,
+  request: HostAdapterRequest,
+): Promise<TenantComposePlan> {
+  try {
+    const manifest = parseTenantConfigurationManifest(
+      await readManifest(options.configurationRoot, request),
+      requestFor(request),
+    );
+    return createTenantComposePlan(requestFor(request), manifest, {
+      templatePath: options.composeTemplate,
+      imageRegistry: options.imageRegistry,
+      environment: options.environment,
+      tenantEdgeNetwork: tenantEdgeNetworkName(options.tenantEdgeNetworkPrefix, request.tenantProfileId),
+      platformDatabaseNetwork: options.platformDatabaseNetwork,
+      platformStorageNetwork: options.platformStorageNetwork,
+      platformSessionNetwork: options.platformSessionNetwork,
+      platformOidcNetwork: options.platformOidcNetwork,
+      crmDatabaseSecretFile: safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/runtime-url`),
+      crmMigrationDatabaseSecretFile: safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/migrator-url`),
+      crmOidcClientSecretFile: safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/oidc-client-secret`),
+      crmSessionRedisUrlSecretFile: safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/session-redis-url`),
+    });
+  } catch (error) {
+    if (error instanceof HostAdapterError) throw error;
+    if (error instanceof ComposePolicyValidationError) throw new HostAdapterError("IDENTITY_MISMATCH");
+    throw new HostAdapterError("UNAVAILABLE");
+  }
+}
+
 async function ensureTenantEdgeNetwork(
   runner: ComposeCommandRunner,
   environment: Readonly<Record<string, string>>,
@@ -271,45 +317,9 @@ export function createTenantComposeReconciler(
       throw new HostAdapterError("TARGET_CONFLICT");
     }
     const operation = (async () => {
-      let plan: TenantComposePlan;
-      try {
-        const manifest = parseTenantConfigurationManifest(
-          await readManifest(options.configurationRoot, request),
-          requestFor(request),
-        );
-        plan = createTenantComposePlan(requestFor(request), manifest, {
-          templatePath: options.composeTemplate,
-          imageRegistry: options.imageRegistry,
-          environment: options.environment,
-          tenantEdgeNetwork: tenantEdgeNetworkName(
-            options.tenantEdgeNetworkPrefix,
-            request.tenantProfileId,
-          ),
-          platformDatabaseNetwork: options.platformDatabaseNetwork,
-          platformStorageNetwork: options.platformStorageNetwork,
-          platformSessionNetwork: options.platformSessionNetwork,
-          platformOidcNetwork: options.platformOidcNetwork,
-          crmDatabaseSecretFile: safeChildPath(
-            options.databaseSecretRoot,
-            `${request.tenantProfileId}/runtime-url`,
-          ),
-          crmOidcClientSecretFile: safeChildPath(
-            options.databaseSecretRoot,
-            `${request.tenantProfileId}/oidc-client-secret`,
-          ),
-          crmSessionRedisUrlSecretFile: safeChildPath(
-            options.databaseSecretRoot,
-            `${request.tenantProfileId}/session-redis-url`,
-          ),
-        });
-      } catch (error) {
-        if (error instanceof HostAdapterError) throw error;
-        if (error instanceof ComposePolicyValidationError) {
-          throw new HostAdapterError("IDENTITY_MISMATCH");
-        }
-        throw new HostAdapterError("UNAVAILABLE");
-      }
+      const plan = await planForTenant(options, request);
       await assertSecretFile(plan.environment.QCRM_CRM_DATABASE_URL_SECRET_FILE as string);
+      await assertSecretFile(plan.environment.QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE as string);
       await assertSecretFile(plan.environment.QCRM_CRM_OIDC_CLIENT_SECRET_FILE as string);
       await assertSecretFile(plan.environment.QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE as string);
       const environment = plan.environment;
@@ -343,4 +353,22 @@ export function createTenantComposeReconciler(
   };
 
   return Object.freeze({ reconcile });
+}
+
+/** Runs only the one-shot CRM migrator; it never reconciles or starts tenant services. */
+export function createTenantCrmMigrationReconciler(
+  options: TenantComposeRunnerOptions,
+): TenantCrmMigrationReconciler {
+  const runner = options.commandRunner ?? createCommandRunner(options.dockerBinary ?? "/usr/bin/docker");
+  const timeout = options.commandTimeoutMilliseconds ?? defaultTimeoutMilliseconds;
+  return Object.freeze({
+    migrate: async (request: HostAdapterMigrationRequest) => {
+      const composeRequest: HostAdapterRequest = { ...request, action: "RECONCILE_TENANT_COMPOSE" };
+      const plan = await planForTenant(options, composeRequest);
+      await assertSecretFile(plan.environment.QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE as string);
+      const result = await runner.run(migrationComposeArgs(plan), plan.environment, timeout);
+      if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      return Object.freeze({ migrated: true, reconciled: true });
+    },
+  });
 }

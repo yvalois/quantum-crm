@@ -32,4 +32,8 @@ export interface IamMemberRepository {
     readonly oidcSubject: string;
     readonly now: Date;
   }): Promise<IamMember | null>;
+  bootstrapInitialAdministrator(input: {
+    readonly member: IamMember;
+    readonly idempotencyKey: string;
+  }): Promise<{ readonly member: IamMember; readonly replayed: boolean }>;
 }

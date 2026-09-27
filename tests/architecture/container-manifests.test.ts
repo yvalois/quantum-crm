@@ -256,6 +256,15 @@ describe("container manifests", () => {
     }
   });
 
+  it("keeps CRM migration execution exclusive to the durable migrator step", () => {
+    const tenant = read("infra/compose/tenant.yaml");
+
+    expect(serviceBlock(tenant, "crm-migrator")).toContain("restart: \"no\"");
+    for (const service of ["api", "worker", "crm-web", "portal-web", "agent-runtime"]) {
+      expect(serviceBlock(tenant, service)).not.toContain("crm-migrator");
+    }
+  });
+
   it("mounts platform web session secrets only in admin-web", () => {
     const platform = read("infra/compose/platform.yaml");
     const adminWeb = serviceBlock(platform, "admin-web");

@@ -10,6 +10,8 @@ import {
   validateProvisioningLeaseRenewal,
   validateCompleteProvisioningContainers,
   validateCompleteProvisioningHttps,
+  validateCompleteProvisioningMigration,
+  provisioningOperationSteps,
   type ProvisioningOperationRepository,
 } from "./provisioning-operation.js";
 
@@ -25,6 +27,19 @@ const command = {
 } as const;
 
 describe("tenant provisioning operation", () => {
+  it("requires the written configuration before CRM migration and containers", () => {
+    expect(provisioningOperationSteps.indexOf("WRITE_CONFIGURATION")).toBeLessThan(
+      provisioningOperationSteps.indexOf("MIGRATE_DATABASE"),
+    );
+    expect(provisioningOperationSteps.indexOf("MIGRATE_DATABASE")).toBeLessThan(
+      provisioningOperationSteps.indexOf("START_CONTAINERS"),
+    );
+  });
+
+  it("fences a per-tenant CRM migration completion with operation lease identity", () => {
+    expect(validateCompleteProvisioningMigration({ operationId: "01995f7e-7b52-7000-8000-000000000401", tenantProfileId: command.tenantProfileId, workerId: "deploy-executor:test", expectedVersion: 2n, attempt: 1 })).toMatchObject({ expectedVersion: 2n, attempt: 1 });
+    expect(() => validateCompleteProvisioningMigration({ operationId: "invalid", tenantProfileId: command.tenantProfileId, workerId: "deploy-executor:test", expectedVersion: 2n, attempt: 1 })).toThrow(ProvisioningOperationValidationError);
+  });
   it("creates a closed pending operation draft", () => {
     expect(createProvisioningOperationDraft(command)).toEqual({
       tenantProfileId: command.tenantProfileId,
@@ -69,12 +84,17 @@ describe("tenant provisioning operation", () => {
       completeValidation: vi.fn(),
       completeDatabase: vi.fn(),
       completeSecrets: vi.fn(),
+      completeMigration: vi.fn(),
       completeStorage: vi.fn(),
       completeConfiguration: vi.fn(),
       completeContainers: vi.fn(),
       completeHttps: vi.fn(),
       resolveHttpsContext: vi.fn(),
       resolveIdentityContext: vi.fn(),
+      resolveInitialAdministratorContext: vi.fn(),
+      completeInitialAdministrator: vi.fn(),
+      completeVerification: vi.fn(),
+      completeActivation: vi.fn(),
     } satisfies ProvisioningOperationRepository);
     await expect(service.request(command)).resolves.toMatchObject({ tenantVersion: 2n });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING" }));

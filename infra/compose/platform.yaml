@@ -68,9 +68,15 @@ services:
       QCRM_GITHUB_ACTIONS_REPOSITORY: "${QCRM_GITHUB_ACTIONS_REPOSITORY:?set QCRM_GITHUB_ACTIONS_REPOSITORY}"
       QCRM_GITHUB_ACTIONS_REPOSITORY_ID: "${QCRM_GITHUB_ACTIONS_REPOSITORY_ID:?set QCRM_GITHUB_ACTIONS_REPOSITORY_ID}"
       QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID: "${QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID:?set QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID}"
+      QCRM_ACTIVATION_CALLBACK_ORIGIN: http://admin-api:3002
+      QCRM_ACTIVATION_CALLBACK_PRINCIPAL: deploy-executor
+      QCRM_ACTIVATION_CALLBACK_AUDIENCE: quantum-admin-api-activation-callback
+      QCRM_ACTIVATION_CALLBACK_TOKEN_FILE: /run/secrets/qcrm_activation_callback_token
     secrets:
       - source: platform-database-url
         target: qcrm_database_url
+      - source: activation-callback-token
+        target: qcrm_activation_callback_token
     healthcheck:
       test:
         [
@@ -106,6 +112,10 @@ services:
       QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE: /run/secrets/qcrm_keycloak_provisioner_client_secret
       QCRM_PLATFORM_IDENTITY_ORIGIN: "${QCRM_PLATFORM_IDENTITY_ORIGIN:?set QCRM_PLATFORM_IDENTITY_ORIGIN}"
       QCRM_PLATFORM_REDIS_ADMIN_URL_FILE: /run/secrets/qcrm_platform_redis_admin_url
+      QCRM_ACTIVATION_CALLBACK_ORIGIN: http://admin-api:3002
+      QCRM_ACTIVATION_CALLBACK_PRINCIPAL: deploy-executor
+      QCRM_ACTIVATION_CALLBACK_AUDIENCE: quantum-admin-api-activation-callback
+      QCRM_ACTIVATION_CALLBACK_TOKEN_FILE: /run/secrets/qcrm_activation_callback_token
     secrets:
       - source: platform-database-url
         target: qcrm_database_url
@@ -119,6 +129,8 @@ services:
         target: qcrm_keycloak_provisioner_client_secret
       - source: platform-redis-admin-url
         target: qcrm_platform_redis_admin_url
+      - source: activation-callback-token
+        target: qcrm_activation_callback_token
     volumes:
       - type: bind
         source: "${QCRM_TENANT_SECRET_BIND_SOURCE:?set QCRM_TENANT_SECRET_BIND_SOURCE}"
@@ -186,3 +198,5 @@ secrets:
     file: "${QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE:?set QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE}"
   platform-redis-admin-url:
     file: "${QCRM_PLATFORM_REDIS_ADMIN_URL_FILE:?set QCRM_PLATFORM_REDIS_ADMIN_URL_FILE}"
+  activation-callback-token:
+    file: "${QCRM_ACTIVATION_CALLBACK_TOKEN_FILE:?set QCRM_ACTIVATION_CALLBACK_TOKEN_FILE}"

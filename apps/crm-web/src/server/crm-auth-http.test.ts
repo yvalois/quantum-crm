@@ -9,6 +9,7 @@ import {
   handleCrmLogin,
   handleCrmMemberList,
   handleCrmMemberUpdate,
+  handleCrmContactUpdate,
   handleCrmSession,
 } from "./crm-auth-http.js";
 
@@ -200,6 +201,40 @@ describe("CRM web authentication HTTP boundary", () => {
 
     expect(response.status).toBe(403);
     expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("forwards an intentional contact-channel clear without converting it to an invalid value", async () => {
+    const contact = {
+      id: "01995f7e-7b52-7000-8000-000000000103",
+      displayName: "Ada Lovelace",
+      email: null,
+      phone: null,
+      version: "2",
+      createdAt: "2026-09-20T15:00:00.000Z",
+      updatedAt: "2026-09-20T15:01:00.000Z",
+    };
+    const upstream = vi.fn(async () => Response.json({ data: contact }));
+    const response = await handleCrmContactUpdate(
+      new Request(`https://crm.example.test/api/contacts/${contact.id}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "if-match": '"1"',
+        },
+        body: JSON.stringify({ email: null, phone: null }),
+      }),
+      runtime(upstream as typeof fetch),
+      contact.id,
+    );
+
+    expect(response.status).toBe(200);
+    const [target, init] = upstream.mock.calls[0]!;
+    expect(target.toString()).toBe(`http://api:3001/api/v1/contacts/${contact.id}`);
+    expect(new Headers(init?.headers).get("if-match")).toBe('"1"');
+    expect(init?.body).toBe(JSON.stringify({ email: null, phone: null }));
   });
 
   it("validates member IDs before forwarding a deactivation", async () => {

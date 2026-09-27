@@ -103,6 +103,7 @@ describe("process configuration", () => {
         defaultPort: 3001,
         database: { target: "crm", requiresTenant: true },
         oidc: { provider: "keycloak", boundary: "crm" },
+        requiresIamBootstrapClient: true,
       },
       "admin-api": {
         serviceName: "admin-api",
@@ -111,6 +112,7 @@ describe("process configuration", () => {
         database: { target: "platform", requiresTenant: false },
         oidc: { provider: "keycloak", boundary: "platform" },
         requiresGithubActionsReleasePublisher: true,
+        requiresActivationDeliveryCallback: true,
       },
       worker: {
         serviceName: "worker",
@@ -128,6 +130,7 @@ describe("process configuration", () => {
         requiresStorageAdmin: true,
         requiresDeployHostSocket: true,
         requiresIdentityProvisioner: true,
+        requiresActivationDeliveryCallback: true,
       },
       "deploy-host": {
         serviceName: "deploy-host",
@@ -149,6 +152,8 @@ describe("process configuration", () => {
       serviceName: "deploy-host",
       deployHostConfigurationRoot: "/tmp/qcrm-tenant-configuration",
       deployHostComposeTemplate: "/tmp/qcrm-tenant.yaml",
+      deployHostPlatformFoundationComposeTemplate: "/tmp/qcrm-platform-foundation.yaml",
+      deployHostPlatformFoundationEnvironmentFile: "/tmp/qcrm-platform-foundation.env",
       deployHostImageRegistry: "ghcr.io/example/quantum-crm",
       deployHostTenantEdgeNetwork: "qcrm-tenant-edge",
       deployHostPlatformDatabaseNetwork: "qcrm-platform-database",

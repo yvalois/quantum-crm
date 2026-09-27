@@ -54,6 +54,13 @@
 
 {$QCRM_IDENTITY_HOST} {
 	import admin_headers
+	# La emision/confirmacion de activacion inicial es una frontera privada entre
+	# deploy-executor y Keycloak dentro de la red de plataforma. Nunca se enruta
+	# desde el host publico de identidad, incluso si un cliente conoce su path.
+	@internal_activation path /realms/*/qcrm-internal/*
+	handle @internal_activation {
+		respond "Not Found" 404
+	}
 	reverse_proxy platform-keycloak:8080 {
 		health_uri /realms/quantum-platform/.well-known/openid-configuration
 		health_interval 15s

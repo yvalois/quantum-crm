@@ -108,6 +108,70 @@ describe("deploy host adapter", () => {
     }
   });
 
+  it("routes a CRM migration to its one-shot reconciler, never tenant compose", async () => {
+    const root = await mkdtemp(join(tmpdir(), "qcrm-host-adapter-"));
+    const socketPath = join(root, "adapter.sock");
+    const reconcile = vi.fn();
+    const migrate = vi.fn(async () => ({ migrated: true, reconciled: true }));
+    const adapter = createHostAdapterServer({
+      socketPath,
+      reconciler: { reconcile },
+      migrationReconciler: { migrate },
+    });
+    await adapter.listen();
+    try {
+      const response = await requestOverSocket(
+        socketPath,
+        { ...requestBody, action: "MIGRATE_TENANT_CRM_DATABASE" },
+        "/v1/tenant-database/migrate",
+      );
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ migrated: true, reconciled: true });
+      expect(migrate).toHaveBeenCalledOnce();
+      expect(reconcile).not.toHaveBeenCalled();
+    } finally {
+      await adapter.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("routes a complete immutable release catalog to the foundation deployer", async () => {
+    const root = await mkdtemp(join(tmpdir(), "qcrm-host-adapter-"));
+    const socketPath = join(root, "adapter.sock");
+    const deploy = vi.fn(async () => undefined);
+    const adapter = createHostAdapterServer({
+      socketPath,
+      reconciler: { reconcile: vi.fn() },
+      foundationReleaseDeployer: { deploy },
+    });
+    await adapter.listen();
+    try {
+      const names = [
+        "CRM_WEB", "PORTAL_WEB", "ADMIN_WEB", "API", "ADMIN_API", "WORKER",
+        "DEPLOY_EXECUTOR", "CRM_MIGRATOR", "PLATFORM_KEYCLOAK", "AGENT_RUNTIME",
+      ];
+      const response = await requestOverSocket(
+        socketPath,
+        {
+          action: "RECONCILE_PLATFORM_FOUNDATION_RELEASE",
+          artifacts: names.map((name, index) => ({
+            name,
+            digest: `sha256:${index.toString(16).padStart(64, "0")}`,
+          })),
+        },
+        "/v1/platform-foundation/reconcile",
+      );
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ reconciled: true });
+      expect(deploy).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "RECONCILE_PLATFORM_FOUNDATION_RELEASE" }),
+      );
+    } finally {
+      await adapter.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("forwards only a validated tenant HTTPS reconciliation over the private socket", async () => {
     const root = await mkdtemp(join(tmpdir(), "qcrm-host-adapter-"));
     const socketPath = join(root, "adapter.sock");

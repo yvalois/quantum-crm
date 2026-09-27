@@ -25,7 +25,7 @@ async function bootstrap(): Promise<void> {
         issuer: oidcConfig.issuer,
         audience: oidcConfig.audience,
         allowedPermissions: iamPermissions,
-      }),
+      }, config.iamBootstrapClientId!),
       {
         abortOnError: true,
         bufferLogs: true,

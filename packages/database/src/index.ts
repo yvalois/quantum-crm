@@ -15,6 +15,8 @@ export {
   type PostgresDatabase,
   type PostgresPoolFactory,
 } from "./postgres-database.js";
+export { createActivationDeliveryRepository } from "./activation-delivery-repository.js";
+export { createPlatformFoundationPromotionRepository } from "./platform-foundation-promotion-repository.js";
 export {
   createCrmPostgresDatabase,
   IamMemberConflictError,
@@ -22,6 +24,10 @@ export {
   type CrmMembershipRepository,
   type CrmPostgresDatabase,
 } from "./crm-postgres-database.js";
+export {
+  CommercialIdempotencyConflictError,
+  type CommercialPostgresRepositories,
+} from "./commercial-postgres-database.js";
 export {
   createTenantDatabaseProvisioner,
   TenantDatabaseProvisioningError,

@@ -9,6 +9,7 @@ export const platformPermissions = [
   "configuration:manage",
   "deployments:read",
   "deployments:execute",
+  "deployments:activate",
   "operators:manage",
 ] as const;
 

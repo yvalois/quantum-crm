@@ -12,6 +12,8 @@ describe("tenant OIDC identity", () => {
       realmName: "qcrm-01995f7e7b5270008000000000000201",
       crmWebClientId: "quantum-crm-web",
       apiAudience: "quantum-crm-api",
+      bootstrapClientId: "quantum-crm-bootstrap",
+      bootstrapClientSecretRef: "tenant/01995f7e-7b52-7000-8000-000000000201/iam-bootstrap-client-secret",
       clientSecretRef: "tenant/01995f7e-7b52-7000-8000-000000000201/oidc-client-secret",
       sessionRedisUrlSecretRef: "tenant/01995f7e-7b52-7000-8000-000000000201/session-redis-url",
     });

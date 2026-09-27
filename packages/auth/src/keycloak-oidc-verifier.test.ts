@@ -60,6 +60,8 @@ async function token(
     readonly algorithm?: "RS256" | "RS512";
     readonly signingKey?: CryptoKey;
     readonly header?: Record<string, unknown>;
+    readonly scope?: string;
+    readonly authorizedParty?: string;
   } = {},
 ): Promise<SecretValue> {
   const algorithm = input.algorithm ?? "RS256";
@@ -68,6 +70,8 @@ async function token(
     qcrm_principal_type: input.principalType ?? "human",
     acr: input.acr ?? "2",
     auth_time: input.authTime ?? nowSeconds - 60,
+    ...(input.scope === undefined ? {} : { scope: input.scope }),
+    ...(input.authorizedParty === undefined ? {} : { azp: input.authorizedParty }),
   })
     .setProtectedHeader({
       alg: algorithm,
@@ -99,6 +103,22 @@ describe("Keycloak OIDC access token verifier", () => {
       authenticatedAt: new Date((nowSeconds - 60) * 1_000),
     });
     expect(JSON.stringify(identity)).not.toContain("eyJ");
+  });
+
+  it("retains only the cataloged two-part bootstrap permission from a service token", async () => {
+    const identity = await verifier().verifyAccessToken(
+      await token({
+        principalType: "service",
+        authorizedParty: "quantum-crm-bootstrap",
+        scope: "openid iam:bootstrap-initial-administrator iam:members:create unknown:service-permission",
+      }),
+    );
+
+    expect(identity).toMatchObject({
+      principalType: "service",
+      clientId: "quantum-crm-bootstrap",
+      servicePermissions: ["iam:bootstrap-initial-administrator"],
+    });
   });
 
   it.each([

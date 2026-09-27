@@ -1,14 +1,18 @@
+import {
+  CrmPermissionCatalog,
+  type CrmPermission,
+} from "@quantum-crm/contracts";
+
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
-export const iamPermissions = [
-  "iam:members:read",
-  "iam:members:create",
-  "iam:members:update",
-  "iam:members:deactivate",
-] as const;
-
-export type IamPermission = (typeof iamPermissions)[number];
+export const iamPermissions = CrmPermissionCatalog;
+export type IamPermission = CrmPermission;
+export type CommercialScope = "PROFILE" | "OWN";
+export interface CommercialActor {
+  readonly memberId: string;
+  readonly scope: CommercialScope;
+}
 export const initialRoleCodes = ["ADMINISTRATOR", "SUPERVISOR", "ADVISOR"] as const;
 export type InitialRoleCode = (typeof initialRoleCodes)[number];
 export type MemberStatus = "INVITED" | "ACTIVE" | "DEACTIVATED";
@@ -40,8 +44,9 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
     case "ADMINISTRATOR":
       return Object.freeze([...iamPermissions]);
     case "SUPERVISOR":
+      return Object.freeze(["crm:contacts:read", "crm:contacts:create", "crm:contacts:update", "crm:sales:read", "crm:sales:create", "crm:sales:move", "crm:tasks:read", "crm:tasks:create", "crm:tasks:update"]);
     case "ADVISOR":
-      return Object.freeze(["iam:members:read"]);
+      return Object.freeze(["crm:contacts:read", "crm:contacts:create", "crm:contacts:update", "crm:sales:read", "crm:sales:create", "crm:sales:move", "crm:tasks:read", "crm:tasks:create", "crm:tasks:update"]);
   }
 }
 
@@ -90,6 +95,33 @@ export function createInvitedMember(input: {
     displayName: normalizeDisplayName(input.displayName),
     email: normalizeEmail(input.email),
     status: "INVITED",
+    authorizationRevision: 1n,
+    createdAt: input.now,
+    updatedAt: input.now,
+    deactivatedAt: null,
+  });
+}
+
+/**
+ * The initial membership is intentionally not an invitation: its subject was
+ * already verified by the isolated identity/provisioning path. Its profile
+ * fields are deterministic placeholders until the identity profile is synced;
+ * no caller can choose a role, tenant or email through this command.
+ */
+export function createBootstrapAdministrator(input: {
+  readonly id: string;
+  readonly oidcSubject: string;
+  readonly now: Date;
+}): IamMember {
+  requireUuid(input.id);
+  requireDate(input.now);
+  if (!/^[!-~]{1,255}$/u.test(input.oidcSubject)) throw new IamMemberValidationError();
+  return Object.freeze({
+    id: input.id,
+    oidcSubject: input.oidcSubject,
+    displayName: "Administrador inicial",
+    email: `${input.oidcSubject}@bootstrap.invalid`,
+    status: "ACTIVE",
     authorizationRevision: 1n,
     createdAt: input.now,
     updatedAt: input.now,

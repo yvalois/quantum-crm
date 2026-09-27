@@ -19,6 +19,7 @@ describe("IAM member service", () => {
       },
       update: async (member) => member,
       acceptInvitation: async () => null,
+      bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
     const service = new IamMemberService(repository, () => now);
 
@@ -47,6 +48,7 @@ describe("IAM member service", () => {
       },
       update: async (member) => member,
       acceptInvitation: async () => null,
+      bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
     const service = new IamMemberService(repository, () => now);
 
@@ -59,5 +61,20 @@ describe("IAM member service", () => {
         idempotencyKey: "invite-ana-20260922",
       }),
     ).rejects.toBeInstanceOf(IamAuthorizationError);
+  });
+
+  it("creates only the fixed active administrator through the internal bootstrap command", async () => {
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }), findById: async () => null,
+      findByOidcSubject: async () => null, createInvitation: async () => { throw new Error("unused"); },
+      update: async (member) => member, acceptInvitation: async () => null,
+      bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
+    };
+    const result = await new IamMemberService(repository, () => now).bootstrapInitialAdministrator({
+      oidcSubject: "01995f7e-7b52-7000-8000-000000000201",
+      idempotencyKey: "iam-bootstrap-20260926",
+    });
+    expect(result.member.status).toBe("ACTIVE");
+    expect(result.member.oidcSubject).toBe("01995f7e-7b52-7000-8000-000000000201");
   });
 });

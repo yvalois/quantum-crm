@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
   createInvitation,
+  createBootstrapAdministrator,
   createInvitedMember,
   deactivateMember,
   IamMemberValidationError,
@@ -54,6 +55,13 @@ export class IamMemberService {
   ): Promise<IamMemberPage> {
     requirePermission(actor, "iam:members:read");
     return this.repository.list(criteria);
+  }
+
+  /** Narrow public query port for tasks. Authorization remains with the task
+   * module; this deliberately does not grant the IAM member-directory read. */
+  public async listActiveForTaskAssignment(): Promise<readonly Pick<IamMember, "id" | "displayName">[]> {
+    const page = await this.repository.list({ limit: 100, status: "ACTIVE" });
+    return Object.freeze(page.members.map((member) => Object.freeze({ id: member.id, displayName: member.displayName })));
   }
 
   public async invite(input: {
@@ -124,5 +132,20 @@ export class IamMemberService {
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
     return this.repository.update(deactivateMember({ member: current, now: this.clock() }));
+  }
+
+  /** Internal, tenant-local command for ADR-0023. There is deliberately no actor,
+   * role, email or tenant field: transport authentication establishes the service
+   * principal and the database establishes the tenant. */
+  public async bootstrapInitialAdministrator(input: {
+    readonly oidcSubject: string;
+    readonly idempotencyKey: string;
+  }): Promise<{ readonly member: IamMember; readonly replayed: boolean }> {
+    if (!idempotencyKeyPattern.test(input.idempotencyKey)) throw new IamMemberValidationError();
+    const now = this.clock();
+    return this.repository.bootstrapInitialAdministrator({
+      member: createBootstrapAdministrator({ id: randomUUID(), oidcSubject: input.oidcSubject, now }),
+      idempotencyKey: input.idempotencyKey,
+    });
   }
 }

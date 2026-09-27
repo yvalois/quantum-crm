@@ -15,6 +15,19 @@ x-service-defaults: &service-defaults
       max-file: "5"
 
 services:
+  crm-migrator:
+    <<: *service-defaults
+    restart: "no"
+    image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/crm-migrator@sha256:${QCRM_CRM_MIGRATOR_DIGEST:?set QCRM_CRM_MIGRATOR_DIGEST}"
+    pull_policy: always
+    environment:
+      QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
+      QCRM_MIGRATION_DATABASE_URL_FILE: /run/secrets/qcrm_migration_database_url
+    secrets:
+      - source: crm-migration-database-url
+        target: qcrm_migration_database_url
+    networks: [platform-database]
+
   crm-web:
     <<: *service-defaults
     image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/crm-web@sha256:${QCRM_CRM_WEB_DIGEST:?set QCRM_CRM_WEB_DIGEST}"
@@ -95,6 +108,7 @@ services:
       QCRM_OIDC_AUDIENCE: "${QCRM_OIDC_AUDIENCE:?set QCRM_OIDC_AUDIENCE}"
       QCRM_OIDC_REQUIRED_ACR: "${QCRM_OIDC_REQUIRED_ACR:?set QCRM_OIDC_REQUIRED_ACR}"
       QCRM_OIDC_MAX_TOKEN_AGE_SECONDS: "${QCRM_OIDC_MAX_TOKEN_AGE_SECONDS:?set QCRM_OIDC_MAX_TOKEN_AGE_SECONDS}"
+      QCRM_IAM_BOOTSTRAP_CLIENT_ID: "${QCRM_IAM_BOOTSTRAP_CLIENT_ID:?set QCRM_IAM_BOOTSTRAP_CLIENT_ID}"
     secrets:
       - source: crm-database-url
         target: qcrm_database_url
@@ -118,6 +132,9 @@ services:
       platform-database: {}
       platform-storage: {}
       platform-oidc: {}
+      platform-session:
+        aliases:
+          - "${QCRM_TENANT_BOOTSTRAP_API_ALIAS:?set QCRM_TENANT_BOOTSTRAP_API_ALIAS}"
 
   worker:
     <<: *service-defaults
@@ -188,6 +205,8 @@ networks:
     name: "${QCRM_PLATFORM_OIDC_NETWORK:?set QCRM_PLATFORM_OIDC_NETWORK}"
 
 secrets:
+  crm-migration-database-url:
+    file: "${QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE:?set QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE}"
   crm-database-url:
     file: "${QCRM_CRM_DATABASE_URL_SECRET_FILE:?set QCRM_CRM_DATABASE_URL_SECRET_FILE}"
   crm-oidc-client-secret:

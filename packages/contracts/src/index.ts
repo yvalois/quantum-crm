@@ -6,6 +6,8 @@ export {
   type HealthStatus,
 } from "./health/v1/health.js";
 export {
+  CrmPermissionCatalog,
+  CrmPermissionSchema,
   CreateMemberInvitationSchema,
   InvitationResponseSchema,
   InvitationSchema,
@@ -18,6 +20,7 @@ export {
   MemberStatusSchema,
   UpdateMemberSchema,
   type CreateMemberInvitation,
+  type CrmPermission,
   type Invitation,
   type InitialRoleCode,
   type Member,
@@ -25,6 +28,32 @@ export {
   type MemberListResponse,
   type UpdateMember,
 } from "./iam/v1/member.js";
+export {
+  ServicePermissionCatalog,
+  ServicePermissionSchema,
+  type ServicePermission,
+} from "./iam/v1/service-permission.js";
+export {
+  BootstrapInitialAdministratorSchema,
+  BootstrapInitialAdministratorResponseSchema,
+  IdempotencyKeySchema,
+  type BootstrapInitialAdministratorResponse,
+} from "./iam/v1/bootstrap-initial-administrator.js";
+export {
+  ContactIdSchema, ContactListResponseSchema, ContactResponseSchema, ContactSchema, CreateContactSchema, UpdateContactSchema,
+  type Contact, type CreateContact, type UpdateContact,
+} from "./contacts/v1/contact.js";
+export {
+  CreateOpportunitySchema, CreatePipelineSchema, CreatePipelineStageSchema, MoveOpportunitySchema,
+  OpportunityListResponseSchema, OpportunityResponseSchema, OpportunitySchema, PipelineListResponseSchema,
+  PipelineResponseSchema, PipelineSchema, PipelineStageSchema,
+  type Opportunity, type Pipeline, type PipelineStage,
+} from "./sales/v1/sales.js";
+export {
+  CreateTaskSchema, TaskAssigneeListResponseSchema, TaskAssigneeSchema, TaskListResponseSchema, TaskPrioritySchema, TaskResponseSchema, TaskSchema,
+  MutableTaskStatusSchema, TaskStatusSchema, UpdateTaskStatusSchema,
+  type MutableTaskStatus, type Task, type TaskAssignee,
+} from "./tasks/v1/task.js";
 export {
   createPlatformOperatorSelf,
   PlatformOperatorSelfSchema,
@@ -62,6 +91,18 @@ export {
   type TenantHttpsRouteProvisioningResponse,
 } from "./deployments/v1/tenant-https-route.js";
 export {
+  ActivationDeliveryRequestSchema,
+  ActivationDeliveryResponseSchema,
+  ActivationDeliveryCallbackSchema,
+  type ActivationDeliveryResponse,
+  type ActivationDeliveryCallback,
+} from "./deployments/v1/activation-delivery.js";
+export {
+  PlatformFoundationPromotionResponseSchema,
+  PlatformFoundationPromotionSchema,
+  type PlatformFoundationPromotionContract,
+} from "./deployments/v1/platform-foundation-promotion.js";
+export {
   CreateInfrastructureServerSchema,
   InfrastructureServerArchitectureSchema,
   InfrastructureServerListQuerySchema,
@@ -80,6 +121,7 @@ export {
   PlatformReleaseArtifactNames,
   PlatformReleaseArtifactNameSchema,
   PlatformReleaseArtifactSchema,
+  PlatformFoundationDigestMappingSchema,
   PlatformReleaseCompatibilitySchema,
   PlatformReleaseListQuerySchema,
   PlatformReleaseListResponseSchema,
@@ -88,7 +130,10 @@ export {
   PlatformReleaseStatusSchema,
   UpdatePlatformReleaseStatusSchema,
   type CreatePlatformRelease,
+  type PlatformFoundationDigestMapping,
+  type PlatformReleaseArtifactName,
   type PlatformReleaseContract,
+  platformFoundationDigestMapping,
 } from "./releases/v1/platform-release.js";
 export {
   createReleaseManifest,

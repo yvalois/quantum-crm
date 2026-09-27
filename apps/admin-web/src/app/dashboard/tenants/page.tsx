@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  ActivationDeliveryResponse,
   PlatformOperatorSelf,
   TenantProfileContract,
   TenantProfileListResponse,
@@ -48,6 +49,7 @@ export default function TenantProfilesPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<readonly (string | null)[]>([]);
   const [canManage, setCanManage] = useState(false);
+  const [canActivate, setCanActivate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogMode>(null);
@@ -55,6 +57,8 @@ export default function TenantProfilesPage() {
   const [selectedEtag, setSelectedEtag] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [activationUrl, setActivationUrl] = useState<string | null>(null);
+  const [activationPending, setActivationPending] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ pageSize: "25" });
@@ -96,6 +100,7 @@ export default function TenantProfilesPage() {
           if (!response.ok) return;
           const operator = (await response.json()) as PlatformOperatorSelf;
           setCanManage(operator.data.permissions.includes("tenants:manage"));
+          setCanActivate(operator.data.permissions.includes("deployments:activate"));
         })
         .catch(() => undefined),
     ]);
@@ -185,6 +190,37 @@ export default function TenantProfilesPage() {
       setFormError(cause instanceof Error ? cause.message : "No fue posible guardar el perfil");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function requestActivation(profile: TenantProfileContract): Promise<void> {
+    setActivationUrl(null);
+    setActivationPending(profile.id);
+    setError(null);
+    try {
+      const current = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
+        cache: "no-store",
+      });
+      if (!current.ok) throw new Error(await errorTitle(current));
+      const csrf = await csrfToken();
+      const response = await fetch(`/api/platform/tenant-profiles/${profile.id}/activation-deliveries`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrf,
+          "if-match": current.headers.get("etag") ?? "",
+          "idempotency-key": `activation-${crypto.randomUUID()}`,
+        },
+        body: "{}",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(await errorTitle(response));
+      const result = (await response.json()) as ActivationDeliveryResponse;
+      setActivationUrl(result.data.url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible emitir la activaciÃ³n");
+    } finally {
+      setActivationPending(null);
     }
   }
 
@@ -334,7 +370,9 @@ export default function TenantProfilesPage() {
                       </code>
                     </td>
                     <td>
-                      {canManage ? (
+                      {canManage || canActivate ? (
+                        <div className="row-actions">
+                          {canManage ? (
                         <button
                           className="row-action"
                           type="button"
@@ -343,6 +381,18 @@ export default function TenantProfilesPage() {
                         >
                           Editar
                         </button>
+                          ) : null}
+                          {canActivate ? (
+                            <button
+                              className="row-action"
+                              type="button"
+                              disabled={activationPending !== null}
+                              onClick={() => void requestActivation(profile)}
+                            >
+                              {activationPending === profile.id ? "Emitiendo..." : "Activar administrador"}
+                            </button>
+                          ) : null}
+                        </div>
                       ) : (
                         <span className="read-only">Solo lectura</span>
                       )}
@@ -381,6 +431,19 @@ export default function TenantProfilesPage() {
           </div>
         ) : null}
       </section>
+
+      {activationUrl ? (
+        <section className="state-block activation-link" aria-live="assertive">
+          <h2>Enlace de activaciÃ³n listo</h2>
+          <p>Se muestra solo en esta sesiÃ³n. Ãbrelo ahora; no se guardarÃ¡ ni se volverÃ¡ a mostrar.</p>
+          <a href={activationUrl} target="_blank" rel="noreferrer noopener">
+            Abrir activaciÃ³n segura
+          </a>
+          <button type="button" className="quiet-button" onClick={() => setActivationUrl(null)}>
+            Ocultar enlace
+          </button>
+        </section>
+      ) : null}
 
       {dialog ? (
         <dialog className="profile-dialog" open aria-labelledby="profile-dialog-title">

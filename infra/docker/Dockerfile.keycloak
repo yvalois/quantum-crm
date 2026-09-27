@@ -1,11 +1,19 @@
 # syntax=docker/dockerfile:1.7
 
 ARG KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c
+ARG MAVEN_IMAGE=maven:3.9.9-eclipse-temurin-21-noble@sha256:2fa8b35172589aafa259fe953f4829859169bb0516f28f2b5a027c7c52017bee
+
+FROM ${MAVEN_IMAGE} AS activation-provider
+WORKDIR /workspace
+COPY infra/keycloak/activation-provider/pom.xml ./pom.xml
+COPY infra/keycloak/activation-provider/src ./src
+RUN mvn --batch-mode --no-transfer-progress -DskipTests package
 
 FROM ${KEYCLOAK_IMAGE} AS builder
 ENV KC_DB=postgres
 ENV KC_HEALTH_ENABLED=true
 ENV KC_HTTP_MANAGEMENT_HEALTH_ENABLED=true
+COPY --from=activation-provider /workspace/target/quantum-activation-provider.jar /opt/keycloak/providers/quantum-activation-provider.jar
 RUN /opt/keycloak/bin/kc.sh build
 
 FROM ${KEYCLOAK_IMAGE}

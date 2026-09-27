@@ -8,8 +8,8 @@ import {
   tenantContainerServiceNames,
 } from "@quantum-crm/platform-domain";
 
-import { createTenantComposeReconciler, type ComposeCommandResult } from "./compose-runner.js";
-import { HostAdapterError, type HostAdapterRequest } from "./host-adapter.js";
+import { createTenantComposeReconciler, createTenantCrmMigrationReconciler, type ComposeCommandResult } from "./compose-runner.js";
+import { HostAdapterError, type HostAdapterMigrationRequest, type HostAdapterRequest } from "./host-adapter.js";
 
 const request: HostAdapterRequest = {
   action: "RECONCILE_TENANT_COMPOSE",
@@ -67,6 +67,9 @@ async function createFixture(): Promise<{
   await mkdir(join(databaseSecretRoot, request.tenantProfileId), { recursive: true });
   await writeFile(manifestPath, JSON.stringify(manifest), { mode: 0o600 });
   await writeFile(join(databaseSecretRoot, request.tenantProfileId, "runtime-url"), "not-a-url", {
+    mode: 0o400,
+  });
+  await writeFile(join(databaseSecretRoot, request.tenantProfileId, "migrator-url"), "not-a-url", {
     mode: 0o400,
   });
   await writeFile(
@@ -159,6 +162,40 @@ describe("tenant compose runner", () => {
         ready: false,
         reconciled: true,
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("runs only crm-migrator for the fenced migration request", async () => {
+    const { root, configurationRoot, databaseSecretRoot } = await createFixture();
+    const run = vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" }));
+    const migration: HostAdapterMigrationRequest = {
+      ...request,
+      action: "MIGRATE_TENANT_CRM_DATABASE",
+    };
+    try {
+      await expect(
+        createTenantCrmMigrationReconciler({
+          configurationRoot,
+          composeTemplate: "/opt/quantum/infra/compose/tenant.yaml",
+          imageRegistry: "ghcr.io/example/quantum-crm",
+          environment: "staging",
+          tenantEdgeNetworkPrefix: "qcrm-tenant-edge",
+          platformDatabaseNetwork: "qcrm-platform-database",
+          platformStorageNetwork: "qcrm-platform-storage",
+          platformSessionNetwork: "qcrm-platform-session",
+          platformOidcNetwork: "qcrm-platform-oidc",
+          databaseSecretRoot,
+          commandRunner: { run },
+        }).migrate(migration),
+      ).resolves.toEqual({ migrated: true, reconciled: true });
+      expect(run).toHaveBeenCalledWith(
+        expect.arrayContaining(["run", "--no-deps", "crm-migrator"]),
+        expect.any(Object),
+        expect.any(Number),
+      );
+      expect(run.mock.calls[0]?.[0]).not.toContain("up");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -62,7 +62,7 @@ const manifest = {
 };
 
 describe("release manifest contract", () => {
-  it("canonicalizes the eight artifacts into deterministic bytes", () => {
+  it("canonicalizes every contract artifact into deterministic bytes", () => {
     const reversed = {
       ...manifest,
       artifacts: [...manifest.artifacts].reverse(),

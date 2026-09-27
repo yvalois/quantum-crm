@@ -9,10 +9,25 @@ export const PlatformReleaseArtifactNames = [
   "ADMIN_API",
   "WORKER",
   "DEPLOY_EXECUTOR",
+  "CRM_MIGRATOR",
+  "PLATFORM_KEYCLOAK",
   "AGENT_RUNTIME",
 ] as const;
+export type PlatformReleaseArtifactName = (typeof PlatformReleaseArtifactNames)[number];
 
 export const PlatformReleaseArtifactNameSchema = z.enum(PlatformReleaseArtifactNames);
+
+/**
+ * The foundation compose file intentionally receives only the immutable image
+ * value it needs.  A release promotion derives this value from the complete
+ * release artifact set; it never accepts an independently supplied Keycloak
+ * digest.
+ */
+export const PlatformFoundationDigestMappingSchema = z
+  .object({
+    QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST: z.string().regex(/^[0-9a-f]{64}$/u),
+  })
+  .strict();
 
 export const PlatformReleaseArtifactSchema = z
   .object({
@@ -43,7 +58,7 @@ export const PlatformReleaseCompatibilitySchema = z
     }
   });
 
-const PlatformReleaseContentSchema = z
+const PlatformReleaseContentShape = z
   .object({
     id: z.string().uuid(),
     semanticVersion: z
@@ -58,12 +73,15 @@ const PlatformReleaseContentSchema = z
       .regex(/^[0-9a-f]{40}$/u),
     releaseNotes: z.string().trim().min(1).max(10_000),
     compatibility: PlatformReleaseCompatibilitySchema,
-    artifacts: z.array(PlatformReleaseArtifactSchema).length(8),
   })
-  .strict()
+  .strict();
+
+const PlatformReleaseContentSchema = PlatformReleaseContentShape.extend({
+  artifacts: z.array(PlatformReleaseArtifactSchema).length(PlatformReleaseArtifactNames.length),
+})
   .superRefine((value, context) => {
     const names = value.artifacts.map((artifact) => artifact.name);
-    if (new Set(names).size !== 8) {
+    if (new Set(names).size !== PlatformReleaseArtifactNames.length) {
       context.addIssue({ code: "custom", message: "artifact names must be unique" });
     }
   });
@@ -73,7 +91,31 @@ export const UpdatePlatformReleaseStatusSchema = z
   .object({ status: PlatformReleaseStatusSchema })
   .strict();
 
-export const PlatformReleaseSchema = PlatformReleaseContentSchema.extend({
+const legacyArtifactNames = PlatformReleaseArtifactNames.filter(
+  (name) => name !== "CRM_MIGRATOR" && name !== "PLATFORM_KEYCLOAK",
+);
+
+const PlatformReleaseReadContentSchema = PlatformReleaseContentShape.extend({
+  artifacts: z
+    .array(PlatformReleaseArtifactSchema)
+    .min(legacyArtifactNames.length)
+    .max(PlatformReleaseArtifactNames.length),
+  legacyArtifactCatalog: z.boolean(),
+}).superRefine((value, context) => {
+  const expectedNames = value.legacyArtifactCatalog
+    ? legacyArtifactNames
+    : PlatformReleaseArtifactNames;
+  const names = value.artifacts.map((artifact) => artifact.name);
+  if (
+    names.length !== expectedNames.length ||
+    new Set(names).size !== expectedNames.length ||
+    expectedNames.some((name) => !names.includes(name))
+  ) {
+    context.addIssue({ code: "custom", message: "artifact names do not match the release catalog" });
+  }
+});
+
+export const PlatformReleaseSchema = PlatformReleaseReadContentSchema.extend({
   status: PlatformReleaseStatusSchema,
   version: z.string().regex(/^[1-9][0-9]*$/u),
   createdAt: z.string().datetime(),
@@ -101,3 +143,14 @@ export const PlatformReleaseListResponseSchema = z
 
 export type CreatePlatformRelease = z.infer<typeof CreatePlatformReleaseSchema>;
 export type PlatformReleaseContract = z.infer<typeof PlatformReleaseSchema>;
+export type PlatformFoundationDigestMapping = z.infer<typeof PlatformFoundationDigestMappingSchema>;
+
+export function platformFoundationDigestMapping(
+  artifacts: readonly { readonly name: string; readonly digest: string }[],
+): PlatformFoundationDigestMapping {
+  const keycloak = artifacts.find((artifact) => artifact.name === "PLATFORM_KEYCLOAK");
+  if (!keycloak) throw new Error("PLATFORM_KEYCLOAK is required for platform foundation promotion");
+  return PlatformFoundationDigestMappingSchema.parse({
+    QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST: keycloak.digest.slice("sha256:".length),
+  });
+}

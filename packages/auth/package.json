@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@quantum-crm/config": "workspace:*",
+    "@quantum-crm/contracts": "workspace:*",
     "jose": "6.2.12",
     "openid-client": "6.8.8",
     "redis": "6.2.1",

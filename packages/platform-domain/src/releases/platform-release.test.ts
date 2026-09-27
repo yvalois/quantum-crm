@@ -75,4 +75,20 @@ describe("platform release", () => {
       PlatformReleaseValidationError,
     );
   });
+
+  it("hydrates an immutable historical eight-artifact catalog without inventing artifacts", () => {
+    const release = hydratePlatformRelease({
+      ...draft,
+      artifacts: artifacts.filter(
+        (artifact) => artifact.name !== "CRM_MIGRATOR" && artifact.name !== "PLATFORM_KEYCLOAK",
+      ),
+      legacyArtifactCatalog: true,
+      status: "VALIDATED",
+      version: 1n,
+      createdAt: new Date("2026-09-21T00:00:00.000Z"),
+      updatedAt: new Date("2026-09-21T00:00:00.000Z"),
+    });
+    expect(release.legacyArtifactCatalog).toBe(true);
+    expect(release.artifacts).toHaveLength(8);
+  });
 });

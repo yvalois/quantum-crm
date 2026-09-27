@@ -15,10 +15,15 @@ import {
   type PostgresPool,
   type PostgresPoolFactory,
 } from "./postgres-database.js";
+import {
+  createCommercialPostgresRepositories,
+  type CommercialPostgresRepositories,
+} from "./commercial-postgres-database.js";
 
 export interface CrmPostgresDatabase extends PostgresDatabase {
   readonly members: IamMemberRepository;
   readonly memberships: CrmMembershipRepository;
+  readonly commercial: CommercialPostgresRepositories;
 }
 
 export interface CrmMembershipAuthorization {
@@ -27,6 +32,7 @@ export interface CrmMembershipAuthorization {
   readonly status: "INVITED" | "ACTIVE" | "DEACTIVATED";
   readonly permissions: readonly string[];
   readonly authorizationRevision: bigint;
+  readonly commercialScope: "PROFILE" | "OWN";
 }
 
 export interface CrmMembershipRepository {
@@ -403,6 +409,57 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         client?.release();
       }
     },
+    bootstrapInitialAdministrator: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const existing = (await client.query(
+          `SELECT member.id::text, member.oidc_subject, member.display_name, member.email::text,
+                  member.status::text, member.authorization_revision::text, member.created_at,
+                  member.updated_at, member.deactivated_at, bootstrap.idempotency_key
+             FROM iam.bootstrap_initial_administrator AS bootstrap
+             JOIN iam.members AS member ON member.id = bootstrap.member_id
+            WHERE bootstrap.singleton = true FOR UPDATE`,
+        )) as { readonly rows: readonly (IamMemberRow & { readonly idempotency_key: string })[] };
+        const prior = existing.rows[0];
+        if (prior) {
+          if (prior.oidc_subject !== input.member.oidcSubject) throw new IamMemberConflictError();
+          await client.query("COMMIT");
+          return Object.freeze({ member: memberFromRow(prior), replayed: true });
+        }
+        const preexisting = await client.query(
+          `SELECT id FROM iam.members LIMIT 1 FOR UPDATE`,
+        );
+        if ((preexisting.rowCount ?? 0) !== 0) throw new IamMemberConflictError();
+        const inserted = (await client.query(
+          `INSERT INTO iam.members (id, oidc_subject, display_name, email, status, authorization_revision, created_at, updated_at)
+           VALUES ($1::uuid, $2, $3, $4, 'active', $5::bigint, $6, $6)
+           RETURNING ${memberSelection}`,
+          [input.member.id, input.member.oidcSubject, input.member.displayName, input.member.email, input.member.authorizationRevision.toString(), input.member.createdAt],
+        )) as { readonly rows: readonly IamMemberRow[] };
+        const member = inserted.rows[0];
+        if (!member) throw new IamMemberConflictError();
+        const role = await client.query(
+          `INSERT INTO iam.member_roles (member_id, role_id)
+             SELECT $1::uuid, id FROM iam.roles WHERE code = 'ADMINISTRATOR'`, [input.member.id],
+        );
+        if (role.rowCount !== 1) throw new IamMemberConflictError();
+        await client.query(
+          `INSERT INTO iam.bootstrap_initial_administrator (singleton, member_id, oidc_subject, idempotency_key, created_at)
+           VALUES (true, $1::uuid, $2, $3, $4)`,
+          [input.member.id, input.member.oidcSubject, input.idempotencyKey, input.member.createdAt],
+        );
+        await client.query("COMMIT");
+        return Object.freeze({ member: memberFromRow(member), replayed: false });
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) throw new IamMemberConflictError();
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
   });
 }
 
@@ -423,9 +480,12 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
                 array_agg(permission.permission ORDER BY permission.permission)
                   FILTER (WHERE permission.permission IS NOT NULL),
                 ARRAY[]::text[]
-              ) AS permissions
+              ) AS permissions,
+              CASE WHEN bool_or(role.code IN ('ADMINISTRATOR', 'SUPERVISOR'))
+                THEN 'PROFILE' ELSE 'OWN' END AS commercial_scope
             FROM iam.members AS member
             LEFT JOIN iam.member_roles AS member_role ON member_role.member_id = member.id
+            LEFT JOIN iam.roles AS role ON role.id = member_role.role_id
             LEFT JOIN iam.role_permissions AS permission ON permission.role_id = member_role.role_id
             WHERE member.oidc_subject = $1
             GROUP BY member.id
@@ -438,6 +498,7 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
             readonly status: string;
             readonly authorization_revision: string;
             readonly permissions: readonly string[];
+            readonly commercial_scope: "PROFILE" | "OWN";
           }[];
         };
         const row = result.rows[0];
@@ -448,6 +509,7 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
           status: memberStatus(row.status),
           permissions: Object.freeze([...row.permissions]),
           authorizationRevision: BigInt(row.authorization_revision),
+          commercialScope: row.commercial_scope,
         });
       } catch {
         throw new DatabaseUnavailableError();
@@ -467,5 +529,6 @@ export function createCrmPostgresDatabase(
     ...createPostgresDatabaseFromPool(pool),
     members: createIamMemberRepository(pool),
     memberships: createCrmMembershipRepository(pool),
+    commercial: createCommercialPostgresRepositories(pool),
   });
 }
