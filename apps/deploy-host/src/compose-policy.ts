@@ -80,6 +80,7 @@ export interface ComposePolicyOptions {
   readonly platformSessionNetwork: string;
   readonly platformOidcNetwork: string;
   readonly crmDatabaseSecretFile: string;
+  readonly crmMigrationDatabaseSecretFile: string;
   readonly crmOidcClientSecretFile: string;
   readonly crmSessionRedisUrlSecretFile: string;
 }
@@ -103,6 +104,12 @@ export function tenantEdgeServiceAlias(
   const alias = `qcrm-${tenantProfileId.replaceAll("-", "")}-${service}`;
   if (!networkPattern.test(alias)) throw new ComposePolicyValidationError("tenantEdgeServiceAlias");
   return alias;
+}
+
+export function tenantBootstrapApiAlias(tenantProfileId: string): string {
+  if (!uuidPattern.test(tenantProfileId))
+    throw new ComposePolicyValidationError("tenantBootstrapApiAlias");
+  return `qcrm-${tenantProfileId.replaceAll("-", "")}-bootstrap-api`;
 }
 
 export interface TenantComposePlan {
@@ -264,6 +271,10 @@ export function createTenantComposePlan(
     options.crmDatabaseSecretFile,
     "crmDatabaseSecretFile",
   );
+  const crmMigrationDatabaseSecretFile = requireAbsolutePath(
+    options.crmMigrationDatabaseSecretFile,
+    "crmMigrationDatabaseSecretFile",
+  );
   const crmOidcClientSecretFile = requireAbsolutePath(
     options.crmOidcClientSecretFile,
     "crmOidcClientSecretFile",
@@ -297,6 +308,7 @@ export function createTenantComposePlan(
     QCRM_PLATFORM_SESSION_NETWORK: options.platformSessionNetwork,
     QCRM_PLATFORM_OIDC_NETWORK: options.platformOidcNetwork,
     QCRM_CRM_DATABASE_URL_SECRET_FILE: crmDatabaseSecretFile,
+    QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE: crmMigrationDatabaseSecretFile,
     QCRM_CRM_OIDC_CLIENT_SECRET_FILE: crmOidcClientSecretFile,
     QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE: crmSessionRedisUrlSecretFile,
     QCRM_CRM_WEB_ORIGIN: manifest.identity.crmWebOrigin,
@@ -304,6 +316,7 @@ export function createTenantComposePlan(
     QCRM_OIDC_ISSUER: manifest.identity.issuer,
     QCRM_OIDC_CLIENT_ID: manifest.identity.crmWebClientId,
     QCRM_OIDC_AUDIENCE: manifest.identity.apiAudience,
+    QCRM_IAM_BOOTSTRAP_CLIENT_ID: "quantum-crm-bootstrap",
     QCRM_OIDC_REQUIRED_ACR: "2",
     QCRM_OIDC_MAX_TOKEN_AGE_SECONDS: "300",
     QCRM_TENANT_CRM_WEB_EDGE_ALIAS: tenantEdgeServiceAlias(request.tenantProfileId, "crm-web"),
@@ -312,6 +325,7 @@ export function createTenantComposePlan(
       "portal-web",
     ),
     QCRM_TENANT_API_EDGE_ALIAS: tenantEdgeServiceAlias(request.tenantProfileId, "api"),
+    QCRM_TENANT_BOOTSTRAP_API_ALIAS: tenantBootstrapApiAlias(request.tenantProfileId),
   };
   for (const service of tenantContainerServiceNames) {
     const artifact = tenantArtifactByService[service];
@@ -319,6 +333,9 @@ export function createTenantComposePlan(
     if (!digest) throw new ComposePolicyValidationError(`artifact.${service}`);
     environment[`QCRM_${artifact}_DIGEST`] = digest.slice("sha256:".length);
   }
+  const migratorDigest = artifacts.get("CRM_MIGRATOR");
+  if (!migratorDigest) throw new ComposePolicyValidationError("artifact.crm-migrator");
+  environment.QCRM_CRM_MIGRATOR_DIGEST = migratorDigest.slice("sha256:".length);
   return Object.freeze({
     projectName: request.projectName,
     templatePath,

@@ -10,7 +10,19 @@ import type { PlatformAuthPolicy } from "@quantum-crm/auth";
 import { POSTGRES_DATABASE, type PlatformPostgresDatabase } from "@quantum-crm/database";
 
 import { HealthController } from "./health.controller.js";
+import {
+  ACTIVATION_DELIVERY_CALLBACK_CONFIG,
+  ACTIVATION_DELIVERY_REPOSITORY,
+  ActivationDeliveryCallbackController,
+  ActivationDeliveryController,
+  ActivationDeliveryWaiters,
+  type ActivationDeliveryCallbackConfig,
+} from "./activation-delivery.controller.js";
 import { ReleaseCandidatePublisherController } from "./release-candidate-publisher.controller.js";
+import {
+  PLATFORM_FOUNDATION_PROMOTION_REPOSITORY,
+  PlatformFoundationPromotionsController,
+} from "./platform-foundation-promotions.controller.js";
 import { OperatorsController } from "./operators.controller.js";
 import {
   PLATFORM_AUTH_POLICY,
@@ -44,19 +56,30 @@ export class AppModule {
     oidcAccessTokenVerifier: OidcAccessTokenVerifier,
     authPolicy: PlatformAuthPolicy,
     githubActionsReleasePublisherVerifier: GithubActionsReleasePublisherVerifier,
+    activationDeliveryCallback: ActivationDeliveryCallbackConfig,
   ): DynamicModule {
     return {
       module: AppModule,
       controllers: [
         HealthController,
+        ActivationDeliveryController,
+        ActivationDeliveryCallbackController,
         InfrastructureServersController,
         OperatorsController,
         ReleaseCandidatePublisherController,
+        PlatformFoundationPromotionsController,
         ReleasesController,
         TenantProfilesController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
+        { provide: ACTIVATION_DELIVERY_REPOSITORY, useValue: database.activationDeliveries },
+        {
+          provide: PLATFORM_FOUNDATION_PROMOTION_REPOSITORY,
+          useValue: database.platformFoundationPromotions,
+        },
+        { provide: ACTIVATION_DELIVERY_CALLBACK_CONFIG, useValue: activationDeliveryCallback },
+        ActivationDeliveryWaiters,
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: oidcAccessTokenVerifier },
         {
           provide: GITHUB_ACTIONS_RELEASE_PUBLISHER_VERIFIER,

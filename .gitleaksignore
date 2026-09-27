@@ -8,3 +8,12 @@
 # El valor vigente usa una fixture de baja entropia; se conserva el commit sin
 # reescribir la historia compartida de la rama.
 2747572d7993728f7fe503264f897c7668d1575e:tests/integration/platform-tenant-profile.test.ts:generic-api-key:712
+
+# Falsos positivos historicos de fixtures de idempotencia de la rebanada CRM.
+# Cada huella es puntual: no se desactiva ninguna regla ni ruta de escaneo.
+4eb69309d4f0e9052be76b8569328d908874c97d:apps/deploy-executor/src/activation-delivery-executor.test.ts:generic-api-key:113
+ee62db7e53b929478bfc975c8e7c21f396a86935:packages/database/src/activation-delivery-repository.test.ts:generic-api-key:33
+ee62db7e53b929478bfc975c8e7c21f396a86935:packages/platform-domain/src/deployments/platform-foundation-promotion.test.ts:generic-api-key:15
+ee62db7e53b929478bfc975c8e7c21f396a86935:packages/platform-domain/src/deployments/platform-foundation-promotion.test.ts:generic-api-key:24
+ee62db7e53b929478bfc975c8e7c21f396a86935:apps/deploy-executor/src/platform-foundation-promotion-executor.test.ts:generic-api-key:16
+ee62db7e53b929478bfc975c8e7c21f396a86935:apps/deploy-executor/src/activation-delivery-executor.test.ts:generic-api-key:30

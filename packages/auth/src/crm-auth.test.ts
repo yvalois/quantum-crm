@@ -27,7 +27,7 @@ describe("CRM authentication", () => {
           id: memberId,
           oidcSubject: "crm-member",
           status: "ACTIVE",
-          permissions: ["iam:members:read"],
+          permissions: ["iam:members:read", "crm:contacts:read"],
           authorizationRevision: 2n,
         }),
       },
@@ -35,13 +35,14 @@ describe("CRM authentication", () => {
         tenantId,
         issuer: "https://identity.example.test/realms/profile-a",
         audience: "quantum-crm-web",
-        allowedPermissions: ["iam:members:read"],
+        allowedPermissions: ["iam:members:read", "crm:contacts:read"],
       },
       correlationId: "corr-usr-01",
       now,
     });
 
     expect(context.tenantId).toBe(tenantId);
+    expect(() => requireCrmPermission(context, "crm:contacts:read")).not.toThrow();
     expect(() => requireCrmPermission(context, "iam:members:create")).toThrow();
   });
 

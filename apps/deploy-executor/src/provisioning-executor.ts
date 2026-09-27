@@ -13,6 +13,7 @@ import {
   type TenantHttpsRouteProvisioner,
   type TenantIdentityProvisioner,
   type TenantStorageProvisioner,
+  type ActivationDeliveryRepository,
 } from "@quantum-crm/platform-domain";
 import {
   TenantDatabaseProvisioningError,
@@ -23,6 +24,18 @@ import { TenantConfigurationProvisioningError } from "./tenant-configuration-pro
 import { TenantContainerProvisioningError } from "./tenant-container-provisioner.js";
 import { TenantHttpsRouteProvisioningError } from "./tenant-https-route-provisioner.js";
 import { TenantIdentityProvisioningError } from "./tenant-identity-provisioner.js";
+import {
+  TenantInitialAdministratorProvisioningError,
+  type TenantInitialAdministratorProvisioner,
+} from "./tenant-initial-administrator-provisioner.js";
+import {
+  TenantIamBootstrapError,
+  type TenantIamBootstrapClient,
+} from "./tenant-iam-bootstrap-client.js";
+import {
+  TenantCrmMigrationProvisioningError,
+  type TenantCrmMigrationProvisioner,
+} from "./tenant-crm-migration-provisioner.js";
 
 export interface ProvisioningExecutorOptions {
   readonly workerId: string;
@@ -63,6 +76,10 @@ export class ProvisioningExecutor {
     private readonly containerProvisioner?: TenantContainerProvisioner,
     private readonly httpsRouteProvisioner?: TenantHttpsRouteProvisioner,
     private readonly identityProvisioner?: TenantIdentityProvisioner,
+    private readonly initialAdministratorProvisioner?: TenantInitialAdministratorProvisioner,
+    private readonly activationDeliveries?: ActivationDeliveryRepository,
+    private readonly iamBootstrap?: TenantIamBootstrapClient,
+    private readonly crmMigrationProvisioner?: TenantCrmMigrationProvisioner,
   ) {}
 
   public runOnce(): Promise<boolean> {
@@ -96,15 +113,42 @@ export class ProvisioningExecutor {
             ? this.identityProvisioner
               ? this.containerProvisioner
                 ? this.httpsRouteProvisioner
-                  ? ([
-                      "VALIDATE",
-                      "CREATE_DATABASE",
-                      "CREATE_SECRETS",
-                      "CREATE_STORAGE",
-                      "WRITE_CONFIGURATION",
-                      "START_CONTAINERS",
-                      "CONFIGURE_HTTPS",
-                    ] as const)
+                  ? this.initialAdministratorProvisioner && this.activationDeliveries
+                    ? this.iamBootstrap && this.crmMigrationProvisioner
+                      ? ([
+                          "VALIDATE",
+                          "CREATE_DATABASE",
+                          "CREATE_SECRETS",
+                          "CREATE_STORAGE",
+                          "WRITE_CONFIGURATION",
+                          "MIGRATE_DATABASE",
+                          "START_CONTAINERS",
+                          "CONFIGURE_HTTPS",
+                          "CREATE_ADMINISTRATOR",
+                          "VERIFY",
+                          "ACTIVATE",
+                        ] as const)
+                      : ([
+                          "VALIDATE",
+                          "CREATE_DATABASE",
+                          "CREATE_SECRETS",
+                          "CREATE_STORAGE",
+                          "WRITE_CONFIGURATION",
+                          "MIGRATE_DATABASE",
+                          "START_CONTAINERS",
+                          "CONFIGURE_HTTPS",
+                          "CREATE_ADMINISTRATOR",
+                          "VERIFY",
+                        ] as const)
+                    : ([
+                        "VALIDATE",
+                        "CREATE_DATABASE",
+                        "CREATE_SECRETS",
+                        "CREATE_STORAGE",
+                        "WRITE_CONFIGURATION",
+                        "START_CONTAINERS",
+                        "CONFIGURE_HTTPS",
+                      ] as const)
                   : ([
                       "VALIDATE",
                       "CREATE_DATABASE",
@@ -175,6 +219,46 @@ export class ProvisioningExecutor {
         });
       } catch {
         return true;
+      }
+      return true;
+    }
+    if (operation.currentStep === "MIGRATE_DATABASE" && this.crmMigrationProvisioner) {
+      try {
+        await this.crmMigrationProvisioner.migrate({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          serverId: operation.serverId,
+          releaseId: operation.releaseId,
+          attempt: operation.attempt,
+        });
+        await this.repository.completeMigration({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+        });
+      } catch (error) {
+        if (error instanceof TenantCrmMigrationProvisioningError && error.reason === "UNAVAILABLE")
+          return true;
+        const failureCode =
+          error instanceof TenantCrmMigrationProvisioningError &&
+          error.reason === "PERMISSION_DENIED"
+            ? "MIGRATION_PERMISSION_DENIED"
+            : error instanceof TenantCrmMigrationProvisioningError &&
+                error.reason === "TARGET_CONFLICT"
+              ? "MIGRATION_TARGET_CONFLICT"
+              : "MIGRATION_IDENTITY_MISMATCH";
+        await this.repository
+          .completeMigration({
+            operationId: operation.id,
+            tenantProfileId: operation.tenantProfileId,
+            workerId: this.options.workerId,
+            expectedVersion: operation.version,
+            attempt: operation.attempt,
+            failureCode,
+          })
+          .catch(() => undefined);
       }
       return true;
     }
@@ -481,6 +565,108 @@ export class ProvisioningExecutor {
           configured: result?.configured ?? false,
           reconciled: result?.reconciled ?? false,
           ...(provisioningFailure ? { failureCode: provisioningFailure } : {}),
+        });
+      } catch {
+        return true;
+      }
+      return true;
+    }
+    if (
+      operation.currentStep === "CREATE_ADMINISTRATOR" &&
+      this.initialAdministratorProvisioner &&
+      this.activationDeliveries
+    ) {
+      const context = await this.repository.resolveInitialAdministratorContext({
+        operationId: operation.id,
+        tenantProfileId: operation.tenantProfileId,
+        workerId: this.options.workerId,
+        expectedVersion: operation.version,
+        attempt: operation.attempt,
+      });
+      if (!context) return true;
+      try {
+        const identity = await this.initialAdministratorProvisioner.reconcile({
+          tenantProfileId: operation.tenantProfileId,
+          displayName: context.displayName,
+          email: context.email,
+        });
+        const existing = await this.activationDeliveries.findInitialAdministrator(
+          operation.tenantProfileId,
+        );
+        const administrator = await this.activationDeliveries.reconcileInitialAdministrator({
+          tenantProfileId: operation.tenantProfileId,
+          subject: identity.subject,
+          expectedVersion: existing?.version ?? operation.version,
+          now: new Date(),
+        });
+        if (!administrator) return true;
+        await this.repository.completeInitialAdministrator({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+        });
+      } catch (error) {
+        if (error instanceof TenantInitialAdministratorProvisioningError) return true;
+        return true;
+      }
+      return true;
+    }
+    if (operation.currentStep === "ACTIVATE" && this.activationDeliveries && this.iamBootstrap) {
+      const administrator = await this.activationDeliveries.findInitialAdministrator(
+        operation.tenantProfileId,
+      );
+      if (!administrator?.subject || administrator.status !== "CONSUMED") return true;
+      try {
+        await this.iamBootstrap.bootstrap({
+          tenantProfileId: operation.tenantProfileId,
+          subject: administrator.subject,
+          idempotencyKey: `iam-bootstrap:${operation.id}:${administrator.generation}`,
+          correlationId: operation.id,
+        });
+        await this.repository.completeActivation({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
+        });
+      } catch (error) {
+        if (error instanceof TenantIamBootstrapError) return true;
+        return true;
+      }
+      return true;
+    }
+    if (
+      operation.currentStep === "VERIFY" &&
+      this.initialAdministratorProvisioner &&
+      this.activationDeliveries
+    ) {
+      const administrator = await this.activationDeliveries.findInitialAdministrator(
+        operation.tenantProfileId,
+      );
+      if (!administrator?.subject || administrator.status !== "ACTIVATION_ISSUED") return true;
+      try {
+        const status = await this.initialAdministratorProvisioner.activationStatus({
+          tenantProfileId: operation.tenantProfileId,
+          administratorSubject: administrator.subject,
+          generation: administrator.generation,
+        });
+        if (status !== "CONSUMED") return true;
+        const consumed = await this.activationDeliveries.consumeInitialAdministrator({
+          tenantProfileId: operation.tenantProfileId,
+          subject: administrator.subject,
+          generation: administrator.generation,
+          now: new Date(),
+        });
+        if (!consumed) return true;
+        await this.repository.completeVerification({
+          operationId: operation.id,
+          tenantProfileId: operation.tenantProfileId,
+          workerId: this.options.workerId,
+          expectedVersion: operation.version,
+          attempt: operation.attempt,
         });
       } catch {
         return true;

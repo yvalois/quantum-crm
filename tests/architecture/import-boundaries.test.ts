@@ -118,4 +118,24 @@ describe("architectural import boundaries", () => {
     expect(source).toContain('"**/.next/**"');
     expect(source).toContain('"**/generated/**"');
   });
+
+  it("makes commercial modules use IAM's public contract rather than internals", () => {
+    const commercialModules = [
+      "packages/domain/src/contacts/index.ts",
+      "packages/domain/src/contacts/contact-service.ts",
+      "packages/domain/src/contacts/contact-service.test.ts",
+      "packages/domain/src/sales/index.ts",
+      "packages/domain/src/sales/sales-service.ts",
+      "packages/domain/src/sales/sales-service.test.ts",
+      "packages/domain/src/tasks/index.ts",
+      "packages/domain/src/tasks/task-service.ts",
+      "packages/domain/src/tasks/task-service.test.ts",
+    ];
+
+    for (const path of commercialModules) {
+      const source = readFileSync(join(root, path), "utf8");
+      expect(source).not.toMatch(/\.\.\/iam\/(?:domain|application)\//u);
+      expect(source).toContain("../iam/index.js");
+    }
+  });
 });

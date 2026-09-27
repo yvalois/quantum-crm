@@ -38,6 +38,11 @@ export {
   type QcrmEnvironment,
 } from "./process-config.js";
 export {
+  activationDeliveryCallbackEnvironmentKeys,
+  parseActivationDeliveryCallbackConfig,
+  type ActivationDeliveryCallbackConfig,
+} from "./activation-delivery-callback-config.js";
+export {
   githubActionsReleasePublisherEnvironmentKeys,
   parseGithubActionsReleasePublisherConfig,
   type GithubActionsReleasePublisherConfig,

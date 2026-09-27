@@ -104,6 +104,9 @@ describe("tenant configuration provisioner", () => {
       await writeFile(join(secretDirectory, "runtime-password"), "synthetic-runtime-password\n", {
         mode: 0o400,
       });
+      await writeFile(join(secretDirectory, "migrator-password"), "synthetic-migrator-password\n", {
+        mode: 0o400,
+      });
       const provisioner = createTenantConfigurationProvisioner({
         configurationDirectory: root,
         storageEndpoint: "http://platform-storage:8333",

@@ -76,15 +76,15 @@ Los limites concretos de inactividad y duracion maxima se definen como configura
 
 ## Modelo de permisos
 
-Los permisos usan identificadores estables y tipados con forma `recurso:accion`, por ejemplo:
+Los permisos CRM usan identificadores estables y tipados con forma `namespace:recurso:accion`, por ejemplo:
 
 ```text
-contacts:read
-contacts:update
-conversations:transfer
-documents:approve
-reports:export
-agents:configure
+iam:members:read
+crm:contacts:read
+crm:conversations:transfer
+crm:documents:approve
+crm:reports:export
+crm:agents:configure
 ```
 
 El catalogo de permisos se versiona con el codigo. Los nombres de rol nunca se usan directamente en condiciones comerciales.

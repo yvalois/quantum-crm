@@ -7,6 +7,7 @@ export const PlatformPermissionSchema = z.enum([
   "configuration:manage",
   "deployments:read",
   "deployments:execute",
+  "deployments:activate",
   "operators:manage",
 ]);
 

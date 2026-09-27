@@ -49,6 +49,7 @@ describe("tenant compose policy", () => {
       platformSessionNetwork: "qcrm-platform-session",
       platformOidcNetwork: "qcrm-platform-oidc",
       crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
+      crmMigrationDatabaseSecretFile: "/opt/quantum/secrets/tenant/migrator-url",
       crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
       crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
     });
@@ -97,6 +98,7 @@ describe("tenant compose policy", () => {
         platformSessionNetwork: "qcrm-platform-session",
         platformOidcNetwork: "qcrm-platform-oidc",
         crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
+        crmMigrationDatabaseSecretFile: "/opt/quantum/secrets/tenant/migrator-url",
         crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
         crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
       }),
@@ -112,6 +114,7 @@ describe("tenant compose policy", () => {
         platformSessionNetwork: "qcrm-platform-session",
         platformOidcNetwork: "qcrm-platform-oidc",
         crmDatabaseSecretFile: "/opt/quantum/secrets/tenant/runtime-url",
+        crmMigrationDatabaseSecretFile: "/opt/quantum/secrets/tenant/migrator-url",
         crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
         crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
       }),

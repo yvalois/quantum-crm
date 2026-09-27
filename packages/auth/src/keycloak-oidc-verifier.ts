@@ -1,4 +1,5 @@
 import type { OidcConfig, SecretValue } from "@quantum-crm/config";
+import { ServicePermissionSchema } from "@quantum-crm/contracts";
 import {
   createRemoteJWKSet,
   jwtVerify,
@@ -17,6 +18,7 @@ type JwksResolver = (
 export interface KeycloakOidcVerifierOptions {
   readonly keyResolver?: JwksResolver;
   readonly currentDate?: () => Date;
+  readonly expectedPrincipalType?: "human" | "service";
 }
 
 export class OidcAccessTokenVerificationError extends Error {
@@ -36,6 +38,15 @@ function audiences(value: string | readonly string[] | undefined): readonly stri
   }
 
   throw new OidcAccessTokenVerificationError();
+}
+
+function servicePermissions(value: unknown): readonly string[] {
+  if (typeof value !== "string") return Object.freeze([]);
+  const permissions = value
+    .split(" ")
+    .filter((entry) => /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/u.test(entry))
+    .filter((entry) => ServicePermissionSchema.safeParse(entry).success);
+  return Object.freeze([...new Set(permissions)].sort());
 }
 
 export function createKeycloakOidcAccessTokenVerifier(
@@ -59,11 +70,16 @@ export function createKeycloakOidcAccessTokenVerifier(
         }
 
         const currentDate = options.currentDate?.();
+        const claimedPrincipalType = payloadPrincipalTypeHint(compactToken);
+        const expectedPrincipalType = options.expectedPrincipalType ?? claimedPrincipalType;
         const { payload, protectedHeader } = await jwtVerify(compactToken, keyResolver, {
           algorithms: [...config.allowedAlgorithms],
           issuer: config.issuer,
           audience: config.audience,
-          requiredClaims: ["sub", "iat", "exp", "auth_time", "typ", "acr", "qcrm_principal_type"],
+          requiredClaims:
+            expectedPrincipalType === "human"
+              ? ["sub", "iat", "exp", "auth_time", "typ", "acr", "qcrm_principal_type"]
+              : ["sub", "iat", "exp", "typ", "azp", "qcrm_principal_type"],
           maxTokenAge: config.maxTokenAgeSeconds,
           clockTolerance: config.clockToleranceSeconds,
           ...(currentDate ? { currentDate } : {}),
@@ -80,15 +96,19 @@ export function createKeycloakOidcAccessTokenVerifier(
           protectedHeader.x5u !== undefined ||
           protectedHeader.x5c !== undefined ||
           payload.typ !== "Bearer" ||
-          payload.qcrm_principal_type !== "human" ||
-          payload.acr !== config.requiredAcr ||
+          (payload.qcrm_principal_type !== "human" && payload.qcrm_principal_type !== "service") ||
+          payload.qcrm_principal_type !== expectedPrincipalType ||
           typeof payload.sub !== "string" ||
           typeof payload.iss !== "string" ||
           typeof payload.iat !== "number" ||
-          typeof payload.auth_time !== "number" ||
-          !Number.isInteger(payload.auth_time) ||
-          payload.auth_time < 0 ||
-          payload.auth_time > payload.iat + config.clockToleranceSeconds
+          (expectedPrincipalType === "human" &&
+            (payload.acr !== config.requiredAcr ||
+              typeof payload.auth_time !== "number" ||
+              !Number.isInteger(payload.auth_time) ||
+              payload.auth_time < 0 ||
+              payload.auth_time > payload.iat + config.clockToleranceSeconds)) ||
+          (expectedPrincipalType === "service" &&
+            (typeof payload.azp !== "string" || !/^[a-z][a-z0-9-]{2,62}$/u.test(payload.azp)))
         ) {
           throw new OidcAccessTokenVerificationError();
         }
@@ -98,13 +118,35 @@ export function createKeycloakOidcAccessTokenVerifier(
           subject: payload.sub,
           issuer: payload.iss,
           audiences: audiences(payload.aud),
-          principalType: "human",
-          multiFactorAuthenticated: true,
-          authenticatedAt: new Date(payload.auth_time * 1_000),
+          principalType: expectedPrincipalType,
+          ...(expectedPrincipalType === "service"
+            ? {
+                clientId: payload.azp as string,
+                servicePermissions: servicePermissions(payload.scope),
+              }
+            : {}),
+          multiFactorAuthenticated: expectedPrincipalType === "human",
+          authenticatedAt: new Date(
+            (expectedPrincipalType === "human" ? (payload.auth_time as number) : payload.iat) *
+              1_000,
+          ),
         });
       } catch {
         throw new OidcAccessTokenVerificationError();
       }
     },
   });
+}
+
+function payloadPrincipalTypeHint(compactToken: string): "human" | "service" {
+  try {
+    const encoded = compactToken.split(".")[1];
+    if (!encoded) throw new Error("missing payload");
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as {
+      qcrm_principal_type?: unknown;
+    };
+    return payload.qcrm_principal_type === "service" ? "service" : "human";
+  } catch {
+    return "human";
+  }
 }

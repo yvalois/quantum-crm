@@ -22,6 +22,7 @@ export const provisioningOperationSteps = [
   "CREATE_SECRETS",
   "CREATE_STORAGE",
   "WRITE_CONFIGURATION",
+  "MIGRATE_DATABASE",
   "START_CONTAINERS",
   "CONFIGURE_HTTPS",
   "CREATE_ADMINISTRATOR",
@@ -41,6 +42,10 @@ export const provisioningValidationFailureCodes = [
   "DATABASE_UNAVAILABLE",
   "DATABASE_PERMISSION_DENIED",
   "DATABASE_IDENTITY_MISMATCH",
+  "MIGRATION_TARGET_CONFLICT",
+  "MIGRATION_UNAVAILABLE",
+  "MIGRATION_PERMISSION_DENIED",
+  "MIGRATION_IDENTITY_MISMATCH",
   "SECRET_TARGET_CONFLICT",
   "SECRET_UNAVAILABLE",
   "SECRET_PERMISSION_DENIED",
@@ -175,6 +180,15 @@ export interface CompleteProvisioningSecretsCommand {
   readonly failureCode?: ProvisioningValidationFailureCode;
 }
 
+export interface CompleteProvisioningMigrationCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+  readonly failureCode?: ProvisioningValidationFailureCode;
+}
+
 export const tenantStorageSecretKinds = ["ACCESS_KEY", "SECRET_KEY"] as const;
 export type TenantStorageSecretKind = (typeof tenantStorageSecretKinds)[number];
 
@@ -291,6 +305,30 @@ export interface ResolveProvisioningIdentityContextCommand {
 export interface ProvisioningIdentityContext {
   readonly hostname: string;
 }
+
+export interface ProvisioningInitialAdministratorContext {
+  readonly displayName: string;
+  readonly email: string;
+}
+
+export interface ResolveProvisioningInitialAdministratorContextCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+}
+
+export interface CompleteProvisioningInitialAdministratorCommand {
+  readonly operationId: string;
+  readonly tenantProfileId: string;
+  readonly workerId: string;
+  readonly expectedVersion: bigint;
+  readonly attempt: number;
+}
+
+export interface CompleteProvisioningVerificationCommand extends CompleteProvisioningInitialAdministratorCommand {}
+export interface CompleteProvisioningActivationCommand extends CompleteProvisioningInitialAdministratorCommand {}
 
 export interface TenantStorageProvisioningCommand {
   readonly tenantProfileId: string;
@@ -435,6 +473,9 @@ export interface ProvisioningOperationRepository {
   readonly completeSecrets: (
     command: CompleteProvisioningSecretsCommand,
   ) => Promise<ProvisioningValidationResult | null>;
+  readonly completeMigration: (
+    command: CompleteProvisioningMigrationCommand,
+  ) => Promise<ProvisioningValidationResult | null>;
   readonly completeStorage: (
     command: CompleteProvisioningStorageCommand,
   ) => Promise<ProvisioningValidationResult | null>;
@@ -453,6 +494,55 @@ export interface ProvisioningOperationRepository {
   readonly resolveIdentityContext: (
     command: ResolveProvisioningIdentityContextCommand,
   ) => Promise<ProvisioningIdentityContext | null>;
+  readonly resolveInitialAdministratorContext: (
+    command: ResolveProvisioningInitialAdministratorContextCommand,
+  ) => Promise<ProvisioningInitialAdministratorContext | null>;
+  readonly completeInitialAdministrator: (
+    command: CompleteProvisioningInitialAdministratorCommand,
+  ) => Promise<ProvisioningOperation | null>;
+  readonly completeVerification: (
+    command: CompleteProvisioningVerificationCommand,
+  ) => Promise<ProvisioningOperation | null>;
+  readonly completeActivation: (
+    command: CompleteProvisioningActivationCommand,
+  ) => Promise<ProvisioningOperation | null>;
+}
+
+function validateFinalProvisioningStep(
+  input: CompleteProvisioningInitialAdministratorCommand,
+): CompleteProvisioningInitialAdministratorCommand {
+  uuid("operationId", input.operationId);
+  uuid("tenantProfileId", input.tenantProfileId);
+  if (!workerIdPattern.test(input.workerId))
+    throw new ProvisioningOperationValidationError("workerId");
+  if (input.expectedVersion < 1n) throw new ProvisioningOperationValidationError("expectedVersion");
+  if (!Number.isInteger(input.attempt) || input.attempt < 1)
+    throw new ProvisioningOperationValidationError("attempt");
+  return Object.freeze({ ...input });
+}
+
+export function validateResolveProvisioningInitialAdministratorContext(
+  input: ResolveProvisioningInitialAdministratorContextCommand,
+): ResolveProvisioningInitialAdministratorContextCommand {
+  return validateFinalProvisioningStep(input);
+}
+
+export function validateCompleteProvisioningInitialAdministrator(
+  input: CompleteProvisioningInitialAdministratorCommand,
+): CompleteProvisioningInitialAdministratorCommand {
+  return validateFinalProvisioningStep(input);
+}
+
+export function validateCompleteProvisioningVerification(
+  input: CompleteProvisioningVerificationCommand,
+): CompleteProvisioningVerificationCommand {
+  return validateFinalProvisioningStep(input);
+}
+
+export function validateCompleteProvisioningActivation(
+  input: CompleteProvisioningActivationCommand,
+): CompleteProvisioningActivationCommand {
+  return validateFinalProvisioningStep(input);
 }
 
 export function validateResolveProvisioningIdentityContext(
@@ -767,6 +857,21 @@ export function validateCompleteProvisioningSecrets(
     secrets: Object.freeze(input.secrets.map((secret) => Object.freeze({ ...secret }))),
     ...(input.failureCode ? { failureCode: input.failureCode } : {}),
   });
+}
+
+export function validateCompleteProvisioningMigration(
+  input: CompleteProvisioningMigrationCommand,
+): CompleteProvisioningMigrationCommand {
+  uuid("operationId", input.operationId);
+  uuid("tenantProfileId", input.tenantProfileId);
+  if (!workerIdPattern.test(input.workerId))
+    throw new ProvisioningOperationValidationError("workerId");
+  if (input.expectedVersion < 1n) throw new ProvisioningOperationValidationError("expectedVersion");
+  if (!Number.isInteger(input.attempt) || input.attempt < 1)
+    throw new ProvisioningOperationValidationError("attempt");
+  if (input.failureCode && !provisioningValidationFailureCodes.includes(input.failureCode))
+    throw new ProvisioningOperationValidationError("failureCode");
+  return Object.freeze({ ...input });
 }
 
 export function validateCompleteProvisioningStorage(

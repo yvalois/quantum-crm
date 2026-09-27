@@ -1,6 +1,31 @@
 import { z } from "zod";
 
 const UuidSchema = z.string().uuid();
+/**
+ * The CRM authorization namespace is intentionally explicit. Platform
+ * permissions have their own catalog, while every CRM permission uses the
+ * stable `namespace:resource:action` form validated by authentication before
+ * it reaches a use case.
+ */
+export const CrmPermissionCatalog = [
+  "iam:members:read",
+  "iam:members:create",
+  "iam:members:update",
+  "iam:members:deactivate",
+  "crm:contacts:read",
+  "crm:contacts:create",
+  "crm:contacts:update",
+  "crm:sales:read",
+  "crm:sales:create",
+  "crm:sales:configure",
+  "crm:sales:move",
+  "crm:tasks:read",
+  "crm:tasks:create",
+  "crm:tasks:update",
+] as const;
+export const CrmPermissionSchema = z.enum(CrmPermissionCatalog);
+export type CrmPermission = z.infer<typeof CrmPermissionSchema>;
+
 export const MemberIdSchema = UuidSchema;
 const VersionSchema = z.string().regex(/^[1-9][0-9]*$/u);
 const DisplayNameSchema = z.string().trim().min(1).max(160);

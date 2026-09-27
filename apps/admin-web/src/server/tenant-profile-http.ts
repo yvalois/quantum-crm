@@ -6,6 +6,7 @@ import {
   TenantProfileListResponseSchema,
   TenantProfileResponseSchema,
   UpdateTenantProfileSchema,
+  ActivationDeliveryResponseSchema,
 } from "@quantum-crm/contracts";
 
 import {
@@ -259,6 +260,51 @@ export async function handleTenantProfileUpdate(
     if (!upstream.ok) return upstreamProblem(upstream.status);
     const body = TenantProfileResponseSchema.parse(await readUpstream(upstream));
     return responseWithEtag(body, upstream);
+  } catch {
+    return platformProblem(503, "Platform unavailable");
+  }
+}
+
+export async function handleActivationDelivery(
+  request: Request,
+  runtime: PlatformAuthRuntime,
+  id: string,
+): Promise<Response> {
+  if (!profileIdPattern.test(id)) return platformProblem(400, "Invalid request");
+  const ifMatch = request.headers.get("if-match");
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!ifMatch || !etagPattern.test(ifMatch)) {
+    return platformProblem(428, "A current tenant profile version is required");
+  }
+  if (!idempotencyKey || !/^[A-Za-z0-9._:-]{8,128}$/u.test(idempotencyKey)) {
+    return platformProblem(400, "Invalid request");
+  }
+  const authorization = await authorize(request, runtime, true);
+  if (isResponse(authorization)) return authorization;
+  try {
+    const upstream = await runtime.platformApiFetch(
+      new URL(`/api/v1/tenant-profiles/${id}/activation-deliveries`, runtime.config.adminApiOrigin),
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorization.accessToken.expose()}`,
+          "content-type": "application/json",
+          "if-match": ifMatch,
+          "idempotency-key": idempotencyKey,
+          "x-correlation-id": authorization.correlationId,
+        },
+        body: "{}",
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(40_000),
+      },
+    );
+    if (!upstream.ok) return upstreamProblem(upstream.status);
+    const response = ActivationDeliveryResponseSchema.parse(await readUpstream(upstream));
+    const headers = platformNoStoreHeaders();
+    headers.set("referrer-policy", "no-referrer");
+    return Response.json(response, { headers });
   } catch {
     return platformProblem(503, "Platform unavailable");
   }

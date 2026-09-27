@@ -39,6 +39,7 @@ export const ProvisioningOperationSchema = z
       "CREATE_SECRETS",
       "CREATE_STORAGE",
       "WRITE_CONFIGURATION",
+      "MIGRATE_DATABASE",
       "START_CONTAINERS",
       "CONFIGURE_HTTPS",
       "CREATE_ADMINISTRATOR",

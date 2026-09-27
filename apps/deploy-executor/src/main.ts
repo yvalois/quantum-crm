@@ -18,6 +18,13 @@ import { createTenantConfigurationProvisioner } from "./tenant-configuration-pro
 import { createTenantContainerProvisioner } from "./tenant-container-provisioner.js";
 import { createTenantHttpsRouteProvisioner } from "./tenant-https-route-provisioner.js";
 import { createTenantIdentityProvisioner } from "./tenant-identity-provisioner.js";
+import { createTenantInitialAdministratorProvisioner } from "./tenant-initial-administrator-provisioner.js";
+import { ActivationDeliveryExecutor } from "./activation-delivery-executor.js";
+import { createAdminApiActivationDeliveryCallback } from "./admin-api-activation-delivery-callback.js";
+import { createTenantIamBootstrapClient } from "./tenant-iam-bootstrap-client.js";
+import { createTenantCrmMigrationProvisioner } from "./tenant-crm-migration-provisioner.js";
+import { createPlatformFoundationPromotionClient } from "./platform-foundation-promotion-client.js";
+import { PlatformFoundationPromotionExecutor } from "./platform-foundation-promotion-executor.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("deploy-executor");
@@ -39,6 +46,9 @@ async function bootstrap(): Promise<void> {
   if (!config.storage) throw new Error("deploy-executor storage configuration missing");
   if (!config.identityProvisioner) {
     throw new Error("deploy-executor identity provisioner configuration missing");
+  }
+  if (!config.activationDeliveryCallback) {
+    throw new Error("deploy-executor activation delivery callback configuration missing");
   }
   const databaseProvisioner = createTenantDatabaseProvisioner(adminConnectionUrl);
   const secretsProvisioner = createTenantDatabaseSecretsProvisioner(
@@ -72,8 +82,30 @@ async function bootstrap(): Promise<void> {
   const containerProvisioner = createTenantContainerProvisioner({
     socketPath: config.deployHostSocketPath,
   });
+  const crmMigrationProvisioner = createTenantCrmMigrationProvisioner(config.deployHostSocketPath);
   const httpsRouteProvisioner = createTenantHttpsRouteProvisioner({
     socketPath: config.deployHostSocketPath,
+  });
+  const initialAdministratorProvisioner = createTenantInitialAdministratorProvisioner({
+    keycloakAdminOrigin: config.identityProvisioner.keycloakAdminOrigin,
+    keycloakProvisionerClientId: "quantum-provisioner",
+    keycloakProvisionerClientSecret:
+      config.identityProvisioner.keycloakProvisionerClientSecret.expose(),
+  });
+  const activationDeliveryExecutor = new ActivationDeliveryExecutor(
+    database.activationDeliveries,
+    initialAdministratorProvisioner,
+    createAdminApiActivationDeliveryCallback({
+      origin: config.activationDeliveryCallback.origin,
+      principal: config.activationDeliveryCallback.principal,
+      audience: config.activationDeliveryCallback.audience,
+      token: config.activationDeliveryCallback.token.expose(),
+    }),
+    `deploy-executor:${hostname()}:activation`,
+  );
+  const iamBootstrap = createTenantIamBootstrapClient({
+    tenantSecretDirectory: config.tenantSecretDirectory,
+    identityOrigin: config.identityProvisioner.identityOrigin,
   });
   let application: Awaited<ReturnType<typeof NestFactory.createApplicationContext>> | undefined;
   try {
@@ -108,6 +140,16 @@ async function bootstrap(): Promise<void> {
       containerProvisioner,
       httpsRouteProvisioner,
       identityProvisioner,
+      initialAdministratorProvisioner,
+      database.activationDeliveries,
+      iamBootstrap,
+      crmMigrationProvisioner,
+    );
+    const foundationPromotionExecutor = new PlatformFoundationPromotionExecutor(
+      database.platformFoundationPromotions,
+      database.releases,
+      createPlatformFoundationPromotionClient(config.deployHostSocketPath),
+      `deploy-executor:${hostname()}:foundation`,
     );
     ready = true;
     const close = async (): Promise<void> => {
@@ -124,6 +166,28 @@ async function bootstrap(): Promise<void> {
     registerGracefulShutdown([{ close }], config.shutdownTimeoutMs);
     void executor.start().catch(async () => {
       process.stderr.write("deploy-executor processing loop failed\n");
+      process.exitCode = 1;
+      await close();
+    });
+    const activationLoop = async (): Promise<void> => {
+      while (!closing) {
+        const processed = await activationDeliveryExecutor.runOnce();
+        if (!processed) await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    };
+    void activationLoop().catch(async () => {
+      process.stderr.write("deploy-executor activation delivery loop failed\n");
+      process.exitCode = 1;
+      await close();
+    });
+    const foundationPromotionLoop = async (): Promise<void> => {
+      while (!closing) {
+        const processed = await foundationPromotionExecutor.runOnce();
+        if (!processed) await new Promise((resolve) => setTimeout(resolve, 1_000));
+      }
+    };
+    void foundationPromotionLoop().catch(async () => {
+      process.stderr.write("deploy-executor foundation promotion loop failed\n");
       process.exitCode = 1;
       await close();
     });

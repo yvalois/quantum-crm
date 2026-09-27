@@ -6,6 +6,10 @@ export interface VerifiedOidcIdentity {
   readonly issuer: string;
   readonly audiences: readonly string[];
   readonly principalType: "human" | "service" | "agent" | "automation";
+  /** Authorized party for service principals. Never a secret. */
+  readonly clientId?: string;
+  /** Service permissions asserted by the issuer; human authorization remains in IAM. */
+  readonly servicePermissions?: readonly string[];
   readonly multiFactorAuthenticated: boolean;
   readonly authenticatedAt: Date;
 }

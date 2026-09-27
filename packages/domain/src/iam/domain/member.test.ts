@@ -7,6 +7,7 @@ import {
   createInvitedMember,
   deactivateMember,
   IamMemberValidationError,
+  permissionsForInitialRole,
   updateMemberProfile,
 } from "./member.js";
 
@@ -66,5 +67,13 @@ describe("IAM member lifecycle", () => {
       authorizationRevision: 3n,
       deactivatedAt: now,
     });
+  });
+
+  it("allows an advisor to move only its own opportunities without pipeline configuration", () => {
+    const permissions = permissionsForInitialRole("ADVISOR");
+
+    expect(permissions).toContain("crm:sales:move");
+    expect(permissions).not.toContain("crm:sales:configure");
+    expect(permissions).not.toContain("iam:members:read");
   });
 });

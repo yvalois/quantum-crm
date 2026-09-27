@@ -30,18 +30,24 @@ import {
   validateCompleteProvisioningValidation,
   validateCompleteProvisioningDatabase,
   validateCompleteProvisioningSecrets,
+  validateCompleteProvisioningMigration,
   validateCompleteProvisioningStorage,
   validateCompleteProvisioningConfiguration,
   validateCompleteProvisioningContainers,
   validateCompleteProvisioningHttps,
   validateResolveProvisioningHttpsContext,
   validateResolveProvisioningIdentityContext,
+  validateResolveProvisioningInitialAdministratorContext,
+  validateCompleteProvisioningInitialAdministrator,
+  validateCompleteProvisioningVerification,
+  validateCompleteProvisioningActivation,
   tenantHttpsEdgeNetworkName,
   tenantHttpsHostname,
   type ClaimProvisioningOperationCommand,
   type CompleteProvisioningValidationCommand,
   type CompleteProvisioningDatabaseCommand,
   type CompleteProvisioningSecretsCommand,
+  type CompleteProvisioningMigrationCommand,
   type CompleteProvisioningStorageCommand,
   type CompleteProvisioningConfigurationCommand,
   type CompleteProvisioningContainersCommand,
@@ -50,6 +56,11 @@ import {
   type ProvisioningIdentityContext,
   type ResolveProvisioningHttpsContextCommand,
   type ResolveProvisioningIdentityContextCommand,
+  type ResolveProvisioningInitialAdministratorContextCommand,
+  type ProvisioningInitialAdministratorContext,
+  type CompleteProvisioningInitialAdministratorCommand,
+  type CompleteProvisioningVerificationCommand,
+  type CompleteProvisioningActivationCommand,
   type InfrastructureServer,
   type InfrastructureServerArchitecture,
   type InfrastructureServerDraft,
@@ -62,6 +73,7 @@ import {
   type PlatformReleaseListCriteria,
   type PlatformReleaseRepository,
   type PlatformReleaseStatus,
+  type PlatformFoundationPromotionRepository,
   type ProvisioningOperation,
   type ProvisioningOperationRepository,
   type ProvisioningOperationStatus,
@@ -77,6 +89,8 @@ import {
   type TenantProfileStatus,
 } from "@quantum-crm/platform-domain";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
+import { createActivationDeliveryRepository } from "./activation-delivery-repository.js";
+import { createPlatformFoundationPromotionRepository } from "./platform-foundation-promotion-repository.js";
 
 export interface PostgresPool {
   readonly connect: () => Promise<PoolClient>;
@@ -100,6 +114,8 @@ export interface PlatformPostgresDatabase extends PostgresDatabase {
   readonly tenantProfiles: TenantProfileRepository;
   readonly provisioningOperations: ProvisioningOperationRepository;
   readonly releases: PlatformReleaseRepository;
+  readonly activationDeliveries: ReturnType<typeof createActivationDeliveryRepository>;
+  readonly platformFoundationPromotions: PlatformFoundationPromotionRepository;
 }
 
 export interface PlatformMembershipRepository {
@@ -184,6 +200,7 @@ interface PlatformReleaseRow {
   readonly agent_contract_version: string;
   readonly database_migration_required: boolean;
   readonly minimum_source_version: string | null;
+  readonly legacy_artifact_catalog: boolean;
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
@@ -203,6 +220,7 @@ const platformReleaseSelection = `
   release.agent_contract_version,
   release.database_migration_required,
   release.minimum_source_version,
+  release.legacy_artifact_catalog,
   release.version::text,
   release.created_at,
   release.updated_at,
@@ -247,6 +265,7 @@ function platformReleaseFromRow(row: PlatformReleaseRow): PlatformRelease {
       name: platformReleaseArtifactName(artifact.name),
       digest: artifact.digest,
     })),
+    legacyArtifactCatalog: row.legacy_artifact_catalog,
     status: platformReleaseStatus(row.status),
     version: BigInt(row.version),
     createdAt: row.created_at,
@@ -865,6 +884,113 @@ async function completeProvisioningSecrets(
   }
 }
 
+async function completeProvisioningMigration(
+  pool: PostgresPool,
+  command: CompleteProvisioningMigrationCommand,
+): Promise<
+  ReturnType<ProvisioningOperationRepository["completeMigration"]> extends Promise<infer Result>
+    ? Result
+    : never
+> {
+  const completion = validateCompleteProvisioningMigration(command);
+  const failureCode = completion.failureCode?.toLowerCase() ?? null;
+  let client: PoolClient | undefined;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const result = await client.query<
+      ProvisioningOperationRow & { readonly tenant_version: string }
+    >(
+      `
+      SELECT ${provisioningOperationSelection}, profile.version::text AS tenant_version
+      FROM operations.provisioning_operations operation JOIN tenants.tenant_profiles profile ON profile.id=operation.tenant_profile_id
+      WHERE operation.id=$1::uuid AND operation.tenant_profile_id=$2::uuid AND operation.status='running' AND operation.current_step='migrate_database'
+        AND operation.lease_owner=$3 AND operation.version=$4 AND operation.attempt=$5 AND operation.lease_expires_at>CURRENT_TIMESTAMP
+      FOR UPDATE OF operation, profile`,
+      [
+        completion.operationId,
+        completion.tenantProfileId,
+        completion.workerId,
+        completion.expectedVersion.toString(),
+        completion.attempt,
+      ],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      await client.query("COMMIT");
+      return null;
+    }
+    await client.query(
+      `INSERT INTO operations.provisioning_step_results (operation_id,step,attempt,outcome,worker_id,operation_version,failure_code) VALUES ($1::uuid,'migrate_database',$2,$3::operations.provisioning_step_outcome,$4,$5,$6::operations.provisioning_validation_failure_code)`,
+      [
+        completion.operationId,
+        completion.attempt,
+        failureCode ? "failed" : "succeeded",
+        completion.workerId,
+        completion.expectedVersion.toString(),
+        failureCode,
+      ],
+    );
+    if (!failureCode) {
+      const updated = await client.query<ProvisioningOperationRow>(
+        `UPDATE operations.provisioning_operations SET status='pending',current_step='start_containers',failure_code=NULL,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
+        [completion.operationId],
+      );
+      if (!updated.rows[0]) throw new DatabaseUnavailableError();
+      await client.query("COMMIT");
+      return Object.freeze({
+        operation: provisioningOperationFromRow(updated.rows[0]),
+        tenantVersion: BigInt(row.tenant_version),
+        outcome: "ADVANCED" as const,
+        failureCode: null,
+      });
+    }
+    if (
+      row.capacity_reservation_id &&
+      row.requested_cpu_millicores !== null &&
+      row.requested_memory_mib !== null &&
+      row.requested_storage_mib !== null
+    ) {
+      const released = await client.query<{ readonly id: string }>(
+        `UPDATE infrastructure.capacity_reservations SET status='released',updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid AND status='reserved' RETURNING id::text`,
+        [row.capacity_reservation_id],
+      );
+      if (released.rows[0])
+        await client.query(
+          `UPDATE infrastructure.servers SET reserved_cpu_millicores=reserved_cpu_millicores-$2,reserved_memory_mib=reserved_memory_mib-$3,reserved_storage_mib=reserved_storage_mib-$4,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid AND reserved_cpu_millicores >= $2 AND reserved_memory_mib >= $3 AND reserved_storage_mib >= $4`,
+          [
+            row.server_id,
+            row.requested_cpu_millicores,
+            row.requested_memory_mib,
+            row.requested_storage_mib,
+          ],
+        );
+    }
+    await client.query(
+      `UPDATE tenants.tenant_profiles SET status='error',version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid AND status='provisioning'`,
+      [completion.tenantProfileId],
+    );
+    const updated = await client.query<ProvisioningOperationRow>(
+      `UPDATE operations.provisioning_operations SET status='failed',failure_code=$2::operations.provisioning_validation_failure_code,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
+      [completion.operationId, failureCode],
+    );
+    if (!updated.rows[0]) throw new DatabaseUnavailableError();
+    await client.query("COMMIT");
+    return Object.freeze({
+      operation: provisioningOperationFromRow(updated.rows[0]),
+      tenantVersion: BigInt(row.tenant_version),
+      outcome: "FAILED" as const,
+      failureCode: completion.failureCode ?? null,
+    });
+  } catch (error) {
+    await client?.query("ROLLBACK").catch(() => undefined);
+    if (error instanceof DatabaseUnavailableError) throw error;
+    throw new DatabaseUnavailableError();
+  } finally {
+    client?.release();
+  }
+}
+
 async function completeProvisioningStorage(
   pool: PostgresPool,
   command: CompleteProvisioningStorageCommand,
@@ -1237,7 +1363,7 @@ async function completeProvisioningConfiguration(
       const updated = await client.query<ProvisioningOperationRow>(
         `
           UPDATE operations.provisioning_operations AS operation
-          SET status = 'pending', current_step = 'start_containers', failure_code = NULL,
+          SET status = 'pending', current_step = 'migrate_database', failure_code = NULL,
               lease_owner = NULL, lease_expires_at = NULL, last_heartbeat_at = NULL,
               version = operation.version + 1, updated_at = CURRENT_TIMESTAMP
           WHERE operation.id = $1::uuid
@@ -1900,6 +2026,115 @@ async function completeProvisioningHttps(
       outcome: "FAILED" as const,
       failureCode: completion.failureCode ?? null,
     });
+  } catch (error) {
+    await client?.query("ROLLBACK").catch(() => undefined);
+    if (error instanceof DatabaseUnavailableError) throw error;
+    throw new DatabaseUnavailableError();
+  } finally {
+    client?.release();
+  }
+}
+
+async function resolveProvisioningInitialAdministratorContext(
+  pool: PostgresPool,
+  command: ResolveProvisioningInitialAdministratorContextCommand,
+): Promise<ProvisioningInitialAdministratorContext | null> {
+  const resolved = validateResolveProvisioningInitialAdministratorContext(command);
+  try {
+    const result = (await pool.query(
+      `SELECT profile.admin_contact_name, profile.admin_contact_email
+       FROM operations.provisioning_operations operation
+       JOIN tenants.tenant_profiles profile ON profile.id=operation.tenant_profile_id
+       WHERE operation.id=$1::uuid AND operation.tenant_profile_id=$2::uuid
+         AND operation.status='running' AND operation.current_step='create_administrator'
+         AND operation.lease_owner=$3 AND operation.version=$4 AND operation.attempt=$5
+         AND operation.lease_expires_at > CURRENT_TIMESTAMP`,
+      [
+        resolved.operationId,
+        resolved.tenantProfileId,
+        resolved.workerId,
+        resolved.expectedVersion.toString(),
+        resolved.attempt,
+      ],
+    )) as {
+      readonly rows: readonly {
+        readonly admin_contact_name: string;
+        readonly admin_contact_email: string;
+      }[];
+    };
+    const row = result.rows[0];
+    return row
+      ? Object.freeze({ displayName: row.admin_contact_name, email: row.admin_contact_email })
+      : null;
+  } catch {
+    throw new DatabaseUnavailableError();
+  }
+}
+
+async function completeFinalProvisioningStep(
+  pool: PostgresPool,
+  command: CompleteProvisioningInitialAdministratorCommand,
+  step: "create_administrator" | "verify" | "activate",
+  next: "verify" | "activate" | null,
+): Promise<ProvisioningOperation | null> {
+  let client: PoolClient | undefined;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const current = (await client.query<ProvisioningOperationRow>(
+      `SELECT ${provisioningOperationSelection} FROM operations.provisioning_operations operation
+       WHERE operation.id=$1::uuid AND operation.tenant_profile_id=$2::uuid
+         AND operation.status='running' AND operation.current_step=$3::operations.provisioning_operation_step
+         AND operation.lease_owner=$4 AND operation.version=$5 AND operation.attempt=$6
+         AND operation.lease_expires_at > CURRENT_TIMESTAMP FOR UPDATE`,
+      [
+        command.operationId,
+        command.tenantProfileId,
+        step,
+        command.workerId,
+        command.expectedVersion.toString(),
+        command.attempt,
+      ],
+    )) as { readonly rows: readonly ProvisioningOperationRow[] };
+    const operation = current.rows[0];
+    if (!operation) {
+      await client.query("COMMIT");
+      return null;
+    }
+    await client.query(
+      `INSERT INTO operations.provisioning_step_results (operation_id, step, attempt, outcome, worker_id, operation_version)
+       VALUES ($1::uuid,$2::operations.provisioning_operation_step,$3,'succeeded',$4,$5)`,
+      [
+        command.operationId,
+        step,
+        command.attempt,
+        command.workerId,
+        command.expectedVersion.toString(),
+      ],
+    );
+    if (step === "activate") {
+      const profile = (await client.query(
+        `UPDATE tenants.tenant_profiles SET status='active', version=version+1, updated_at=CURRENT_TIMESTAMP
+         WHERE id=$1::uuid AND status='provisioning' RETURNING id::text`,
+        [command.tenantProfileId],
+      )) as { readonly rows: readonly { readonly id: string }[] };
+      if (!profile.rows[0]) throw new DatabaseUnavailableError();
+      await client.query(
+        `UPDATE infrastructure.capacity_reservations SET status='active', updated_at=CURRENT_TIMESTAMP
+         WHERE tenant_profile_id=$1::uuid AND status='reserved'`,
+        [command.tenantProfileId],
+      );
+    }
+    const updated = (await client.query<ProvisioningOperationRow>(
+      `UPDATE operations.provisioning_operations SET status=$2::operations.provisioning_operation_status,
+       current_step=COALESCE($3::operations.provisioning_operation_step,current_step),
+       lease_owner=NULL, lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP
+       WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
+      [command.operationId, next ? "pending" : "succeeded", next],
+    )) as { readonly rows: readonly ProvisioningOperationRow[] };
+    if (!updated.rows[0]) throw new DatabaseUnavailableError();
+    await client.query("COMMIT");
+    return provisioningOperationFromRow(updated.rows[0]);
   } catch (error) {
     await client?.query("ROLLBACK").catch(() => undefined);
     if (error instanceof DatabaseUnavailableError) throw error;
@@ -3103,11 +3338,15 @@ export function createPlatformPostgresDatabase(
     memberships,
     infrastructureServers,
     releases,
+    activationDeliveries: createActivationDeliveryRepository(pool),
+    platformFoundationPromotions: createPlatformFoundationPromotionRepository(pool),
     tenantProfiles,
     provisioningOperations: Object.freeze({
       ...provisioningOperations,
       completeSecrets: (command: CompleteProvisioningSecretsCommand) =>
         completeProvisioningSecrets(pool, command),
+      completeMigration: (command: CompleteProvisioningMigrationCommand) =>
+        completeProvisioningMigration(pool, command),
       completeStorage: (command: CompleteProvisioningStorageCommand) =>
         completeProvisioningStorage(pool, command),
       completeConfiguration: (command: CompleteProvisioningConfigurationCommand) =>
@@ -3120,6 +3359,30 @@ export function createPlatformPostgresDatabase(
         resolveProvisioningHttpsContext(pool, command),
       resolveIdentityContext: (command: ResolveProvisioningIdentityContextCommand) =>
         resolveProvisioningIdentityContext(pool, command),
+      resolveInitialAdministratorContext: (
+        command: ResolveProvisioningInitialAdministratorContextCommand,
+      ) => resolveProvisioningInitialAdministratorContext(pool, command),
+      completeInitialAdministrator: (command: CompleteProvisioningInitialAdministratorCommand) =>
+        completeFinalProvisioningStep(
+          pool,
+          validateCompleteProvisioningInitialAdministrator(command),
+          "create_administrator",
+          "verify",
+        ),
+      completeVerification: (command: CompleteProvisioningVerificationCommand) =>
+        completeFinalProvisioningStep(
+          pool,
+          validateCompleteProvisioningVerification(command),
+          "verify",
+          "activate",
+        ),
+      completeActivation: (command: CompleteProvisioningActivationCommand) =>
+        completeFinalProvisioningStep(
+          pool,
+          validateCompleteProvisioningActivation(command),
+          "activate",
+          null,
+        ),
     }),
   });
 }

@@ -30,6 +30,11 @@ import {
   parseIdentityProvisionerConfig,
   type IdentityProvisionerConfig,
 } from "./identity-provisioner-config.js";
+import {
+  activationDeliveryCallbackEnvironmentKeys,
+  parseActivationDeliveryCallbackConfig,
+  type ActivationDeliveryCallbackConfig,
+} from "./activation-delivery-callback-config.js";
 
 const qcrmEnvironmentSchema = z.enum(["local", "test", "preview", "staging", "production"]);
 const processEnvironmentKeys = [
@@ -39,10 +44,15 @@ const processEnvironmentKeys = [
   "QCRM_SHUTDOWN_TIMEOUT_MS",
 ] as const;
 const tenantSecretEnvironmentKey = "QCRM_TENANT_SECRET_DIRECTORY" as const;
+const iamBootstrapClientEnvironmentKey = "QCRM_IAM_BOOTSTRAP_CLIENT_ID" as const;
 const tenantConfigurationEnvironmentKey = "QCRM_TENANT_CONFIGURATION_DIRECTORY" as const;
 const deployHostSocketEnvironmentKey = "QCRM_DEPLOY_HOST_SOCKET_PATH" as const;
 const deployHostConfigurationRootEnvironmentKey = "QCRM_DEPLOY_HOST_CONFIGURATION_ROOT" as const;
 const deployHostComposeTemplateEnvironmentKey = "QCRM_DEPLOY_HOST_COMPOSE_TEMPLATE" as const;
+const deployHostPlatformFoundationComposeTemplateEnvironmentKey =
+  "QCRM_DEPLOY_HOST_PLATFORM_FOUNDATION_COMPOSE_TEMPLATE" as const;
+const deployHostPlatformFoundationEnvironmentFileEnvironmentKey =
+  "QCRM_DEPLOY_HOST_PLATFORM_FOUNDATION_ENV_FILE" as const;
 const deployHostImageRegistryEnvironmentKey = "QCRM_DEPLOY_HOST_IMAGE_REGISTRY" as const;
 const deployHostTenantEdgeNetworkEnvironmentKey = "QCRM_DEPLOY_HOST_TENANT_EDGE_NETWORK" as const;
 const deployHostPlatformStorageNetworkEnvironmentKey =
@@ -67,6 +77,7 @@ export const processDefinitions = Object.freeze({
     defaultPort: 3001,
     database: Object.freeze({ target: "crm", requiresTenant: true }),
     oidc: Object.freeze({ provider: "keycloak", boundary: "crm" }),
+    requiresIamBootstrapClient: true,
   }),
   "admin-api": Object.freeze({
     serviceName: "admin-api",
@@ -75,6 +86,7 @@ export const processDefinitions = Object.freeze({
     database: Object.freeze({ target: "platform", requiresTenant: false }),
     oidc: Object.freeze({ provider: "keycloak", boundary: "platform" }),
     requiresGithubActionsReleasePublisher: true,
+    requiresActivationDeliveryCallback: true,
   }),
   worker: Object.freeze({
     serviceName: "worker",
@@ -92,6 +104,7 @@ export const processDefinitions = Object.freeze({
     requiresStorageAdmin: true,
     requiresDeployHostSocket: true,
     requiresIdentityProvisioner: true,
+    requiresActivationDeliveryCallback: true,
   }),
   "deploy-host": Object.freeze({
     serviceName: "deploy-host",
@@ -122,6 +135,8 @@ export interface ProcessDefinition {
   readonly requiresDeployHostSocket?: boolean;
   readonly requiresDeployHostComposeRuntime?: boolean;
   readonly requiresIdentityProvisioner?: boolean;
+  readonly requiresActivationDeliveryCallback?: boolean;
+  readonly requiresIamBootstrapClient?: boolean;
 }
 
 export interface ProcessConfig {
@@ -139,6 +154,8 @@ export interface ProcessConfig {
   readonly deployHostSocketPath?: string;
   readonly deployHostConfigurationRoot?: string;
   readonly deployHostComposeTemplate?: string;
+  readonly deployHostPlatformFoundationComposeTemplate?: string;
+  readonly deployHostPlatformFoundationEnvironmentFile?: string;
   readonly deployHostImageRegistry?: string;
   readonly deployHostTenantEdgeNetwork?: string;
   readonly deployHostPlatformStorageNetwork?: string;
@@ -149,6 +166,8 @@ export interface ProcessConfig {
   readonly deployHostTenantRouteRoot?: string;
   readonly storage?: StorageConfig;
   readonly identityProvisioner?: IdentityProvisionerConfig;
+  readonly activationDeliveryCallback?: ActivationDeliveryCallbackConfig;
+  readonly iamBootstrapClientId?: "quantum-crm-bootstrap";
 }
 
 function readEnvironment(): NodeJS.ProcessEnv {
@@ -211,14 +230,20 @@ export function parseProcessConfig(
       ? githubActionsReleasePublisherEnvironmentKeys
       : []),
     ...(definition.requiresTenantSecretDirectory ? [tenantSecretEnvironmentKey] : []),
+    ...(definition.requiresIamBootstrapClient ? [iamBootstrapClientEnvironmentKey] : []),
     ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
     ...(definition.requiresIdentityProvisioner ? identityProvisionerEnvironmentKeys : []),
+    ...(definition.requiresActivationDeliveryCallback
+      ? activationDeliveryCallbackEnvironmentKeys
+      : []),
     ...(definition.requiresDeployHostSocket ? [deployHostSocketEnvironmentKey] : []),
     ...(definition.requiresDeployHostComposeRuntime
       ? [
           deployHostConfigurationRootEnvironmentKey,
           deployHostComposeTemplateEnvironmentKey,
+          deployHostPlatformFoundationComposeTemplateEnvironmentKey,
+          deployHostPlatformFoundationEnvironmentFileEnvironmentKey,
           deployHostImageRegistryEnvironmentKey,
           deployHostTenantEdgeNetworkEnvironmentKey,
           deployHostPlatformStorageNetworkEnvironmentKey,
@@ -340,6 +365,8 @@ export function parseProcessConfig(
 
   let deployHostConfigurationRoot: string | undefined;
   let deployHostComposeTemplate: string | undefined;
+  let deployHostPlatformFoundationComposeTemplate: string | undefined;
+  let deployHostPlatformFoundationEnvironmentFile: string | undefined;
   let deployHostImageRegistry: string | undefined;
   let deployHostTenantEdgeNetwork: string | undefined;
   let deployHostPlatformStorageNetwork: string | undefined;
@@ -376,6 +403,14 @@ export function parseProcessConfig(
     deployHostComposeTemplate = configuredPath(
       deployHostComposeTemplateEnvironmentKey,
       allowSafeDefaults ? "/tmp/qcrm-tenant.yaml" : undefined,
+    );
+    deployHostPlatformFoundationComposeTemplate = configuredPath(
+      deployHostPlatformFoundationComposeTemplateEnvironmentKey,
+      allowSafeDefaults ? "/tmp/qcrm-platform-foundation.yaml" : undefined,
+    );
+    deployHostPlatformFoundationEnvironmentFile = configuredPath(
+      deployHostPlatformFoundationEnvironmentFileEnvironmentKey,
+      allowSafeDefaults ? "/tmp/qcrm-platform-foundation.env" : undefined,
     );
     deployHostImageRegistry = configuredName(
       deployHostImageRegistryEnvironmentKey,
@@ -422,6 +457,21 @@ export function parseProcessConfig(
         fileSystem,
       )
     : undefined;
+  const activationDeliveryCallback = definition.requiresActivationDeliveryCallback
+    ? parseActivationDeliveryCallbackConfig(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        environment,
+        fileSystem,
+      )
+    : undefined;
+  const iamBootstrapClientId = definition.requiresIamBootstrapClient
+    ? environment.QCRM_IAM_BOOTSTRAP_CLIENT_ID === "quantum-crm-bootstrap"
+      ? ("quantum-crm-bootstrap" as const)
+      : (() => {
+          throw new ConfigurationError(definition.serviceName, [iamBootstrapClientEnvironmentKey]);
+        })()
+    : undefined;
 
   return Object.freeze({
     schemaVersion: "process-config/v1",
@@ -438,6 +488,12 @@ export function parseProcessConfig(
     ...(deployHostSocketPath ? { deployHostSocketPath } : {}),
     ...(deployHostConfigurationRoot ? { deployHostConfigurationRoot } : {}),
     ...(deployHostComposeTemplate ? { deployHostComposeTemplate } : {}),
+    ...(deployHostPlatformFoundationComposeTemplate
+      ? { deployHostPlatformFoundationComposeTemplate }
+      : {}),
+    ...(deployHostPlatformFoundationEnvironmentFile
+      ? { deployHostPlatformFoundationEnvironmentFile }
+      : {}),
     ...(deployHostImageRegistry ? { deployHostImageRegistry } : {}),
     ...(deployHostTenantEdgeNetwork ? { deployHostTenantEdgeNetwork } : {}),
     ...(deployHostPlatformStorageNetwork ? { deployHostPlatformStorageNetwork } : {}),
@@ -448,5 +504,7 @@ export function parseProcessConfig(
     ...(deployHostTenantRouteRoot ? { deployHostTenantRouteRoot } : {}),
     ...(storage ? { storage } : {}),
     ...(identityProvisioner ? { identityProvisioner } : {}),
+    ...(activationDeliveryCallback ? { activationDeliveryCallback } : {}),
+    ...(iamBootstrapClientId ? { iamBootstrapClientId } : {}),
   });
 }

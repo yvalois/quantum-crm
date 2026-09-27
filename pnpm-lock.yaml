@@ -212,6 +212,9 @@ importers:
       "@quantum-crm/config":
         specifier: workspace:*
         version: link:../../packages/config
+      "@quantum-crm/contracts":
+        specifier: workspace:*
+        version: link:../../packages/contracts
       "@quantum-crm/platform-domain":
         specifier: workspace:*
         version: link:../../packages/platform-domain
@@ -267,6 +270,9 @@ importers:
       "@quantum-crm/config":
         specifier: workspace:*
         version: link:../config
+      "@quantum-crm/contracts":
+        specifier: workspace:*
+        version: link:../contracts
       jose:
         specifier: 6.2.12
         version: 6.2.12
@@ -320,7 +326,11 @@ importers:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.10.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3)
 
-  packages/domain: {}
+  packages/domain:
+    dependencies:
+      "@quantum-crm/contracts":
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/observability:
     dependencies:

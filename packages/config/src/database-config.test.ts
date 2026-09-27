@@ -47,6 +47,7 @@ function crmEnvironment(
     QCRM_OIDC_ISSUER: "https://identity.example.test/realms/profile-a",
     QCRM_OIDC_AUDIENCE: "quantum-crm-web",
     QCRM_OIDC_REQUIRED_ACR: "1",
+    QCRM_IAM_BOOTSTRAP_CLIENT_ID: "quantum-crm-bootstrap",
     ...overrides,
   };
 }

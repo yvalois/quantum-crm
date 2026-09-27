@@ -1,14 +1,21 @@
 import { loadServiceConfig } from "@quantum-crm/config";
 
-import { createTenantComposeReconciler } from "./compose-runner.js";
+import {
+  createCommandRunner,
+  createTenantComposeReconciler,
+  createTenantCrmMigrationReconciler,
+} from "./compose-runner.js";
 import { createTenantCaddyRouteReconciler } from "./caddy-route-runner.js";
 import { createHostAdapterServer } from "./host-adapter.js";
+import { createPlatformFoundationReleaseDeployer } from "./platform-foundation-release.js";
 
 const config = loadServiceConfig("deploy-host");
 if (!config.deployHostSocketPath) throw new Error("deploy-host socket configuration missing");
 if (
   !config.deployHostConfigurationRoot ||
   !config.deployHostComposeTemplate ||
+  !config.deployHostPlatformFoundationComposeTemplate ||
+  !config.deployHostPlatformFoundationEnvironmentFile ||
   !config.deployHostImageRegistry ||
   !config.deployHostTenantEdgeNetwork ||
   !config.deployHostPlatformDatabaseNetwork ||
@@ -21,22 +28,46 @@ if (
   throw new Error("deploy-host compose runtime configuration missing");
 }
 
+const reconciler = createTenantComposeReconciler({
+  configurationRoot: config.deployHostConfigurationRoot,
+  composeTemplate: config.deployHostComposeTemplate,
+  imageRegistry: config.deployHostImageRegistry,
+  environment:
+    config.environment === "local" || config.environment === "test"
+      ? "preview"
+      : config.environment,
+  tenantEdgeNetworkPrefix: config.deployHostTenantEdgeNetwork,
+  platformDatabaseNetwork: config.deployHostPlatformDatabaseNetwork,
+  platformStorageNetwork: config.deployHostPlatformStorageNetwork,
+  platformSessionNetwork: config.deployHostPlatformSessionNetwork,
+  platformOidcNetwork: config.deployHostPlatformOidcNetwork,
+  databaseSecretRoot: config.deployHostDatabaseSecretRoot,
+});
+const migrationReconciler = createTenantCrmMigrationReconciler({
+  configurationRoot: config.deployHostConfigurationRoot,
+  composeTemplate: config.deployHostComposeTemplate,
+  imageRegistry: config.deployHostImageRegistry,
+  environment:
+    config.environment === "local" || config.environment === "test"
+      ? "preview"
+      : config.environment,
+  tenantEdgeNetworkPrefix: config.deployHostTenantEdgeNetwork,
+  platformDatabaseNetwork: config.deployHostPlatformDatabaseNetwork,
+  platformStorageNetwork: config.deployHostPlatformStorageNetwork,
+  platformSessionNetwork: config.deployHostPlatformSessionNetwork,
+  platformOidcNetwork: config.deployHostPlatformOidcNetwork,
+  databaseSecretRoot: config.deployHostDatabaseSecretRoot,
+});
 const server = createHostAdapterServer({
   socketPath: config.deployHostSocketPath,
-  reconciler: createTenantComposeReconciler({
-    configurationRoot: config.deployHostConfigurationRoot,
-    composeTemplate: config.deployHostComposeTemplate,
+  reconciler,
+  migrationReconciler,
+  foundationReleaseDeployer: createPlatformFoundationReleaseDeployer({
+    composeTemplate: config.deployHostPlatformFoundationComposeTemplate,
+    environmentFile: config.deployHostPlatformFoundationEnvironmentFile,
     imageRegistry: config.deployHostImageRegistry,
-    environment:
-      config.environment === "local" || config.environment === "test"
-        ? "preview"
-        : config.environment,
-    tenantEdgeNetworkPrefix: config.deployHostTenantEdgeNetwork,
-    platformDatabaseNetwork: config.deployHostPlatformDatabaseNetwork,
-    platformStorageNetwork: config.deployHostPlatformStorageNetwork,
-    platformSessionNetwork: config.deployHostPlatformSessionNetwork,
-    platformOidcNetwork: config.deployHostPlatformOidcNetwork,
-    databaseSecretRoot: config.deployHostDatabaseSecretRoot,
+    baseEnvironment: { QCRM_ENV: config.environment },
+    commandRunner: createCommandRunner("/usr/bin/docker"),
   }),
   httpsRouteReconciler: createTenantCaddyRouteReconciler({
     routeRoot: config.deployHostTenantRouteRoot,

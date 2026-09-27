@@ -59,17 +59,18 @@ async function assertDirectory(path: string): Promise<void> {
   }
 }
 
-async function ensureRuntimeDatabaseUrl(
+async function ensureDatabaseUrl(
   rootDirectory: string,
   tenantProfileId: string,
   databaseName: string,
-  runtimeRoleName: string,
+  roleName: string,
   databaseHost: string,
   databasePort: number,
+  secretName: "runtime" | "migrator",
 ): Promise<void> {
   const directory = join(rootDirectory, tenantProfileId);
-  const passwordPath = join(directory, "runtime-password");
-  const urlPath = join(directory, "runtime-url");
+  const passwordPath = join(directory, `${secretName}-password`);
+  const urlPath = join(directory, `${secretName}-url`);
   const passwordMetadata = await lstat(passwordPath);
   if (!passwordMetadata.isFile() || passwordMetadata.isSymbolicLink()) {
     throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
@@ -79,7 +80,7 @@ async function ensureRuntimeDatabaseUrl(
     throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
   }
   const url = new URL("postgresql://localhost");
-  url.username = runtimeRoleName;
+  url.username = roleName;
   url.password = password;
   url.hostname = databaseHost;
   url.port = String(databasePort);
@@ -99,7 +100,7 @@ async function ensureRuntimeDatabaseUrl(
     if (error instanceof TenantConfigurationProvisioningError) throw error;
     if ((error as { readonly code?: string }).code !== "ENOENT") throw error;
   }
-  const temporaryPath = join(directory, `.runtime-url.${process.pid}.${randomUUID()}.tmp`);
+  const temporaryPath = join(directory, `.${secretName}-url.${process.pid}.${randomUUID()}.tmp`);
   try {
     await writeFile(temporaryPath, content, { encoding: "utf8", mode: 0o400, flag: "wx" });
     await chmod(temporaryPath, 0o400);
@@ -131,6 +132,8 @@ function manifestFor(
     command.identity.realmName !== expectedIdentity.realmName ||
     command.identity.crmWebClientId !== expectedIdentity.crmWebClientId ||
     command.identity.apiAudience !== expectedIdentity.apiAudience ||
+    command.identity.bootstrapClientId !== expectedIdentity.bootstrapClientId ||
+    command.identity.bootstrapClientSecretRef !== expectedIdentity.bootstrapClientSecretRef ||
     command.identity.clientSecretRef !== expectedIdentity.clientSecretRef ||
     command.identity.sessionRedisUrlSecretRef !== expectedIdentity.sessionRedisUrlSecretRef
   ) {
@@ -171,6 +174,8 @@ function manifestFor(
         issuer: `${identityIssuer}/realms/${command.identity.realmName}`,
         crmWebClientId: command.identity.crmWebClientId,
         apiAudience: command.identity.apiAudience,
+        bootstrapClientId: command.identity.bootstrapClientId,
+        bootstrapClientSecretRef: command.identity.bootstrapClientSecretRef,
         clientSecretRef: command.identity.clientSecretRef,
         sessionRedisUrlSecretRef: command.identity.sessionRedisUrlSecretRef,
       },
@@ -238,13 +243,23 @@ export function createTenantConfigurationProvisioner(
         throw new TenantConfigurationProvisioningError("IDENTITY_MISMATCH");
       }
       try {
-        await ensureRuntimeDatabaseUrl(
+        await ensureDatabaseUrl(
           options.tenantSecretDirectory,
           command.tenantProfileId,
           database.databaseName,
           database.runtimeRoleName,
           databaseHost,
           databasePort,
+          "runtime",
+        );
+        await ensureDatabaseUrl(
+          options.tenantSecretDirectory,
+          command.tenantProfileId,
+          database.databaseName,
+          database.migratorRoleName,
+          databaseHost,
+          databasePort,
+          "migrator",
         );
       } catch (error) {
         if (error instanceof TenantConfigurationProvisioningError) throw error;

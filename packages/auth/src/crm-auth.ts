@@ -1,11 +1,11 @@
 import type { SecretValue } from "@quantum-crm/config";
+import { CrmPermissionSchema, type CrmPermission } from "@quantum-crm/contracts";
 
 import type { OidcAccessTokenVerifier, VerifiedOidcIdentity } from "./oidc-access-token.js";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const subjectPattern = /^[!-~]{1,255}$/u;
 const correlationIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
-const permissionPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/u;
 
 export interface CrmMembershipSnapshot {
   readonly id: string;
@@ -13,6 +13,7 @@ export interface CrmMembershipSnapshot {
   readonly status: "INVITED" | "ACTIVE" | "DEACTIVATED";
   readonly permissions: readonly string[];
   readonly authorizationRevision: bigint;
+  readonly commercialScope?: "PROFILE" | "OWN";
 }
 
 export interface CrmMembershipReader {
@@ -23,7 +24,7 @@ export interface CrmAuthPolicy {
   readonly tenantId: string;
   readonly issuer: string;
   readonly audience: string;
-  readonly allowedPermissions: readonly string[];
+  readonly allowedPermissions: readonly CrmPermission[];
 }
 
 export interface CrmAuthContext {
@@ -35,8 +36,9 @@ export interface CrmAuthContext {
     id: string;
     oidcSubject: string;
   }>;
-  readonly permissions: readonly string[];
+  readonly permissions: readonly CrmPermission[];
   readonly authorizationRevision: bigint;
+  readonly commercialScope: "PROFILE" | "OWN";
   readonly authenticatedAt: string;
   readonly correlationId: string;
 }
@@ -63,19 +65,21 @@ function rejectIdentity(): never {
 
 function normalizePermissions(
   permissions: readonly string[],
-  allowedPermissions: readonly string[],
-): readonly string[] {
+  allowedPermissions: readonly CrmPermission[],
+): readonly CrmPermission[] {
   const allowed = new Set(allowedPermissions);
   if (
     allowed.size !== allowedPermissions.length ||
-    allowedPermissions.some((permission) => !permissionPattern.test(permission)) ||
+    allowedPermissions.some((permission) => !CrmPermissionSchema.safeParse(permission).success) ||
     permissions.some(
-      (permission) => !permissionPattern.test(permission) || !allowed.has(permission),
+      (permission) =>
+        !CrmPermissionSchema.safeParse(permission).success ||
+        !allowed.has(permission as CrmPermission),
     )
   ) {
     throw new CrmAuthenticationError("MEMBERSHIP_REJECTED");
   }
-  return Object.freeze([...new Set(permissions)].sort());
+  return Object.freeze([...new Set(permissions as readonly CrmPermission[])].sort());
 }
 
 function isValidIdentity(
@@ -138,15 +142,19 @@ export async function authenticateCrmMember(input: {
     }),
     permissions: normalizePermissions(membership.permissions, input.policy.allowedPermissions),
     authorizationRevision: membership.authorizationRevision,
+    commercialScope: membership.commercialScope === "PROFILE" ? "PROFILE" : "OWN",
     authenticatedAt: identity.authenticatedAt.toISOString(),
     correlationId: input.correlationId,
   });
 }
 
-export function requireCrmPermission(context: CrmAuthContext, requiredPermission: string): void {
+export function requireCrmPermission(
+  context: CrmAuthContext,
+  requiredPermission: CrmPermission,
+): void {
   if (
     context.boundary !== "crm" ||
-    !permissionPattern.test(requiredPermission) ||
+    !CrmPermissionSchema.safeParse(requiredPermission).success ||
     !context.permissions.includes(requiredPermission)
   ) {
     throw new CrmAuthorizationError();

@@ -40,6 +40,7 @@ function toContract(release: PlatformRelease): PlatformReleaseContract {
     releaseNotes: release.releaseNotes,
     compatibility: release.compatibility,
     artifacts: [...release.artifacts],
+    legacyArtifactCatalog: release.legacyArtifactCatalog,
     status: release.status,
     version: release.version.toString(),
     createdAt: release.createdAt.toISOString(),

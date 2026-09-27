@@ -15,9 +15,15 @@ export const platformReleaseArtifactNames = [
   "ADMIN_API",
   "WORKER",
   "DEPLOY_EXECUTOR",
+  "CRM_MIGRATOR",
+  "PLATFORM_KEYCLOAK",
   "AGENT_RUNTIME",
 ] as const;
 export type PlatformReleaseArtifactName = (typeof platformReleaseArtifactNames)[number];
+
+export const legacyPlatformReleaseArtifactNames = platformReleaseArtifactNames.filter(
+  (name) => name !== "CRM_MIGRATOR" && name !== "PLATFORM_KEYCLOAK",
+);
 
 export interface PlatformReleaseArtifact {
   readonly name: PlatformReleaseArtifactName;
@@ -41,6 +47,7 @@ export interface PlatformReleaseDraft {
 }
 
 export interface PlatformRelease extends PlatformReleaseDraft {
+  readonly legacyArtifactCatalog: boolean;
   readonly status: PlatformReleaseStatus;
   readonly version: bigint;
   readonly createdAt: Date;
@@ -62,8 +69,14 @@ function semanticVersion(field: string, value: string): string {
   return normalized;
 }
 
-function artifacts(input: readonly PlatformReleaseArtifact[]): readonly PlatformReleaseArtifact[] {
-  if (input.length !== platformReleaseArtifactNames.length) {
+function artifacts(
+  input: readonly PlatformReleaseArtifact[],
+  legacyArtifactCatalog = false,
+): readonly PlatformReleaseArtifact[] {
+  const expectedNames = legacyArtifactCatalog
+    ? legacyPlatformReleaseArtifactNames
+    : platformReleaseArtifactNames;
+  if (input.length !== expectedNames.length) {
     throw new PlatformReleaseValidationError("artifacts");
   }
   const byName = new Map<PlatformReleaseArtifactName, string>();
@@ -77,13 +90,11 @@ function artifacts(input: readonly PlatformReleaseArtifact[]): readonly Platform
     if (byName.has(artifact.name)) throw new PlatformReleaseValidationError("artifacts");
     byName.set(artifact.name, artifact.digest);
   }
-  if (platformReleaseArtifactNames.some((name) => !byName.has(name))) {
+  if (expectedNames.some((name) => !byName.has(name))) {
     throw new PlatformReleaseValidationError("artifacts");
   }
   return Object.freeze(
-    platformReleaseArtifactNames.map((name) =>
-      Object.freeze({ name, digest: byName.get(name) as string }),
-    ),
+    expectedNames.map((name) => Object.freeze({ name, digest: byName.get(name) as string })),
   );
 }
 
@@ -133,6 +144,7 @@ export function createPlatformReleaseDraft(input: PlatformReleaseDraft): Platfor
 
 export function hydratePlatformRelease(
   input: PlatformReleaseDraft & {
+    readonly legacyArtifactCatalog?: boolean;
     readonly status: PlatformReleaseStatus;
     readonly version: bigint;
     readonly createdAt: Date;
@@ -148,8 +160,25 @@ export function hydratePlatformRelease(
   if (Number.isNaN(input.updatedAt.getTime()) || input.updatedAt < input.createdAt) {
     throw new PlatformReleaseValidationError("updatedAt");
   }
+  const legacyArtifactCatalog = input.legacyArtifactCatalog === true;
+  const draft = legacyArtifactCatalog
+    ? Object.freeze({
+        id: input.id.trim().toLowerCase(),
+        semanticVersion: semanticVersion("semanticVersion", input.semanticVersion),
+        commitSha: input.commitSha.trim().toLowerCase(),
+        releaseNotes: input.releaseNotes.trim(),
+        compatibility: compatibility(input.compatibility),
+        artifacts: artifacts(input.artifacts, true),
+      })
+    : createPlatformReleaseDraft(input);
+  if (!uuidPattern.test(draft.id)) throw new PlatformReleaseValidationError("id");
+  if (!commitPattern.test(draft.commitSha)) throw new PlatformReleaseValidationError("commitSha");
+  if (draft.releaseNotes.length === 0 || draft.releaseNotes.length > 10_000) {
+    throw new PlatformReleaseValidationError("releaseNotes");
+  }
   return Object.freeze({
-    ...createPlatformReleaseDraft(input),
+    ...draft,
+    legacyArtifactCatalog,
     status: input.status,
     version: input.version,
     createdAt: new Date(input.createdAt.getTime()),

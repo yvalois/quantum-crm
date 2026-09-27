@@ -28,6 +28,9 @@ async function bootstrap(): Promise<void> {
   const githubActionsReleasePublisherVerifier = createGithubActionsReleasePublisherVerifier(
     requireGithubActionsReleasePublisherConfig(config),
   );
+  if (!config.activationDeliveryCallback) {
+    throw new Error("admin-api activation delivery callback configuration missing");
+  }
   let application: INestApplication | undefined;
 
   try {
@@ -42,6 +45,7 @@ async function bootstrap(): Promise<void> {
           allowedPermissions: platformPermissions,
         },
         githubActionsReleasePublisherVerifier,
+        config.activationDeliveryCallback,
       ),
       {
         abortOnError: true,

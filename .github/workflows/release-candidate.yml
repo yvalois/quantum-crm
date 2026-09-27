@@ -54,6 +54,12 @@ jobs:
           - app: deploy-executor
             artifact: DEPLOY_EXECUTOR
             dockerfile: infra/docker/Dockerfile.node
+          - app: crm-migrator
+            artifact: CRM_MIGRATOR
+            dockerfile: infra/docker/Dockerfile.crm-migrator
+          - app: keycloak
+            artifact: PLATFORM_KEYCLOAK
+            dockerfile: infra/docker/Dockerfile.keycloak
           - app: agent-runtime
             artifact: AGENT_RUNTIME
             dockerfile: infra/docker/Dockerfile.node
@@ -168,7 +174,11 @@ jobs:
           import { execFileSync } from "node:child_process";
           import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
           import { join } from "node:path";
-          import { createReleaseManifest, serializeReleaseManifest } from "./packages/contracts/dist/index.js";
+          import {
+            PlatformReleaseArtifactNames,
+            createReleaseManifest,
+            serializeReleaseManifest,
+          } from "./packages/contracts/dist/index.js";
 
           const applications = {
             CRM_WEB: "crm-web",
@@ -178,8 +188,17 @@ jobs:
             ADMIN_API: "admin-api",
             WORKER: "worker",
             DEPLOY_EXECUTOR: "deploy-executor",
+            CRM_MIGRATOR: "crm-migrator",
+            PLATFORM_KEYCLOAK: "keycloak",
             AGENT_RUNTIME: "agent-runtime",
           };
+          const expectedArtifactNames = new Set(PlatformReleaseArtifactNames);
+          if (
+            Object.keys(applications).length !== PlatformReleaseArtifactNames.length ||
+            Object.keys(applications).some((name) => !expectedArtifactNames.has(name))
+          ) {
+            throw new Error("Release image mapping must cover the artifact contract exactly");
+          }
           const evidenceDirectory = process.env.QCRM_RELEASE_EVIDENCE_DIR;
           const repository = process.env.QCRM_RELEASE_REPOSITORY;
           const commitSha = process.env.QCRM_RELEASE_COMMIT_SHA;
@@ -189,12 +208,18 @@ jobs:
             throw new Error("Missing release manifest input");
           }
           const artifactFiles = (await readdir(evidenceDirectory)).filter((file) => file.endsWith(".json"));
-          if (artifactFiles.length !== Object.keys(applications).length) {
-            throw new Error("Expected exactly eight artifact evidence files");
+          if (artifactFiles.length !== PlatformReleaseArtifactNames.length) {
+            throw new Error("Release evidence count does not match the artifact contract");
           }
           const inputs = await Promise.all(
             artifactFiles.map(async (file) => JSON.parse(await readFile(join(evidenceDirectory, file), "utf8"))),
           );
+          if (
+            new Set(inputs.map((input) => input?.name)).size !== PlatformReleaseArtifactNames.length ||
+            inputs.some((input) => typeof input?.name !== "string" || !expectedArtifactNames.has(input.name))
+          ) {
+            throw new Error("Release evidence names do not match the artifact contract");
+          }
           const reportDirectory = "release-output/scans";
           await mkdir(reportDirectory, { recursive: true });
           const reportFor = (input) => {

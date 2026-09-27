@@ -5,6 +5,8 @@ export interface TenantOidcIdentity {
   readonly realmName: string;
   readonly crmWebClientId: "quantum-crm-web";
   readonly apiAudience: "quantum-crm-api";
+  readonly bootstrapClientId: "quantum-crm-bootstrap";
+  readonly bootstrapClientSecretRef: string;
   readonly clientSecretRef: string;
   readonly sessionRedisUrlSecretRef: string;
 }
@@ -41,6 +43,8 @@ export function tenantOidcIdentity(tenantProfileId: string): TenantOidcIdentity 
     realmName: `qcrm-${compact}`,
     crmWebClientId: "quantum-crm-web" as const,
     apiAudience: "quantum-crm-api" as const,
+    bootstrapClientId: "quantum-crm-bootstrap" as const,
+    bootstrapClientSecretRef: `tenant/${normalized}/iam-bootstrap-client-secret`,
     clientSecretRef: `tenant/${normalized}/oidc-client-secret`,
     sessionRedisUrlSecretRef: `tenant/${normalized}/session-redis-url`,
   });

@@ -28,6 +28,8 @@ enum PlatformReleaseArtifactName {
   ADMIN_API       @map("admin-api")
   WORKER          @map("worker")
   DEPLOY_EXECUTOR @map("deploy-executor")
+  CRM_MIGRATOR    @map("crm-migrator")
+  PLATFORM_KEYCLOAK @map("platform-keycloak")
   AGENT_RUNTIME   @map("agent-runtime")
 
   @@map("release_artifact_name")
@@ -44,6 +46,7 @@ model PlatformRelease {
   agentContractVersion      String                @map("agent_contract_version") @db.VarChar(80)
   databaseMigrationRequired Boolean               @map("database_migration_required")
   minimumSourceVersion      String?               @map("minimum_source_version") @db.VarChar(80)
+  legacyArtifactCatalog     Boolean               @default(false) @map("legacy_artifact_catalog")
   version                   BigInt                @default(1)
   createdAt                 DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                 DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -54,6 +57,7 @@ model PlatformRelease {
   tenantConfigurations      TenantConfiguration[]
   tenantContainers          TenantContainer[]
   tenantHttpsRoutes         TenantHttpsRoute[]
+  foundationPromotions      PlatformFoundationPromotion[]
 
   @@index([status, createdAt, id], map: "releases_status_created_id_idx")
   @@map("releases")
@@ -171,6 +175,7 @@ enum PlatformPermission {
   CONFIGURATION_MANAGE @map("configuration:manage")
   DEPLOYMENTS_READ     @map("deployments:read")
   DEPLOYMENTS_EXECUTE  @map("deployments:execute")
+  DEPLOYMENTS_ACTIVATE @map("deployments:activate")
   OPERATORS_MANAGE     @map("operators:manage")
 
   @@map("platform_permission")
@@ -186,6 +191,8 @@ model PlatformOperatorMembership {
   updatedAt             DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   permissions           PlatformOperatorPermission[]
   provisioningOperations ProvisioningOperation[]
+  activationDeliveryIntents ActivationDeliveryIntent[]
+  foundationPromotions PlatformFoundationPromotion[]
 
   @@index([status, createdAt, id], map: "operator_memberships_status_created_id_idx")
   @@map("operator_memberships")
@@ -234,6 +241,8 @@ model TenantProfile {
   configuration        TenantConfiguration?
   container            TenantContainer?
   httpsRoute           TenantHttpsRoute?
+  initialAdministrator TenantInitialAdministrator?
+  activationDeliveryIntents ActivationDeliveryIntent[]
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -241,6 +250,107 @@ model TenantProfile {
   @@index([releaseId], map: "tenant_profiles_release_id_idx", where: raw("\"release_id\" IS NOT NULL"))
   @@map("tenant_profiles")
   @@schema("tenants")
+}
+
+enum ActivationDeliveryStatus {
+  PENDING   @map("pending")
+  CLAIMED   @map("claimed")
+  DELIVERED @map("delivered")
+  CONSUMED  @map("consumed")
+  EXPIRED   @map("expired")
+  DISCARDED @map("discarded")
+
+  @@map("activation_delivery_status")
+  @@schema("operations")
+}
+
+enum PlatformFoundationPromotionStatus {
+  PENDING @map("pending")
+  RUNNING @map("running")
+  SUCCEEDED @map("succeeded")
+  FAILED @map("failed")
+  @@map("platform_foundation_promotion_status")
+  @@schema("operations")
+}
+
+enum PlatformFoundationPromotionFailureCode {
+  UNAVAILABLE @map("unavailable")
+  IDENTITY_MISMATCH @map("identity_mismatch")
+  TARGET_CONFLICT @map("target_conflict")
+  PERMISSION_DENIED @map("permission_denied")
+  @@map("platform_foundation_promotion_failure_code")
+  @@schema("operations")
+}
+
+model PlatformFoundationPromotion {
+  id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  releaseId String @unique(map: "platform_foundation_promotions_release_id_key") @map("release_id") @db.Uuid
+  requestedByOperatorId String @map("requested_by_operator_id") @db.Uuid
+  idempotencyKey String @map("idempotency_key") @db.VarChar(128)
+  correlationId String @map("correlation_id") @db.VarChar(128)
+  status PlatformFoundationPromotionStatus @default(PENDING)
+  attempt Int @default(0)
+  version BigInt @default(1)
+  leaseOwner String? @map("lease_owner") @db.VarChar(128)
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(6)
+  failureCode PlatformFoundationPromotionFailureCode? @map("failure_code")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  release PlatformRelease @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  requestedByOperator PlatformOperatorMembership @relation(fields: [requestedByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([requestedByOperatorId, idempotencyKey], map: "platform_foundation_promotions_actor_idempotency_key")
+  @@index([status, createdAt, id], map: "platform_foundation_promotions_claim_idx")
+  @@map("platform_foundation_promotions")
+  @@schema("operations")
+}
+
+enum TenantInitialAdministratorStatus {
+  PENDING @map("pending")
+  ACTIVATION_ISSUED @map("activation_issued")
+  CONSUMED @map("consumed")
+  @@map("tenant_initial_administrator_status")
+  @@schema("operations")
+}
+
+model TenantInitialAdministrator {
+  tenantProfileId String @id @map("tenant_profile_id") @db.Uuid
+  keycloakSubject String? @map("keycloak_subject") @db.VarChar(255)
+  generation Int @default(0)
+  status TenantInitialAdministratorStatus @default(PENDING)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  version BigInt @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile TenantProfile @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@map("tenant_initial_administrators")
+  @@schema("tenants")
+}
+
+model ActivationDeliveryIntent {
+  id                    String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId       String                   @map("tenant_profile_id") @db.Uuid
+  requestedByOperatorId String                   @map("requested_by_operator_id") @db.Uuid
+  administratorSubject  String                   @map("administrator_subject") @db.VarChar(255)
+  generation            Int
+  expiresAt             DateTime                 @map("expires_at") @db.Timestamptz(6)
+  correlationId         String                   @map("correlation_id") @db.VarChar(128)
+  idempotencyKey        String                   @map("idempotency_key") @db.VarChar(128)
+  payloadHash           String                   @map("payload_hash") @db.Char(64)
+  status                ActivationDeliveryStatus @default(PENDING)
+  leaseOwner            String?                  @map("lease_owner") @db.VarChar(128)
+  leaseExpiresAt        DateTime?                @map("lease_expires_at") @db.Timestamptz(6)
+  resultCode            String?                  @map("result_code") @db.VarChar(64)
+  version               BigInt                   @default(1)
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile         TenantProfile            @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  requestedByOperator   PlatformOperatorMembership @relation(fields: [requestedByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([requestedByOperatorId, idempotencyKey], map: "activation_delivery_actor_idempotency_key")
+  @@index([status, createdAt, id], map: "activation_delivery_status_created_idx")
+  @@map("activation_delivery_intents")
+  @@schema("operations")
 }
 
 enum ProvisioningOperationStatus {
@@ -258,6 +368,7 @@ enum ProvisioningOperationStep {
   VALIDATE             @map("validate")
   CREATE_DATABASE      @map("create_database")
   CREATE_SECRETS       @map("create_secrets")
+  MIGRATE_DATABASE     @map("migrate_database")
   CREATE_STORAGE       @map("create_storage")
   WRITE_CONFIGURATION  @map("write_configuration")
   START_CONTAINERS     @map("start_containers")

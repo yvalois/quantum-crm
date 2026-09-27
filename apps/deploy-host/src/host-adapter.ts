@@ -5,6 +5,8 @@ import {
   ProvisioningOperationValidationError,
   tenantContainerServiceNames,
   tenantHttpsUpstreamServiceNames,
+  platformReleaseArtifactNames,
+  type PlatformReleaseArtifactName,
   type TenantContainerServiceName,
   type TenantHttpsUpstreamServiceName,
 } from "@quantum-crm/platform-domain";
@@ -34,6 +36,7 @@ const allowedHttpsRequestKeys = new Set([
   "configurationRevision",
   "attempt",
 ]);
+const allowedFoundationReleaseRequestKeys = new Set(["action", "artifacts"]);
 const hostnamePattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.[0-9-]+\.nip\.io$/u;
 const edgeNetworkPattern = /^qcrm-tenant-edge-[0-9a-f-]{36}$/u;
 
@@ -84,6 +87,29 @@ export interface TenantComposeReconciler {
   readonly reconcile: (request: HostAdapterRequest) => Promise<HostAdapterResult>;
 }
 
+export interface HostAdapterMigrationRequest extends Omit<HostAdapterRequest, "action"> {
+  readonly action: "MIGRATE_TENANT_CRM_DATABASE";
+}
+
+export interface TenantCrmMigrationReconciler {
+  readonly migrate: (request: HostAdapterMigrationRequest) => Promise<{
+    readonly migrated: boolean;
+    readonly reconciled: boolean;
+  }>;
+}
+
+export interface HostAdapterFoundationReleaseRequest {
+  readonly action: "RECONCILE_PLATFORM_FOUNDATION_RELEASE";
+  readonly artifacts: readonly {
+    readonly name: PlatformReleaseArtifactName;
+    readonly digest: string;
+  }[];
+}
+
+export interface PlatformFoundationReleaseDeployer {
+  readonly deploy: (request: HostAdapterFoundationReleaseRequest) => Promise<void>;
+}
+
 export interface TenantHttpsRouteReconciler {
   readonly reconcile: (request: HostAdapterHttpsRequest) => Promise<HostAdapterHttpsResult>;
 }
@@ -92,6 +118,8 @@ export interface HostAdapterServerOptions {
   readonly socketPath: string;
   readonly reconciler: TenantComposeReconciler;
   readonly httpsRouteReconciler?: TenantHttpsRouteReconciler;
+  readonly migrationReconciler?: TenantCrmMigrationReconciler;
+  readonly foundationReleaseDeployer?: PlatformFoundationReleaseDeployer;
   readonly requestTimeoutMilliseconds?: number;
 }
 
@@ -163,6 +191,62 @@ function parseRequest(value: unknown): HostAdapterRequest {
     attempt: input.attempt,
     projectName: `qcrm-t-${tenantProfileId}`,
   });
+}
+
+function parseMigrationRequest(value: unknown): HostAdapterMigrationRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const input = value as Record<string, unknown>;
+  if (input.action !== "MIGRATE_TENANT_CRM_DATABASE") {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const base = parseRequest({ ...input, action: "RECONCILE_TENANT_COMPOSE" });
+  return Object.freeze({ ...base, action: "MIGRATE_TENANT_CRM_DATABASE" as const });
+}
+
+function parseFoundationReleaseRequest(value: unknown): HostAdapterFoundationReleaseRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const input = value as Record<string, unknown>;
+  if (
+    [...Object.keys(input)].some((key) => !allowedFoundationReleaseRequestKeys.has(key)) ||
+    input.action !== "RECONCILE_PLATFORM_FOUNDATION_RELEASE" ||
+    !Array.isArray(input.artifacts) ||
+    input.artifacts.length !== platformReleaseArtifactNames.length
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const artifacts = input.artifacts.map((artifact) => {
+    if (typeof artifact !== "object" || artifact === null || Array.isArray(artifact)) {
+      throw new HostAdapterError("IDENTITY_MISMATCH");
+    }
+    const record = artifact as Record<string, unknown>;
+    if (
+      Object.keys(record).length !== 2 ||
+      typeof record.name !== "string" ||
+      !platformReleaseArtifactNames.includes(record.name as PlatformReleaseArtifactName) ||
+      typeof record.digest !== "string" ||
+      !/^sha256:[0-9a-f]{64}$/u.test(record.digest)
+    ) {
+      throw new HostAdapterError("IDENTITY_MISMATCH");
+    }
+    return Object.freeze({
+      name: record.name as PlatformReleaseArtifactName,
+      digest: record.digest,
+    });
+  });
+  if (
+    new Set(artifacts.map((artifact) => artifact.name)).size !==
+      platformReleaseArtifactNames.length ||
+    platformReleaseArtifactNames.some(
+      (name) => !artifacts.some((artifact) => artifact.name === name),
+    )
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  return Object.freeze({ action: "RECONCILE_PLATFORM_FOUNDATION_RELEASE" as const, artifacts });
 }
 
 function parseHttpsRequest(value: unknown): HostAdapterHttpsRequest {
@@ -315,7 +399,12 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
   const server = createServer(async (request, response) => {
     const isContainerRequest = request.url === "/v1/tenant-containers/reconcile";
     const isHttpsRequest = request.url === "/v1/tenant-https/reconcile";
-    if (request.method !== "POST" || (!isContainerRequest && !isHttpsRequest)) {
+    const isMigrationRequest = request.url === "/v1/tenant-database/migrate";
+    const isFoundationReleaseRequest = request.url === "/v1/platform-foundation/reconcile";
+    if (
+      request.method !== "POST" ||
+      (!isContainerRequest && !isHttpsRequest && !isMigrationRequest && !isFoundationReleaseRequest)
+    ) {
       writeJson(response, 404, { reason: "IDENTITY_MISMATCH" });
       return;
     }
@@ -332,6 +421,20 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
         const validated = parseRequest(parsed);
         const result = await options.reconciler.reconcile(validated);
         writeJson(response, 200, parseResult(result, validated.projectName));
+        return;
+      }
+      if (isMigrationRequest) {
+        if (!options.migrationReconciler) throw new HostAdapterError("UNAVAILABLE");
+        const validated = parseMigrationRequest(parsed);
+        const result = await options.migrationReconciler.migrate(validated);
+        if (!result.migrated) throw new HostAdapterError("UNAVAILABLE");
+        writeJson(response, 200, { migrated: true, reconciled: result.reconciled });
+        return;
+      }
+      if (isFoundationReleaseRequest) {
+        if (!options.foundationReleaseDeployer) throw new HostAdapterError("UNAVAILABLE");
+        await options.foundationReleaseDeployer.deploy(parseFoundationReleaseRequest(parsed));
+        writeJson(response, 200, { reconciled: true });
         return;
       }
       if (!options.httpsRouteReconciler) throw new HostAdapterError("UNAVAILABLE");
