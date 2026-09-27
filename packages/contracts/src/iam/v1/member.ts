@@ -27,6 +27,12 @@ export const CrmPermissionSchema = z.enum(CrmPermissionCatalog);
 export type CrmPermission = z.infer<typeof CrmPermissionSchema>;
 
 export const MemberIdSchema = UuidSchema;
+/** Path parameters for the server-authenticated invitation acceptance command. */
+export const AcceptInvitationParamsSchema = z
+  .object({
+    invitationId: MemberIdSchema,
+  })
+  .strict();
 const VersionSchema = z.string().regex(/^[1-9][0-9]*$/u);
 const DisplayNameSchema = z.string().trim().min(1).max(160);
 const EmailSchema = z
@@ -92,6 +98,10 @@ export const InvitationSchema = z.object({
 
 export const InvitationResponseSchema = z.object({ data: InvitationSchema });
 
+/** The accepted member is the only representation returned; invitation tokens
+ * and identity claims never cross this response contract. */
+export const AcceptInvitationResponseSchema = MemberResponseSchema;
+
 export type Member = z.infer<typeof MemberSchema>;
 export type MemberListQuery = z.infer<typeof MemberListQuerySchema>;
 export type MemberListResponse = z.infer<typeof MemberListResponseSchema>;
@@ -99,3 +109,5 @@ export type CreateMemberInvitation = z.infer<typeof CreateMemberInvitationSchema
 export type InitialRoleCode = z.infer<typeof InitialRoleCodeSchema>;
 export type UpdateMember = z.infer<typeof UpdateMemberSchema>;
 export type Invitation = z.infer<typeof InvitationSchema>;
+export type AcceptInvitationParams = z.infer<typeof AcceptInvitationParamsSchema>;
+export type AcceptInvitationResponse = z.infer<typeof AcceptInvitationResponseSchema>;

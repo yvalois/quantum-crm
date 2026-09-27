@@ -8,6 +8,8 @@ export {
 export {
   CrmPermissionCatalog,
   CrmPermissionSchema,
+  AcceptInvitationParamsSchema,
+  AcceptInvitationResponseSchema,
   CreateMemberInvitationSchema,
   InvitationResponseSchema,
   InvitationSchema,
@@ -20,6 +22,8 @@ export {
   MemberStatusSchema,
   UpdateMemberSchema,
   type CreateMemberInvitation,
+  type AcceptInvitationParams,
+  type AcceptInvitationResponse,
   type CrmPermission,
   type Invitation,
   type InitialRoleCode,
