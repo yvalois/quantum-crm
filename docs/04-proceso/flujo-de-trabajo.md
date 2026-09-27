@@ -30,8 +30,23 @@ Las casillas del checklist solo distinguen pendiente y hecho. Los estados interm
 
 - Registrar una fila `EN_CURSO` con responsable, ficha aplicable y siguiente paso.
 - Usar una rama corta cuando Git tenga un remoto y flujo colaborativo definidos.
-- Mantener un alcance pequeno: un requisito o una parte demostrable con criterios claros.
+- Mantener un alcance demostrable: un requisito o una rebanada vertical que agrupe requisitos dependientes bajo un unico resultado visible. Cada identificador conserva sus propias casillas y no se marca completo por pertenecer a la rebanada.
 - No mezclar arreglos, formato o refactorizaciones ajenos.
+
+## Coordinacion por agentes
+
+Una rebanada grande puede usar tres roles que comparten un solo objetivo, rama y pull request:
+
+| Rol | Responsabilidad | No hace |
+| --- | --- | --- |
+| Orquestador | Delimita el resultado, entrega contexto, resuelve dependencias, mantiene estado/evidencia, integra cambios y decide la verificacion minima. | Duplicar implementaciones ni ordenar comprobaciones sin una causa tecnica. |
+| Desarrollo | Inspecciona lo existente, implementa una sola ruta vertical y sus pruebas afectadas en la rama acordada. Comunica contratos, archivos y decisiones al resto. | Crear una segunda ruta para la misma funcion, cambiar alcance o ejecutar validaciones locales. |
+| Testeo | Audita evidencia vigente, comunica criterios y riesgos antes de la implementacion y revisa el cambio contra esos criterios. | Ejecutar por separado pruebas ya cubiertas por la CI o release del mismo commit. |
+
+- El orquestador conecta los mensajes entre roles antes de que desarrollo cierre el cambio; testeo puede preparar los criterios mientras desarrollo inspecciona o implementa, pero solo un agente modifica una misma zona del arbol a la vez.
+- Los tres roles registran en la ficha el alcance, contratos reutilizados, pruebas nuevas y evidencia reutilizable. La ficha sigue siendo derivada: `trabajo.md`, `estado.md` y las funcionalidades siguen siendo las autoridades.
+- Una rebanada consolidada usa una sola rama corta y un solo PR cuando los cambios pertenecen al mismo recorrido visible. Sus commits internos pueden separar shell, datos, API y pruebas sin disparar CI intermedia.
+- La unica matriz completa se ejecuta sobre el commit candidato del PR; tras el merge, la unica release y smoke aplicable se ejecutan sobre el commit integrado. Los resultados se comparten entre los roles y no se repiten si commit, alcance, entorno e inputs no cambiaron.
 
 ## Implementacion
 

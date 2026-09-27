@@ -21,7 +21,7 @@ La documentacion separa con claridad lo que se construye durante cada rebanada f
 
 ## Alcance
 
-- Incluido: `mvp-piloto.md`, `flujo-de-trabajo.md` y `estado.md`.
+- Incluido: `mvp-piloto.md`, `flujo-de-trabajo.md` y `estado.md`; coordinacion de una rebanada por roles de orquestacion, desarrollo y testeo, una rama y un PR consolidados.
 - No incluido: eliminar requisitos, rebajar la puerta de piloto, desactivar seguridad, omitir migraciones, aislamiento o pruebas afectadas.
 
 ## Criterios de aceptacion
@@ -29,6 +29,7 @@ La documentacion separa con claridad lo que se construye durante cada rebanada f
 - [ ] La lista de trabajo diferible y sus limites aparece en una fuente de plan autorizada.
 - [ ] El flujo obliga a no interrumpir una rebanada funcional por refinamientos no necesarios.
 - [ ] Estado registra la decision y su aplicacion.
+- [ ] Cada rebanada puede coordinar orquestacion, desarrollo y testeo sin duplicar implementaciones ni comprobaciones vigentes.
 
 ## Verificacion y evidencia de cierre
 
