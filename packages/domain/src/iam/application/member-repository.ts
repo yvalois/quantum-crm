@@ -25,11 +25,12 @@ export interface IamMemberRepository {
     readonly invitation: IamInvitation;
     readonly replayed: boolean;
   }>;
-  update(member: IamMember): Promise<IamMember>;
+  update(member: IamMember, expectedAuthorizationRevision?: bigint): Promise<IamMember>;
   updateCommercialScope?(input: {
     readonly memberId: string;
     readonly scope: Exclude<CommercialScope, "OWN">;
     readonly now: Date;
+    readonly expectedAuthorizationRevision: bigint;
   }): Promise<IamMember | null>;
   assignRole(input: {
     readonly memberId: string;

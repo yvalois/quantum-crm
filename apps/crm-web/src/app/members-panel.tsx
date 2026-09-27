@@ -146,7 +146,10 @@ export function MembersPanel(): React.JSX.Element {
         method: editingRole ? "PATCH" : "POST",
         cache: "no-store",
         credentials: "same-origin",
-        headers: { "content-type": "application/json", "x-csrf-token": csrfToken },
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
         body: JSON.stringify({ displayName: roleDisplayName, permissions: rolePermissions }),
       });
       if (!response.ok) throw new Error(await responseMessage(response));
@@ -221,7 +224,11 @@ export function MembersPanel(): React.JSX.Element {
         method: "PATCH",
         cache: "no-store",
         credentials: "same-origin",
-        headers: { "content-type": "application/json", "x-csrf-token": csrfToken },
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+          "if-match": `"${editingMember.authorizationRevision}"`,
+        },
         body: JSON.stringify({
           displayName: editDisplayName,
           email: editEmail,

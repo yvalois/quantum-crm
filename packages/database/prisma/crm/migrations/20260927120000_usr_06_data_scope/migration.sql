@@ -6,24 +6,38 @@ CREATE TYPE iam.commercial_scope AS ENUM ('profile', 'team', 'assigned');
 ALTER TABLE iam.members
   ADD COLUMN commercial_scope iam.commercial_scope NOT NULL DEFAULT 'assigned';
 
+WITH desired AS (
+  SELECT
+    member.id,
+    CASE
+      WHEN EXISTS (
+        SELECT 1
+        FROM iam.member_roles AS member_role
+        JOIN iam.roles AS role ON role.id = member_role.role_id
+        WHERE member_role.member_id = member.id
+          AND role.code = 'ADMINISTRATOR'
+      ) THEN 'profile'::iam.commercial_scope
+      WHEN EXISTS (
+        SELECT 1
+        FROM iam.member_roles AS member_role
+        JOIN iam.roles AS role ON role.id = member_role.role_id
+        WHERE member_role.member_id = member.id
+          AND role.code = 'SUPERVISOR'
+      ) THEN 'team'::iam.commercial_scope
+      ELSE 'assigned'::iam.commercial_scope
+    END AS scope
+  FROM iam.members AS member
+)
 UPDATE iam.members AS member
-SET commercial_scope = CASE
-  WHEN EXISTS (
-    SELECT 1
-    FROM iam.member_roles AS member_role
-    JOIN iam.roles AS role ON role.id = member_role.role_id
-    WHERE member_role.member_id = member.id
-      AND role.code = 'ADMINISTRATOR'
-  ) THEN 'profile'::iam.commercial_scope
-  WHEN EXISTS (
-    SELECT 1
-    FROM iam.member_roles AS member_role
-    JOIN iam.roles AS role ON role.id = member_role.role_id
-    WHERE member_role.member_id = member.id
-      AND role.code = 'SUPERVISOR'
-  ) THEN 'team'::iam.commercial_scope
-  ELSE 'assigned'::iam.commercial_scope
-END;
+SET commercial_scope = desired.scope,
+    authorization_revision = member.authorization_revision
+      + CASE WHEN member.commercial_scope IS DISTINCT FROM desired.scope THEN 1 ELSE 0 END,
+    updated_at = CASE
+      WHEN member.commercial_scope IS DISTINCT FROM desired.scope THEN CURRENT_TIMESTAMP
+      ELSE member.updated_at
+    END
+FROM desired
+WHERE member.id = desired.id;
 
 CREATE TABLE iam.teams (
   id uuid PRIMARY KEY DEFAULT uuidv7(),

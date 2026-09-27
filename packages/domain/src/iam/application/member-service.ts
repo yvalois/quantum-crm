@@ -47,6 +47,13 @@ export class IamInvitationAcceptanceError extends Error {
   }
 }
 
+export class IamMemberRevisionConflictError extends Error {
+  public constructor() {
+    super("IAM member authorization revision has changed");
+    this.name = "IamMemberRevisionConflictError";
+  }
+}
+
 export interface ConfirmedInvitationAcceptance {
   readonly invitationId: string;
   readonly oidcSubject: string;
@@ -136,6 +143,7 @@ export class IamMemberService {
     readonly email?: string;
     readonly roleCode?: RoleCode;
     readonly commercialScope?: ConfigurableCommercialScope;
+    readonly expectedAuthorizationRevision?: bigint;
   }): Promise<IamMember> {
     requirePermission(input.actor, "iam:members:update");
     if (input.roleCode !== undefined && !isRoleCode(input.roleCode)) {
@@ -148,28 +156,42 @@ export class IamMemberService {
       throw new IamMemberValidationError();
     }
     if (input.roleCode !== undefined) requirePermission(input.actor, "iam:members:roles");
+    if (input.commercialScope !== undefined) requirePermission(input.actor, "iam:members:roles");
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
-    let updated =
-      input.displayName === undefined && input.email === undefined
-        ? current
-        : await this.repository.update(
-            updateMemberProfile({
-              member: current,
-              ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
-              ...(input.email === undefined ? {} : { email: input.email }),
-              now: this.clock(),
-            }),
-          );
+    let updated = current;
     if (input.commercialScope !== undefined) {
       if (!this.repository.updateCommercialScope) throw new IamMemberValidationError();
+      if (
+        input.expectedAuthorizationRevision === undefined ||
+        input.expectedAuthorizationRevision !== current.authorizationRevision
+      ) {
+        throw new IamMemberRevisionConflictError();
+      }
+    }
+    const expectedAuthorizationRevision = input.commercialScope
+      ? input.expectedAuthorizationRevision
+      : undefined;
+    if (input.commercialScope !== undefined) {
       const scoped = await this.repository.updateCommercialScope({
-        memberId: updated.id,
+        memberId: current.id,
         scope: input.commercialScope,
         now: this.clock(),
+        expectedAuthorizationRevision: expectedAuthorizationRevision!,
       });
-      if (!scoped) throw new IamMemberNotFoundError();
+      if (!scoped) throw new IamMemberRevisionConflictError();
       updated = scoped;
+    }
+    if (input.displayName !== undefined || input.email !== undefined) {
+      updated = await this.repository.update(
+        updateMemberProfile({
+          member: updated,
+          ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+          ...(input.email === undefined ? {} : { email: input.email }),
+          now: this.clock(),
+        }),
+        input.commercialScope === undefined ? undefined : updated.authorizationRevision,
+      );
     }
     if (input.roleCode !== undefined) {
       const assigned = await this.repository.assignRole({

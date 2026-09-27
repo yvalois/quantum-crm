@@ -275,7 +275,7 @@ describe("IAM member service", () => {
       }),
     };
     const result = await new IamMemberService(repository, () => now).updateProfile({
-      actor: { memberId: actorId, permissions: ["iam:members:update"] },
+      actor: { memberId: actorId, permissions: ["iam:members:update", "iam:members:roles"] },
       memberId: actorId,
       commercialScope: "TEAM",
     });
@@ -285,6 +285,46 @@ describe("IAM member service", () => {
       memberId: actorId,
       scope: "TEAM",
       now,
+      expectedAuthorizationRevision: 2n,
     });
+  });
+
+  it("does not allow a member without role-management permission to widen data scope", async () => {
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => ({
+        id: actorId,
+        oidcSubject: "keycloak-crm-user",
+        displayName: "Ana Pérez",
+        email: "ana@example.test",
+        status: "ACTIVE",
+        authorizationRevision: 2n,
+        createdAt: now,
+        updatedAt: now,
+        deactivatedAt: null,
+        commercialScope: "ASSIGNED",
+      }),
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (value) => value,
+      updateCommercialScope: async () => {
+        throw new Error("scope repository must not be reached");
+      },
+      assignRole: async () => null,
+      acceptInvitation: async () => null,
+      bootstrapInitialAdministrator: async ({ member: value }) => ({
+        member: value,
+        replayed: false,
+      }),
+    };
+    await expect(
+      new IamMemberService(repository, () => now).updateProfile({
+        actor: { memberId: actorId, permissions: ["iam:members:update"] },
+        memberId: actorId,
+        commercialScope: "PROFILE",
+        expectedAuthorizationRevision: 2n,
+      }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
   });
 });

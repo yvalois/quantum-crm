@@ -1,4 +1,5 @@
 import type { DatabaseConfig } from "@quantum-crm/config";
+import { IamMemberRevisionConflictError } from "@quantum-crm/domain";
 import type {
   IamInvitationActivation,
   IamInvitationActivationRepository,
@@ -438,7 +439,10 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         client?.release();
       }
     },
-    update: async (member: IamMember): Promise<IamMember> => {
+    update: async (
+      member: IamMember,
+      expectedAuthorizationRevision?: bigint,
+    ): Promise<IamMember> => {
       try {
         const result = (await pool.query(
           `
@@ -446,6 +450,7 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             SET display_name = $2, email = $3, status = $4::iam.member_status,
                 authorization_revision = $5::bigint, updated_at = $6, deactivated_at = $7
             WHERE id = $1::uuid
+              AND ($8::bigint IS NULL OR authorization_revision = $8::bigint)
             RETURNING ${memberSelection}
           `,
           [
@@ -456,12 +461,19 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             member.authorizationRevision.toString(),
             member.updatedAt,
             member.deactivatedAt,
+            expectedAuthorizationRevision?.toString() ?? null,
           ],
         )) as { readonly rows: readonly IamMemberRow[] };
         const row = result.rows[0];
-        if (!row) throw new IamMemberConflictError();
+        if (!row) {
+          if (expectedAuthorizationRevision !== undefined) {
+            throw new IamMemberRevisionConflictError();
+          }
+          throw new IamMemberConflictError();
+        }
         return memberFromRow(row);
       } catch (error) {
+        if (error instanceof IamMemberRevisionConflictError) throw error;
         if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
           throw new IamMemberConflictError();
         }
@@ -477,9 +489,15 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
                 authorization_revision = authorization_revision + 1,
                 updated_at = $3
             WHERE id = $1::uuid
+              AND authorization_revision = $4::bigint
             RETURNING ${memberSelection}
           `,
-          [input.memberId, input.scope.toLowerCase(), input.now],
+          [
+            input.memberId,
+            input.scope.toLowerCase(),
+            input.now,
+            input.expectedAuthorizationRevision.toString(),
+          ],
         )) as { readonly rows: readonly IamMemberRow[] };
         const row = result.rows[0];
         return row ? memberFromRow(row) : null;

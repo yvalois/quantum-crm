@@ -11,6 +11,9 @@ import {
   Param,
   Patch,
   Post,
+  PreconditionFailedException,
+  HttpException,
+  HttpStatus,
   Query,
   Req,
 } from "@nestjs/common";
@@ -27,6 +30,7 @@ import {
 import {
   IamAuthorizationError,
   IamMemberNotFoundError,
+  IamMemberRevisionConflictError,
   IamMemberService,
   IamMemberValidationError,
   type IamMember,
@@ -72,8 +76,18 @@ function memberResponse(member: IamMember) {
 function mapMemberError(error: unknown): never {
   if (error instanceof IamAuthorizationError) throw new ForbiddenException();
   if (error instanceof IamMemberNotFoundError) throw new NotFoundException();
+  if (error instanceof IamMemberRevisionConflictError)
+    throw new PreconditionFailedException();
   if (error instanceof IamMemberValidationError) throw new BadRequestException();
   throw error;
+}
+
+function expectedAuthorizationRevision(value: string | undefined): bigint {
+  const match = typeof value === "string" ? /^"([1-9][0-9]*)"$/u.exec(value) : null;
+  if (!match?.[1]) {
+    throw new HttpException("If-Match is required for scope changes", HttpStatus.PRECONDITION_REQUIRED);
+  }
+  return BigInt(match[1]);
 }
 
 @Controller("api/v1/members")
@@ -144,6 +158,7 @@ export class MembersController {
   public async update(
     @Req() request: Parameters<typeof crmAuthContext>[0],
     @Param("memberId") memberId: string,
+    @Headers("if-match") ifMatch: string | undefined,
     @Body() body: unknown,
   ) {
     try {
@@ -158,6 +173,9 @@ export class MembersController {
           ...(input.commercialScope === undefined
             ? {}
             : { commercialScope: input.commercialScope }),
+          ...(input.commercialScope === undefined
+            ? {}
+            : { expectedAuthorizationRevision: expectedAuthorizationRevision(ifMatch) }),
         }),
       );
     } catch (error) {
