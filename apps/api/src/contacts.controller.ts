@@ -44,13 +44,9 @@ function payloadHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 function expectedVersion(value: string | undefined): bigint {
-  const match =
-    typeof value === "string" ? /^"([1-9][0-9]*)"$/u.exec(value) : null;
+  const match = typeof value === "string" ? /^"([1-9][0-9]*)"$/u.exec(value) : null;
   if (!match?.[1])
-    throw new HttpException(
-      "If-Match is required",
-      HttpStatus.PRECONDITION_REQUIRED,
-    );
+    throw new HttpException("If-Match is required", HttpStatus.PRECONDITION_REQUIRED);
   return BigInt(match[1]);
 }
 function actor(request: Parameters<typeof crmAuthContext>[0]): {
@@ -60,10 +56,7 @@ function actor(request: Parameters<typeof crmAuthContext>[0]): {
   const context = crmAuthContext(request);
   const permissions = context.permissions as readonly IamPermission[];
   return Object.freeze({
-    actor: Object.freeze({
-      memberId: context.principal.id,
-      scope: context.commercialScope,
-    }),
+    actor: Object.freeze({ memberId: context.principal.id, scope: context.commercialScope }),
     permissions,
   });
 }
@@ -99,19 +92,14 @@ function mapError(error: unknown): never {
 
 @Controller("api/v1/contacts")
 export class ContactsController {
-  public constructor(
-    @Inject(CONTACT_SERVICE) private readonly service: ContactService,
-  ) {}
+  public constructor(@Inject(CONTACT_SERVICE) private readonly service: ContactService) {}
 
   @Get()
   @RequireCrmPermission("crm:contacts:read")
   public async list(@Req() request: Parameters<typeof crmAuthContext>[0]) {
     try {
       const identity = actor(request);
-      const contacts = await this.service.list(
-        identity.actor,
-        identity.permissions,
-      );
+      const contacts = await this.service.list(identity.actor, identity.permissions);
       return ContactListResponseSchema.parse({
         data: contacts.map((contact) => contactResponse(contact).data),
       });
@@ -182,9 +170,7 @@ export class ContactsController {
         await this.service.update({
           ...identity,
           id: ContactIdSchema.parse(contactId),
-          ...(payload.displayName === undefined
-            ? {}
-            : { displayName: payload.displayName }),
+          ...(payload.displayName === undefined ? {} : { displayName: payload.displayName }),
           ...(payload.email === undefined ? {} : { email: payload.email }),
           ...(payload.phone === undefined ? {} : { phone: payload.phone }),
           expectedVersion: expectedVersion(ifMatch),
