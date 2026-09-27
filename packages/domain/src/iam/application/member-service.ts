@@ -149,10 +149,7 @@ export class IamMemberService {
     if (input.roleCode !== undefined && !isRoleCode(input.roleCode)) {
       throw new IamMemberValidationError();
     }
-    if (
-      input.commercialScope !== undefined &&
-      !commercialScopes.includes(input.commercialScope)
-    ) {
+    if (input.commercialScope !== undefined && !commercialScopes.includes(input.commercialScope)) {
       throw new IamMemberValidationError();
     }
     if (input.roleCode !== undefined) requirePermission(input.actor, "iam:members:roles");

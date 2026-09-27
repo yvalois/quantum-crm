@@ -32,7 +32,9 @@ function visibility(
 ): VisibilityPredicate {
   if (actor.scope === "PROFILE") return Object.freeze({ sql: "TRUE", params: [] });
   if (actor.scope === "TEAM") {
-    const relation = recordMembers.map((member) => `record_team.member_id = ${member}`).join(" OR ");
+    const relation = recordMembers
+      .map((member) => `record_team.member_id = ${member}`)
+      .join(" OR ");
     return Object.freeze({
       sql: `EXISTS (
         SELECT 1
@@ -44,7 +46,8 @@ function visibility(
       params: [actor.memberId],
     });
   }
-  const members = actor.scope === "OWN" ? legacyOwnMembers : [recordMembers[recordMembers.length - 1]!];
+  const members =
+    actor.scope === "OWN" ? legacyOwnMembers : [recordMembers[recordMembers.length - 1]!];
   return Object.freeze({
     sql: `(${members.map((member) => `${member} = $${memberPlaceholder}::uuid`).join(" OR ")})`,
     params: [actor.memberId],
@@ -518,13 +521,7 @@ export function createCommercialPostgresRepositories(
         }
         const result = await client.query<OpportunityRow>(
           `UPDATE sales.opportunities AS opportunity SET stage_id = $2::uuid, version = version + 1, updated_at = $3 WHERE opportunity.id = $1::uuid AND opportunity.version = $4::bigint AND ${access.sql} RETURNING id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at`,
-          [
-            input.id,
-            input.stageId,
-            input.now,
-            input.expectedVersion.toString(),
-            ...access.params,
-          ],
+          [input.id, input.stageId, input.now, input.expectedVersion.toString(), ...access.params],
         );
         const row = result.rows[0];
         if (!row) {
@@ -548,7 +545,10 @@ export function createCommercialPostgresRepositories(
   const tasks: TaskRepository = Object.freeze<TaskRepository>({
     list: async (actor) => {
       try {
-        const access = visibility(actor, 1, ["task.created_by_member_id", "task.assignee_member_id"]);
+        const access = visibility(actor, 1, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
         const result = (await pool.query(
           `SELECT ${taskSelection} FROM tasks.tasks AS task WHERE ${access.sql} ORDER BY task.due_at NULLS LAST, task.id DESC`,
           access.params,
@@ -560,7 +560,10 @@ export function createCommercialPostgresRepositories(
     },
     find: async (actor, id) => {
       try {
-        const access = visibility(actor, 2, ["task.created_by_member_id", "task.assignee_member_id"]);
+        const access = visibility(actor, 2, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
         const result = (await pool.query(
           `SELECT ${taskSelection} FROM tasks.tasks AS task WHERE task.id = $1::uuid AND ${access.sql}`,
           [id, ...access.params],
@@ -625,11 +628,10 @@ export function createCommercialPostgresRepositories(
     updateStatus: async (input) => {
       let client: PoolClient | undefined;
       try {
-        const access = visibility(
-          input.actor,
-          5,
-          ["task.created_by_member_id", "task.assignee_member_id"],
-        );
+        const access = visibility(input.actor, 5, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
         client = await pool.connect();
         await client.query("BEGIN");
         const replay = await client.query<{

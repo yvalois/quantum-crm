@@ -57,9 +57,8 @@ export function MembersPanel(): React.JSX.Element {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editCommercialScope, setEditCommercialScope] = useState<Member["commercialScope"]>(
-    "ASSIGNED",
-  );
+  const [editCommercialScope, setEditCommercialScope] =
+    useState<Member["commercialScope"]>("ASSIGNED");
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleDisplayName, setRoleDisplayName] = useState("");
   const [rolePermissions, setRolePermissions] = useState<CrmPermission[]>([]);
