@@ -77,12 +77,13 @@ model IamInvitation {
 }
 
 model IamRole {
-  id          String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  code        String              @unique(map: "iam_roles_code_key") @db.VarChar(80)
-  displayName String              @map("display_name") @db.VarChar(160)
-  system      Boolean             @default(true)
-  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                    String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  code                  String              @unique(map: "iam_roles_code_key") @db.VarChar(80)
+  displayName           String              @map("display_name") @db.VarChar(160)
+  system                Boolean             @default(true)
+  authorizationRevision BigInt              @default(1) @map("authorization_revision")
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   permissions IamRolePermission[]
   members     IamMemberRole[]
   invitations IamInvitation[]

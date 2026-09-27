@@ -62,6 +62,10 @@ const IsoDateTimeSchema = z.string().datetime({ offset: true });
 
 export const MemberStatusSchema = z.enum(["INVITED", "ACTIVE", "DEACTIVATED"]);
 export const InitialRoleCodeSchema = z.enum(["ADMINISTRATOR", "SUPERVISOR", "ADVISOR"]);
+export const RoleCodeSchema = z.union([
+  InitialRoleCodeSchema,
+  z.string().regex(/^CUSTOM_[A-Z0-9_]{1,71}$/u),
+]);
 
 export const MemberSchema = z.object({
   id: MemberIdSchema,
@@ -92,14 +96,14 @@ export const MemberListQuerySchema = z.object({
 export const CreateMemberInvitationSchema = z.object({
   displayName: DisplayNameSchema,
   email: EmailSchema,
-  roleCode: InitialRoleCodeSchema.default("ADVISOR"),
+  roleCode: RoleCodeSchema.default("ADVISOR"),
 });
 
 export const UpdateMemberSchema = z
   .object({
     displayName: DisplayNameSchema.optional(),
     email: EmailSchema.optional(),
-    roleCode: InitialRoleCodeSchema.optional(),
+    roleCode: RoleCodeSchema.optional(),
   })
   .refine(
     (value) =>
@@ -136,6 +140,7 @@ export type MemberListQuery = z.infer<typeof MemberListQuerySchema>;
 export type MemberListResponse = z.infer<typeof MemberListResponseSchema>;
 export type CreateMemberInvitation = z.infer<typeof CreateMemberInvitationSchema>;
 export type InitialRoleCode = z.infer<typeof InitialRoleCodeSchema>;
+export type RoleCode = z.infer<typeof RoleCodeSchema>;
 export type UpdateMember = z.infer<typeof UpdateMemberSchema>;
 export type Invitation = z.infer<typeof InvitationSchema>;
 export type AcceptInvitationParams = z.infer<typeof AcceptInvitationParamsSchema>;
@@ -143,3 +148,32 @@ export type AcceptInvitationCommand = z.infer<typeof AcceptInvitationCommandSche
 export type RecordInvitationActivation = z.infer<typeof RecordInvitationActivationSchema>;
 export type InvitationActivationResponse = z.infer<typeof InvitationActivationResponseSchema>;
 export type AcceptInvitationResponse = z.infer<typeof AcceptInvitationResponseSchema>;
+
+export const RoleIdSchema = UuidSchema;
+export const RoleSchema = z.object({
+  id: RoleIdSchema,
+  code: RoleCodeSchema,
+  displayName: DisplayNameSchema,
+  system: z.boolean(),
+  authorizationRevision: VersionSchema,
+  permissions: z.array(CrmPermissionSchema),
+  createdAt: IsoDateTimeSchema,
+  updatedAt: IsoDateTimeSchema,
+});
+export const RoleListResponseSchema = z.object({ data: z.array(RoleSchema) });
+export const RoleResponseSchema = z.object({ data: RoleSchema });
+export const CreateRoleSchema = z.object({
+  displayName: DisplayNameSchema,
+  permissions: z.array(CrmPermissionSchema).max(CrmPermissionCatalog.length),
+});
+export const UpdateRoleSchema = z
+  .object({
+    displayName: DisplayNameSchema.optional(),
+    permissions: z.array(CrmPermissionSchema).max(CrmPermissionCatalog.length).optional(),
+  })
+  .refine((value) => value.displayName !== undefined || value.permissions !== undefined, {
+    message: "At least one role field is required",
+  });
+export type Role = z.infer<typeof RoleSchema>;
+export type CreateRole = z.infer<typeof CreateRoleSchema>;
+export type UpdateRole = z.infer<typeof UpdateRoleSchema>;

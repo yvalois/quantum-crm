@@ -333,7 +333,7 @@ Administrar personas, equipos y alcance de acceso sobre datos y acciones.
 - [ ] **USR-01** — Crear, invitar, editar y desactivar usuarios.
 - [ ] **USR-02** — Crear equipos y asignar sus integrantes.
 - [ ] **USR-03** — Definir roles como administrador, supervisor y asesor.
-- [ ] **USR-04** — Crear roles personalizados.
+- [x] **USR-04** — Crear roles personalizados.
 - [ ] **USR-05** — Configurar permisos por sección: consultar, crear, editar, eliminar y exportar.
 - [ ] **USR-06** — Definir si cada usuario puede ver todos los registros, los de su equipo o únicamente los asignados.
 - [ ] **USR-07** — Asignar acceso a canales, bandejas, pipelines y calendarios.

@@ -6,11 +6,12 @@ import {
   createInvitedMember,
   deactivateMember,
   IamMemberValidationError,
+  isRoleCode,
   updateMemberProfile,
   type IamInvitation,
   type IamMember,
   type IamPermission,
-  type InitialRoleCode,
+  type RoleCode,
 } from "../domain/member.js";
 import type { IamMemberPage, IamMemberRepository } from "./member-repository.js";
 
@@ -88,7 +89,7 @@ export class IamMemberService {
     readonly actor: IamActor;
     readonly displayName: string;
     readonly email: string;
-    readonly roleCode: InitialRoleCode;
+    readonly roleCode: RoleCode;
     readonly idempotencyKey: string;
   }): Promise<{
     readonly member: IamMember;
@@ -97,6 +98,7 @@ export class IamMemberService {
   }> {
     requirePermission(input.actor, "iam:members:create");
     if (!idempotencyKeyPattern.test(input.idempotencyKey)) throw new IamMemberValidationError();
+    if (!isRoleCode(input.roleCode)) throw new IamMemberValidationError();
     const now = this.clock();
     const member = createInvitedMember({
       id: randomUUID(),
@@ -130,9 +132,12 @@ export class IamMemberService {
     readonly memberId: string;
     readonly displayName?: string;
     readonly email?: string;
-    readonly roleCode?: InitialRoleCode;
+    readonly roleCode?: RoleCode;
   }): Promise<IamMember> {
     requirePermission(input.actor, "iam:members:update");
+    if (input.roleCode !== undefined && !isRoleCode(input.roleCode)) {
+      throw new IamMemberValidationError();
+    }
     if (input.roleCode !== undefined) requirePermission(input.actor, "iam:members:roles");
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
