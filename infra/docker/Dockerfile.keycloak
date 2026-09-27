@@ -2,6 +2,7 @@
 
 ARG KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c
 ARG MAVEN_IMAGE=maven:3.9.9-eclipse-temurin-21-noble@sha256:2fa8b35172589aafa259fe953f4829859169bb0516f28f2b5a027c7c52017bee
+ARG RUNTIME_IMAGE=eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555
 
 FROM ${MAVEN_IMAGE} AS activation-provider
 WORKDIR /workspace
@@ -9,20 +10,36 @@ COPY infra/keycloak/activation-provider/pom.xml ./pom.xml
 COPY infra/keycloak/activation-provider/src ./src
 RUN mvn --batch-mode --no-transfer-progress -DskipTests package
 
+FROM ${MAVEN_IMAGE} AS security-overrides
+RUN mvn --batch-mode --no-transfer-progress org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy \
+      -Dartifact=io.netty:netty-handler:4.1.137.Final -DoutputDirectory=/overrides \
+    && mvn --batch-mode --no-transfer-progress org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy \
+      -Dartifact=org.bouncycastle:bcprov-jdk18on:1.85 -DoutputDirectory=/overrides
+
 FROM ${KEYCLOAK_IMAGE} AS builder
 ENV KC_DB=postgres
 ENV KC_HEALTH_ENABLED=true
 ENV KC_HTTP_MANAGEMENT_HEALTH_ENABLED=true
 COPY --from=activation-provider /workspace/target/quantum-activation-provider.jar /opt/keycloak/providers/quantum-activation-provider.jar
+COPY --from=security-overrides /overrides/ /opt/qcrm-security-overrides/
+RUN netty_handler="$(find /opt/keycloak -type f -name 'netty-handler-*.jar' -print -quit)" \
+    && test -n "$netty_handler" \
+    && install -m 0644 /opt/qcrm-security-overrides/netty-handler-4.1.137.Final.jar "$netty_handler" \
+    && bcprov_count="$(find /opt/keycloak -type f -name 'bcprov-jdk18on-*.jar' -print | wc -l)" \
+    && test "$bcprov_count" -ge 1 \
+    && find /opt/keycloak -type f -name 'bcprov-jdk18on-*.jar' -exec install -m 0644 /opt/qcrm-security-overrides/bcprov-jdk18on-1.85.jar {} \;
 RUN /opt/keycloak/bin/kc.sh build
 
-FROM ${KEYCLOAK_IMAGE}
-COPY --from=builder /opt/keycloak/ /opt/keycloak/
+FROM ${RUNTIME_IMAGE}
+RUN apk add --no-cache bash \
+    && addgroup -S -g 1000 keycloak-runtime \
+    && adduser -S -D -H -u 1000 -G keycloak-runtime keycloak-runtime
+COPY --from=builder --chown=1000:1000 /opt/keycloak/ /opt/keycloak/
 COPY --chmod=0444 infra/keycloak/quantum-platform-realm.json /opt/keycloak/data/import/quantum-platform-realm.json
 COPY --chmod=0555 infra/keycloak/platform-entrypoint.sh /opt/keycloak/bin/qcrm-platform-entrypoint
 COPY --chmod=0555 infra/keycloak/bootstrap-provisioner.sh /opt/keycloak/bin/qcrm-bootstrap-provisioner
-USER 0
-RUN chmod 0555 /opt/keycloak/data /opt/keycloak/data/import
-USER 1000
+RUN chmod 0555 /opt/keycloak/data /opt/keycloak/data/import \
+    && chown -R 1000:1000 /opt/keycloak
+USER 1000:1000
 ENTRYPOINT ["/opt/keycloak/bin/qcrm-platform-entrypoint"]
 CMD ["start", "--optimized", "--import-realm"]
