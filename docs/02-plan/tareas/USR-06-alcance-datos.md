@@ -63,12 +63,12 @@ Cada membresía activa tiene un alcance comercial explícito —todos los regist
 
 ## Plan de implementacion
 
-- [ ] Registrar `USR-06` como `EN_CURSO` y conservar trazabilidad de la rama.
-- [ ] Definir tipos y schemas públicos de alcance, equipo y membresía.
-- [ ] Añadir persistencia de equipos, integrantes y alcance por usuario con restricciones e índices.
-- [ ] Implementar el evaluador de alcance en `iam` y conectarlo mediante actor/puerto público a módulos propietarios.
-- [ ] Aplicar el evaluador a contactos, oportunidades y tareas en listados, búsquedas, detalles y mutaciones.
-- [ ] Añadir configuración en `crm-web` sin confiar en valores enviados por la interfaz.
+- [x] Registrar `USR-06` como `EN_CURSO` y conservar trazabilidad de la rama.
+- [x] Definir tipos y schemas públicos de alcance, equipo y membresía.
+- [x] Añadir persistencia de equipos, integrantes y alcance por usuario con restricciones e índices.
+- [x] Implementar el evaluador de alcance en `iam` y conectarlo mediante actor/puerto público a módulos propietarios.
+- [x] Aplicar el evaluador a contactos, oportunidades y tareas en listados, búsquedas, detalles y mutaciones.
+- [x] Añadir configuración en `crm-web` sin confiar en valores enviados por la interfaz.
 - [ ] Conectar exportaciones y reportes existentes al mismo filtro cuando entren en el bloque funcional.
 - [ ] Registrar auditoría, invalidación de revisión y eventos de cambio.
 
@@ -109,8 +109,8 @@ Cada membresía activa tiene un alcance comercial explícito —todos los regist
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: rama `feat/USR-06-alcance-datos`; documentación `f16e149`; implementación `eaa3668`; protecciones de migración y concurrencia `db15d1f`; correcciones de seguridad/UI `c15543e`; formato `6f7527f`; ajuste final de tipos `e1afc9c` y `807df3f`.
+- Comandos y resultados: en el VPS con Node `24.21.0`, Prettier afectado, typecheck de `contracts`, `auth`, `domain`, `database`, `api` y `crm-web`, Prisma validate/generate y 19 pruebas IAM/contratos más 5 pruebas de `postgres-database` aprobaron. La matriz específica de SQL comercial queda pendiente de una base PostgreSQL integrada.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
+- Desviaciones del plan: la creación y administración de equipos no se duplica aquí; queda en `USR-02`, mientras este bloque deja tablas y predicados server-side preparados.
+- Pendientes o decisiones nuevas: no se marca `USR-06` terminado hasta conectar la API completa de equipos, exportaciones/reportes y auditoría durable de `USR-11`.
