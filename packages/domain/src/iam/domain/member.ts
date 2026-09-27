@@ -5,7 +5,11 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 export const iamPermissions = CrmPermissionCatalog;
 export type IamPermission = CrmPermission;
-export type CommercialScope = "PROFILE" | "OWN";
+/**
+ * Commercial record visibility. OWN is retained only as a wire-compatible
+ * legacy value while existing callers migrate to ASSIGNED.
+ */
+export type CommercialScope = "PROFILE" | "TEAM" | "ASSIGNED" | "OWN";
 export interface CommercialActor {
   readonly memberId: string;
   readonly scope: CommercialScope;
@@ -36,6 +40,8 @@ export interface IamMember {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deactivatedAt: Date | null;
+  /** Stored on the membership; omitted by older in-memory callers. */
+  readonly commercialScope?: CommercialScope;
 }
 
 export interface IamInvitation {

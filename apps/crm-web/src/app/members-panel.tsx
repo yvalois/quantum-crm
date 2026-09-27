@@ -57,6 +57,9 @@ export function MembersPanel(): React.JSX.Element {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editCommercialScope, setEditCommercialScope] = useState<Member["commercialScope"]>(
+    "ASSIGNED",
+  );
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleDisplayName, setRoleDisplayName] = useState("");
   const [rolePermissions, setRolePermissions] = useState<CrmPermission[]>([]);
@@ -219,7 +222,11 @@ export function MembersPanel(): React.JSX.Element {
         cache: "no-store",
         credentials: "same-origin",
         headers: { "content-type": "application/json", "x-csrf-token": csrfToken },
-        body: JSON.stringify({ displayName: editDisplayName, email: editEmail }),
+        body: JSON.stringify({
+          displayName: editDisplayName,
+          email: editEmail,
+          commercialScope: editCommercialScope,
+        }),
       });
       if (!response.ok) throw new Error(await responseMessage(response));
       setEditingMember(null);
@@ -259,6 +266,7 @@ export function MembersPanel(): React.JSX.Element {
     setEditingMember(member);
     setEditDisplayName(member.displayName);
     setEditEmail(member.email);
+    setEditCommercialScope(member.commercialScope);
     setError(null);
     setNotice(null);
   };
@@ -355,6 +363,7 @@ export function MembersPanel(): React.JSX.Element {
                       <strong>{member.displayName}</strong>
                       <span>{member.email}</span>
                       <small>Desde {dateLabel(member.createdAt)}</small>
+                      <small>Alcance: {member.commercialScope.toLowerCase()}</small>
                     </div>
                     <span className={`status status-${member.status.toLowerCase()}`}>
                       {memberStatus(member.status)}
@@ -403,6 +412,19 @@ export function MembersPanel(): React.JSX.Element {
                     required
                     maxLength={320}
                   />
+                </label>
+                <label>
+                  Alcance de datos
+                  <select
+                    value={editCommercialScope}
+                    onChange={(event) =>
+                      setEditCommercialScope(event.target.value as Member["commercialScope"])
+                    }
+                  >
+                    <option value="PROFILE">Todos los registros</option>
+                    <option value="TEAM">Registros del equipo</option>
+                    <option value="ASSIGNED">Solo asignados</option>
+                  </select>
                 </label>
                 <div className="form-actions">
                   <button

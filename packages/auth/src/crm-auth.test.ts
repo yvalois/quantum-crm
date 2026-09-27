@@ -81,4 +81,79 @@ describe("CRM authentication", () => {
       }),
     ).rejects.toEqual(new CrmAuthenticationError("MEMBERSHIP_REJECTED"));
   });
+
+  it.each(["PROFILE", "TEAM", "ASSIGNED"] as const)(
+    "preserves the server-resolved %s commercial scope",
+    async (commercialScope) => {
+      const context = await authenticateCrmMember({
+        accessToken: new SecretValue("synthetic-token"),
+        verifier: {
+          verifyAccessToken: async () => ({
+            verification: "oidc-access-token/v1",
+            subject: "crm-member",
+            issuer: "https://identity.example.test/realms/profile-a",
+            audiences: ["quantum-crm-web"],
+            principalType: "human",
+            multiFactorAuthenticated: true,
+            authenticatedAt: now,
+          }),
+        },
+        memberships: {
+          findAuthorizationByOidcSubject: async () => ({
+            id: memberId,
+            oidcSubject: "crm-member",
+            status: "ACTIVE",
+            permissions: ["crm:contacts:read"],
+            authorizationRevision: 2n,
+            commercialScope,
+          }),
+        },
+        policy: {
+          tenantId,
+          issuer: "https://identity.example.test/realms/profile-a",
+          audience: "quantum-crm-web",
+          allowedPermissions: ["crm:contacts:read"],
+        },
+        correlationId: "corr-usr-06",
+        now,
+      });
+      expect(context.commercialScope).toBe(commercialScope);
+    },
+  );
+
+  it("narrows the legacy OWN scope to ASSIGNED", async () => {
+    const context = await authenticateCrmMember({
+      accessToken: new SecretValue("synthetic-token"),
+      verifier: {
+        verifyAccessToken: async () => ({
+          verification: "oidc-access-token/v1",
+          subject: "crm-member",
+          issuer: "https://identity.example.test/realms/profile-a",
+          audiences: ["quantum-crm-web"],
+          principalType: "human",
+          multiFactorAuthenticated: true,
+          authenticatedAt: now,
+        }),
+      },
+      memberships: {
+        findAuthorizationByOidcSubject: async () => ({
+          id: memberId,
+          oidcSubject: "crm-member",
+          status: "ACTIVE",
+          permissions: ["crm:contacts:read"],
+          authorizationRevision: 2n,
+          commercialScope: "OWN",
+        }),
+      },
+      policy: {
+        tenantId,
+        issuer: "https://identity.example.test/realms/profile-a",
+        audience: "quantum-crm-web",
+        allowedPermissions: ["crm:contacts:read"],
+      },
+      correlationId: "corr-usr-06-legacy",
+      now,
+    });
+    expect(context.commercialScope).toBe("ASSIGNED");
+  });
 });

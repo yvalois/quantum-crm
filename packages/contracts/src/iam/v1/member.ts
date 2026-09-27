@@ -69,6 +69,7 @@ const EmailSchema = z
 const IsoDateTimeSchema = z.string().datetime({ offset: true });
 
 export const MemberStatusSchema = z.enum(["INVITED", "ACTIVE", "DEACTIVATED"]);
+export const CommercialScopeSchema = z.enum(["PROFILE", "TEAM", "ASSIGNED"]);
 export const InitialRoleCodeSchema = z.enum(["ADMINISTRATOR", "SUPERVISOR", "ADVISOR"]);
 export const RoleCodeSchema = z.union([
   InitialRoleCodeSchema,
@@ -84,6 +85,7 @@ export const MemberSchema = z.object({
   createdAt: IsoDateTimeSchema,
   updatedAt: IsoDateTimeSchema,
   deactivatedAt: IsoDateTimeSchema.nullable(),
+  commercialScope: CommercialScopeSchema.default("ASSIGNED"),
 });
 
 export const MemberResponseSchema = z.object({ data: MemberSchema });
@@ -112,10 +114,14 @@ export const UpdateMemberSchema = z
     displayName: DisplayNameSchema.optional(),
     email: EmailSchema.optional(),
     roleCode: RoleCodeSchema.optional(),
+    commercialScope: CommercialScopeSchema.optional(),
   })
   .refine(
     (value) =>
-      value.displayName !== undefined || value.email !== undefined || value.roleCode !== undefined,
+      value.displayName !== undefined ||
+      value.email !== undefined ||
+      value.roleCode !== undefined ||
+      value.commercialScope !== undefined,
     { message: "At least one member field is required" },
   );
 
@@ -150,6 +156,7 @@ export type CreateMemberInvitation = z.infer<typeof CreateMemberInvitationSchema
 export type InitialRoleCode = z.infer<typeof InitialRoleCodeSchema>;
 export type RoleCode = z.infer<typeof RoleCodeSchema>;
 export type UpdateMember = z.infer<typeof UpdateMemberSchema>;
+export type CommercialScope = z.infer<typeof CommercialScopeSchema>;
 export type Invitation = z.infer<typeof InvitationSchema>;
 export type AcceptInvitationParams = z.infer<typeof AcceptInvitationParamsSchema>;
 export type AcceptInvitationCommand = z.infer<typeof AcceptInvitationCommandSchema>;

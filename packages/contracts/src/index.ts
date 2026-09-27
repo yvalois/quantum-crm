@@ -23,6 +23,7 @@ export {
   MemberResponseSchema,
   MemberSchema,
   MemberStatusSchema,
+  CommercialScopeSchema,
   RecordInvitationActivationSchema,
   UpdateMemberSchema,
   RoleIdSchema,
@@ -48,6 +49,7 @@ export {
   type MemberListQuery,
   type MemberListResponse,
   type UpdateMember,
+  type CommercialScope,
 } from "./iam/v1/member.js";
 export {
   ServicePermissionCatalog,

@@ -1,4 +1,4 @@
-import type { IamInvitation, IamMember, RoleCode } from "../domain/member.js";
+import type { CommercialScope, IamInvitation, IamMember, RoleCode } from "../domain/member.js";
 
 export interface IamMemberPage {
   readonly members: readonly IamMember[];
@@ -26,6 +26,11 @@ export interface IamMemberRepository {
     readonly replayed: boolean;
   }>;
   update(member: IamMember): Promise<IamMember>;
+  updateCommercialScope?(input: {
+    readonly memberId: string;
+    readonly scope: Exclude<CommercialScope, "OWN">;
+    readonly now: Date;
+  }): Promise<IamMember | null>;
   assignRole(input: {
     readonly memberId: string;
     readonly roleCode: RoleCode;

@@ -59,6 +59,12 @@ function memberResponse(member: IamMember) {
       createdAt: member.createdAt.toISOString(),
       updatedAt: member.updatedAt.toISOString(),
       deactivatedAt: member.deactivatedAt?.toISOString() ?? null,
+      commercialScope:
+        member.commercialScope === "PROFILE"
+          ? "PROFILE"
+          : member.commercialScope === "TEAM"
+            ? "TEAM"
+            : "ASSIGNED",
     },
   });
 }
@@ -96,6 +102,12 @@ export class MembersController {
         createdAt: member.createdAt.toISOString(),
         updatedAt: member.updatedAt.toISOString(),
         deactivatedAt: member.deactivatedAt?.toISOString() ?? null,
+        commercialScope:
+          member.commercialScope === "PROFILE"
+            ? "PROFILE"
+            : member.commercialScope === "TEAM"
+              ? "TEAM"
+              : "ASSIGNED",
       })),
       page: { nextCursor: result.nextCursor },
     });
@@ -143,6 +155,9 @@ export class MembersController {
           ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
           ...(input.email === undefined ? {} : { email: input.email }),
           ...(input.roleCode === undefined ? {} : { roleCode: input.roleCode }),
+          ...(input.commercialScope === undefined
+            ? {}
+            : { commercialScope: input.commercialScope }),
         }),
       );
     } catch (error) {

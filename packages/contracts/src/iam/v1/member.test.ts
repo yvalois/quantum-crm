@@ -35,6 +35,10 @@ describe("member contracts", () => {
     expect(UpdateMemberSchema.parse({ roleCode: "SUPERVISOR" })).toEqual({
       roleCode: "SUPERVISOR",
     });
+    expect(UpdateMemberSchema.parse({ commercialScope: "TEAM" })).toEqual({
+      commercialScope: "TEAM",
+    });
+    expect(() => UpdateMemberSchema.parse({ commercialScope: "ALL" })).toThrow();
   });
 
   it("keeps invitation acceptance identity-free at the HTTP boundary", () => {

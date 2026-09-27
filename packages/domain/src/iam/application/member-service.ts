@@ -18,6 +18,8 @@ import type { IamMemberPage, IamMemberRepository } from "./member-repository.js"
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const oidcSubjectPattern = /^[!-~]{1,255}$/u;
+const commercialScopes = ["PROFILE", "TEAM", "ASSIGNED"] as const;
+type ConfigurableCommercialScope = (typeof commercialScopes)[number];
 
 export interface IamActor {
   readonly memberId: string;
@@ -133,15 +135,22 @@ export class IamMemberService {
     readonly displayName?: string;
     readonly email?: string;
     readonly roleCode?: RoleCode;
+    readonly commercialScope?: ConfigurableCommercialScope;
   }): Promise<IamMember> {
     requirePermission(input.actor, "iam:members:update");
     if (input.roleCode !== undefined && !isRoleCode(input.roleCode)) {
       throw new IamMemberValidationError();
     }
+    if (
+      input.commercialScope !== undefined &&
+      !commercialScopes.includes(input.commercialScope)
+    ) {
+      throw new IamMemberValidationError();
+    }
     if (input.roleCode !== undefined) requirePermission(input.actor, "iam:members:roles");
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
-    const updated =
+    let updated =
       input.displayName === undefined && input.email === undefined
         ? current
         : await this.repository.update(
@@ -152,14 +161,26 @@ export class IamMemberService {
               now: this.clock(),
             }),
           );
-    if (input.roleCode === undefined) return updated;
-    const assigned = await this.repository.assignRole({
-      memberId: updated.id,
-      roleCode: input.roleCode,
-      now: this.clock(),
-    });
-    if (!assigned) throw new IamMemberNotFoundError();
-    return assigned;
+    if (input.commercialScope !== undefined) {
+      if (!this.repository.updateCommercialScope) throw new IamMemberValidationError();
+      const scoped = await this.repository.updateCommercialScope({
+        memberId: updated.id,
+        scope: input.commercialScope,
+        now: this.clock(),
+      });
+      if (!scoped) throw new IamMemberNotFoundError();
+      updated = scoped;
+    }
+    if (input.roleCode !== undefined) {
+      const assigned = await this.repository.assignRole({
+        memberId: updated.id,
+        roleCode: input.roleCode,
+        now: this.clock(),
+      });
+      if (!assigned) throw new IamMemberNotFoundError();
+      updated = assigned;
+    }
+    return updated;
   }
 
   public async deactivate(input: {

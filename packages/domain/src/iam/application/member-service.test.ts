@@ -241,4 +241,50 @@ describe("IAM member service", () => {
     ).resolves.toMatchObject({ authorizationRevision: 3n });
     expect(assignRole).toHaveBeenCalledWith({ memberId: actorId, roleCode: "SUPERVISOR", now });
   });
+
+  it("updates commercial scope through the IAM repository and returns its new revision", async () => {
+    const member = Object.freeze({
+      id: actorId,
+      oidcSubject: "keycloak-crm-user",
+      displayName: "Ana Pérez",
+      email: "ana@example.test",
+      status: "ACTIVE" as const,
+      authorizationRevision: 2n,
+      createdAt: now,
+      updatedAt: now,
+      deactivatedAt: null,
+      commercialScope: "ASSIGNED" as const,
+    });
+    const updateCommercialScope = vi.fn(async () =>
+      Object.freeze({ ...member, commercialScope: "TEAM" as const, authorizationRevision: 3n }),
+    );
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => member,
+      findByOidcSubject: async () => null,
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (value) => value,
+      updateCommercialScope,
+      assignRole: async () => null,
+      acceptInvitation: async () => null,
+      bootstrapInitialAdministrator: async ({ member: value }) => ({
+        member: value,
+        replayed: false,
+      }),
+    };
+    const result = await new IamMemberService(repository, () => now).updateProfile({
+      actor: { memberId: actorId, permissions: ["iam:members:update"] },
+      memberId: actorId,
+      commercialScope: "TEAM",
+    });
+    expect(result.commercialScope).toBe("TEAM");
+    expect(result.authorizationRevision).toBe(3n);
+    expect(updateCommercialScope).toHaveBeenCalledWith({
+      memberId: actorId,
+      scope: "TEAM",
+      now,
+    });
+  });
 });

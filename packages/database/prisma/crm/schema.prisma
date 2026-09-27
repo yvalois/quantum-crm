@@ -30,6 +30,15 @@ enum IamInvitationStatus {
   @@schema("iam")
 }
 
+enum IamCommercialScope {
+  PROFILE  @map("profile")
+  TEAM     @map("team")
+  ASSIGNED @map("assigned")
+
+  @@map("commercial_scope")
+  @@schema("iam")
+}
+
 model IamMember {
   id                       String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
   oidcSubject              String?         @unique(map: "iam_members_oidc_subject_key") @map("oidc_subject") @db.VarChar(255)
@@ -43,9 +52,35 @@ model IamMember {
   invitations              IamInvitation[] @relation("member_invitations")
   createdInvitations       IamInvitation[] @relation("invitation_creator")
   roles                    IamMemberRole[]
+  commercialScope          IamCommercialScope @default(ASSIGNED) @map("commercial_scope")
+  teamMemberships          IamTeamMember[]
 
   @@index([status, createdAt, id], map: "iam_members_status_created_id_idx")
   @@map("members")
+  @@schema("iam")
+}
+
+model IamTeam {
+  id          String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name        String          @unique(map: "iam_teams_name_key") @db.VarChar(160)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  members     IamTeamMember[]
+
+  @@map("teams")
+  @@schema("iam")
+}
+
+model IamTeamMember {
+  teamId    String   @map("team_id") @db.Uuid
+  memberId  String   @map("member_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  team      IamTeam  @relation(fields: [teamId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  member    IamMember @relation(fields: [memberId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([teamId, memberId], map: "iam_team_members_pkey")
+  @@index([memberId, teamId], map: "iam_team_members_member_team_idx")
+  @@map("team_members")
   @@schema("iam")
 }
 
