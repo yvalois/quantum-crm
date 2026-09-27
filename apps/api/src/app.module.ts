@@ -10,6 +10,7 @@ import {
   ContactService,
   IamMemberService,
   IamRoleService,
+  IamTeamService,
   SalesService,
   TaskService,
 } from "@quantum-crm/domain";
@@ -26,6 +27,7 @@ import { IAM_ROLE_SERVICE, RolesController } from "./roles.controller.js";
 import { CONTACT_SERVICE, ContactsController } from "./contacts.controller.js";
 import { SALES_SERVICE, SalesController } from "./sales.controller.js";
 import { TASK_SERVICE, TasksController } from "./tasks.controller.js";
+import { IAM_TEAM_SERVICE, TeamsController } from "./teams.controller.js";
 import { ProblemDetailsFilter } from "./problem-details.filter.js";
 import { BootstrapInitialAdministratorController } from "./bootstrap-initial-administrator.controller.js";
 import {
@@ -51,6 +53,7 @@ export class AppModule {
         ContactsController,
         SalesController,
         TasksController,
+        TeamsController,
         BootstrapInitialAdministratorController,
         AcceptMemberInvitationController,
       ],
@@ -66,6 +69,7 @@ export class AppModule {
         BootstrapServiceGuard,
         { provide: IAM_MEMBER_SERVICE, useFactory: () => new IamMemberService(database.members) },
         { provide: IAM_ROLE_SERVICE, useFactory: () => new IamRoleService(database.roles) },
+        { provide: IAM_TEAM_SERVICE, useFactory: () => new IamTeamService(database.teams) },
         {
           provide: IAM_INVITATION_ACTIVATION_REPOSITORY,
           useValue: database.invitationActivations,

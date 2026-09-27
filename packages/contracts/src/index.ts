@@ -52,6 +52,19 @@ export {
   type CommercialScope,
 } from "./iam/v1/member.js";
 export {
+  AddTeamMemberSchema,
+  CreateTeamSchema,
+  TeamIdSchema,
+  TeamListResponseSchema,
+  TeamMemberSchema,
+  TeamResponseSchema,
+  TeamSchema,
+  type AddTeamMember,
+  type CreateTeam,
+  type Team,
+  type TeamMember,
+} from "./iam/v1/team.js";
+export {
   ServicePermissionCatalog,
   ServicePermissionSchema,
   type ServicePermission,
