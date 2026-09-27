@@ -11,9 +11,10 @@ ADR-0022 verifica que el administrador inicial completó contraseña y TOTP, per
 
 ## Decisión
 
-1. Cada realm de perfil tiene un cliente confidencial de servicio `quantum-crm-bootstrap`, con audiencia exclusiva `quantum-crm-api` y permiso único `iam:bootstrap-initial-administrator`. Su secreto se crea o reconcilia como archivo privado de perfil y solo se monta en `deploy-executor`; no llega a `admin-api`, CRM, frontend ni resultado durable.
+1. Cada realm de perfil tiene un cliente confidencial de servicio `quantum-crm-bootstrap`, con audiencia exclusiva `quantum-crm-api` y los permisos mínimos `iam:bootstrap-initial-administrator` e `iam:accept-member-invitation`. Su secreto se crea o reconcilia como archivo privado de perfil y solo se monta en `deploy-executor`; no llega a `admin-api`, CRM, frontend ni resultado durable.
 2. La API del perfil expone un comando público estrecho, solo por su red privada: crea o reconcilia exclusivamente la primera membresía `ADMINISTRATOR` para el `subject` de Keycloak confirmado por `VERIFY`. El perfil, rol, correo, realm y permisos no entran libres por HTTP. Una vez existe una membresía distinta, el comando queda cerrado; reintentar el mismo subject es idempotente.
 3. `deploy-executor` obtiene por client credentials un token del realm derivado, llama el endpoint interno exacto del API del mismo perfil y conserva el resultado saneado. `ACTIVATE` solo avanza cuando ese comando devuelve éxito idempotente bajo el lease y fencing de la operación.
+4. La aceptación de una invitación CRM es otro comando interno, separado del bootstrap: solo se permite con `iam:accept-member-invitation`, recibe el `invitationId` y el subject confirmado por la acción de un solo uso de Keycloak, y no se expone al navegador ni a miembros CRM.
 
 ## Alternativas consideradas
 
@@ -37,7 +38,7 @@ Rechazada: una credencial podría crear administradores en otro perfil y no cump
 
 ## Validación
 
-- El token bootstrap A falla contra API B; tokens humanos, CRM y sin audiencia/permiso se deniegan.
+- El token bootstrap A falla contra API B; tokens humanos, CRM y sin audiencia/permiso se deniegan. El comando de invitación exige `iam:accept-member-invitation` y no acepta únicamente el permiso de bootstrap.
 - El comando crea una sola membresía administrador del subject verificado y repite el mismo resultado ante reintento.
 - Un segundo subject, rol, perfil o llamada posterior a la primera membresía se rechaza.
 - El secreto, access token y enlace de activación no aparecen en contratos, logs, resultados durables ni frontend.

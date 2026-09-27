@@ -56,6 +56,10 @@ model IamInvitation {
   roleId                String              @map("role_id") @db.Uuid
   tokenHash             String              @unique(map: "iam_invitations_token_hash_key") @map("token_hash") @db.Char(64)
   idempotencyKey        String              @map("idempotency_key") @db.VarChar(128)
+  activationSubject     String?             @map("activation_subject") @db.VarChar(255)
+  activationGeneration  Int                 @default(0) @map("activation_generation")
+  activationIssuedAt    DateTime?           @map("activation_issued_at") @db.Timestamptz(6)
+  activationExpiresAt   DateTime?           @map("activation_expires_at") @db.Timestamptz(6)
   status                IamInvitationStatus @default(PENDING)
   expiresAt             DateTime            @map("expires_at") @db.Timestamptz(6)
   acceptedAt            DateTime?           @map("accepted_at") @db.Timestamptz(6)
@@ -66,6 +70,16 @@ model IamInvitation {
 
   @@unique([createdByMemberId, idempotencyKey], map: "iam_invitations_creator_idempotency_key")
   @@index([memberId, status, expiresAt], map: "iam_invitations_member_status_expiry_idx")
+  @@index(
+    [activationSubject],
+    map: "iam_invitations_activation_subject_idx",
+    where: raw("\"activation_subject\" IS NOT NULL")
+  )
+  @@index(
+    [status, expiresAt, activationGeneration],
+    map: "iam_invitations_pending_activation_idx",
+    where: raw("\"status\" = 'pending'")
+  )
   @@map("invitations")
   @@schema("iam")
 }

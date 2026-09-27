@@ -42,4 +42,26 @@ describe("BootstrapServiceGuard", () => {
       new BootstrapServiceGuard(verifier, policy).assertAuthorized("Bearer synthetic-token"),
     ).rejects.toMatchObject({ status: 401 });
   });
+
+  it("accepts a dedicated internal permission without granting bootstrap", async () => {
+    const verifier: OidcAccessTokenVerifier = {
+      verifyAccessToken: async () => ({
+        verification: "oidc-access-token/v1",
+        subject: "service-account-quantum-crm-bootstrap",
+        issuer: "https://identity.example.test/realms/qcrm-01995f7e7b5270008000000000000201",
+        audiences: ["quantum-crm-api"],
+        principalType: "service",
+        clientId: "quantum-crm-bootstrap",
+        servicePermissions: ["iam:accept-member-invitation"],
+        multiFactorAuthenticated: false,
+        authenticatedAt: new Date(),
+      }),
+    };
+    await expect(
+      new BootstrapServiceGuard(verifier, policy).assertAuthorized(
+        "Bearer synthetic-token",
+        "iam:accept-member-invitation",
+      ),
+    ).resolves.toBeUndefined();
+  });
 });

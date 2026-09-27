@@ -21,6 +21,10 @@ import { SALES_SERVICE, SalesController } from "./sales.controller.js";
 import { TASK_SERVICE, TasksController } from "./tasks.controller.js";
 import { ProblemDetailsFilter } from "./problem-details.filter.js";
 import { BootstrapInitialAdministratorController } from "./bootstrap-initial-administrator.controller.js";
+import {
+  AcceptMemberInvitationController,
+  IAM_INVITATION_ACTIVATION_REPOSITORY,
+} from "./accept-member-invitation.controller.js";
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 
 @Module({})
@@ -40,6 +44,7 @@ export class AppModule {
         SalesController,
         TasksController,
         BootstrapInitialAdministratorController,
+        AcceptMemberInvitationController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -52,6 +57,10 @@ export class AppModule {
         },
         BootstrapServiceGuard,
         { provide: IAM_MEMBER_SERVICE, useFactory: () => new IamMemberService(database.members) },
+        {
+          provide: IAM_INVITATION_ACTIVATION_REPOSITORY,
+          useValue: database.invitationActivations,
+        },
         {
           provide: CONTACT_SERVICE,
           useFactory: () => new ContactService(database.commercial.contacts),

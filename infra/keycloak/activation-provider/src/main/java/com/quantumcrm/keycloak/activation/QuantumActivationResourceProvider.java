@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -80,8 +81,10 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
     // Keycloak completes both the password and TOTP required actions.
     token.type(QuantumActivationActionTokenHandler.ID);
     String jti = token.getId();
-    session.singleUseObjects().put("qcrm:activation:jti:" + jti, TTL_SECONDS,
-      Map.of("generation", Integer.toString(request.generation), "status", "issued", "jtiHash", sha256(jti)));
+    session.singleUseObjects().put(
+      "qcrm:activation:jti:" + jti,
+      TTL_SECONDS,
+      issuedMetadata(request, jti));
     session.singleUseObjects().put(prior, TTL_SECONDS, Map.of("jti", jti));
     String serialized = token.serialize(session, realm, uriInfo);
     String link = uriInfo.getBaseUriBuilder().path("realms").path(realm.getName())
@@ -98,11 +101,13 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
       @QueryParam("tenantProfileId") String tenantProfileId,
       @QueryParam("administratorSubject") String administratorSubject,
       @QueryParam("generation") int generation,
+      @QueryParam("invitationId") String invitationId,
       @Context UriInfo uriInfo) {
     ActivationRequest request = new ActivationRequest();
     request.tenantProfileId = tenantProfileId;
     request.administratorSubject = administratorSubject;
     request.generation = generation;
+    request.invitationId = invitationId;
     RealmModel serviceRealm = session.getContext().getRealm();
     if (!"master".equals(serviceRealm.getName()) || !authorized(serviceRealm, uriInfo) || !request.valid()) return Response.status(404).build();
     RealmModel realm = session.realms().getRealmByName("qcrm-" + request.tenantProfileId.replace("-", ""));
@@ -112,11 +117,31 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
     Map<String, String> current = session.singleUseObjects().get("qcrm:activation:current:" + user.getId());
     if (current == null || current.get("jti") == null) return Response.status(409).build();
     Map<String, String> token = session.singleUseObjects().get("qcrm:activation:jti:" + current.get("jti"));
-    if (token == null || !Integer.toString(request.generation).equals(token.get("generation"))) return Response.status(409).build();
+    if (token == null
+      || !Integer.toString(request.generation).equals(token.get("generation"))
+      || !sameInvitation(token, request.invitationId)) return Response.status(409).build();
     boolean consumed = "consumed".equals(token.get("status"))
       && sha256(current.get("jti")).equals(token.get("jtiHash"));
-    return Response.ok(Map.of("generation", request.generation, "status", consumed ? "consumed" : "pending"))
+    Map<String, Object> response = new HashMap<>();
+    response.put("generation", request.generation);
+    response.put("status", consumed ? "consumed" : "pending");
+    if (request.invitationId != null) response.put("invitationId", request.invitationId);
+    return Response.ok(response)
       .header("Cache-Control", "no-store").build();
+  }
+
+  private static Map<String, String> issuedMetadata(ActivationRequest request, String jti) {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("generation", Integer.toString(request.generation));
+    metadata.put("status", "issued");
+    metadata.put("jtiHash", sha256(jti));
+    if (request.invitationId != null) metadata.put("invitationId", request.invitationId);
+    return metadata;
+  }
+
+  private static boolean sameInvitation(Map<String, String> token, String invitationId) {
+    String issuedInvitationId = token.get("invitationId");
+    return invitationId == null ? issuedInvitationId == null : invitationId.equals(issuedInvitationId);
   }
 
   private boolean authorized(RealmModel realm, UriInfo uriInfo) {
@@ -136,9 +161,13 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
     public String tenantProfileId;
     public String administratorSubject;
     public int generation;
+    /** Optional for the initial administrator; mandatory for a CRM member invite. */
+    public String invitationId;
     public boolean valid() {
       return tenantProfileId != null && tenantProfileId.matches("^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
-        && administratorSubject != null && administratorSubject.matches("^[!-~]{1,255}$") && generation > 0;
+        && administratorSubject != null && administratorSubject.matches("^[!-~]{1,255}$")
+        && (invitationId == null || invitationId.matches("^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"))
+        && generation > 0;
     }
   }
 }

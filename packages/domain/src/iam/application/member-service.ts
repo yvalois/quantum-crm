@@ -15,6 +15,8 @@ import {
 import type { IamMemberPage, IamMemberRepository } from "./member-repository.js";
 
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const oidcSubjectPattern = /^[!-~]{1,255}$/u;
 
 export interface IamActor {
   readonly memberId: string;
@@ -33,6 +35,18 @@ export class IamMemberNotFoundError extends Error {
     super("IAM member was not found");
     this.name = "IamMemberNotFoundError";
   }
+}
+
+export class IamInvitationAcceptanceError extends Error {
+  public constructor() {
+    super("IAM invitation cannot be accepted");
+    this.name = "IamInvitationAcceptanceError";
+  }
+}
+
+export interface ConfirmedInvitationAcceptance {
+  readonly invitationId: string;
+  readonly oidcSubject: string;
 }
 
 function requirePermission(actor: IamActor, permission: IamPermission): void {
@@ -138,6 +152,25 @@ export class IamMemberService {
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
     return this.repository.update(deactivateMember({ member: current, now: this.clock() }));
+  }
+
+  /**
+   * Internal tenant-local command invoked only after Keycloak confirms the
+   * signed, one-use activation action. Its deliberately narrow input prevents
+   * callers from selecting a member, role, email or profile and never carries
+   * the invitation token or its persistent hash outside issuance.
+   */
+  public async acceptConfirmedInvitation(input: ConfirmedInvitationAcceptance): Promise<IamMember> {
+    if (!uuidPattern.test(input.invitationId) || !oidcSubjectPattern.test(input.oidcSubject)) {
+      throw new IamMemberValidationError();
+    }
+    const member = await this.repository.acceptInvitation({
+      invitationId: input.invitationId,
+      oidcSubject: input.oidcSubject,
+      now: this.clock(),
+    });
+    if (!member) throw new IamInvitationAcceptanceError();
+    return member;
   }
 
   /** Internal, tenant-local command for ADR-0023. There is deliberately no actor,

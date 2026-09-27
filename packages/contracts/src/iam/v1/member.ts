@@ -33,6 +33,22 @@ export const AcceptInvitationParamsSchema = z
     invitationId: MemberIdSchema,
   })
   .strict();
+/** Internal executor command after Keycloak has consumed the one-use action. */
+export const AcceptInvitationCommandSchema = z
+  .object({
+    invitationId: MemberIdSchema,
+    oidcSubject: z.string().regex(/^[!-~]{1,255}$/u),
+  })
+  .strict();
+/** Internal metadata acknowledgement after the Keycloak action is issued. */
+export const RecordInvitationActivationSchema = z
+  .object({
+    invitationId: MemberIdSchema,
+    oidcSubject: z.string().regex(/^[!-~]{1,255}$/u),
+    generation: z.number().int().positive(),
+    expiresAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
 const VersionSchema = z.string().regex(/^[1-9][0-9]*$/u);
 const DisplayNameSchema = z.string().trim().min(1).max(160);
 const EmailSchema = z
@@ -101,6 +117,15 @@ export const InvitationResponseSchema = z.object({ data: InvitationSchema });
 /** The accepted member is the only representation returned; invitation tokens
  * and identity claims never cross this response contract. */
 export const AcceptInvitationResponseSchema = MemberResponseSchema;
+export const InvitationActivationResponseSchema = z.object({
+  data: z.object({
+    invitationId: MemberIdSchema,
+    generation: z.number().int().positive(),
+    issuedAt: IsoDateTimeSchema,
+    expiresAt: IsoDateTimeSchema,
+  }),
+  replayed: z.boolean(),
+});
 
 export type Member = z.infer<typeof MemberSchema>;
 export type MemberListQuery = z.infer<typeof MemberListQuerySchema>;
@@ -110,4 +135,7 @@ export type InitialRoleCode = z.infer<typeof InitialRoleCodeSchema>;
 export type UpdateMember = z.infer<typeof UpdateMemberSchema>;
 export type Invitation = z.infer<typeof InvitationSchema>;
 export type AcceptInvitationParams = z.infer<typeof AcceptInvitationParamsSchema>;
+export type AcceptInvitationCommand = z.infer<typeof AcceptInvitationCommandSchema>;
+export type RecordInvitationActivation = z.infer<typeof RecordInvitationActivationSchema>;
+export type InvitationActivationResponse = z.infer<typeof InvitationActivationResponseSchema>;
 export type AcceptInvitationResponse = z.infer<typeof AcceptInvitationResponseSchema>;

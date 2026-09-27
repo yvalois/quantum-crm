@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
@@ -17,8 +16,6 @@ import {
 } from "@nestjs/common";
 import {
   CreateMemberInvitationSchema,
-  AcceptInvitationParamsSchema,
-  AcceptInvitationResponseSchema,
   InvitationResponseSchema,
   MemberIdSchema,
   MemberListQuerySchema,
@@ -29,7 +26,6 @@ import {
 } from "@quantum-crm/contracts";
 import {
   IamAuthorizationError,
-  IamInvitationAcceptanceError,
   IamMemberNotFoundError,
   IamMemberService,
   IamMemberValidationError,
@@ -69,7 +65,6 @@ function memberResponse(member: IamMember) {
 
 function mapMemberError(error: unknown): never {
   if (error instanceof IamAuthorizationError) throw new ForbiddenException();
-  if (error instanceof IamInvitationAcceptanceError) throw new ConflictException();
   if (error instanceof IamMemberNotFoundError) throw new NotFoundException();
   if (error instanceof IamMemberValidationError) throw new BadRequestException();
   throw error;
@@ -104,32 +99,6 @@ export class MembersController {
       })),
       page: { nextCursor: result.nextCursor },
     });
-  }
-
-  /**
-   * Completes an invitation after the CRM OIDC identity has authenticated.
-   * The subject is deliberately sourced from the verified AuthContext; the
-   * request body cannot select or impersonate an identity.
-   */
-  @Post("invitations/:invitationId/accept")
-  public async acceptInvitation(
-    @Req() request: Parameters<typeof crmAuthContext>[0],
-    @Param() params: unknown,
-  ) {
-    try {
-      const { invitationId } = AcceptInvitationParamsSchema.parse(params);
-      const context = crmAuthContext(request);
-      return AcceptInvitationResponseSchema.parse(
-        memberResponse(
-          await this.service.acceptConfirmedInvitation({
-            invitationId,
-            oidcSubject: context.principal.oidcSubject,
-          }),
-        ),
-      );
-    } catch (error) {
-      return mapMemberError(error);
-    }
   }
 
   @Post("invitations")

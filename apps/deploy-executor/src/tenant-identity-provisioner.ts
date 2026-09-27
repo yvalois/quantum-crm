@@ -277,7 +277,8 @@ function assertBootstrapClient(client: KeycloakClient): string {
     typeof config !== "object" ||
     config === null ||
     (config as Record<string, unknown>)["claim.name"] !== "scope" ||
-    (config as Record<string, unknown>)["claim.value"] !== "iam:bootstrap-initial-administrator" ||
+    (config as Record<string, unknown>)["claim.value"] !==
+      "iam:bootstrap-initial-administrator iam:accept-member-invitation" ||
     typeof audience !== "object" ||
     audience === null ||
     (audience as Record<string, unknown>).protocolMapper !== "oidc-audience-mapper" ||
@@ -364,7 +365,7 @@ function bootstrapClientRepresentation(): Record<string, unknown> {
         protocolMapper: "oidc-hardcoded-claim-mapper",
         config: {
           "claim.name": "scope",
-          "claim.value": "iam:bootstrap-initial-administrator",
+          "claim.value": "iam:bootstrap-initial-administrator iam:accept-member-invitation",
           "access.token.claim": "true",
           "id.token.claim": "false",
           "userinfo.token.claim": "false",

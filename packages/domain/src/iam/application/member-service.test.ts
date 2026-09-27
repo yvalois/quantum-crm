@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { IamMemberValidationError } from "../domain/member.js";
 import type { IamMemberRepository } from "./member-repository.js";
-import { IamAuthorizationError, IamMemberService } from "./member-service.js";
+import {
+  IamAuthorizationError,
+  IamInvitationAcceptanceError,
+  IamMemberService,
+} from "./member-service.js";
 
 const actorId = "01995f7e-7b52-7000-8000-000000000201";
 const now = new Date("2026-09-22T12:00:00.000Z");
@@ -81,5 +86,98 @@ describe("IAM member service", () => {
     });
     expect(result.member.status).toBe("ACTIVE");
     expect(result.member.oidcSubject).toBe("01995f7e-7b52-7000-8000-000000000201");
+  });
+
+  it("accepts an invitation through the confirmed Keycloak subject without carrying its token", async () => {
+    const acceptInvitation = vi.fn(
+      async (input: Parameters<IamMemberRepository["acceptInvitation"]>[0]) =>
+        Object.freeze({
+          id: memberId,
+          oidcSubject: input.oidcSubject,
+          displayName: "Ana PÃ©rez",
+          email: "ana@example.test",
+          status: "ACTIVE" as const,
+          authorizationRevision: 2n,
+          createdAt: now,
+          updatedAt: input.now,
+          deactivatedAt: null,
+        }),
+    );
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => null,
+      findByOidcSubject: async () => null,
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (member) => member,
+      acceptInvitation,
+      bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
+    };
+
+    const result = await new IamMemberService(repository, () => now).acceptConfirmedInvitation({
+      invitationId: "01995f7e-7b52-7000-8000-000000000202",
+      oidcSubject: "keycloak-crm-user",
+    });
+
+    expect(result).toMatchObject({ status: "ACTIVE", oidcSubject: "keycloak-crm-user" });
+    expect(acceptInvitation).toHaveBeenCalledWith({
+      invitationId: "01995f7e-7b52-7000-8000-000000000202",
+      oidcSubject: "keycloak-crm-user",
+      now,
+    });
+    expect(acceptInvitation.mock.calls[0]?.[0]).not.toHaveProperty("invitationToken");
+    expect(acceptInvitation.mock.calls[0]?.[0]).not.toHaveProperty("invitationTokenHash");
+  });
+
+  it("does not accept an expired, revoked, consumed or unknown invitation", async () => {
+    const acceptInvitation = vi.fn(async () => null);
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => null,
+      findByOidcSubject: async () => null,
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (member) => member,
+      acceptInvitation,
+      bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
+    };
+    const service = new IamMemberService(repository, () => now);
+
+    await expect(
+      service.acceptConfirmedInvitation({
+        invitationId: "01995f7e-7b52-7000-8000-000000000202",
+        oidcSubject: "keycloak-crm-user",
+      }),
+    ).rejects.toBeInstanceOf(IamInvitationAcceptanceError);
+    expect(acceptInvitation).toHaveBeenCalledOnce();
+  });
+
+  it("rejects malformed acceptance identifiers before entering the repository transaction", async () => {
+    const acceptInvitation = vi.fn(async () => null);
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => null,
+      findByOidcSubject: async () => null,
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (member) => member,
+      acceptInvitation,
+      bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
+    };
+    const service = new IamMemberService(repository, () => now);
+
+    await expect(
+      service.acceptConfirmedInvitation({ invitationId: "not-a-uuid", oidcSubject: "keycloak-crm-user" }),
+    ).rejects.toBeInstanceOf(IamMemberValidationError);
+    await expect(
+      service.acceptConfirmedInvitation({
+        invitationId: "01995f7e-7b52-7000-8000-000000000202",
+        oidcSubject: "subject with whitespace",
+      }),
+    ).rejects.toBeInstanceOf(IamMemberValidationError);
+    expect(acceptInvitation).not.toHaveBeenCalled();
   });
 });
