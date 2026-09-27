@@ -30,13 +30,16 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 - Busquedas realizadas: `release-candidate`, `grype`, `CVE-2026-85091`, `zlib`, `apk`, `Dockerfile.node`, `Dockerfile.web` y `Dockerfile.migrator`.
 - Codigo o documentacion encontrados: `OPS-10-e` establecio Node Alpine en toolchain y runtime y conserva los runtime como capas separadas. La guia oficial de Node para Alpine compone su runtime minimo con el binario Node y `libstdc++`; este cambio comprueba `node --version` inmediatamente despues de retirar los paquetes durante el build.
 - Pruebas e historial encontrados: PR #36 aprobo los siete checks. El reporte `release-manifest-and-scans` del workflow 35875997635 contiene ocho reportes, cada uno con exactamente un hallazgo alto, cero criticos y sin version reparada: `CVE-2026-85091` en `zlib 1.3.2-r0`. La release 35879407176 del commit `58c03e4` repitio exactamente ese resultado: el build revelo que `apk-tools` conserva `zlib` como dependencia (`zlib: apk-tools`), por lo que borrar solo `/sbin/apk` no eliminaba el paquete.
+- Hallazgo adicional de la release 36351593731 (commit `22b902a`): `PLATFORM_KEYCLOAK` conservaba `zlib 1.3.2-r0`, `bcprov-jdk18on 1.84` y `netty-handler 4.1.136.Final` en rutas y metadatos duplicados. La remediacion se consolida en `fix/OPS-10-g-keycloak-runtime` y se valido en el VPS con Keycloak 26.7.4 arrancable.
 - Decision de reutilizacion, extension o reemplazo: conservar Alpine, BuildKit, Grype, los digests, los entrypoints y la politica. Remover `apk-tools` junto a su dependencia vulnerable `zlib` del runtime tras el build, sin borrar la base de datos de paquetes ni esconderla del scanner.
+- La remediacion de Keycloak conserva Alpine y sus entrypoints, actualiza las dependencias Java vulnerables, alinea los metadatos de Quarkus y purga los paquetes auxiliares que retienen `zlib`.
 
 ## Alcance
 
 ### Incluido
 
 - Eliminar `apk-tools` y su dependencia `zlib` sin red de las tres capas finales Alpine, despues de instalar o copiar los artefactos necesarios, y comprobar `node --version` en la misma capa.
+- Endurecer tambien el runtime Alpine de Keycloak y conservar su arranque optimizado.
 - Eliminar el gestor de paquetes del runtime sin borrar su inventario de paquetes.
 - Proteger ambas condiciones en la prueba arquitectonica existente.
 - Verificar unicamente con la matriz CI del PR y la release automatica posterior al merge.
@@ -62,6 +65,7 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 ## Plan de implementacion
 
 - [x] Remover `apk-tools` y `zlib` de cada runtime Alpine despues de preparar los artefactos.
+- [x] Actualizar las capas y metadatos de Keycloak para eliminar `bcprov 1.84`, `netty-handler 4.1.136` y `zlib` del runtime final.
 - [x] Actualizar la prueba de manifests contra regresiones de `zlib` o `apk` en runtime.
 - [ ] Abrir PR y usar una sola matriz CI como evidencia.
 - [ ] Tras el merge, inspeccionar una sola release automatica y registrar el resultado sin repetirla.
