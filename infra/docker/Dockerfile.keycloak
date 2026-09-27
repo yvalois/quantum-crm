@@ -22,7 +22,7 @@ ENV KC_HEALTH_ENABLED=true
 ENV KC_HTTP_MANAGEMENT_HEALTH_ENABLED=true
 COPY --from=activation-provider /workspace/target/quantum-activation-provider.jar /opt/keycloak/providers/quantum-activation-provider.jar
 COPY --from=security-overrides /overrides/ /opt/qcrm-security-overrides/
-RUN netty_handler="$(find /opt/keycloak -type f -name 'netty-handler-*.jar' -print -quit)" \
+RUN netty_handler="$(find /opt/keycloak -type f -name '*netty-handler-*.jar' -print -quit)" \
     && test -n "$netty_handler" \
     && install -m 0644 /opt/qcrm-security-overrides/netty-handler-4.1.137.Final.jar "$netty_handler" \
     && bcprov_count="$(find /opt/keycloak -type f -name 'bcprov-jdk18on-*.jar' -print | wc -l)" \
