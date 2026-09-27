@@ -103,9 +103,7 @@ export const UpdateMemberSchema = z
   })
   .refine(
     (value) =>
-      value.displayName !== undefined ||
-      value.email !== undefined ||
-      value.roleCode !== undefined,
+      value.displayName !== undefined || value.email !== undefined || value.roleCode !== undefined,
     { message: "At least one member field is required" },
   );
 

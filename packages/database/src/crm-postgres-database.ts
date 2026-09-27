@@ -409,10 +409,9 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
           await client.query("ROLLBACK");
           return null;
         }
-        const role = await client.query(
-          `SELECT id FROM iam.roles WHERE code = $1`,
-          [input.roleCode],
-        );
+        const role = await client.query(`SELECT id FROM iam.roles WHERE code = $1`, [
+          input.roleCode,
+        ]);
         if (role.rowCount !== 1) throw new IamMemberConflictError();
         await client.query(`DELETE FROM iam.member_roles WHERE member_id = $1::uuid`, [
           input.memberId,
