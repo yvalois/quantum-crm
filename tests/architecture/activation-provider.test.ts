@@ -37,7 +37,9 @@ describe("Keycloak activation provider", () => {
 
     expect(service).toContain("QuantumActivationCompletionRequiredAction");
     expect(provisioner).toContain('const activationCompletionAction = "QCRM_ACTIVATION_COMPLETE"');
-    expect(provisioner).toContain("requiredActions: [{");
+    expect(provisioner).toContain("requiredActions: [");
+    expect(provisioner).toContain("alias: activationCompletionAction");
+    expect(provisioner).toContain("providerId: activationCompletionAction");
     expect(provisioner).toContain("completionAction.defaultAction !== false");
   });
 });
