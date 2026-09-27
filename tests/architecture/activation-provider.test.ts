@@ -23,6 +23,10 @@ describe("Keycloak activation provider", () => {
     expect(resource).toContain("UserModel.RequiredAction.UPDATE_PASSWORD.name()");
     expect(resource).toContain("UserModel.RequiredAction.CONFIGURE_TOTP.name()");
     expect(resource).toContain("QuantumActivationCompletionRequiredAction.ID");
+    expect(resource).toContain(
+      "session.users().setNotBeforeForUser(realm, user, Time.currentTime())",
+    );
+    expect(resource).not.toContain("user.setNotBefore(");
     expect(completion).toContain('"status", "consumed"');
     expect(completion).toContain("getRequiredActionsStream().noneMatch");
     expect(completion).toContain("UPDATE_PASSWORD.name().equals(action)");
