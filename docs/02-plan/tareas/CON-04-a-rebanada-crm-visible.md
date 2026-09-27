@@ -11,7 +11,7 @@
 - Responsable: Codex; roles coordinados de orquestacion, desarrollo y testeo conforme a `PROY-024`.
 - Dependencias: release admisible, perfil aislado, `iam` y BFF CRM existentes; `ADM-04-j`, `USR-01` y `USR-03` siguen abiertos.
 - Bloquea a: recorrido comercial visible y las extensiones de contactos, ventas y tareas.
-- ADR, arquitectura o diseno aplicables: `ADR-0002` a `ADR-0009`, `ADR-0014`, `ADR-0016` a `ADR-0018`, `ADR-0021`, `ADR-0022`, `monorepo.md`, `mapa-del-sistema.md` y `frontends-experiencia-visual.md`.
+- ADR, arquitectura o diseno aplicables: `ADR-0002` a `ADR-0009`, `ADR-0014`, `ADR-0016` a `ADR-0018`, `ADR-0021`, `ADR-0022`, `ADR-0023`, `monorepo.md`, `mapa-del-sistema.md` y `frontends-experiencia-visual.md`.
 
 ## Resultado esperado
 
@@ -42,6 +42,13 @@ Un perfil de desarrollo aislado puede iniciar con su administrador inicial y usa
 - Ventas: pipeline, etapas ordenadas, oportunidad asociada a contacto, valor no negativo en unidades menores con moneda ISO y movimiento validado de etapa.
 - Tareas: crear y asignar tarea vinculada a contacto u oportunidad con titulo, descripcion, prioridad, vencimiento con fecha-hora y zona, y estado. El asignado debe ser un miembro activo.
 - Sustituir la navegacion inerte por rutas reales de Equipo, Contactos, Pipeline y Tareas, segun la referencia de Stitch.
+
+### Contrato minimo de esta rebanada
+
+- `ADMINISTRATOR` gestiona miembros y todos los recursos. `SUPERVISOR` opera contactos, oportunidades y tareas del perfil, sin administrar miembros ni configurar pipelines. `ADVISOR` opera solo los contactos y oportunidades propios y las tareas propias o asignadas. El servidor fija propietario/creador y no acepta ese alcance libremente. La futura asignacion comercial sigue abierta en `CON-06` y `PIPE-06`.
+- Solo un administrador configura pipelines y etapas; no se crean defaults ni datos simulados. Una oportunidad requiere contacto, pipeline y etapa de ese pipeline. Sus actualizaciones y movimientos llevan version esperada.
+- Una tarea se vincula exactamente a un contacto o a una oportunidad; conversaciones siguen fuera de esta rebanada. `dueAt` es RFC 3339 con offset y se conserva en UTC. No se puede asignar una nueva tarea a un miembro inactivo; las relaciones historicas no se borran.
+- Correo y telefono no son unicos en este hito: deteccion y combinacion de duplicados pertenecen a `CON-09`. Cada comando que crea o mueve usa `Idempotency-Key`: igual actor, perfil, comando y payload canonico reproduce la respuesta; misma clave con otro payload falla con `409`.
 
 ### No incluido
 
