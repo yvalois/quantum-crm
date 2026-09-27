@@ -5,7 +5,10 @@ import { IamRoleService } from "./role-service.js";
 import type { IamRoleRepository } from "./role-repository.js";
 
 const now = new Date("2026-09-27T12:00:00.000Z");
-const actor = { memberId: "00000000-0000-4000-8000-000000000001", permissions: ["iam:members:roles"] as const };
+const actor = {
+  memberId: "00000000-0000-4000-8000-000000000001",
+  permissions: ["iam:members:roles"] as const,
+};
 
 function repository(): IamRoleRepository {
   return {

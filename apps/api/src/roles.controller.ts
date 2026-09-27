@@ -77,13 +77,12 @@ export class RolesController {
 
   @Post()
   @RequireCrmPermission("iam:members:roles")
-  public async create(
-    @Req() request: Parameters<typeof crmAuthContext>[0],
-    @Body() body: unknown,
-  ) {
+  public async create(@Req() request: Parameters<typeof crmAuthContext>[0], @Body() body: unknown) {
     try {
       const input = CreateRoleSchema.parse(body);
-      return RoleResponseSchema.parse({ data: roleResponse(await this.service.create({ ...input, actor: actor(request) })) });
+      return RoleResponseSchema.parse({
+        data: roleResponse(await this.service.create({ ...input, actor: actor(request) })),
+      });
     } catch (error) {
       return mapRoleError(error);
     }

@@ -26,7 +26,11 @@ export {
 } from "./domain/member.js";
 export type { IamMemberPage, IamMemberRepository } from "./application/member-repository.js";
 export type { IamRoleRepository, IamRoleUpdate } from "./application/role-repository.js";
-export { IamRoleService, IamRoleConflictError, IamRoleNotFoundError } from "./application/role-service.js";
+export {
+  IamRoleService,
+  IamRoleConflictError,
+  IamRoleNotFoundError,
+} from "./application/role-service.js";
 export type {
   IamInvitationActivation,
   IamInvitationActivationRepository,

@@ -6,7 +6,13 @@ import {
   type OidcAccessTokenVerifier,
 } from "@quantum-crm/auth";
 import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/database";
-import { ContactService, IamMemberService, IamRoleService, SalesService, TaskService } from "@quantum-crm/domain";
+import {
+  ContactService,
+  IamMemberService,
+  IamRoleService,
+  SalesService,
+  TaskService,
+} from "@quantum-crm/domain";
 
 import {
   CrmAuthenticationGuard,

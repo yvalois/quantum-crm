@@ -646,7 +646,13 @@ function createIamRoleRepository(pool: PostgresPool): IamRoleRepository {
         await client.query(
           `INSERT INTO iam.roles (id, code, display_name, system, authorization_revision, created_at, updated_at)
            VALUES ($1::uuid, $2, $3, false, $4::bigint, $5, $5)`,
-          [role.id, role.code, role.displayName, role.authorizationRevision.toString(), role.createdAt],
+          [
+            role.id,
+            role.code,
+            role.displayName,
+            role.authorizationRevision.toString(),
+            role.createdAt,
+          ],
         );
         for (const permission of role.permissions) {
           await client.query(

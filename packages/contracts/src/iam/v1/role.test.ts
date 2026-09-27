@@ -11,8 +11,7 @@ describe("role contracts", () => {
       }).success,
     ).toBe(true);
     expect(
-      CreateRoleSchema.safeParse({ displayName: "Inválido", permissions: ["iam:unknown"] })
-        .success,
+      CreateRoleSchema.safeParse({ displayName: "Inválido", permissions: ["iam:unknown"] }).success,
     ).toBe(false);
   });
 

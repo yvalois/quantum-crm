@@ -122,9 +122,11 @@ export function updateCustomRole(input: {
     throw new IamMemberValidationError();
   }
   requireDate(input.now);
-  const displayName = input.displayName === undefined ? input.role.displayName : input.displayName.trim();
+  const displayName =
+    input.displayName === undefined ? input.role.displayName : input.displayName.trim();
   if (displayName.length < 1 || displayName.length > 160) throw new IamMemberValidationError();
-  const permissions = input.permissions === undefined ? input.role.permissions : [...new Set(input.permissions)];
+  const permissions =
+    input.permissions === undefined ? input.role.permissions : [...new Set(input.permissions)];
   if (permissions.some((permission) => !iamPermissions.includes(permission))) {
     throw new IamMemberValidationError();
   }
