@@ -556,6 +556,28 @@ async function provisionBootstrapClient(
       [201, 409],
     );
     clients = await request(clientsUrl, { headers }, [200]);
+  } else {
+    const existing = clients.body[0];
+    const existingId =
+      typeof existing === "object" && existing !== null
+        ? (existing as Record<string, unknown>).id
+        : undefined;
+    if (typeof existingId !== "string" || !uuidPattern.test(existingId)) {
+      throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+    }
+    await request(
+      new URL(
+        `/admin/realms/${encodeURIComponent(realmName)}/clients/${encodeURIComponent(existingId)}`,
+        adminOrigin,
+      ),
+      {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ ...bootstrapClientRepresentation(), id: existingId }),
+      },
+      [204],
+    );
+    clients = await request(clientsUrl, { headers }, [200]);
   }
   if (!Array.isArray(clients.body) || clients.body.length !== 1)
     throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
