@@ -179,7 +179,7 @@ export interface CommercialPostgresRepositories {
 export function createCommercialPostgresRepositories(
   pool: PostgresPool,
 ): CommercialPostgresRepositories {
-  const contacts: ContactRepository = Object.freeze({
+  const contacts: ContactRepository = Object.freeze<ContactRepository>({
     list: async (actor) => {
       try {
         const result = (await pool.query(
@@ -268,7 +268,7 @@ export function createCommercialPostgresRepositories(
       }
     },
   });
-  const sales: SalesRepository = Object.freeze({
+  const sales: SalesRepository = Object.freeze<SalesRepository>({
     listPipelines: async () => {
       try {
         const result = (await pool.query(
@@ -501,7 +501,7 @@ export function createCommercialPostgresRepositories(
       }
     },
   });
-  const tasks: TaskRepository = Object.freeze({
+  const tasks: TaskRepository = Object.freeze<TaskRepository>({
     list: async (actor) => {
       try {
         const result = (await pool.query(

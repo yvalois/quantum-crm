@@ -163,7 +163,7 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
-  return Object.freeze({
+  return Object.freeze<IamMemberRepository>({
     list: async ({
       cursor,
       limit,

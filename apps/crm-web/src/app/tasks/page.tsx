@@ -204,10 +204,12 @@ export default function TasksPage(): React.JSX.Element {
                     {task.priority} · {task.status}
                   </span>
                   <small>
-                    {new Intl.DateTimeFormat("es-CO", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(task.dueAt))}
+                    {task.dueAt === null
+                      ? "Sin vencimiento"
+                      : new Intl.DateTimeFormat("es-CO", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        }).format(new Date(task.dueAt))}
                   </small>
                   {["COMPLETED", "CANCELLED", "EXPIRED"].includes(task.status) ? null : (
                     <form onSubmit={(event) => void updateStatus(event, task)}>

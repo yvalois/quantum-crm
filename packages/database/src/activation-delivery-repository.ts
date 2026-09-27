@@ -84,7 +84,7 @@ function toAdministrator(row: AdministratorRow): TenantInitialAdministrator {
 export function createActivationDeliveryRepository(
   pool: PostgresPool,
 ): ActivationDeliveryRepository {
-  return Object.freeze({
+  return Object.freeze<ActivationDeliveryRepository>({
     request: async (command) => {
       time(command.now);
       let client: PoolClient | undefined;

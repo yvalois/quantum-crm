@@ -213,7 +213,9 @@ describe("CRM web authentication HTTP boundary", () => {
       createdAt: "2026-09-20T15:00:00.000Z",
       updatedAt: "2026-09-20T15:01:00.000Z",
     };
-    const upstream = vi.fn(async () => Response.json({ data: contact }));
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ data: contact }),
+    );
     const response = await handleCrmContactUpdate(
       new Request(`https://crm.example.test/api/contacts/${contact.id}`, {
         method: "PATCH",

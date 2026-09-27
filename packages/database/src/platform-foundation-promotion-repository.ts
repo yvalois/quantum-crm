@@ -57,7 +57,7 @@ function promote(row: PromotionRow): PlatformFoundationPromotion {
 export function createPlatformFoundationPromotionRepository(
   pool: PostgresPool,
 ): PlatformFoundationPromotionRepository {
-  return Object.freeze({
+  return Object.freeze<PlatformFoundationPromotionRepository>({
     request: async (raw) => {
       const command = validatePlatformFoundationPromotionRequest(raw);
       let client: PoolClient | undefined;
