@@ -25,6 +25,11 @@ import {
   RoleResponseSchema,
   RoleIdSchema,
   UpdateRoleSchema,
+  AddTeamMemberSchema,
+  CreateTeamSchema,
+  TeamIdSchema,
+  TeamListResponseSchema,
+  TeamResponseSchema,
   UpdateContactSchema,
   MoveOpportunitySchema,
   OpportunityListResponseSchema,
@@ -877,6 +882,127 @@ export async function handleCrmMemberDeactivation(
       },
     );
     return memberMutationResponse(upstream, MemberResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmTeamList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/teams", runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, TeamListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmTeamCreate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = CreateTeamSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(new URL("/api/v1/teams", runtime.config.crmApiOrigin), {
+      method: "POST",
+      headers: memberMutationHeaders(authorized),
+      body: JSON.stringify(payload.data),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return memberMutationResponse(upstream, TeamResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmTeamAddMember(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  teamId: string,
+): Promise<Response> {
+  const parsedTeamId = TeamIdSchema.safeParse(teamId);
+  if (!parsedTeamId.success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = AddTeamMemberSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/teams/${parsedTeamId.data}/members`, runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return memberMutationResponse(upstream, TeamResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmTeamRemoveMember(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  teamId: string,
+  memberId: string,
+): Promise<Response> {
+  const parsedTeamId = TeamIdSchema.safeParse(teamId);
+  const parsedMemberId = TeamIdSchema.safeParse(memberId);
+  if (!parsedTeamId.success || !parsedMemberId.success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(
+        `/api/v1/teams/${parsedTeamId.data}/members/${parsedMemberId.data}`,
+        runtime.config.crmApiOrigin,
+      ),
+      {
+        method: "DELETE",
+        headers: memberMutationHeaders(authorized),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return memberMutationResponse(upstream, TeamResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }

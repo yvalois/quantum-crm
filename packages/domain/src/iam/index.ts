@@ -25,6 +25,20 @@ export {
   type MemberStatus,
 } from "./domain/member.js";
 export type { IamMemberPage, IamMemberRepository } from "./application/member-repository.js";
+export type { IamTeamRepository } from "./application/team-repository.js";
+export {
+  createIamTeam,
+  IamTeamValidationError,
+  type IamTeam,
+  type IamTeamMember,
+  type IamTeamMemberStatus,
+} from "./domain/team.js";
+export {
+  IamTeamConflictError,
+  IamTeamMemberNotFoundError,
+  IamTeamNotFoundError,
+  IamTeamService,
+} from "./application/team-service.js";
 export type { IamRoleRepository, IamRoleUpdate } from "./application/role-repository.js";
 export {
   IamRoleService,

@@ -8,6 +8,8 @@ import type {
   IamMemberRepository,
   IamRoleRepository,
   IamRole,
+  IamTeam,
+  IamTeamRepository,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
@@ -27,6 +29,7 @@ import {
 export interface CrmPostgresDatabase extends PostgresDatabase {
   readonly members: IamMemberRepository;
   readonly roles: IamRoleRepository;
+  readonly teams: IamTeamRepository;
   readonly invitationActivations: IamInvitationActivationRepository;
   readonly memberships: CrmMembershipRepository;
   readonly commercial: CommercialPostgresRepositories;
@@ -93,6 +96,17 @@ interface IamRoleRow {
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly permissions: readonly string[];
+}
+
+interface IamTeamRow {
+  readonly id: string;
+  readonly name: string;
+  readonly created_at: Date;
+  readonly updated_at: Date;
+  readonly member_id?: string | null;
+  readonly member_display_name?: string | null;
+  readonly member_email?: string | null;
+  readonly member_status?: string | null;
 }
 
 const memberSelection = `
@@ -176,6 +190,36 @@ function roleFromRow(row: IamRoleRow): IamRole {
     permissions: Object.freeze([...row.permissions] as IamRole["permissions"]),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  });
+}
+
+function teamFromRows(rows: readonly IamTeamRow[]): IamTeam {
+  const first = rows[0];
+  if (!first) throw new DatabaseUnavailableError();
+  const members = rows.flatMap((row) => {
+    if (
+      !row.member_id ||
+      !row.member_display_name ||
+      !row.member_email ||
+      !row.member_status
+    ) {
+      return [];
+    }
+    return [
+      Object.freeze({
+        id: row.member_id,
+        displayName: row.member_display_name,
+        email: row.member_email,
+        status: memberStatus(row.member_status),
+      }),
+    ];
+  });
+  return Object.freeze({
+    id: first.id,
+    name: first.name,
+    createdAt: first.created_at,
+    updatedAt: first.updated_at,
+    members: Object.freeze(members),
   });
 }
 
@@ -891,6 +935,141 @@ function createIamInvitationActivationRepository(
   });
 }
 
+const teamSelection = `
+  team.id::text,
+  team.name,
+  team.created_at,
+  team.updated_at,
+  member.id::text AS member_id,
+  member.display_name AS member_display_name,
+  member.email::text AS member_email,
+  member.status::text AS member_status
+`;
+
+function createIamTeamRepository(pool: PostgresPool): IamTeamRepository {
+  return Object.freeze({
+    list: async (): Promise<readonly IamTeam[]> => {
+      try {
+        const result = (await pool.query(
+          `
+            SELECT ${teamSelection}
+            FROM iam.teams AS team
+            LEFT JOIN iam.team_members AS team_member ON team_member.team_id = team.id
+            LEFT JOIN iam.members AS member ON member.id = team_member.member_id
+            ORDER BY team.name ASC, member.display_name ASC NULLS LAST, member.id ASC NULLS LAST
+          `,
+        )) as { readonly rows: readonly IamTeamRow[] };
+        const byTeam = new Map<string, IamTeamRow[]>();
+        for (const row of result.rows) {
+          const current = byTeam.get(row.id);
+          if (current) current.push(row);
+          else byTeam.set(row.id, [row]);
+        }
+        return Object.freeze([...byTeam.values()].map((rows) => teamFromRows(rows)));
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    create: async (team: IamTeam): Promise<IamTeam | null> => {
+      try {
+        const result = (await pool.query(
+          `
+            INSERT INTO iam.teams (id, name, created_at, updated_at)
+            VALUES ($1::uuid, $2, $3, $3)
+            RETURNING id::text, name, created_at, updated_at
+          `,
+          [team.id, team.name, team.createdAt],
+        )) as { readonly rows: readonly IamTeamRow[] };
+        const row = result.rows[0];
+        return row ? teamFromRows(row ? [row] : []) : null;
+      } catch (error) {
+        if (isUniqueViolation(error)) return null;
+        throw new DatabaseUnavailableError();
+      }
+    },
+    addMember: async (teamId: string, memberId: string): Promise<IamTeam | null> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const team = await client.query(`SELECT id FROM iam.teams WHERE id = $1::uuid`, [teamId]);
+        if (team.rowCount !== 1) {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        const member = await client.query(
+          `SELECT id FROM iam.members WHERE id = $1::uuid AND status = 'active'::iam.member_status`,
+          [memberId],
+        );
+        if (member.rowCount !== 1) {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        await client.query(
+          `
+            INSERT INTO iam.team_members (team_id, member_id)
+            VALUES ($1::uuid, $2::uuid)
+            ON CONFLICT (team_id, member_id) DO NOTHING
+          `,
+          [teamId, memberId],
+        );
+        const rows = (await client.query(
+          `
+            SELECT ${teamSelection}
+            FROM iam.teams AS team
+            LEFT JOIN iam.team_members AS team_member ON team_member.team_id = team.id
+            LEFT JOIN iam.members AS member ON member.id = team_member.member_id
+            WHERE team.id = $1::uuid
+            ORDER BY member.display_name ASC NULLS LAST, member.id ASC NULLS LAST
+          `,
+          [teamId],
+        )) as { readonly rows: readonly IamTeamRow[] };
+        await client.query("COMMIT");
+        return teamFromRows(rows.rows);
+      } catch {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
+    removeMember: async (teamId: string, memberId: string): Promise<IamTeam | null> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const team = await client.query(`SELECT id FROM iam.teams WHERE id = $1::uuid`, [teamId]);
+        if (team.rowCount !== 1) {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        await client.query(
+          `DELETE FROM iam.team_members WHERE team_id = $1::uuid AND member_id = $2::uuid`,
+          [teamId, memberId],
+        );
+        const rows = (await client.query(
+          `
+            SELECT ${teamSelection}
+            FROM iam.teams AS team
+            LEFT JOIN iam.team_members AS team_member ON team_member.team_id = team.id
+            LEFT JOIN iam.members AS member ON member.id = team_member.member_id
+            WHERE team.id = $1::uuid
+            ORDER BY member.display_name ASC NULLS LAST, member.id ASC NULLS LAST
+          `,
+          [teamId],
+        )) as { readonly rows: readonly IamTeamRow[] };
+        await client.query("COMMIT");
+        return teamFromRows(rows.rows);
+      } catch {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
+  });
+}
+
 function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipRepository {
   return Object.freeze({
     findAuthorizationByOidcSubject: async (
@@ -964,6 +1143,7 @@ export function createCrmPostgresDatabase(
     ...createPostgresDatabaseFromPool(pool),
     members: createIamMemberRepository(pool),
     roles: createIamRoleRepository(pool),
+    teams: createIamTeamRepository(pool),
     invitationActivations: createIamInvitationActivationRepository(pool),
     memberships: createCrmMembershipRepository(pool),
     commercial: createCommercialPostgresRepositories(pool),
