@@ -51,15 +51,15 @@ Un administrador autorizado puede listar y crear equipos dentro del perfil CRM y
 
 ## Impacto técnico
 
-| Área | Impacto previsto |
-|---|---|
-| Aplicaciones y módulos | `iam`, `api`, `crm-web` y adaptadores de `database`. |
-| Contratos y eventos | Schemas de equipos e integrantes bajo `/api/v1/teams`; sin evento externo en este bloque. |
-| Datos y migraciones | Reutiliza `iam.teams` y `iam.team_members` de `USR-06`; no crea tablas duplicadas. |
-| Permisos y aislamiento | Permisos IAM dedicados; todas las consultas quedan limitadas por la conexión del perfil. |
-| Configuración y secretos | Sin nuevos secretos. |
-| Observabilidad y operación | Errores RFC 9457 y correlación existentes; revisión de autorización observable. |
-| Documentación | Checklist, estado, esta ficha y contratos afectados. |
+| Área                       | Impacto previsto                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| Aplicaciones y módulos     | `iam`, `api`, `crm-web` y adaptadores de `database`.                                      |
+| Contratos y eventos        | Schemas de equipos e integrantes bajo `/api/v1/teams`; sin evento externo en este bloque. |
+| Datos y migraciones        | Reutiliza `iam.teams` y `iam.team_members` de `USR-06`; no crea tablas duplicadas.        |
+| Permisos y aislamiento     | Permisos IAM dedicados; todas las consultas quedan limitadas por la conexión del perfil.  |
+| Configuración y secretos   | Sin nuevos secretos.                                                                      |
+| Observabilidad y operación | Errores RFC 9457 y correlación existentes; revisión de autorización observable.           |
+| Documentación              | Checklist, estado, esta ficha y contratos afectados.                                      |
 
 ## Plan de implementación
 
@@ -72,12 +72,12 @@ Un administrador autorizado puede listar y crear equipos dentro del perfil CRM y
 
 ## Riesgos y mitigaciones
 
-| Riesgo | Mitigación | Verificación |
-|---|---|---|
-| Alta repetida de un integrante | Clave primaria `(team_id, member_id)` y resultado idempotente. | Repetir `POST` y comprobar una sola relación. |
-| Retirar una membresía deja permisos cacheados | Trigger incrementa la revisión de cada miembro afectado. | Leer revisión antes y después del cambio. |
-| Agregar miembros de otro perfil | La conexión y las FK viven en la base aislada del perfil. | Prueba de conexión cruzada denegada. |
-| Equipo vacío o nombre ambiguo | Validación trim, longitud y unicidad en servidor y base. | Casos de schema y constraint. |
+| Riesgo                                        | Mitigación                                                     | Verificación                                  |
+| --------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------- |
+| Alta repetida de un integrante                | Clave primaria `(team_id, member_id)` y resultado idempotente. | Repetir `POST` y comprobar una sola relación. |
+| Retirar una membresía deja permisos cacheados | Trigger incrementa la revisión de cada miembro afectado.       | Leer revisión antes y después del cambio.     |
+| Agregar miembros de otro perfil               | La conexión y las FK viven en la base aislada del perfil.      | Prueba de conexión cruzada denegada.          |
+| Equipo vacío o nombre ambiguo                 | Validación trim, longitud y unicidad en servidor y base.       | Casos de schema y constraint.                 |
 
 ## Criterios de aceptación
 
@@ -110,4 +110,3 @@ Un administrador autorizado puede listar y crear equipos dentro del perfil CRM y
 - Documentación actualizada: esta ficha y `docs/04-proceso/estado.md`.
 - Desviaciones del plan: ninguna.
 - Pendientes o decisiones nuevas: auditoría durable y transferencia siguen en sus requisitos propietarios.
-

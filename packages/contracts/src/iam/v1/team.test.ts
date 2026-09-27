@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  AddTeamMemberSchema,
-  CreateTeamSchema,
-  TeamListResponseSchema,
-} from "./team.js";
+import { AddTeamMemberSchema, CreateTeamSchema, TeamListResponseSchema } from "./team.js";
 
 describe("team contracts", () => {
   it("normalizes team names and member ids", () => {

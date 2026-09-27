@@ -29,7 +29,11 @@ export function createIamTeam(input: {
   readonly name: string;
   readonly now: Date;
 }): IamTeam {
-  if (!uuidPattern.test(input.id) || !(input.now instanceof Date) || Number.isNaN(input.now.getTime())) {
+  if (
+    !uuidPattern.test(input.id) ||
+    !(input.now instanceof Date) ||
+    Number.isNaN(input.now.getTime())
+  ) {
     throw new IamTeamValidationError();
   }
   const name = input.name.trim();

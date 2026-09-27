@@ -197,12 +197,7 @@ function teamFromRows(rows: readonly IamTeamRow[]): IamTeam {
   const first = rows[0];
   if (!first) throw new DatabaseUnavailableError();
   const members = rows.flatMap((row) => {
-    if (
-      !row.member_id ||
-      !row.member_display_name ||
-      !row.member_email ||
-      !row.member_status
-    ) {
+    if (!row.member_id || !row.member_display_name || !row.member_email || !row.member_status) {
       return [];
     }
     return [

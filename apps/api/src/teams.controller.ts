@@ -87,10 +87,7 @@ export class TeamsController {
 
   @Post()
   @RequireCrmPermission("iam:teams:create")
-  public async create(
-    @Req() request: Parameters<typeof crmAuthContext>[0],
-    @Body() body: unknown,
-  ) {
+  public async create(@Req() request: Parameters<typeof crmAuthContext>[0], @Body() body: unknown) {
     try {
       const input = CreateTeamSchema.parse(body);
       return teamResponse(await this.service.create({ actor: actor(request), name: input.name }));
@@ -109,7 +106,11 @@ export class TeamsController {
     try {
       const input = AddTeamMemberSchema.parse(body);
       return teamResponse(
-        await this.service.addMember({ actor: actor(request), teamId: TeamIdSchema.parse(teamId), memberId: input.memberId }),
+        await this.service.addMember({
+          actor: actor(request),
+          teamId: TeamIdSchema.parse(teamId),
+          memberId: input.memberId,
+        }),
       );
     } catch (error) {
       return mapTeamError(error);

@@ -928,14 +928,17 @@ export async function handleCrmTeamCreate(
   const payload = CreateTeamSchema.safeParse(input);
   if (!payload.success) return crmProblem(400, "Invalid request");
   try {
-    const upstream = await runtime.crmApiFetch(new URL("/api/v1/teams", runtime.config.crmApiOrigin), {
-      method: "POST",
-      headers: memberMutationHeaders(authorized),
-      body: JSON.stringify(payload.data),
-      cache: "no-store",
-      redirect: "manual",
-      signal: AbortSignal.timeout(5_000),
-    });
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/teams", runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
     return memberMutationResponse(upstream, TeamResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
