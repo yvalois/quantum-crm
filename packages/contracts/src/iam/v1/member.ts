@@ -12,6 +12,7 @@ export const CrmPermissionCatalog = [
   "iam:members:create",
   "iam:members:update",
   "iam:members:deactivate",
+  "iam:members:roles",
   "crm:contacts:read",
   "crm:contacts:create",
   "crm:contacts:update",
@@ -98,10 +99,13 @@ export const UpdateMemberSchema = z
   .object({
     displayName: DisplayNameSchema.optional(),
     email: EmailSchema.optional(),
+    roleCode: InitialRoleCodeSchema.optional(),
   })
-  .refine((value) => value.displayName !== undefined || value.email !== undefined, {
-    message: "At least one member field is required",
-  });
+  .refine(
+    (value) =>
+      value.displayName !== undefined || value.email !== undefined || value.roleCode !== undefined,
+    { message: "At least one member field is required" },
+  );
 
 export const InvitationSchema = z.object({
   id: UuidSchema,

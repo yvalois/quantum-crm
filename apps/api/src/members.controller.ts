@@ -142,6 +142,7 @@ export class MembersController {
           memberId: MemberIdSchema.parse(memberId),
           ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
           ...(input.email === undefined ? {} : { email: input.email }),
+          ...(input.roleCode === undefined ? {} : { roleCode: input.roleCode }),
         }),
       );
     } catch (error) {

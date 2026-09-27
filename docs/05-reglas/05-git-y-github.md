@@ -131,10 +131,12 @@ Reglas:
 Antes de publicar una rama:
 
 1. Revisar `git status`, `git diff` y los commits locales.
-2. Confirmar la evidencia aplicable obtenida en el VPS y dejar la suite completa al unico ciclo final de GitHub Actions; ninguna comprobacion tecnica se ejecuta localmente.
+2. Confirmar que el commit exacto ya fue transferido y validado en el VPS; ninguna comprobacion tecnica se ejecuta localmente.
 3. Confirmar que no hay secretos ni datos reales.
 4. Actualizar estado, checklist y documentacion cuando corresponda.
 5. Sincronizar con `origin/main` y resolver conflictos conscientemente.
+
+El orden obligatorio es: editar y consolidar localmente, validar el commit exacto en el VPS y solo despues hacer `git push` a GitHub. El push no se usa como paso de prueba.
 
 Agrupar codigo, pruebas, fixtures y documentacion antes del primer push. La frecuencia, invalidacion y reutilizacion de evidencia cumplen [Ejecucion eficiente de verificaciones](15-ejecucion-verificaciones-vps.md).
 

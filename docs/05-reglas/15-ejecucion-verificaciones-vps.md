@@ -44,12 +44,15 @@ Un cambio exclusivo de documentacion, estado, enlaces o texto del PR no invalida
 
 1. Auditar el trabajo existente y definir el alcance afectado.
 2. Agrupar implementacion, pruebas y documentacion antes de verificar.
-3. Ejecutar en el VPS solo las pruebas afectadas que aporten informacion durante el desarrollo.
-4. Corregir en un lote coherente y repetir unicamente lo invalidado.
-5. Publicar la rama una vez que codigo y documentacion esten estables.
-6. Dejar que GitHub ejecute una sola matriz completa para el commit candidato.
-7. Despues de CI verde, construir cada imagen una sola vez, desplegar exactamente sus digests y ejecutar un solo smoke aplicable.
-8. Registrar la evidencia y no volver a ejecutar pasos verdes durante el cierre.
+3. Crear el commit candidato localmente solo como operacion Git; no ejecutar codigo ni instalar dependencias.
+4. Transferir ese commit exacto al VPS autorizado y ejecutar alli unicamente las comprobaciones afectadas.
+5. Si falla, corregir en un lote coherente y repetir solo la comprobacion invalidada en el VPS.
+6. Publicar la rama en GitHub solo despues de que el commit exacto tenga evidencia verde en el VPS.
+7. Dejar que GitHub ejecute una sola matriz completa para el commit candidato publicado.
+8. Despues de CI verde, construir cada imagen una sola vez, desplegar exactamente sus digests y ejecutar un solo smoke aplicable.
+9. Registrar la evidencia y no volver a ejecutar pasos verdes durante el cierre.
+
+El VPS es la unica fuente de validacion durante el desarrollo. GitHub recibe un commit ya validado; no se suben cambios para descubrir errores que podian haberse detectado en el VPS.
 
 ## Migraciones, imagenes y staging
 

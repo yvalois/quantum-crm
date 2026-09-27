@@ -60,7 +60,7 @@ Una rebanada grande puede usar tres roles que comparten un solo objetivo, rama y
 
 ## Revision y cierre
 
-1. Ejecutar una sola vez las pruebas automaticas y comprobaciones manuales pertinentes en los lugares definidos por [`15-ejecucion-verificaciones-vps.md`](../05-reglas/15-ejecucion-verificaciones-vps.md); nunca en el equipo local.
+1. Transferir el commit candidato al VPS y ejecutar una sola vez las pruebas automaticas y comprobaciones manuales pertinentes en los lugares definidos por [`15-ejecucion-verificaciones-vps.md`](../05-reglas/15-ejecucion-verificaciones-vps.md); nunca en el equipo local. El push a GitHub ocurre despues de esa evidencia.
 2. Revisar seguridad, aislamiento, errores, idempotencia y observabilidad segun el riesgo.
 3. Cumplir `definicion-de-terminado.md`.
 4. Registrar archivos, pruebas, comandos y resultados como evidencia.
