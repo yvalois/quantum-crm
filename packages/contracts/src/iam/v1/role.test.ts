@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CreateRoleSchema, RoleSchema } from "./member.js";
+import { CrmPermissionCatalog, CreateRoleSchema, RoleSchema } from "./member.js";
 
 describe("role contracts", () => {
   it("accepts custom role payloads and rejects unknown permissions", () => {
@@ -27,5 +27,13 @@ describe("role contracts", () => {
       updatedAt: "2026-09-27T12:00:00.000Z",
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it("keeps the five actions explicit for each active section", () => {
+    for (const section of ["contacts", "sales", "tasks"] as const) {
+      for (const action of ["read", "create", "update", "delete", "export"] as const) {
+        expect(CrmPermissionCatalog).toContain(`crm:${section}:${action}`);
+      }
+    }
   });
 });
