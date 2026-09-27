@@ -131,10 +131,11 @@ function invitationFromRow(row: IamInvitationRow): IamInvitation {
 }
 
 function invitationActivationFromRow(row: IamInvitationRow): IamInvitationActivation {
+  const generation = row.activation_generation;
   if (
     !row.activation_subject ||
-    !Number.isInteger(row.activation_generation) ||
-    row.activation_generation < 1 ||
+    !Number.isInteger(generation) ||
+    generation < 1 ||
     !row.activation_issued_at ||
     !row.activation_expires_at
   ) {
@@ -143,7 +144,7 @@ function invitationActivationFromRow(row: IamInvitationRow): IamInvitationActiva
   return Object.freeze({
     invitationId: row.id,
     oidcSubject: row.activation_subject,
-    generation: row.activation_generation,
+    generation,
     issuedAt: row.activation_issued_at,
     expiresAt: row.activation_expires_at,
   });
@@ -550,7 +551,8 @@ function createIamInvitationActivationRepository(
         if (input.expiresAt <= input.now || input.expiresAt > invitation.expires_at) {
           throw new IamMemberConflictError();
         }
-        if (invitation.activation_generation === input.generation) {
+        const currentGeneration = invitation.activation_generation ?? 0;
+        if (currentGeneration === input.generation) {
           if (invitation.activation_subject !== input.oidcSubject) {
             throw new IamMemberConflictError();
           }
@@ -561,7 +563,7 @@ function createIamInvitationActivationRepository(
           });
         }
         if (
-          input.generation !== invitation.activation_generation + 1 ||
+          input.generation !== currentGeneration + 1 ||
           (invitation.activation_subject !== null &&
             invitation.activation_subject !== input.oidcSubject)
         ) {
