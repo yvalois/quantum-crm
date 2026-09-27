@@ -1,6 +1,6 @@
 # Quantum CRM — DevOps, despliegues y actualizaciones
 
-Plan técnico para desarrollar localmente, empaquetar Quantum en contenedores, publicar versiones y desplegar perfiles de clientes de forma individual o global. Incluye HTTPS temporal con nip.io. Todas las casillas representan trabajo pendiente; este documento no acredita instalaciones, conexiones al VPS ni despliegues realizados.
+Plan técnico para editar el código, validarlo exclusivamente en el VPS, empaquetar Quantum en contenedores, publicar versiones y desplegar perfiles de clientes de forma individual o global. Incluye HTTPS temporal con nip.io. Todas las casillas representan trabajo pendiente; este documento no acredita instalaciones, conexiones al VPS ni despliegues realizados.
 
 El administrador central se desarrolla en `Quantum_CRM_Funcionalidades.md` y `Quantum_CRM_Checklist_Trabajo.md`, requisitos **ADM-01 a ADM-20**. Este documento define los mecanismos que ese administrador utilizará. No establece tiempos de implementación.
 
@@ -141,14 +141,14 @@ Hay dos tipos de cambios locales: el código que desarrollas en tu equipo y la c
 
 - [ ] **OPS-07 — Establecer el flujo de desarrollo local.**
   - [ ] Mantener `main` como línea integrable y usar ramas cortas de funcionalidad o corrección.
-  - [ ] Desarrollar y verificar código en el equipo local sin iniciar Docker Desktop ni ejecutar contenedores.
+  - [ ] Editar y consolidar código localmente; transferir el commit exacto al VPS para cualquier ejecución, sin iniciar Docker Desktop ni ejecutar contenedores en el equipo local.
   - [ ] Levantar aplicación, base y dependencias con Compose en el VPS de desarrollo o pruebas autorizado y con datos sintéticos.
   - [ ] Reservar recarga de código y montajes del checkout para ese entorno de desarrollo; producción usa imágenes inmutables.
   - [ ] Mantener `.env.example` sin secretos y excluir `.env`, respaldos y credenciales reales del repositorio.
   - [ ] Deshabilitar envíos externos reales en las pruebas locales y usar cuentas o conectores de prueba.
   - [ ] Versionar juntos los cambios de código, las migraciones y el esquema de configuración que necesiten.
   - [ ] Revisar el cambio mediante pull request y ejecutar CI antes de integrarlo.
-  - [ ] Publicar una release identificable para trasladar el cambio a producción; no copiar carpetas locales al VPS.
+  - [ ] Publicar una release identificable para trasladar el cambio a producción; el VPS recibe el commit exacto validado, no una carpeta sin trazabilidad.
 
 - [ ] **OPS-08 — Gestionar correcciones urgentes sin perder trazabilidad.**
   - [ ] Partir de la versión afectada y reproducir el problema con datos de prueba.
