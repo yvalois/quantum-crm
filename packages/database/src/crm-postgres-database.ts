@@ -1,5 +1,4 @@
 import type { DatabaseConfig } from "@quantum-crm/config";
-import { IamMemberRevisionConflictError } from "@quantum-crm/domain";
 import type {
   IamInvitationActivation,
   IamInvitationActivationRepository,
@@ -51,6 +50,12 @@ export class IamMemberConflictError extends Error {
     super("IAM member operation conflicts with current state");
     this.name = "IamMemberConflictError";
   }
+}
+
+function createIamMemberRevisionConflictError(): Error {
+  const error = new Error("IAM member authorization revision has changed");
+  error.name = "IamMemberRevisionConflictError";
+  return error;
 }
 
 interface IamMemberRow {
@@ -467,13 +472,19 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         const row = result.rows[0];
         if (!row) {
           if (expectedAuthorizationRevision !== undefined) {
-            throw new IamMemberRevisionConflictError();
+            throw createIamMemberRevisionConflictError();
           }
           throw new IamMemberConflictError();
         }
         return memberFromRow(row);
       } catch (error) {
-        if (error instanceof IamMemberRevisionConflictError) throw error;
+        // Keep the database adapter free of a runtime dependency on the domain
+        // package. Vitest loads this adapter from source before the domain
+        // package is built, so preserve the typed conflict across the boundary
+        // using its stable error name.
+        if (error instanceof Error && error.name === "IamMemberRevisionConflictError") {
+          throw error;
+        }
         if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
           throw new IamMemberConflictError();
         }

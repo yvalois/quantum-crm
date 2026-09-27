@@ -76,7 +76,12 @@ function memberResponse(member: IamMember) {
 function mapMemberError(error: unknown): never {
   if (error instanceof IamAuthorizationError) throw new ForbiddenException();
   if (error instanceof IamMemberNotFoundError) throw new NotFoundException();
-  if (error instanceof IamMemberRevisionConflictError) throw new PreconditionFailedException();
+  if (
+    error instanceof IamMemberRevisionConflictError ||
+    (error instanceof Error && error.name === "IamMemberRevisionConflictError")
+  ) {
+    throw new PreconditionFailedException();
+  }
   if (error instanceof IamMemberValidationError) throw new BadRequestException();
   throw error;
 }
