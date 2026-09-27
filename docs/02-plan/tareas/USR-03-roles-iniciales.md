@@ -81,8 +81,8 @@ El CRM conserva tres roles iniciales —administrador, supervisor y asesor— co
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: `packages/contracts/src/iam/v1/member.ts`, `packages/domain/src/iam/application/member-service.ts`, `packages/domain/src/iam/application/member-repository.ts`, `packages/database/src/crm-postgres-database.ts` y la migración `20260927020000_usr_03_role_management` en `feat/USR-01-activacion-miembros`.
-- Comandos y resultados: pendientes de la única comprobación afectada en VPS y CI; no se ejecutaron comprobaciones técnicas locales.
+- Archivos, commits o PR: `packages/contracts/src/iam/v1/member.ts`, `packages/domain/src/iam/application/member-service.ts`, `packages/domain/src/iam/application/member-repository.ts`, `packages/database/src/crm-postgres-database.ts` y la migración `20260927020000_usr_03_role_management` en el PR #43; el commit candidato `90ce1d6` incorpora la resolución de conflictos con `main`.
+- Comandos y resultados: en el VPS, `vitest` ejecutó 11 pruebas en `packages/contracts/src/iam/v1/member.test.ts` y `packages/domain/src/iam/application/member-service.test.ts` (11/11); `tsc --noEmit` pasó para `contracts`, `domain`, `database` y `api`; Prisma `validate` y `generate` pasaron para `platform` y `crm`. No se ejecutaron comprobaciones técnicas locales. La matriz CI queda pendiente.
 - Documentación actualizada: ficha creada antes de modificar roles y actualizada con el avance real.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: validar la denegación y la revisión en VPS/CI; `USR-04` a `USR-07` quedan abiertos.
+- Desviaciones del plan: ninguna; la resolución conservó el contrato de asignación de rol y la prueba de permiso dedicado de la rama.
+- Pendientes o decisiones nuevas: completar la matriz CI y verificar el resultado en el PR #43; `USR-04` a `USR-07` quedan abiertos.
