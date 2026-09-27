@@ -21,6 +21,10 @@ interface SessionPayload {
   readonly csrfToken?: string;
 }
 
+const permissionSections = Array.from(
+  new Set(CrmPermissionCatalog.map((permission) => permission.split(":").slice(0, 2).join(":"))),
+);
+
 function memberStatus(status: Member["status"]): string {
   return { ACTIVE: "Activo", DEACTIVATED: "Desactivado", INVITED: "Invitado" }[status];
 }
@@ -487,21 +491,28 @@ export function MembersPanel(): React.JSX.Element {
               </label>
               <fieldset>
                 <legend>Permisos</legend>
-                {CrmPermissionCatalog.map((permission) => (
-                  <label key={permission}>
-                    <input
-                      type="checkbox"
-                      checked={rolePermissions.includes(permission)}
-                      onChange={(event) =>
-                        setRolePermissions((current) =>
-                          event.target.checked
-                            ? [...current, permission]
-                            : current.filter((value) => value !== permission),
-                        )
-                      }
-                    />
-                    {permission}
-                  </label>
+                {permissionSections.map((section) => (
+                  <div key={section} className="permission-section">
+                    <strong>{section.replace(":", " / ")}</strong>
+                    {CrmPermissionCatalog.filter((permission) =>
+                      permission.startsWith(`${section}:`),
+                    ).map((permission) => (
+                      <label key={permission}>
+                        <input
+                          type="checkbox"
+                          checked={rolePermissions.includes(permission)}
+                          onChange={(event) =>
+                            setRolePermissions((current) =>
+                              event.target.checked
+                                ? [...current, permission]
+                                : current.filter((value) => value !== permission),
+                            )
+                          }
+                        />
+                        {permission.split(":").at(-1)}
+                      </label>
+                    ))}
+                  </div>
                 ))}
               </fieldset>
               <div className="form-actions">

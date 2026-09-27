@@ -233,6 +233,18 @@ p {
   font-size: 0.8rem;
 }
 
+.permission-section {
+  display: grid;
+  gap: 0.35rem;
+  padding-block: 0.25rem;
+}
+
+.permission-section strong {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
 .card-heading,
 .member-form-card form {
   padding: 1.5rem;
