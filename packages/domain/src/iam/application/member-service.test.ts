@@ -92,7 +92,7 @@ describe("IAM member service", () => {
     const acceptInvitation = vi.fn(
       async (input: Parameters<IamMemberRepository["acceptInvitation"]>[0]) =>
         Object.freeze({
-          id: memberId,
+          id: actorId,
           oidcSubject: input.oidcSubject,
           displayName: "Ana PÃ©rez",
           email: "ana@example.test",
@@ -170,7 +170,10 @@ describe("IAM member service", () => {
     const service = new IamMemberService(repository, () => now);
 
     await expect(
-      service.acceptConfirmedInvitation({ invitationId: "not-a-uuid", oidcSubject: "keycloak-crm-user" }),
+      service.acceptConfirmedInvitation({
+        invitationId: "not-a-uuid",
+        oidcSubject: "keycloak-crm-user",
+      }),
     ).rejects.toBeInstanceOf(IamMemberValidationError);
     await expect(
       service.acceptConfirmedInvitation({

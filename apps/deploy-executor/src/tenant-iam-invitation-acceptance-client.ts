@@ -107,17 +107,20 @@ export function createTenantIamInvitationAcceptanceClient(options: {
       const alias = `qcrm-${input.tenantProfileId.replaceAll("-", "")}-bootstrap-api`;
       let response: Response;
       try {
-        response = await fetch(`http://${alias}:3001/internal/iam/accept-member-invitation`, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-            "content-type": "application/json",
+        response = await fetch(
+          `http://${alias}:3001/internal/iam/accept-member-invitation`,
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${accessToken}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({ invitationId: input.invitationId, oidcSubject: input.subject }),
+            signal: AbortSignal.timeout(5_000),
+            cache: "no-store",
+            redirect: "error",
           },
-          body: JSON.stringify({ invitationId: input.invitationId, oidcSubject: input.subject }),
-          signal: AbortSignal.timeout(5_000),
-          cache: "no-store",
-          redirect: "error",
-        });
+        );
       } catch {
         throw new TenantIamInvitationAcceptanceError("UNAVAILABLE");
       }

@@ -70,16 +70,8 @@ model IamInvitation {
 
   @@unique([createdByMemberId, idempotencyKey], map: "iam_invitations_creator_idempotency_key")
   @@index([memberId, status, expiresAt], map: "iam_invitations_member_status_expiry_idx")
-  @@index(
-    [activationSubject],
-    map: "iam_invitations_activation_subject_idx",
-    where: raw("\"activation_subject\" IS NOT NULL")
-  )
-  @@index(
-    [status, expiresAt, activationGeneration],
-    map: "iam_invitations_pending_activation_idx",
-    where: raw("\"status\" = 'pending'")
-  )
+  @@index([activationSubject], map: "iam_invitations_activation_subject_idx")
+  @@index([status, expiresAt, activationGeneration], map: "iam_invitations_pending_activation_idx")
   @@map("invitations")
   @@schema("iam")
 }

@@ -551,7 +551,9 @@ function createIamInvitationActivationRepository(
           throw new IamMemberConflictError();
         }
         if (invitation.activation_generation === input.generation) {
-          if (invitation.activation_subject !== input.oidcSubject) throw new IamMemberConflictError();
+          if (invitation.activation_subject !== input.oidcSubject) {
+            throw new IamMemberConflictError();
+          }
           await client.query("COMMIT");
           return Object.freeze({
             activation: invitationActivationFromRow(invitation),
@@ -560,7 +562,8 @@ function createIamInvitationActivationRepository(
         }
         if (
           input.generation !== invitation.activation_generation + 1 ||
-          (invitation.activation_subject !== null && invitation.activation_subject !== input.oidcSubject)
+          (invitation.activation_subject !== null &&
+            invitation.activation_subject !== input.oidcSubject)
         ) {
           throw new IamMemberConflictError();
         }
