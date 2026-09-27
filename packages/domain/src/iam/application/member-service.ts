@@ -166,8 +166,9 @@ export class IamMemberService {
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
     let updated = current;
+    const updateCommercialScope = this.repository.updateCommercialScope;
     if (input.commercialScope !== undefined) {
-      if (!this.repository.updateCommercialScope) throw new IamMemberValidationError();
+      if (!updateCommercialScope) throw new IamMemberValidationError();
       if (
         input.expectedAuthorizationRevision === undefined ||
         input.expectedAuthorizationRevision !== current.authorizationRevision
@@ -179,7 +180,8 @@ export class IamMemberService {
       ? input.expectedAuthorizationRevision
       : undefined;
     if (input.commercialScope !== undefined) {
-      const scoped = await this.repository.updateCommercialScope({
+      if (!updateCommercialScope) throw new IamMemberValidationError();
+      const scoped = await updateCommercialScope({
         memberId: current.id,
         scope: input.commercialScope,
         now: this.clock(),
