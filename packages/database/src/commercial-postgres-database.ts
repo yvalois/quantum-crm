@@ -1,5 +1,4 @@
 import type {
-  CommercialActor,
   ContactRecord,
   ContactRepository,
   Opportunity,

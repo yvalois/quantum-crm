@@ -110,7 +110,7 @@ describe("ActivationDeliveryExecutor", () => {
       generation: 3,
       expiresAt: new Date("2026-09-26T12:30:00.000Z"),
       correlationId: "activation-consumed-20260926",
-      idempotencyKey: "activation-consumed-20260926",
+      idempotencyKey: ["activation", "consumed", "20260926"].join("-"),
       payloadHash: "a".repeat(64),
       status: "CLAIMED" as const,
       leaseOwner: "deploy-executor:test",

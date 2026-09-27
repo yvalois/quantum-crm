@@ -131,7 +131,7 @@ describe("platform tenant profile migration", () => {
       artifacts: releaseArtifacts,
     });
     expect(candidate).toMatchObject({ status: "CANDIDATE", version: 1n });
-    expect(candidate.artifacts).toHaveLength(8);
+    expect(candidate.artifacts).toHaveLength(platformReleaseArtifactNames.length);
 
     const validated = await database.releases.updateStatus(candidate.id, 1n, "VALIDATED");
     expect(validated).toMatchObject({ status: "VALIDATED", version: 2n });

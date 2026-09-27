@@ -23,7 +23,6 @@ import {
   ContactResponseSchema,
   CreateContactSchema,
   UpdateContactSchema,
-  type Contact,
 } from "@quantum-crm/contracts";
 import {
   ContactNotFoundError,
