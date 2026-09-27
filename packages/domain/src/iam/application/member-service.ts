@@ -130,18 +130,31 @@ export class IamMemberService {
     readonly memberId: string;
     readonly displayName?: string;
     readonly email?: string;
+    readonly roleCode?: InitialRoleCode;
   }): Promise<IamMember> {
     requirePermission(input.actor, "iam:members:update");
+    if (input.roleCode !== undefined) requirePermission(input.actor, "iam:members:roles");
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
-    return this.repository.update(
-      updateMemberProfile({
-        member: current,
-        ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
-        ...(input.email === undefined ? {} : { email: input.email }),
-        now: this.clock(),
-      }),
-    );
+    const updated =
+      input.displayName === undefined && input.email === undefined
+        ? current
+        : await this.repository.update(
+            updateMemberProfile({
+              member: current,
+              ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+              ...(input.email === undefined ? {} : { email: input.email }),
+              now: this.clock(),
+            }),
+          );
+    if (input.roleCode === undefined) return updated;
+    const assigned = await this.repository.assignRole({
+      memberId: updated.id,
+      roleCode: input.roleCode,
+      now: this.clock(),
+    });
+    if (!assigned) throw new IamMemberNotFoundError();
+    return assigned;
   }
 
   public async deactivate(input: {

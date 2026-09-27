@@ -32,6 +32,9 @@ describe("member contracts", () => {
     expect(UpdateMemberSchema.parse({ displayName: "Ana Gómez" })).toEqual({
       displayName: "Ana Gómez",
     });
+    expect(UpdateMemberSchema.parse({ roleCode: "SUPERVISOR" })).toEqual({
+      roleCode: "SUPERVISOR",
+    });
   });
 
   it("keeps invitation acceptance identity-free at the HTTP boundary", () => {

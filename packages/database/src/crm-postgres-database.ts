@@ -396,6 +396,54 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         throw new DatabaseUnavailableError();
       }
     },
+    assignRole: async (input): Promise<IamMember | null> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const current = (await client.query(
+          `SELECT ${memberSelection} FROM iam.members WHERE id = $1::uuid FOR UPDATE`,
+          [input.memberId],
+        )) as { readonly rows: readonly IamMemberRow[] };
+        if (!current.rows[0]) {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        const role = await client.query(
+          `SELECT id FROM iam.roles WHERE code = $1`,
+          [input.roleCode],
+        );
+        if (role.rowCount !== 1) throw new IamMemberConflictError();
+        await client.query(`DELETE FROM iam.member_roles WHERE member_id = $1::uuid`, [
+          input.memberId,
+        ]);
+        await client.query(
+          `INSERT INTO iam.member_roles (member_id, role_id) VALUES ($1::uuid, $2::uuid)`,
+          [input.memberId, (role.rows[0] as { readonly id: string }).id],
+        );
+        const updated = (await client.query(
+          `
+            UPDATE iam.members
+            SET authorization_revision = authorization_revision + 1, updated_at = $2
+            WHERE id = $1::uuid
+            RETURNING ${memberSelection}
+          `,
+          [input.memberId, input.now],
+        )) as { readonly rows: readonly IamMemberRow[] };
+        const row = updated.rows[0];
+        if (!row) throw new IamMemberConflictError();
+        await client.query("COMMIT");
+        return memberFromRow(row);
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
+          throw new IamMemberConflictError();
+        }
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
     acceptInvitation: async (
       input: Parameters<IamMemberRepository["acceptInvitation"]>[0],
     ): Promise<IamMember | null> => {

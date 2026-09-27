@@ -26,6 +26,11 @@ export interface IamMemberRepository {
     readonly replayed: boolean;
   }>;
   update(member: IamMember): Promise<IamMember>;
+  assignRole(input: {
+    readonly memberId: string;
+    readonly roleCode: InitialRoleCode;
+    readonly now: Date;
+  }): Promise<IamMember | null>;
   /**
    * Internal completion after Keycloak has already validated the one-use
    * activation action. The invitation token and its hash are intentionally

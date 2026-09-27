@@ -50,6 +50,7 @@ El CRM conserva tres roles iniciales —administrador, supervisor y asesor— co
 - [x] Definir el catálogo versionado y las tres plantillas iniciales.
 - [x] Resolver permisos efectivos para la autenticación CRM.
 - [x] Asignar de manera atómica el rol elegido al invitar; el administrador inicial continúa ligado al aprovisionamiento de realm.
+- [x] Permitir que un administrador cambie el rol de una membresía mediante un permiso dedicado y aumentar la revisión de autorización.
 - [ ] Probar denegación por defecto y el incremento de revisión en VPS y CI.
 
 ## Riesgos y mitigaciones
@@ -80,8 +81,8 @@ El CRM conserva tres roles iniciales —administrador, supervisor y asesor— co
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: cambios sin publicar en `feat/USR-01-miembros-crm`.
+- Archivos, commits o PR: `packages/contracts/src/iam/v1/member.ts`, `packages/domain/src/iam/application/member-service.ts`, `packages/domain/src/iam/application/member-repository.ts`, `packages/database/src/crm-postgres-database.ts` y la migración `20260927020000_usr_03_role_management` en `feat/USR-01-activacion-miembros`.
 - Comandos y resultados: pendientes de la única comprobación afectada en VPS y CI; no se ejecutaron comprobaciones técnicas locales.
 - Documentación actualizada: ficha creada antes de modificar roles y actualizada con el avance real.
 - Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: `USR-04` a `USR-07` quedan abiertos.
+- Pendientes o decisiones nuevas: validar la denegación y la revisión en VPS/CI; `USR-04` a `USR-07` quedan abiertos.

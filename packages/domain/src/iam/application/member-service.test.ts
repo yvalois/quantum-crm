@@ -23,6 +23,7 @@ describe("IAM member service", () => {
         return { member: input.member, invitation: input.invitation, replayed: false };
       },
       update: async (member) => member,
+      assignRole: async () => null,
       acceptInvitation: async () => null,
       bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
@@ -52,6 +53,7 @@ describe("IAM member service", () => {
         throw new Error("must not write");
       },
       update: async (member) => member,
+      assignRole: async () => null,
       acceptInvitation: async () => null,
       bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
@@ -77,6 +79,7 @@ describe("IAM member service", () => {
         throw new Error("unused");
       },
       update: async (member) => member,
+      assignRole: async () => null,
       acceptInvitation: async () => null,
       bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
@@ -111,6 +114,7 @@ describe("IAM member service", () => {
         throw new Error("unused");
       },
       update: async (member) => member,
+      assignRole: async () => null,
       acceptInvitation,
       bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
@@ -140,6 +144,7 @@ describe("IAM member service", () => {
         throw new Error("unused");
       },
       update: async (member) => member,
+      assignRole: async () => null,
       acceptInvitation,
       bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
@@ -164,6 +169,7 @@ describe("IAM member service", () => {
         throw new Error("unused");
       },
       update: async (member) => member,
+      assignRole: async () => null,
       acceptInvitation,
       bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
     };
@@ -182,5 +188,57 @@ describe("IAM member service", () => {
       }),
     ).rejects.toBeInstanceOf(IamMemberValidationError);
     expect(acceptInvitation).not.toHaveBeenCalled();
+  });
+
+  it("requires the dedicated role permission and delegates a role change", async () => {
+    const member = Object.freeze({
+      id: actorId,
+      oidcSubject: "keycloak-crm-user",
+      displayName: "Ana Pérez",
+      email: "ana@example.test",
+      status: "ACTIVE" as const,
+      authorizationRevision: 2n,
+      createdAt: now,
+      updatedAt: now,
+      deactivatedAt: null,
+    });
+    const assignRole = vi.fn(async () =>
+      Object.freeze({ ...member, authorizationRevision: 3n, updatedAt: now }),
+    );
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => member,
+      findByOidcSubject: async () => null,
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (value) => value,
+      assignRole,
+      acceptInvitation: async () => null,
+      bootstrapInitialAdministrator: async ({ member: value }) => ({
+        member: value,
+        replayed: false,
+      }),
+    };
+    const service = new IamMemberService(repository, () => now);
+
+    await expect(
+      service.updateProfile({
+        actor: { memberId: actorId, permissions: ["iam:members:update"] },
+        memberId: actorId,
+        roleCode: "SUPERVISOR",
+      }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+    await expect(
+      service.updateProfile({
+        actor: {
+          memberId: actorId,
+          permissions: ["iam:members:update", "iam:members:roles"],
+        },
+        memberId: actorId,
+        roleCode: "SUPERVISOR",
+      }),
+    ).resolves.toMatchObject({ authorizationRevision: 3n });
+    expect(assignRole).toHaveBeenCalledWith({ memberId: actorId, roleCode: "SUPERVISOR", now });
   });
 });
