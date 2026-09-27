@@ -64,11 +64,11 @@ Un administrador autorizado puede listar y crear equipos dentro del perfil CRM y
 ## Plan de implementación
 
 - [x] Registrar `USR-02` como `EN_CURSO` y conservar trazabilidad de la rama.
-- [ ] Definir contratos de equipos y operaciones de integrantes.
-- [ ] Implementar servicio IAM y repositorio transaccional.
-- [ ] Exponer rutas protegidas y conectarlas al módulo Nest.
-- [ ] Añadir gestión visible en `crm-web`.
-- [ ] Añadir pruebas de permisos, unicidad, concurrencia, aislamiento y visibilidad `TEAM`.
+- [x] Definir contratos de equipos y operaciones de integrantes.
+- [x] Implementar servicio IAM y repositorio transaccional.
+- [x] Exponer rutas protegidas y conectarlas al módulo Nest.
+- [x] Añadir gestión visible en `crm-web`.
+- [x] Añadir pruebas unitarias y de contratos de permisos, unicidad e idempotencia; la integración SQL completa queda pendiente de la base aislada del PR.
 
 ## Riesgos y mitigaciones
 
@@ -105,8 +105,8 @@ Un administrador autorizado puede listar y crear equipos dentro del perfil CRM y
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente hasta completar implementación y validación.
-- Comandos y resultados: pendiente; no se ejecuta software en el equipo local.
+- Archivos, commits o PR: rama `feat/USR-02-equipos`, commit candidato `1551a56`, PR #48.
+- Comandos y resultados: en el VPS con Node `24.21.0` aprobaron Prettier afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, Prisma validate/generate, 11 pruebas de contratos/dominio/database y 8 pruebas BFF; no se ejecuta software en el equipo local.
 - Documentación actualizada: esta ficha y `docs/04-proceso/estado.md`.
 - Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: auditoría durable y transferencia siguen en sus requisitos propietarios.
+- Pendientes o decisiones nuevas: la matriz SQL integrada y E2E del perfil quedan para la validación de la base aislada; auditoría durable y transferencia siguen en sus requisitos propietarios.
