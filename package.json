@@ -24,7 +24,7 @@
     "config:check": "vitest run packages/config/src",
     "db:check": "pnpm --filter @quantum-crm/database db:check",
     "test": "vitest run tests/unit apps packages",
-    "test:integration": "vitest run tests/integration",
+    "test:integration": "vitest run tests/integration --fileParallelism=false",
     "test:architecture": "vitest run tests/architecture",
     "test:e2e:admin": "playwright test tests/e2e/admin-auth.spec.ts --project=chromium",
     "build": "pnpm -r --workspace-concurrency=1 --if-present build",

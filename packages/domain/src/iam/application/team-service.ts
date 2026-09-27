@@ -1,10 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  createIamTeam,
-  IamTeamValidationError,
-  type IamTeam,
-} from "../domain/team.js";
+import { createIamTeam, IamTeamValidationError, type IamTeam } from "../domain/team.js";
 import { IamAuthorizationError, type IamActor } from "./member-service.js";
 import type { IamTeamRepository } from "./team-repository.js";
 
@@ -29,7 +25,10 @@ export class IamTeamConflictError extends Error {
   }
 }
 
-function requirePermission(actor: IamActor, permission: "iam:teams:read" | "iam:teams:create" | "iam:teams:update"): void {
+function requirePermission(
+  actor: IamActor,
+  permission: "iam:teams:read" | "iam:teams:create" | "iam:teams:update",
+): void {
   if (!actor.permissions.includes(permission)) throw new IamAuthorizationError();
 }
 
@@ -50,7 +49,10 @@ export class IamTeamService {
     return this.repository.list();
   }
 
-  public async create(input: { readonly actor: IamActor; readonly name: string }): Promise<IamTeam> {
+  public async create(input: {
+    readonly actor: IamActor;
+    readonly name: string;
+  }): Promise<IamTeam> {
     requirePermission(input.actor, "iam:teams:create");
     const team = createIamTeam({ id: randomUUID(), name: input.name, now: this.clock() });
     const created = await this.repository.create(team);
