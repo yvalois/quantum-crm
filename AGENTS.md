@@ -82,7 +82,7 @@ Antes de modificar codigo o documentacion:
 - Los pull requests no reciben secretos ni acceso al VPS; las actions externas se fijan por SHA completo y usan permisos minimos.
 - Los workflows solo solicitan operaciones tipadas a `admin-api`; `deploy-executor` es el unico componente que ejecuta Docker, migraciones y cambios de Caddy.
 - El equipo local del propietario se usa solo para leer, editar y operar Git; no se ejecutan alli gestores de paquetes, scripts del repositorio, pruebas, lint, typecheck, builds, generadores, Prisma, navegadores E2E, Docker ni Compose.
-- Toda ejecucion tecnica manual ocurre en el VPS de desarrollo o pruebas autorizado. El VPS ejecuta solo comprobaciones afectadas y operativas; GitHub Actions ejecuta una unica matriz completa sobre el commit candidato consolidado.
+- Toda ejecucion tecnica manual ocurre en el VPS de desarrollo o pruebas autorizado. El commit candidato se transfiere y valida primero en el VPS; solo despues se publica en GitHub. El VPS ejecuta solo comprobaciones afectadas y operativas; GitHub Actions ejecuta una unica matriz completa sobre el commit candidato ya validado.
 - Antes de ejecutar una comprobacion se busca evidencia vigente del mismo commit, alcance, entorno y entradas. No se repite una prueba, build, migracion, despliegue o smoke ya aprobado sin una causa tecnica concreta registrada.
 - Un cambio exclusivo de documentacion, estado, enlaces o texto del PR no invalida evidencia tecnica ni autoriza reconstruir o redesplegar. La frecuencia y secuencia obligatorias cumplen `docs/05-reglas/15-ejecucion-verificaciones-vps.md`.
 - Rollback de aplicacion, migracion correctiva y restauracion de datos son operaciones diferentes y no se sustituyen automaticamente entre si.

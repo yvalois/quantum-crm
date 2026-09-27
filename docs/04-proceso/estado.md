@@ -89,3 +89,5 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 ## Regla de mantenimiento
 
 Una fila activa se actualiza cuando cambia el estado o al finalizar una sesion de trabajo. Al cerrar, se elimina de `En curso`, se agrega a `Terminado` con evidencia y se actualizan las casillas correspondientes del checklist.
+
+Regla operativa vigente: el commit exacto se valida primero en el VPS y solo despues se publica en GitHub; el equipo local se limita a edicion y Git.
