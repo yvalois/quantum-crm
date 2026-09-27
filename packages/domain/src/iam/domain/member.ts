@@ -12,6 +12,17 @@ export interface CommercialActor {
 }
 export const initialRoleCodes = ["ADMINISTRATOR", "SUPERVISOR", "ADVISOR"] as const;
 export type InitialRoleCode = (typeof initialRoleCodes)[number];
+export type RoleCode = InitialRoleCode | `CUSTOM_${string}`;
+export interface IamRole {
+  readonly id: string;
+  readonly code: RoleCode;
+  readonly displayName: string;
+  readonly system: boolean;
+  readonly authorizationRevision: bigint;
+  readonly permissions: readonly IamPermission[];
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
 export type MemberStatus = "INVITED" | "ACTIVE" | "DEACTIVATED";
 export type InvitationStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
 
@@ -65,6 +76,65 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:tasks:update",
       ]);
   }
+}
+
+const customRoleCodePattern = /^CUSTOM_[A-Z0-9_]{1,71}$/u;
+
+export function isRoleCode(value: string): value is RoleCode {
+  return initialRoleCodes.includes(value as InitialRoleCode) || customRoleCodePattern.test(value);
+}
+
+export function createCustomRole(input: {
+  readonly id: string;
+  readonly code: RoleCode;
+  readonly displayName: string;
+  readonly permissions: readonly IamPermission[];
+  readonly now: Date;
+}): IamRole {
+  requireUuid(input.id);
+  requireDate(input.now);
+  if (!customRoleCodePattern.test(input.code)) throw new IamMemberValidationError();
+  const displayName = input.displayName.trim();
+  if (displayName.length < 1 || displayName.length > 160) throw new IamMemberValidationError();
+  const permissions = [...new Set(input.permissions)];
+  if (permissions.some((permission) => !iamPermissions.includes(permission))) {
+    throw new IamMemberValidationError();
+  }
+  return Object.freeze({
+    id: input.id,
+    code: input.code,
+    displayName,
+    system: false,
+    authorizationRevision: 1n,
+    permissions: Object.freeze(permissions),
+    createdAt: input.now,
+    updatedAt: input.now,
+  });
+}
+
+export function updateCustomRole(input: {
+  readonly role: IamRole;
+  readonly displayName?: string;
+  readonly permissions?: readonly IamPermission[];
+  readonly now: Date;
+}): IamRole {
+  if (input.role.system || (input.displayName === undefined && input.permissions === undefined)) {
+    throw new IamMemberValidationError();
+  }
+  requireDate(input.now);
+  const displayName = input.displayName === undefined ? input.role.displayName : input.displayName.trim();
+  if (displayName.length < 1 || displayName.length > 160) throw new IamMemberValidationError();
+  const permissions = input.permissions === undefined ? input.role.permissions : [...new Set(input.permissions)];
+  if (permissions.some((permission) => !iamPermissions.includes(permission))) {
+    throw new IamMemberValidationError();
+  }
+  return Object.freeze({
+    ...input.role,
+    displayName,
+    permissions: Object.freeze(permissions),
+    authorizationRevision: input.role.authorizationRevision + 1n,
+    updatedAt: input.now,
+  });
 }
 
 export class IamMemberValidationError extends Error {

@@ -20,6 +20,11 @@ import {
   MemberListResponseSchema,
   MemberResponseSchema,
   UpdateMemberSchema,
+  CreateRoleSchema,
+  RoleListResponseSchema,
+  RoleResponseSchema,
+  RoleIdSchema,
+  UpdateRoleSchema,
   UpdateContactSchema,
   MoveOpportunitySchema,
   OpportunityListResponseSchema,
@@ -872,6 +877,93 @@ export async function handleCrmMemberDeactivation(
       },
     );
     return memberMutationResponse(upstream, MemberResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmRoleList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(new URL("/api/v1/roles", runtime.config.crmApiOrigin), {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+        "x-correlation-id": authorized.correlationId,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return commercialResponse(upstream, RoleListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmRoleCreate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = CreateRoleSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(new URL("/api/v1/roles", runtime.config.crmApiOrigin), {
+      method: "POST",
+      headers: memberMutationHeaders(authorized),
+      body: JSON.stringify(payload.data),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return memberMutationResponse(upstream, RoleResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmRoleUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  roleId: string,
+): Promise<Response> {
+  const parsedRoleId = RoleIdSchema.safeParse(roleId);
+  if (!parsedRoleId.success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = UpdateRoleSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/roles/${parsedRoleId.data}`, runtime.config.crmApiOrigin),
+      {
+        method: "PATCH",
+        headers: memberMutationHeaders(authorized),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return memberMutationResponse(upstream, RoleResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }

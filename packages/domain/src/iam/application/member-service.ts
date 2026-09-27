@@ -10,7 +10,7 @@ import {
   type IamInvitation,
   type IamMember,
   type IamPermission,
-  type InitialRoleCode,
+  type RoleCode,
 } from "../domain/member.js";
 import type { IamMemberPage, IamMemberRepository } from "./member-repository.js";
 
@@ -88,7 +88,7 @@ export class IamMemberService {
     readonly actor: IamActor;
     readonly displayName: string;
     readonly email: string;
-    readonly roleCode: InitialRoleCode;
+    readonly roleCode: RoleCode;
     readonly idempotencyKey: string;
   }): Promise<{
     readonly member: IamMember;
@@ -130,7 +130,7 @@ export class IamMemberService {
     readonly memberId: string;
     readonly displayName?: string;
     readonly email?: string;
-    readonly roleCode?: InitialRoleCode;
+    readonly roleCode?: RoleCode;
   }): Promise<IamMember> {
     requirePermission(input.actor, "iam:members:update");
     if (input.roleCode !== undefined) requirePermission(input.actor, "iam:members:roles");

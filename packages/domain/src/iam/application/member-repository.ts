@@ -1,4 +1,4 @@
-import type { IamInvitation, IamMember, InitialRoleCode } from "../domain/member.js";
+import type { IamInvitation, IamMember, RoleCode } from "../domain/member.js";
 
 export interface IamMemberPage {
   readonly members: readonly IamMember[];
@@ -19,7 +19,7 @@ export interface IamMemberRepository {
     readonly invitationTokenHash: string;
     readonly createdByMemberId: string;
     readonly idempotencyKey: string;
-    readonly roleCode: InitialRoleCode;
+    readonly roleCode: RoleCode;
   }): Promise<{
     readonly member: IamMember;
     readonly invitation: IamInvitation;
@@ -28,7 +28,7 @@ export interface IamMemberRepository {
   update(member: IamMember): Promise<IamMember>;
   assignRole(input: {
     readonly memberId: string;
-    readonly roleCode: InitialRoleCode;
+    readonly roleCode: RoleCode;
     readonly now: Date;
   }): Promise<IamMember | null>;
   /**

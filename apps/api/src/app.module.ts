@@ -6,7 +6,7 @@ import {
   type OidcAccessTokenVerifier,
 } from "@quantum-crm/auth";
 import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/database";
-import { ContactService, IamMemberService, SalesService, TaskService } from "@quantum-crm/domain";
+import { ContactService, IamMemberService, IamRoleService, SalesService, TaskService } from "@quantum-crm/domain";
 
 import {
   CrmAuthenticationGuard,
@@ -16,6 +16,7 @@ import {
 } from "./crm-security.js";
 import { HealthController } from "./health.controller.js";
 import { IAM_MEMBER_SERVICE, MembersController } from "./members.controller.js";
+import { IAM_ROLE_SERVICE, RolesController } from "./roles.controller.js";
 import { CONTACT_SERVICE, ContactsController } from "./contacts.controller.js";
 import { SALES_SERVICE, SalesController } from "./sales.controller.js";
 import { TASK_SERVICE, TasksController } from "./tasks.controller.js";
@@ -40,6 +41,7 @@ export class AppModule {
       controllers: [
         HealthController,
         MembersController,
+        RolesController,
         ContactsController,
         SalesController,
         TasksController,
@@ -57,6 +59,7 @@ export class AppModule {
         },
         BootstrapServiceGuard,
         { provide: IAM_MEMBER_SERVICE, useFactory: () => new IamMemberService(database.members) },
+        { provide: IAM_ROLE_SERVICE, useFactory: () => new IamRoleService(database.roles) },
         {
           provide: IAM_INVITATION_ACTIVATION_REPOSITORY,
           useValue: database.invitationActivations,

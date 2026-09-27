@@ -6,6 +6,8 @@ import type {
   IamMember,
   IamMemberPage,
   IamMemberRepository,
+  IamRoleRepository,
+  IamRole,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
@@ -24,6 +26,7 @@ import {
 
 export interface CrmPostgresDatabase extends PostgresDatabase {
   readonly members: IamMemberRepository;
+  readonly roles: IamRoleRepository;
   readonly invitationActivations: IamInvitationActivationRepository;
   readonly memberships: CrmMembershipRepository;
   readonly commercial: CommercialPostgresRepositories;
@@ -74,6 +77,17 @@ interface IamInvitationRow {
   readonly activation_expires_at?: Date | null;
 }
 
+interface IamRoleRow {
+  readonly id: string;
+  readonly code: string;
+  readonly display_name: string;
+  readonly system: boolean;
+  readonly authorization_revision: string;
+  readonly created_at: Date;
+  readonly updated_at: Date;
+  readonly permissions: readonly string[];
+}
+
 const memberSelection = `
   id::text,
   oidc_subject,
@@ -84,6 +98,21 @@ const memberSelection = `
   created_at,
   updated_at,
   deactivated_at
+`;
+
+const roleSelection = `
+  role.id::text,
+  role.code,
+  role.display_name,
+  role.system,
+  role.authorization_revision::text,
+  role.created_at,
+  role.updated_at,
+  COALESCE(
+    array_agg(permission.permission ORDER BY permission.permission)
+      FILTER (WHERE permission.permission IS NOT NULL),
+    ARRAY[]::text[]
+  ) AS permissions
 `;
 
 function memberStatus(value: string): IamMember["status"] {
@@ -116,6 +145,22 @@ function memberFromRow(row: IamMemberRow): IamMember {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deactivatedAt: row.deactivated_at,
+  });
+}
+
+function roleFromRow(row: IamRoleRow): IamRole {
+  if (!/^CUSTOM_[A-Z0-9_]{1,71}$|^(ADMINISTRATOR|SUPERVISOR|ADVISOR)$/u.test(row.code)) {
+    throw new DatabaseUnavailableError();
+  }
+  return Object.freeze({
+    id: row.id,
+    code: row.code as IamRole["code"],
+    displayName: row.display_name,
+    system: row.system,
+    authorizationRevision: BigInt(row.authorization_revision),
+    permissions: Object.freeze([...row.permissions] as IamRole["permissions"]),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   });
 }
 
@@ -562,6 +607,113 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
   });
 }
 
+function createIamRoleRepository(pool: PostgresPool): IamRoleRepository {
+  return Object.freeze({
+    list: async (): Promise<readonly IamRole[]> => {
+      try {
+        const result = (await pool.query(
+          `SELECT ${roleSelection}
+             FROM iam.roles AS role
+             LEFT JOIN iam.role_permissions AS permission ON permission.role_id = role.id
+            GROUP BY role.id
+            ORDER BY role.system DESC, role.display_name ASC, role.id ASC`,
+        )) as { readonly rows: readonly IamRoleRow[] };
+        return Object.freeze(result.rows.map(roleFromRow));
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    findById: async (roleId: string): Promise<IamRole | null> => {
+      try {
+        const result = (await pool.query(
+          `SELECT ${roleSelection}
+             FROM iam.roles AS role
+             LEFT JOIN iam.role_permissions AS permission ON permission.role_id = role.id
+            WHERE role.id = $1::uuid
+            GROUP BY role.id`,
+          [roleId],
+        )) as { readonly rows: readonly IamRoleRow[] };
+        return result.rows[0] ? roleFromRow(result.rows[0]) : null;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    create: async (role: IamRole): Promise<IamRole> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query(
+          `INSERT INTO iam.roles (id, code, display_name, system, authorization_revision, created_at, updated_at)
+           VALUES ($1::uuid, $2, $3, false, $4::bigint, $5, $5)`,
+          [role.id, role.code, role.displayName, role.authorizationRevision.toString(), role.createdAt],
+        );
+        for (const permission of role.permissions) {
+          await client.query(
+            `INSERT INTO iam.role_permissions (role_id, permission) VALUES ($1::uuid, $2)`,
+            [role.id, permission],
+          );
+        }
+        await client.query("COMMIT");
+        return role;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        if (isUniqueViolation(error)) throw new IamMemberConflictError();
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
+    update: async (role: IamRole): Promise<IamRole | null> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const current = (await client.query(
+          `SELECT id::text, system FROM iam.roles WHERE id = $1::uuid FOR UPDATE`,
+          [role.id],
+        )) as { readonly rows: readonly { readonly id: string; readonly system: boolean }[] };
+        if (!current.rows[0]) {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        if (current.rows[0].system) throw new IamMemberConflictError();
+        const updated = (await client.query(
+          `UPDATE iam.roles
+              SET display_name = $2, authorization_revision = $3::bigint, updated_at = $4
+            WHERE id = $1::uuid AND system = false AND authorization_revision < $3::bigint
+            RETURNING id::text`,
+          [role.id, role.displayName, role.authorizationRevision.toString(), role.updatedAt],
+        )) as { readonly rowCount: number | null };
+        if (updated.rowCount !== 1) throw new IamMemberConflictError();
+        await client.query(`DELETE FROM iam.role_permissions WHERE role_id = $1::uuid`, [role.id]);
+        for (const permission of role.permissions) {
+          await client.query(
+            `INSERT INTO iam.role_permissions (role_id, permission) VALUES ($1::uuid, $2)`,
+            [role.id, permission],
+          );
+        }
+        await client.query(
+          `UPDATE iam.members
+              SET authorization_revision = authorization_revision + 1, updated_at = $2
+            WHERE id IN (SELECT member_id FROM iam.member_roles WHERE role_id = $1::uuid)`,
+          [role.id, role.updatedAt],
+        );
+        await client.query("COMMIT");
+        return role;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
+          throw new IamMemberConflictError();
+        }
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
+  });
+}
+
 function createIamInvitationActivationRepository(
   pool: PostgresPool,
 ): IamInvitationActivationRepository {
@@ -711,6 +863,7 @@ export function createCrmPostgresDatabase(
   return Object.freeze({
     ...createPostgresDatabaseFromPool(pool),
     members: createIamMemberRepository(pool),
+    roles: createIamRoleRepository(pool),
     invitationActivations: createIamInvitationActivationRepository(pool),
     memberships: createCrmMembershipRepository(pool),
     commercial: createCommercialPostgresRepositories(pool),
