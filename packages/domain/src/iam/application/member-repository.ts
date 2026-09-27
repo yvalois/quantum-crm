@@ -26,9 +26,13 @@ export interface IamMemberRepository {
     readonly replayed: boolean;
   }>;
   update(member: IamMember): Promise<IamMember>;
+  /**
+   * Internal completion after Keycloak has already validated the one-use
+   * activation action. The invitation token and its hash are intentionally
+   * not part of this command or any caller-visible result.
+   */
   acceptInvitation(input: {
     readonly invitationId: string;
-    readonly invitationTokenHash: string;
     readonly oidcSubject: string;
     readonly now: Date;
   }): Promise<IamMember | null>;

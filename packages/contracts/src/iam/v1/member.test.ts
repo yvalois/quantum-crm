@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { CreateMemberInvitationSchema, UpdateMemberSchema } from "./member.js";
+import {
+  AcceptInvitationParamsSchema,
+  AcceptInvitationResponseSchema,
+  CreateMemberInvitationSchema,
+  UpdateMemberSchema,
+} from "./member.js";
 
 describe("member contracts", () => {
   it("normalizes an invitation email without accepting an empty name", () => {
@@ -27,5 +32,14 @@ describe("member contracts", () => {
     expect(UpdateMemberSchema.parse({ displayName: "Ana Gómez" })).toEqual({
       displayName: "Ana Gómez",
     });
+  });
+
+  it("keeps invitation acceptance identity-free at the HTTP boundary", () => {
+    const invitationId = "01995f7e-7b52-7000-8000-000000000202";
+    expect(AcceptInvitationParamsSchema.parse({ invitationId })).toEqual({ invitationId });
+    expect(
+      AcceptInvitationParamsSchema.safeParse({ invitationId, oidcSubject: "forged" }).success,
+    ).toBe(false);
+    expect(AcceptInvitationResponseSchema.shape.data.shape.status).toBeDefined();
   });
 });

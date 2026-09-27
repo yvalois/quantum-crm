@@ -277,7 +277,8 @@ function assertBootstrapClient(client: KeycloakClient): string {
     typeof config !== "object" ||
     config === null ||
     (config as Record<string, unknown>)["claim.name"] !== "scope" ||
-    (config as Record<string, unknown>)["claim.value"] !== "iam:bootstrap-initial-administrator" ||
+    (config as Record<string, unknown>)["claim.value"] !==
+      "iam:bootstrap-initial-administrator iam:accept-member-invitation" ||
     typeof audience !== "object" ||
     audience === null ||
     (audience as Record<string, unknown>).protocolMapper !== "oidc-audience-mapper" ||
@@ -364,7 +365,7 @@ function bootstrapClientRepresentation(): Record<string, unknown> {
         protocolMapper: "oidc-hardcoded-claim-mapper",
         config: {
           "claim.name": "scope",
-          "claim.value": "iam:bootstrap-initial-administrator",
+          "claim.value": "iam:bootstrap-initial-administrator iam:accept-member-invitation",
           "access.token.claim": "true",
           "id.token.claim": "false",
           "userinfo.token.claim": "false",
@@ -553,6 +554,28 @@ async function provisionBootstrapClient(
       clientsUrl,
       { method: "POST", headers, body: JSON.stringify(bootstrapClientRepresentation()) },
       [201, 409],
+    );
+    clients = await request(clientsUrl, { headers }, [200]);
+  } else {
+    const existing = clients.body[0];
+    const existingId =
+      typeof existing === "object" && existing !== null
+        ? (existing as Record<string, unknown>).id
+        : undefined;
+    if (typeof existingId !== "string" || !uuidPattern.test(existingId)) {
+      throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+    }
+    await request(
+      new URL(
+        `/admin/realms/${encodeURIComponent(realmName)}/clients/${encodeURIComponent(existingId)}`,
+        adminOrigin,
+      ),
+      {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ ...bootstrapClientRepresentation(), id: existingId }),
+      },
+      [204],
     );
     clients = await request(clientsUrl, { headers }, [200]);
   }

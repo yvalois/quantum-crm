@@ -70,6 +70,7 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 - [x] Generalizar de forma segura las primitivas de sesión/OIDC y añadir la composición exclusiva de CRM: namespace Redis por perfil, cliente OIDC CRM, sesión opaca, PKCE, CSRF y BFF de lectura con ruta upstream fija.
 - [x] Conectar autorización CRM en API y el BFF protegido de `crm-web`; la configuración real del realm, cliente y secretos continúa en `ADM-04`.
 - [ ] Completar la administración visual de miembros y el flujo de aceptación.
+- [x] Establecer la frontera interna de activación: comando IAM sin token, contrato de servicio con permiso dedicado y correlación durable por invitación/sujeto/generación.
 - [ ] Extender `ADM-04` con aprovisionamiento idempotente del realm, cliente y administrador inicial, sin exponer administración Keycloak al CRM.
 - [ ] Añadir pruebas proporcionales de dominio, contrato, aislamiento, revocación e invitación de un único uso.
 - [x] Ejecutar una única verificación afectada en VPS; la matriz CI del commit candidato continúa pendiente antes de integrar.
@@ -109,8 +110,8 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: `d9a1fbc` y `21f805d` en `feat/USR-01-sesion-crm`; PR y matriz CI pendientes.
+- Archivos, commits o PR: base IAM y sesión/BFF previas; en `feat/USR-01-activacion-miembros` se añaden `8f2560b` (contrato/ruta inicial, posteriormente restringida al límite interno), el comando `acceptConfirmedInvitation`, la migración `20260927010000_usr_01_invitation_activation_metadata`, el puerto/adaptador de metadatos y el permiso de servicio dedicado. PR y matriz CI pendientes.
 - Comandos y resultados: en el VPS, Prettier de los archivos afectados y typecheck de `config`, `auth`, `admin-web` y `crm-web` aprobados. Las pruebas existentes afectadas y `apps/crm-web/src/server/crm-auth-http.test.ts` aprobaron; esta última ejecutó 4 pruebas. No se ejecutó ninguna comprobación técnica local.
-- Documentación actualizada: ficha y `estado.md` mantienen `USR-01` en `EN_CURSO`; se registra la base IAM y la sesión/BFF CRM sin afirmar que el flujo completo está cerrado.
-- Desviaciones del plan: no se desplegó ni se probó contra un realm real; `ADM-04` aún debe aprovisionar realm, cliente, administrador inicial y archivos secretos por perfil.
-- Pendientes o decisiones nuevas: interfaz completa de miembros, invitación, aceptación, revocación, realm real y pruebas de aislamiento de dos perfiles siguen abiertos; `USR-03` a `USR-10` no se consideran terminados.
+- Documentación actualizada: ficha, `estado.md` y `ADR-0023` mantienen `USR-01` en `EN_CURSO`; se registra la frontera de servicio, la correlación durable y el vínculo JTI/invitación del proveedor Keycloak sin afirmar que el flujo completo está cerrado.
+- Desviaciones del plan: no se desplegó ni se probó contra un realm real; `ADM-04` aún debe aprovisionar realm, cliente, administrador inicial y archivos secretos por perfil. La ruta de aceptación se mantiene exclusivamente interna; no existe una ruta de navegador que pueda activar una membresía por identificador.
+- Pendientes o decisiones nuevas: emisor Keycloak para invitaciones, reconciliación de usuarios, entrega efímera del enlace, consumidor de estado y entrada de sesión CRM siguen abiertos; interfaz completa de miembros, revocación, realm real y pruebas de aislamiento de dos perfiles siguen abiertos; `USR-03` a `USR-10` no se consideran terminados.

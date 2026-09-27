@@ -3,6 +3,7 @@ package com.quantumcrm.keycloak.activation;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.Map;
 import org.keycloak.Config;
 import org.keycloak.authentication.RequiredActionContext;
@@ -36,12 +37,14 @@ public final class QuantumActivationCompletionRequiredAction
       .get("qcrm:activation:jti:" + jti);
     // The single-use entry TTL is authoritative. Replacing only its status
     // preserves its original expiry while making status polling monotonic.
+    Map<String, String> consumed = new HashMap<>();
+    consumed.put("generation", issued.get("generation"));
+    consumed.put("status", "consumed");
+    consumed.put("jtiHash", issued.get("jtiHash"));
+    if (issued.get("invitationId") != null) consumed.put("invitationId", issued.get("invitationId"));
     if (!context.getSession().singleUseObjects().replace(
       "qcrm:activation:jti:" + jti,
-      Map.of(
-        "generation", issued.get("generation"),
-        "status", "consumed",
-        "jtiHash", issued.get("jtiHash")))) {
+      consumed)) {
       context.failure();
       return;
     }

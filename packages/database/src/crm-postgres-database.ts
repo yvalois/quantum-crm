@@ -1,5 +1,7 @@
 import type { DatabaseConfig } from "@quantum-crm/config";
 import type {
+  IamInvitationActivation,
+  IamInvitationActivationRepository,
   IamInvitation,
   IamMember,
   IamMemberPage,
@@ -22,6 +24,7 @@ import {
 
 export interface CrmPostgresDatabase extends PostgresDatabase {
   readonly members: IamMemberRepository;
+  readonly invitationActivations: IamInvitationActivationRepository;
   readonly memberships: CrmMembershipRepository;
   readonly commercial: CommercialPostgresRepositories;
 }
@@ -65,6 +68,10 @@ interface IamInvitationRow {
   readonly expires_at: Date;
   readonly accepted_at: Date | null;
   readonly created_at: Date;
+  readonly activation_subject?: string | null;
+  readonly activation_generation?: number;
+  readonly activation_issued_at?: Date | null;
+  readonly activation_expires_at?: Date | null;
 }
 
 const memberSelection = `
@@ -123,6 +130,27 @@ function invitationFromRow(row: IamInvitationRow): IamInvitation {
   });
 }
 
+function invitationActivationFromRow(row: IamInvitationRow): IamInvitationActivation {
+  const generation = row.activation_generation;
+  if (
+    !row.activation_subject ||
+    typeof generation !== "number" ||
+    !Number.isInteger(generation) ||
+    generation < 1 ||
+    !row.activation_issued_at ||
+    !row.activation_expires_at
+  ) {
+    throw new DatabaseUnavailableError();
+  }
+  return Object.freeze({
+    invitationId: row.id,
+    oidcSubject: row.activation_subject,
+    generation,
+    issuedAt: row.activation_issued_at,
+    expiresAt: row.activation_expires_at,
+  });
+}
+
 function encodeCursor(member: IamMember): string {
   return Buffer.from(
     JSON.stringify({
@@ -160,6 +188,23 @@ function decodeCursor(value: string): {
 
 function isUniqueViolation(error: unknown): boolean {
   return (error as { readonly code?: unknown }).code === "23505";
+}
+
+function validInvitationActivationInput(
+  input: Parameters<IamInvitationActivationRepository["recordIssued"]>[0],
+): boolean {
+  return (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+      input.invitationId,
+    ) &&
+    /^[!-~]{1,255}$/u.test(input.oidcSubject) &&
+    Number.isInteger(input.generation) &&
+    input.generation > 0 &&
+    input.expiresAt instanceof Date &&
+    !Number.isNaN(input.expiresAt.getTime()) &&
+    input.now instanceof Date &&
+    !Number.isNaN(input.now.getTime())
+  );
 }
 
 function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
@@ -363,10 +408,10 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             SELECT invitation.id::text, invitation.member_id::text, invitation.status::text,
                    invitation.expires_at, invitation.accepted_at, invitation.created_at
             FROM iam.invitations AS invitation
-            WHERE invitation.id = $1::uuid AND invitation.token_hash = $2
+            WHERE invitation.id = $1::uuid
             FOR UPDATE
           `,
-          [input.invitationId, input.invitationTokenHash],
+          [input.invitationId],
         )) as { readonly rows: readonly IamInvitationRow[] };
         const invitation = found.rows[0];
         if (!invitation || invitationStatus(invitation.status) !== "PENDING") {
@@ -470,6 +515,90 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
   });
 }
 
+function createIamInvitationActivationRepository(
+  pool: PostgresPool,
+): IamInvitationActivationRepository {
+  return Object.freeze<IamInvitationActivationRepository>({
+    recordIssued: async (input) => {
+      if (!validInvitationActivationInput(input)) throw new IamMemberConflictError();
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const found = (await client.query(
+          `
+            SELECT invitation.id::text, invitation.member_id::text, invitation.status::text,
+                   invitation.expires_at, invitation.accepted_at, invitation.created_at,
+                   invitation.activation_subject, invitation.activation_generation,
+                   invitation.activation_issued_at, invitation.activation_expires_at
+            FROM iam.invitations AS invitation
+            WHERE invitation.id = $1::uuid
+            FOR UPDATE
+          `,
+          [input.invitationId],
+        )) as { readonly rows: readonly IamInvitationRow[] };
+        const invitation = found.rows[0];
+        if (!invitation || invitationStatus(invitation.status) !== "PENDING") {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        if (invitation.expires_at <= input.now) {
+          await client.query(`UPDATE iam.invitations SET status = 'expired' WHERE id = $1::uuid`, [
+            input.invitationId,
+          ]);
+          await client.query("COMMIT");
+          return null;
+        }
+        if (input.expiresAt <= input.now || input.expiresAt > invitation.expires_at) {
+          throw new IamMemberConflictError();
+        }
+        const currentGeneration = invitation.activation_generation ?? 0;
+        if (currentGeneration === input.generation) {
+          if (invitation.activation_subject !== input.oidcSubject) {
+            throw new IamMemberConflictError();
+          }
+          await client.query("COMMIT");
+          return Object.freeze({
+            activation: invitationActivationFromRow(invitation),
+            replayed: true,
+          });
+        }
+        if (
+          input.generation !== currentGeneration + 1 ||
+          (invitation.activation_subject !== null &&
+            invitation.activation_subject !== input.oidcSubject)
+        ) {
+          throw new IamMemberConflictError();
+        }
+        const recorded = (await client.query(
+          `
+            UPDATE iam.invitations
+            SET activation_subject = $2, activation_generation = $3,
+                activation_issued_at = $4, activation_expires_at = $5
+            WHERE id = $1::uuid
+            RETURNING id::text, member_id::text, status::text, expires_at, accepted_at, created_at,
+                      activation_subject, activation_generation, activation_issued_at,
+                      activation_expires_at
+          `,
+          [input.invitationId, input.oidcSubject, input.generation, input.now, input.expiresAt],
+        )) as { readonly rows: readonly IamInvitationRow[] };
+        const row = recorded.rows[0];
+        if (!row) throw new IamMemberConflictError();
+        await client.query("COMMIT");
+        return Object.freeze({ activation: invitationActivationFromRow(row), replayed: false });
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
+          throw new IamMemberConflictError();
+        }
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
+  });
+}
+
 function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipRepository {
   return Object.freeze({
     findAuthorizationByOidcSubject: async (
@@ -535,6 +664,7 @@ export function createCrmPostgresDatabase(
   return Object.freeze({
     ...createPostgresDatabaseFromPool(pool),
     members: createIamMemberRepository(pool),
+    invitationActivations: createIamInvitationActivationRepository(pool),
     memberships: createCrmMembershipRepository(pool),
     commercial: createCommercialPostgresRepositories(pool),
   });

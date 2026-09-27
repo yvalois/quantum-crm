@@ -16,7 +16,10 @@ export class BootstrapServiceGuard {
     @Inject(BOOTSTRAP_SERVICE_POLICY) private readonly policy: BootstrapServicePolicy,
   ) {}
 
-  public async assertAuthorized(header: string | undefined): Promise<void> {
+  public async assertAuthorized(
+    header: string | undefined,
+    requiredPermission: string = "iam:bootstrap-initial-administrator",
+  ): Promise<void> {
     const match =
       typeof header === "string" ? /^Bearer ([A-Za-z0-9._~+\/-]+=*)$/u.exec(header) : null;
     if (!match?.[1]) throw new UnauthorizedException();
@@ -26,7 +29,7 @@ export class BootstrapServiceGuard {
         identity.principalType !== "service" ||
         identity.clientId !== this.policy.clientId ||
         !identity.audiences.includes(this.policy.audience) ||
-        !identity.servicePermissions?.includes("iam:bootstrap-initial-administrator")
+        !identity.servicePermissions?.includes(requiredPermission)
       )
         throw new Error("bootstrap identity rejected");
     } catch {
