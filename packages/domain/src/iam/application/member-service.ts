@@ -6,6 +6,7 @@ import {
   createInvitedMember,
   deactivateMember,
   IamMemberValidationError,
+  isRoleCode,
   updateMemberProfile,
   type IamInvitation,
   type IamMember,
@@ -97,6 +98,7 @@ export class IamMemberService {
   }> {
     requirePermission(input.actor, "iam:members:create");
     if (!idempotencyKeyPattern.test(input.idempotencyKey)) throw new IamMemberValidationError();
+    if (!isRoleCode(input.roleCode)) throw new IamMemberValidationError();
     const now = this.clock();
     const member = createInvitedMember({
       id: randomUUID(),
@@ -133,6 +135,9 @@ export class IamMemberService {
     readonly roleCode?: RoleCode;
   }): Promise<IamMember> {
     requirePermission(input.actor, "iam:members:update");
+    if (input.roleCode !== undefined && !isRoleCode(input.roleCode)) {
+      throw new IamMemberValidationError();
+    }
     if (input.roleCode !== undefined) requirePermission(input.actor, "iam:members:roles");
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();

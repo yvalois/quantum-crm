@@ -101,9 +101,10 @@ export class RolesController {
       return RoleResponseSchema.parse({
         data: roleResponse(
           await this.service.update({
-            ...input,
             actor: actor(request),
             roleId: RoleIdSchema.parse(roleId),
+            ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+            ...(input.permissions === undefined ? {} : { permissions: input.permissions }),
           }),
         ),
       });

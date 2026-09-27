@@ -12,7 +12,7 @@ export interface CommercialActor {
 }
 export const initialRoleCodes = ["ADMINISTRATOR", "SUPERVISOR", "ADVISOR"] as const;
 export type InitialRoleCode = (typeof initialRoleCodes)[number];
-export type RoleCode = InitialRoleCode | `CUSTOM_${string}`;
+export type RoleCode = string;
 export interface IamRole {
   readonly id: string;
   readonly code: RoleCode;
