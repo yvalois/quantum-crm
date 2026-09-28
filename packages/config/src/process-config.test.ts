@@ -104,6 +104,7 @@ describe("process configuration", () => {
         database: { target: "crm", requiresTenant: true },
         oidc: { provider: "keycloak", boundary: "crm" },
         requiresIamBootstrapClient: true,
+        requiresIamBootstrapClientSecret: true,
       },
       "admin-api": {
         serviceName: "admin-api",

@@ -8,6 +8,7 @@ import { createCrmPostgresDatabase } from "@quantum-crm/database";
 import { iamPermissions } from "@quantum-crm/domain";
 
 import { AppModule } from "./app.module.js";
+import { createMemberActivationIssuer } from "./member-activation-issuer.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("api");
@@ -15,6 +16,14 @@ async function bootstrap(): Promise<void> {
   const oidcConfig = requireOidcConfig(config);
   const database = createCrmPostgresDatabase(databaseConfig, config.serviceName);
   const verifier = createKeycloakOidcAccessTokenVerifier(oidcConfig);
+  const activationIssuer = config.iamBootstrapClientSecret
+    ? createMemberActivationIssuer({
+        tenantProfileId: databaseConfig.tenantId!,
+        identityIssuer: oidcConfig.issuer,
+        clientId: config.iamBootstrapClientId!,
+        clientSecret: config.iamBootstrapClientSecret.expose(),
+      })
+    : undefined;
   let application: INestApplication | undefined;
 
   try {
@@ -30,6 +39,7 @@ async function bootstrap(): Promise<void> {
           allowedPermissions: iamPermissions,
         },
         config.iamBootstrapClientId!,
+        activationIssuer,
       ),
       {
         abortOnError: true,

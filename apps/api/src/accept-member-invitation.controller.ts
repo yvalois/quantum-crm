@@ -23,10 +23,11 @@ import { IamMemberConflictError as DatabaseConflictError } from "@quantum-crm/da
 import type { IamInvitationActivationRepository } from "@quantum-crm/domain";
 
 import { BootstrapServiceGuard } from "./bootstrap-service-security.js";
-import { CrmPublicRoute } from "./crm-security.js";
-import { IAM_MEMBER_SERVICE } from "./members.controller.js";
-
-export const IAM_INVITATION_ACTIVATION_REPOSITORY = Symbol("IAM_INVITATION_ACTIVATION_REPOSITORY");
+import {
+  CrmPublicRoute,
+  IAM_INVITATION_ACTIVATION_REPOSITORY,
+  IAM_MEMBER_SERVICE,
+} from "./crm-security.js";
 
 /**
  * Service-only completion boundary. Keycloak/deploy-executor calls this after

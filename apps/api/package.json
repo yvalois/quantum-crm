@@ -20,6 +20,7 @@
     "@quantum-crm/contracts": "workspace:*",
     "@quantum-crm/database": "workspace:*",
     "@quantum-crm/domain": "workspace:*",
+    "@quantum-crm/platform-domain": "workspace:*",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
   }

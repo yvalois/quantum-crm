@@ -20,9 +20,13 @@ import {
   CrmAuthorizationGuard,
   CRM_AUTH_POLICY,
   CRM_MEMBERSHIPS,
+  IAM_INVITATION_ACTIVATION_REPOSITORY,
+  IAM_MEMBER_SERVICE,
 } from "./crm-security.js";
 import { HealthController } from "./health.controller.js";
-import { IAM_MEMBER_SERVICE, MembersController } from "./members.controller.js";
+import { MembersController } from "./members.controller.js";
+import { MEMBER_ACTIVATION_ISSUER } from "./members.controller.js";
+import type { MemberActivationIssuer } from "./member-activation-issuer.js";
 import { IAM_ROLE_SERVICE, RolesController } from "./roles.controller.js";
 import { CONTACT_SERVICE, ContactsController } from "./contacts.controller.js";
 import { SALES_SERVICE, SalesController } from "./sales.controller.js";
@@ -30,10 +34,7 @@ import { TASK_SERVICE, TasksController } from "./tasks.controller.js";
 import { IAM_TEAM_SERVICE, TeamsController } from "./teams.controller.js";
 import { ProblemDetailsFilter } from "./problem-details.filter.js";
 import { BootstrapInitialAdministratorController } from "./bootstrap-initial-administrator.controller.js";
-import {
-  AcceptMemberInvitationController,
-  IAM_INVITATION_ACTIVATION_REPOSITORY,
-} from "./accept-member-invitation.controller.js";
+import { AcceptMemberInvitationController } from "./accept-member-invitation.controller.js";
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 
 @Module({})
@@ -43,6 +44,7 @@ export class AppModule {
     verifier: OidcAccessTokenVerifier,
     policy: CrmAuthPolicy,
     iamBootstrapClientId: "quantum-crm-bootstrap",
+    activationIssuer?: MemberActivationIssuer,
   ): DynamicModule {
     return {
       module: AppModule,
@@ -74,6 +76,7 @@ export class AppModule {
           provide: IAM_INVITATION_ACTIVATION_REPOSITORY,
           useValue: database.invitationActivations,
         },
+        { provide: MEMBER_ACTIVATION_ISSUER, useValue: activationIssuer },
         {
           provide: CONTACT_SERVICE,
           useFactory: () => new ContactService(database.commercial.contacts),

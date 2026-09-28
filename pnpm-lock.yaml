@@ -142,6 +142,9 @@ importers:
       "@quantum-crm/domain":
         specifier: workspace:*
         version: link:../../packages/domain
+      "@quantum-crm/platform-domain":
+        specifier: workspace:*
+        version: link:../../packages/platform-domain
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2

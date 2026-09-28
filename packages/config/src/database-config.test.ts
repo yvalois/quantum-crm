@@ -48,6 +48,7 @@ function crmEnvironment(
     QCRM_OIDC_AUDIENCE: "quantum-crm-web",
     QCRM_OIDC_REQUIRED_ACR: "1",
     QCRM_IAM_BOOTSTRAP_CLIENT_ID: "quantum-crm-bootstrap",
+    QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_FILE: "/run/secrets/qcrm_iam_bootstrap_client_secret",
     ...overrides,
   };
 }

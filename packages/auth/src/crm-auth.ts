@@ -121,6 +121,7 @@ export async function authenticateCrmMember(input: {
   readonly policy: CrmAuthPolicy;
   readonly correlationId: string;
   readonly now?: Date;
+  readonly onInvitedMembership?: (oidcSubject: string) => Promise<void>;
 }): Promise<CrmAuthContext> {
   let identity: VerifiedOidcIdentity;
   try {
@@ -131,7 +132,15 @@ export async function authenticateCrmMember(input: {
   const now = input.now ?? new Date();
   if (!isValidIdentity(identity, input.policy, input.correlationId, now)) return rejectIdentity();
 
-  const membership = await input.memberships.findAuthorizationByOidcSubject(identity.subject);
+  let membership = await input.memberships.findAuthorizationByOidcSubject(identity.subject);
+  if (
+    membership?.status === "INVITED" &&
+    membership.oidcSubject === identity.subject &&
+    input.onInvitedMembership
+  ) {
+    await input.onInvitedMembership(identity.subject);
+    membership = await input.memberships.findAuthorizationByOidcSubject(identity.subject);
+  }
   if (
     membership === null ||
     membership.oidcSubject !== identity.subject ||

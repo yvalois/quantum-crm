@@ -270,6 +270,23 @@ export class IamMemberService {
     return member;
   }
 
+  /**
+   * Completes an invitation only after Keycloak has issued a valid CRM token.
+   * Required password and TOTP actions prevent an invited subject from
+   * reaching this path before activation is complete.
+   */
+  public async acceptConfirmedInvitationForSubject(input: {
+    readonly oidcSubject: string;
+  }): Promise<IamMember | null> {
+    if (!oidcSubjectPattern.test(input.oidcSubject) || !this.repository.acceptInvitationForSubject) {
+      throw new IamMemberValidationError();
+    }
+    return this.repository.acceptInvitationForSubject({
+      oidcSubject: input.oidcSubject,
+      now: this.clock(),
+    });
+  }
+
   /** Internal, tenant-local command for ADR-0023. There is deliberately no actor,
    * role, email or tenant field: transport authentication establishes the service
    * principal and the database establishes the tenant. */

@@ -109,9 +109,12 @@ services:
       QCRM_OIDC_REQUIRED_ACR: "${QCRM_OIDC_REQUIRED_ACR:?set QCRM_OIDC_REQUIRED_ACR}"
       QCRM_OIDC_MAX_TOKEN_AGE_SECONDS: "${QCRM_OIDC_MAX_TOKEN_AGE_SECONDS:?set QCRM_OIDC_MAX_TOKEN_AGE_SECONDS}"
       QCRM_IAM_BOOTSTRAP_CLIENT_ID: "${QCRM_IAM_BOOTSTRAP_CLIENT_ID:?set QCRM_IAM_BOOTSTRAP_CLIENT_ID}"
+      QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_FILE: /run/secrets/qcrm_iam_bootstrap_client_secret
     secrets:
       - source: crm-database-url
         target: qcrm_database_url
+      - source: iam-bootstrap-client-secret
+        target: qcrm_iam_bootstrap_client_secret
     healthcheck:
       test:
         [
@@ -209,6 +212,8 @@ secrets:
     file: "${QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE:?set QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE}"
   crm-database-url:
     file: "${QCRM_CRM_DATABASE_URL_SECRET_FILE:?set QCRM_CRM_DATABASE_URL_SECRET_FILE}"
+  iam-bootstrap-client-secret:
+    file: "${QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_HOST_FILE:?set QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_HOST_FILE}"
   crm-oidc-client-secret:
     file: "${QCRM_CRM_OIDC_CLIENT_SECRET_FILE:?set QCRM_CRM_OIDC_CLIENT_SECRET_FILE}"
   crm-session-redis-url:
