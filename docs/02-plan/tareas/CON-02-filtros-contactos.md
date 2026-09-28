@@ -59,12 +59,12 @@ Un usuario autorizado puede combinar filtros por etiqueta, pipeline, asesor, can
 
 ## Plan de implementacion
 
-- [ ] Definir schema de filtros y tipos de dominio.
-- [ ] Implementar migracion y consulta server-side sin duplicados.
-- [ ] Exponer API/BFF y mantener filtros en exportacion.
-- [ ] Integrar controles de filtros y opciones de pipeline/asesor en el panel.
-- [ ] Añadir pruebas de combinacion, alcance y rango de fechas.
-- [ ] Validar una vez en VPS y publicar un unico PR.
+- [x] Definir schema de filtros y tipos de dominio.
+- [x] Implementar migracion y consulta server-side sin duplicados.
+- [x] Exponer API/BFF y mantener filtros en exportacion.
+- [x] Integrar controles de filtros y opciones de pipeline/asesor en el panel.
+- [x] Añadir pruebas de combinacion, alcance y rango de fechas.
+- [x] Validar una vez en VPS y publicar un unico PR.
 
 ## Riesgos y mitigaciones
 
@@ -100,8 +100,8 @@ Un usuario autorizado puede combinar filtros por etiqueta, pipeline, asesor, can
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente de validacion en VPS.
+- Archivos, commits o PR: commit candidato `579a5ed` en `feat/CON-02-contact-filters`; pendiente publicar el PR.
+- Comandos y resultados: en `/opt/quantum/builds/con02-final` del VPS se aprobaron Prettier, typechecks de `contracts`, `domain`, `database`, `api` y `crm-web`, y 16 pruebas afectadas en 3 archivos.
 - Documentacion actualizada: esta ficha, `estado.md` y checklist de `CON-02`.
-- Desviaciones del plan: ninguna al inicio.
-- Pendientes o decisiones nuevas: pendiente de implementacion y verificacion.
+- Desviaciones del plan: la etiqueta se filtra por nombre sobre tablas propietarias preparadas para `CON-07`; no se adelanta su gestion.
+- Pendientes o decisiones nuevas: publicar el PR, aprobar la matriz completa de GitHub y completar la comprobacion visual despues del merge.
