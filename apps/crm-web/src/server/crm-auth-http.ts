@@ -45,10 +45,16 @@ import {
   TaskListResponseSchema,
   TaskResponseSchema,
   UpdateTaskStatusSchema,
+  ActivateAutomationSchema,
+  AutomationActivationResponseSchema,
+  AutomationListResponseSchema,
+  AutomationResponseSchema,
+  CreateAutomationSchema,
 } from "@quantum-crm/contracts";
 
 const maximumResponseBytes = 1_048_576;
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 export interface CrmAuthRuntime {
   readonly config: CrmWebAuthConfig;
@@ -300,6 +306,92 @@ export async function handleCrmContactExport(
     return new Response(body, { status: 200, headers });
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmAutomationList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/automations", runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, AutomationListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmAutomationCreate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const payload = CreateAutomationSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/automations", runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized, idempotencyKey),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, AutomationResponseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+}
+
+export async function handleCrmAutomationActivate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  automationId: string,
+): Promise<Response> {
+  if (!uuidPattern.test(automationId)) return crmProblem(400, "Invalid request");
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const payload = ActivateAutomationSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/automations/${automationId}/activate`, runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized, idempotencyKey),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    return commercialResponse(upstream, AutomationActivationResponseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
   }
 }
 

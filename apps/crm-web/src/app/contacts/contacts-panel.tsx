@@ -1,6 +1,6 @@
 "use client";
 
-import type { Contact, ContactImportPreviewRow } from "@quantum-crm/contracts";
+import type { Automation, Contact, ContactImportPreviewRow } from "@quantum-crm/contracts";
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 interface ContactListPayload {
@@ -35,6 +35,15 @@ interface SessionPayload {
   readonly authenticated: boolean;
   readonly csrfToken?: string;
 }
+interface AutomationListPayload {
+  readonly data: Automation[];
+}
+interface AutomationActivationPayload {
+  readonly data: {
+    readonly succeeded: number;
+    readonly failed: number;
+  };
+}
 
 async function responseMessage(response: Response): Promise<string> {
   const body: unknown = await response.json().catch(() => null);
@@ -58,6 +67,18 @@ export function ContactsPanel(): React.JSX.Element {
   const [filters, setFilters] = useState<ContactFilters>(emptyFilters);
   const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [selectedAutomationId, setSelectedAutomationId] = useState("");
+  const [automationBusy, setAutomationBusy] = useState(false);
+  const [automationMessage, setAutomationMessage] = useState<string | null>(null);
+  const [automationName, setAutomationName] = useState("Seguimiento inicial");
+  const [automationTitle, setAutomationTitle] = useState("Contactar al cliente");
+  const [automationDescription, setAutomationDescription] = useState(
+    "Realizar seguimiento del contacto seleccionado.",
+  );
+  const [automationPriority, setAutomationPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
+  const [automationDueHours, setAutomationDueHours] = useState("24");
   const idempotencyKey = useRef<string | null>(null);
 
   const load = useCallback(async (currentFilters: ContactFilters = emptyFilters) => {
@@ -111,6 +132,10 @@ export function ContactsPanel(): React.JSX.Element {
             credentials: "same-origin",
           }),
         ]);
+        const automationResponse = await fetch("/api/automations", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
         if (pipelineResponse.ok) {
           const payload = (await pipelineResponse.json()) as { data: PipelineOption[] };
           setPipelines(payload.data);
@@ -118,6 +143,12 @@ export function ContactsPanel(): React.JSX.Element {
         if (memberResponse.ok) {
           const payload = (await memberResponse.json()) as { data: MemberOption[] };
           setMembers(payload.data);
+        }
+        if (automationResponse.ok) {
+          const payload = (await automationResponse.json()) as AutomationListPayload;
+          const active = payload.data.filter((automation) => automation.status === "ACTIVE");
+          setAutomations(payload.data);
+          setSelectedAutomationId(active[0]?.id ?? "");
         }
       } catch (cause) {
         if (active)
@@ -288,6 +319,87 @@ export function ContactsPanel(): React.JSX.Element {
     anchor.download = "contacts.csv";
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function createAutomation(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!csrfToken) return;
+    setAutomationBusy(true);
+    setAutomationMessage(null);
+    try {
+      const response = await fetch("/api/automations", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          name: automationName,
+          status: "ACTIVE",
+          action: {
+            type: "CREATE_TASK",
+            title: automationTitle,
+            description: automationDescription,
+            priority: automationPriority,
+            dueHours: Number(automationDueHours),
+          },
+        }),
+      });
+      if (!response.ok) throw new Error(await responseMessage(response));
+      const payload = (await response.json()) as { data: Automation };
+      setAutomations((current) => [...current, payload.data]);
+      setSelectedAutomationId(payload.data.id);
+      setAutomationMessage("Automatización activa creada.");
+    } catch (cause) {
+      setAutomationMessage(
+        cause instanceof Error ? cause.message : "No fue posible crear la automatización.",
+      );
+    } finally {
+      setAutomationBusy(false);
+    }
+  }
+
+  async function activateAutomation(): Promise<void> {
+    if (!csrfToken || !selectedAutomationId || selectedContactIds.size === 0) return;
+    setAutomationBusy(true);
+    setAutomationMessage(null);
+    try {
+      const response = await fetch(`/api/automations/${selectedAutomationId}/activate`, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({ contactIds: [...selectedContactIds] }),
+      });
+      if (!response.ok) throw new Error(await responseMessage(response));
+      const payload = (await response.json()) as AutomationActivationPayload;
+      setAutomationMessage(
+        `Ejecución completada: ${payload.data.succeeded} tarea(s) creada(s), ${payload.data.failed} omitida(s).`,
+      );
+      setSelectedContactIds(new Set());
+    } catch (cause) {
+      setAutomationMessage(
+        cause instanceof Error ? cause.message : "No fue posible ejecutar la automatización.",
+      );
+    } finally {
+      setAutomationBusy(false);
+    }
+  }
+
+  function toggleContact(contactId: string): void {
+    setSelectedContactIds((current) => {
+      const next = new Set(current);
+      if (next.has(contactId)) next.delete(contactId);
+      else next.add(contactId);
+      return next;
+    });
   }
 
   return (
@@ -483,6 +595,110 @@ export function ContactsPanel(): React.JSX.Element {
             </ul>
           ) : null}
         </section>
+        <section className="member-card automation-card" aria-busy={automationBusy}>
+          <div className="card-heading">
+            <div>
+              <p className="eyebrow">Automatizaciones</p>
+              <h2>Seguimiento sobre contactos</h2>
+            </div>
+            <span className="state-message">{selectedContactIds.size} seleccionados</span>
+          </div>
+          <form className="filter-grid" onSubmit={(event) => void createAutomation(event)}>
+            <label>
+              Nombre del flujo
+              <input
+                value={automationName}
+                maxLength={160}
+                onChange={(event) => setAutomationName(event.target.value)}
+              />
+            </label>
+            <label>
+              Título de tarea
+              <input
+                value={automationTitle}
+                maxLength={200}
+                onChange={(event) => setAutomationTitle(event.target.value)}
+              />
+            </label>
+            <label>
+              Descripción
+              <input
+                value={automationDescription}
+                maxLength={4_000}
+                onChange={(event) => setAutomationDescription(event.target.value)}
+              />
+            </label>
+            <label>
+              Prioridad
+              <select
+                value={automationPriority}
+                onChange={(event) =>
+                  setAutomationPriority(event.target.value as "LOW" | "MEDIUM" | "HIGH")
+                }
+              >
+                <option value="LOW">Baja</option>
+                <option value="MEDIUM">Media</option>
+                <option value="HIGH">Alta</option>
+              </select>
+            </label>
+            <label>
+              Vence en horas
+              <input
+                type="number"
+                min={1}
+                max={8_760}
+                value={automationDueHours}
+                onChange={(event) => setAutomationDueHours(event.target.value)}
+              />
+            </label>
+            <div className="form-actions filter-actions">
+              <button
+                className="secondary-action"
+                type="submit"
+                disabled={automationBusy || !csrfToken}
+              >
+                Crear flujo activo
+              </button>
+            </div>
+          </form>
+          <div className="form-actions">
+            <label>
+              Flujo a ejecutar
+              <select
+                value={selectedAutomationId}
+                onChange={(event) => setSelectedAutomationId(event.target.value)}
+                disabled={automationBusy}
+              >
+                <option value="">Selecciona un flujo activo</option>
+                {automations
+                  .filter((automation) => automation.status === "ACTIVE")
+                  .map((automation) => (
+                    <option key={automation.id} value={automation.id}>
+                      {automation.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              className="primary-action"
+              type="button"
+              disabled={
+                automationBusy ||
+                !csrfToken ||
+                !selectedAutomationId ||
+                selectedContactIds.size === 0
+              }
+              onClick={() => void activateAutomation()}
+            >
+              {automationBusy ? "Ejecutando…" : "Ejecutar en seleccionados"}
+            </button>
+          </div>
+          {automationMessage ? (
+            <p className="feedback feedback-success" role="status">
+              {automationMessage}
+            </p>
+          ) : null}
+        </section>
         <div className="member-layout">
           <section className="member-card">
             <div className="card-heading">
@@ -495,7 +711,15 @@ export function ContactsPanel(): React.JSX.Element {
             {!loading && contacts.length > 0 ? (
               <ul className="member-list">
                 {contacts.map((contact) => (
-                  <li className="member-row" key={contact.id}>
+                  <li className="member-row contact-member-row" key={contact.id}>
+                    <label className="contact-select">
+                      <input
+                        type="checkbox"
+                        checked={selectedContactIds.has(contact.id)}
+                        onChange={() => toggleContact(contact.id)}
+                        aria-label={`Seleccionar ${contact.displayName}`}
+                      />
+                    </label>
                     <div className="member-avatar" aria-hidden="true">
                       {contact.displayName.slice(0, 1).toUpperCase()}
                     </div>

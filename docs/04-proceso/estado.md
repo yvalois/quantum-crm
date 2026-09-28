@@ -35,6 +35,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 | CON-01 | Exportar e importar contactos | Codex | [PR #54](https://github.com/yvalois/quantum-crm/pull/54) (`feat/CON-01-import-export`) | 2026-09-28 | 2026-09-28 | Commit `00bc24a` implementa preview, aplicación idempotente, exportación y parser CSV/XLSX en API/BFF/panel. VPS y los 7 checks de GitHub están en verde; queda el merge humano y la validación visual final. |
 | CON-02 | Filtros por etiquetas, pipeline, asesor, canal y fecha | Codex | `feat/CON-02-contact-filters` | 2026-09-28 | 2026-09-28 | Commit candidato `579a5ed` implementa query tipada, filtro server-side sin duplicados, migración de etiquetas, API/BFF, exportación filtrada y controles del panel; VPS validado, falta PR y CI. |
+| CON-03 | Activar automatizaciones desde uno o varios contactos | Codex | [PR #56](https://github.com/yvalois/quantum-crm/pull/56) (`feat/CON-03-contact-automations`) | 2026-09-28 | 2026-09-28 | [`CON-03`](../02-plan/tareas/CON-03-automatizaciones-contactos.md) implementa definiciones y ejecuciones durables, activación idempotente de tareas reales, API/BFF y controles visibles en Contactos. `695a795` pasó nuevamente las pruebas afectadas en el VPS después de añadir el alias de Vitest; los 7 checks del PR #56 están verdes y falta únicamente el merge humano. |
 
 ## Bloqueado
 
