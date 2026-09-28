@@ -83,8 +83,8 @@ Un usuario autorizado crea un flujo activo de tipo `CREATE_TASK`, selecciona uno
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente de validación VPS y publicación.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente de cierre.
+- Archivos, commits o PR: commit candidato `7535c0f` en `feat/CON-03-contact-automations`; PR pendiente de publicación.
+- Comandos y resultados: en el VPS se aprobaron Prettier afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, pruebas de contratos/dominio/BFF y `prisma validate`; la migración `20260928110000_con_03_contact_automations` se aplicó al perfil sintético `01a0e50a-ab43-7c18-92ee-2f0a2567f292`.
+- Documentacion actualizada: estado y esta ficha; falta añadir el enlace del PR y su resultado CI.
 - Desviaciones del plan: ejecución síncrona durable de `CREATE_TASK` como primera rebanada; workers y esperas quedan para BASE.
 - Pendientes o decisiones nuevas: ninguna.
