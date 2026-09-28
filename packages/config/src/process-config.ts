@@ -491,17 +491,15 @@ export function parseProcessConfig(
       /[\0\r\n]/u.test(secretPath) ||
       secretPath === "/"
     ) {
-      throw new ConfigurationError(definition.serviceName, [iamBootstrapClientSecretEnvironmentKey]);
+      throw new ConfigurationError(definition.serviceName, [
+        iamBootstrapClientSecretEnvironmentKey,
+      ]);
     } else {
-      iamBootstrapClientSecret = loadSecretFile(
-        "IAM bootstrap client secret",
-        secretPath,
-        {
-          environment: result.data.QCRM_ENV,
-          expectedProtectedPath: "/run/secrets/qcrm_iam_bootstrap_client_secret",
-          ...(fileSystem ? { fileSystem } : {}),
-        },
-      );
+      iamBootstrapClientSecret = loadSecretFile("IAM bootstrap client secret", secretPath, {
+        environment: result.data.QCRM_ENV,
+        expectedProtectedPath: "/run/secrets/qcrm_iam_bootstrap_client_secret",
+        ...(fileSystem ? { fileSystem } : {}),
+      });
     }
   }
 

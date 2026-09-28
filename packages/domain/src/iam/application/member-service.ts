@@ -278,7 +278,10 @@ export class IamMemberService {
   public async acceptConfirmedInvitationForSubject(input: {
     readonly oidcSubject: string;
   }): Promise<IamMember | null> {
-    if (!oidcSubjectPattern.test(input.oidcSubject) || !this.repository.acceptInvitationForSubject) {
+    if (
+      !oidcSubjectPattern.test(input.oidcSubject) ||
+      !this.repository.acceptInvitationForSubject
+    ) {
       throw new IamMemberValidationError();
     }
     return this.repository.acceptInvitationForSubject({

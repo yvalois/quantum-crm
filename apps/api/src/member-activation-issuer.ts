@@ -40,8 +40,14 @@ export function createMemberActivationIssuer(options: {
   readonly clientSecret: string;
 }): MemberActivationIssuer {
   const issuer = new URL(options.identityIssuer);
-  const tokenUrl = new URL("protocol/openid-connect/token", `${issuer.toString().replace(/\/$/u, "/")}`);
-  const activationUrl = new URL("qcrm-internal/activation", `${issuer.toString().replace(/\/$/u, "/")}`);
+  const tokenUrl = new URL(
+    "protocol/openid-connect/token",
+    `${issuer.toString().replace(/\/$/u, "/")}`,
+  );
+  const activationUrl = new URL(
+    "qcrm-internal/activation",
+    `${issuer.toString().replace(/\/$/u, "/")}`,
+  );
   return Object.freeze({
     issue: async (input: Parameters<MemberActivationIssuer["issue"]>[0]) => {
       if (

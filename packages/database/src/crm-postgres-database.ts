@@ -741,7 +741,11 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
             FOR UPDATE OF invitation, member
           `,
           [input.oidcSubject],
-        )) as { readonly rows: readonly (IamInvitationRow & { readonly activation_expires_at?: Date | null })[] };
+        )) as {
+          readonly rows: readonly (IamInvitationRow & {
+            readonly activation_expires_at?: Date | null;
+          })[];
+        };
         const invitation = found.rows[0];
         if (!invitation) {
           await client.query("COMMIT");
