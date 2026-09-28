@@ -111,7 +111,7 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: en `feat/USR-01-miembros-e2e` se añaden la transición de revocación, el caso de uso protegido, la operación PostgreSQL transaccional/idempotente, la ruta API/BFF y la acción del panel. Commit y PR se registrarán al publicar este bloque.
+- Archivos, commits o PR: commit `b40b9d0` y [PR #51](https://github.com/yvalois/quantum-crm/pull/51) en `feat/USR-01-miembros-e2e`; se añaden la transición de revocación, el caso de uso protegido, la operación PostgreSQL transaccional/idempotente, la ruta API/BFF y la acción del panel.
 - Comandos y resultados: en el VPS, `member-service.test.ts` y `crm-auth-http.test.ts` aprobaron 20/20 pruebas; `domain`, `database`, `api` y `crm-web` aprobaron typecheck; Prettier aprobó los 11 archivos modificados. No se ejecutó ninguna comprobación técnica local.
 - Documentación actualizada: ficha, `estado.md` y `ADR-0023` mantienen `USR-01` en `EN_CURSO`; se registra la frontera de servicio, la correlación durable y el vínculo JTI/invitación del proveedor Keycloak sin afirmar que el flujo completo está cerrado.
 - Desviaciones del plan: no se desplegó ni se probó contra un realm real; `ADM-04` aún debe aprovisionar realm, cliente, administrador inicial y archivos secretos por perfil. La ruta de aceptación se mantiene exclusivamente interna; no existe una ruta de navegador que pueda activar una membresía por identificador.
