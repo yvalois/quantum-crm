@@ -606,19 +606,36 @@ export function ContactsPanel(): React.JSX.Element {
           <form className="filter-grid" onSubmit={(event) => void createAutomation(event)}>
             <label>
               Nombre del flujo
-              <input value={automationName} maxLength={160} onChange={(event) => setAutomationName(event.target.value)} />
+              <input
+                value={automationName}
+                maxLength={160}
+                onChange={(event) => setAutomationName(event.target.value)}
+              />
             </label>
             <label>
               Título de tarea
-              <input value={automationTitle} maxLength={200} onChange={(event) => setAutomationTitle(event.target.value)} />
+              <input
+                value={automationTitle}
+                maxLength={200}
+                onChange={(event) => setAutomationTitle(event.target.value)}
+              />
             </label>
             <label>
               Descripción
-              <input value={automationDescription} maxLength={4_000} onChange={(event) => setAutomationDescription(event.target.value)} />
+              <input
+                value={automationDescription}
+                maxLength={4_000}
+                onChange={(event) => setAutomationDescription(event.target.value)}
+              />
             </label>
             <label>
               Prioridad
-              <select value={automationPriority} onChange={(event) => setAutomationPriority(event.target.value as "LOW" | "MEDIUM" | "HIGH")}>
+              <select
+                value={automationPriority}
+                onChange={(event) =>
+                  setAutomationPriority(event.target.value as "LOW" | "MEDIUM" | "HIGH")
+                }
+              >
                 <option value="LOW">Baja</option>
                 <option value="MEDIUM">Media</option>
                 <option value="HIGH">Alta</option>
@@ -626,10 +643,20 @@ export function ContactsPanel(): React.JSX.Element {
             </label>
             <label>
               Vence en horas
-              <input type="number" min={1} max={8_760} value={automationDueHours} onChange={(event) => setAutomationDueHours(event.target.value)} />
+              <input
+                type="number"
+                min={1}
+                max={8_760}
+                value={automationDueHours}
+                onChange={(event) => setAutomationDueHours(event.target.value)}
+              />
             </label>
             <div className="form-actions filter-actions">
-              <button className="secondary-action" type="submit" disabled={automationBusy || !csrfToken}>
+              <button
+                className="secondary-action"
+                type="submit"
+                disabled={automationBusy || !csrfToken}
+              >
                 Crear flujo activo
               </button>
             </div>
@@ -637,18 +664,40 @@ export function ContactsPanel(): React.JSX.Element {
           <div className="form-actions">
             <label>
               Flujo a ejecutar
-              <select value={selectedAutomationId} onChange={(event) => setSelectedAutomationId(event.target.value)} disabled={automationBusy}>
+              <select
+                value={selectedAutomationId}
+                onChange={(event) => setSelectedAutomationId(event.target.value)}
+                disabled={automationBusy}
+              >
                 <option value="">Selecciona un flujo activo</option>
-                {automations.filter((automation) => automation.status === "ACTIVE").map((automation) => (
-                  <option key={automation.id} value={automation.id}>{automation.name}</option>
-                ))}
+                {automations
+                  .filter((automation) => automation.status === "ACTIVE")
+                  .map((automation) => (
+                    <option key={automation.id} value={automation.id}>
+                      {automation.name}
+                    </option>
+                  ))}
               </select>
             </label>
-            <button className="primary-action" type="button" disabled={automationBusy || !csrfToken || !selectedAutomationId || selectedContactIds.size === 0} onClick={() => void activateAutomation()}>
+            <button
+              className="primary-action"
+              type="button"
+              disabled={
+                automationBusy ||
+                !csrfToken ||
+                !selectedAutomationId ||
+                selectedContactIds.size === 0
+              }
+              onClick={() => void activateAutomation()}
+            >
               {automationBusy ? "Ejecutando…" : "Ejecutar en seleccionados"}
             </button>
           </div>
-          {automationMessage ? <p className="feedback feedback-success" role="status">{automationMessage}</p> : null}
+          {automationMessage ? (
+            <p className="feedback feedback-success" role="status">
+              {automationMessage}
+            </p>
+          ) : null}
         </section>
         <div className="member-layout">
           <section className="member-card">

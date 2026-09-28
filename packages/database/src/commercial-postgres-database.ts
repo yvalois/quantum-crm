@@ -505,13 +505,17 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
-        const previous = await client.query<{ readonly payload_hash: string; readonly response: AutomationRow }>(
+        const previous = await client.query<{
+          readonly payload_hash: string;
+          readonly response: AutomationRow;
+        }>(
           `SELECT payload_hash, response FROM automation.command_idempotency WHERE actor_member_id = $1::uuid AND command = 'automation.create' AND idempotency_key = $2 FOR UPDATE`,
           [input.actor.memberId, input.idempotencyKey],
         );
         const replay = previous.rows[0];
         if (replay) {
-          if (replay.payload_hash !== input.payloadHash) throw new CommercialIdempotencyConflictError();
+          if (replay.payload_hash !== input.payloadHash)
+            throw new CommercialIdempotencyConflictError();
           await client.query("COMMIT");
           return automationFromRow(replay.response);
         }
@@ -519,7 +523,12 @@ export function createCommercialPostgresRepositories(
           `INSERT INTO automation.definitions (id, name, status, trigger_event, action_type, action_config, version, created_at, updated_at)
            VALUES ($1::uuid, $2, $3, 'CONTACT_MANUAL', 'CREATE_TASK', $4::jsonb, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            RETURNING id::text, name, status, trigger_event, action_type, action_config, version::text, created_at, updated_at`,
-          [input.automation.id, input.automation.name, input.automation.status.toLowerCase(), JSON.stringify(input.automation.action)],
+          [
+            input.automation.id,
+            input.automation.name,
+            input.automation.status.toLowerCase(),
+            JSON.stringify(input.automation.action),
+          ],
         );
         const row = inserted.rows[0];
         if (!row) throw new DatabaseUnavailableError();
@@ -541,13 +550,17 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
-        const previous = await client.query<{ readonly payload_hash: string; readonly response: AutomationActivationResult }>(
+        const previous = await client.query<{
+          readonly payload_hash: string;
+          readonly response: AutomationActivationResult;
+        }>(
           `SELECT payload_hash, response FROM automation.command_idempotency WHERE actor_member_id = $1::uuid AND command = 'automation.activate' AND idempotency_key = $2 FOR UPDATE`,
           [input.actor.memberId, input.operationKey],
         );
         const replay = previous.rows[0];
         if (replay) {
-          if (replay.payload_hash !== input.payloadHash) throw new CommercialIdempotencyConflictError();
+          if (replay.payload_hash !== input.payloadHash)
+            throw new CommercialIdempotencyConflictError();
           await client.query("COMMIT");
           return replay.response;
         }
@@ -556,13 +569,17 @@ export function createCommercialPostgresRepositories(
           [input.automationId],
         );
         const automationRow = definition.rows[0];
-        if (!automationRow || automationRow.status !== "active") throw new AutomationNotFoundError();
+        if (!automationRow || automationRow.status !== "active")
+          throw new AutomationNotFoundError();
         const action = automationRow.action_config;
         const results: AutomationActivationResult["results"] = [];
         for (const contactId of [...new Set(input.contactIds)]) {
           const executionId = randomUUID();
           const contactAccess = visibility(input.actor, 1, ["contact.owner_member_id"]);
-          const contact = await client.query<{ readonly id: string; readonly owner_member_id: string }>(
+          const contact = await client.query<{
+            readonly id: string;
+            readonly owner_member_id: string;
+          }>(
             `SELECT contact.id::text, contact.owner_member_id::text FROM contacts.contacts AS contact WHERE contact.id = $2::uuid AND ${contactAccess.sql} FOR UPDATE`,
             [input.actor.memberId, contactId],
           );
@@ -570,9 +587,21 @@ export function createCommercialPostgresRepositories(
           if (!contactRow) {
             await client.query(
               `INSERT INTO automation.executions (id, definition_id, contact_id, actor_member_id, operation_key, status, error_code, completed_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, 'FAILED', 'CONTACT_NOT_VISIBLE', CURRENT_TIMESTAMP)`,
-              [executionId, input.automationId, contactId, input.actor.memberId, input.operationKey],
+              [
+                executionId,
+                input.automationId,
+                contactId,
+                input.actor.memberId,
+                input.operationKey,
+              ],
             );
-            results.push({ executionId, contactId, status: "FAILED", taskId: null, errorCode: "CONTACT_NOT_VISIBLE" });
+            results.push({
+              executionId,
+              contactId,
+              status: "FAILED",
+              taskId: null,
+              errorCode: "CONTACT_NOT_VISIBLE",
+            });
             continue;
           }
           const member = await client.query<{ readonly status: string }>(
@@ -582,9 +611,21 @@ export function createCommercialPostgresRepositories(
           if (member.rows[0]?.status !== "active") {
             await client.query(
               `INSERT INTO automation.executions (id, definition_id, contact_id, actor_member_id, operation_key, status, error_code, completed_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, 'FAILED', 'OWNER_INACTIVE', CURRENT_TIMESTAMP)`,
-              [executionId, input.automationId, contactId, input.actor.memberId, input.operationKey],
+              [
+                executionId,
+                input.automationId,
+                contactId,
+                input.actor.memberId,
+                input.operationKey,
+              ],
             );
-            results.push({ executionId, contactId, status: "FAILED", taskId: null, errorCode: "OWNER_INACTIVE" });
+            results.push({
+              executionId,
+              contactId,
+              status: "FAILED",
+              taskId: null,
+              errorCode: "OWNER_INACTIVE",
+            });
             continue;
           }
           await client.query(
@@ -597,7 +638,17 @@ export function createCommercialPostgresRepositories(
           await client.query(
             `INSERT INTO tasks.tasks (id, created_by_member_id, contact_id, opportunity_id, assignee_member_id, title, description, priority, due_at, status, version, created_at, updated_at)
              VALUES ($1::uuid, $2::uuid, $3::uuid, NULL, $4::uuid, $5, $6, $7, $8, 'pending', 1, $9, $9)`,
-            [taskId, input.actor.memberId, contactId, contactRow.owner_member_id, action.title, action.description, action.priority.toLowerCase(), dueAt, createdAt],
+            [
+              taskId,
+              input.actor.memberId,
+              contactId,
+              contactRow.owner_member_id,
+              action.title,
+              action.description,
+              action.priority.toLowerCase(),
+              dueAt,
+              createdAt,
+            ],
           );
           await client.query(
             `UPDATE automation.executions SET status = 'SUCCEEDED', task_id = $2::uuid, result = $3::jsonb, completed_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,

@@ -14,7 +14,11 @@ const action = {
 
 describe("AutomationService", () => {
   it("requires the configure permission to create a flow", async () => {
-    const repository = { create: vi.fn(), list: vi.fn(), activate: vi.fn() } as unknown as AutomationRepository;
+    const repository = {
+      create: vi.fn(),
+      list: vi.fn(),
+      activate: vi.fn(),
+    } as unknown as AutomationRepository;
     const service = new AutomationService(repository, () => new Date("2026-09-28T12:00:00.000Z"));
     expect(() =>
       service.create({
@@ -37,7 +41,11 @@ describe("AutomationService", () => {
       succeeded: 0,
       failed: 0,
     });
-    const repository = { create: vi.fn(), list: vi.fn(), activate } as unknown as AutomationRepository;
+    const repository = {
+      create: vi.fn(),
+      list: vi.fn(),
+      activate,
+    } as unknown as AutomationRepository;
     const service = new AutomationService(repository);
     await service.activate({
       actor,
@@ -47,6 +55,8 @@ describe("AutomationService", () => {
       operationKey: "automation-run-1",
       payloadHash: "hash",
     });
-    expect(activate).toHaveBeenCalledWith(expect.objectContaining({ contactIds: ["01995f7e-7b52-7000-8000-000000000201"] }));
+    expect(activate).toHaveBeenCalledWith(
+      expect.objectContaining({ contactIds: ["01995f7e-7b52-7000-8000-000000000201"] }),
+    );
   });
 });
