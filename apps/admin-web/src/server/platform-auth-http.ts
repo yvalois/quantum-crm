@@ -161,9 +161,10 @@ export async function handlePlatformCallback(
     secure: runtime.config.secureCookies,
   });
   if (!transactionHandle) {
-    const response = platformProblem(400, "Invalid authentication response");
-    response.headers.append("set-cookie", clearLogin);
-    return response;
+    return redirect(
+      new URL("/api/auth/login?returnTo=%2Fdashboard", runtime.config.origin).toString(),
+      clearLogin,
+    );
   }
 
   try {

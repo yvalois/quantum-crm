@@ -90,6 +90,21 @@ describe("admin web authentication HTTP boundary", () => {
     expect(headers).not.toContain("server-only-refresh-token");
   });
 
+  it("restarts login when the callback has no transaction cookie", async () => {
+    const authRuntime = runtime();
+    const response = await handlePlatformCallback(
+      new Request(`${config.callbackUrl}?error=access_denied`),
+      authRuntime,
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(
+      "https://admin.example.test/api/auth/login?returnTo=%2Fdashboard",
+    );
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(authRuntime.auth.completeLogin).not.toHaveBeenCalled();
+  });
+
   it("returns only bounded session metadata to same-origin code", async () => {
     const response = await handlePlatformSession(
       new Request("https://admin.example.test/api/auth/session", {

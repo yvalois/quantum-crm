@@ -110,6 +110,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Causa: los enlaces de acceso de `admin-web` iniciaban OIDC sin `returnTo`, por lo que un login correcto terminaba en la portada y parecía no haber navegación.
 - Corrección: la portada y la pantalla de sesión cerrada envían `returnTo=%2Fdashboard` para volver al panel después del callback.
 - Evidencia: imagen `admin-web` reconstruida en el VPS, contenedor saludable, HTML público verificado y clic real redirigido al realm de identidad; cambio publicado en PR [#58](https://github.com/yvalois/quantum-crm/pull/58).
+- Recuperación añadida: si el callback llega sin la cookie de transacción (por expiración o descarte del navegador), `admin-web` reinicia OIDC hacia `/api/auth/login?returnTo=%2Fdashboard` en lugar de mostrar un `400` irrecuperable. Verificado en el VPS con respuesta `303` y contenedor saludable.
 
 ## Evidencia de cierre de USR-04
 
