@@ -26,7 +26,7 @@ import {
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const defaultTimeoutMilliseconds = 120_000;
 const fixedEnvironment = Object.freeze({
-  HOME: "/root",
+  HOME: "/home/node",
   LC_ALL: "C",
   PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 });
@@ -388,7 +388,17 @@ export function createTenantCrmMigrationReconciler(
         plan.environment.QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE as string,
       );
       const result = await runner.run(migrationComposeArgs(plan), plan.environment, timeout);
-      if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      if (result.exitCode !== 0) {
+        console.error(
+          JSON.stringify({
+            event: "tenant_migration_failed",
+            exitCode: result.exitCode,
+            stdout: result.stdout.slice(-2000),
+            stderr: result.stderr.slice(-2000),
+          }),
+        );
+        throw new HostAdapterError("UNAVAILABLE");
+      }
       return Object.freeze({ migrated: true, reconciled: true });
     },
   });

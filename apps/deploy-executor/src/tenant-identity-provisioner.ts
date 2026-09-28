@@ -149,8 +149,20 @@ function exactOrigin(hostname: string): string {
 }
 
 function assertRealm(realm: KeycloakRealm, realmName: string): void {
-  const completionActions = Array.isArray(realm.requiredActions)
-    ? realm.requiredActions.filter((action) => {
+  if (
+    realm.realm !== realmName ||
+    realm.enabled !== true ||
+    realm.registrationAllowed !== false ||
+    realm.bruteForceProtected !== true ||
+    realm.otpPolicyType !== "totp"
+  ) {
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  }
+}
+
+function assertActivationRequiredAction(value: unknown): void {
+  const actions = Array.isArray(value)
+    ? value.filter((action) => {
         if (typeof action !== "object" || action === null) return false;
         const requiredAction = action as KeycloakRequiredAction;
         return (
@@ -159,17 +171,12 @@ function assertRealm(realm: KeycloakRealm, realmName: string): void {
         );
       })
     : [];
-  const completionAction = completionActions[0] as KeycloakRequiredAction | undefined;
+  const action = actions[0] as KeycloakRequiredAction | undefined;
   if (
-    realm.realm !== realmName ||
-    realm.enabled !== true ||
-    realm.registrationAllowed !== false ||
-    realm.bruteForceProtected !== true ||
-    realm.otpPolicyType !== "totp" ||
-    completionActions.length !== 1 ||
-    completionAction?.enabled !== true ||
-    completionAction.defaultAction !== false ||
-    completionAction.priority !== 1_000
+    actions.length !== 1 ||
+    action?.enabled !== true ||
+    action.defaultAction !== false ||
+    action.priority !== 1_000
   ) {
     throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
   }
@@ -493,6 +500,15 @@ async function provisionKeycloak(
     throw new TenantIdentityProvisioningError("UNAVAILABLE");
   }
   assertRealm(realm.body as KeycloakRealm, realmName);
+  const requiredActions = await request(
+    new URL(
+      `/admin/realms/${encodeURIComponent(realmName)}/authentication/required-actions`,
+      adminOrigin,
+    ),
+    { headers },
+    [200],
+  );
+  assertActivationRequiredAction(requiredActions.body);
 
   const clientsUrl = new URL(`/admin/realms/${encodeURIComponent(realmName)}/clients`, adminOrigin);
   clientsUrl.searchParams.set("clientId", clientId);

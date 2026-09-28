@@ -68,9 +68,12 @@ services:
     read_only: true
     environment:
       QCRM_REDIS_PASSWORD_FILE: /run/secrets/qcrm_redis_password
+      QCRM_REDIS_ADMIN_PASSWORD_FILE: /run/secrets/qcrm_redis_admin_password
     secrets:
       - source: redis-password
         target: qcrm_redis_password
+      - source: redis-admin-password
+        target: qcrm_redis_admin_password
     volumes:
       - platform-redis-data:/data
     tmpfs:
@@ -229,6 +232,8 @@ secrets:
     file: "${QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE:?set QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE}"
   redis-password:
     file: "${QCRM_PLATFORM_REDIS_PASSWORD_FILE:?set QCRM_PLATFORM_REDIS_PASSWORD_FILE}"
+  redis-admin-password:
+    file: "${QCRM_PLATFORM_REDIS_ADMIN_PASSWORD_FILE:?set QCRM_PLATFORM_REDIS_ADMIN_PASSWORD_FILE}"
   admin-web-oidc-client-secret:
     file: "${QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE:?set QCRM_ADMIN_WEB_OIDC_CLIENT_SECRET_FILE}"
   platform-migration-database-url:

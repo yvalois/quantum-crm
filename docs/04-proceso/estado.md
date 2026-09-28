@@ -7,7 +7,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 ## Resumen
 
 - Fase: preparacion del proyecto; construccion de la primera rebanada funcional del CRM.
-- Aplicacion implementada: acceso administrativo real desplegado; existe el bootstrap ejecutable de las ocho aplicaciones/procesos. `USR-01` esta EN_CURSO para sustituir el placeholder del CRM por el primer flujo comercial real.
+- Aplicacion implementada: acceso administrativo real desplegado y perfil piloto sintetico activo en el VPS; existe el bootstrap ejecutable de las ocho aplicaciones/procesos. `USR-01` esta EN_CURSO para sustituir el placeholder del CRM por el primer flujo comercial real.
 - Requisitos funcionales completados: `ADM-01`, `USR-03`, `USR-04`, `USR-05`.
 - Requisitos operativos completados: ninguno acreditado.
 - Trabajo activo: alcance de datos por usuario (`USR-06`), equipos (`USR-02`), perfil de cliente, ciclo de vida, aprovisionamiento, inventario de servidores, arquitectura operativa, persistencia aislada, validacion del VPS y acceso seguro (`ADM-02`, `ADM-03`, `ADM-04`, `ADM-05`, `OPS-01`, `OPS-02`, `OPS-04`, `OPS-23`). `PROY-024` fija que el desarrollo prioriza rebanadas verticales de producto y difiere los refinamientos globales hasta la fase 10 o su prerequisito real.
@@ -81,6 +81,16 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - La ficha [ADM-04-i](../02-plan/tareas/ADM-04-i-rutas-https-por-perfil.md) queda preparada para implementación; todavía no se marca ninguna casilla funcional de `ADM-04`, `OPS-05` u `OPS-14`.
 - El primer bloque de `ADM-04-i` añade el contrato público y los validadores de hostname, red y upstreams; el segundo añade migración, modelo y finalización durable con fencing. La rama activa incorpora el adaptador Caddy y el handler del executor; faltan sus verificaciones en VPS, CI y la comprobación externa de `VERIFY`.
 - En el VPS autorizado, las pruebas unitarias afectadas de la rama aprobaron 22 archivos y 135 casos; el typecheck de `packages/database` aprobó después del ajuste de tipo. La evidencia de typecheck de los consumidores queda en CI: el sandbox desechable conserva enlaces `workspace:` de un checkout anterior y no resuelve sus artefactos, sin fallo atribuible a la rama.
+
+## Evidencia operativa del perfil piloto sintético
+
+- Fecha: 2026-09-27; entorno: VPS autorizado de staging, sin ejecución técnica local.
+- Perfil: `01a0e50a-ab43-7c18-92ee-2f0a2567f292` / `quantum-piloto`.
+- Operación: `01a0e539-b694-79b5-ae4c-706f2198d449`, estado `succeeded`, con `migrate_database`, `start_containers`, `configure_https`, `create_administrator`, `verify` y `activate` registrados de forma durable.
+- Acceso: `https://quantum-piloto.2-25-172-119.nip.io`; comprobación en VPS: HTTPS devuelve redirección OIDC (`307`) y `/api/health/ready` devuelve `200`.
+- Servicios del perfil: `crm-web`, `portal-web`, `api` y `worker` saludables; identidad Keycloak aislada y usuario `piloto@quantum-crm.test` habilitado sin acciones pendientes.
+- Credencial sintética: generada por Codex en el VPS y guardada únicamente en `/opt/quantum/secrets/staging/tenants/01a0e50a-ab43-7c18-92ee-2f0a2567f292/initial-admin-password` con modo `0400`; no se copia a Git, logs ni documentación.
+- Desviación registrada: el endpoint interno de activación de Keycloak respondió `404` en la imagen desplegada; para no bloquear el piloto sintético se aplicó la credencial fuera de SMTP, se registró la intención como consumida y se preservó el estado durable. Antes de clientes reales se debe habilitar y verificar el proveedor de activación de un solo uso.
 
 ## Decisiones pendientes
 
