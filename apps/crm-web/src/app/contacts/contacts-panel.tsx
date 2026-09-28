@@ -1,7 +1,7 @@
 "use client";
 
-import type { Contact } from "@quantum-crm/contracts";
-import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import type { Contact, ContactImportPreviewRow } from "@quantum-crm/contracts";
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 interface ContactListPayload {
   readonly data: Contact[];
@@ -25,6 +25,11 @@ export function ContactsPanel(): React.JSX.Element {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Contact | null>(null);
+  const [importFile, setImportFile] = useState<{ fileName: string; contentBase64: string } | null>(
+    null,
+  );
+  const [importRows, setImportRows] = useState<ContactImportPreviewRow[]>([]);
+  const [importBusy, setImportBusy] = useState(false);
   const idempotencyKey = useRef<string | null>(null);
 
   const load = useCallback(async () => {
@@ -113,6 +118,94 @@ export function ContactsPanel(): React.JSX.Element {
     }
   }
 
+  async function selectImport(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      const chunk = 0x8000;
+      for (let offset = 0; offset < bytes.length; offset += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunk));
+      }
+      setImportFile({ fileName: file.name, contentBase64: btoa(binary) });
+      setImportRows([]);
+      setError(null);
+    } catch {
+      setError("No fue posible leer el archivo.");
+    }
+  }
+
+  async function previewImport(): Promise<void> {
+    if (!csrfToken || !importFile) return;
+    setImportBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/contacts/import/preview", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "content-type": "application/json", "x-csrf-token": csrfToken },
+        body: JSON.stringify(importFile),
+      });
+      if (!response.ok) throw new Error(await responseMessage(response));
+      setImportRows(
+        ((await response.json()) as { data: { rows: ContactImportPreviewRow[] } }).data.rows,
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "No fue posible previsualizar la importación.",
+      );
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function applyImport(): Promise<void> {
+    if (!csrfToken || !importFile || importRows.length === 0) return;
+    setImportBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/contacts/import", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify(importFile),
+      });
+      if (!response.ok) throw new Error(await responseMessage(response));
+      setImportRows([]);
+      setImportFile(null);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible aplicar la importación.");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function exportContacts(): Promise<void> {
+    const response = await fetch("/api/contacts/export", {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      setError(await responseMessage(response));
+      return;
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "contacts.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main className="crm-shell">
       <aside className="crm-sidebar" aria-label="Navegación principal">
@@ -146,12 +239,77 @@ export function ContactsPanel(): React.JSX.Element {
           >
             Actualizar
           </button>
+          <button className="secondary-action" type="button" onClick={() => void exportContacts()}>
+            Exportar CSV
+          </button>
         </header>
         {error ? (
           <p className="feedback feedback-error" role="alert">
             {error}
           </p>
         ) : null}
+        <section className="member-card import-card" aria-busy={importBusy}>
+          <div className="card-heading">
+            <div>
+              <p className="eyebrow">Importación</p>
+              <h2>CSV o XLSX</h2>
+            </div>
+            <label className="secondary-action">
+              Seleccionar archivo
+              <input
+                type="file"
+                accept=".csv,.xlsx"
+                onChange={(event) => void selectImport(event)}
+                hidden
+              />
+            </label>
+          </div>
+          <p className="state-message">
+            {importFile ? importFile.fileName : "Revisa las filas antes de aplicar cambios."}
+          </p>
+          {importFile ? (
+            <div className="form-actions">
+              <button
+                type="button"
+                disabled={importBusy || !csrfToken}
+                onClick={() => void previewImport()}
+              >
+                {importBusy ? "Procesando…" : "Previsualizar"}
+              </button>
+              {importRows.length > 0 ? (
+                <button
+                  className="primary-action"
+                  type="button"
+                  disabled={importBusy || importRows.some((row) => row.status === "ERROR")}
+                  onClick={() => void applyImport()}
+                >
+                  Aplicar importación
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {importRows.length > 0 ? (
+            <ul className="member-list import-preview-list">
+              {importRows.map((row) => (
+                <li className="member-row" key={row.rowNumber}>
+                  <div className="member-details">
+                    <strong>
+                      Fila {row.rowNumber}: {row.displayName || "Sin nombre"}
+                    </strong>
+                    <span>{row.email ?? row.phone ?? "Sin canal"}</span>
+                  </div>
+                  <span className={row.status === "ERROR" ? "feedback-error" : "feedback-success"}>
+                    {row.status === "ERROR"
+                      ? row.errors.join(", ")
+                      : row.status === "MATCH"
+                        ? "Coincide"
+                        : "Nueva"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
         <div className="member-layout">
           <section className="member-card">
             <div className="card-heading">

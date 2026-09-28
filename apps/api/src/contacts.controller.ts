@@ -7,6 +7,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Header,
   Headers,
   HttpException,
   HttpStatus,
@@ -20,6 +21,9 @@ import {
 } from "@nestjs/common";
 import {
   ContactIdSchema,
+  ContactImportApplyResponseSchema,
+  ContactImportFileSchema,
+  ContactImportPreviewResponseSchema,
   ContactListResponseSchema,
   ContactResponseSchema,
   CreateContactSchema,
@@ -32,11 +36,13 @@ import {
   ContactVersionConflictError,
   IamAuthorizationError,
   type CommercialActor,
+  type ContactImportPreviewRow,
   type IamPermission,
 } from "@quantum-crm/domain";
 import { CommercialIdempotencyConflictError } from "@quantum-crm/database";
 
 import { crmAuthContext, RequireCrmPermission } from "./crm-security.js";
+import { ContactImportFileError, parseContactImportFile } from "./contact-import-file.js";
 
 export const CONTACT_SERVICE = Symbol("CONTACT_SERVICE");
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
@@ -87,7 +93,22 @@ function mapError(error: unknown): never {
   if (error instanceof ContactVersionConflictError) throw new PreconditionFailedException();
   if (error instanceof CommercialIdempotencyConflictError) throw new ConflictException();
   if (error instanceof ContactValidationError) throw new BadRequestException();
+  if (error instanceof ContactImportFileError) throw new BadRequestException();
   throw error;
+}
+
+function importPreviewResponse(rows: readonly ContactImportPreviewRow[]) {
+  const validRows = rows.filter((row) => row.status !== "ERROR").length;
+  const errorRows = rows.length - validRows;
+  const matches = rows.filter((row) => row.status === "MATCH").length;
+  return ContactImportPreviewResponseSchema.parse({
+    data: { rows, validRows, errorRows, matches },
+  });
+}
+
+function csvCell(value: string | null): string {
+  const text = value ?? "";
+  return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 @Controller("api/v1/contacts")
@@ -130,6 +151,67 @@ export class ContactsController {
           payloadHash: payloadHash(payload),
         }),
       );
+    } catch (error) {
+      return mapError(error);
+    }
+  }
+
+  @Post("import/preview")
+  @RequireCrmPermission("crm:contacts:read")
+  public async importPreview(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Body() body: unknown,
+  ) {
+    try {
+      const payload = ContactImportFileSchema.parse(body);
+      const rows = parseContactImportFile(payload);
+      const identity = actor(request);
+      return importPreviewResponse(
+        await this.service.previewImport(identity.actor, identity.permissions, rows),
+      );
+    } catch (error) {
+      return mapError(error);
+    }
+  }
+
+  @Post("import")
+  @RequireCrmPermission("crm:contacts:create")
+  public async importContacts(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+      throw new BadRequestException();
+    try {
+      const payload = ContactImportFileSchema.parse(body);
+      const rows = parseContactImportFile(payload);
+      const identity = actor(request);
+      const result = await this.service.importRows({
+        ...identity,
+        rows,
+        operationKey: idempotencyKey,
+        payloadHash: payloadHash(payload),
+      });
+      return ContactImportApplyResponseSchema.parse({ data: result });
+    } catch (error) {
+      return mapError(error);
+    }
+  }
+
+  @Get("export")
+  @RequireCrmPermission("crm:contacts:export")
+  @Header("Content-Type", "text/csv; charset=utf-8")
+  @Header("Content-Disposition", 'attachment; filename="contacts.csv"')
+  public async exportContacts(@Req() request: Parameters<typeof crmAuthContext>[0]) {
+    try {
+      const identity = actor(request);
+      const contacts = await this.service.exportRows(identity.actor, identity.permissions);
+      const lines = ["displayName,email,phone"];
+      for (const contact of contacts) {
+        lines.push([contact.displayName, contact.email, contact.phone].map(csvCell).join(","));
+      }
+      return `${lines.join("\r\n")}\r\n`;
     } catch (error) {
       return mapError(error);
     }

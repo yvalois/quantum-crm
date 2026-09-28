@@ -1,5 +1,9 @@
+import { randomUUID } from "node:crypto";
+
 import type {
   ContactRecord,
+  ContactImportResult,
+  ContactImportResultRow,
   ContactRepository,
   CommercialActor,
   Opportunity,
@@ -309,6 +313,100 @@ export function createCommercialPostgresRepositories(
         return row ? contactFromRow(row) : null;
       } catch (error) {
         return fail(error);
+      }
+    },
+    importRows: async (input): Promise<ContactImportResult> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const existing = await client.query<{
+          readonly payload_hash: string;
+          readonly response: ContactImportResult;
+        }>(
+          `SELECT payload_hash, response FROM contacts.command_idempotency WHERE actor_member_id = $1::uuid AND command = 'contacts.import' AND idempotency_key = $2 FOR UPDATE`,
+          [input.actor.memberId, input.operationKey],
+        );
+        const replay = existing.rows[0];
+        if (replay) {
+          if (replay.payload_hash !== input.payloadHash)
+            throw new CommercialIdempotencyConflictError();
+          await client.query("COMMIT");
+          return replay.response;
+        }
+        const rows: ContactImportResultRow[] = [];
+        let created = 0;
+        let updated = 0;
+        for (const row of input.rows) {
+          const email = row.email?.trim().toLowerCase() || null;
+          const phone = row.phone?.trim() || null;
+          const found = await client.query<ContactRow>(
+            `SELECT ${contactSelection}
+               FROM contacts.contacts AS contact
+              WHERE ${visibility(input.actor, 1, ["contact.owner_member_id"]).sql}
+                AND (($2::citext IS NOT NULL AND contact.email = $2::citext)
+                  OR ($3::text IS NOT NULL AND contact.phone = $3::text))
+              ORDER BY contact.id ASC
+              LIMIT 1
+              FOR UPDATE`,
+            [input.actor.memberId, email, phone],
+          );
+          const match = found.rows[0];
+          let result: ContactImportResultRow;
+          if (match) {
+            const changed = await client.query<ContactRow>(
+              `UPDATE contacts.contacts
+                  SET display_name = $2, email = $3::citext, phone = $4, version = version + 1,
+                      updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1::uuid
+                RETURNING ${contactSelection}`,
+              [match.id, row.displayName.trim(), email, phone],
+            );
+            const updatedRow = changed.rows[0];
+            if (!updatedRow) throw new DatabaseUnavailableError();
+            updated += 1;
+            result = {
+              ...row,
+              email,
+              phone,
+              status: "UPDATED",
+              contactId: updatedRow.id,
+              errors: [],
+            };
+          } else {
+            const inserted = await client.query<ContactRow>(
+              `INSERT INTO contacts.contacts (id, owner_member_id, display_name, email, phone, version, created_at, updated_at)
+               VALUES ($1::uuid, $2::uuid, $3, $4::citext, $5, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+               RETURNING ${contactSelection}`,
+              [randomUUID(), input.actor.memberId, row.displayName.trim(), email, phone],
+            );
+            const insertedRow = inserted.rows[0];
+            if (!insertedRow) throw new DatabaseUnavailableError();
+            created += 1;
+            result = {
+              ...row,
+              email,
+              phone,
+              status: "CREATED",
+              contactId: insertedRow.id,
+              errors: [],
+            };
+          }
+          rows.push(result);
+        }
+        const response: ContactImportResult = { rows, created, updated, errors: 0 };
+        await client.query(
+          `INSERT INTO contacts.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response)
+           VALUES ($1::uuid, 'contacts.import', $2, $3, $4::jsonb)`,
+          [input.actor.memberId, input.operationKey, input.payloadHash, JSON.stringify(response)],
+        );
+        await client.query("COMMIT");
+        return response;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
       }
     },
   });
