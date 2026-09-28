@@ -183,7 +183,7 @@ export class MembersController {
       const input = CreateMemberInvitationSchema.parse(body);
       const result = await this.service.invite({ ...input, actor: actor(request), idempotencyKey });
       let activation: { readonly url: string; readonly expiresAt: string } | undefined;
-      if (!result.replayed) {
+      if (result.invitationToken !== null) {
         if (!this.activationIssuer || !this.activations) throw new ServiceUnavailableException();
         try {
           const issued = await this.activationIssuer.issue({

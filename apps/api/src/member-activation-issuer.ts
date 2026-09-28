@@ -1,5 +1,3 @@
-import { tenantOidcIdentity } from "@quantum-crm/platform-domain";
-
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const subjectPattern = /^[!-~]{1,255}$/u;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
@@ -41,12 +39,11 @@ export function createMemberActivationIssuer(options: {
   readonly clientId: "quantum-crm-bootstrap";
   readonly clientSecret: string;
 }): MemberActivationIssuer {
-  const identity = tenantOidcIdentity(options.tenantProfileId);
   const issuer = new URL(options.identityIssuer);
   const tokenUrl = new URL("protocol/openid-connect/token", `${issuer.toString().replace(/\/$/u, "/")}`);
   const activationUrl = new URL("qcrm-internal/activation", `${issuer.toString().replace(/\/$/u, "/")}`);
   return Object.freeze({
-    issue: async (input) => {
+    issue: async (input: Parameters<MemberActivationIssuer["issue"]>[0]) => {
       if (
         !uuidPattern.test(input.invitationId) ||
         !emailPattern.test(input.email) ||
