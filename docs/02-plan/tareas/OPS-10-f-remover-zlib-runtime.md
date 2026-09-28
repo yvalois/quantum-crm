@@ -102,8 +102,8 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente; se reutilizara la evidencia de CI y release del commit correspondiente.
-- Documentacion actualizada: ficha y estado al inicio.
+- Archivos, commits o PR: candidato `47769cb` en `fix/OPS-10-f-release-gate`; PR pendiente de publicar tras la validacion VPS.
+- Comandos y resultados: en el VPS autorizado, `container-manifests.test.ts` paso 15/15; `crm-migrator` se construyo y comprobo con Node 24.21.0, sin `apk`, `zlib` ni gestores de paquetes; Keycloak se construyo y arranco con `Keycloak 26.7.4`, reemplazo exclusivamente `netty-handler` 4.1.137, conservo `netty-handler-proxy` intacto y elimino `apk`/`zlib` del runtime. El checkout temporal se limpio despues de la build para mantener capacidad.
+- Documentacion actualizada: ficha y estado registran el bloqueo de la release 36475922196 y la evidencia VPS del candidato 47769cb.
 - Desviaciones del plan: ninguna.
 - Pendientes o decisiones nuevas: la primera correccion fue insuficiente porque `apk-tools` retenia el paquete. Esta correccion elimina ambos paquetes; si el reporte mantiene hallazgos altos o criticos, se abrira otra remediacion especifica sin aceptar excepciones automaticas.
