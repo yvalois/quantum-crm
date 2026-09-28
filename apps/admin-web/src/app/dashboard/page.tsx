@@ -25,7 +25,9 @@ export default function DashboardPage() {
           </div>
           <strong>Perfiles y entornos</strong>
           <p>Consulta, filtra y administra la identidad operativa de cada empresa.</p>
-          <span className="metric-link">Abrir directorio <b aria-hidden="true">↗</b></span>
+          <span className="metric-link">
+            Abrir directorio <b aria-hidden="true">↗</b>
+          </span>
         </Link>
         <article className="metric-card">
           <div className="metric-card-head">
@@ -59,17 +61,26 @@ export default function DashboardPage() {
           <div className="surface-list">
             <div className="surface-row">
               <span className="surface-dot is-live" aria-hidden="true" />
-              <div><strong>Identidad y sesión</strong><span>OIDC · MFA · cookies opacas</span></div>
+              <div>
+                <strong>Identidad y sesión</strong>
+                <span>OIDC · MFA · cookies opacas</span>
+              </div>
               <b>OPERATIVA</b>
             </div>
             <div className="surface-row">
               <span className="surface-dot is-live" aria-hidden="true" />
-              <div><strong>Directorio de tenants</strong><span>BFF protegido · contratos v1</span></div>
+              <div>
+                <strong>Directorio de tenants</strong>
+                <span>BFF protegido · contratos v1</span>
+              </div>
               <b>OPERATIVA</b>
             </div>
             <div className="surface-row">
               <span className="surface-dot is-planned" aria-hidden="true" />
-              <div><strong>Orquestación y continuidad</strong><span>Releases · VPS · backups</span></div>
+              <div>
+                <strong>Orquestación y continuidad</strong>
+                <span>Releases · VPS · backups</span>
+              </div>
               <b>EN PLAN</b>
             </div>
           </div>
@@ -80,7 +91,9 @@ export default function DashboardPage() {
               <span className="section-code">BOUNDARY / 02</span>
               <h2>Frontera administrativa</h2>
             </div>
-            <span className="boundary-icon" aria-hidden="true">Q</span>
+            <span className="boundary-icon" aria-hidden="true">
+              Q
+            </span>
           </header>
           <p>
             Quantum administra perfiles y despliegues. Los contactos, conversaciones y ventas
