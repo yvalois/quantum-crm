@@ -5,12 +5,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 const navigation = [
-  { href: "/dashboard", label: "Resumen", glyph: "⌁", enabled: true },
-  { href: "/dashboard/tenants", label: "Perfiles", glyph: "◫", enabled: true },
-  { href: "#", label: "Infraestructura", glyph: "⌘", enabled: false },
-  { href: "#", label: "Releases", glyph: "◇", enabled: false },
-  { href: "#", label: "Operaciones", glyph: "↗", enabled: false },
-  { href: "#", label: "Respaldos", glyph: "◉", enabled: false },
+  { href: "/dashboard", label: "Resumen de plataforma", glyph: "01", enabled: true },
+  { href: "/dashboard/tenants", label: "Tenants y entornos", glyph: "02", enabled: true },
+  { href: "#", label: "Releases y artefactos", glyph: "03", enabled: false },
+  { href: "#", label: "Despliegues y operaciones", glyph: "04", enabled: false },
+  { href: "#", label: "Infraestructura y VPS", glyph: "05", enabled: false },
+  { href: "#", label: "Backups y recuperación", glyph: "06", enabled: false },
+  { href: "#", label: "Incidentes y mantenimiento", glyph: "07", enabled: false },
+  { href: "#", label: "Operadores y roles", glyph: "08", enabled: false },
+  { href: "#", label: "Auditoría inmutable", glyph: "09", enabled: false },
+  { href: "#", label: "Configuración global", glyph: "10", enabled: false },
 ] as const;
 
 export function AdminShell({ children }: Readonly<{ children: ReactNode }>) {
@@ -58,14 +62,14 @@ export function AdminShell({ children }: Readonly<{ children: ReactNode }>) {
           </span>
           <span>
             <strong>QUANTUM</strong>
-            <small>CONTROL PLANE</small>
+            <small>CONTROL PLANE / INTERNAL</small>
           </span>
         </div>
         <div className="environment-chip">
           <span aria-hidden="true" /> Entorno de desarrollo
         </div>
         <nav aria-label="Navegación principal" className="admin-nav">
-          <p>PLATAFORMA</p>
+          <p>MODULES / CONTROL PLANE</p>
           {navigation.map((item) =>
             item.enabled ? (
               <Link
@@ -101,11 +105,16 @@ export function AdminShell({ children }: Readonly<{ children: ReactNode }>) {
       </aside>
       <div className="admin-stage">
         <header className="admin-topbar">
+          <div className="topbar-path">
+            <span>CORE-VPS</span>
+            <b>/</b>
+            <strong>CONTROL-PLANE</strong>
+          </div>
           <span className="system-pulse">
             <i aria-hidden="true" /> Servicios conectados
           </span>
           <span className="topbar-divider" />
-          <span className="topbar-mode">OPERACIÓN SEGURA</span>
+          <span className="topbar-mode">MODO SEGURO</span>
         </header>
         {children}
       </div>
