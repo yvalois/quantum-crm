@@ -499,7 +499,7 @@ export function parseProcessConfig(
         {
           environment: result.data.QCRM_ENV,
           expectedProtectedPath: "/run/secrets/qcrm_iam_bootstrap_client_secret",
-          fileSystem,
+          ...(fileSystem ? { fileSystem } : {}),
         },
       );
     }
