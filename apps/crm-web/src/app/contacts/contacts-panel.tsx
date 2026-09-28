@@ -6,6 +6,31 @@ import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useSt
 interface ContactListPayload {
   readonly data: Contact[];
 }
+interface ContactFilters {
+  readonly label: string;
+  readonly pipelineId: string;
+  readonly ownerMemberId: string;
+  readonly channel: "" | "EMAIL" | "PHONE" | "NONE";
+  readonly createdFrom: string;
+  readonly createdTo: string;
+}
+interface PipelineOption {
+  readonly id: string;
+  readonly name: string;
+}
+interface MemberOption {
+  readonly id: string;
+  readonly displayName: string;
+  readonly status: string;
+}
+const emptyFilters: ContactFilters = {
+  label: "",
+  pipelineId: "",
+  ownerMemberId: "",
+  channel: "",
+  createdFrom: "",
+  createdTo: "",
+};
 interface SessionPayload {
   readonly authenticated: boolean;
   readonly csrfToken?: string;
@@ -30,19 +55,36 @@ export function ContactsPanel(): React.JSX.Element {
   );
   const [importRows, setImportRows] = useState<ContactImportPreviewRow[]>([]);
   const [importBusy, setImportBusy] = useState(false);
+  const [filters, setFilters] = useState<ContactFilters>(emptyFilters);
+  const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
+  const [members, setMembers] = useState<MemberOption[]>([]);
   const idempotencyKey = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
-    const response = await fetch("/api/contacts", {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-    if (response.status === 401) {
-      window.location.assign("/api/auth/login?returnTo=/contacts");
-      return;
+  const load = useCallback(async (currentFilters: ContactFilters = emptyFilters) => {
+    const query = new URLSearchParams();
+    if (currentFilters.label.trim()) query.set("label", currentFilters.label.trim());
+    if (currentFilters.pipelineId) query.set("pipelineId", currentFilters.pipelineId);
+    if (currentFilters.ownerMemberId) query.set("ownerMemberId", currentFilters.ownerMemberId);
+    if (currentFilters.channel) query.set("channel", currentFilters.channel);
+    if (currentFilters.createdFrom)
+      query.set("createdFrom", `${currentFilters.createdFrom}T00:00:00.000Z`);
+    if (currentFilters.createdTo)
+      query.set("createdTo", `${currentFilters.createdTo}T23:59:59.999Z`);
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/contacts${query.size ? `?${query}` : ""}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (response.status === 401) {
+        window.location.assign("/api/auth/login?returnTo=/contacts");
+        return;
+      }
+      if (!response.ok) throw new Error(await responseMessage(response));
+      setContacts(((await response.json()) as ContactListPayload).data);
+    } finally {
+      setLoading(false);
     }
-    if (!response.ok) throw new Error(await responseMessage(response));
-    setContacts(((await response.json()) as ContactListPayload).data);
   }, []);
 
   useEffect(() => {
@@ -62,6 +104,21 @@ export function ContactsPanel(): React.JSX.Element {
           throw new Error("La sesión no es válida.");
         if (active) setCsrfToken(session.csrfToken);
         await load();
+        const [pipelineResponse, memberResponse] = await Promise.all([
+          fetch("/api/pipeline", { cache: "no-store", credentials: "same-origin" }),
+          fetch("/api/members?limit=100&status=ACTIVE", {
+            cache: "no-store",
+            credentials: "same-origin",
+          }),
+        ]);
+        if (pipelineResponse.ok) {
+          const payload = (await pipelineResponse.json()) as { data: PipelineOption[] };
+          setPipelines(payload.data);
+        }
+        if (memberResponse.ok) {
+          const payload = (await memberResponse.json()) as { data: MemberOption[] };
+          setMembers(payload.data);
+        }
       } catch (cause) {
         if (active)
           setError(cause instanceof Error ? cause.message : "No fue posible cargar contactos.");
@@ -73,6 +130,26 @@ export function ContactsPanel(): React.JSX.Element {
       active = false;
     };
   }, [load]);
+
+  async function applyFilters(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setError(null);
+    try {
+      await load(filters);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible filtrar contactos.");
+    }
+  }
+
+  async function clearFilters(): Promise<void> {
+    setFilters(emptyFilters);
+    setError(null);
+    try {
+      await load(emptyFilters);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible cargar contactos.");
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -110,7 +187,7 @@ export function ContactsPanel(): React.JSX.Element {
       event.currentTarget.reset();
       setEditing(null);
       idempotencyKey.current = null;
-      await load();
+      await load(filters);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible guardar el contacto.");
     } finally {
@@ -180,7 +257,7 @@ export function ContactsPanel(): React.JSX.Element {
       if (!response.ok) throw new Error(await responseMessage(response));
       setImportRows([]);
       setImportFile(null);
-      await load();
+      await load(filters);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible aplicar la importación.");
     } finally {
@@ -189,7 +266,14 @@ export function ContactsPanel(): React.JSX.Element {
   }
 
   async function exportContacts(): Promise<void> {
-    const response = await fetch("/api/contacts/export", {
+    const query = new URLSearchParams();
+    if (filters.label.trim()) query.set("label", filters.label.trim());
+    if (filters.pipelineId) query.set("pipelineId", filters.pipelineId);
+    if (filters.ownerMemberId) query.set("ownerMemberId", filters.ownerMemberId);
+    if (filters.channel) query.set("channel", filters.channel);
+    if (filters.createdFrom) query.set("createdFrom", `${filters.createdFrom}T00:00:00.000Z`);
+    if (filters.createdTo) query.set("createdTo", `${filters.createdTo}T23:59:59.999Z`);
+    const response = await fetch(`/api/contacts/export${query.size ? `?${query}` : ""}`, {
       cache: "no-store",
       credentials: "same-origin",
     });
@@ -248,6 +332,95 @@ export function ContactsPanel(): React.JSX.Element {
             {error}
           </p>
         ) : null}
+        <section className="member-card filters-card">
+          <div className="card-heading">
+            <div>
+              <p className="eyebrow">Filtros</p>
+              <h2>Encuentra contactos</h2>
+            </div>
+            <span className="state-message">Combina varios criterios</span>
+          </div>
+          <form className="filter-grid" onSubmit={(event) => void applyFilters(event)}>
+            <label>
+              Etiqueta
+              <input
+                value={filters.label}
+                maxLength={80}
+                placeholder="Ej. VIP"
+                onChange={(event) => setFilters({ ...filters, label: event.target.value })}
+              />
+            </label>
+            <label>
+              Pipeline
+              <select
+                value={filters.pipelineId}
+                onChange={(event) => setFilters({ ...filters, pipelineId: event.target.value })}
+              >
+                <option value="">Todos los pipelines</option>
+                {pipelines.map((pipeline) => (
+                  <option key={pipeline.id} value={pipeline.id}>
+                    {pipeline.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Asesor
+              <select
+                value={filters.ownerMemberId}
+                onChange={(event) => setFilters({ ...filters, ownerMemberId: event.target.value })}
+              >
+                <option value="">Todos los asesores</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Canal
+              <select
+                value={filters.channel}
+                onChange={(event) =>
+                  setFilters({
+                    ...filters,
+                    channel: event.target.value as ContactFilters["channel"],
+                  })
+                }
+              >
+                <option value="">Todos los canales</option>
+                <option value="EMAIL">Correo</option>
+                <option value="PHONE">Teléfono</option>
+                <option value="NONE">Sin canal</option>
+              </select>
+            </label>
+            <label>
+              Desde
+              <input
+                type="date"
+                value={filters.createdFrom}
+                onChange={(event) => setFilters({ ...filters, createdFrom: event.target.value })}
+              />
+            </label>
+            <label>
+              Hasta
+              <input
+                type="date"
+                value={filters.createdTo}
+                onChange={(event) => setFilters({ ...filters, createdTo: event.target.value })}
+              />
+            </label>
+            <div className="form-actions filter-actions">
+              <button className="primary-action" type="submit" disabled={loading}>
+                Aplicar filtros
+              </button>
+              <button className="text-action" type="button" onClick={() => void clearFilters()}>
+                Limpiar
+              </button>
+            </div>
+          </form>
+        </section>
         <section className="member-card import-card" aria-busy={importBusy}>
           <div className="card-heading">
             <div>

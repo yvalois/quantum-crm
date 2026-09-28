@@ -10,6 +10,13 @@ const EmailSchema = z
   .transform((value) => value.toLowerCase());
 const PhoneSchema = z.string().trim().min(3).max(40);
 const TimestampSchema = z.string().datetime({ offset: true });
+export const ContactChannelSchema = z.enum(["EMAIL", "PHONE", "NONE"]);
+const ContactFilterDateSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date");
 
 export const ContactSchema = z.object({
   id: ContactIdSchema,
@@ -22,6 +29,23 @@ export const ContactSchema = z.object({
 });
 export const ContactResponseSchema = z.object({ data: ContactSchema });
 export const ContactListResponseSchema = z.object({ data: z.array(ContactSchema) });
+export const ContactListQuerySchema = z
+  .object({
+    label: z.string().trim().min(1).max(80).optional(),
+    pipelineId: ContactIdSchema.optional(),
+    ownerMemberId: ContactIdSchema.optional(),
+    channel: ContactChannelSchema.optional(),
+    createdFrom: ContactFilterDateSchema.optional(),
+    createdTo: ContactFilterDateSchema.optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.createdFrom === undefined ||
+      value.createdTo === undefined ||
+      Date.parse(value.createdFrom) <= Date.parse(value.createdTo),
+    { message: "createdFrom must be before createdTo", path: ["createdFrom"] },
+  );
 export const CreateContactSchema = z
   .object({
     displayName: TextSchema,
@@ -75,6 +99,8 @@ export const ContactImportApplyResponseSchema = z.object({
   }),
 });
 export type Contact = z.infer<typeof ContactSchema>;
+export type ContactChannel = z.infer<typeof ContactChannelSchema>;
+export type ContactListQuery = z.infer<typeof ContactListQuerySchema>;
 export type CreateContact = z.infer<typeof CreateContactSchema>;
 export type UpdateContact = z.infer<typeof UpdateContactSchema>;
 export type ContactImportFile = z.infer<typeof ContactImportFileSchema>;

@@ -8,6 +8,7 @@ import {
   type ContactImportPreviewRow,
   type ContactImportResult,
   type ContactImportRow,
+  type ContactListFilters,
   type ContactRepository,
   ContactValidationError,
   updateContact,
@@ -36,9 +37,13 @@ export class ContactService {
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
-  public list(actor: CommercialActor, permissions: readonly IamPermission[]) {
+  public list(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    filters?: ContactListFilters,
+  ) {
     allow(permissions, "crm:contacts:read");
-    return this.repository.list(actor);
+    return this.repository.list(actor, filters);
   }
   public get(
     actor: CommercialActor,
@@ -150,10 +155,14 @@ export class ContactService {
     });
   }
 
-  public exportRows(actor: CommercialActor, permissions: readonly IamPermission[]) {
+  public exportRows(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    filters?: ContactListFilters,
+  ) {
     allow(permissions, "crm:contacts:read");
     allow(permissions, "crm:contacts:export");
-    return this.repository.list(actor);
+    return this.repository.list(actor, filters);
   }
 }
 
