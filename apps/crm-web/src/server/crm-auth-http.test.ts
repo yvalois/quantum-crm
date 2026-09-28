@@ -6,6 +6,7 @@ import {
   handleCrmCallback,
   handleCrmMemberDeactivation,
   handleCrmMemberInvitation,
+  handleCrmMemberInvitationRevocation,
   handleCrmLogin,
   handleCrmMemberList,
   handleCrmMemberUpdate,
@@ -256,5 +257,41 @@ describe("CRM web authentication HTTP boundary", () => {
 
     expect(response.status).toBe(400);
     expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("forwards invitation revocation only after the same-origin CSRF check", async () => {
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        data: {
+          id: "01995f7e-7b52-7000-8000-000000000103",
+          memberId: "01995f7e-7b52-7000-8000-000000000102",
+          status: "REVOKED",
+          expiresAt: "2026-09-27T15:00:00.000Z",
+          acceptedAt: null,
+          createdAt: "2026-09-20T15:00:00.000Z",
+        },
+      }),
+    );
+    const memberId = "01995f7e-7b52-7000-8000-000000000102";
+    const response = await handleCrmMemberInvitationRevocation(
+      new Request(`https://crm.example.test/api/members/${memberId}/invitation/revoke`, {
+        method: "POST",
+        headers: {
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+        },
+      }),
+      runtime(upstream as typeof fetch),
+      memberId,
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream.mock.calls[0]?.[0].toString()).toBe(
+      `http://api:3001/api/v1/members/${memberId}/invitation/revoke`,
+    );
+    expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
+      "Bearer server-only-access-token",
+    );
   });
 });

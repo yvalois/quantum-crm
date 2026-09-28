@@ -887,6 +887,35 @@ export async function handleCrmMemberDeactivation(
   }
 }
 
+export async function handleCrmMemberInvitationRevocation(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  memberId: string,
+): Promise<Response> {
+  const parsedMemberId = MemberIdSchema.safeParse(memberId);
+  if (!parsedMemberId.success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(
+        `/api/v1/members/${parsedMemberId.data}/invitation/revoke`,
+        runtime.config.crmApiOrigin,
+      ),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return memberMutationResponse(upstream, InvitationResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
 export async function handleCrmTeamList(
   request: Request,
   runtime: CrmAuthRuntime,

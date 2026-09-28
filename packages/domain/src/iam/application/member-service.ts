@@ -47,6 +47,13 @@ export class IamInvitationAcceptanceError extends Error {
   }
 }
 
+export class IamInvitationRevocationError extends Error {
+  public constructor() {
+    super("IAM invitation cannot be revoked");
+    this.name = "IamInvitationRevocationError";
+  }
+}
+
 export class IamMemberRevisionConflictError extends Error {
   public constructor() {
     super("IAM member authorization revision has changed");
@@ -221,6 +228,27 @@ export class IamMemberService {
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
     return this.repository.update(deactivateMember({ member: current, now: this.clock() }));
+  }
+
+  public async revokeInvitation(input: {
+    readonly actor: IamActor;
+    readonly memberId: string;
+  }): Promise<IamInvitation> {
+    requirePermission(input.actor, "iam:members:update");
+    if (!uuidPattern.test(input.memberId) || !this.repository.revokeInvitation) {
+      throw new IamMemberValidationError();
+    }
+    const current = await this.repository.findById(input.memberId);
+    if (!current) throw new IamMemberNotFoundError();
+    const now = this.clock();
+    const invitation = await this.repository.revokeInvitation({
+      memberId: input.memberId,
+      now,
+    });
+    if (!invitation || invitation.status !== "REVOKED") {
+      throw new IamInvitationRevocationError();
+    }
+    return invitation;
   }
 
   /**

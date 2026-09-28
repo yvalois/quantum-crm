@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
@@ -33,6 +34,7 @@ import {
   IamMemberRevisionConflictError,
   IamMemberService,
   IamMemberValidationError,
+  IamInvitationRevocationError,
   type IamMember,
   type IamPermission,
 } from "@quantum-crm/domain";
@@ -83,6 +85,7 @@ function mapMemberError(error: unknown): never {
     throw new PreconditionFailedException();
   }
   if (error instanceof IamMemberValidationError) throw new BadRequestException();
+  if (error instanceof IamInvitationRevocationError) throw new ConflictException();
   throw error;
 }
 
@@ -203,6 +206,32 @@ export class MembersController {
           memberId: MemberIdSchema.parse(memberId),
         }),
       );
+    } catch (error) {
+      return mapMemberError(error);
+    }
+  }
+
+  @Post(":memberId/invitation/revoke")
+  @RequireCrmPermission("iam:members:update")
+  public async revokeInvitation(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("memberId") memberId: string,
+  ) {
+    try {
+      const invitation = await this.service.revokeInvitation({
+        actor: actor(request),
+        memberId: MemberIdSchema.parse(memberId),
+      });
+      return InvitationResponseSchema.parse({
+        data: {
+          id: invitation.id,
+          memberId: invitation.memberId,
+          status: invitation.status,
+          expiresAt: invitation.expiresAt.toISOString(),
+          acceptedAt: invitation.acceptedAt?.toISOString() ?? null,
+          createdAt: invitation.createdAt.toISOString(),
+        },
+      });
     } catch (error) {
       return mapMemberError(error);
     }

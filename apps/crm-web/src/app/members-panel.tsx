@@ -367,6 +367,28 @@ export function MembersPanel(): React.JSX.Element {
     }
   };
 
+  const revokeInvitation = async (member: Member): Promise<void> => {
+    if (!csrfToken || !window.confirm(`¿Revocar la invitación de ${member.displayName}?`)) return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/members/${member.id}/invitation/revoke`, {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "x-csrf-token": csrfToken },
+      });
+      if (!response.ok) throw new Error(await responseMessage(response));
+      setNotice("Invitación revocada.");
+      await loadMembers();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible revocar la invitación.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const beginEditing = (member: Member): void => {
     setEditingMember(member);
     setEditDisplayName(member.displayName);
@@ -485,6 +507,16 @@ export function MembersPanel(): React.JSX.Element {
                           disabled={saving}
                         >
                           Desactivar
+                        </button>
+                      ) : null}
+                      {member.status === "INVITED" ? (
+                        <button
+                          type="button"
+                          className="danger-action"
+                          onClick={() => void revokeInvitation(member)}
+                          disabled={saving}
+                        >
+                          Revocar invitación
                         </button>
                       ) : null}
                     </div>
