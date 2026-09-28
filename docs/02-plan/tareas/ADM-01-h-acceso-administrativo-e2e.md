@@ -123,3 +123,5 @@ Un operador inicial de Quantum puede acceder por HTTPS a `admin.2-25-172-119.nip
 ### Corrección posterior de navegación (2026-09-28)
 
 La portada y la pantalla de sesión cerrada ahora envían `returnTo=%2Fdashboard` al iniciar OIDC. Antes el callback completaba la autenticación, pero devolvía al operador a `/`, por lo que el acceso parecía no responder. La corrección se reconstruyó y verificó en el VPS y quedó publicada en el PR [#58](https://github.com/yvalois/quantum-crm/pull/58).
+
+Si el callback llega sin la cookie de transacción, el BFF reinicia el login hacia `/dashboard` y elimina la cookie caducada; ya no deja al operador en `Invalid authentication response` sin recuperación.
