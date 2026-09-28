@@ -5,6 +5,7 @@ import {
   AutomationValidationError,
   type AutomationActivationResult,
   type AutomationDefinition,
+  type AutomationExecutionResult,
   type AutomationRepository,
 } from "@quantum-crm/domain";
 import type {
@@ -492,9 +493,9 @@ export function createCommercialPostgresRepositories(
   const automation: AutomationRepository = Object.freeze<AutomationRepository>({
     list: async () => {
       try {
-        const result = await pool.query<AutomationRow>(
+        const result = (await pool.query(
           `SELECT id::text, name, status, trigger_event, action_type, action_config, version::text, created_at, updated_at FROM automation.definitions ORDER BY created_at ASC, id ASC`,
-        );
+        )) as { readonly rows: readonly AutomationRow[] };
         return Object.freeze(result.rows.map(automationFromRow));
       } catch (error) {
         return fail(error);
@@ -572,7 +573,7 @@ export function createCommercialPostgresRepositories(
         if (!automationRow || automationRow.status !== "active")
           throw new AutomationNotFoundError();
         const action = automationRow.action_config;
-        const results: AutomationActivationResult["results"] = [];
+        const results: AutomationExecutionResult[] = [];
         for (const contactId of [...new Set(input.contactIds)]) {
           const executionId = randomUUID();
           const contactAccess = visibility(input.actor, 1, ["contact.owner_member_id"]);
