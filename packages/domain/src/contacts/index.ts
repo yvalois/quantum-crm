@@ -26,6 +26,36 @@ export interface ContactRepository {
     readonly actor: CommercialActor;
     readonly expectedVersion: bigint;
   }) => Promise<ContactRecord | null>;
+  readonly importRows: (input: {
+    readonly actor: CommercialActor;
+    readonly rows: readonly ContactImportRow[];
+    readonly operationKey: string;
+    readonly payloadHash: string;
+  }) => Promise<ContactImportResult>;
+}
+
+export interface ContactImportRow {
+  readonly rowNumber: number;
+  readonly displayName: string;
+  readonly email: string | null;
+  readonly phone: string | null;
+}
+
+export interface ContactImportPreviewRow extends ContactImportRow {
+  readonly status: "VALID" | "MATCH" | "ERROR";
+  readonly contactId: string | null;
+  readonly errors: readonly string[];
+}
+
+export type ContactImportResultRow = Omit<ContactImportPreviewRow, "status"> & {
+  readonly status: "CREATED" | "UPDATED" | "ERROR";
+};
+
+export interface ContactImportResult {
+  readonly rows: readonly ContactImportResultRow[];
+  readonly created: number;
+  readonly updated: number;
+  readonly errors: number;
 }
 
 export class ContactValidationError extends Error {

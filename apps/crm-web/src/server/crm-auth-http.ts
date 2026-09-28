@@ -8,6 +8,9 @@ import { type CrmWebAuthConfig, SecretValue } from "@quantum-crm/config";
 import {
   CreateMemberInvitationSchema,
   ContactIdSchema,
+  ContactImportApplyResponseSchema,
+  ContactImportFileSchema,
+  ContactImportPreviewResponseSchema,
   ContactListResponseSchema,
   ContactResponseSchema,
   CreateContactSchema,
@@ -189,6 +192,111 @@ export async function handleCrmContactUpdate(
     return commercialResponse(upstream, ContactResponseSchema);
   } catch {
     return crmProblem(400, "Invalid request");
+  }
+}
+
+const maximumImportRequestBytes = 8_000_000;
+
+export async function handleCrmContactImportPreview(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedImportRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = ContactImportFileSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/contacts/import/preview", runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    return memberMutationResponse(upstream, ContactImportPreviewResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmContactImport(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedImportRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = ContactImportFileSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/contacts/import", runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized, idempotencyKey),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    return memberMutationResponse(upstream, ContactImportApplyResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmContactExport(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/contacts/export", runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "text/csv",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (upstream.status === 401) return crmProblem(401, "Unauthorized");
+    if (upstream.status === 403) return crmProblem(403, "Forbidden");
+    if (!upstream.ok) return crmProblem(503, "CRM service temporarily unavailable");
+    const body = await upstream.text();
+    if (new TextEncoder().encode(body).byteLength > maximumResponseBytes) {
+      return crmProblem(503, "CRM service temporarily unavailable");
+    }
+    const headers = crmNoStoreHeaders();
+    headers.set("content-type", "text/csv; charset=utf-8");
+    headers.set("content-disposition", 'attachment; filename="contacts.csv"');
+    return new Response(body, { status: 200, headers });
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
   }
 }
 
@@ -604,6 +712,20 @@ async function readBoundedRequestJson(request: Request): Promise<unknown> {
   }
   const body = await request.text();
   if (new TextEncoder().encode(body).byteLength > maximumResponseBytes) {
+    throw new Error("Request body is too large");
+  }
+  return JSON.parse(body) as unknown;
+}
+
+async function readBoundedImportRequestJson(request: Request): Promise<unknown> {
+  const contentType = request.headers.get("content-type")?.split(";", 1)[0]?.trim();
+  if (contentType !== "application/json") throw new Error("Expected JSON request");
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (!Number.isFinite(declaredLength) || declaredLength > maximumImportRequestBytes) {
+    throw new Error("Request body is too large");
+  }
+  const body = await request.text();
+  if (new TextEncoder().encode(body).byteLength > maximumImportRequestBytes) {
     throw new Error("Request body is too large");
   }
   return JSON.parse(body) as unknown;
