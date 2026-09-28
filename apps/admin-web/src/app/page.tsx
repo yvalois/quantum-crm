@@ -9,7 +9,7 @@ export default async function BootstrapPage() {
         <p className="eyebrow">Operadores de Quantum</p>
         <h1>Quantum Admin</h1>
         <p>Acceso protegido al centro de control de la plataforma.</p>
-        <a href="/api/auth/login">Ingresar con identidad Quantum</a>
+        <a href="/api/auth/login?returnTo=%2Fdashboard">Ingresar con identidad Quantum</a>
       </section>
     </main>
   );
