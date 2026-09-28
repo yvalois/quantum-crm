@@ -19,7 +19,7 @@ import {
   parseGithubActionsReleasePublisherConfig,
   type GithubActionsReleasePublisherConfig,
 } from "./github-actions-release-publisher-config.js";
-import type { SecretFileSystem } from "./secret-value.js";
+import { loadSecretFile, SecretValue, type SecretFileSystem } from "./secret-value.js";
 import {
   parseStorageConfig,
   storageEnvironmentKeys,
@@ -45,6 +45,7 @@ const processEnvironmentKeys = [
 ] as const;
 const tenantSecretEnvironmentKey = "QCRM_TENANT_SECRET_DIRECTORY" as const;
 const iamBootstrapClientEnvironmentKey = "QCRM_IAM_BOOTSTRAP_CLIENT_ID" as const;
+const iamBootstrapClientSecretEnvironmentKey = "QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_FILE" as const;
 const tenantConfigurationEnvironmentKey = "QCRM_TENANT_CONFIGURATION_DIRECTORY" as const;
 const deployHostSocketEnvironmentKey = "QCRM_DEPLOY_HOST_SOCKET_PATH" as const;
 const deployHostConfigurationRootEnvironmentKey = "QCRM_DEPLOY_HOST_CONFIGURATION_ROOT" as const;
@@ -78,6 +79,7 @@ export const processDefinitions = Object.freeze({
     database: Object.freeze({ target: "crm", requiresTenant: true }),
     oidc: Object.freeze({ provider: "keycloak", boundary: "crm" }),
     requiresIamBootstrapClient: true,
+    requiresIamBootstrapClientSecret: true,
   }),
   "admin-api": Object.freeze({
     serviceName: "admin-api",
@@ -137,6 +139,7 @@ export interface ProcessDefinition {
   readonly requiresIdentityProvisioner?: boolean;
   readonly requiresActivationDeliveryCallback?: boolean;
   readonly requiresIamBootstrapClient?: boolean;
+  readonly requiresIamBootstrapClientSecret?: boolean;
 }
 
 export interface ProcessConfig {
@@ -168,6 +171,7 @@ export interface ProcessConfig {
   readonly identityProvisioner?: IdentityProvisionerConfig;
   readonly activationDeliveryCallback?: ActivationDeliveryCallbackConfig;
   readonly iamBootstrapClientId?: "quantum-crm-bootstrap";
+  readonly iamBootstrapClientSecret?: SecretValue;
 }
 
 function readEnvironment(): NodeJS.ProcessEnv {
@@ -231,6 +235,9 @@ export function parseProcessConfig(
       : []),
     ...(definition.requiresTenantSecretDirectory ? [tenantSecretEnvironmentKey] : []),
     ...(definition.requiresIamBootstrapClient ? [iamBootstrapClientEnvironmentKey] : []),
+    ...(definition.requiresIamBootstrapClientSecret
+      ? [iamBootstrapClientSecretEnvironmentKey]
+      : []),
     ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
     ...(definition.requiresIdentityProvisioner ? identityProvisionerEnvironmentKeys : []),
@@ -472,6 +479,29 @@ export function parseProcessConfig(
           throw new ConfigurationError(definition.serviceName, [iamBootstrapClientEnvironmentKey]);
         })()
     : undefined;
+  let iamBootstrapClientSecret: SecretValue | undefined;
+  if (definition.requiresIamBootstrapClientSecret) {
+    const secretPath = environment[iamBootstrapClientSecretEnvironmentKey];
+    if (secretPath === undefined && allowSafeDefaults) {
+      iamBootstrapClientSecret = undefined;
+    } else if (
+      !secretPath ||
+      !secretPath.startsWith("/") ||
+      secretPath.length > 255 ||
+      /[\0\r\n]/u.test(secretPath) ||
+      secretPath === "/"
+    ) {
+      throw new ConfigurationError(definition.serviceName, [
+        iamBootstrapClientSecretEnvironmentKey,
+      ]);
+    } else {
+      iamBootstrapClientSecret = loadSecretFile("IAM bootstrap client secret", secretPath, {
+        environment: result.data.QCRM_ENV,
+        expectedProtectedPath: "/run/secrets/qcrm_iam_bootstrap_client_secret",
+        ...(fileSystem ? { fileSystem } : {}),
+      });
+    }
+  }
 
   return Object.freeze({
     schemaVersion: "process-config/v1",
@@ -506,5 +536,6 @@ export function parseProcessConfig(
     ...(identityProvisioner ? { identityProvisioner } : {}),
     ...(activationDeliveryCallback ? { activationDeliveryCallback } : {}),
     ...(iamBootstrapClientId ? { iamBootstrapClientId } : {}),
+    ...(iamBootstrapClientSecret ? { iamBootstrapClientSecret } : {}),
   });
 }

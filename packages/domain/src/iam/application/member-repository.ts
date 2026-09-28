@@ -47,6 +47,11 @@ export interface IamMemberRepository {
     readonly oidcSubject: string;
     readonly now: Date;
   }): Promise<IamMember | null>;
+  /** Completes the pending invitation bound to a subject after OIDC required actions succeed. */
+  acceptInvitationForSubject?(input: {
+    readonly oidcSubject: string;
+    readonly now: Date;
+  }): Promise<IamMember | null>;
   /** Revokes a pending invitation without deleting its member history. */
   revokeInvitation?(input: {
     readonly memberId: string;

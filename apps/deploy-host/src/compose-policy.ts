@@ -82,6 +82,7 @@ export interface ComposePolicyOptions {
   readonly crmDatabaseSecretFile: string;
   readonly crmMigrationDatabaseSecretFile: string;
   readonly crmOidcClientSecretFile: string;
+  readonly iamBootstrapClientSecretFile: string;
   readonly crmSessionRedisUrlSecretFile: string;
 }
 
@@ -283,6 +284,10 @@ export function createTenantComposePlan(
     options.crmSessionRedisUrlSecretFile,
     "crmSessionRedisUrlSecretFile",
   );
+  const iamBootstrapClientSecretFile = requireAbsolutePath(
+    options.iamBootstrapClientSecretFile,
+    "iamBootstrapClientSecretFile",
+  );
   if (!registryPattern.test(options.imageRegistry)) {
     throw new ComposePolicyValidationError("imageRegistry");
   }
@@ -310,7 +315,9 @@ export function createTenantComposePlan(
     QCRM_CRM_DATABASE_URL_SECRET_FILE: crmDatabaseSecretFile,
     QCRM_CRM_MIGRATION_DATABASE_URL_SECRET_FILE: crmMigrationDatabaseSecretFile,
     QCRM_CRM_OIDC_CLIENT_SECRET_FILE: crmOidcClientSecretFile,
+    QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_FILE: "/run/secrets/qcrm_iam_bootstrap_client_secret",
     QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE: crmSessionRedisUrlSecretFile,
+    QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_HOST_FILE: iamBootstrapClientSecretFile,
     QCRM_CRM_WEB_ORIGIN: manifest.identity.crmWebOrigin,
     QCRM_CRM_API_ORIGIN: "http://api:3001",
     QCRM_OIDC_ISSUER: manifest.identity.issuer,

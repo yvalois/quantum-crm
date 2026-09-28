@@ -26,6 +26,13 @@ interface SessionPayload {
   readonly csrfToken?: string;
 }
 
+interface InvitationPayload {
+  readonly activation?: {
+    readonly url: string;
+    readonly expiresAt: string;
+  };
+}
+
 const permissionSections = Array.from(
   new Set(CrmPermissionCatalog.map((permission) => permission.split(":").slice(0, 2).join(":"))),
 );
@@ -61,6 +68,7 @@ export function MembersPanel(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [activationLink, setActivationLink] = useState<InvitationPayload["activation"]>();
   const [saving, setSaving] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
@@ -145,6 +153,7 @@ export function MembersPanel(): React.JSX.Element {
   const refresh = async (): Promise<void> => {
     setError(null);
     setNotice(null);
+    setActivationLink(undefined);
     setLoading(true);
     try {
       await Promise.all([loadMembers(), loadRoles(), loadTeams()]);
@@ -161,6 +170,7 @@ export function MembersPanel(): React.JSX.Element {
     setSaving(true);
     setError(null);
     setNotice(null);
+    setActivationLink(undefined);
     try {
       const response = await fetch("/api/teams", {
         method: "POST",
@@ -290,11 +300,11 @@ export function MembersPanel(): React.JSX.Element {
         }),
       });
       if (!response.ok) throw new Error(await responseMessage(response));
+      const payload = (await response.json()) as InvitationPayload;
       event.currentTarget.reset();
       invitationKey.current = null;
-      setNotice(
-        "Invitación registrada para el miembro. La entrega y aceptación se habilitan con ADM-04.",
-      );
+      setActivationLink(payload.activation);
+      setNotice("Invitación registrada. Comparte el enlace de activación con el miembro.");
       await loadMembers();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible crear la invitación.");
@@ -464,6 +474,14 @@ export function MembersPanel(): React.JSX.Element {
         {notice ? (
           <p className="feedback feedback-success" role="status">
             {notice}
+          </p>
+        ) : null}
+        {activationLink ? (
+          <p className="feedback feedback-success" role="status">
+            <a href={activationLink.url} target="_blank" rel="noreferrer">
+              Abrir activación
+            </a>{" "}
+            <small>Válida hasta {dateLabel(activationLink.expiresAt)}.</small>
           </p>
         ) : null}
 

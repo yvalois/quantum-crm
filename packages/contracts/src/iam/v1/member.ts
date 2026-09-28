@@ -145,7 +145,14 @@ export const InvitationSchema = z.object({
   createdAt: IsoDateTimeSchema,
 });
 
-export const InvitationResponseSchema = z.object({ data: InvitationSchema });
+export const InvitationActivationDeliverySchema = z.object({
+  url: z.string().url().max(8_192),
+  expiresAt: IsoDateTimeSchema,
+});
+export const InvitationResponseSchema = z.object({
+  data: InvitationSchema,
+  activation: InvitationActivationDeliverySchema.optional(),
+});
 
 /** The accepted member is the only representation returned; invitation tokens
  * and identity claims never cross this response contract. */
@@ -169,6 +176,7 @@ export type RoleCode = z.infer<typeof RoleCodeSchema>;
 export type UpdateMember = z.infer<typeof UpdateMemberSchema>;
 export type CommercialScope = z.infer<typeof CommercialScopeSchema>;
 export type Invitation = z.infer<typeof InvitationSchema>;
+export type InvitationActivationDelivery = z.infer<typeof InvitationActivationDeliverySchema>;
 export type AcceptInvitationParams = z.infer<typeof AcceptInvitationParamsSchema>;
 export type AcceptInvitationCommand = z.infer<typeof AcceptInvitationCommandSchema>;
 export type RecordInvitationActivation = z.infer<typeof RecordInvitationActivationSchema>;

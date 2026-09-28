@@ -9,10 +9,12 @@ import {
   Headers,
   Inject,
   NotFoundException,
+  Optional,
   Param,
   Patch,
   Post,
   PreconditionFailedException,
+  ServiceUnavailableException,
   HttpException,
   HttpStatus,
   Query,
@@ -39,10 +41,18 @@ import {
   type IamPermission,
 } from "@quantum-crm/domain";
 
-import { crmAuthContext, RequireCrmPermission } from "./crm-security.js";
+import {
+  crmAuthContext,
+  IAM_INVITATION_ACTIVATION_REPOSITORY,
+  IAM_MEMBER_SERVICE,
+  RequireCrmPermission,
+} from "./crm-security.js";
+import {
+  MemberActivationIssuerError,
+  type MemberActivationIssuer,
+} from "./member-activation-issuer.js";
 
-export const IAM_MEMBER_SERVICE = Symbol("IAM_MEMBER_SERVICE");
-
+export const MEMBER_ACTIVATION_ISSUER = Symbol("MEMBER_ACTIVATION_ISSUER");
 function actor(request: Parameters<typeof crmAuthContext>[0]): {
   readonly memberId: string;
   readonly permissions: readonly IamPermission[];
@@ -102,7 +112,31 @@ function expectedAuthorizationRevision(value: string | undefined): bigint {
 
 @Controller("api/v1/members")
 export class MembersController {
-  public constructor(@Inject(IAM_MEMBER_SERVICE) private readonly service: IamMemberService) {}
+  public constructor(
+    @Inject(IAM_MEMBER_SERVICE) private readonly service: IamMemberService,
+    @Inject(MEMBER_ACTIVATION_ISSUER)
+    @Optional()
+    private readonly activationIssuer?: MemberActivationIssuer,
+    @Inject(IAM_INVITATION_ACTIVATION_REPOSITORY)
+    @Optional()
+    private readonly activations?: {
+      recordIssued(input: {
+        readonly invitationId: string;
+        readonly oidcSubject: string;
+        readonly generation: number;
+        readonly expiresAt: Date;
+        readonly now: Date;
+      }): Promise<{
+        readonly activation: {
+          readonly invitationId: string;
+          readonly generation: number;
+          readonly issuedAt: Date;
+          readonly expiresAt: Date;
+        };
+        readonly replayed: boolean;
+      } | null>;
+    },
+  ) {}
 
   @Get()
   @RequireCrmPermission("iam:members:read")
@@ -148,6 +182,34 @@ export class MembersController {
     try {
       const input = CreateMemberInvitationSchema.parse(body);
       const result = await this.service.invite({ ...input, actor: actor(request), idempotencyKey });
+      let activation: { readonly url: string; readonly expiresAt: string } | undefined;
+      if (result.invitationToken !== null) {
+        if (!this.activationIssuer || !this.activations) throw new ServiceUnavailableException();
+        try {
+          const issued = await this.activationIssuer.issue({
+            invitationId: result.invitation.id,
+            email: result.member.email,
+            displayName: result.member.displayName,
+            generation: 1,
+          });
+          const recorded = await this.activations.recordIssued({
+            invitationId: result.invitation.id,
+            oidcSubject: issued.subject,
+            generation: issued.generation,
+            expiresAt: new Date(issued.expiresAt),
+            now: new Date(),
+          });
+          if (!recorded) throw new ConflictException();
+          activation = { url: issued.url, expiresAt: issued.expiresAt };
+        } catch (error) {
+          if (error instanceof ConflictException) throw error;
+          if (error instanceof MemberActivationIssuerError) {
+            if (error.reason === "TARGET_CONFLICT") throw new ConflictException();
+            throw new ServiceUnavailableException();
+          }
+          throw error;
+        }
+      }
       return InvitationResponseSchema.parse({
         data: {
           id: result.invitation.id,
@@ -157,6 +219,7 @@ export class MembersController {
           acceptedAt: result.invitation.acceptedAt?.toISOString() ?? null,
           createdAt: result.invitation.createdAt.toISOString(),
         },
+        ...(activation ? { activation } : {}),
       });
     } catch (error) {
       return mapMemberError(error);

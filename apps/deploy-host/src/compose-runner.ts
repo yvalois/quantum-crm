@@ -277,6 +277,10 @@ async function planForTenant(
         options.databaseSecretRoot,
         `${request.tenantProfileId}/oidc-client-secret`,
       ),
+      iamBootstrapClientSecretFile: safeChildPath(
+        options.databaseSecretRoot,
+        `${request.tenantProfileId}/iam-bootstrap-client-secret`,
+      ),
       crmSessionRedisUrlSecretFile: safeChildPath(
         options.databaseSecretRoot,
         `${request.tenantProfileId}/session-redis-url`,

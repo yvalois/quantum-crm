@@ -52,6 +52,7 @@ describe("tenant compose policy", () => {
       crmMigrationDatabaseSecretFile: "/opt/quantum/secrets/tenant/migrator-url",
       crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
       crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
+      iamBootstrapClientSecretFile: "/opt/quantum/secrets/tenant/iam-bootstrap-client-secret",
     });
 
     expect(plan.projectName).toBe(request.projectName);
@@ -101,6 +102,7 @@ describe("tenant compose policy", () => {
         crmMigrationDatabaseSecretFile: "/opt/quantum/secrets/tenant/migrator-url",
         crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
         crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
+        iamBootstrapClientSecretFile: "/opt/quantum/secrets/tenant/iam-bootstrap-client-secret",
       }),
     ).not.toThrow();
     expect(() =>
@@ -117,6 +119,7 @@ describe("tenant compose policy", () => {
         crmMigrationDatabaseSecretFile: "/opt/quantum/secrets/tenant/migrator-url",
         crmOidcClientSecretFile: "/opt/quantum/secrets/tenant/oidc-client-secret",
         crmSessionRedisUrlSecretFile: "/opt/quantum/secrets/tenant/session-redis-url",
+        iamBootstrapClientSecretFile: "/opt/quantum/secrets/tenant/iam-bootstrap-client-secret",
       }),
     ).toThrow(new ComposePolicyValidationError("templatePath"));
   });

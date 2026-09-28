@@ -21,12 +21,14 @@ import {
   type OidcAccessTokenVerifier,
 } from "@quantum-crm/auth";
 import { SecretValue } from "@quantum-crm/config";
-import type { IamPermission } from "@quantum-crm/domain";
+import type { IamMemberService, IamPermission } from "@quantum-crm/domain";
 import { randomUUID } from "node:crypto";
 
 export const CRM_MEMBERSHIPS = Symbol("CRM_MEMBERSHIPS");
 export const CRM_AUTH_POLICY = Symbol("CRM_AUTH_POLICY");
 export const CRM_AUTH_CONTEXT = Symbol("CRM_AUTH_CONTEXT");
+export const IAM_MEMBER_SERVICE = Symbol("IAM_MEMBER_SERVICE");
+export const IAM_INVITATION_ACTIVATION_REPOSITORY = Symbol("IAM_INVITATION_ACTIVATION_REPOSITORY");
 export const CRM_PUBLIC_ROUTE = "quantum:crm-public-route";
 export const REQUIRED_CRM_PERMISSION = "quantum:crm-permission";
 
@@ -59,6 +61,7 @@ export class CrmAuthenticationGuard implements CanActivate {
     private readonly verifier: OidcAccessTokenVerifier,
     @Inject(CRM_MEMBERSHIPS) private readonly memberships: CrmMembershipReader,
     @Inject(CRM_AUTH_POLICY) private readonly policy: CrmAuthPolicy,
+    @Inject(IAM_MEMBER_SERVICE) private readonly memberService: IamMemberService,
   ) {}
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -80,6 +83,9 @@ export class CrmAuthenticationGuard implements CanActivate {
         memberships: this.memberships,
         policy: this.policy,
         correlationId: correlationId(request.headers["x-correlation-id"]),
+        onInvitedMembership: async (oidcSubject) => {
+          await this.memberService.acceptConfirmedInvitationForSubject({ oidcSubject });
+        },
       });
       return true;
     } catch (error) {

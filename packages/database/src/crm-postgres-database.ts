@@ -721,6 +721,77 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         client?.release();
       }
     },
+    acceptInvitationForSubject: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const found = (await client.query(
+          `
+            SELECT invitation.id::text, invitation.member_id::text, invitation.status::text,
+                   invitation.expires_at, invitation.accepted_at, invitation.created_at,
+                   invitation.activation_expires_at
+            FROM iam.invitations AS invitation
+            JOIN iam.members AS member ON member.id = invitation.member_id
+            WHERE invitation.activation_subject = $1
+              AND invitation.status = 'pending'
+              AND member.status = 'invited'
+            ORDER BY invitation.created_at DESC, invitation.id DESC
+            LIMIT 1
+            FOR UPDATE OF invitation, member
+          `,
+          [input.oidcSubject],
+        )) as {
+          readonly rows: readonly (IamInvitationRow & {
+            readonly activation_expires_at?: Date | null;
+          })[];
+        };
+        const invitation = found.rows[0];
+        if (!invitation) {
+          await client.query("COMMIT");
+          return null;
+        }
+        if (
+          invitation.expires_at <= input.now ||
+          (invitation.activation_expires_at !== null &&
+            invitation.activation_expires_at !== undefined &&
+            invitation.activation_expires_at <= input.now)
+        ) {
+          await client.query(`UPDATE iam.invitations SET status = 'expired' WHERE id = $1::uuid`, [
+            invitation.id,
+          ]);
+          await client.query("COMMIT");
+          return null;
+        }
+        const updated = (await client.query(
+          `
+            UPDATE iam.members
+            SET oidc_subject = $2, status = 'active',
+                authorization_revision = authorization_revision + 1,
+                updated_at = $3
+            WHERE id = $1::uuid AND status = 'invited' AND oidc_subject IS NULL
+            RETURNING ${memberSelection}
+          `,
+          [invitation.member_id, input.oidcSubject, input.now],
+        )) as { readonly rows: readonly IamMemberRow[] };
+        const member = updated.rows[0];
+        if (!member) throw new IamMemberConflictError();
+        await client.query(
+          `UPDATE iam.invitations SET status = 'accepted', accepted_at = $2 WHERE id = $1::uuid`,
+          [invitation.id, input.now],
+        );
+        await client.query("COMMIT");
+        return memberFromRow(member);
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
+          throw new IamMemberConflictError();
+        }
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
     bootstrapInitialAdministrator: async (input) => {
       let client: PoolClient | undefined;
       try {
@@ -1135,7 +1206,7 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
           `
             SELECT
               member.id::text,
-              member.oidc_subject,
+              COALESCE(member.oidc_subject, invitation.activation_subject) AS oidc_subject,
               member.status::text,
               member.authorization_revision::text,
               COALESCE(
@@ -1153,11 +1224,15 @@ function createCrmMembershipRepository(pool: PostgresPool): CrmMembershipReposit
                 END
               ) AS commercial_scope
             FROM iam.members AS member
+            LEFT JOIN iam.invitations AS invitation
+              ON invitation.member_id = member.id
+             AND invitation.status = 'pending'
+             AND invitation.activation_subject = $1
             LEFT JOIN iam.member_roles AS member_role ON member_role.member_id = member.id
             LEFT JOIN iam.roles AS role ON role.id = member_role.role_id
             LEFT JOIN iam.role_permissions AS permission ON permission.role_id = member_role.role_id
-            WHERE member.oidc_subject = $1
-            GROUP BY member.id
+            WHERE member.oidc_subject = $1 OR invitation.activation_subject = $1
+            GROUP BY member.id, member.oidc_subject, invitation.activation_subject
           `,
           [oidcSubject],
         )) as {

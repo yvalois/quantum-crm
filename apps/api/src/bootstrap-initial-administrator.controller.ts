@@ -18,7 +18,7 @@ import { IamMemberService, IamMemberValidationError } from "@quantum-crm/domain"
 
 import { BootstrapServiceGuard } from "./bootstrap-service-security.js";
 import { CrmPublicRoute } from "./crm-security.js";
-import { IAM_MEMBER_SERVICE } from "./members.controller.js";
+import { IAM_MEMBER_SERVICE } from "./crm-security.js";
 
 @Controller("internal/iam")
 @CrmPublicRoute()
