@@ -106,6 +106,13 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - API, BFF y panel CRM permiten listar, crear y editar roles personalizados; la migración conserva los roles sistema y la edición incrementa la revisión de miembros vinculados.
 - En el VPS se aprobaron Prettier afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, validación/generación Prisma CRM y 19 pruebas IAM/contratos.
 
+## Evidencia VPS del bloque USR-01 — activación de miembros
+
+- Commit candidato: bde2d22 en feat/USR-01-member-activation-flow; no se ejecutó ninguna comprobación técnica en el equipo local.
+- En el VPS se aprobaron en una sola pasada los typechecks afectados de config, contracts, domain, database, auth, api, crm-web y deploy-host; Prettier aprobó todos los archivos TypeScript y documentales afectados.
+- La imagen Keycloak se construyó en el VPS desde el commit candidato y Maven compiló quantum-activation-provider.jar con BUILD SUCCESS; solo quedaron las advertencias esperadas de SPI interno y deprecaciones, sin errores de compilación.
+- El bloque implementa la emisión efímera de enlace para una invitación, usuario Keycloak por email ligado al realm del perfil, correlación durable subject/generación, aceptación automática en el primer token OIDC válido y entrega en memoria en crm-web. La prueba E2E contra un realm CRM real y el despliegue de la imagen nueva quedan pendientes antes del cierre del requisito.
+
 ## Evidencia de cierre de USR-05
 
 - Rama `feat/USR-05-permisos-seccion`; catálogo explícito por sección y acción, migración forward-only y matriz visual agrupada.
