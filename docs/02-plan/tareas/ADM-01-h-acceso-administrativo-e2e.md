@@ -119,3 +119,7 @@ Un operador inicial de Quantum puede acceder por HTTPS a `admin.2-25-172-119.nip
 - Documentacion actualizada: ficha, checklist, funcionalidad, estado, inventario del VPS, despliegues e infraestructura.
 - Desviaciones del plan: la credencial inicial de bootstrap de Keycloak no coincidia con el estado persistente. Se aplico el flujo oficial de recuperacion con todos los nodos detenidos, se uso un administrador temporal y se elimino al cerrar. El E2E revelo que el aislamiento original impedia resolver JWKS; se agrego una red OIDC interna de dos miembros en lugar de habilitar Internet para `admin-api`.
 - Pendientes o decisiones nuevas: el propietario debe completar su password y TOTP en el primer acceso. `OPS-05` continua abierto para hosts de clientes, WebSocket/SSE, renovacion y alertas; GitHub/GHCR siguen bloqueados por `PROY-004` y las imagenes actuales son digests locales del VPS.
+
+### Corrección posterior de navegación (2026-09-28)
+
+La portada y la pantalla de sesión cerrada ahora envían `returnTo=%2Fdashboard` al iniciar OIDC. Antes el callback completaba la autenticación, pero devolvía al operador a `/`, por lo que el acceso parecía no responder. La corrección se reconstruyó y verificó en el VPS y quedó publicada en el PR [#58](https://github.com/yvalois/quantum-crm/pull/58).

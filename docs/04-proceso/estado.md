@@ -104,6 +104,13 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## Regla de mantenimiento
 
+## Corrección de retorno del acceso administrativo (ADM-01)
+
+- Fecha: 2026-09-28; entorno: VPS autorizado de staging, sin ejecución técnica local.
+- Causa: los enlaces de acceso de `admin-web` iniciaban OIDC sin `returnTo`, por lo que un login correcto terminaba en la portada y parecía no haber navegación.
+- Corrección: la portada y la pantalla de sesión cerrada envían `returnTo=%2Fdashboard` para volver al panel después del callback.
+- Evidencia: imagen `admin-web` reconstruida en el VPS, contenedor saludable, HTML público verificado y clic real redirigido al realm de identidad; cambio publicado en PR [#58](https://github.com/yvalois/quantum-crm/pull/58).
+
 ## Evidencia de cierre de USR-04
 
 - Rama `feat/USR-04-roles-personalizados`, commit candidato `92c51c6`.
