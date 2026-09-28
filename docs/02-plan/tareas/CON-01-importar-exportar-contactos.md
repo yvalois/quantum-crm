@@ -91,8 +91,8 @@ Un usuario autorizado puede cargar un CSV o XLSX, revisar un resumen de filas va
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: commit candidato `00bc24a` en `feat/CON-01-import-export`; pendiente publicar el PR.
-- Comandos y resultados: en `/opt/quantum/builds/con01-final5` del VPS se aprobaron Prettier para los archivos afectados, los typechecks de `contracts`, `domain`, `database`, `api` y `crm-web`, y 15 pruebas afectadas en 4 archivos.
+- Archivos, commits o PR: PR [#54](https://github.com/yvalois/quantum-crm/pull/54), commit de código `00bc24a` y commit documental posterior en `feat/CON-01-import-export`.
+- Comandos y resultados: en `/opt/quantum/builds/con01-final5` del VPS se aprobaron Prettier para los archivos afectados, los typechecks de `contracts`, `domain`, `database`, `api` y `crm-web`, y 15 pruebas afectadas en 4 archivos. GitHub aprobó `build`, `contracts`, `integration`, `static`, `unit`, `security/dependencies` y `security/secrets`.
 - Documentación actualizada: esta ficha, `estado.md` y checklist de `CON-01`.
 - Desviaciones del plan: se implementó un lector XLSX acotado con APIs nativas de Node para evitar una dependencia con alerta de seguridad; no se añadieron paquetes ni migraciones.
-- Pendientes o decisiones nuevas: publicar el commit, aprobar la matriz completa de GitHub y ejecutar la comprobación integrada/E2E antes de marcar los criterios de aceptación.
+- Pendientes o decisiones nuevas: merge humano del PR #54 y validación visual final en el VPS; no quedan checks automáticos pendientes.
