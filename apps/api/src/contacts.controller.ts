@@ -17,6 +17,7 @@ import {
   Patch,
   Post,
   PreconditionFailedException,
+  Query,
   Req,
 } from "@nestjs/common";
 import {
@@ -24,6 +25,7 @@ import {
   ContactImportApplyResponseSchema,
   ContactImportFileSchema,
   ContactImportPreviewResponseSchema,
+  ContactListQuerySchema,
   ContactListResponseSchema,
   ContactResponseSchema,
   CreateContactSchema,
@@ -37,6 +39,7 @@ import {
   IamAuthorizationError,
   type CommercialActor,
   type ContactImportPreviewRow,
+  type ContactListFilters,
   type IamPermission,
 } from "@quantum-crm/domain";
 import { CommercialIdempotencyConflictError } from "@quantum-crm/database";
@@ -106,6 +109,23 @@ function importPreviewResponse(rows: readonly ContactImportPreviewRow[]) {
   });
 }
 
+function contactFilters(query: Record<string, unknown>): ContactListFilters {
+  const parsed = ContactListQuerySchema.safeParse(query);
+  if (!parsed.success) throw new BadRequestException();
+  return {
+    ...(parsed.data.label === undefined ? {} : { label: parsed.data.label }),
+    ...(parsed.data.pipelineId === undefined ? {} : { pipelineId: parsed.data.pipelineId }),
+    ...(parsed.data.ownerMemberId === undefined
+      ? {}
+      : { ownerMemberId: parsed.data.ownerMemberId }),
+    ...(parsed.data.channel === undefined ? {} : { channel: parsed.data.channel }),
+    ...(parsed.data.createdFrom === undefined
+      ? {}
+      : { createdFrom: new Date(parsed.data.createdFrom) }),
+    ...(parsed.data.createdTo === undefined ? {} : { createdTo: new Date(parsed.data.createdTo) }),
+  };
+}
+
 function csvCell(value: string | null): string {
   const text = value ?? "";
   return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
@@ -117,10 +137,17 @@ export class ContactsController {
 
   @Get()
   @RequireCrmPermission("crm:contacts:read")
-  public async list(@Req() request: Parameters<typeof crmAuthContext>[0]) {
+  public async list(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Query() query: Record<string, unknown>,
+  ) {
     try {
       const identity = actor(request);
-      const contacts = await this.service.list(identity.actor, identity.permissions);
+      const contacts = await this.service.list(
+        identity.actor,
+        identity.permissions,
+        contactFilters(query),
+      );
       return ContactListResponseSchema.parse({
         data: contacts.map((contact) => contactResponse(contact).data),
       });
@@ -203,10 +230,17 @@ export class ContactsController {
   @RequireCrmPermission("crm:contacts:export")
   @Header("Content-Type", "text/csv; charset=utf-8")
   @Header("Content-Disposition", 'attachment; filename="contacts.csv"')
-  public async exportContacts(@Req() request: Parameters<typeof crmAuthContext>[0]) {
+  public async exportContacts(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Query() query: Record<string, unknown>,
+  ) {
     try {
       const identity = actor(request);
-      const contacts = await this.service.exportRows(identity.actor, identity.permissions);
+      const contacts = await this.service.exportRows(
+        identity.actor,
+        identity.permissions,
+        contactFilters(query),
+      );
       const lines = ["displayName,email,phone"];
       for (const contact of contacts) {
         lines.push([contact.displayName, contact.email, contact.phone].map(csvCell).join(","));

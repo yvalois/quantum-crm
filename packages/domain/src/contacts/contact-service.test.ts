@@ -80,4 +80,26 @@ describe("contact service", () => {
       { status: "ERROR", contactId: null },
     ]);
   });
+
+  it("forwards the complete server-side filter set to the contacts owner", async () => {
+    const list = vi.fn(async () => []);
+    const repository: ContactRepository = {
+      list,
+      find: async () => null,
+      create: async (input) => input.contact,
+      update: async () => null,
+      importRows: async () => ({ rows: [], created: 0, updated: 0, errors: 0 }),
+    };
+    const service = new ContactService(repository);
+    const filters = {
+      label: "VIP",
+      pipelineId: "019b0000-0000-7000-8000-000000000010",
+      ownerMemberId: "019b0000-0000-7000-8000-000000000011",
+      channel: "EMAIL" as const,
+      createdFrom: new Date("2026-09-01T00:00:00.000Z"),
+      createdTo: new Date("2026-09-30T23:59:59.999Z"),
+    };
+    await service.list(actor, ["crm:contacts:read"], filters);
+    expect(list).toHaveBeenCalledWith(actor, filters);
+  });
 });

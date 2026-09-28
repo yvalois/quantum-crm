@@ -11,6 +11,7 @@ import {
   ContactImportApplyResponseSchema,
   ContactImportFileSchema,
   ContactImportPreviewResponseSchema,
+  ContactListQuerySchema,
   ContactListResponseSchema,
   ContactResponseSchema,
   CreateContactSchema,
@@ -83,22 +84,23 @@ export async function handleCrmContactList(
   request: Request,
   runtime: CrmAuthRuntime,
 ): Promise<Response> {
+  const query = contactListQuery(request);
+  if (!query) return crmProblem(400, "Invalid request");
   const authorized = await authorizedSession(request, runtime);
   if (isResponse(authorized)) return authorized;
   try {
-    const upstream = await runtime.crmApiFetch(
-      new URL("/api/v1/contacts", runtime.config.crmApiOrigin),
-      {
-        headers: {
-          accept: "application/json",
-          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
-          "x-correlation-id": authorized.correlationId,
-        },
-        cache: "no-store",
-        redirect: "manual",
-        signal: AbortSignal.timeout(5_000),
+    const endpoint = new URL("/api/v1/contacts", runtime.config.crmApiOrigin);
+    endpoint.search = query.toString();
+    const upstream = await runtime.crmApiFetch(endpoint, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+        "x-correlation-id": authorized.correlationId,
       },
-    );
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
     return commercialResponse(upstream, ContactListResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
@@ -268,22 +270,23 @@ export async function handleCrmContactExport(
   request: Request,
   runtime: CrmAuthRuntime,
 ): Promise<Response> {
+  const query = contactListQuery(request);
+  if (!query) return crmProblem(400, "Invalid request");
   const authorized = await authorizedSession(request, runtime);
   if (isResponse(authorized)) return authorized;
   try {
-    const upstream = await runtime.crmApiFetch(
-      new URL("/api/v1/contacts/export", runtime.config.crmApiOrigin),
-      {
-        headers: {
-          accept: "text/csv",
-          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
-          "x-correlation-id": authorized.correlationId,
-        },
-        cache: "no-store",
-        redirect: "manual",
-        signal: AbortSignal.timeout(10_000),
+    const endpoint = new URL("/api/v1/contacts/export", runtime.config.crmApiOrigin);
+    endpoint.search = query.toString();
+    const upstream = await runtime.crmApiFetch(endpoint, {
+      headers: {
+        accept: "text/csv",
+        authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+        "x-correlation-id": authorized.correlationId,
       },
-    );
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
     if (upstream.status === 401) return crmProblem(401, "Unauthorized");
     if (upstream.status === 403) return crmProblem(403, "Forbidden");
     if (!upstream.ok) return crmProblem(503, "CRM service temporarily unavailable");
@@ -688,6 +691,31 @@ function memberListQuery(request: Request): URLSearchParams | null {
   const output = new URLSearchParams({ limit: parsed.data.limit.toString() });
   if (parsed.data.cursor) output.set("cursor", parsed.data.cursor);
   if (parsed.data.status) output.set("status", parsed.data.status);
+  return output;
+}
+
+function contactListQuery(request: Request): URLSearchParams | null {
+  const input = new URL(request.url).searchParams;
+  const allowed = new Set([
+    "label",
+    "pipelineId",
+    "ownerMemberId",
+    "channel",
+    "createdFrom",
+    "createdTo",
+  ]);
+  const raw: Record<string, string> = {};
+  for (const key of input.keys()) {
+    if (!allowed.has(key) || input.getAll(key).length !== 1) return null;
+    const value = input.get(key);
+    if (value !== null) raw[key] = value;
+  }
+  const parsed = ContactListQuerySchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const output = new URLSearchParams();
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) output.set(key, value);
+  }
   return output;
 }
 

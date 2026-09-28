@@ -4,6 +4,7 @@ import type {
   ContactRecord,
   ContactImportResult,
   ContactImportResultRow,
+  ContactListFilters,
   ContactRepository,
   CommercialActor,
   Opportunity,
@@ -225,12 +226,48 @@ export function createCommercialPostgresRepositories(
   pool: PostgresPool,
 ): CommercialPostgresRepositories {
   const contacts: ContactRepository = Object.freeze<ContactRepository>({
-    list: async (actor) => {
+    list: async (actor, filters: ContactListFilters = {}) => {
       try {
         const access = visibility(actor, 1, ["contact.owner_member_id"]);
+        const params: unknown[] = [...access.params];
+        const conditions = [access.sql];
+        const parameter = (value: unknown): string => {
+          params.push(value);
+          return `$${params.length}`;
+        };
+        if (filters.label !== undefined) {
+          const label = parameter(filters.label);
+          conditions.push(
+            `EXISTS (SELECT 1 FROM contacts.contact_labels AS contact_label JOIN contacts.labels AS label ON label.id = contact_label.label_id WHERE contact_label.contact_id = contact.id AND lower(label.name) = lower(${label}))`,
+          );
+        }
+        if (filters.pipelineId !== undefined) {
+          const pipeline = parameter(filters.pipelineId);
+          const opportunityAccess = visibility(actor, 1, ["opportunity.owner_member_id"]);
+          conditions.push(
+            `EXISTS (SELECT 1 FROM sales.opportunities AS opportunity WHERE opportunity.contact_id = contact.id AND opportunity.pipeline_id = ${pipeline}::uuid AND ${opportunityAccess.sql})`,
+          );
+        }
+        if (filters.ownerMemberId !== undefined) {
+          const owner = parameter(filters.ownerMemberId);
+          conditions.push(`contact.owner_member_id = ${owner}::uuid`);
+        }
+        if (filters.channel === "EMAIL") conditions.push("contact.email IS NOT NULL");
+        if (filters.channel === "PHONE") conditions.push("contact.phone IS NOT NULL");
+        if (filters.channel === "NONE") {
+          conditions.push("contact.email IS NULL AND contact.phone IS NULL");
+        }
+        if (filters.createdFrom !== undefined) {
+          const createdFrom = parameter(filters.createdFrom);
+          conditions.push(`contact.created_at >= ${createdFrom}::timestamptz`);
+        }
+        if (filters.createdTo !== undefined) {
+          const createdTo = parameter(filters.createdTo);
+          conditions.push(`contact.created_at <= ${createdTo}::timestamptz`);
+        }
         const result = (await pool.query(
-          `SELECT ${contactSelection} FROM contacts.contacts AS contact WHERE ${access.sql} ORDER BY contact.created_at DESC, contact.id DESC`,
-          access.params,
+          `SELECT ${contactSelection} FROM contacts.contacts AS contact WHERE ${conditions.join(" AND ")} ORDER BY contact.created_at DESC, contact.id DESC`,
+          params,
         )) as { readonly rows: readonly ContactRow[] };
         return Object.freeze(result.rows.map(contactFromRow));
       } catch (error) {

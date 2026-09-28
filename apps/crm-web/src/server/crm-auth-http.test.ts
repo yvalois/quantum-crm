@@ -10,6 +10,7 @@ import {
   handleCrmLogin,
   handleCrmMemberList,
   handleCrmMemberUpdate,
+  handleCrmContactList,
   handleCrmContactUpdate,
   handleCrmSession,
 } from "./crm-auth-http.js";
@@ -122,6 +123,22 @@ describe("CRM web authentication HTTP boundary", () => {
     });
     expect(await memberResponse.text()).not.toContain("server-only-access-token");
     expect(await sessionResponse.text()).not.toContain("server-only-access-token");
+  });
+
+  it("forwards only validated contact filters to the CRM API", async () => {
+    const upstream = vi.fn(async (_input: RequestInfo | URL) => Response.json({ data: [] }));
+    const response = await handleCrmContactList(
+      new Request(
+        "https://crm.example.test/api/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01",
+        { headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` } },
+      ),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream.mock.calls[0]?.[0].toString()).toBe(
+      "http://api:3001/api/v1/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01",
+    );
   });
 
   it("rejects arbitrary BFF routes before calling CRM API", async () => {

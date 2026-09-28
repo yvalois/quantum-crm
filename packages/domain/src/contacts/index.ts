@@ -1,6 +1,16 @@
 export type { CommercialActor, CommercialScope } from "../iam/index.js";
 import type { CommercialActor } from "../iam/index.js";
 
+export type ContactChannel = "EMAIL" | "PHONE" | "NONE";
+export interface ContactListFilters {
+  readonly label?: string;
+  readonly pipelineId?: string;
+  readonly ownerMemberId?: string;
+  readonly channel?: ContactChannel;
+  readonly createdFrom?: Date;
+  readonly createdTo?: Date;
+}
+
 export interface ContactRecord {
   readonly id: string;
   readonly ownerMemberId: string;
@@ -13,7 +23,10 @@ export interface ContactRecord {
 }
 
 export interface ContactRepository {
-  readonly list: (actor: CommercialActor) => Promise<readonly ContactRecord[]>;
+  readonly list: (
+    actor: CommercialActor,
+    filters?: ContactListFilters,
+  ) => Promise<readonly ContactRecord[]>;
   readonly find: (actor: CommercialActor, id: string) => Promise<ContactRecord | null>;
   readonly create: (input: {
     readonly contact: ContactRecord;

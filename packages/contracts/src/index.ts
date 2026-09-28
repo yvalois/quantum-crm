@@ -77,18 +77,22 @@ export {
 } from "./iam/v1/bootstrap-initial-administrator.js";
 export {
   ContactIdSchema,
+  ContactChannelSchema,
   ContactImportApplyResponseSchema,
   ContactImportFileSchema,
   ContactImportPreviewResponseSchema,
   ContactImportPreviewRowSchema,
   ContactListResponseSchema,
+  ContactListQuerySchema,
   ContactResponseSchema,
   ContactSchema,
   CreateContactSchema,
   UpdateContactSchema,
   type Contact,
+  type ContactChannel,
   type ContactImportFile,
   type ContactImportPreviewRow,
+  type ContactListQuery,
   type CreateContact,
   type UpdateContact,
 } from "./contacts/v1/contact.js";
