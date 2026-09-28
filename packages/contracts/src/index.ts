@@ -1,4 +1,20 @@
 export {
+  ActivateAutomationSchema,
+  AutomationActionSchema,
+  AutomationActivationResponseSchema,
+  AutomationExecutionResultSchema,
+  AutomationListResponseSchema,
+  AutomationResponseSchema,
+  AutomationSchema,
+  AutomationStatusSchema,
+  CreateAutomationSchema,
+  type ActivateAutomation,
+  type Automation,
+  type AutomationAction,
+  type AutomationExecutionResult,
+  type CreateAutomation,
+} from "./automation/v1/automation.js";
+export {
   HealthCheckSchema,
   HealthStatusSchema,
   createHealthStatus,

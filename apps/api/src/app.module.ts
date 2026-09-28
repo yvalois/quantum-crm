@@ -13,6 +13,7 @@ import {
   IamTeamService,
   SalesService,
   TaskService,
+  AutomationService,
 } from "@quantum-crm/domain";
 
 import {
@@ -36,6 +37,7 @@ import { ProblemDetailsFilter } from "./problem-details.filter.js";
 import { BootstrapInitialAdministratorController } from "./bootstrap-initial-administrator.controller.js";
 import { AcceptMemberInvitationController } from "./accept-member-invitation.controller.js";
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
+import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
 
 @Module({})
 export class AppModule {
@@ -58,6 +60,7 @@ export class AppModule {
         TeamsController,
         BootstrapInitialAdministratorController,
         AcceptMemberInvitationController,
+        AutomationsController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -102,6 +105,10 @@ export class AppModule {
               activeAssignees: async () =>
                 new IamMemberService(database.members).listActiveForTaskAssignment(),
             }),
+        },
+        {
+          provide: AUTOMATION_SERVICE,
+          useFactory: () => new AutomationService(database.commercial.automation),
         },
         { provide: APP_GUARD, useClass: CrmAuthenticationGuard },
         { provide: APP_GUARD, useClass: CrmAuthorizationGuard },

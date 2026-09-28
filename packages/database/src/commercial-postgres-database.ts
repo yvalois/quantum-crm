@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  AutomationNotFoundError,
+  AutomationValidationError,
+  type AutomationActivationResult,
+  type AutomationDefinition,
+  type AutomationRepository,
+} from "@quantum-crm/domain";
 import type {
   ContactRecord,
   ContactImportResult,
@@ -76,6 +83,35 @@ interface ContactRow {
   readonly created_at: Date;
   readonly updated_at: Date;
 }
+interface AutomationRow {
+  readonly id: string;
+  readonly name: string;
+  readonly status: string;
+  readonly trigger_event: string;
+  readonly action_type: string;
+  readonly action_config: {
+    readonly type: "CREATE_TASK";
+    readonly title: string;
+    readonly description: string;
+    readonly priority: "LOW" | "MEDIUM" | "HIGH";
+    readonly dueHours: number;
+  };
+  readonly version: string;
+  readonly created_at: Date;
+  readonly updated_at: Date;
+}
+function automationFromRow(row: AutomationRow): AutomationDefinition {
+  return Object.freeze({
+    id: row.id,
+    name: row.name,
+    status: row.status.toUpperCase() as AutomationDefinition["status"],
+    triggerEvent: "CONTACT_MANUAL",
+    action: Object.freeze(row.action_config),
+    version: BigInt(row.version),
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  });
+}
 const contactSelection = `id::text, owner_member_id::text, display_name, email::text, phone, version::text, created_at, updated_at`;
 function contactFromRow(row: ContactRow): ContactRecord {
   return Object.freeze({
@@ -90,7 +126,12 @@ function contactFromRow(row: ContactRow): ContactRecord {
   });
 }
 function fail(error: unknown): never {
-  if (error instanceof CommercialIdempotencyConflictError) throw error;
+  if (
+    error instanceof CommercialIdempotencyConflictError ||
+    error instanceof AutomationNotFoundError ||
+    error instanceof AutomationValidationError
+  )
+    throw error;
   throw new DatabaseUnavailableError();
 }
 
@@ -220,6 +261,7 @@ export interface CommercialPostgresRepositories {
   readonly contacts: ContactRepository;
   readonly sales: SalesRepository;
   readonly tasks: TaskRepository;
+  readonly automation: AutomationRepository;
 }
 
 export function createCommercialPostgresRepositories(
@@ -447,6 +489,144 @@ export function createCommercialPostgresRepositories(
       }
     },
   });
+  const automation: AutomationRepository = Object.freeze<AutomationRepository>({
+    list: async () => {
+      try {
+        const result = await pool.query<AutomationRow>(
+          `SELECT id::text, name, status, trigger_event, action_type, action_config, version::text, created_at, updated_at FROM automation.definitions ORDER BY created_at ASC, id ASC`,
+        );
+        return Object.freeze(result.rows.map(automationFromRow));
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    create: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const previous = await client.query<{ readonly payload_hash: string; readonly response: AutomationRow }>(
+          `SELECT payload_hash, response FROM automation.command_idempotency WHERE actor_member_id = $1::uuid AND command = 'automation.create' AND idempotency_key = $2 FOR UPDATE`,
+          [input.actor.memberId, input.idempotencyKey],
+        );
+        const replay = previous.rows[0];
+        if (replay) {
+          if (replay.payload_hash !== input.payloadHash) throw new CommercialIdempotencyConflictError();
+          await client.query("COMMIT");
+          return automationFromRow(replay.response);
+        }
+        const inserted = await client.query<AutomationRow>(
+          `INSERT INTO automation.definitions (id, name, status, trigger_event, action_type, action_config, version, created_at, updated_at)
+           VALUES ($1::uuid, $2, $3, 'CONTACT_MANUAL', 'CREATE_TASK', $4::jsonb, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           RETURNING id::text, name, status, trigger_event, action_type, action_config, version::text, created_at, updated_at`,
+          [input.automation.id, input.automation.name, input.automation.status.toLowerCase(), JSON.stringify(input.automation.action)],
+        );
+        const row = inserted.rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        await client.query(
+          `INSERT INTO automation.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'automation.create', $2, $3, $4::jsonb)`,
+          [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(row)],
+        );
+        await client.query("COMMIT");
+        return automationFromRow(row);
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    activate: async (input): Promise<AutomationActivationResult> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const previous = await client.query<{ readonly payload_hash: string; readonly response: AutomationActivationResult }>(
+          `SELECT payload_hash, response FROM automation.command_idempotency WHERE actor_member_id = $1::uuid AND command = 'automation.activate' AND idempotency_key = $2 FOR UPDATE`,
+          [input.actor.memberId, input.operationKey],
+        );
+        const replay = previous.rows[0];
+        if (replay) {
+          if (replay.payload_hash !== input.payloadHash) throw new CommercialIdempotencyConflictError();
+          await client.query("COMMIT");
+          return replay.response;
+        }
+        const definition = await client.query<AutomationRow>(
+          `SELECT id::text, name, status, trigger_event, action_type, action_config, version::text, created_at, updated_at FROM automation.definitions WHERE id = $1::uuid FOR UPDATE`,
+          [input.automationId],
+        );
+        const automationRow = definition.rows[0];
+        if (!automationRow || automationRow.status !== "active") throw new AutomationNotFoundError();
+        const action = automationRow.action_config;
+        const results: AutomationActivationResult["results"] = [];
+        for (const contactId of [...new Set(input.contactIds)]) {
+          const executionId = randomUUID();
+          const contactAccess = visibility(input.actor, 1, ["contact.owner_member_id"]);
+          const contact = await client.query<{ readonly id: string; readonly owner_member_id: string }>(
+            `SELECT contact.id::text, contact.owner_member_id::text FROM contacts.contacts AS contact WHERE contact.id = $2::uuid AND ${contactAccess.sql} FOR UPDATE`,
+            [input.actor.memberId, contactId],
+          );
+          const contactRow = contact.rows[0];
+          if (!contactRow) {
+            await client.query(
+              `INSERT INTO automation.executions (id, definition_id, contact_id, actor_member_id, operation_key, status, error_code, completed_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, 'FAILED', 'CONTACT_NOT_VISIBLE', CURRENT_TIMESTAMP)`,
+              [executionId, input.automationId, contactId, input.actor.memberId, input.operationKey],
+            );
+            results.push({ executionId, contactId, status: "FAILED", taskId: null, errorCode: "CONTACT_NOT_VISIBLE" });
+            continue;
+          }
+          const member = await client.query<{ readonly status: string }>(
+            `SELECT status::text FROM iam.members WHERE id = $1::uuid`,
+            [contactRow.owner_member_id],
+          );
+          if (member.rows[0]?.status !== "active") {
+            await client.query(
+              `INSERT INTO automation.executions (id, definition_id, contact_id, actor_member_id, operation_key, status, error_code, completed_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, 'FAILED', 'OWNER_INACTIVE', CURRENT_TIMESTAMP)`,
+              [executionId, input.automationId, contactId, input.actor.memberId, input.operationKey],
+            );
+            results.push({ executionId, contactId, status: "FAILED", taskId: null, errorCode: "OWNER_INACTIVE" });
+            continue;
+          }
+          await client.query(
+            `INSERT INTO automation.executions (id, definition_id, contact_id, actor_member_id, operation_key, status) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, 'PENDING')`,
+            [executionId, input.automationId, contactId, input.actor.memberId, input.operationKey],
+          );
+          const taskId = randomUUID();
+          const createdAt = new Date();
+          const dueAt = new Date(createdAt.getTime() + action.dueHours * 60 * 60 * 1000);
+          await client.query(
+            `INSERT INTO tasks.tasks (id, created_by_member_id, contact_id, opportunity_id, assignee_member_id, title, description, priority, due_at, status, version, created_at, updated_at)
+             VALUES ($1::uuid, $2::uuid, $3::uuid, NULL, $4::uuid, $5, $6, $7, $8, 'pending', 1, $9, $9)`,
+            [taskId, input.actor.memberId, contactId, contactRow.owner_member_id, action.title, action.description, action.priority.toLowerCase(), dueAt, createdAt],
+          );
+          await client.query(
+            `UPDATE automation.executions SET status = 'SUCCEEDED', task_id = $2::uuid, result = $3::jsonb, completed_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
+            [executionId, taskId, JSON.stringify({ taskId })],
+          );
+          results.push({ executionId, contactId, status: "SUCCEEDED", taskId, errorCode: null });
+        }
+        const response: AutomationActivationResult = {
+          automationId: input.automationId,
+          operationKey: input.operationKey,
+          results,
+          succeeded: results.filter((result) => result.status === "SUCCEEDED").length,
+          failed: results.filter((result) => result.status === "FAILED").length,
+        };
+        await client.query(
+          `INSERT INTO automation.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'automation.activate', $2, $3, $4::jsonb)`,
+          [input.actor.memberId, input.operationKey, input.payloadHash, JSON.stringify(response)],
+        );
+        await client.query("COMMIT");
+        return response;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+  });
+
   const sales: SalesRepository = Object.freeze<SalesRepository>({
     listPipelines: async () => {
       try {
@@ -812,5 +992,5 @@ export function createCommercialPostgresRepositories(
       }
     },
   });
-  return Object.freeze({ contacts, sales, tasks });
+  return Object.freeze({ contacts, sales, tasks, automation });
 }

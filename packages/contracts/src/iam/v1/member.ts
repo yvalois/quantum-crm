@@ -34,6 +34,9 @@ export const CrmPermissionCatalog = [
   "crm:tasks:update",
   "crm:tasks:delete",
   "crm:tasks:export",
+  "crm:automations:read",
+  "crm:automations:execute",
+  "crm:automations:configure",
 ] as const;
 export const CrmPermissionSchema = z.enum(CrmPermissionCatalog);
 export type CrmPermission = z.infer<typeof CrmPermissionSchema>;
