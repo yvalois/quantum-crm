@@ -49,7 +49,7 @@ describe("AutomationService", () => {
     const service = new AutomationService(repository);
     await service.activate({
       actor,
-      permissions: ["crm:automations:execute"],
+      permissions: ["crm:automations:execute", "crm:tasks:create"],
       automationId: "01995f7e-7b52-7000-8000-000000000210",
       contactIds: ["01995f7e-7b52-7000-8000-000000000201", "01995f7e-7b52-7000-8000-000000000201"],
       operationKey: "automation-run-1",
