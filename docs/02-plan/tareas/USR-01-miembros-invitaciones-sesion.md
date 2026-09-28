@@ -74,7 +74,7 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 - [x] Establecer la frontera interna de activación: comando IAM sin token, contrato de servicio con permiso dedicado y correlación durable por invitación/sujeto/generación.
 - [ ] Extender `ADM-04` con aprovisionamiento idempotente del realm, cliente y administrador inicial, sin exponer administración Keycloak al CRM.
 - [ ] Añadir pruebas proporcionales de dominio, contrato, aislamiento, revocación e invitación de un único uso.
-- [x] Ejecutar la verificación afectada en VPS; pruebas de dominio y BFF (20/20), typecheck de `domain`, `database`, `api` y `crm-web`, y Prettier de los 11 archivos modificados. La matriz CI del commit candidato continúa pendiente antes de integrar.
+- [x] Ejecutar la verificación afectada en VPS; pruebas de dominio y BFF (20/20), typecheck de `domain`, `database`, `api` y `crm-web`, Prettier de los 11 archivos modificados y comprobación operativa de Keycloak. La matriz CI del commit candidato continúa pendiente antes de integrar.
 
 ## Riesgos y mitigaciones
 
@@ -112,7 +112,7 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 ## Evidencia de cierre
 
 - Archivos, commits o PR: commit `b40b9d0` y [PR #51](https://github.com/yvalois/quantum-crm/pull/51) en `feat/USR-01-miembros-e2e`; se añaden la transición de revocación, el caso de uso protegido, la operación PostgreSQL transaccional/idempotente, la ruta API/BFF y la acción del panel.
-- Comandos y resultados: en el VPS, `member-service.test.ts` y `crm-auth-http.test.ts` aprobaron 20/20 pruebas; `domain`, `database`, `api` y `crm-web` aprobaron typecheck; Prettier aprobó los 11 archivos modificados. No se ejecutó ninguna comprobación técnica local.
+- Comandos y resultados: en el VPS, `member-service.test.ts` y `crm-auth-http.test.ts` aprobaron 20/20 pruebas; `domain`, `database`, `api` y `crm-web` aprobaron typecheck; Prettier aprobó los 11 archivos modificados. La imagen Keycloak `sha256:cf3d689e3be041d41a2824b11a5645a9d9092d73c4dcd436b7c922813ef3f67f` contiene `quantum-activation-provider.jar`, el contenedor queda `healthy` y discovery OIDC devuelve `200`. No se ejecutó ninguna comprobación técnica local.
 - Documentación actualizada: ficha, `estado.md` y `ADR-0023` mantienen `USR-01` en `EN_CURSO`; se registra la frontera de servicio, la correlación durable y el vínculo JTI/invitación del proveedor Keycloak sin afirmar que el flujo completo está cerrado.
-- Desviaciones del plan: no se desplegó ni se probó contra un realm real; `ADM-04` aún debe aprovisionar realm, cliente, administrador inicial y archivos secretos por perfil. La ruta de aceptación se mantiene exclusivamente interna; no existe una ruta de navegador que pueda activar una membresía por identificador.
+- Desviaciones del plan: el proveedor de activación ya está instalado y verificado en la imagen Keycloak del VPS, pero aún no se ha probado el flujo completo contra un realm CRM real. `ADM-04` aún debe aprovisionar realm, cliente, administrador inicial y archivos secretos por perfil. La ruta de aceptación se mantiene exclusivamente interna; no existe una ruta de navegador que pueda activar una membresía por identificador.
 - Pendientes o decisiones nuevas: emisor Keycloak para invitaciones, reconciliación de usuarios, entrega efímera del enlace, consumidor de estado y entrada de sesión CRM siguen abiertos; aceptación completa, realm real y pruebas de aislamiento de dos perfiles siguen abiertos; `USR-03` a `USR-10` no se consideran terminados.
