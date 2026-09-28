@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "prisma"
   ],
   "sideEffects": false,
   "exports": {
@@ -32,10 +33,10 @@
     "@quantum-crm/platform-domain": "workspace:*",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "prisma": "7.10.0"
   },
   "devDependencies": {
-    "@types/pg": "8.23.1",
-    "prisma": "7.10.0"
+    "@types/pg": "8.23.1"
   }
 }

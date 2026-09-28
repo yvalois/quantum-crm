@@ -197,12 +197,12 @@ importers:
       "@quantum-crm/platform-domain":
         specifier: workspace:*
         version: link:../../packages/platform-domain
-      reflect-metadata:
-        specifier: 0.2.2
-        version: 0.2.2
       redis:
         specifier: 6.2.1
         version: 6.2.1
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
@@ -318,13 +318,13 @@ importers:
       pg:
         specifier: 8.23.0
         version: 8.23.0
+      prisma:
+        specifier: 7.10.0
+        version: 7.10.0(@types/node@24.10.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3)
     devDependencies:
       "@types/pg":
         specifier: 8.23.1
         version: 8.23.1
-      prisma:
-        specifier: 7.10.0
-        version: 7.10.0(@types/node@24.10.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3)
 
   packages/domain:
     dependencies:

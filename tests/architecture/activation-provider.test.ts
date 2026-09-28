@@ -44,6 +44,6 @@ describe("Keycloak activation provider", () => {
     expect(provisioner).toContain("requiredActions: [");
     expect(provisioner).toContain("alias: activationCompletionAction");
     expect(provisioner).toContain("providerId: activationCompletionAction");
-    expect(provisioner).toContain("completionAction.defaultAction !== false");
+    expect(provisioner).toContain("action.defaultAction !== false");
   });
 });

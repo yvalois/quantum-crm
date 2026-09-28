@@ -109,7 +109,7 @@ export function createPlatformFoundationPromotionRepository(
       const command = validatePlatformFoundationPromotionClaim(raw);
       try {
         const result = (await pool.query(
-          `WITH candidate AS (SELECT id FROM operations.platform_foundation_promotions WHERE status='pending' OR (status='running' AND lease_expires_at <= CURRENT_TIMESTAMP) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE operations.platform_foundation_promotions promotion SET status='running', attempt=attempt+1, lease_owner=$1, lease_expires_at=CURRENT_TIMESTAMP + ($2::integer * INTERVAL '1 second'), failure_code=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP FROM candidate WHERE promotion.id=candidate.id RETURNING ${selection}`,
+          `WITH candidate AS (SELECT id FROM operations.platform_foundation_promotions WHERE status='pending' OR (status='running' AND lease_expires_at <= CURRENT_TIMESTAMP) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE operations.platform_foundation_promotions promotion SET status='running', attempt=attempt+1, lease_owner=$1, lease_expires_at=CURRENT_TIMESTAMP + ($2::integer * INTERVAL '1 second'), failure_code=NULL, version=version+1, updated_at=CURRENT_TIMESTAMP FROM candidate WHERE promotion.id=candidate.id RETURNING promotion.id, promotion.release_id, promotion.requested_by_operator_id, promotion.idempotency_key, promotion.correlation_id, promotion.status, promotion.attempt, promotion.version, promotion.lease_owner, promotion.lease_expires_at, promotion.failure_code, promotion.created_at, promotion.updated_at`,
           [command.workerId, command.leaseDurationSeconds],
         )) as { readonly rows: readonly PromotionRow[] };
         return result.rows[0] ? promote(result.rows[0]) : null;

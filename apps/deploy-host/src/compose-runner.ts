@@ -26,7 +26,7 @@ import {
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const defaultTimeoutMilliseconds = 120_000;
 const fixedEnvironment = Object.freeze({
-  HOME: "/root",
+  HOME: "/home/node",
   LC_ALL: "C",
   PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 });

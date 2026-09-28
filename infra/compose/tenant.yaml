@@ -19,7 +19,7 @@ services:
     <<: *service-defaults
     restart: "no"
     image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/crm-migrator@sha256:${QCRM_CRM_MIGRATOR_DIGEST:?set QCRM_CRM_MIGRATOR_DIGEST}"
-    pull_policy: always
+    pull_policy: never
     environment:
       QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
       QCRM_MIGRATION_DATABASE_URL_FILE: /run/secrets/qcrm_migration_database_url
@@ -31,7 +31,7 @@ services:
   crm-web:
     <<: *service-defaults
     image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/crm-web@sha256:${QCRM_CRM_WEB_DIGEST:?set QCRM_CRM_WEB_DIGEST}"
-    pull_policy: always
+    pull_policy: never
     environment:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
@@ -72,7 +72,7 @@ services:
   portal-web:
     <<: *service-defaults
     image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/portal-web@sha256:${QCRM_PORTAL_WEB_DIGEST:?set QCRM_PORTAL_WEB_DIGEST}"
-    pull_policy: always
+    pull_policy: never
     environment:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
@@ -97,7 +97,7 @@ services:
   api:
     <<: *service-defaults
     image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/api@sha256:${QCRM_API_DIGEST:?set QCRM_API_DIGEST}"
-    pull_policy: always
+    pull_policy: never
     environment:
       QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
       QCRM_HOST: 0.0.0.0
@@ -139,7 +139,7 @@ services:
   worker:
     <<: *service-defaults
     image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/worker@sha256:${QCRM_WORKER_DIGEST:?set QCRM_WORKER_DIGEST}"
-    pull_policy: always
+    pull_policy: never
     environment:
       QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
       QCRM_HOST: 0.0.0.0
@@ -166,7 +166,7 @@ services:
   agent-runtime:
     <<: *service-defaults
     image: "${QCRM_IMAGE_REGISTRY:?set QCRM_IMAGE_REGISTRY}/agent-runtime@sha256:${QCRM_AGENT_RUNTIME_DIGEST:?set QCRM_AGENT_RUNTIME_DIGEST}"
-    pull_policy: always
+    pull_policy: never
     environment:
       QCRM_ENV: "${QCRM_ENV:?set QCRM_ENV}"
       QCRM_HOST: 0.0.0.0

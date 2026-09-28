@@ -60,6 +60,7 @@ const migrationReconciler = createTenantCrmMigrationReconciler({
 });
 const server = createHostAdapterServer({
   socketPath: config.deployHostSocketPath,
+  requestTimeoutMilliseconds: 180_000,
   reconciler,
   migrationReconciler,
   foundationReleaseDeployer: createPlatformFoundationReleaseDeployer({

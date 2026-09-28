@@ -144,6 +144,7 @@ create_token platform-provisioner-password "$app_uid" "$app_uid" 0400
 create_token keycloak-database-password "$app_uid" "$data_gid" 0440
 create_token keycloak-provisioner-client-secret "$app_uid" "$app_uid" 0400
 create_token platform-redis-password "$app_uid" "$data_gid" 0440
+create_token platform-redis-admin-password "$app_uid" "$data_gid" 0440
 create_token admin-web-oidc-client-secret "$app_uid" "$app_uid" 0400
 create_operator_password
 create_storage_config
@@ -151,6 +152,7 @@ create_storage_config
 migrator_password="$(<"${secret_directory}/platform-migrator-password")"
 runtime_password="$(<"${secret_directory}/platform-runtime-password")"
 redis_password="$(<"${secret_directory}/platform-redis-password")"
+redis_admin_password="$(<"${secret_directory}/platform-redis-admin-password")"
 provisioner_password="$(<"${secret_directory}/platform-provisioner-password")"
 
 create_derived_url platform-migration-database-url \
@@ -161,6 +163,8 @@ create_derived_url platform-provisioner-database-url \
   "postgresql://qcrm_platform_provisioner:${provisioner_password}@platform-postgres:5432/postgres?sslmode=disable"
 create_derived_url admin-web-session-redis-url \
   "redis://default:${redis_password}@platform-redis:6379/0"
+create_derived_url platform-redis-admin-url \
+  "redis://qcrm_admin:${redis_admin_password}@platform-redis:6379/0"
 
-unset migrator_password runtime_password provisioner_password redis_password
+unset migrator_password runtime_password provisioner_password redis_password redis_admin_password
 echo "Platform secret files are ready"
