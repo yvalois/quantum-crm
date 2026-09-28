@@ -66,12 +66,14 @@ describe("container manifests", () => {
     expect(crmMigrator).toContain("pnpm install --frozen-lockfile --prod=false");
     expect(crmMigrator).toContain('pnpm deploy --filter "@quantum-crm/database" --prod /runtime');
     expect(crmMigrator).toContain('pnpm --filter "@quantum-crm/database..." build');
-    expect(crmMigrator).not.toContain("apk del --no-network apk-tools zlib");
+    expect(crmMigrator).toContain("apk del --no-network apk-tools zlib");
+    expect(crmMigrator).toContain("node --version");
     expect(crmMigrator).toContain("rm -rf /usr/local/lib/node_modules/npm");
     expect(crmMigrator).toContain("USER node");
 
     const keycloak = read("infra/docker/Dockerfile.keycloak");
     expect(keycloak).toContain("netty-handler-4.1.137.Final.jar");
+    expect(keycloak).toContain("! -name '*-proxy-*'");
     expect(keycloak).toContain("bcprov-jdk18on-1.85.jar");
     expect(keycloak).toContain("apk del --no-network apk-tools zlib");
   });
