@@ -21,8 +21,7 @@ import {
   type OidcAccessTokenVerifier,
 } from "@quantum-crm/auth";
 import { SecretValue } from "@quantum-crm/config";
-import type { IamPermission } from "@quantum-crm/domain";
-import { IamMemberService } from "@quantum-crm/domain";
+import type { IamMemberService, IamPermission } from "@quantum-crm/domain";
 import { randomUUID } from "node:crypto";
 
 export const CRM_MEMBERSHIPS = Symbol("CRM_MEMBERSHIPS");
