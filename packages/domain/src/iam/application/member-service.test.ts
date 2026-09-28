@@ -5,6 +5,7 @@ import type { IamMemberRepository } from "./member-repository.js";
 import {
   IamAuthorizationError,
   IamInvitationAcceptanceError,
+  IamInvitationRevocationError,
   IamMemberService,
 } from "./member-service.js";
 
@@ -12,6 +13,87 @@ const actorId = "01995f7e-7b52-7000-8000-000000000201";
 const now = new Date("2026-09-22T12:00:00.000Z");
 
 describe("IAM member service", () => {
+  it("revokes only a pending invitation and keeps the member record", async () => {
+    const member = Object.freeze({
+      id: "01995f7e-7b52-7000-8000-000000000202",
+      oidcSubject: null,
+      displayName: "Ana Pérez",
+      email: "ana@example.test",
+      status: "INVITED" as const,
+      authorizationRevision: 1n,
+      createdAt: now,
+      updatedAt: now,
+      deactivatedAt: null,
+    });
+    const invitation = Object.freeze({
+      id: "01995f7e-7b52-7000-8000-000000000203",
+      memberId: member.id,
+      status: "REVOKED" as const,
+      expiresAt: new Date("2026-09-25T12:00:00.000Z"),
+      acceptedAt: null,
+      createdAt: now,
+    });
+    const revokeInvitation = vi.fn(async () => invitation);
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => member,
+      findByOidcSubject: async () => null,
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (value) => value,
+      assignRole: async () => null,
+      acceptInvitation: async () => null,
+      revokeInvitation,
+      bootstrapInitialAdministrator: async ({ member: value }) => ({
+        member: value,
+        replayed: false,
+      }),
+    };
+    const result = await new IamMemberService(repository, () => now).revokeInvitation({
+      actor: { memberId: actorId, permissions: ["iam:members:update"] },
+      memberId: member.id,
+    });
+
+    expect(result.status).toBe("REVOKED");
+    expect(revokeInvitation).toHaveBeenCalledWith({ memberId: member.id, now });
+  });
+
+  it("does not revoke when the invitation repository cannot transition it", async () => {
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => ({
+        id: "01995f7e-7b52-7000-8000-000000000202",
+        oidcSubject: null,
+        displayName: "Ana Pérez",
+        email: "ana@example.test",
+        status: "INVITED",
+        authorizationRevision: 1n,
+        createdAt: now,
+        updatedAt: now,
+        deactivatedAt: null,
+      }),
+      findByOidcSubject: async () => null,
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
+      update: async (value) => value,
+      assignRole: async () => null,
+      acceptInvitation: async () => null,
+      revokeInvitation: async () => null,
+      bootstrapInitialAdministrator: async ({ member: value }) => ({
+        member: value,
+        replayed: false,
+      }),
+    };
+    await expect(
+      new IamMemberService(repository, () => now).revokeInvitation({
+        actor: { memberId: actorId, permissions: ["iam:members:update"] },
+        memberId: "01995f7e-7b52-7000-8000-000000000202",
+      }),
+    ).rejects.toBeInstanceOf(IamInvitationRevocationError);
+  });
+
   it("creates a hashed, expiring invitation only for an authorized administrator", async () => {
     let invitationHash = "";
     const repository: IamMemberRepository = {

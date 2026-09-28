@@ -2,6 +2,7 @@ export {
   acceptInvitation,
   activateMember,
   createInvitation,
+  revokeInvitation,
   createBootstrapAdministrator,
   createInvitedMember,
   deactivateMember,
@@ -52,6 +53,7 @@ export type {
 export {
   IamAuthorizationError,
   IamInvitationAcceptanceError,
+  IamInvitationRevocationError,
   IamMemberNotFoundError,
   IamMemberRevisionConflictError,
   IamMemberService,

@@ -313,3 +313,14 @@ export function acceptInvitation(input: {
   }
   return Object.freeze({ ...input.invitation, status: "ACCEPTED", acceptedAt: input.now });
 }
+
+export function revokeInvitation(input: {
+  readonly invitation: IamInvitation;
+  readonly now: Date;
+}): IamInvitation {
+  requireDate(input.now);
+  if (input.invitation.status !== "PENDING" || input.invitation.expiresAt <= input.now) {
+    throw new IamMemberValidationError();
+  }
+  return Object.freeze({ ...input.invitation, status: "REVOKED" });
+}

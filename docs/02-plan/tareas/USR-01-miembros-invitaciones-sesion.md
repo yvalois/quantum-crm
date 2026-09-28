@@ -69,11 +69,12 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 - [x] Implementar repositorio PostgreSQL y casos de uso de crear, invitar, editar, aceptar y desactivar; la invitación persiste una clave de idempotencia y la aceptación se bloquea transaccionalmente.
 - [x] Generalizar de forma segura las primitivas de sesión/OIDC y añadir la composición exclusiva de CRM: namespace Redis por perfil, cliente OIDC CRM, sesión opaca, PKCE, CSRF y BFF de lectura con ruta upstream fija.
 - [x] Conectar autorización CRM en API y el BFF protegido de `crm-web`; la configuración real del realm, cliente y secretos continúa en `ADM-04`.
+- [x] Añadir revocación transaccional e idempotente de invitaciones pendientes, protegida por `iam:members:update`, con expiración cerrada y acción visible en la administración.
 - [ ] Completar la administración visual de miembros y el flujo de aceptación.
 - [x] Establecer la frontera interna de activación: comando IAM sin token, contrato de servicio con permiso dedicado y correlación durable por invitación/sujeto/generación.
 - [ ] Extender `ADM-04` con aprovisionamiento idempotente del realm, cliente y administrador inicial, sin exponer administración Keycloak al CRM.
 - [ ] Añadir pruebas proporcionales de dominio, contrato, aislamiento, revocación e invitación de un único uso.
-- [x] Ejecutar una única verificación afectada en VPS; la matriz CI del commit candidato continúa pendiente antes de integrar.
+- [x] Ejecutar la verificación afectada en VPS; pruebas de dominio y BFF (20/20), typecheck de `domain`, `database`, `api` y `crm-web`, y Prettier de los 11 archivos modificados. La matriz CI del commit candidato continúa pendiente antes de integrar.
 
 ## Riesgos y mitigaciones
 
@@ -110,8 +111,8 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: base IAM y sesión/BFF previas; en `feat/USR-01-activacion-miembros` se añaden `8f2560b` (contrato/ruta inicial, posteriormente restringida al límite interno), el comando `acceptConfirmedInvitation`, la migración `20260927010000_usr_01_invitation_activation_metadata`, el puerto/adaptador de metadatos y el permiso de servicio dedicado. PR y matriz CI pendientes.
-- Comandos y resultados: en el VPS, Prettier de los archivos afectados y typecheck de `config`, `auth`, `admin-web` y `crm-web` aprobados. Las pruebas existentes afectadas y `apps/crm-web/src/server/crm-auth-http.test.ts` aprobaron; esta última ejecutó 4 pruebas. No se ejecutó ninguna comprobación técnica local.
+- Archivos, commits o PR: en `feat/USR-01-miembros-e2e` se añaden la transición de revocación, el caso de uso protegido, la operación PostgreSQL transaccional/idempotente, la ruta API/BFF y la acción del panel. Commit y PR se registrarán al publicar este bloque.
+- Comandos y resultados: en el VPS, `member-service.test.ts` y `crm-auth-http.test.ts` aprobaron 20/20 pruebas; `domain`, `database`, `api` y `crm-web` aprobaron typecheck; Prettier aprobó los 11 archivos modificados. No se ejecutó ninguna comprobación técnica local.
 - Documentación actualizada: ficha, `estado.md` y `ADR-0023` mantienen `USR-01` en `EN_CURSO`; se registra la frontera de servicio, la correlación durable y el vínculo JTI/invitación del proveedor Keycloak sin afirmar que el flujo completo está cerrado.
 - Desviaciones del plan: no se desplegó ni se probó contra un realm real; `ADM-04` aún debe aprovisionar realm, cliente, administrador inicial y archivos secretos por perfil. La ruta de aceptación se mantiene exclusivamente interna; no existe una ruta de navegador que pueda activar una membresía por identificador.
-- Pendientes o decisiones nuevas: emisor Keycloak para invitaciones, reconciliación de usuarios, entrega efímera del enlace, consumidor de estado y entrada de sesión CRM siguen abiertos; interfaz completa de miembros, revocación, realm real y pruebas de aislamiento de dos perfiles siguen abiertos; `USR-03` a `USR-10` no se consideran terminados.
+- Pendientes o decisiones nuevas: emisor Keycloak para invitaciones, reconciliación de usuarios, entrega efímera del enlace, consumidor de estado y entrada de sesión CRM siguen abiertos; aceptación completa, realm real y pruebas de aislamiento de dos perfiles siguen abiertos; `USR-03` a `USR-10` no se consideran terminados.

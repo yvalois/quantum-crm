@@ -47,6 +47,11 @@ export interface IamMemberRepository {
     readonly oidcSubject: string;
     readonly now: Date;
   }): Promise<IamMember | null>;
+  /** Revokes a pending invitation without deleting its member history. */
+  revokeInvitation?(input: {
+    readonly memberId: string;
+    readonly now: Date;
+  }): Promise<IamInvitation | null>;
   bootstrapInitialAdministrator(input: {
     readonly member: IamMember;
     readonly idempotencyKey: string;

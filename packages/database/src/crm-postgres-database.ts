@@ -483,6 +483,66 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         client?.release();
       }
     },
+    revokeInvitation: async (
+      input: Parameters<NonNullable<IamMemberRepository["revokeInvitation"]>>[0],
+    ): Promise<IamInvitation | null> => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const found = (await client.query(
+          `
+            SELECT id::text, member_id::text, status::text, expires_at, accepted_at, created_at
+            FROM iam.invitations
+            WHERE member_id = $1::uuid AND status IN ('pending', 'revoked')
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            FOR UPDATE
+          `,
+          [input.memberId],
+        )) as { readonly rows: readonly IamInvitationRow[] };
+        const current = found.rows[0];
+        if (!current) {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        if (invitationStatus(current.status) === "REVOKED") {
+          await client.query("COMMIT");
+          return invitationFromRow(current);
+        }
+        if (current.expires_at <= input.now) {
+          await client.query(`UPDATE iam.invitations SET status = 'expired' WHERE id = $1::uuid`, [
+            current.id,
+          ]);
+          await client.query("COMMIT");
+          return null;
+        }
+        const updated = (await client.query(
+          `
+            UPDATE iam.invitations
+            SET status = 'revoked'
+            WHERE id = $1::uuid AND status = 'pending'
+            RETURNING id::text, member_id::text, status::text, expires_at, accepted_at, created_at
+          `,
+          [current.id],
+        )) as { readonly rows: readonly IamInvitationRow[] };
+        const row = updated.rows[0];
+        if (!row) {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        await client.query("COMMIT");
+        return invitationFromRow(row);
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error)) {
+          throw new IamMemberConflictError();
+        }
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
     update: async (
       member: IamMember,
       expectedAuthorizationRevision?: bigint,
