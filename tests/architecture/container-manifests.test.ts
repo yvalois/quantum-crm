@@ -66,7 +66,8 @@ describe("container manifests", () => {
     expect(crmMigrator).toContain("pnpm install --frozen-lockfile --prod=false");
     expect(crmMigrator).toContain('pnpm deploy --filter "@quantum-crm/database" --prod /runtime');
     expect(crmMigrator).toContain('pnpm --filter "@quantum-crm/database..." build');
-    expect(crmMigrator).toContain("apk del --no-network apk-tools zlib");
+    expect(crmMigrator).not.toContain("apk del --no-network apk-tools zlib");
+    expect(crmMigrator).toContain("rm -rf /usr/local/lib/node_modules/npm");
     expect(crmMigrator).toContain("USER node");
 
     const keycloak = read("infra/docker/Dockerfile.keycloak");
