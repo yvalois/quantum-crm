@@ -60,6 +60,8 @@ async function responseMessage(response: Response): Promise<string> {
 
 export function MembersPanel(): React.JSX.Element {
   const [members, setMembers] = useState<Member[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberStatusFilter, setMemberStatusFilter] = useState<Member["status"] | "ALL">("ALL");
   const [roles, setRoles] = useState<Role[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamsAvailable, setTeamsAvailable] = useState(false);
@@ -79,6 +81,15 @@ export function MembersPanel(): React.JSX.Element {
   const [roleDisplayName, setRoleDisplayName] = useState("");
   const [rolePermissions, setRolePermissions] = useState<CrmPermission[]>([]);
   const invitationKey = useRef<string | null>(null);
+
+  const visibleMembers = members.filter((member) => {
+    const normalizedSearch = memberSearch.trim().toLocaleLowerCase();
+    const matchesSearch =
+      normalizedSearch.length === 0 ||
+      member.displayName.toLocaleLowerCase().includes(normalizedSearch) ||
+      member.email.toLocaleLowerCase().includes(normalizedSearch);
+    return matchesSearch && (memberStatusFilter === "ALL" || member.status === memberStatusFilter);
+  });
 
   const loadMembers = useCallback(async (): Promise<void> => {
     const response = await fetch("/api/members?limit=100", {
@@ -490,16 +501,47 @@ export function MembersPanel(): React.JSX.Element {
             <div className="card-heading">
               <div>
                 <h2 id="members-heading">Miembros</h2>
-                <p>{members.length} registrados en este espacio</p>
+                <p>
+                  {visibleMembers.length} de {members.length} registrados en este espacio
+                </p>
               </div>
+            </div>
+            <div className="filter-grid" aria-label="Filtros de miembros">
+              <label>
+                Buscar miembro
+                <input
+                  type="search"
+                  value={memberSearch}
+                  onChange={(event) => setMemberSearch(event.target.value)}
+                  placeholder="Nombre o correo"
+                  autoComplete="off"
+                />
+              </label>
+              <label>
+                Estado
+                <select
+                  value={memberStatusFilter}
+                  onChange={(event) =>
+                    setMemberStatusFilter(event.target.value as Member["status"] | "ALL")
+                  }
+                >
+                  <option value="ALL">Todos</option>
+                  <option value="ACTIVE">Activos</option>
+                  <option value="INVITED">Invitados</option>
+                  <option value="DEACTIVATED">Desactivados</option>
+                </select>
+              </label>
             </div>
             {loading ? <p className="state-message">Cargando equipo…</p> : null}
             {!loading && members.length === 0 ? (
               <p className="state-message">Aún no hay miembros registrados.</p>
             ) : null}
-            {!loading && members.length > 0 ? (
+            {!loading && members.length > 0 && visibleMembers.length === 0 ? (
+              <p className="state-message">No hay miembros que coincidan con los filtros.</p>
+            ) : null}
+            {!loading && visibleMembers.length > 0 ? (
               <ul className="member-list">
-                {members.map((member) => (
+                {visibleMembers.map((member) => (
                   <li key={member.id} className="member-row">
                     <div className="member-avatar" aria-hidden="true">
                       {member.displayName.slice(0, 1).toUpperCase()}
