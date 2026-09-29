@@ -71,8 +71,8 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 - [x] Sustituir `jackson-databind 2.21.5` por `2.21.6` y retirar el cliente administrativo no utilizado del runtime final.
 - [x] Actualizar la prueba de manifests contra regresiones de `zlib` o `apk` en runtime.
 - [x] Alinear la identidad OIDC con el `sub` inmutable exacto emitido por GitHub para este repositorio.
-- [ ] Abrir PR y usar una sola matriz CI como evidencia.
-- [ ] Tras el merge, inspeccionar una sola release automatica y registrar el resultado sin repetirla.
+- [x] Abrir PR y usar una sola matriz CI como evidencia.
+- [x] Tras el merge, inspeccionar una sola release automatica y registrar el resultado sin repetirla.
 
 ## Riesgos y mitigaciones
 
@@ -86,7 +86,7 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 
 - [x] Los tres Dockerfiles eliminan `apk-tools` y `zlib` de sus runtimes Alpine, sin `latest` y sin root.
 - [x] La prueba arquitectonica protege digest Alpine, ausencia de gestores de paquetes Node y ausencia de `zlib`/`apk` en runtime.
-- [ ] CI aprueba el commit y su unica release posterior conserva los reportes y crea candidata solo sin highs ni criticals.
+- [x] CI aprueba el commit y su unica release posterior conserva los reportes y crea candidata solo sin highs ni criticals.
 
 ## Plan de verificacion
 
@@ -106,8 +106,9 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: `b8e6b96` integro la puerta final de seguridad mediante PR #64. El candidato OIDC `2bc2af5` vive en `fix/OPS-10-immutable-oidc-subject`.
-- Comandos y resultados: en el VPS autorizado, `container-manifests.test.ts` paso 15/15; Keycloak se construyo por digest como `sha256:c06772c6f31504dd432a99f2a73742c790941ff53f8f52a58e4f5d9f6d999655`, arranco con almacenamiento H2 desechable y Grype 0.119.0 aprobo `--fail-on high` con la base `sha256:89d80b3df8f320b4e828fa708ce729f297ee95b601521e33753794d8e4255497`. El runtime contiene `jackson-databind 2.21.6`, no contiene `2.21.5` ni el cliente administrativo vulnerable y conserva las correcciones previas de Node, Netty, Bouncy Castle y zlib. Para `2bc2af5`, formato y ESLint afectados aprobaron, las 20 pruebas de configuracion/verificacion OIDC aprobaron y `admin-api` construyo la imagen `sha256:bfe57ff33b0f52f027406eb7771003f60db77e680f2705ff16552fb0b9b610e9`.
-- Documentacion actualizada: ficha y estado registran el bloqueo de la release 36475922196 y la evidencia VPS del candidato 47769cb.
-- Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: la primera correccion fue insuficiente porque `apk-tools` retenia el paquete. Esta correccion elimina ambos paquetes; si el reporte mantiene hallazgos altos o criticos, se abrira otra remediacion especifica sin aceptar excepciones automaticas.
+- Archivos, commits o PR: `b8e6b96` integro la puerta final de seguridad mediante PR #64. PR #65 corrigio el subject OIDC inmutable y se integro como `22fd67e8b98b870897b52e19df36c04571c1fa9d`.
+- Comandos y resultados: la matriz de calidad 36608602768 aprobo sus siete comprobaciones. La ejecucion de release 36608770654 publico los diez artefactos, genero SBOM y procedencia, aprobo Grype 0.119.0 con cero hallazgos altos o criticos y registro la candidata `ff88f447-78a5-5386-b42e-41e25302e9b1`, version `0.0.0-candidate.22fd67e8b98b`. Los diez paquetes GHCR quedaron publicos para permitir pulls anonimos por digest; el VPS comprobo esa descarga antes de cambiar trafico.
+- Despliegue: la candidata se promovio mediante la API protegida y una sesion MFA del operador, quedo `VALIDATED` con version de entidad 2 y se desplego por sus digests exactos en Keycloak, `admin-web`, `admin-api`, `deploy-executor` y los cinco procesos persistentes del perfil piloto. Los nueve servicios quedaron saludables; Admin, CRM e Identity devolvieron `200`, el login MFA y la API del operador aprobaron, y la raiz del CRM devolvio la redireccion OIDC esperada `307`.
+- Documentacion actualizada: ficha, estado, despliegues e inventario del VPS registran la release, su promocion y los digests desplegados.
+- Desviaciones del plan: al recrear el perfil piloto, Caddy perdio la conexion a su red privada aunque los servicios estaban saludables. Se reconecto la red tipada del perfil y el health publico paso de `503` a `200`; no se cambiaron rutas ni se publicaron puertos adicionales.
+- Pendientes o decisiones nuevas: `OPS-10-f` queda cerrada. Las pruebas comerciales completas del entorno y la promocion por cliente permanecen en `OPS-12` y en el flujo de actualizacion de perfiles; no requieren reconstruir esta release.
