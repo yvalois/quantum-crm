@@ -71,6 +71,7 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 - [x] Sustituir `jackson-databind 2.21.5` por `2.21.6` y retirar el cliente administrativo no utilizado del runtime final.
 - [x] Actualizar la prueba de manifests contra regresiones de `zlib` o `apk` en runtime.
 - [x] Alinear la identidad OIDC con el `sub` inmutable exacto emitido por GitHub para este repositorio.
+- [x] Evitar que un cambio exclusivo de documentacion vuelva a construir y publicar los diez artefactos.
 - [x] Abrir PR y usar una sola matriz CI como evidencia.
 - [x] Tras el merge, inspeccionar una sola release automatica y registrar el resultado sin repetirla.
 
@@ -111,4 +112,4 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 - Despliegue: la candidata se promovio mediante la API protegida y una sesion MFA del operador, quedo `VALIDATED` con version de entidad 2 y se desplego por sus digests exactos en Keycloak, `admin-web`, `admin-api`, `deploy-executor` y los cinco procesos persistentes del perfil piloto. Los nueve servicios quedaron saludables; Admin, CRM e Identity devolvieron `200`, el login MFA y la API del operador aprobaron, y la raiz del CRM devolvio la redireccion OIDC esperada `307`.
 - Documentacion actualizada: ficha, estado, despliegues e inventario del VPS registran la release, su promocion y los digests desplegados.
 - Desviaciones del plan: al recrear el perfil piloto, Caddy perdio la conexion a su red privada aunque los servicios estaban saludables. Se reconecto la red tipada del perfil y el health publico paso de `503` a `200`; no se cambiaron rutas ni se publicaron puertos adicionales.
-- Pendientes o decisiones nuevas: `OPS-10-f` queda cerrada. Las pruebas comerciales completas del entorno y la promocion por cliente permanecen en `OPS-12` y en el flujo de actualizacion de perfiles; no requieren reconstruir esta release.
+- Pendientes o decisiones nuevas: `OPS-10-f` queda cerrada. `release-candidate` calcula el alcance del commit aprobado y omite la publicacion cuando todos los cambios estan bajo `docs/`, `.github/` o terminan en `.md`; la matriz de calidad permanece obligatoria. Las pruebas comerciales completas del entorno y la promocion por cliente permanecen en `OPS-12` y en el flujo de actualizacion de perfiles; no requieren reconstruir esta release.

@@ -98,6 +98,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Smoke final: Admin, CRM e Identity devolvieron `200`; la raiz del CRM devolvio `307` hacia OIDC; login administrativo con password y TOTP, cookie opaca, permisos del operador y consulta de la release protegida aprobaron.
 - Tras recrear el perfil, el smoke detecto que Caddy habia perdido la red privada del piloto. La red se reconecto sin publicar puertos y la disponibilidad externa paso de `503` a `200`.
 - El uso de disco bajo de 98 % a 73 % al retirar 12.97 GB de cache de compilacion Docker reproducible; no se eliminaron volumenes, bases, secretos, configuraciones ni contenedores activos.
+- `release-candidate` omite la publicacion de imagenes cuando el commit aprobado cambia exclusivamente `docs/`, `.github/` o archivos Markdown; la matriz de calidad sigue ejecutandose y un cambio de codigo, configuracion o infraestructura conserva la release completa.
 
 - Fecha: 2026-09-27; entorno: VPS autorizado de staging, sin ejecución técnica local.
 - Perfil: `01a0e50a-ab43-7c18-92ee-2f0a2567f292` / `quantum-piloto`.
