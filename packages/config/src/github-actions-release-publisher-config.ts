@@ -8,6 +8,7 @@ export const githubActionsReleasePublisherEnvironmentKeys = Object.freeze([
   "QCRM_GITHUB_ACTIONS_REPOSITORY",
   "QCRM_GITHUB_ACTIONS_REPOSITORY_ID",
   "QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID",
+  "QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY",
 ] as const);
 
 const githubActionsIssuer = "https://token.actions.githubusercontent.com";
@@ -15,7 +16,7 @@ const githubActionsJwksUrl = "http://github-actions-oidc:8081/.well-known/jwks";
 const releaseCandidateWorkflow = ".github/workflows/release-candidate.yml";
 const releaseCandidateRef = "refs/heads/main";
 const releaseCandidateEvent = "workflow_run";
-const releaseCandidateVisibility = "private";
+const repositoryVisibilitySchema = z.enum(["private", "public"]);
 
 export interface GithubActionsReleasePublisherConfig {
   readonly schemaVersion: "github-actions-release-publisher-config/v1";
@@ -29,7 +30,7 @@ export interface GithubActionsReleasePublisherConfig {
   readonly workflowRef: string;
   readonly subject: string;
   readonly eventName: typeof releaseCandidateEvent;
-  readonly repositoryVisibility: typeof releaseCandidateVisibility;
+  readonly repositoryVisibility: z.infer<typeof repositoryVisibilitySchema>;
   readonly allowedAlgorithms: readonly ["RS256"];
   readonly clockToleranceSeconds: number;
   readonly jwksTimeoutMs: number;
@@ -59,6 +60,7 @@ function valuesFor(environment: QcrmEnvironment): Readonly<Record<string, string
     QCRM_GITHUB_ACTIONS_REPOSITORY: "example/quantum-crm",
     QCRM_GITHUB_ACTIONS_REPOSITORY_ID: "1",
     QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID: "1",
+    QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY: "private",
   };
 }
 
@@ -81,18 +83,24 @@ export function parseGithubActionsReleasePublisherConfig(
     environment.QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID ??
       defaults.QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID,
   );
+  const repositoryVisibility = repositoryVisibilitySchema.safeParse(
+    environment.QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY ??
+      defaults.QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY,
+  );
   const invalidKeys = [
     ...(audience.success ? [] : ["QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE"]),
     ...(repository.success ? [] : ["QCRM_GITHUB_ACTIONS_REPOSITORY"]),
     ...(repositoryId.success ? [] : ["QCRM_GITHUB_ACTIONS_REPOSITORY_ID"]),
     ...(repositoryOwnerId.success ? [] : ["QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID"]),
+    ...(repositoryVisibility.success ? [] : ["QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY"]),
   ];
   if (invalidKeys.length > 0) throw new ConfigurationError(serviceName, invalidKeys);
   if (
     !audience.success ||
     !repository.success ||
     !repositoryId.success ||
-    !repositoryOwnerId.success
+    !repositoryOwnerId.success ||
+    !repositoryVisibility.success
   ) {
     throw new ConfigurationError(serviceName, invalidKeys);
   }
@@ -110,7 +118,7 @@ export function parseGithubActionsReleasePublisherConfig(
     workflowRef,
     subject: `repo:${repository.data}:ref:${releaseCandidateRef}`,
     eventName: releaseCandidateEvent,
-    repositoryVisibility: releaseCandidateVisibility,
+    repositoryVisibility: repositoryVisibility.data,
     allowedAlgorithms: Object.freeze(["RS256"] as const),
     clockToleranceSeconds: 5,
     jwksTimeoutMs: 5_000,
