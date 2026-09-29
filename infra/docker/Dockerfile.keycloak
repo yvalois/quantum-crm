@@ -14,7 +14,9 @@ FROM ${MAVEN_IMAGE} AS security-overrides
 RUN mvn --batch-mode --no-transfer-progress org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy \
       -Dartifact=io.netty:netty-handler:4.1.137.Final -DoutputDirectory=/overrides \
     && mvn --batch-mode --no-transfer-progress org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy \
-      -Dartifact=org.bouncycastle:bcprov-jdk18on:1.85 -DoutputDirectory=/overrides
+      -Dartifact=org.bouncycastle:bcprov-jdk18on:1.85 -DoutputDirectory=/overrides \
+    && mvn --batch-mode --no-transfer-progress org.apache.maven.plugins:maven-dependency-plugin:3.8.1:copy \
+      -Dartifact=com.fasterxml.jackson.core:jackson-databind:2.21.6 -DoutputDirectory=/overrides
 
 FROM ${KEYCLOAK_IMAGE} AS builder
 ENV KC_DB=postgres
@@ -31,6 +33,11 @@ RUN netty_files="$(find /opt/keycloak -type f -name 'io.netty.netty-handler-*.ja
     && test -n "$bcprov_files" \
     && for file in $bcprov_files; do \
          install -m 0644 /opt/qcrm-security-overrides/bcprov-jdk18on-1.85.jar "$file"; \
+       done \
+    && jackson_databind_files="$(find /opt/keycloak/lib -type f -name 'com.fasterxml.jackson.core.jackson-databind-*.jar')" \
+    && test -n "$jackson_databind_files" \
+    && for file in $jackson_databind_files; do \
+         install -m 0644 /opt/qcrm-security-overrides/jackson-databind-2.21.6.jar "$file"; \
        done
 RUN /opt/keycloak/bin/kc.sh build
 RUN for metadata in \
@@ -40,12 +47,17 @@ RUN for metadata in \
       sed -i \
         -e 's/io.netty.netty-handler-4.1.136.Final.jar/io.netty.netty-handler-4.1.137.Final.jar/g' \
         -e 's/org.bouncycastle.bcprov-jdk18on-1.84.jar/org.bouncycastle.bcprov-jdk18on-1.85.jar/g' \
+        -e 's/com.fasterxml.jackson.core.jackson-databind-2.21.5.jar/com.fasterxml.jackson.core.jackson-databind-2.21.6.jar/g' \
         "$metadata"; \
     done \
     && netty_files="$(find /opt/keycloak -type f -name 'io.netty.netty-handler-4.1.136.Final.jar')" \
     && for file in $netty_files; do mv "$file" "${file%4.1.136.Final.jar}4.1.137.Final.jar"; done \
     && bcprov_files="$(find /opt/keycloak -type f -name '*bcprov-jdk18on-1.84.jar')" \
-    && for file in $bcprov_files; do mv "$file" "${file%1.84.jar}1.85.jar"; done
+    && for file in $bcprov_files; do mv "$file" "${file%1.84.jar}1.85.jar"; done \
+    && jackson_databind_files="$(find /opt/keycloak/lib -type f -name 'com.fasterxml.jackson.core.jackson-databind-2.21.5.jar')" \
+    && for file in $jackson_databind_files; do mv "$file" "${file%2.21.5.jar}2.21.6.jar"; done \
+    && rm -rf /opt/keycloak/bin/client \
+    && rm -f /opt/keycloak/bin/kcadm.sh /opt/keycloak/bin/kcreg.sh
 
 FROM ${RUNTIME_IMAGE}
 RUN apk add --no-cache bash \

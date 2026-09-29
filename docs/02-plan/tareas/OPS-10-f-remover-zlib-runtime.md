@@ -31,6 +31,7 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 - Codigo o documentacion encontrados: `OPS-10-e` establecio Node Alpine en toolchain y runtime y conserva los runtime como capas separadas. La guia oficial de Node para Alpine compone su runtime minimo con el binario Node y `libstdc++`; este cambio comprueba `node --version` inmediatamente despues de retirar los paquetes durante el build.
 - Pruebas e historial encontrados: PR #36 aprobo los siete checks. El reporte `release-manifest-and-scans` del workflow 35875997635 contiene ocho reportes, cada uno con exactamente un hallazgo alto, cero criticos y sin version reparada: `CVE-2026-85091` en `zlib 1.3.2-r0`. La release 35879407176 del commit `58c03e4` repitio exactamente ese resultado: el build revelo que `apk-tools` conserva `zlib` como dependencia (`zlib: apk-tools`), por lo que borrar solo `/sbin/apk` no eliminaba el paquete.
 - Hallazgo adicional de la release 36351593731 (commit `22b902a`): `PLATFORM_KEYCLOAK` conservaba `zlib 1.3.2-r0`, `bcprov-jdk18on 1.84` y `netty-handler 4.1.136.Final` en rutas y metadatos duplicados. La remediacion se consolida en `fix/OPS-10-g-keycloak-runtime` y se valido en el VPS con Keycloak 26.7.4 arrancable.
+- Hallazgo adicional de la release 36570839840 (commit `8afa926`): los diez artefactos se publicaron, pero `PLATFORM_KEYCLOAK` quedo bloqueado por `GHSA-q4xh-88c3-wmh7` en `jackson-databind 2.21.5`. La correccion actualiza el runtime a `2.21.6` y elimina del runtime de servidor el cliente administrativo embebido que tambien contenia la version vulnerable; Quantum no usa `kcadm` ni `kcreg` en operacion.
 - Decision de reutilizacion, extension o reemplazo: conservar Alpine, BuildKit, Grype, los digests, los entrypoints y la politica. Remover `apk-tools` junto a su dependencia vulnerable `zlib` del runtime tras el build, sin borrar la base de datos de paquetes ni esconderla del scanner.
 - La remediacion de Keycloak conserva Alpine y sus entrypoints, actualiza las dependencias Java vulnerables, alinea los metadatos de Quarkus y purga los paquetes auxiliares que retienen `zlib`.
 
@@ -66,6 +67,7 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 
 - [x] Remover `apk-tools` y `zlib` de cada runtime Alpine despues de preparar los artefactos.
 - [x] Actualizar las capas y metadatos de Keycloak para eliminar `bcprov 1.84`, `netty-handler 4.1.136` y `zlib` del runtime final.
+- [x] Sustituir `jackson-databind 2.21.5` por `2.21.6` y retirar el cliente administrativo no utilizado del runtime final.
 - [x] Actualizar la prueba de manifests contra regresiones de `zlib` o `apk` en runtime.
 - [ ] Abrir PR y usar una sola matriz CI como evidencia.
 - [ ] Tras el merge, inspeccionar una sola release automatica y registrar el resultado sin repetirla.
@@ -102,8 +104,8 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: candidato `47769cb` en `fix/OPS-10-f-release-gate`; PR pendiente de publicar tras la validacion VPS.
-- Comandos y resultados: en el VPS autorizado, `container-manifests.test.ts` paso 15/15; `crm-migrator` se construyo y comprobo con Node 24.21.0, sin `apk`, `zlib` ni gestores de paquetes; Keycloak se construyo y arranco con `Keycloak 26.7.4`, reemplazo exclusivamente `netty-handler` 4.1.137, conservo `netty-handler-proxy` intacto y elimino `apk`/`zlib` del runtime. El checkout temporal se limpio despues de la build para mantener capacidad.
+- Archivos, commits o PR: candidato `bd25cb2` en `fix/OPS-10-release-gate-final`; PR pendiente de publicar tras la validacion VPS.
+- Comandos y resultados: en el VPS autorizado, `container-manifests.test.ts` paso 15/15; Keycloak se construyo por digest como `sha256:c06772c6f31504dd432a99f2a73742c790941ff53f8f52a58e4f5d9f6d999655`, arranco con almacenamiento H2 desechable y Grype 0.119.0 aprobo `--fail-on high` con la base `sha256:89d80b3df8f320b4e828fa708ce729f297ee95b601521e33753794d8e4255497`. El runtime contiene `jackson-databind 2.21.6`, no contiene `2.21.5` ni el cliente administrativo vulnerable y conserva las correcciones previas de Node, Netty, Bouncy Castle y zlib.
 - Documentacion actualizada: ficha y estado registran el bloqueo de la release 36475922196 y la evidencia VPS del candidato 47769cb.
 - Desviaciones del plan: ninguna.
 - Pendientes o decisiones nuevas: la primera correccion fue insuficiente porque `apk-tools` retenia el paquete. Esta correccion elimina ambos paquetes; si el reporte mantiene hallazgos altos o criticos, se abrira otra remediacion especifica sin aceptar excepciones automaticas.
