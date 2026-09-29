@@ -116,7 +116,7 @@ export function createGithubActionsReleasePublisherVerifier(
           payload.repository_owner_id,
           /^[1-9][0-9]{0,19}$/u,
         );
-        const visibility = requiredString(payload.repository_visibility, /^private$/u);
+        const visibility = requiredString(payload.repository_visibility, /^(?:private|public)$/u);
         const ref = requiredString(payload.ref, /^refs\/heads\/main$/u);
         const eventName = requiredString(payload.event_name, /^workflow_run$/u);
         const workflowRef = requiredString(payload.workflow_ref, workflowRefPattern).toLowerCase();

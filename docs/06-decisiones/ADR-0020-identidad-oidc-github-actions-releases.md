@@ -19,7 +19,7 @@ El validador exige, como mínimo:
 
 - `iss` exacto de GitHub Actions, firma válida, `kid` reconocido, algoritmo permitido, vigencia, `nbf` y `jti`;
 - audiencia explícita `quantum-crm-release-publisher`;
-- repositorio `yvalois/quantum-crm`, visibilidad `private`, `ref` `refs/heads/main` y evento de publicación permitido;
+- repositorio `yvalois/quantum-crm`, visibilidad configurada y exacta (`private` o `public`), `ref` `refs/heads/main` y evento de publicación permitido;
 - workflow y SHA coincidentes con la ejecución que generó el manifiesto;
 - subject compatible con el formato de GitHub, incluyendo identificadores inmutables cuando el repositorio los emita.
 
