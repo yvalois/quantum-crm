@@ -29,7 +29,7 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 
 - Búsquedas realizadas: `CREATE_ADMINISTRATOR`, `Keycloak`, `realm`, `OIDC`, `CREATE_SECRETS`, `WRITE_CONFIGURATION` y `tenant`.
 - Código o documentación encontrados: el ejecutor implementa hasta `CONFIGURE_HTTPS`; Keycloak de plataforma y el BFF CRM existen, pero ninguna ruta de aprovisionamiento posee el API administrativo de Keycloak ni una credencial Redis por perfil.
-- Pruebas e historial encontrados: los realms y sesiones de plataforma tienen cobertura propia; no existe realm CRM, cliente CRM, configuración de perfil ni prueba de aislamiento entre dos realms.
+- Pruebas e historial encontrados: los realms y sesiones de plataforma tienen cobertura propia; la prueba de integración de identidad por perfil estaba pendiente y se ejecutó en un Keycloak y Redis desechables del VPS.
 - Decisión de reutilización, extensión o reemplazo: extender los puertos tipados de `platform-domain` y el ejecutor; no duplicar el BFF ni permitir SDK administrativo dentro del CRM.
 
 ## Alcance
@@ -52,7 +52,7 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 - [x] Crear el adaptador de Keycloak y el provisionador de secretos Redis/OIDC, sin valores en la base ni resultados.
 - [x] Añadir referencias y configuración de perfil; montar cada secreto solo en `crm-web` y conectar issuer/audience en API.
 - [x] Conectar el paso durable sin avanzar a activación de administrador hasta la operación de entrega segura.
-- [ ] Probar contratos, reintentos, conflicto, aislamiento A/B y ausencia de secretos en VPS.
+- [x] Probar contratos, reintentos, conflicto, aislamiento A/B y ausencia de secretos en VPS.
 
 ## Riesgos y mitigaciones
 
@@ -65,10 +65,10 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 
 ## Criterios de aceptación
 
-- [ ] Cada perfil obtiene un realm y cliente derivado sin entradas libres.
-- [ ] `crm-web` recibe solo sus dos secretos por archivo y API no recibe secretos de sesión.
-- [ ] Una diferencia observada no se sobreescribe; queda como fallo tipado y reanudable.
-- [ ] Ningún usuario o activación se presenta como completado antes de la operación de entrega segura.
+- [x] Cada perfil obtiene un realm y cliente derivado sin entradas libres.
+- [x] `crm-web` recibe solo sus dos secretos por archivo y API no recibe secretos de sesión.
+- [x] Una diferencia observada no se sobreescribe; queda como fallo tipado y reanudable.
+- [x] Ningún usuario o activación se presenta como completado antes de la operación de entrega segura.
 
 ## Plan de verificación
 
@@ -85,8 +85,8 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 
 ## Evidencia de cierre
 
-- Archivos y commit: `137dd1c` incorpora el puerto, el adaptador, la configuración y el wiring durable; se actualizará con el commit de evidencia del PR.
-- Comandos y resultados: en el VPS autorizado, Prettier aprobó los archivos afectados; aprobaron los typechecks de `platform-domain`, `config`, `database`, `deploy-executor` y `deploy-host`; las 42 pruebas unitarias afectadas aprobaron. No se ejecutó comprobación técnica local.
+- Archivos y commit: `137dd1c` incorpora el puerto, el adaptador, la configuración y el wiring durable; `2c7b32c` registra la prueba de integración y su evidencia en `tests/integration/tenant-identity-provisioner.test.ts`.
+- Comandos y resultados: en el VPS autorizado, un Keycloak y Redis desechables validaron los tres escenarios de la prueba (aislamiento A/B y reintento, conflicto tipado por divergencia y concurrencia reanudable): **3/3 aprobados**. El principal `quantum-provisioner` se obtuvo mediante bootstrap de servicio y su secreto solo se montó desde un archivo temporal con modo `0600`; la prueba no lo devuelve ni lo persiste. No se ejecutó comprobación técnica local.
 - Documentación actualizada: ADR-0021, índice ADR, esta ficha, estado, plantilla Compose y reglas operativas de infraestructura.
 - Desviaciones del plan: la activación inicial queda separada para no almacenar o exponer un secreto.
-- Pendientes o decisiones nuevas: integración desechable con Keycloak/Redis de dos perfiles, bootstrap seguro y fuera de Git del principal `quantum-provisioner`, entrega de activación, UI de miembros y `VERIFY`/`ACTIVATE`.
+- Pendientes o decisiones nuevas: entrega de activación, UI de miembros y cierre de `VERIFY`/`ACTIVATE` contra un realm CRM real; la integración desechable y el bootstrap del provisionador ya cuentan con evidencia en VPS.

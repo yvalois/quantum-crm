@@ -89,11 +89,11 @@ describeTenantIdentity("tenant identity provisioner", () => {
     });
 
     expect(firstA).toMatchObject({
-      identity: { realmName: "qcrm-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      identity: { realmName: "qcrm-aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa" },
       reconciled: false,
     });
     expect(firstB).toMatchObject({
-      identity: { realmName: "qcrm-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+      identity: { realmName: "qcrm-bbbbbbbbbbbb4bbb8bbbbbbbbbbbbbbb" },
       reconciled: false,
     });
     expect(retryA.reconciled).toBe(true);
