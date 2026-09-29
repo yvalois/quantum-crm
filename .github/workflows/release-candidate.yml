@@ -114,6 +114,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      id-token: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -288,6 +289,56 @@ jobs:
           });
           await mkdir("release-output", { recursive: true });
           await writeFile("release-output/release-manifest.json", serializeReleaseManifest(manifest), "utf8");
+          NODE
+
+      - name: Register the release candidate through GitHub OIDC
+        env:
+          QCRM_RELEASE_PUBLISHER_ORIGIN: ${{ vars.QCRM_RELEASE_PUBLISHER_ORIGIN }}
+          QCRM_RELEASE_PUBLISHER_AUDIENCE: quantum-release-publisher
+          QCRM_RELEASE_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$QCRM_RELEASE_PUBLISHER_ORIGIN"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+          token_response="$(curl --fail-with-body --silent --show-error \
+            --connect-timeout 5 --max-time 15 \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${QCRM_RELEASE_PUBLISHER_AUDIENCE}")"
+          oidc_token="$(node --input-type=module -e 'const input = JSON.parse(process.argv[1]); if (typeof input.value !== "string" || input.value.length < 1) process.exit(1); process.stdout.write(input.value)' "$token_response")"
+          test -n "$oidc_token"
+          export QCRM_RELEASE_PUBLISHER_TOKEN="$oidc_token"
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const manifest = JSON.parse(await readFile("release-output/release-manifest.json", "utf8"));
+          const expectedCommit = process.env.QCRM_RELEASE_COMMIT_SHA;
+          if (manifest.release.commitSha !== expectedCommit) throw new Error("Release manifest commit mismatch");
+          const { id, semanticVersion, commitSha, releaseNotes, compatibility } = manifest.release;
+          const body = {
+            id,
+            semanticVersion,
+            commitSha,
+            releaseNotes,
+            compatibility,
+            artifacts: manifest.artifacts.map(({ name, digest }) => ({ name, digest })),
+          };
+          const origin = process.env.QCRM_RELEASE_PUBLISHER_ORIGIN.replace(/\/+$/u, "");
+          const response = await fetch(`${origin}/api/v1/release-candidates`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.QCRM_RELEASE_PUBLISHER_TOKEN}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(15_000),
+          });
+          if (!response.ok) {
+            throw new Error(`Release candidate registration failed with HTTP ${response.status}`);
+          }
+          const result = await response.json();
+          if (result?.data?.commitSha !== expectedCommit) throw new Error("Registered release commit mismatch");
+          process.stdout.write(`Registered release candidate ${result.data.id}\n`);
           NODE
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

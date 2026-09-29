@@ -41,6 +41,18 @@
 
 {$QCRM_ADMIN_HOST} {
 	import admin_headers
+	# GitHub Actions publica candidatas mediante el principal OIDC dedicado.
+	# Solo se expone la ruta exacta de alta; las demas rutas de admin-api
+	# permanecen en la red interna y siguen protegidas por sus propias guardas.
+	@release_candidate path /api/v1/release-candidates
+	handle @release_candidate {
+		reverse_proxy admin-api:3002 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 30s
+			}
+		}
+	}
 	reverse_proxy admin-web:3000 {
 		health_uri /api/health/ready
 		health_interval 10s
