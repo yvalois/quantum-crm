@@ -112,10 +112,14 @@ describe("GitHub Actions release publisher verifier", () => {
     );
   });
 
-  it("rejects a subject outside main", async () => {
-    await expect(
-      verifier().verify(await token({ subject: "repo:yvalois/quantum-crm:pull_request" })),
-    ).rejects.toEqual(new GithubActionsReleasePublisherVerificationError());
+  it.each([
+    ["mutable repository identity", "repo:yvalois/quantum-crm:ref:refs/heads/main"],
+    ["another repository id", "repo:yvalois@90980150/quantum-crm@1:ref:refs/heads/main"],
+    ["pull request", "repo:yvalois@90980150/quantum-crm@1378875885:pull_request"],
+  ])("rejects a %s subject", async (_case, subject) => {
+    await expect(verifier().verify(await token({ subject }))).rejects.toEqual(
+      new GithubActionsReleasePublisherVerificationError(),
+    );
   });
 
   it("does not reveal a malformed bearer value", async () => {
