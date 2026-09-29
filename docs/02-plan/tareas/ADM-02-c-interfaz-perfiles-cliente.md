@@ -44,6 +44,13 @@ Un operador autenticado puede consultar, buscar, filtrar, crear y editar perfile
 - Estados de carga, vacio, error, sesion expirada, permiso insuficiente y conflicto de version.
 - Pruebas del BFF, UI, build y recorrido real disponible.
 
+### Revisión visual Stitch (lote de alineación)
+
+- Referencia consultada: `Quantum Admin - Resumen de Plataforma` y `Quantum Admin - Tenants & Organizaciones` del proyecto vinculado en `docs/08-arquitectura/frontends-experiencia-visual.md`.
+- Ajuste previsto: acercar `admin-web` al control plane de Stitch con paleta grafito/índigo, acento cian de telemetría, navegación operativa completa, barra de contexto y paneles de estado.
+- Límite: solo presentación y navegación existente; no se agregan datos simulados, contratos, permisos ni módulos falsos.
+- Pantallas incluidas: `/dashboard` y `/dashboard/tenants`, con comportamiento responsive, foco visible y estados actuales conservados.
+
 ### No incluido
 
 - Membresias de usuarios del perfil.
@@ -114,6 +121,7 @@ Un operador autenticado puede consultar, buscar, filtrar, crear y editar perfile
 - Archivos, commits o PR: commits locales `6319937`, `682a097` y `7ce09af` en `feat/ADM-02-admin-ui`; shell y pagina de perfiles en `apps/admin-web/src/app/dashboard`, rutas BFF en `apps/admin-web/src/app/api/platform/tenant-profiles` y frontera validada en `apps/admin-web/src/server/tenant-profile-http.ts`. No existe remoto ni PR.
 - Comandos y resultados: CI final en Node 24 aprobo formato, lint, tipos, 41 pruebas de configuracion, 152 pruebas generales, 19 pruebas de arquitectura y los 17 builds. Las cinco pruebas nuevas cubren ruta fija, filtros, token server-side, Origin, CSRF, ETag, conflicto y respuesta malformada.
 - Despliegue: `admin-web` se construyo y desplego exclusivamente en el VPS desde el checkout inmutable `7ce09af36261b0b2eb0a578c2c20078061ebebe9`, por digest `abc0308128eba097f58938ca47243951f73cd76e735a5289e0a4e27fd3c5590e`. Quedo `healthy`; HTTPS aprobo raiz `200`, redireccion del dashboard privado y `401` acotado del BFF sin sesion.
+- Alineación visual Stitch: el candidato de `feat/PROY-020-admin-stitch-shell` se construyó en el VPS como `quantum-admin-web:stitch-shell`; la composición de `/dashboard` y `/dashboard/tenants` se comprobó autenticada en escritorio. Se conservaron datos reales, estados de permiso y contratos existentes; no se añadieron métricas ni registros simulados.
 - Documentacion actualizada: esta ficha, estado oficial, subtareas realmente terminadas e inventario operativo del VPS. `ADM-02` permanece abierto por membresias.
 - Desviaciones del plan: la primera puerta de build detecto un import `.js` que TypeScript aceptaba pero Turbopack no resolvia; se corrigio y el CI completo se repitio. La inspeccion visual del primer digest detecto la herencia incorrecta de la fuente; se corrigio, reconstruyo, redesplego e inspecciono de nuevo.
 - Pendientes o decisiones nuevas: el recorrido autenticado con datos reales se comprobara con la sesion privada del propietario; no se creo una credencial temporal ni se debilito MFA para automatizarlo. La siguiente rebanada de `ADM-02` es pertenencia de usuarios al perfil sin mezclar roles del CRM con permisos de Quantum.
