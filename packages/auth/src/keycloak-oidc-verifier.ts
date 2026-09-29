@@ -122,7 +122,9 @@ export function createKeycloakOidcAccessTokenVerifier(
           ...(expectedPrincipalType === "service"
             ? {
                 clientId: payload.azp as string,
-                servicePermissions: servicePermissions(payload.scope),
+                servicePermissions: servicePermissions(
+                  payload.qcrm_service_permissions ?? payload.scope,
+                ),
               }
             : {}),
           multiFactorAuthenticated: expectedPrincipalType === "human",

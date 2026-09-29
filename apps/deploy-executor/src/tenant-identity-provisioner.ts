@@ -283,7 +283,7 @@ function assertBootstrapClient(client: KeycloakClient): string {
     (mapper as Record<string, unknown>).protocolMapper !== "oidc-hardcoded-claim-mapper" ||
     typeof config !== "object" ||
     config === null ||
-    (config as Record<string, unknown>)["claim.name"] !== "scope" ||
+    (config as Record<string, unknown>)["claim.name"] !== "qcrm_service_permissions" ||
     (config as Record<string, unknown>)["claim.value"] !==
       "iam:bootstrap-initial-administrator iam:accept-member-invitation" ||
     typeof audience !== "object" ||
@@ -371,7 +371,7 @@ function bootstrapClientRepresentation(): Record<string, unknown> {
         protocol: "openid-connect",
         protocolMapper: "oidc-hardcoded-claim-mapper",
         config: {
-          "claim.name": "scope",
+          "claim.name": "qcrm_service_permissions",
           "claim.value": "iam:bootstrap-initial-administrator iam:accept-member-invitation",
           "access.token.claim": "true",
           "id.token.claim": "false",
