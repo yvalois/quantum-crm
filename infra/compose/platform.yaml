@@ -89,12 +89,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks:
-      - platform-internal
-      - platform-database
-      - platform-oidc
-      - platform-github-actions-oidc
-      - platform-edge
+    networks: [platform-internal, platform-database, platform-oidc, platform-github-actions-oidc]
 
   deploy-executor:
     <<: *service-defaults
