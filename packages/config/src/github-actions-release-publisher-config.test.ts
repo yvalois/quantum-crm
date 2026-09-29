@@ -8,6 +8,7 @@ const environment = {
   QCRM_GITHUB_ACTIONS_REPOSITORY: "yvalois/quantum-crm",
   QCRM_GITHUB_ACTIONS_REPOSITORY_ID: "1378875885",
   QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID: "90980150",
+  QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY: "public",
 };
 
 describe("GitHub Actions release publisher configuration", () => {
@@ -25,7 +26,7 @@ describe("GitHub Actions release publisher configuration", () => {
       workflowRef: "yvalois/quantum-crm/.github/workflows/release-candidate.yml@refs/heads/main",
       subject: "repo:yvalois/quantum-crm:ref:refs/heads/main",
       eventName: "workflow_run",
-      repositoryVisibility: "private",
+      repositoryVisibility: "public",
     });
   });
 
@@ -40,6 +41,7 @@ describe("GitHub Actions release publisher configuration", () => {
         "QCRM_GITHUB_ACTIONS_REPOSITORY",
         "QCRM_GITHUB_ACTIONS_REPOSITORY_ID",
         "QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID",
+        "QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY",
       ]),
     );
   });
@@ -49,6 +51,7 @@ describe("GitHub Actions release publisher configuration", () => {
     ["repository identifier", { ...environment, QCRM_GITHUB_ACTIONS_REPOSITORY_ID: "0" }],
     ["owner identifier", { ...environment, QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID: "x" }],
     ["audience", { ...environment, QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE: "invalid value" }],
+    ["visibility", { ...environment, QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY: "internal" }],
   ])("rejects an invalid %s", (_case, invalid) => {
     expect(() => parseGithubActionsReleasePublisherConfig("admin-api", "staging", invalid)).toThrow(
       ConfigurationError,

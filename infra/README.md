@@ -147,6 +147,7 @@ QCRM_GITHUB_ACTIONS_OIDC_AUDIENCE=quantum-release-publisher
 QCRM_GITHUB_ACTIONS_REPOSITORY=example/quantum-crm
 QCRM_GITHUB_ACTIONS_REPOSITORY_ID=1
 QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID=1
+QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY=private
 ```
 
 La validacion real de roles usa `tests/integration/fixtures/postgres-bootstrap.sql` exclusivamente contra PostgreSQL 18 desechable en el VPS autorizado. Las contrasenas de ese fixture son marcadores sinteticos y no se reutilizan en ningun entorno persistente.

@@ -21,6 +21,7 @@ const config = parseGithubActionsReleasePublisherConfig("admin-api", "staging", 
   QCRM_GITHUB_ACTIONS_REPOSITORY: "yvalois/quantum-crm",
   QCRM_GITHUB_ACTIONS_REPOSITORY_ID: "1378875885",
   QCRM_GITHUB_ACTIONS_REPOSITORY_OWNER_ID: "90980150",
+  QCRM_GITHUB_ACTIONS_REPOSITORY_VISIBILITY: "public",
 });
 
 let privateKey: CryptoKey;
@@ -93,7 +94,10 @@ describe("GitHub Actions release publisher verifier", () => {
     ["repository", { repository: "attacker/quantum-crm" }],
     ["repository id", { repository_id: "1" }],
     ["owner id", { repository_owner_id: "1" }],
-    ["visibility", { repository_visibility: "public" }],
+    [
+      "visibility",
+      { repository_visibility: config.repositoryVisibility === "public" ? "private" : "public" },
+    ],
     ["pull request ref", { ref: "refs/pull/25/merge" }],
     ["event", { event_name: "pull_request" }],
     [
