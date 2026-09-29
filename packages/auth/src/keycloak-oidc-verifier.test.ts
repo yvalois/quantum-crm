@@ -61,6 +61,7 @@ async function token(
     readonly signingKey?: CryptoKey;
     readonly header?: Record<string, unknown>;
     readonly scope?: string;
+    readonly servicePermissions?: string;
     readonly authorizedParty?: string;
   } = {},
 ): Promise<SecretValue> {
@@ -71,6 +72,9 @@ async function token(
     acr: input.acr ?? "2",
     auth_time: input.authTime ?? nowSeconds - 60,
     ...(input.scope === undefined ? {} : { scope: input.scope }),
+    ...(input.servicePermissions === undefined
+      ? {}
+      : { qcrm_service_permissions: input.servicePermissions }),
     ...(input.authorizedParty === undefined ? {} : { azp: input.authorizedParty }),
   })
     .setProtectedHeader({
@@ -110,7 +114,7 @@ describe("Keycloak OIDC access token verifier", () => {
       await token({
         principalType: "service",
         authorizedParty: "quantum-crm-bootstrap",
-        scope:
+        servicePermissions:
           "openid iam:bootstrap-initial-administrator iam:members:create unknown:service-permission",
       }),
     );
