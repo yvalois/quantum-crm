@@ -18,10 +18,10 @@ Quantum introduce un principal de servicio exclusivo `release-publisher` para re
 El validador exige, como mínimo:
 
 - `iss` exacto de GitHub Actions, firma válida, `kid` reconocido, algoritmo permitido, vigencia, `nbf` y `jti`;
-- audiencia explícita `quantum-crm-release-publisher`;
+- audiencia explícita `quantum-release-publisher`;
 - repositorio `yvalois/quantum-crm`, visibilidad configurada y exacta (`private` o `public`), `ref` `refs/heads/main` y evento de publicación permitido;
 - workflow y SHA coincidentes con la ejecución que generó el manifiesto;
-- subject compatible con el formato de GitHub, incluyendo identificadores inmutables cuando el repositorio los emita.
+- subject inmutable exacto `repo:yvalois@90980150/quantum-crm@1378875885:ref:refs/heads/main`; los ID de propietario y repositorio impiden que una transferencia, cambio de nombre o recreación herede la confianza.
 
 El job obtiene el token solo con `id-token: write`; los pull requests conservan permisos de solo lectura. El principal puede crear de forma idempotente una candidata cuyos ocho digests, commit y manifiesto coincidan con sus claims. No puede validar o retirar releases, operar perfiles, llamar al executor, leer secretos, modificar Caddy ni acceder al VPS.
 

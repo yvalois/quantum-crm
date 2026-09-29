@@ -105,6 +105,9 @@ export function parseGithubActionsReleasePublisherConfig(
     throw new ConfigurationError(serviceName, invalidKeys);
   }
 
+  const repositorySeparator = repository.data.indexOf("/");
+  const repositoryOwner = repository.data.slice(0, repositorySeparator);
+  const repositoryName = repository.data.slice(repositorySeparator + 1);
   const workflowRef = `${repository.data}/${releaseCandidateWorkflow}@${releaseCandidateRef}`;
   return Object.freeze({
     schemaVersion: "github-actions-release-publisher-config/v1",
@@ -116,7 +119,9 @@ export function parseGithubActionsReleasePublisherConfig(
     repositoryOwnerId: repositoryOwnerId.data,
     ref: releaseCandidateRef,
     workflowRef,
-    subject: `repo:${repository.data}:ref:${releaseCandidateRef}`,
+    subject:
+      `repo:${repositoryOwner}@${repositoryOwnerId.data}/` +
+      `${repositoryName}@${repositoryId.data}:ref:${releaseCandidateRef}`,
     eventName: releaseCandidateEvent,
     repositoryVisibility: repositoryVisibility.data,
     allowedAlgorithms: Object.freeze(["RS256"] as const),

@@ -24,7 +24,7 @@ describe("GitHub Actions release publisher configuration", () => {
       repositoryOwnerId: "90980150",
       ref: "refs/heads/main",
       workflowRef: "yvalois/quantum-crm/.github/workflows/release-candidate.yml@refs/heads/main",
-      subject: "repo:yvalois/quantum-crm:ref:refs/heads/main",
+      subject: "repo:yvalois@90980150/quantum-crm@1378875885:ref:refs/heads/main",
       eventName: "workflow_run",
       repositoryVisibility: "public",
     });

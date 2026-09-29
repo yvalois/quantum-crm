@@ -105,7 +105,7 @@ export function createGithubActionsReleasePublisherVerifier(
 
         const subject = requiredString(
           payload.sub,
-          /^repo:[a-z0-9][a-z0-9_.-]{0,38}\/[a-z0-9][a-z0-9_.-]{0,99}:ref:refs\/heads\/main$/u,
+          /^repo:[a-z0-9][a-z0-9_.-]{0,38}@[1-9][0-9]{0,19}\/[a-z0-9][a-z0-9_.-]{0,99}@[1-9][0-9]{0,19}:ref:refs\/heads\/main$/u,
         );
         const repository = requiredString(
           payload.repository,
