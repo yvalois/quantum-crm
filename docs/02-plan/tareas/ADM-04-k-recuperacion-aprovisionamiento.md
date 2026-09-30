@@ -62,11 +62,11 @@ Un operador autorizado puede cancelar de forma tipada una operacion de aprovisio
 
 ## Plan de implementacion
 
-- [ ] Definir contrato y transicion de cancelacion segura.
-- [ ] Implementar persistencia atomica con liberacion idempotente de capacidad.
-- [ ] Exponer el endpoint protegido y su traduccion de errores.
-- [ ] Cubrir autorizacion, version, concurrencia, repeticion y puntos no cancelables.
-- [ ] Validar en el VPS, publicar PR y usar la operacion para recuperar el perfil demostrable.
+- [x] Definir contrato y transicion de cancelacion segura.
+- [x] Implementar persistencia atomica con liberacion idempotente de capacidad.
+- [x] Exponer el endpoint protegido y su traduccion de errores.
+- [x] Cubrir autorizacion, version, concurrencia, repeticion y puntos no cancelables.
+- [x] Validar en el VPS y usar la operacion para recuperar el perfil demostrable; la publicacion del PR queda como ultimo paso de entrega.
 
 ## Riesgos y mitigaciones
 
@@ -79,11 +79,11 @@ Un operador autorizado puede cancelar de forma tipada una operacion de aprovisio
 
 ## Criterios de aceptacion
 
-- [ ] Una operacion detenida antes de iniciar contenedores termina `CANCELLED` mediante API autorizada.
-- [ ] Su reserva queda liberada exactamente una vez y un resultado tardio no progresa la operacion.
-- [ ] Repetir la solicitud converge al mismo resultado.
-- [ ] El ejecutor procesa un perfil demostrable nuevo con la release corregida sin quedar bloqueado por la operacion cancelada.
-- [ ] `quantum-piloto` permanece activo e inalterado.
+- [x] Una operacion detenida antes de iniciar contenedores termina `CANCELLED` mediante API autorizada.
+- [x] Su reserva queda liberada exactamente una vez y un resultado tardio no progresa la operacion.
+- [x] Repetir la solicitud converge al mismo resultado.
+- [x] El ejecutor procesa un perfil demostrable nuevo con la release corregida sin quedar bloqueado por la operacion cancelada.
+- [x] `quantum-piloto` permanece activo e inalterado.
 
 ## Plan de verificacion
 
@@ -103,8 +103,8 @@ Un operador autorizado puede cancelar de forma tipada una operacion de aprovisio
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: commits `551a3af`, `148f26b`, `6286176`, `3b3f1f2` y `2b44966` en `feat/ADM-04-k-provisioning-recovery`.
+- Comandos y resultados: instalacion con lockfile, Prettier, ESLint y typecheck afectado aprobados en el VPS para el candidato exacto. La activacion real completo contrasena y TOTP; la operacion `01a0f300-7ed1-74b2-96ee-c17bb60337da` termino `succeeded` y el perfil `quantum-showcase` quedo `ACTIVE`.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
+- Desviaciones del plan: el realm creado por una candidata anterior carecia de acciones requeridas y politica OTP completa. Se implemento reconciliacion idempotente del realm y se corrigio la firma del token de activacion con la clave del realm del perfil.
+- Pendientes o decisiones nuevas: la promocion desde la etiqueta candidata del VPS hacia una release publicada por digest ocurre despues de integrar el PR; no invalida el recorrido funcional aprobado.
