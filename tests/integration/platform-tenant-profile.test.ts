@@ -43,6 +43,8 @@ const releaseArtifacts = platformReleaseArtifactNames.map((name, index) => ({
 }));
 
 beforeAll(async () => {
+  await pool.query("DELETE FROM operations.activation_delivery_intents");
+  await pool.query("DELETE FROM tenants.tenant_initial_administrators");
   await pool.query("DELETE FROM operations.provisioning_step_results");
   await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
@@ -101,6 +103,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM operations.activation_delivery_intents");
+  await pool.query("DELETE FROM tenants.tenant_initial_administrators");
   await pool.query("DELETE FROM operations.provisioning_step_results");
   await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
@@ -207,7 +211,6 @@ describe("platform tenant profile migration", () => {
       status: "pending",
       version: "1",
     });
-
     const indexes = await pool.query<{ indexname: string }>(`
       SELECT indexname
       FROM pg_indexes
@@ -682,6 +685,35 @@ describe("platform tenant profile migration", () => {
         lease: null,
       },
     });
+
+    await pool.query(
+      `UPDATE operations.provisioning_operations
+       SET current_step = 'migrate_database'
+       WHERE id = $1::uuid AND status = 'pending'`,
+      [recovered.id],
+    );
+    const migrationClaim = await database.provisioningOperations.claimNext({
+      workerId: "executor-migration",
+      leaseDurationSeconds: 60,
+      supportedSteps: ["MIGRATE_DATABASE"],
+    });
+    if (!migrationClaim) throw new Error("Expected migration work");
+    await expect(
+      database.provisioningOperations.completeMigration({
+        operationId: migrationClaim.id,
+        tenantProfileId: migrationClaim.tenantProfileId,
+        workerId: "executor-migration",
+        expectedVersion: migrationClaim.version,
+        attempt: migrationClaim.attempt,
+      }),
+    ).resolves.toMatchObject({
+      outcome: "ADVANCED",
+      operation: {
+        status: "PENDING",
+        currentStep: "START_CONTAINERS",
+        lease: null,
+      },
+    });
     await expect(
       database.provisioningOperations.claimNext({
         workerId: "executor-unsupported",
@@ -771,5 +803,149 @@ describe("platform tenant profile migration", () => {
     await pool.query("UPDATE infrastructure.servers SET status = 'available' WHERE id = $1::uuid", [
       serverId,
     ]);
+  });
+
+  it("cancels an active lease once, fences late results and releases capacity", async () => {
+    const before = await database.infrastructureServers.findById(serverId);
+    if (!before) throw new Error("Expected the integration server");
+    const created = await database.tenantProfiles.create({
+      name: "Recover Provisioning",
+      slug: "recover-provisioning",
+      adminContactName: "Rene",
+      adminContactEmail: "rene@example.test",
+      status: "PENDING",
+    });
+    const requested = await database.provisioningOperations.request({
+      tenantProfileId: created.id,
+      serverId,
+      releaseId: "01995f7e-7b52-7000-8000-000000000500",
+      requestedCapacity: { cpuMillicores: 300, memoryMiB: 600, storageMiB: 6000 },
+      requestedByOperatorId: operatorId,
+      idempotencyKey: "recovery-original-001",
+      correlationId: "recovery-original-001",
+      expectedTenantVersion: created.version,
+    });
+    const claimed = await database.provisioningOperations.claimNext({
+      workerId: "executor-stalled",
+      leaseDurationSeconds: 60,
+      supportedSteps: ["VALIDATE"],
+    });
+    if (!claimed) throw new Error("Expected claimed provisioning work");
+
+    const cancellationCommand = {
+      tenantProfileId: created.id,
+      operationId: claimed.id,
+      requestedByOperatorId: operatorId,
+      idempotencyKey: "recovery-cancel-001",
+      correlationId: "recovery-cancel-001",
+      reason: "  Migrator\n detenido\u0000 por release defectuosa. ",
+      expectedVersion: claimed.version,
+    } as const;
+    const [first, replay] = await Promise.all([
+      database.provisioningOperations.cancel(cancellationCommand),
+      database.provisioningOperations.cancel(cancellationCommand),
+    ]);
+    expect([first.idempotentReplay, replay.idempotentReplay].sort()).toEqual([false, true]);
+    expect(first.operation).toMatchObject({
+      id: requested.operation.id,
+      status: "CANCELLED",
+      lease: null,
+      cancellation: {
+        cancelledByOperatorId: operatorId,
+        correlationId: "recovery-cancel-001",
+        reason: "Migrator detenido por release defectuosa.",
+        expectedVersion: claimed.version,
+        tenantVersion: 3n,
+        result: "CANCELLED",
+      },
+    });
+    await expect(
+      database.provisioningOperations.cancel({
+        ...cancellationCommand,
+        reason: "Un motivo diferente.",
+      }),
+    ).rejects.toBeInstanceOf(ProvisioningOperationConflictError);
+    await expect(
+      database.provisioningOperations.completeValidation({
+        operationId: claimed.id,
+        workerId: "executor-stalled",
+        expectedVersion: claimed.version,
+        attempt: claimed.attempt,
+      }),
+    ).resolves.toBeNull();
+    await expect(database.tenantProfiles.findById(created.id)).resolves.toMatchObject({
+      status: "ERROR",
+      version: 3n,
+    });
+    await expect(database.infrastructureServers.findById(serverId)).resolves.toMatchObject({
+      reservedCapacity: before.reservedCapacity,
+    });
+
+    const durable = await pool.query<{
+      status: string;
+      cancellation_reason: string;
+      cancellation_result: string;
+      cancellation_expected_version: string;
+      released_count: string;
+    }>(
+      `SELECT operation.status::text AS status,
+              operation.cancellation_reason,
+              operation.cancellation_result::text AS cancellation_result,
+              operation.cancellation_expected_version::text AS cancellation_expected_version,
+              (SELECT count(*)::text
+               FROM infrastructure.capacity_reservations AS reservation
+               WHERE reservation.id = operation.capacity_reservation_id
+                 AND reservation.status = 'released') AS released_count
+       FROM operations.provisioning_operations AS operation
+       WHERE operation.id = $1::uuid`,
+      [claimed.id],
+    );
+    expect(durable.rows[0]).toEqual({
+      status: "cancelled",
+      cancellation_reason: "Migrator detenido por release defectuosa.",
+      cancellation_result: "cancelled",
+      cancellation_expected_version: claimed.version.toString(),
+      released_count: "1",
+    });
+  });
+
+  it("requests an activation delivery using the joined tenant version", async () => {
+    const created = await database.tenantProfiles.create({
+      name: "Activation Delivery",
+      slug: "activation-delivery",
+      adminContactName: "Ada",
+      adminContactEmail: "ada@example.test",
+      status: "PENDING",
+    });
+    const subject = "01995f7e-7b52-7000-8000-000000000611";
+    await expect(
+      database.activationDeliveries.reconcileInitialAdministrator({
+        tenantProfileId: created.id,
+        subject,
+        expectedVersion: 0n,
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({ subject, status: "PENDING" });
+
+    await expect(
+      database.activationDeliveries.request({
+        id: "01995f7e-7b52-7000-8000-000000000612",
+        tenantProfileId: created.id,
+        requestedByOperatorId: operatorId,
+        expectedTenantVersion: created.version,
+        idempotencyKey: "activation-delivery-joined-version",
+        payloadHash: "a".repeat(64),
+        correlationId: "activation-delivery-joined-version",
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({
+      idempotentReplay: false,
+      intent: {
+        tenantProfileId: created.id,
+        administratorSubject: subject,
+        generation: 1,
+        status: "PENDING",
+      },
+    });
   });
 });

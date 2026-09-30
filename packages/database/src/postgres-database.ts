@@ -15,6 +15,9 @@ import {
   platformReleaseArtifactNames,
   platformReleaseStatuses,
   ProvisioningOperationConflictError,
+  ProvisioningOperationNotCancellableError,
+  ProvisioningOperationNotFoundError,
+  ProvisioningOperationVersionConflictError,
   provisioningOperationStatuses,
   provisioningOperationSteps,
   provisioningValidationFailureCodes,
@@ -27,6 +30,7 @@ import {
   transitionTenantProfileStatus,
   validateProvisioningLeaseClaim,
   validateProvisioningLeaseRenewal,
+  validateCancelProvisioningOperation,
   validateCompleteProvisioningValidation,
   validateCompleteProvisioningDatabase,
   validateCompleteProvisioningSecrets,
@@ -44,6 +48,7 @@ import {
   tenantHttpsEdgeNetworkName,
   tenantHttpsHostname,
   type ClaimProvisioningOperationCommand,
+  type CancelProvisioningOperationCommand,
   type CompleteProvisioningValidationCommand,
   type CompleteProvisioningDatabaseCommand,
   type CompleteProvisioningSecretsCommand,
@@ -75,6 +80,7 @@ import {
   type PlatformReleaseStatus,
   type PlatformFoundationPromotionRepository,
   type ProvisioningOperation,
+  type ProvisioningOperationCancellationRepository,
   type ProvisioningOperationRepository,
   type ProvisioningOperationStatus,
   type ProvisioningOperationStep,
@@ -112,7 +118,8 @@ export interface PlatformPostgresDatabase extends PostgresDatabase {
   readonly memberships: PlatformMembershipRepository;
   readonly infrastructureServers: InfrastructureServerRepository;
   readonly tenantProfiles: TenantProfileRepository;
-  readonly provisioningOperations: ProvisioningOperationRepository;
+  readonly provisioningOperations: ProvisioningOperationRepository &
+    ProvisioningOperationCancellationRepository;
   readonly releases: PlatformReleaseRepository;
   readonly activationDeliveries: ReturnType<typeof createActivationDeliveryRepository>;
   readonly platformFoundationPromotions: PlatformFoundationPromotionRepository;
@@ -358,6 +365,14 @@ interface ProvisioningOperationRow {
   readonly attempt: number;
   readonly version: string;
   readonly failure_code: string | null;
+  readonly cancelled_by_operator_id: string | null;
+  readonly cancellation_idempotency_key: string | null;
+  readonly cancellation_correlation_id: string | null;
+  readonly cancellation_reason: string | null;
+  readonly cancellation_expected_version: string | null;
+  readonly cancellation_tenant_version: string | null;
+  readonly cancellation_result: string | null;
+  readonly cancelled_at: Date | null;
   readonly lease_owner: string | null;
   readonly lease_expires_at: Date | null;
   readonly last_heartbeat_at: Date | null;
@@ -401,6 +416,14 @@ const provisioningOperationSelection = `
   operation.attempt,
   operation.version::text,
   operation.failure_code::text,
+  operation.cancelled_by_operator_id::text,
+  operation.cancellation_idempotency_key,
+  operation.cancellation_correlation_id,
+  operation.cancellation_reason,
+  operation.cancellation_expected_version::text,
+  operation.cancellation_tenant_version::text,
+  operation.cancellation_result::text,
+  operation.cancelled_at,
   operation.lease_owner,
   operation.lease_expires_at,
   operation.last_heartbeat_at,
@@ -435,6 +458,26 @@ function provisioningOperationFromRow(row: ProvisioningOperationRow): Provisioni
     attempt: row.attempt,
     version: BigInt(row.version),
     failureCode: provisioningValidationFailureCode(row.failure_code),
+    cancellation:
+      row.cancelled_by_operator_id &&
+      row.cancellation_idempotency_key &&
+      row.cancellation_correlation_id &&
+      row.cancellation_reason &&
+      row.cancellation_expected_version &&
+      row.cancellation_tenant_version &&
+      row.cancellation_result === "cancelled" &&
+      row.cancelled_at
+        ? {
+            cancelledByOperatorId: row.cancelled_by_operator_id,
+            idempotencyKey: row.cancellation_idempotency_key,
+            correlationId: row.cancellation_correlation_id,
+            reason: row.cancellation_reason,
+            expectedVersion: BigInt(row.cancellation_expected_version),
+            tenantVersion: BigInt(row.cancellation_tenant_version),
+            result: "CANCELLED",
+            cancelledAt: row.cancelled_at,
+          }
+        : null,
     lease:
       row.lease_owner && row.lease_expires_at && row.last_heartbeat_at
         ? {
@@ -933,7 +976,7 @@ async function completeProvisioningMigration(
     );
     if (!failureCode) {
       const updated = await client.query<ProvisioningOperationRow>(
-        `UPDATE operations.provisioning_operations SET status='pending',current_step='start_containers',failure_code=NULL,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
+        `UPDATE operations.provisioning_operations AS operation SET status='pending',current_step='start_containers',failure_code=NULL,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=operation.version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
         [completion.operationId],
       );
       if (!updated.rows[0]) throw new DatabaseUnavailableError();
@@ -971,7 +1014,7 @@ async function completeProvisioningMigration(
       [completion.tenantProfileId],
     );
     const updated = await client.query<ProvisioningOperationRow>(
-      `UPDATE operations.provisioning_operations SET status='failed',failure_code=$2::operations.provisioning_validation_failure_code,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
+      `UPDATE operations.provisioning_operations AS operation SET status='failed',failure_code=$2::operations.provisioning_validation_failure_code,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=operation.version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
       [completion.operationId, failureCode],
     );
     if (!updated.rows[0]) throw new DatabaseUnavailableError();
@@ -2126,9 +2169,9 @@ async function completeFinalProvisioningStep(
       );
     }
     const updated = (await client.query<ProvisioningOperationRow>(
-      `UPDATE operations.provisioning_operations SET status=$2::operations.provisioning_operation_status,
+      `UPDATE operations.provisioning_operations AS operation SET status=$2::operations.provisioning_operation_status,
        current_step=COALESCE($3::operations.provisioning_operation_step,current_step),
-       lease_owner=NULL, lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP
+       lease_owner=NULL, lease_expires_at=NULL,last_heartbeat_at=NULL,version=operation.version+1,updated_at=CURRENT_TIMESTAMP
        WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
       [command.operationId, next ? "pending" : "succeeded", next],
     )) as { readonly rows: readonly ProvisioningOperationRow[] };
@@ -2824,6 +2867,186 @@ export function createPlatformPostgresDatabase(
           error instanceof InfrastructureServerNotAdmissibleError ||
           error instanceof InfrastructureCapacityExceededError ||
           error instanceof PlatformReleaseNotDeployableError
+        ) {
+          throw error;
+        }
+        if (isUniqueViolation(error)) throw new ProvisioningOperationConflictError();
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
+    cancel: async (command: CancelProvisioningOperationCommand) => {
+      const cancellation = validateCancelProvisioningOperation(command);
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const operationResult = await client.query<
+          ProvisioningOperationRow & {
+            readonly tenant_version: string;
+            readonly tenant_status: string;
+            readonly reservation_status: string;
+          }
+        >(
+          `
+            SELECT
+              ${provisioningOperationSelection},
+              profile.version::text AS tenant_version,
+              profile.status::text AS tenant_status,
+              reservation.status::text AS reservation_status
+            FROM operations.provisioning_operations AS operation
+            JOIN tenants.tenant_profiles AS profile
+              ON profile.id = operation.tenant_profile_id
+            JOIN infrastructure.capacity_reservations AS reservation
+              ON reservation.id = operation.capacity_reservation_id
+            JOIN infrastructure.servers AS server
+              ON server.id = operation.server_id
+            WHERE operation.id = $1::uuid
+              AND operation.tenant_profile_id = $2::uuid
+            FOR UPDATE OF operation, profile, reservation, server
+          `,
+          [cancellation.operationId, cancellation.tenantProfileId],
+        );
+        const row = operationResult.rows[0];
+        if (!row) throw new ProvisioningOperationNotFoundError();
+
+        if (row.status === "cancelled") {
+          if (
+            row.cancelled_by_operator_id !== cancellation.requestedByOperatorId ||
+            row.cancellation_idempotency_key !== cancellation.idempotencyKey ||
+            row.cancellation_reason !== cancellation.reason ||
+            row.cancellation_expected_version !== cancellation.expectedVersion.toString()
+          ) {
+            throw new ProvisioningOperationConflictError();
+          }
+          await client.query("COMMIT");
+          return Object.freeze({
+            operation: provisioningOperationFromRow(row),
+            tenantVersion: BigInt(row.cancellation_tenant_version ?? "0"),
+            idempotentReplay: true,
+          });
+        }
+
+        if (BigInt(row.version) !== cancellation.expectedVersion) {
+          throw new ProvisioningOperationVersionConflictError();
+        }
+        if (
+          (row.status !== "pending" && row.status !== "running") ||
+          ![
+            "validate",
+            "create_database",
+            "create_secrets",
+            "create_storage",
+            "write_configuration",
+            "migrate_database",
+          ].includes(row.current_step) ||
+          row.reservation_status !== "reserved" ||
+          row.tenant_status !== "provisioning" ||
+          !row.capacity_reservation_id ||
+          row.requested_cpu_millicores === null ||
+          row.requested_memory_mib === null ||
+          row.requested_storage_mib === null
+        ) {
+          throw new ProvisioningOperationNotCancellableError();
+        }
+
+        const released = await client.query<{ readonly id: string }>(
+          `
+            UPDATE infrastructure.capacity_reservations
+            SET status = 'released', updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid AND status = 'reserved'
+            RETURNING id::text
+          `,
+          [row.capacity_reservation_id],
+        );
+        if (!released.rows[0]) throw new ProvisioningOperationNotCancellableError();
+
+        const capacityUpdate = await client.query<{ readonly id: string }>(
+          `
+            UPDATE infrastructure.servers
+            SET
+              reserved_cpu_millicores = reserved_cpu_millicores - $2,
+              reserved_memory_mib = reserved_memory_mib - $3,
+              reserved_storage_mib = reserved_storage_mib - $4,
+              version = version + 1,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid
+              AND reserved_cpu_millicores >= $2
+              AND reserved_memory_mib >= $3
+              AND reserved_storage_mib >= $4
+            RETURNING id::text
+          `,
+          [
+            row.server_id,
+            row.requested_cpu_millicores,
+            row.requested_memory_mib,
+            row.requested_storage_mib,
+          ],
+        );
+        if (!capacityUpdate.rows[0]) throw new DatabaseUnavailableError();
+
+        const tenantUpdate = await client.query<{ readonly version: string }>(
+          `
+            UPDATE tenants.tenant_profiles
+            SET status = 'error', version = version + 1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid AND status = 'provisioning'
+            RETURNING version::text
+          `,
+          [cancellation.tenantProfileId],
+        );
+        const tenantVersion = tenantUpdate.rows[0]?.version;
+        if (!tenantVersion) throw new ProvisioningOperationNotCancellableError();
+
+        const cancelledResult = await client.query<ProvisioningOperationRow>(
+          `
+            UPDATE operations.provisioning_operations AS operation
+            SET
+              status = 'cancelled',
+              cancelled_by_operator_id = $2::uuid,
+              cancellation_idempotency_key = $3,
+              cancellation_correlation_id = $4,
+              cancellation_reason = $5,
+              cancellation_expected_version = $6,
+              cancellation_tenant_version = $7,
+              cancellation_result = 'cancelled',
+              cancelled_at = CURRENT_TIMESTAMP,
+              lease_owner = NULL,
+              lease_expires_at = NULL,
+              last_heartbeat_at = NULL,
+              version = operation.version + 1,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE operation.id = $1::uuid
+              AND operation.version = $6
+              AND operation.status IN ('pending', 'running')
+            RETURNING ${provisioningOperationSelection}
+          `,
+          [
+            cancellation.operationId,
+            cancellation.requestedByOperatorId,
+            cancellation.idempotencyKey,
+            cancellation.correlationId,
+            cancellation.reason,
+            cancellation.expectedVersion.toString(),
+            tenantVersion,
+          ],
+        );
+        const cancelled = cancelledResult.rows[0];
+        if (!cancelled) throw new ProvisioningOperationVersionConflictError();
+        await client.query("COMMIT");
+        return Object.freeze({
+          operation: provisioningOperationFromRow(cancelled),
+          tenantVersion: BigInt(tenantVersion),
+          idempotentReplay: false,
+        });
+      } catch (error) {
+        if (client) await client.query("ROLLBACK").catch(() => undefined);
+        if (
+          error instanceof ProvisioningOperationConflictError ||
+          error instanceof ProvisioningOperationNotCancellableError ||
+          error instanceof ProvisioningOperationNotFoundError ||
+          error instanceof ProvisioningOperationVersionConflictError ||
+          error instanceof DatabaseUnavailableError
         ) {
           throw error;
         }

@@ -190,7 +190,8 @@ model PlatformOperatorMembership {
   createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   permissions           PlatformOperatorPermission[]
-  provisioningOperations ProvisioningOperation[]
+  requestedProvisioningOperations ProvisioningOperation[] @relation("ProvisioningRequestedBy")
+  cancelledProvisioningOperations ProvisioningOperation[] @relation("ProvisioningCancelledBy")
   activationDeliveryIntents ActivationDeliveryIntent[]
   foundationPromotions PlatformFoundationPromotion[]
 
@@ -386,6 +387,13 @@ enum ProvisioningStepOutcome {
   FAILED    @map("failed")
 
   @@map("provisioning_step_outcome")
+  @@schema("operations")
+}
+
+enum ProvisioningCancellationResult {
+  CANCELLED @map("cancelled")
+
+  @@map("provisioning_cancellation_result")
   @@schema("operations")
 }
 
@@ -663,6 +671,14 @@ model ProvisioningOperation {
   attempt               Int                         @default(0)
   version               BigInt                      @default(1)
   failureCode           ProvisioningValidationFailureCode? @map("failure_code")
+  cancelledByOperatorId String?                     @map("cancelled_by_operator_id") @db.Uuid
+  cancellationIdempotencyKey String?                @map("cancellation_idempotency_key") @db.VarChar(128)
+  cancellationCorrelationId String?                 @map("cancellation_correlation_id") @db.VarChar(128)
+  cancellationReason    String?                     @map("cancellation_reason") @db.VarChar(500)
+  cancellationExpectedVersion BigInt?               @map("cancellation_expected_version")
+  cancellationTenantVersion BigInt?                 @map("cancellation_tenant_version")
+  cancellationResult    ProvisioningCancellationResult? @map("cancellation_result")
+  cancelledAt           DateTime?                   @map("cancelled_at") @db.Timestamptz(6)
   leaseOwner            String?                     @map("lease_owner") @db.VarChar(128)
   leaseExpiresAt        DateTime?                   @map("lease_expires_at") @db.Timestamptz(6)
   lastHeartbeatAt       DateTime?                   @map("last_heartbeat_at") @db.Timestamptz(6)
@@ -671,7 +687,8 @@ model ProvisioningOperation {
   tenantProfile         TenantProfile               @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   server                InfrastructureServer        @relation(fields: [serverId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   capacityReservation   InfrastructureCapacityReservation? @relation(fields: [capacityReservationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  requestedByOperator   PlatformOperatorMembership  @relation(fields: [requestedByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  requestedByOperator   PlatformOperatorMembership  @relation("ProvisioningRequestedBy", fields: [requestedByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  cancelledByOperator   PlatformOperatorMembership? @relation("ProvisioningCancelledBy", fields: [cancelledByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   release               PlatformRelease              @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   stepResults           ProvisioningStepResult[]
   tenantContainer       TenantContainer?
@@ -680,6 +697,7 @@ model ProvisioningOperation {
   @@unique([requestedByOperatorId, idempotencyKey], map: "provisioning_operations_actor_idempotency_key_key")
   @@index([status, createdAt, id], map: "provisioning_operations_status_created_id_idx")
   @@unique([capacityReservationId], map: "provisioning_operations_capacity_reservation_id_key")
+  @@unique([cancelledByOperatorId, cancellationIdempotencyKey], map: "provisioning_operations_cancellation_idempotency_key_uq", where: raw("\"cancelled_by_operator_id\" IS NOT NULL AND \"cancellation_idempotency_key\" IS NOT NULL"))
   @@index([status, leaseExpiresAt, createdAt, id], map: "provisioning_operations_claimable_idx", where: raw("\"status\" IN ('pending', 'running')"))
   @@unique([tenantProfileId], map: "provisioning_operations_one_open_per_tenant_idx", where: raw("\"status\" IN ('pending', 'running')"))
   @@map("provisioning_operations")

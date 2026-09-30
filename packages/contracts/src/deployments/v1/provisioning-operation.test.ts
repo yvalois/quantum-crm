@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CancelTenantProvisioningSchema,
+  ProvisioningCancellationResponseSchema,
   ProvisioningOperationSchema,
   RequestTenantProvisioningSchema,
 } from "./provisioning-operation.js";
@@ -39,6 +41,53 @@ describe("tenant provisioning operation HTTP contract", () => {
         version: "2",
         createdAt: "2026-09-20T12:00:00.000Z",
         updatedAt: "2026-09-20T12:00:01.000Z",
+      }),
+    ).toBeDefined();
+  });
+
+  it("sanitizes a bounded cancellation reason", () => {
+    expect(
+      CancelTenantProvisioningSchema.parse({
+        reason: "  Migrator\n\tdetenido\u0000 por release defectuosa.  ",
+      }),
+    ).toEqual({ reason: "Migrator detenido por release defectuosa." });
+    expect(CancelTenantProvisioningSchema.safeParse({ reason: "\u0000 \n" }).success).toBe(false);
+    expect(
+      CancelTenantProvisioningSchema.safeParse({
+        reason: "cancelar",
+        releaseId: "01995f7e-7b52-7000-8000-000000000302",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("represents the durable cancellation separately from operation progress", () => {
+    expect(
+      ProvisioningCancellationResponseSchema.parse({
+        schemaVersion: "tenant-provisioning-cancellation/v1",
+        data: {
+          operation: {
+            id: "01995f7e-7b52-7000-8000-000000000401",
+            tenantProfileId: "01995f7e-7b52-7000-8000-000000000201",
+            serverId: "01995f7e-7b52-7000-8000-000000000301",
+            releaseId: "01995f7e-7b52-7000-8000-000000000302",
+            requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
+            capacityReservation: { id: "01995f7e-7b52-7000-8000-000000000501" },
+            status: "CANCELLED",
+            currentStep: "MIGRATE_DATABASE",
+            attempt: 2,
+            version: "8",
+            createdAt: "2026-09-20T12:00:00.000Z",
+            updatedAt: "2026-09-20T12:05:00.000Z",
+          },
+          cancellation: {
+            cancelledByOperatorId: "01995f7e-7b52-7000-8000-000000000101",
+            reason: "Migrator detenido por release defectuosa.",
+            expectedVersion: "7",
+            result: "CANCELLED",
+            cancelledAt: "2026-09-20T12:05:00.000Z",
+          },
+        },
+        meta: { idempotentReplay: false },
       }),
     ).toBeDefined();
   });

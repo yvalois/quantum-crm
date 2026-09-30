@@ -23,18 +23,55 @@ interface KeycloakRealm {
   readonly registrationAllowed?: unknown;
   readonly bruteForceProtected?: unknown;
   readonly otpPolicyType?: unknown;
+  readonly otpPolicyAlgorithm?: unknown;
+  readonly otpPolicyDigits?: unknown;
+  readonly otpPolicyInitialCounter?: unknown;
+  readonly otpPolicyLookAheadWindow?: unknown;
+  readonly otpPolicyPeriod?: unknown;
+  readonly otpPolicyCodeReusable?: unknown;
   readonly requiredActions?: unknown;
 }
 
 interface KeycloakRequiredAction {
   readonly alias?: unknown;
+  readonly name?: unknown;
   readonly providerId?: unknown;
   readonly enabled?: unknown;
   readonly defaultAction?: unknown;
   readonly priority?: unknown;
+  readonly config?: unknown;
 }
 
 const activationCompletionAction = "QCRM_ACTIVATION_COMPLETE";
+const requiredActions = [
+  {
+    alias: "CONFIGURE_TOTP",
+    name: "Configure OTP",
+    providerId: "CONFIGURE_TOTP",
+    enabled: true,
+    defaultAction: false,
+    priority: 10,
+    config: {},
+  },
+  {
+    alias: "UPDATE_PASSWORD",
+    name: "Update Password",
+    providerId: "UPDATE_PASSWORD",
+    enabled: true,
+    defaultAction: false,
+    priority: 30,
+    config: {},
+  },
+  {
+    alias: activationCompletionAction,
+    name: "Complete Quantum activation",
+    providerId: activationCompletionAction,
+    enabled: true,
+    defaultAction: false,
+    priority: 1_000,
+    config: {},
+  },
+] as const;
 
 interface KeycloakClient {
   readonly id?: unknown;
@@ -148,37 +185,53 @@ function exactOrigin(hostname: string): string {
   return `https://${normalized}`;
 }
 
+function realmCoreMatches(realm: KeycloakRealm, realmName: string): boolean {
+  return (
+    realm.realm === realmName &&
+    realm.enabled === true &&
+    realm.registrationAllowed === false &&
+    realm.bruteForceProtected === true
+  );
+}
+
+function realmOtpMatches(realm: KeycloakRealm): boolean {
+  return !(
+    realm.otpPolicyType !== "totp" ||
+    realm.otpPolicyAlgorithm !== "HmacSHA1" ||
+    realm.otpPolicyDigits !== 6 ||
+    realm.otpPolicyInitialCounter !== 0 ||
+    realm.otpPolicyLookAheadWindow !== 1 ||
+    realm.otpPolicyPeriod !== 30 ||
+    realm.otpPolicyCodeReusable !== false
+  );
+}
+
 function assertRealm(realm: KeycloakRealm, realmName: string): void {
-  if (
-    realm.realm !== realmName ||
-    realm.enabled !== true ||
-    realm.registrationAllowed !== false ||
-    realm.bruteForceProtected !== true ||
-    realm.otpPolicyType !== "totp"
-  ) {
+  if (!realmCoreMatches(realm, realmName) || !realmOtpMatches(realm)) {
     throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
   }
 }
 
-function assertActivationRequiredAction(value: unknown): void {
-  const actions = Array.isArray(value)
-    ? value.filter((action) => {
-        if (typeof action !== "object" || action === null) return false;
-        const requiredAction = action as KeycloakRequiredAction;
-        return (
-          requiredAction.alias === activationCompletionAction &&
-          requiredAction.providerId === activationCompletionAction
-        );
-      })
-    : [];
-  const action = actions[0] as KeycloakRequiredAction | undefined;
-  if (
-    actions.length !== 1 ||
-    action?.enabled !== true ||
-    action.defaultAction !== false ||
-    action.priority !== 1_000
-  ) {
-    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+function assertRequiredActions(value: unknown): void {
+  if (!Array.isArray(value)) throw new TenantIdentityProvisioningError("UNAVAILABLE");
+  for (const expected of requiredActions) {
+    const matches = value.filter(
+      (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        (candidate as KeycloakRequiredAction).alias === expected.alias,
+    );
+    const action = matches[0] as KeycloakRequiredAction | undefined;
+    if (
+      matches.length !== 1 ||
+      action?.name !== expected.name ||
+      action.providerId !== expected.providerId ||
+      action.enabled !== expected.enabled ||
+      action.defaultAction !== expected.defaultAction ||
+      action.priority !== expected.priority
+    ) {
+      throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+    }
   }
 }
 
@@ -311,17 +364,13 @@ function realmRepresentation(realmName: string): Record<string, unknown> {
     registrationAllowed: false,
     bruteForceProtected: true,
     otpPolicyType: "totp",
-    requiredActions: [
-      {
-        alias: activationCompletionAction,
-        name: "Complete Quantum activation",
-        providerId: activationCompletionAction,
-        enabled: true,
-        defaultAction: false,
-        priority: 1_000,
-        config: {},
-      },
-    ],
+    otpPolicyAlgorithm: "HmacSHA1",
+    otpPolicyDigits: 6,
+    otpPolicyInitialCounter: 0,
+    otpPolicyLookAheadWindow: 1,
+    otpPolicyPeriod: 30,
+    otpPolicyCodeReusable: false,
+    requiredActions,
   };
 }
 
@@ -464,6 +513,63 @@ async function keycloakAccessToken(options: TenantIdentityProvisionerOptions): P
   return token;
 }
 
+async function reconcileRequiredActions(
+  adminOrigin: URL,
+  realmName: string,
+  headers: Readonly<Record<string, string>>,
+): Promise<void> {
+  const collection = new URL(
+    `/admin/realms/${encodeURIComponent(realmName)}/authentication/required-actions`,
+    adminOrigin,
+  );
+  let current = await request(collection, { headers }, [200]);
+  if (!Array.isArray(current.body)) throw new TenantIdentityProvisioningError("UNAVAILABLE");
+  for (const expected of requiredActions) {
+    const matches = current.body.filter(
+      (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        (candidate as KeycloakRequiredAction).alias === expected.alias,
+    );
+    if (matches.length > 1) throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+    if (matches.length === 0) {
+      try {
+        await request(
+          new URL(
+            `/admin/realms/${encodeURIComponent(realmName)}/authentication/register-required-action`,
+            adminOrigin,
+          ),
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ providerId: expected.providerId, name: expected.name }),
+          },
+          [204],
+        );
+      } catch (error) {
+        if (
+          !(error instanceof TenantIdentityProvisioningError) ||
+          error.reason !== "TARGET_CONFLICT"
+        ) {
+          throw error;
+        }
+      }
+    } else if ((matches[0] as KeycloakRequiredAction).providerId !== expected.providerId) {
+      throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+    }
+    await request(
+      new URL(
+        `/admin/realms/${encodeURIComponent(realmName)}/authentication/required-actions/${encodeURIComponent(expected.alias)}`,
+        adminOrigin,
+      ),
+      { method: "PUT", headers, body: JSON.stringify(expected) },
+      [204],
+    );
+  }
+  current = await request(collection, { headers }, [200]);
+  assertRequiredActions(current.body);
+}
+
 async function provisionKeycloak(
   options: TenantIdentityProvisionerOptions,
   realmName: string,
@@ -499,16 +605,34 @@ async function provisionKeycloak(
   if (typeof realm.body !== "object" || realm.body === null) {
     throw new TenantIdentityProvisioningError("UNAVAILABLE");
   }
+  if (!realmCoreMatches(realm.body as KeycloakRealm, realmName)) {
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  }
+  if (!realmOtpMatches(realm.body as KeycloakRealm)) {
+    await request(
+      realmUrl,
+      {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          otpPolicyType: "totp",
+          otpPolicyAlgorithm: "HmacSHA1",
+          otpPolicyDigits: 6,
+          otpPolicyInitialCounter: 0,
+          otpPolicyLookAheadWindow: 1,
+          otpPolicyPeriod: 30,
+          otpPolicyCodeReusable: false,
+        }),
+      },
+      [204],
+    );
+    realm = await request(realmUrl, { headers }, [200]);
+    if (typeof realm.body !== "object" || realm.body === null) {
+      throw new TenantIdentityProvisioningError("UNAVAILABLE");
+    }
+  }
   assertRealm(realm.body as KeycloakRealm, realmName);
-  const requiredActions = await request(
-    new URL(
-      `/admin/realms/${encodeURIComponent(realmName)}/authentication/required-actions`,
-      adminOrigin,
-    ),
-    { headers },
-    [200],
-  );
-  assertActivationRequiredAction(requiredActions.body);
+  await reconcileRequiredActions(adminOrigin, realmName, headers);
 
   const clientsUrl = new URL(`/admin/realms/${encodeURIComponent(realmName)}/clients`, adminOrigin);
   clientsUrl.searchParams.set("clientId", clientId);

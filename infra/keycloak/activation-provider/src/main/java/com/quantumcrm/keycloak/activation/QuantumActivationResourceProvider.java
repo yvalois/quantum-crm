@@ -10,6 +10,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.ext.Provider;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -32,6 +33,7 @@ import org.keycloak.services.resource.RealmResourceProvider;
  * The provider owns the one-use action-token metadata in Keycloak's single-use store.
  * No Quantum database, URL, password, business contract or public route is involved.
  */
+@Provider
 public final class QuantumActivationResourceProvider implements RealmResourceProvider {
   private static final int TTL_SECONDS = 30 * 60;
   private static final String PROVISIONER = "quantum-provisioner";
@@ -48,24 +50,24 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
   @Produces(MediaType.APPLICATION_JSON)
   public Response issue(ActivationRequest request, @Context UriInfo uriInfo) {
     RealmModel serviceRealm = session.getContext().getRealm();
-    if (request == null || !request.valid()) return Response.status(404).build();
+    if (request == null || !request.valid()) return typedStatus(404);
     boolean masterRequest = "master".equals(serviceRealm.getName())
-      && authorized(serviceRealm, uriInfo, PROVISIONER)
+      && authorized(serviceRealm, PROVISIONER)
       && request.administratorSubject != null;
     boolean memberRequest = request.invitationId != null
       && tenantRealm(request, serviceRealm)
-      && authorized(serviceRealm, uriInfo, BOOTSTRAP);
-    if (!masterRequest && !memberRequest) return Response.status(404).build();
+      && authorized(serviceRealm, BOOTSTRAP);
+    if (!masterRequest && !memberRequest) return typedStatus(404);
     RealmModel realm = masterRequest
       ? session.realms().getRealmByName("qcrm-" + request.tenantProfileId.replace("-", ""))
       : serviceRealm;
-    if (realm == null || !realm.isEnabled()) return Response.status(404).build();
+    if (realm == null || !realm.isEnabled()) return typedStatus(404);
     UserModel user = masterRequest
       ? session.users().getUserById(realm, request.administratorSubject)
       : findOrCreateMemberUser(realm, request);
-    if (user == null || !user.isEnabled()) return Response.status(404).build();
+    if (user == null || !user.isEnabled()) return typedStatus(404);
     ClientModel client = realm.getClientByClientId("quantum-crm-web");
-    if (client == null) return Response.status(409).build();
+    if (client == null) return typedStatus(409);
 
     String prior = "qcrm:activation:current:" + user.getId();
     Map<String, String> priorValue = session.singleUseObjects().get(prior);
@@ -88,17 +90,31 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
         UserModel.RequiredAction.CONFIGURE_TOTP.name(),
         QuantumActivationCompletionRequiredAction.ID),
       null, client.getClientId());
-    // A distinct native action-token type binds processing to our handler.  The
-    // The completion required action writes the consumption marker only after
+    // A distinct native action-token type binds processing to our handler. The
+    // completion required action writes the consumption marker only after
     // Keycloak completes both the password and TOTP required actions.
     token.type(QuantumActivationActionTokenHandler.ID);
+    // DefaultActionToken assigns its native token identifier during serialization.
+    // Persisting metadata before this point would create a null JTI and make the
+    // activation endpoint fail while hashing it.
+    // TokenManager signs with the realm currently attached to the request
+    // context. This endpoint is authenticated in master but issues a token for
+    // the tenant realm, so select that realm only for signing and always restore
+    // the service realm afterwards.
+    String serialized;
+    try {
+      session.getContext().setRealm(realm);
+      serialized = token.serialize(session, realm, uriInfo);
+    } finally {
+      session.getContext().setRealm(serviceRealm);
+    }
     String jti = token.getId();
+    if (jti == null) throw new IllegalStateException("Keycloak did not assign an action-token identifier");
     session.singleUseObjects().put(
       "qcrm:activation:jti:" + jti,
       TTL_SECONDS,
       issuedMetadata(request, jti));
     session.singleUseObjects().put(prior, TTL_SECONDS, Map.of("jti", jti));
-    String serialized = token.serialize(session, realm, uriInfo);
     String link = uriInfo.getBaseUriBuilder().path("realms").path(realm.getName())
       .path("login-actions/action-token").queryParam("key", serialized).build().toString();
     return Response.ok(Map.of("url", link, "subject", user.getId(), "generation", request.generation,
@@ -113,26 +129,25 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
       @QueryParam("tenantProfileId") String tenantProfileId,
       @QueryParam("administratorSubject") String administratorSubject,
       @QueryParam("generation") int generation,
-      @QueryParam("invitationId") String invitationId,
-      @Context UriInfo uriInfo) {
+      @QueryParam("invitationId") String invitationId) {
     ActivationRequest request = new ActivationRequest();
     request.tenantProfileId = tenantProfileId;
     request.administratorSubject = administratorSubject;
     request.generation = generation;
     request.invitationId = invitationId;
     RealmModel serviceRealm = session.getContext().getRealm();
-    if (!"master".equals(serviceRealm.getName()) || !authorized(serviceRealm, uriInfo, PROVISIONER)
-        || !request.valid() || request.administratorSubject == null) return Response.status(404).build();
+    if (!"master".equals(serviceRealm.getName()) || !authorized(serviceRealm, PROVISIONER)
+        || !request.valid() || request.administratorSubject == null) return typedStatus(404);
     RealmModel realm = session.realms().getRealmByName("qcrm-" + request.tenantProfileId.replace("-", ""));
-    if (realm == null || !realm.isEnabled()) return Response.status(404).build();
+    if (realm == null || !realm.isEnabled()) return typedStatus(404);
     UserModel user = session.users().getUserById(realm, request.administratorSubject);
-    if (user == null || !user.isEnabled()) return Response.status(404).build();
+    if (user == null || !user.isEnabled()) return typedStatus(404);
     Map<String, String> current = session.singleUseObjects().get("qcrm:activation:current:" + user.getId());
-    if (current == null || current.get("jti") == null) return Response.status(409).build();
+    if (current == null || current.get("jti") == null) return typedStatus(409);
     Map<String, String> token = session.singleUseObjects().get("qcrm:activation:jti:" + current.get("jti"));
     if (token == null
       || !Integer.toString(request.generation).equals(token.get("generation"))
-      || !sameInvitation(token, request.invitationId)) return Response.status(409).build();
+      || !sameInvitation(token, request.invitationId)) return typedStatus(409);
     boolean consumed = "consumed".equals(token.get("status"))
       && sha256(current.get("jti")).equals(token.get("jtiHash"));
     Map<String, Object> response = new HashMap<>();
@@ -155,6 +170,10 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
   private static boolean sameInvitation(Map<String, String> token, String invitationId) {
     String issuedInvitationId = token.get("invitationId");
     return invitationId == null ? issuedInvitationId == null : invitationId.equals(issuedInvitationId);
+  }
+
+  private static Response typedStatus(int status) {
+    return Response.status(status).type(MediaType.APPLICATION_JSON_TYPE).build();
   }
 
   private boolean tenantRealm(ActivationRequest request, RealmModel realm) {
@@ -196,9 +215,9 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
     return user;
   }
 
-  private boolean authorized(RealmModel realm, UriInfo uriInfo, String expectedClient) {
+  private boolean authorized(RealmModel realm, String expectedClient) {
     AppAuthManager.AuthResult result = new AppAuthManager.BearerTokenAuthenticator(session)
-      .setRealm(realm).setUriInfo(uriInfo).authenticate();
+      .setRealm(realm).authenticate();
     if (result == null) return false;
     AccessToken token = result.getToken();
     return expectedClient.equals(token.getIssuedFor()) && result.getClient() != null

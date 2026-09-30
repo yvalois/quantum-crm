@@ -191,9 +191,15 @@ export {
   type UpdateTenantProfile,
 } from "./tenants/v1/tenant-profile.js";
 export {
+  CancelTenantProvisioningSchema,
+  ProvisioningCancellationResponseSchema,
+  ProvisioningCancellationSchema,
   ProvisioningOperationResponseSchema,
   ProvisioningOperationSchema,
   RequestTenantProvisioningSchema,
+  type CancelTenantProvisioning,
+  type ProvisioningCancellation,
+  type ProvisioningCancellationResponse,
   type ProvisioningOperationContract,
   type ProvisioningOperationResponse,
   type RequestTenantProvisioning,

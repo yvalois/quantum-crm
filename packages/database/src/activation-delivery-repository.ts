@@ -43,6 +43,8 @@ const intentSelection =
   "id::text, tenant_profile_id::text, requested_by_operator_id::text, administrator_subject, generation, expires_at, correlation_id, idempotency_key, payload_hash, status::text, lease_owner, lease_expires_at, result_code, version::text, created_at, updated_at";
 const administratorSelection =
   "tenant_profile_id::text, keycloak_subject, generation, status::text, expires_at, consumed_at, version::text, created_at, updated_at";
+const qualifiedAdministratorSelection =
+  "administrator.tenant_profile_id::text, administrator.keycloak_subject, administrator.generation, administrator.status::text, administrator.expires_at, administrator.consumed_at, administrator.version::text, administrator.created_at, administrator.updated_at";
 const time = (value: Date): void => {
   if (!(value instanceof Date) || Number.isNaN(value.getTime()))
     throw new ActivationDeliveryValidationError();
@@ -112,7 +114,7 @@ export function createActivationDeliveryRepository(
           return Object.freeze({ intent: toIntent(replay.rows[0]), idempotentReplay: true });
         }
         const initial = await client.query<AdministratorRow & { readonly tenant_version: string }>(
-          `SELECT ${administratorSelection}, profile.version::text AS tenant_version FROM tenants.tenant_initial_administrators administrator JOIN tenants.tenant_profiles profile ON profile.id=administrator.tenant_profile_id WHERE administrator.tenant_profile_id=$1::uuid FOR UPDATE`,
+          `SELECT ${qualifiedAdministratorSelection}, profile.version::text AS tenant_version FROM tenants.tenant_initial_administrators administrator JOIN tenants.tenant_profiles profile ON profile.id=administrator.tenant_profile_id WHERE administrator.tenant_profile_id=$1::uuid FOR UPDATE`,
           [command.tenantProfileId],
         );
         const row = initial.rows[0];
