@@ -108,3 +108,11 @@ Un operador autorizado puede cancelar de forma tipada una operacion de aprovisio
 - Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
 - Desviaciones del plan: el realm creado por una candidata anterior carecia de acciones requeridas y politica OTP completa. Se implemento reconciliacion idempotente del realm y se corrigio la firma del token de activacion con la clave del realm del perfil.
 - Pendientes o decisiones nuevas: la promocion desde la etiqueta candidata del VPS hacia una release publicada por digest ocurre despues de integrar el PR; no invalida el recorrido funcional aprobado.
+
+### Evidencia adicional — perfil demostrable con bandeja omnicanal
+
+- La release integrada `e939d5a` se registró y promovió como `0.0.0-candidate.e939d5af3d2b`, con los diez artefactos fijados por digest.
+- El perfil `01a0f479-5da2-733f-b9f0-434f78a40956` (`quantum-demo-jueves`) completó la operación `01a0f479-5db0-779e-a5fc-90563e73ebd8`: todos los pasos, incluidos `VERIFY` y `ACTIVATE`, terminaron `succeeded`; el perfil quedó `ACTIVE` y sus cinco servicios están saludables.
+- La cuenta inicial completó contraseña y TOTP reales. El material sintético permanece fuera de Git y de la evidencia, en archivos privados del VPS con modo `0400`.
+- El recorrido detectó que la emisión de activación usaba el origen administrativo HTTP interno. El commit candidato `a5ab057` usa el origen HTTPS público solo para emitir el enlace, conserva la administración por la red interna y valida exactamente origen y ruta devueltos.
+- En el VPS se aprobaron para `a5ab057`: instalación congelada por lockfile, Prettier, ESLint, cuatro pruebas unitarias del provisionador y typecheck de `deploy-executor`. No se repitió la matriz completa ni se ejecutó código en el equipo local.
