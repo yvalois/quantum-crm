@@ -63,9 +63,9 @@ Un usuario autorizado entra al CRM y opera un tablero Kanban real: selecciona un
 
 ## Plan de implementacion
 
-- [ ] Consolidar la carga de pipeline, oportunidades y contactos reales.
-- [ ] Construir el tablero Kanban y sus paneles de creacion/movimiento.
-- [ ] Agregar pruebas afectadas de comportamiento y contratos cuando cambien.
+- [x] Consolidar la carga de pipeline, oportunidades y contactos reales.
+- [x] Construir el tablero Kanban y sus paneles de creacion/movimiento.
+- [x] Agregar pruebas afectadas de comportamiento y contratos cuando cambien.
 - [ ] Validar una vez el commit candidato en el VPS y publicar un unico PR.
 
 ## Riesgos y mitigaciones
@@ -103,8 +103,8 @@ Un usuario autorizado entra al CRM y opera un tablero Kanban real: selecciona un
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: ficha y `estado.md` al inicio.
-- Desviaciones del plan: ninguna al inicio.
-- Pendientes o decisiones nuevas: `PIPE-08` y `PIPE-13` se implementaran en bloques propietarios posteriores.
+- Archivos, commits o PR: candidato `96bfb871be6cccb4e997f72f2ab1da1e49927b94`; PR pendiente de publicacion.
+- Comandos y resultados en el VPS sobre el candidato exacto: Prettier y ESLint afectados aprobados; typecheck de `contracts`, `domain`, `database`, `api` y `crm-web` aprobado; 17/17 pruebas afectadas aprobadas; compilaciones de `api` y `crm-web` aprobadas.
+- Documentacion actualizada: ficha y `estado.md`; el checklist oficial no se cierra hasta desplegar y recorrer el piloto autenticado.
+- Desviaciones del plan: el bloque incorporo asignacion, estados de cierre, motivos, historial y filtros porque son parte del recorrido comercial visible requerido por el piloto.
+- Pendientes o decisiones nuevas: publicar el PR, aprobar la matriz unica de GitHub, promover la release y ejecutar el smoke autenticado. `PIPE-08` y `PIPE-13` se implementaran en bloques propietarios posteriores.
