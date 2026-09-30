@@ -37,6 +37,11 @@ export const CrmPermissionCatalog = [
   "crm:automations:read",
   "crm:automations:execute",
   "crm:automations:configure",
+  "crm:conversations:read",
+  "crm:conversations:reply",
+  "crm:conversations:assign",
+  "crm:conversations:control-agent",
+  "crm:conversations:configure",
 ] as const;
 export const CrmPermissionSchema = z.enum(CrmPermissionCatalog);
 export type CrmPermission = z.infer<typeof CrmPermissionSchema>;

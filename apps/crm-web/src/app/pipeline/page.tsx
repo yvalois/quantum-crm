@@ -368,6 +368,7 @@ export default function PipelinePage(): React.JSX.Element {
             Pipeline
           </a>
           <a href="/tasks">Tareas</a>
+          <a href="/inbox">Conversaciones</a>
         </nav>
         <div className="sidebar-pulse">
           <span className="pulse-dot" aria-hidden="true" />

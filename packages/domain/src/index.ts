@@ -5,3 +5,4 @@ export * from "./contacts/index.js";
 export * from "./automation/index.js";
 export * from "./sales/index.js";
 export * from "./tasks/index.js";
+export * from "./conversations/index.js";

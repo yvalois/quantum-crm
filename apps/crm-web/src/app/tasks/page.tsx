@@ -400,6 +400,7 @@ export default function TasksPage(): React.JSX.Element {
           <a href="/tasks" aria-current="page">
             Tareas
           </a>
+          <a href="/inbox">Conversaciones</a>
         </nav>
         <div className="sidebar-pulse">
           <span className="pulse-dot" aria-hidden="true" />

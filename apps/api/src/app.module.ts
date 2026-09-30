@@ -8,6 +8,7 @@ import {
 import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/database";
 import {
   ContactService,
+  ConversationService,
   IamMemberService,
   IamRoleService,
   IamTeamService,
@@ -38,6 +39,7 @@ import { BootstrapInitialAdministratorController } from "./bootstrap-initial-adm
 import { AcceptMemberInvitationController } from "./accept-member-invitation.controller.js";
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
+import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
 
 @Module({})
 export class AppModule {
@@ -61,6 +63,7 @@ export class AppModule {
         BootstrapInitialAdministratorController,
         AcceptMemberInvitationController,
         AutomationsController,
+        ConversationsController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -116,6 +119,16 @@ export class AppModule {
         {
           provide: AUTOMATION_SERVICE,
           useFactory: () => new AutomationService(database.commercial.automation),
+        },
+        {
+          provide: CONVERSATION_SERVICE,
+          useFactory: () =>
+            new ConversationService(database.commercial.conversations, {
+              contactExistsFor: async (actor, contactId) =>
+                (await database.commercial.contacts.find(actor, contactId)) !== null,
+              isActiveMember: async (memberId) =>
+                (await database.members.findById(memberId))?.status === "ACTIVE",
+            }),
         },
         { provide: APP_GUARD, useClass: CrmAuthenticationGuard },
         { provide: APP_GUARD, useClass: CrmAuthorizationGuard },

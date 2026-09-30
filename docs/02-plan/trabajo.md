@@ -1207,6 +1207,8 @@ Dependencias: Contactos, oportunidades, catálogo, plantillas, agentes e integra
   - [ ] Guardar estructura, estilos y variables como plantilla.
   - [ ] Crear documentos nuevos sin modificar la plantilla.
   - [ ] Permitir editar y reutilizar la plantilla.
+  - [ ] Marcar bloques de texto, imágenes y variables como editables o protegidos.
+  - [ ] Sustituir únicamente los bloques autorizados en cada documento creado desde la plantilla, conservando estructura, estilos y contenido bloqueado.
 
 - [ ] **DOC-16 — Duplicar y editar cotizaciones o facturas existentes.**
   - [ ] Duplicar el contenido en un nuevo borrador con identificador propio.

@@ -14,6 +14,7 @@ import type {
   ContactImportResultRow,
   ContactListFilters,
   ContactRepository,
+  ConversationRepository,
   CommercialActor,
   Opportunity,
   OpportunityHistoryEntry,
@@ -31,6 +32,7 @@ import type {
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
+import { createConversationPostgresRepository } from "./conversation-postgres-repository.js";
 
 interface VisibilityPredicate {
   readonly sql: string;
@@ -381,6 +383,7 @@ async function pipelineFromRow(pool: PostgresPool, row: PipelineRow): Promise<Pi
 
 export interface CommercialPostgresRepositories {
   readonly contacts: ContactRepository;
+  readonly conversations: ConversationRepository;
   readonly sales: SalesRepository;
   readonly tasks: TaskRepository;
   readonly automation: AutomationRepository;
@@ -1681,5 +1684,11 @@ export function createCommercialPostgresRepositories(
       }
     },
   });
-  return Object.freeze({ contacts, sales, tasks, automation });
+  return Object.freeze({
+    contacts,
+    conversations: createConversationPostgresRepository(pool),
+    sales,
+    tasks,
+    automation,
+  });
 }
