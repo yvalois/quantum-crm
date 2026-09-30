@@ -7,5 +7,7 @@ export async function POST(
   context: { params: Promise<{ conversationId: string }> },
 ): Promise<Response> {
   const { conversationId } = await context.params;
-  return withCrmAuthRuntime((runtime) => handleCrmConversationNote(request, runtime, conversationId));
+  return withCrmAuthRuntime((runtime) =>
+    handleCrmConversationNote(request, runtime, conversationId),
+  );
 }

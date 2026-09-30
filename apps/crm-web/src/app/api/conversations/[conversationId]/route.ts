@@ -10,12 +10,16 @@ export async function GET(
   context: { params: Promise<{ conversationId: string }> },
 ): Promise<Response> {
   const { conversationId } = await context.params;
-  return withCrmAuthRuntime((runtime) => handleCrmConversationGet(request, runtime, conversationId));
+  return withCrmAuthRuntime((runtime) =>
+    handleCrmConversationGet(request, runtime, conversationId),
+  );
 }
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ conversationId: string }> },
 ): Promise<Response> {
   const { conversationId } = await context.params;
-  return withCrmAuthRuntime((runtime) => handleCrmConversationUpdate(request, runtime, conversationId));
+  return withCrmAuthRuntime((runtime) =>
+    handleCrmConversationUpdate(request, runtime, conversationId),
+  );
 }

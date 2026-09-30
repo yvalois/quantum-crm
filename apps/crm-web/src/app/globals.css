@@ -2102,9 +2102,18 @@ button:disabled {
   font-size: 0.62rem;
   font-weight: 850;
 }
-.status-closed { background: #edf0ef; color: #6c7773; }
-.status-escalated { background: #fff0e8; color: #ad4d1b; }
-.status-pending { background: #fff8d9; color: #896a00; }
+.status-closed {
+  background: #edf0ef;
+  color: #6c7773;
+}
+.status-escalated {
+  background: #fff0e8;
+  color: #ad4d1b;
+}
+.status-pending {
+  background: #fff8d9;
+  color: #896a00;
+}
 .message-stream {
   display: flex;
   flex-direction: column;
@@ -2167,8 +2176,14 @@ button:disabled {
   font-weight: 800;
   cursor: pointer;
 }
-.composer-tabs button.active { background: #e8f8f3; color: #087355; }
-.composer-note .composer-tabs button.active { background: #fff1c5; color: #755c0c; }
+.composer-tabs button.active {
+  background: #e8f8f3;
+  color: #087355;
+}
+.composer-note .composer-tabs button.active {
+  background: #fff1c5;
+  color: #755c0c;
+}
 .composer textarea {
   width: 100%;
   min-height: 5.2rem;
@@ -2200,7 +2215,10 @@ button:disabled {
   gap: 0.72rem;
   margin: 0 0 1.15rem;
 }
-.conversation-details dl div { border-bottom: 1px solid #edf1ef; padding-bottom: 0.65rem; }
+.conversation-details dl div {
+  border-bottom: 1px solid #edf1ef;
+  padding-bottom: 0.65rem;
+}
 .conversation-details dt,
 .conversation-details > label,
 .attention-control > span {
@@ -2209,9 +2227,19 @@ button:disabled {
   font-size: 0.63rem;
   font-weight: 750;
 }
-.conversation-details dd { margin: 0.2rem 0 0; color: #40564e; font-size: 0.72rem; word-break: break-word; }
-.conversation-details > label { margin-top: 0.75rem; }
-.conversation-details > label select { width: 100%; margin-top: 0.3rem; }
+.conversation-details dd {
+  margin: 0.2rem 0 0;
+  color: #40564e;
+  font-size: 0.72rem;
+  word-break: break-word;
+}
+.conversation-details > label {
+  margin-top: 0.75rem;
+}
+.conversation-details > label select {
+  width: 100%;
+  margin-top: 0.3rem;
+}
 .attention-control {
   display: grid;
   gap: 0.45rem;
@@ -2220,7 +2248,10 @@ button:disabled {
   background: #f1f8f5;
   padding: 0.8rem;
 }
-.attention-control strong { color: #1f4a3a; font-size: 0.76rem; }
+.attention-control strong {
+  color: #1f4a3a;
+  font-size: 0.76rem;
+}
 .delivery-disclaimer {
   margin-top: 1rem;
   border-left: 3px solid #efbd4f;
@@ -2231,14 +2262,35 @@ button:disabled {
 }
 
 @media (max-width: 1180px) {
-  .inbox-grid { grid-template-columns: minmax(15rem, 0.75fr) minmax(24rem, 1.45fr); }
-  .conversation-details { display: none; }
+  .inbox-grid {
+    grid-template-columns: minmax(15rem, 0.75fr) minmax(24rem, 1.45fr);
+  }
+  .conversation-details {
+    display: none;
+  }
 }
 @media (max-width: 780px) {
-  .inbox-content { padding: 0.8rem; }
-  .inbox-header { align-items: flex-start; flex-direction: column; }
-  .inbox-grid { display: block; min-height: 0; overflow: visible; }
-  .inbox-list { border-right: 0; }
-  .inbox-list ol { max-height: 22rem; }
-  .thread-panel { min-height: 38rem; border-top: 1px solid #e4ebe8; border-right: 0; }
+  .inbox-content {
+    padding: 0.8rem;
+  }
+  .inbox-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .inbox-grid {
+    display: block;
+    min-height: 0;
+    overflow: visible;
+  }
+  .inbox-list {
+    border-right: 0;
+  }
+  .inbox-list ol {
+    max-height: 22rem;
+  }
+  .thread-panel {
+    min-height: 38rem;
+    border-top: 1px solid #e4ebe8;
+    border-right: 0;
+  }
 }
