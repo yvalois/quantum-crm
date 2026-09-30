@@ -9,6 +9,7 @@ const repository: SalesRepository = {
   createPipeline: async (input) => input.pipeline,
   addStage: async (input) => input.stage,
   listOpportunities: async () => [],
+  listOpportunityHistory: async () => [],
   findOpportunity: async () => null,
   findStage: async () => ({
     id: "019b0000-0000-7000-8000-000000000008",
@@ -19,6 +20,7 @@ const repository: SalesRepository = {
   }),
   createOpportunity: async (input) => input.opportunity,
   moveOpportunity: async () => null,
+  updateOpportunity: async (input) => input.opportunity,
 };
 
 describe("sales service", () => {
@@ -36,6 +38,52 @@ describe("sales service", () => {
         currency: "COP",
         idempotencyKey: "opportunity-0001",
         payloadHash: "a".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(SalesValidationError);
+  });
+  it("requires an active owner and a reason for a lost opportunity", async () => {
+    const current = {
+      id: "019b0000-0000-7000-8000-000000000010",
+      ownerMemberId: actor.memberId,
+      contactId: "019b0000-0000-7000-8000-000000000011",
+      pipelineId: "019b0000-0000-7000-8000-000000000012",
+      stageId: "019b0000-0000-7000-8000-000000000013",
+      title: "Deal",
+      amountMinor: 10000n,
+      currency: "COP",
+      status: "OPEN" as const,
+      closeReason: null,
+      closedAt: null,
+      version: 1n,
+      createdAt: new Date("2026-09-29T12:00:00.000Z"),
+      updatedAt: new Date("2026-09-29T12:00:00.000Z"),
+    };
+    const service = new SalesService(
+      { ...repository, findOpportunity: async () => current },
+      { existsFor: async () => true },
+      { isActive: async () => false },
+    );
+    await expect(
+      service.updateOpportunity({
+        actor,
+        permissions: ["crm:sales:update"],
+        opportunityId: current.id,
+        expectedVersion: 1n,
+        ownerMemberId: "019b0000-0000-7000-8000-000000000099",
+        idempotencyKey: "opportunity-update-0001",
+        payloadHash: "b".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(SalesValidationError);
+    await expect(
+      service.updateOpportunity({
+        actor,
+        permissions: ["crm:sales:update"],
+        opportunityId: current.id,
+        expectedVersion: 1n,
+        status: "LOST",
+        closeReason: null,
+        idempotencyKey: "opportunity-update-0002",
+        payloadHash: "c".repeat(64),
       }),
     ).rejects.toBeInstanceOf(SalesValidationError);
   });

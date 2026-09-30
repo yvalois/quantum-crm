@@ -16,6 +16,8 @@ import type {
   ContactRepository,
   CommercialActor,
   Opportunity,
+  OpportunityHistoryEntry,
+  OpportunityListFilters,
   Pipeline,
   PipelineStage,
   SalesRepository,
@@ -178,10 +180,31 @@ interface OpportunityRow {
   readonly title: string;
   readonly amount_minor: string;
   readonly currency: string;
+  readonly status: string;
+  readonly close_reason: string | null;
+  readonly closed_at: Date | null;
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
+interface OpportunityHistoryRow {
+  readonly id: string;
+  readonly opportunity_id: string;
+  readonly event_type: string;
+  readonly actor_member_id: string;
+  readonly previous_stage_id: string | null;
+  readonly next_stage_id: string | null;
+  readonly previous_owner_member_id: string | null;
+  readonly next_owner_member_id: string | null;
+  readonly previous_status: string | null;
+  readonly next_status: string | null;
+  readonly previous_amount_minor: string | null;
+  readonly next_amount_minor: string | null;
+  readonly note: string | null;
+  readonly created_at: Date;
+}
+const opportunitySelection = `id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, status, close_reason, closed_at, version::text, created_at, updated_at`;
+const opportunityHistorySelection = `id::text, opportunity_id::text, event_type, actor_member_id::text, previous_stage_id::text, next_stage_id::text, previous_owner_member_id::text, next_owner_member_id::text, previous_status, next_status, previous_amount_minor::text, next_amount_minor::text, note, created_at`;
 function stageFromRow(row: StageRow): PipelineStage {
   return Object.freeze({
     id: row.id,
@@ -192,6 +215,9 @@ function stageFromRow(row: StageRow): PipelineStage {
   });
 }
 function opportunityFromRow(row: OpportunityRow): Opportunity {
+  const status = (row.status ?? "open").toUpperCase();
+  if (!(["OPEN", "WON", "LOST", "ABANDONED"] as const).includes(status as Opportunity["status"]))
+    throw new DatabaseUnavailableError();
   return Object.freeze({
     id: row.id,
     ownerMemberId: row.owner_member_id,
@@ -201,9 +227,39 @@ function opportunityFromRow(row: OpportunityRow): Opportunity {
     title: row.title,
     amountMinor: BigInt(row.amount_minor),
     currency: row.currency,
+    status: status as Opportunity["status"],
+    closeReason: row.close_reason ?? null,
+    closedAt: row.closed_at == null ? null : new Date(row.closed_at),
     version: BigInt(row.version),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
+  });
+}
+function opportunityHistoryFromRow(row: OpportunityHistoryRow): OpportunityHistoryEntry {
+  return Object.freeze({
+    id: row.id,
+    opportunityId: row.opportunity_id,
+    eventType: row.event_type.toUpperCase() as OpportunityHistoryEntry["eventType"],
+    actorMemberId: row.actor_member_id,
+    previousStageId: row.previous_stage_id,
+    nextStageId: row.next_stage_id,
+    previousOwnerMemberId: row.previous_owner_member_id,
+    nextOwnerMemberId: row.next_owner_member_id,
+    previousStatus:
+      row.previous_status === null
+        ? null
+        : (row.previous_status.toUpperCase() as NonNullable<
+            OpportunityHistoryEntry["previousStatus"]
+          >),
+    nextStatus:
+      row.next_status === null
+        ? null
+        : (row.next_status.toUpperCase() as NonNullable<OpportunityHistoryEntry["nextStatus"]>),
+    previousAmountMinor:
+      row.previous_amount_minor === null ? null : BigInt(row.previous_amount_minor),
+    nextAmountMinor: row.next_amount_minor === null ? null : BigInt(row.next_amount_minor),
+    note: row.note,
+    createdAt: new Date(row.created_at),
   });
 }
 interface TaskRow {
@@ -779,12 +835,42 @@ export function createCommercialPostgresRepositories(
         client?.release();
       }
     },
-    listOpportunities: async (actor) => {
+    listOpportunities: async (actor, filters: OpportunityListFilters = {}) => {
       try {
         const access = visibility(actor, 1, ["opportunity.owner_member_id"]);
+        const params: unknown[] = [...access.params];
+        const conditions = [access.sql];
+        const parameter = (value: unknown): string => {
+          params.push(value);
+          return `$${params.length}`;
+        };
+        if (filters.contactId !== undefined)
+          conditions.push(`opportunity.contact_id = ${parameter(filters.contactId)}::uuid`);
+        if (filters.pipelineId !== undefined)
+          conditions.push(`opportunity.pipeline_id = ${parameter(filters.pipelineId)}::uuid`);
+        if (filters.stageId !== undefined)
+          conditions.push(`opportunity.stage_id = ${parameter(filters.stageId)}::uuid`);
+        if (filters.ownerMemberId !== undefined)
+          conditions.push(
+            `opportunity.owner_member_id = ${parameter(filters.ownerMemberId)}::uuid`,
+          );
+        if (filters.status !== undefined)
+          conditions.push(`opportunity.status = ${parameter(filters.status.toLowerCase())}`);
+        if (filters.label !== undefined) {
+          const label = parameter(filters.label);
+          conditions.push(
+            `EXISTS (SELECT 1 FROM contacts.contact_labels AS contact_label JOIN contacts.labels AS label ON label.id = contact_label.label_id WHERE contact_label.contact_id = opportunity.contact_id AND lower(label.name) = lower(${label}))`,
+          );
+        }
+        if (filters.createdFrom !== undefined)
+          conditions.push(
+            `opportunity.created_at >= ${parameter(filters.createdFrom)}::timestamptz`,
+          );
+        if (filters.createdTo !== undefined)
+          conditions.push(`opportunity.created_at <= ${parameter(filters.createdTo)}::timestamptz`);
         const result = (await pool.query(
-          `SELECT id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at FROM sales.opportunities AS opportunity WHERE ${access.sql} ORDER BY opportunity.created_at DESC, opportunity.id DESC`,
-          access.params,
+          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE ${conditions.join(" AND ")} ORDER BY opportunity.updated_at DESC, opportunity.id DESC`,
+          params,
         )) as { readonly rows: readonly OpportunityRow[] };
         return Object.freeze(result.rows.map(opportunityFromRow));
       } catch (error) {
@@ -795,11 +881,30 @@ export function createCommercialPostgresRepositories(
       try {
         const access = visibility(actor, 2, ["opportunity.owner_member_id"]);
         const result = (await pool.query(
-          `SELECT id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql}`,
+          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql}`,
           [id, ...access.params],
         )) as { readonly rows: readonly OpportunityRow[] };
         const row = result.rows[0];
         return row ? opportunityFromRow(row) : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    listOpportunityHistory: async (actor, id) => {
+      try {
+        const access = visibility(actor, 2, ["opportunity.owner_member_id"]);
+        const result = (await pool.query(
+          `SELECT ${opportunityHistorySelection}
+             FROM sales.opportunity_history AS history
+            WHERE history.opportunity_id = $1::uuid
+              AND EXISTS (
+                SELECT 1 FROM sales.opportunities AS opportunity
+                 WHERE opportunity.id = history.opportunity_id AND ${access.sql}
+              )
+            ORDER BY history.created_at DESC, history.id DESC`,
+          [id, ...access.params],
+        )) as { readonly rows: readonly OpportunityHistoryRow[] };
+        return Object.freeze(result.rows.map(opportunityHistoryFromRow));
       } catch (error) {
         return fail(error);
       }
@@ -836,7 +941,7 @@ export function createCommercialPostgresRepositories(
           return opportunityFromRow(previous.response);
         }
         const inserted = await client.query<OpportunityRow>(
-          `INSERT INTO sales.opportunities (id, owner_member_id, contact_id, pipeline_id, stage_id, title, amount_minor, currency, version, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6, $7::bigint, $8, $9::bigint, $10, $11) RETURNING id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at`,
+          `INSERT INTO sales.opportunities (id, owner_member_id, contact_id, pipeline_id, stage_id, title, amount_minor, currency, status, close_reason, closed_at, version, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6, $7::bigint, $8, $9, $10, $11, $12::bigint, $13, $14) RETURNING ${opportunitySelection}`,
           [
             input.opportunity.id,
             input.opportunity.ownerMemberId,
@@ -846,6 +951,9 @@ export function createCommercialPostgresRepositories(
             input.opportunity.title,
             input.opportunity.amountMinor.toString(),
             input.opportunity.currency,
+            input.opportunity.status.toLowerCase(),
+            input.opportunity.closeReason,
+            input.opportunity.closedAt,
             input.opportunity.version.toString(),
             input.opportunity.createdAt,
             input.opportunity.updatedAt,
@@ -853,6 +961,17 @@ export function createCommercialPostgresRepositories(
         );
         const row = inserted.rows[0];
         if (!row) throw new DatabaseUnavailableError();
+        await client.query(
+          `INSERT INTO sales.opportunity_history (opportunity_id, event_type, actor_member_id, next_stage_id, next_owner_member_id, next_status, next_amount_minor) VALUES ($1::uuid, 'created', $2::uuid, $3::uuid, $4::uuid, $5, $6::bigint)`,
+          [
+            row.id,
+            input.actor.memberId,
+            row.stage_id,
+            row.owner_member_id,
+            row.status,
+            row.amount_minor,
+          ],
+        );
         await client.query(
           `INSERT INTO sales.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'sales.opportunity.create', $2, $3, $4::jsonb)`,
           [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(row)],
@@ -870,6 +989,7 @@ export function createCommercialPostgresRepositories(
       let client: PoolClient | undefined;
       try {
         const access = visibility(input.actor, 5, ["opportunity.owner_member_id"]);
+        const readAccess = visibility(input.actor, 3, ["opportunity.owner_member_id"]);
         client = await pool.connect();
         await client.query("BEGIN");
         const replay = await client.query<{
@@ -886,8 +1006,17 @@ export function createCommercialPostgresRepositories(
           await client.query("COMMIT");
           return opportunityFromRow(previous.response);
         }
+        const beforeResult = await client.query<OpportunityRow>(
+          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND opportunity.version = $2::bigint AND ${readAccess.sql} FOR UPDATE`,
+          [input.id, input.expectedVersion.toString(), ...readAccess.params],
+        );
+        const before = beforeResult.rows[0];
+        if (!before) {
+          await client.query("COMMIT");
+          return null;
+        }
         const result = await client.query<OpportunityRow>(
-          `UPDATE sales.opportunities AS opportunity SET stage_id = $2::uuid, version = version + 1, updated_at = $3 WHERE opportunity.id = $1::uuid AND opportunity.version = $4::bigint AND ${access.sql} RETURNING id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, version::text, created_at, updated_at`,
+          `UPDATE sales.opportunities AS opportunity SET stage_id = $2::uuid, version = version + 1, updated_at = $3 WHERE opportunity.id = $1::uuid AND opportunity.version = $4::bigint AND ${access.sql} RETURNING ${opportunitySelection}`,
           [input.id, input.stageId, input.now, input.expectedVersion.toString(), ...access.params],
         );
         const row = result.rows[0];
@@ -896,7 +1025,112 @@ export function createCommercialPostgresRepositories(
           return null;
         }
         await client.query(
+          `INSERT INTO sales.opportunity_history (opportunity_id, event_type, actor_member_id, previous_stage_id, next_stage_id, previous_owner_member_id, next_owner_member_id, previous_status, next_status, previous_amount_minor, next_amount_minor) VALUES ($1::uuid, 'stage_changed', $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid, $7, $8, $9::bigint, $10::bigint)`,
+          [
+            row.id,
+            input.actor.memberId,
+            before.stage_id,
+            row.stage_id,
+            before.owner_member_id,
+            row.owner_member_id,
+            before.status,
+            row.status,
+            before.amount_minor,
+            row.amount_minor,
+          ],
+        );
+        await client.query(
           `INSERT INTO sales.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'sales.opportunity.move', $2, $3, $4::jsonb)`,
+          [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(row)],
+        );
+        await client.query("COMMIT");
+        return opportunityFromRow(row);
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    updateOpportunity: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        const access = visibility(input.actor, 3, ["opportunity.owner_member_id"]);
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const replay = await client.query<{
+          readonly payload_hash: string;
+          readonly response: OpportunityRow;
+        }>(
+          `SELECT payload_hash, response FROM sales.command_idempotency WHERE actor_member_id = $1::uuid AND command = 'sales.opportunity.update' AND idempotency_key = $2 FOR UPDATE`,
+          [input.actor.memberId, input.idempotencyKey],
+        );
+        const previous = replay.rows[0];
+        if (previous) {
+          if (previous.payload_hash !== input.payloadHash)
+            throw new CommercialIdempotencyConflictError();
+          await client.query("COMMIT");
+          return opportunityFromRow(previous.response);
+        }
+        const beforeResult = await client.query<OpportunityRow>(
+          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND opportunity.version = $2::bigint AND ${access.sql} FOR UPDATE`,
+          [input.opportunity.id, input.expectedVersion.toString(), ...access.params],
+        );
+        const before = beforeResult.rows[0];
+        if (!before) {
+          await client.query("COMMIT");
+          return null;
+        }
+        const result = await client.query<OpportunityRow>(
+          `UPDATE sales.opportunities AS opportunity
+              SET owner_member_id = $2::uuid, title = $3, amount_minor = $4::bigint,
+                  currency = $5, status = $6, close_reason = $7, closed_at = $8,
+                  version = version + 1, updated_at = $9
+            WHERE opportunity.id = $1::uuid AND opportunity.version = $10::bigint
+            RETURNING ${opportunitySelection}`,
+          [
+            input.opportunity.id,
+            input.opportunity.ownerMemberId,
+            input.opportunity.title,
+            input.opportunity.amountMinor.toString(),
+            input.opportunity.currency,
+            input.opportunity.status.toLowerCase(),
+            input.opportunity.closeReason,
+            input.opportunity.closedAt,
+            input.opportunity.updatedAt,
+            input.expectedVersion.toString(),
+          ],
+        );
+        const row = result.rows[0];
+        if (!row) {
+          await client.query("COMMIT");
+          return null;
+        }
+        const eventType =
+          before.status !== row.status
+            ? "status_changed"
+            : before.owner_member_id !== row.owner_member_id
+              ? "owner_changed"
+              : "updated";
+        await client.query(
+          `INSERT INTO sales.opportunity_history (opportunity_id, event_type, actor_member_id, previous_stage_id, next_stage_id, previous_owner_member_id, next_owner_member_id, previous_status, next_status, previous_amount_minor, next_amount_minor, note) VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5::uuid, $6::uuid, $7::uuid, $8, $9, $10::bigint, $11::bigint, $12)`,
+          [
+            row.id,
+            eventType,
+            input.actor.memberId,
+            before.stage_id,
+            row.stage_id,
+            before.owner_member_id,
+            row.owner_member_id,
+            before.status,
+            row.status,
+            before.amount_minor,
+            row.amount_minor,
+            row.close_reason,
+          ],
+        );
+        await client.query(
+          `INSERT INTO sales.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'sales.opportunity.update', $2, $3, $4::jsonb)`,
           [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(row)],
         );
         await client.query("COMMIT");
