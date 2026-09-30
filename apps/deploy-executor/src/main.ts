@@ -88,6 +88,7 @@ async function bootstrap(): Promise<void> {
   });
   const initialAdministratorProvisioner = createTenantInitialAdministratorProvisioner({
     keycloakAdminOrigin: config.identityProvisioner.keycloakAdminOrigin,
+    identityOrigin: config.identityProvisioner.identityOrigin,
     keycloakProvisionerClientId: "quantum-provisioner",
     keycloakProvisionerClientSecret:
       config.identityProvisioner.keycloakProvisionerClientSecret.expose(),

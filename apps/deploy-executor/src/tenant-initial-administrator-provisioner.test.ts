@@ -19,7 +19,8 @@ function response(body: unknown, status = 200): Response {
 
 function provisioner() {
   return createTenantInitialAdministratorProvisioner({
-    keycloakAdminOrigin: "https://identity.example",
+    keycloakAdminOrigin: "http://platform-keycloak:8080",
+    identityOrigin: "https://identity.example",
     keycloakProvisionerClientId: "quantum-provisioner",
     keycloakProvisionerClientSecret: "fixture",
   });
@@ -75,5 +76,55 @@ describe("tenant initial administrator provisioner", () => {
       name: "TenantInitialAdministratorProvisioningError",
       reason: "TARGET_CONFLICT",
     });
+  });
+
+  it("issues activation through the public identity origin", async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = new URL(input.toString());
+      if (url.pathname.endsWith("/protocol/openid-connect/token"))
+        return response({ access_token: "a".repeat(24) });
+      return response({
+        url: `https://identity.example/realms/qcrm-019b0000000070008000000000000101/login-actions/action-token?key=opaque`,
+        expiresAt: "2026-10-01T00:00:00.000Z",
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      provisioner().issueActivation({
+        tenantProfileId,
+        administratorSubject: subject,
+        generation: 1,
+      }),
+    ).resolves.toMatchObject({
+      url: expect.stringMatching(/^https:\/\/identity\.example\/realms\/qcrm-/u),
+    });
+    expect(fetchMock.mock.calls.map(([input]) => new URL(input.toString()).origin)).toEqual([
+      "http://platform-keycloak:8080",
+      "https://identity.example",
+    ]);
+  });
+
+  it("rejects an activation URL returned for an internal or foreign origin", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = new URL(input.toString());
+        if (url.pathname.endsWith("/protocol/openid-connect/token"))
+          return response({ access_token: "a".repeat(24) });
+        return response({
+          url: `http://platform-keycloak:8080/realms/qcrm-019b0000000070008000000000000101/login-actions/action-token?key=opaque`,
+          expiresAt: "2026-10-01T00:00:00.000Z",
+        });
+      }),
+    );
+
+    await expect(
+      provisioner().issueActivation({
+        tenantProfileId,
+        administratorSubject: subject,
+        generation: 1,
+      }),
+    ).rejects.toMatchObject({ reason: "UNAVAILABLE" });
   });
 });

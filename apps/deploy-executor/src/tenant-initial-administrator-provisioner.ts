@@ -37,6 +37,7 @@ export interface TenantInitialAdministratorProvisioner {
 
 export interface TenantInitialAdministratorProvisionerOptions {
   readonly keycloakAdminOrigin: string;
+  readonly identityOrigin: string;
   readonly keycloakProvisionerClientId: "quantum-provisioner";
   readonly keycloakProvisionerClientSecret: string;
 }
@@ -136,6 +137,15 @@ function isExactInitialAdministrator(
 export function createTenantInitialAdministratorProvisioner(
   options: TenantInitialAdministratorProvisionerOptions,
 ): TenantInitialAdministratorProvisioner {
+  const identityOrigin = new URL(options.identityOrigin);
+  if (
+    identityOrigin.protocol !== "https:" ||
+    identityOrigin.pathname !== "/" ||
+    identityOrigin.username ||
+    identityOrigin.password
+  ) {
+    throw new TenantInitialAdministratorProvisioningError("IDENTITY_MISMATCH");
+  }
   const reconcile = async (
     command: InitialAdministratorCommand,
   ): Promise<{ readonly subject: string }> => {
@@ -227,7 +237,7 @@ export function createTenantInitialAdministratorProvisioner(
       throw new TenantInitialAdministratorProvisioningError("IDENTITY_MISMATCH");
     const accessToken = await token(options);
     const response = await fetch(
-      new URL("/realms/master/qcrm-internal/activation", options.keycloakAdminOrigin),
+      new URL("/realms/master/qcrm-internal/activation", identityOrigin),
       {
         method: "POST",
         headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
@@ -243,14 +253,25 @@ export function createTenantInitialAdministratorProvisioner(
       typeof value === "object" && value !== null
         ? (value as { readonly url?: unknown; readonly expiresAt?: unknown })
         : undefined;
-    if (
-      !payload ||
-      typeof payload.url !== "string" ||
-      !payload.url.startsWith("https://") ||
-      typeof payload.expiresAt !== "string"
-    )
+    if (!payload || typeof payload.url !== "string" || typeof payload.expiresAt !== "string")
       throw new TenantInitialAdministratorProvisioningError("UNAVAILABLE");
-    return Object.freeze({ url: payload.url, expiresAt: payload.expiresAt });
+    let activationUrl: URL;
+    try {
+      activationUrl = new URL(payload.url);
+    } catch {
+      throw new TenantInitialAdministratorProvisioningError("UNAVAILABLE");
+    }
+    const identity = tenantOidcIdentity(command.tenantProfileId);
+    if (
+      activationUrl.origin !== identityOrigin.origin ||
+      activationUrl.pathname !==
+        `/realms/${encodeURIComponent(identity.realmName)}/login-actions/action-token` ||
+      activationUrl.username ||
+      activationUrl.password
+    ) {
+      throw new TenantInitialAdministratorProvisioningError("UNAVAILABLE");
+    }
+    return Object.freeze({ url: activationUrl.toString(), expiresAt: payload.expiresAt });
   };
   const activationStatus = async (
     command: ActivationLinkCommand,
