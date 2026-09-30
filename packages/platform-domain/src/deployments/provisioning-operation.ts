@@ -6,6 +6,7 @@ const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
 const correlationIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
 const workerIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
 const configurationRefPattern = /^tenant\/[0-9a-f-]{36}\/configuration\.json$/u;
+const cancellationReasonControlPattern = /\p{Cc}+/gu;
 
 export const provisioningOperationStatuses = [
   "PENDING",
@@ -105,6 +106,17 @@ export interface ProvisioningOperationLease {
   readonly lastHeartbeatAt: Date;
 }
 
+export interface ProvisioningOperationCancellation {
+  readonly cancelledByOperatorId: string;
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
+  readonly reason: string;
+  readonly expectedVersion: bigint;
+  readonly tenantVersion: bigint;
+  readonly result: "CANCELLED";
+  readonly cancelledAt: Date;
+}
+
 export interface ProvisioningOperation extends ProvisioningOperationIdentity {
   readonly id: string;
   readonly status: ProvisioningOperationStatus;
@@ -113,6 +125,7 @@ export interface ProvisioningOperation extends ProvisioningOperationIdentity {
   readonly version: bigint;
   readonly failureCode: ProvisioningValidationFailureCode | null;
   readonly lease: ProvisioningOperationLease | null;
+  readonly cancellation: ProvisioningOperationCancellation | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly capacityReservation: CapacityReservation;
@@ -123,6 +136,22 @@ export interface RequestProvisioningCommand extends ProvisioningOperationIdentit
 }
 
 export interface ProvisioningRequestResult {
+  readonly operation: ProvisioningOperation;
+  readonly tenantVersion: bigint;
+  readonly idempotentReplay: boolean;
+}
+
+export interface CancelProvisioningOperationCommand {
+  readonly tenantProfileId: string;
+  readonly operationId: string;
+  readonly requestedByOperatorId: string;
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
+  readonly reason: string;
+  readonly expectedVersion: bigint;
+}
+
+export interface ProvisioningCancellationResult {
   readonly operation: ProvisioningOperation;
   readonly tenantVersion: bigint;
   readonly idempotentReplay: boolean;
@@ -456,6 +485,12 @@ export interface ProvisioningValidationSnapshot {
   };
 }
 
+export interface ProvisioningOperationCancellationRepository {
+  readonly cancel: (
+    command: CancelProvisioningOperationCommand,
+  ) => Promise<ProvisioningCancellationResult>;
+}
+
 export interface ProvisioningOperationRepository {
   readonly request: (command: RequestProvisioningCommand) => Promise<ProvisioningRequestResult>;
   readonly claimNext: (
@@ -660,6 +695,27 @@ export class ProvisioningOperationConflictError extends Error {
   }
 }
 
+export class ProvisioningOperationNotFoundError extends Error {
+  public constructor() {
+    super("Provisioning operation was not found");
+    this.name = "ProvisioningOperationNotFoundError";
+  }
+}
+
+export class ProvisioningOperationVersionConflictError extends Error {
+  public constructor() {
+    super("Provisioning operation version does not match");
+    this.name = "ProvisioningOperationVersionConflictError";
+  }
+}
+
+export class ProvisioningOperationNotCancellableError extends Error {
+  public constructor() {
+    super("Provisioning operation is not at a safe cancellation point");
+    this.name = "ProvisioningOperationNotCancellableError";
+  }
+}
+
 export class InfrastructureServerNotAdmissibleError extends Error {
   public constructor() {
     super("Infrastructure server is not available for admission");
@@ -680,9 +736,47 @@ function uuid(field: string, value: string): string {
   return normalized;
 }
 
+function correlationId(value: string): string {
+  if (!correlationIdPattern.test(value)) {
+    throw new ProvisioningOperationValidationError("correlationId");
+  }
+  return value;
+}
+
 function validDate(field: string, value: Date): Date {
   if (Number.isNaN(value.getTime())) throw new ProvisioningOperationValidationError(field);
   return new Date(value.getTime());
+}
+
+export function sanitizeProvisioningCancellationReason(value: string): string {
+  const normalized = value
+    .replace(cancellationReasonControlPattern, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  if (normalized.length < 3 || normalized.length > 500) {
+    throw new ProvisioningOperationValidationError("reason");
+  }
+  return normalized;
+}
+
+export function validateCancelProvisioningOperation(
+  input: CancelProvisioningOperationCommand,
+): CancelProvisioningOperationCommand {
+  if (!idempotencyKeyPattern.test(input.idempotencyKey)) {
+    throw new ProvisioningOperationValidationError("idempotencyKey");
+  }
+  if (input.expectedVersion < 1n) {
+    throw new ProvisioningOperationValidationError("expectedVersion");
+  }
+  return Object.freeze({
+    tenantProfileId: uuid("tenantProfileId", input.tenantProfileId),
+    operationId: uuid("operationId", input.operationId),
+    requestedByOperatorId: uuid("requestedByOperatorId", input.requestedByOperatorId),
+    idempotencyKey: input.idempotencyKey,
+    correlationId: correlationId(input.correlationId),
+    reason: sanitizeProvisioningCancellationReason(input.reason),
+    expectedVersion: input.expectedVersion,
+  });
 }
 
 function identity(input: ProvisioningOperationIdentity): ProvisioningOperationIdentity {
@@ -1163,6 +1257,7 @@ export function hydrateProvisioningOperation(
     readonly version: bigint;
     readonly failureCode?: ProvisioningValidationFailureCode | null;
     readonly lease: ProvisioningOperationLease | null;
+    readonly cancellation?: ProvisioningOperationCancellation | null;
     readonly createdAt: Date;
     readonly updatedAt: Date;
     readonly capacityReservation: CapacityReservation;
@@ -1192,6 +1287,10 @@ export function hydrateProvisioningOperation(
     throw new ProvisioningOperationValidationError("lease");
   }
 
+  if (input.cancellation && input.status !== "CANCELLED") {
+    throw new ProvisioningOperationValidationError("cancellation");
+  }
+
   const operationIdentity = identity(input);
   const createdAt = validDate("createdAt", input.createdAt);
   const updatedAt = validDate("updatedAt", input.updatedAt);
@@ -1210,6 +1309,33 @@ export function hydrateProvisioningOperation(
     lease = Object.freeze({ owner: input.lease.owner, expiresAt, lastHeartbeatAt });
   }
 
+  let cancellation: ProvisioningOperationCancellation | null = null;
+  if (input.cancellation) {
+    if (!idempotencyKeyPattern.test(input.cancellation.idempotencyKey)) {
+      throw new ProvisioningOperationValidationError("cancellation.idempotencyKey");
+    }
+    if (
+      input.cancellation.expectedVersion < 1n ||
+      input.cancellation.tenantVersion < 1n ||
+      input.cancellation.result !== "CANCELLED"
+    ) {
+      throw new ProvisioningOperationValidationError("cancellation.result");
+    }
+    cancellation = Object.freeze({
+      cancelledByOperatorId: uuid(
+        "cancellation.cancelledByOperatorId",
+        input.cancellation.cancelledByOperatorId,
+      ),
+      idempotencyKey: input.cancellation.idempotencyKey,
+      correlationId: correlationId(input.cancellation.correlationId),
+      reason: sanitizeProvisioningCancellationReason(input.cancellation.reason),
+      expectedVersion: input.cancellation.expectedVersion,
+      tenantVersion: input.cancellation.tenantVersion,
+      result: input.cancellation.result,
+      cancelledAt: validDate("cancellation.cancelledAt", input.cancellation.cancelledAt),
+    });
+  }
+
   const capacityReservation = Object.freeze({
     id: uuid("capacityReservation.id", input.capacityReservation.id),
     capacity: provisioningCapacity(input.capacityReservation.capacity),
@@ -1224,6 +1350,7 @@ export function hydrateProvisioningOperation(
     version: input.version,
     failureCode,
     lease,
+    cancellation,
     createdAt,
     updatedAt,
     capacityReservation,
@@ -1231,7 +1358,10 @@ export function hydrateProvisioningOperation(
 }
 
 export class TenantProvisioningService {
-  public constructor(private readonly repository: ProvisioningOperationRepository) {}
+  public constructor(
+    private readonly repository: ProvisioningOperationRepository &
+      ProvisioningOperationCancellationRepository,
+  ) {}
 
   public request(command: RequestProvisioningCommand): Promise<ProvisioningRequestResult> {
     const draft = createProvisioningOperationDraft(command);
@@ -1242,5 +1372,11 @@ export class TenantProvisioningService {
       ...draft,
       expectedTenantVersion: command.expectedTenantVersion,
     });
+  }
+
+  public cancel(
+    command: CancelProvisioningOperationCommand,
+  ): Promise<ProvisioningCancellationResult> {
+    return this.repository.cancel(validateCancelProvisioningOperation(command));
   }
 }

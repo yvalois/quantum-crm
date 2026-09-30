@@ -5,7 +5,9 @@ import {
   evaluateProvisioningValidation,
   hydrateProvisioningOperation,
   ProvisioningOperationValidationError,
+  sanitizeProvisioningCancellationReason,
   TenantProvisioningService,
+  validateCancelProvisioningOperation,
   validateProvisioningLeaseClaim,
   validateProvisioningLeaseRenewal,
   validateCompleteProvisioningContainers,
@@ -13,6 +15,7 @@ import {
   validateCompleteProvisioningMigration,
   provisioningOperationSteps,
   type ProvisioningOperationRepository,
+  type ProvisioningOperationCancellationRepository,
 } from "./provisioning-operation.js";
 
 const command = {
@@ -95,6 +98,7 @@ describe("tenant provisioning operation", () => {
     }));
     const service = new TenantProvisioningService({
       request,
+      cancel: vi.fn(),
       claimNext: vi.fn(),
       renewLease: vi.fn(),
       completeValidation: vi.fn(),
@@ -111,9 +115,71 @@ describe("tenant provisioning operation", () => {
       completeInitialAdministrator: vi.fn(),
       completeVerification: vi.fn(),
       completeActivation: vi.fn(),
-    } satisfies ProvisioningOperationRepository);
+    } satisfies ProvisioningOperationRepository & ProvisioningOperationCancellationRepository);
     await expect(service.request(command)).resolves.toMatchObject({ tenantVersion: 2n });
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING" }));
+  });
+
+  it("sanitizes cancellation input before delegating and preserves expected version", async () => {
+    const cancel = vi.fn(async () => ({
+      operation: {} as never,
+      tenantVersion: 3n,
+      idempotentReplay: false,
+    }));
+    const service = new TenantProvisioningService({
+      request: vi.fn(),
+      cancel,
+      claimNext: vi.fn(),
+      renewLease: vi.fn(),
+      completeValidation: vi.fn(),
+      completeDatabase: vi.fn(),
+      completeSecrets: vi.fn(),
+      completeMigration: vi.fn(),
+      completeStorage: vi.fn(),
+      completeConfiguration: vi.fn(),
+      completeContainers: vi.fn(),
+      completeHttps: vi.fn(),
+      resolveHttpsContext: vi.fn(),
+      resolveIdentityContext: vi.fn(),
+      resolveInitialAdministratorContext: vi.fn(),
+      completeInitialAdministrator: vi.fn(),
+      completeVerification: vi.fn(),
+      completeActivation: vi.fn(),
+    } satisfies ProvisioningOperationRepository & ProvisioningOperationCancellationRepository);
+    await expect(
+      service.cancel({
+        tenantProfileId: command.tenantProfileId,
+        operationId: "01995f7e-7b52-7000-8000-000000000401",
+        requestedByOperatorId: command.requestedByOperatorId,
+        idempotencyKey: "cancel-acme-001",
+        correlationId: "cancel-acme-001",
+        reason: "  Migrator\n\tdetenido\u0000 por release defectuosa. ",
+        expectedVersion: 7n,
+      }),
+    ).resolves.toMatchObject({ tenantVersion: 3n });
+    expect(cancel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "Migrator detenido por release defectuosa.",
+        expectedVersion: 7n,
+      }),
+    );
+  });
+
+  it("rejects invalid cancellation reasons and idempotency keys", () => {
+    expect(() => sanitizeProvisioningCancellationReason("\u0000\n ")).toThrow(
+      ProvisioningOperationValidationError,
+    );
+    expect(() =>
+      validateCancelProvisioningOperation({
+        tenantProfileId: command.tenantProfileId,
+        operationId: "01995f7e-7b52-7000-8000-000000000401",
+        requestedByOperatorId: command.requestedByOperatorId,
+        idempotencyKey: "short",
+        correlationId: "cancel-acme-001",
+        reason: "Motivo valido",
+        expectedVersion: 1n,
+      }),
+    ).toThrow(ProvisioningOperationValidationError);
   });
 
   it("hydrates a running operation only with a coherent durable lease", () => {

@@ -157,6 +157,27 @@ beforeAll(async () => {
         tenantVersion: 2n,
         idempotentReplay: false,
       })),
+      cancel: vi.fn(async (command) => ({
+        operation: hydrateProvisioningOperation({
+          ...provisioningOperation,
+          status: "CANCELLED",
+          version: provisioningOperation.version + 1n,
+          lease: null,
+          cancellation: {
+            cancelledByOperatorId: command.requestedByOperatorId,
+            idempotencyKey: command.idempotencyKey,
+            correlationId: command.correlationId,
+            reason: command.reason,
+            expectedVersion: command.expectedVersion,
+            tenantVersion: 3n,
+            result: "CANCELLED",
+            cancelledAt: new Date("2026-09-20T12:05:00.000Z"),
+          },
+          updatedAt: new Date("2026-09-20T12:05:00.000Z"),
+        }),
+        tenantVersion: 3n,
+        idempotentReplay: false,
+      })),
       claimNext: vi.fn(async () => null),
       renewLease: vi.fn(async () => null),
       completeValidation: vi.fn(async () => null),
@@ -453,6 +474,37 @@ describe("admin API authentication boundary", () => {
     await expect(response.json()).resolves.toMatchObject({
       schemaVersion: "tenant-provisioning-operation/v1",
       data: { status: "PENDING", currentStep: "VALIDATE" },
+      meta: { idempotentReplay: false },
+    });
+  });
+
+  it("cancels provisioning with permission, fencing and a sanitized durable reason", async () => {
+    const response = await fetch(
+      `${origin}/api/v1/tenant-profiles/01995f7e-7b52-7000-8000-000000000201/provisioning-operations/01995f7e-7b52-7000-8000-000000000401/cancel`,
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer signed.token.value",
+          "content-type": "application/json",
+          "idempotency-key": "cancel-acme-001",
+          "if-match": '"1"',
+        },
+        body: JSON.stringify({ reason: "  Migrator\n detenido por release defectuosa. " }),
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("etag")).toBe('"2"');
+    expect(response.headers.get("x-tenant-profile-etag")).toBe('"3"');
+    await expect(response.json()).resolves.toMatchObject({
+      schemaVersion: "tenant-provisioning-cancellation/v1",
+      data: {
+        operation: { status: "CANCELLED", version: "2" },
+        cancellation: {
+          reason: "Migrator detenido por release defectuosa.",
+          expectedVersion: "1",
+          result: "CANCELLED",
+        },
+      },
       meta: { idempotentReplay: false },
     });
   });

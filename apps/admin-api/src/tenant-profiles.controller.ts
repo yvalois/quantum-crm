@@ -18,7 +18,9 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
+  CancelTenantProvisioningSchema,
   CreateTenantProfileSchema,
+  ProvisioningCancellationResponseSchema,
   ProvisioningOperationResponseSchema,
   RequestTenantProvisioningSchema,
   TenantProfileListQuerySchema,
@@ -31,6 +33,9 @@ import {
 import { DatabaseUnavailableError } from "@quantum-crm/database";
 import {
   ProvisioningOperationConflictError,
+  ProvisioningOperationNotCancellableError,
+  ProvisioningOperationNotFoundError,
+  ProvisioningOperationVersionConflictError,
   InfrastructureCapacityExceededError,
   InfrastructureServerNotAdmissibleError,
   ProvisioningOperationValidationError,
@@ -142,9 +147,13 @@ function decodeCursor(value: string | undefined): TenantProfileCursor | undefine
 }
 
 function translate(error: unknown): never {
+  if (error instanceof ProvisioningOperationNotFoundError) throw new NotFoundException();
   if (error instanceof TenantProfileNotFoundError) throw new NotFoundException();
   if (error instanceof TenantProfileConflictError) throw new ConflictException();
   if (error instanceof TenantProfileVersionConflictError) {
+    throw new HttpException("Precondition Failed", 412);
+  }
+  if (error instanceof ProvisioningOperationVersionConflictError) {
     throw new HttpException("Precondition Failed", 412);
   }
   if (
@@ -152,6 +161,7 @@ function translate(error: unknown): never {
     error instanceof InfrastructureCapacityExceededError ||
     error instanceof InfrastructureServerNotAdmissibleError ||
     error instanceof PlatformReleaseNotDeployableError ||
+    error instanceof ProvisioningOperationNotCancellableError ||
     error instanceof TenantProfileLifecycleTransitionError
   ) {
     throw new ConflictException();
@@ -303,6 +313,54 @@ export class TenantProfilesController {
       return ProvisioningOperationResponseSchema.parse({
         schemaVersion: "tenant-provisioning-operation/v1",
         data: provisioningOperationContract(result.operation),
+        meta: { idempotentReplay: result.idempotentReplay },
+      });
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Post(":id/provisioning-operations/:operationId/cancel")
+  @HttpCode(200)
+  @RequirePlatformPermission("deployments:execute")
+  public async cancelProvisioning(
+    @Req() request: Parameters<typeof platformAuthContext>[0],
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Param("operationId", new ParseUUIDPipe()) operationId: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Headers("idempotency-key") rawIdempotencyKey: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HeaderResponse,
+  ) {
+    const auth = platformAuthContext(request);
+    const parsed = CancelTenantProvisioningSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException();
+    try {
+      const result = await this.provisioning.cancel({
+        tenantProfileId: id,
+        operationId,
+        requestedByOperatorId: auth.principal.id,
+        idempotencyKey: idempotencyKey(rawIdempotencyKey),
+        correlationId: auth.correlationId,
+        reason: parsed.data.reason,
+        expectedVersion: expectedVersion(ifMatch),
+      });
+      const cancellation = result.operation.cancellation;
+      if (!cancellation) throw new ServiceUnavailableException();
+      response.setHeader("ETag", etag(result.operation.version));
+      response.setHeader("X-Tenant-Profile-ETag", etag(result.tenantVersion));
+      return ProvisioningCancellationResponseSchema.parse({
+        schemaVersion: "tenant-provisioning-cancellation/v1",
+        data: {
+          operation: provisioningOperationContract(result.operation),
+          cancellation: {
+            cancelledByOperatorId: cancellation.cancelledByOperatorId,
+            reason: cancellation.reason,
+            expectedVersion: cancellation.expectedVersion.toString(),
+            result: cancellation.result,
+            cancelledAt: cancellation.cancelledAt.toISOString(),
+          },
+        },
         meta: { idempotentReplay: result.idempotentReplay },
       });
     } catch (error) {

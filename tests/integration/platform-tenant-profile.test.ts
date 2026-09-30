@@ -207,7 +207,6 @@ describe("platform tenant profile migration", () => {
       status: "pending",
       version: "1",
     });
-
     const indexes = await pool.query<{ indexname: string }>(`
       SELECT indexname
       FROM pg_indexes
@@ -771,5 +770,109 @@ describe("platform tenant profile migration", () => {
     await pool.query("UPDATE infrastructure.servers SET status = 'available' WHERE id = $1::uuid", [
       serverId,
     ]);
+  });
+
+  it("cancels an active lease once, fences late results and releases capacity", async () => {
+    const before = await database.infrastructureServers.findById(serverId);
+    if (!before) throw new Error("Expected the integration server");
+    const created = await database.tenantProfiles.create({
+      name: "Recover Provisioning",
+      slug: "recover-provisioning",
+      adminContactName: "Rene",
+      adminContactEmail: "rene@example.test",
+      status: "PENDING",
+    });
+    const requested = await database.provisioningOperations.request({
+      tenantProfileId: created.id,
+      serverId,
+      releaseId: "01995f7e-7b52-7000-8000-000000000500",
+      requestedCapacity: { cpuMillicores: 300, memoryMiB: 600, storageMiB: 6000 },
+      requestedByOperatorId: operatorId,
+      idempotencyKey: "recovery-original-001",
+      correlationId: "recovery-original-001",
+      expectedTenantVersion: created.version,
+    });
+    const claimed = await database.provisioningOperations.claimNext({
+      workerId: "executor-stalled",
+      leaseDurationSeconds: 60,
+      supportedSteps: ["VALIDATE"],
+    });
+    if (!claimed) throw new Error("Expected claimed provisioning work");
+
+    const cancellationCommand = {
+      tenantProfileId: created.id,
+      operationId: claimed.id,
+      requestedByOperatorId: operatorId,
+      idempotencyKey: "recovery-cancel-001",
+      correlationId: "recovery-cancel-001",
+      reason: "  Migrator\n detenido\u0000 por release defectuosa. ",
+      expectedVersion: claimed.version,
+    } as const;
+    const [first, replay] = await Promise.all([
+      database.provisioningOperations.cancel(cancellationCommand),
+      database.provisioningOperations.cancel(cancellationCommand),
+    ]);
+    expect([first.idempotentReplay, replay.idempotentReplay].sort()).toEqual([false, true]);
+    expect(first.operation).toMatchObject({
+      id: requested.operation.id,
+      status: "CANCELLED",
+      lease: null,
+      cancellation: {
+        cancelledByOperatorId: operatorId,
+        correlationId: "recovery-cancel-001",
+        reason: "Migrator detenido por release defectuosa.",
+        expectedVersion: claimed.version,
+        tenantVersion: 3n,
+        result: "CANCELLED",
+      },
+    });
+    await expect(
+      database.provisioningOperations.cancel({
+        ...cancellationCommand,
+        reason: "Un motivo diferente.",
+      }),
+    ).rejects.toBeInstanceOf(ProvisioningOperationConflictError);
+    await expect(
+      database.provisioningOperations.completeValidation({
+        operationId: claimed.id,
+        workerId: "executor-stalled",
+        expectedVersion: claimed.version,
+        attempt: claimed.attempt,
+      }),
+    ).resolves.toBeNull();
+    await expect(database.tenantProfiles.findById(created.id)).resolves.toMatchObject({
+      status: "ERROR",
+      version: 3n,
+    });
+    await expect(database.infrastructureServers.findById(serverId)).resolves.toMatchObject({
+      reservedCapacity: before.reservedCapacity,
+    });
+
+    const durable = await pool.query<{
+      status: string;
+      cancellation_reason: string;
+      cancellation_result: string;
+      cancellation_expected_version: string;
+      released_count: string;
+    }>(
+      `SELECT operation.status::text AS status,
+              operation.cancellation_reason,
+              operation.cancellation_result::text AS cancellation_result,
+              operation.cancellation_expected_version::text AS cancellation_expected_version,
+              (SELECT count(*)::text
+               FROM infrastructure.capacity_reservations AS reservation
+               WHERE reservation.id = operation.capacity_reservation_id
+                 AND reservation.status = 'released') AS released_count
+       FROM operations.provisioning_operations AS operation
+       WHERE operation.id = $1::uuid`,
+      [claimed.id],
+    );
+    expect(durable.rows[0]).toEqual({
+      status: "cancelled",
+      cancellation_reason: "Migrator detenido por release defectuosa.",
+      cancellation_result: "cancelled",
+      cancellation_expected_version: claimed.version.toString(),
+      released_count: "1",
+    });
   });
 });
