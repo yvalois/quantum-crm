@@ -4,9 +4,13 @@ import { IamAuthorizationError, type CommercialActor, type IamPermission } from 
 import {
   deriveTaskStatus,
   type MutableTaskStatus,
+  type TaskCommentRecord,
+  type TaskListFilters,
   type TaskRecord,
   type TaskReferenceLookup,
   type TaskRepository,
+  type TaskUpdatePatch,
+  TaskValidationError,
   TaskVersionConflictError,
   transitionTask,
 } from "./index.js";
@@ -27,10 +31,16 @@ export class TaskService {
     private readonly references: TaskReferenceLookup,
     private readonly clock: () => Date = () => new Date(),
   ) {}
-  public async list(actor: CommercialActor, permissions: readonly IamPermission[]) {
+  public async list(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    filters: TaskListFilters = {},
+  ) {
     allow(permissions, "crm:tasks:read");
     const now = this.clock();
-    return (await this.repository.list(actor)).map((task) => deriveTaskStatus(task, now));
+    return (await this.repository.list(actor, filters, now)).map((task) =>
+      deriveTaskStatus(task, now),
+    );
   }
   public async listActiveAssignees(permissions: readonly IamPermission[]) {
     allow(permissions, "crm:tasks:read");
@@ -45,6 +55,8 @@ export class TaskService {
     readonly title: string;
     readonly description: string;
     readonly priority: TaskRecord["priority"];
+    readonly type: TaskRecord["type"];
+    readonly origin?: TaskRecord["origin"];
     readonly dueAt: Date;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
@@ -63,7 +75,12 @@ export class TaskService {
     )
       throw new TaskNotFoundError();
     const now = this.clock();
-    if (Number.isNaN(input.dueAt.getTime())) throw new TaskNotFoundError();
+    if (
+      Number.isNaN(input.dueAt.getTime()) ||
+      input.title.trim().length === 0 ||
+      input.description.trim().length === 0
+    )
+      throw new TaskValidationError();
     return this.repository.create({
       task: Object.freeze({
         id: randomUUID(),
@@ -74,8 +91,12 @@ export class TaskService {
         title: input.title.trim(),
         description: input.description.trim(),
         priority: input.priority,
+        type: input.type,
+        origin: input.origin ?? "MANUAL",
         dueAt: input.dueAt,
         status: "PENDING",
+        completedAt: null,
+        completedByMemberId: null,
         version: 1n,
         createdAt: now,
         updatedAt: now,
@@ -97,18 +118,106 @@ export class TaskService {
     allow(input.permissions, "crm:tasks:update");
     const current = await this.repository.find(input.actor, input.id);
     if (!current) throw new TaskNotFoundError();
-    const visible = deriveTaskStatus(current, this.clock());
-    if (visible.version !== input.expectedVersion) throw new TaskVersionConflictError();
+    const now = this.clock();
+    const visible = deriveTaskStatus(current, now);
+    if (visible.version === input.expectedVersion) {
+      const transitionSource = visible.status === "EXPIRED" ? current : visible;
+      transitionTask(transitionSource, input.status, now);
+    }
     const result = await this.repository.updateStatus({
       actor: input.actor,
       id: input.id,
-      status: transitionTask(visible, input.status, this.clock()).status,
+      status: input.status,
       expectedVersion: input.expectedVersion,
-      now: this.clock(),
+      now,
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,
     });
     if (!result) throw new TaskVersionConflictError();
     return result;
+  }
+  public async update(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly id: string;
+    readonly patch: TaskUpdatePatch;
+    readonly expectedVersion: bigint;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) {
+    allow(input.permissions, "crm:tasks:update");
+    const current = await this.repository.find(input.actor, input.id);
+    if (!current) throw new TaskNotFoundError();
+    const now = this.clock();
+    if (current.version === input.expectedVersion) {
+      if (
+        input.patch.assigneeMemberId !== undefined &&
+        !(await this.references.isActiveMember(input.patch.assigneeMemberId))
+      )
+        throw new TaskNotFoundError();
+      if (input.patch.dueAt !== undefined && Number.isNaN(input.patch.dueAt.getTime()))
+        throw new TaskValidationError();
+      if (
+        (input.patch.title !== undefined && input.patch.title.trim().length === 0) ||
+        (input.patch.description !== undefined && input.patch.description.trim().length === 0)
+      )
+        throw new TaskValidationError();
+    }
+    const result = await this.repository.update({
+      actor: input.actor,
+      id: input.id,
+      patch: input.patch,
+      expectedVersion: input.expectedVersion,
+      now,
+      idempotencyKey: input.idempotencyKey,
+      payloadHash: input.payloadHash,
+    });
+    if (!result) throw new TaskVersionConflictError();
+    return result;
+  }
+  public async addComment(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly taskId: string;
+    readonly body: string;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) {
+    allow(input.permissions, "crm:tasks:update");
+    if (!(await this.repository.find(input.actor, input.taskId))) throw new TaskNotFoundError();
+    const body = input.body.trim();
+    if (!body) throw new TaskValidationError();
+    const comment: TaskCommentRecord = Object.freeze({
+      id: randomUUID(),
+      taskId: input.taskId,
+      authorMemberId: input.actor.memberId,
+      body,
+      createdAt: this.clock(),
+    });
+    return this.repository.addComment({
+      actor: input.actor,
+      taskId: input.taskId,
+      comment,
+      idempotencyKey: input.idempotencyKey,
+      payloadHash: input.payloadHash,
+    });
+  }
+  public async listComments(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    taskId: string,
+  ) {
+    allow(permissions, "crm:tasks:read");
+    if (!(await this.repository.find(actor, taskId))) throw new TaskNotFoundError();
+    return this.repository.listComments(actor, taskId);
+  }
+  public async listHistory(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    taskId: string,
+  ) {
+    allow(permissions, "crm:tasks:read");
+    if (!(await this.repository.find(actor, taskId))) throw new TaskNotFoundError();
+    return this.repository.listHistory(actor, taskId);
   }
 }

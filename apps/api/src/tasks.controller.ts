@@ -15,13 +15,20 @@ import {
   Patch,
   Post,
   PreconditionFailedException,
+  Query,
   Req,
 } from "@nestjs/common";
 import {
+  CreateTaskCommentSchema,
   CreateTaskSchema,
   TaskAssigneeListResponseSchema,
+  TaskCommentListResponseSchema,
+  TaskCommentResponseSchema,
+  TaskHistoryListResponseSchema,
+  TaskListQuerySchema,
   TaskListResponseSchema,
   TaskResponseSchema,
+  UpdateTaskSchema,
   UpdateTaskStatusSchema,
 } from "@quantum-crm/contracts";
 import {
@@ -71,8 +78,12 @@ function response(task: {
   readonly title: string;
   readonly description: string;
   readonly priority: string;
+  readonly type: string;
+  readonly origin: string;
   readonly dueAt: Date | null;
   readonly status: string;
+  readonly completedAt: Date | null;
+  readonly completedByMemberId: string | null;
   readonly version: bigint;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -85,8 +96,12 @@ function response(task: {
     title: task.title,
     description: task.description,
     priority: task.priority,
+    type: task.type,
+    origin: task.origin,
     dueAt: task.dueAt?.toISOString() ?? null,
     status: task.status,
+    completedAt: task.completedAt?.toISOString() ?? null,
+    completedByMemberId: task.completedByMemberId,
     version: task.version.toString(),
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
@@ -106,11 +121,27 @@ export class TasksController {
   public constructor(@Inject(TASK_SERVICE) private readonly service: TaskService) {}
   @Get() @RequireCrmPermission("crm:tasks:read") public async list(
     @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Query() query: unknown,
   ) {
     try {
+      const parsed = TaskListQuerySchema.safeParse(query);
+      if (!parsed.success) throw new BadRequestException();
+      const { contactId, opportunityId, assigneeMemberId, status, priority, type, dueFrom, dueTo } =
+        parsed.data;
       const actor = identity(request);
       return TaskListResponseSchema.parse({
-        data: (await this.service.list(actor.actor, actor.permissions)).map(response),
+        data: (
+          await this.service.list(actor.actor, actor.permissions, {
+            ...(contactId === undefined ? {} : { contactId }),
+            ...(opportunityId === undefined ? {} : { opportunityId }),
+            ...(assigneeMemberId === undefined ? {} : { assigneeMemberId }),
+            ...(status === undefined ? {} : { status }),
+            ...(priority === undefined ? {} : { priority }),
+            ...(type === undefined ? {} : { type }),
+            ...(dueFrom === undefined ? {} : { dueFrom: new Date(dueFrom) }),
+            ...(dueTo === undefined ? {} : { dueTo: new Date(dueTo) }),
+          })
+        ).map(response),
       });
     } catch (error) {
       return map(error);
@@ -134,7 +165,9 @@ export class TasksController {
     @Body() body: unknown,
   ) {
     try {
-      const payload = CreateTaskSchema.parse(body);
+      const parsed = CreateTaskSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const payload = parsed.data;
       const actor = identity(request);
       return TaskResponseSchema.parse({
         data: response(
@@ -148,6 +181,7 @@ export class TasksController {
             title: payload.title,
             description: payload.description,
             priority: payload.priority,
+            type: payload.type,
             dueAt: new Date(payload.dueAt),
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash(payload),
@@ -158,7 +192,48 @@ export class TasksController {
       return map(error);
     }
   }
-  @Patch(":taskId/status") @RequireCrmPermission("crm:tasks:update") public async update(
+  @Patch(":taskId") @RequireCrmPermission("crm:tasks:update") public async update(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("taskId") taskId: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!uuidPattern.test(taskId)) throw new BadRequestException();
+    try {
+      const parsed = UpdateTaskSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const { assigneeMemberId, title, description, priority, type, dueAt } = parsed.data;
+      const actor = identity(request);
+      const expectedVersion = version(ifMatch);
+      return TaskResponseSchema.parse({
+        data: response(
+          await this.service.update({
+            ...actor,
+            id: taskId,
+            patch: {
+              ...(assigneeMemberId === undefined ? {} : { assigneeMemberId }),
+              ...(title === undefined ? {} : { title }),
+              ...(description === undefined ? {} : { description }),
+              ...(priority === undefined ? {} : { priority }),
+              ...(type === undefined ? {} : { type }),
+              ...(dueAt === undefined ? {} : { dueAt: new Date(dueAt) }),
+            },
+            expectedVersion,
+            idempotencyKey: key(idempotencyKey),
+            payloadHash: hash({
+              taskId,
+              ...parsed.data,
+              expectedVersion: expectedVersion.toString(),
+            }),
+          }),
+        ),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+  @Patch(":taskId/status") @RequireCrmPermission("crm:tasks:update") public async updateStatus(
     @Req() request: Parameters<typeof crmAuthContext>[0],
     @Param("taskId") taskId: string,
     @Headers("if-match") ifMatch: string | undefined,
@@ -179,8 +254,75 @@ export class TasksController {
             ...parsed.data,
             expectedVersion,
             idempotencyKey: key(idempotencyKey),
-            payloadHash: hash({ ...parsed.data, expectedVersion: expectedVersion.toString() }),
+            payloadHash: hash({
+              taskId,
+              ...parsed.data,
+              expectedVersion: expectedVersion.toString(),
+            }),
           }),
+        ),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+  @Get(":taskId/comments")
+  @RequireCrmPermission("crm:tasks:read")
+  public async comments(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("taskId") taskId: string,
+  ) {
+    if (!uuidPattern.test(taskId)) throw new BadRequestException();
+    try {
+      const actor = identity(request);
+      return TaskCommentListResponseSchema.parse({
+        data: (await this.service.listComments(actor.actor, actor.permissions, taskId)).map(
+          (comment) => ({ ...comment, createdAt: comment.createdAt.toISOString() }),
+        ),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+  @Post(":taskId/comments")
+  @RequireCrmPermission("crm:tasks:update")
+  public async addComment(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("taskId") taskId: string,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!uuidPattern.test(taskId)) throw new BadRequestException();
+    try {
+      const parsed = CreateTaskCommentSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const actor = identity(request);
+      const comment = await this.service.addComment({
+        ...actor,
+        taskId,
+        body: parsed.data.body,
+        idempotencyKey: key(idempotencyKey),
+        payloadHash: hash({ taskId, ...parsed.data }),
+      });
+      return TaskCommentResponseSchema.parse({
+        data: { ...comment, createdAt: comment.createdAt.toISOString() },
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+  @Get(":taskId/history")
+  @RequireCrmPermission("crm:tasks:read")
+  public async history(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("taskId") taskId: string,
+  ) {
+    if (!uuidPattern.test(taskId)) throw new BadRequestException();
+    try {
+      const actor = identity(request);
+      return TaskHistoryListResponseSchema.parse({
+        data: (await this.service.listHistory(actor.actor, actor.permissions, taskId)).map(
+          (entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() }),
         ),
       });
     } catch (error) {
