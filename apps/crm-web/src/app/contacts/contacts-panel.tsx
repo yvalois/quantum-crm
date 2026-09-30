@@ -418,6 +418,8 @@ export function ContactsPanel(): React.JSX.Element {
           </a>
           <a href="/pipeline">Pipeline</a>
           <a href="/tasks">Tareas</a>
+          <a href="/inbox">Conversaciones</a>
+          <a href="/tasks">Tareas</a>
         </nav>
       </aside>
       <section className="crm-content" aria-busy={loading}>

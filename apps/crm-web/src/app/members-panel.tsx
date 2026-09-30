@@ -442,6 +442,8 @@ export function MembersPanel(): React.JSX.Element {
           <a href="/contacts">Contactos</a>
           <a href="/pipeline">Pipeline</a>
           <a href="/tasks">Tareas</a>
+          <a href="/inbox">Conversaciones</a>
+          <a href="/tasks">Tareas</a>
         </nav>
         <div className="sidebar-footer">
           <button type="button" onClick={() => void logout()} disabled={!csrfToken}>

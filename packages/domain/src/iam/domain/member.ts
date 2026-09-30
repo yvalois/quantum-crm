@@ -71,6 +71,11 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:tasks:update",
         "crm:automations:read",
         "crm:automations:execute",
+        "crm:conversations:read",
+        "crm:conversations:reply",
+        "crm:conversations:assign",
+        "crm:conversations:control-agent",
+        "crm:conversations:configure",
       ]);
     case "ADVISOR":
       return Object.freeze([
@@ -86,6 +91,9 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:tasks:update",
         "crm:automations:read",
         "crm:automations:execute",
+        "crm:conversations:read",
+        "crm:conversations:reply",
+        "crm:conversations:control-agent",
       ]);
   }
 }

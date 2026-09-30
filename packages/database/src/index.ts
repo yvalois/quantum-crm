@@ -28,6 +28,7 @@ export {
   CommercialIdempotencyConflictError,
   type CommercialPostgresRepositories,
 } from "./commercial-postgres-database.js";
+export { ConversationIdempotencyConflictError } from "./conversation-postgres-repository.js";
 export {
   createTenantDatabaseProvisioner,
   TenantDatabaseProvisioningError,

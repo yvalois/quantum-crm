@@ -59,6 +59,18 @@ import {
   AutomationListResponseSchema,
   AutomationResponseSchema,
   CreateAutomationSchema,
+  ConversationListQuerySchema,
+  ConversationListResponseSchema,
+  ConversationMessageResponseSchema,
+  ConversationResponseSchema,
+  ConversationThreadResponseSchema,
+  CreateConversationNoteSchema,
+  CreateConversationSchema,
+  CreateQuickReplySchema,
+  QuickReplyListResponseSchema,
+  QuickReplyResponseSchema,
+  SendConversationMessageSchema,
+  UpdateConversationSchema,
 } from "@quantum-crm/contracts";
 
 const maximumResponseBytes = 1_048_576;
@@ -878,6 +890,181 @@ export async function handleCrmTaskHistory(
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }
+}
+
+function conversationId(value: string): boolean {
+  return uuidPattern.test(value);
+}
+
+async function conversationRead(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  path: string,
+  schema: { parse(input: unknown): unknown },
+): Promise<Response> {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(new URL(path, runtime.config.crmApiOrigin), {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+        "x-correlation-id": authorized.correlationId,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return commercialResponse(upstream, schema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+async function conversationMutation(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  input: {
+    readonly path: string;
+    readonly method: "POST" | "PATCH";
+    readonly requestSchema: { safeParse(input: unknown): { success: boolean; data?: unknown } };
+    readonly responseSchema: { parse(input: unknown): unknown };
+    readonly requireVersion?: boolean;
+  },
+): Promise<Response> {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  const ifMatch = request.headers.get("if-match");
+  if (
+    !idempotencyKey ||
+    !idempotencyKeyPattern.test(idempotencyKey) ||
+    (input.requireVersion === true && !ifMatch)
+  )
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const payload = input.requestSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const headers = memberMutationHeaders(authorized, idempotencyKey);
+    if (ifMatch) headers.set("if-match", ifMatch);
+    const upstream = await runtime.crmApiFetch(new URL(input.path, runtime.config.crmApiOrigin), {
+      method: input.method,
+      headers,
+      body: JSON.stringify(payload.data),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return commercialResponse(upstream, input.responseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+}
+
+export async function handleCrmConversationList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const query = ConversationListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!query.success) return crmProblem(400, "Invalid request");
+  const endpoint = new URL("/api/v1/conversations", runtime.config.crmApiOrigin);
+  for (const [name, value] of Object.entries(query.data)) {
+    if (value !== undefined) endpoint.searchParams.set(name, String(value));
+  }
+  return conversationRead(
+    request,
+    runtime,
+    `${endpoint.pathname}${endpoint.search}`,
+    ConversationListResponseSchema,
+  );
+}
+
+export async function handleCrmConversationCreate(request: Request, runtime: CrmAuthRuntime) {
+  return conversationMutation(request, runtime, {
+    path: "/api/v1/conversations",
+    method: "POST",
+    requestSchema: CreateConversationSchema,
+    responseSchema: ConversationResponseSchema,
+  });
+}
+
+export async function handleCrmConversationGet(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  id: string,
+) {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  return conversationRead(
+    request,
+    runtime,
+    `/api/v1/conversations/${id}`,
+    ConversationThreadResponseSchema,
+  );
+}
+
+export async function handleCrmConversationUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  id: string,
+) {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  return conversationMutation(request, runtime, {
+    path: `/api/v1/conversations/${id}`,
+    method: "PATCH",
+    requestSchema: UpdateConversationSchema,
+    responseSchema: ConversationResponseSchema,
+    requireVersion: true,
+  });
+}
+
+export async function handleCrmConversationMessage(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  id: string,
+) {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  return conversationMutation(request, runtime, {
+    path: `/api/v1/conversations/${id}/messages`,
+    method: "POST",
+    requestSchema: SendConversationMessageSchema,
+    responseSchema: ConversationMessageResponseSchema,
+    requireVersion: true,
+  });
+}
+
+export async function handleCrmConversationNote(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  id: string,
+) {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  return conversationMutation(request, runtime, {
+    path: `/api/v1/conversations/${id}/notes`,
+    method: "POST",
+    requestSchema: CreateConversationNoteSchema,
+    responseSchema: ConversationMessageResponseSchema,
+    requireVersion: true,
+  });
+}
+
+export async function handleCrmQuickReplyList(request: Request, runtime: CrmAuthRuntime) {
+  return conversationRead(
+    request,
+    runtime,
+    "/api/v1/conversations/quick-replies",
+    QuickReplyListResponseSchema,
+  );
+}
+
+export async function handleCrmQuickReplyCreate(request: Request, runtime: CrmAuthRuntime) {
+  return conversationMutation(request, runtime, {
+    path: "/api/v1/conversations/quick-replies",
+    method: "POST",
+    requestSchema: CreateQuickReplySchema,
+    responseSchema: QuickReplyResponseSchema,
+  });
 }
 
 export function crmSessionCookieName(config: CrmWebAuthConfig): string {

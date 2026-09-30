@@ -271,7 +271,7 @@ Crear propuestas y facturas mediante documentos flexibles, relacionar su aceptac
 - [ ] **DOC-12** — Utilizar los campos personalizados del CRM dentro de los documentos.
 - [ ] **DOC-13** — Agregar condiciones comerciales, términos, garantías y observaciones.
 - [ ] **DOC-14** — Adjuntar imágenes, fichas técnicas y otros documentos.
-- [ ] **DOC-15** — Guardar cualquier diseño como plantilla reutilizable.
+- [ ] **DOC-15** — Guardar cualquier diseño como plantilla reutilizable y definir qué textos, imágenes o variables puede cambiar cada instancia sin alterar su estructura protegida.
 - [ ] **DOC-16** — Duplicar y editar cotizaciones o facturas existentes.
 - [ ] **DOC-17** — Generar documentos en PDF.
 - [ ] **DOC-18** — Compartirlos mediante enlace, correo o chat.
