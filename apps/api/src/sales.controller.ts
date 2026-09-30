@@ -15,6 +15,7 @@ import {
   Patch,
   Post,
   PreconditionFailedException,
+  Query,
   Req,
 } from "@nestjs/common";
 import {
@@ -22,10 +23,13 @@ import {
   CreatePipelineSchema,
   CreatePipelineStageSchema,
   MoveOpportunitySchema,
+  OpportunityHistoryListResponseSchema,
+  OpportunityListQuerySchema,
   OpportunityListResponseSchema,
   OpportunityResponseSchema,
   PipelineListResponseSchema,
   PipelineResponseSchema,
+  UpdateOpportunitySchema,
 } from "@quantum-crm/contracts";
 import {
   IamAuthorizationError,
@@ -94,24 +98,32 @@ function pipelineResponse(value: {
 }
 function opportunityResponse(value: {
   readonly id: string;
+  readonly ownerMemberId: string;
   readonly contactId: string;
   readonly pipelineId: string;
   readonly stageId: string;
   readonly title: string;
   readonly amountMinor: bigint;
   readonly currency: string;
+  readonly status: "OPEN" | "WON" | "LOST" | "ABANDONED";
+  readonly closeReason: string | null;
+  readonly closedAt: Date | null;
   readonly version: bigint;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }) {
   return {
     id: value.id,
+    ownerMemberId: value.ownerMemberId,
     contactId: value.contactId,
     pipelineId: value.pipelineId,
     stageId: value.stageId,
     title: value.title,
     amountMinor: value.amountMinor.toString(),
     currency: value.currency,
+    status: value.status,
+    closeReason: value.closeReason,
+    closedAt: value.closedAt?.toISOString() ?? null,
     version: value.version.toString(),
     createdAt: value.createdAt.toISOString(),
     updatedAt: value.updatedAt.toISOString(),
@@ -189,12 +201,71 @@ export class SalesController {
   }
   @Get("opportunities") @RequireCrmPermission("crm:sales:read") public async listOpportunities(
     @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Query() query: unknown,
   ) {
     try {
       const actor = identity(request);
+      const filters = OpportunityListQuerySchema.parse(query);
       return OpportunityListResponseSchema.parse({
-        data: (await this.service.listOpportunities(actor.actor, actor.permissions)).map(
+        data: (await this.service.listOpportunities(actor.actor, actor.permissions, filters)).map(
           opportunityResponse,
+        ),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+  @Get("opportunities/:opportunityId/history")
+  @RequireCrmPermission("crm:sales:read")
+  public async history(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("opportunityId") opportunityId: string,
+  ) {
+    if (!uuidPattern.test(opportunityId)) throw new BadRequestException();
+    try {
+      const actor = identity(request);
+      const history = await this.service.listOpportunityHistory({
+        ...actor,
+        opportunityId,
+      });
+      return OpportunityHistoryListResponseSchema.parse({
+        data: history.map((entry) => ({
+          ...entry,
+          previousAmountMinor: entry.previousAmountMinor?.toString() ?? null,
+          nextAmountMinor: entry.nextAmountMinor?.toString() ?? null,
+          createdAt: entry.createdAt.toISOString(),
+        })),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+  @Patch("opportunities/:opportunityId")
+  @RequireCrmPermission("crm:sales:update")
+  public async update(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("opportunityId") opportunityId: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!uuidPattern.test(opportunityId)) throw new BadRequestException();
+    try {
+      const payload = UpdateOpportunitySchema.parse(body);
+      const { amountMinor, ...changes } = payload;
+      const actor = identity(request);
+      const expectedVersion = version(ifMatch);
+      return OpportunityResponseSchema.parse({
+        data: opportunityResponse(
+          await this.service.updateOpportunity({
+            ...actor,
+            ...changes,
+            opportunityId,
+            ...(amountMinor === undefined ? {} : { amountMinor: BigInt(amountMinor) }),
+            expectedVersion,
+            idempotencyKey: key(idempotencyKey),
+            payloadHash: hash({ ...payload, expectedVersion: expectedVersion.toString() }),
+          }),
         ),
       });
     } catch (error) {

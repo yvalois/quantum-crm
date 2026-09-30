@@ -12,6 +12,8 @@ import {
   handleCrmMemberUpdate,
   handleCrmContactList,
   handleCrmContactUpdate,
+  handleCrmOpportunityList,
+  handleCrmOpportunityUpdate,
   handleCrmSession,
 } from "./crm-auth-http.js";
 
@@ -139,6 +141,70 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(upstream.mock.calls[0]?.[0].toString()).toBe(
       "http://api:3001/api/v1/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01",
     );
+  });
+
+  it("forwards only validated opportunity filters to the CRM API", async () => {
+    const upstream = vi.fn(async (_input: RequestInfo | URL) => Response.json({ data: [] }));
+    const pipelineId = "01995f7e-7b52-7000-8000-000000000120";
+    const response = await handleCrmOpportunityList(
+      new Request(
+        `https://crm.example.test/api/opportunities?pipelineId=${pipelineId}&status=OPEN&label=VIP`,
+        { headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` } },
+      ),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream.mock.calls[0]?.[0].toString()).toBe(
+      `http://api:3001/api/v1/sales/opportunities?pipelineId=${pipelineId}&status=OPEN&label=VIP`,
+    );
+  });
+
+  it("updates an opportunity only through a same-origin versioned request", async () => {
+    const opportunityId = "01995f7e-7b52-7000-8000-000000000121";
+    const ownerMemberId = "01995f7e-7b52-7000-8000-000000000102";
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        data: {
+          id: opportunityId,
+          ownerMemberId,
+          contactId: "01995f7e-7b52-7000-8000-000000000122",
+          pipelineId: "01995f7e-7b52-7000-8000-000000000123",
+          stageId: "01995f7e-7b52-7000-8000-000000000124",
+          title: "Expansion",
+          amountMinor: "250000000",
+          currency: "COP",
+          status: "WON",
+          closeReason: null,
+          closedAt: "2026-09-29T16:00:00.000Z",
+          version: "2",
+          createdAt: "2026-09-29T15:00:00.000Z",
+          updatedAt: "2026-09-29T16:00:00.000Z",
+        },
+      }),
+    );
+    const response = await handleCrmOpportunityUpdate(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "idempotency-key": "opportunity-update-0001",
+          "if-match": '"1"',
+        },
+        body: JSON.stringify({ status: "WON", ownerMemberId }),
+      }),
+      runtime(upstream as typeof fetch),
+      opportunityId,
+    );
+
+    expect(response.status).toBe(200);
+    const [target, init] = upstream.mock.calls[0]!;
+    expect(target.toString()).toBe(`http://api:3001/api/v1/sales/opportunities/${opportunityId}`);
+    expect(new Headers(init?.headers).get("if-match")).toBe('"1"');
+    expect(new Headers(init?.headers).get("idempotency-key")).toBe("opportunity-update-0001");
   });
 
   it("rejects arbitrary BFF routes before calling CRM API", async () => {

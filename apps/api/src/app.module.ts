@@ -87,10 +87,17 @@ export class AppModule {
         {
           provide: SALES_SERVICE,
           useFactory: () =>
-            new SalesService(database.commercial.sales, {
-              existsFor: async (actor, contactId) =>
-                (await database.commercial.contacts.find(actor, contactId)) !== null,
-            }),
+            new SalesService(
+              database.commercial.sales,
+              {
+                existsFor: async (actor, contactId) =>
+                  (await database.commercial.contacts.find(actor, contactId)) !== null,
+              },
+              {
+                isActive: async (memberId) =>
+                  (await database.members.findById(memberId))?.status === "ACTIVE",
+              },
+            ),
         },
         {
           provide: TASK_SERVICE,

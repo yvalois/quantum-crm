@@ -36,10 +36,13 @@ import {
   TeamResponseSchema,
   UpdateContactSchema,
   MoveOpportunitySchema,
+  OpportunityHistoryListResponseSchema,
+  OpportunityListQuerySchema,
   OpportunityListResponseSchema,
   OpportunityResponseSchema,
   PipelineListResponseSchema,
   PipelineResponseSchema,
+  UpdateOpportunitySchema,
   CreateTaskSchema,
   TaskAssigneeListResponseSchema,
   TaskListResponseSchema,
@@ -488,8 +491,40 @@ export async function handleCrmOpportunityList(
   const authorized = await authorizedSession(request, runtime);
   if (isResponse(authorized)) return authorized;
   try {
+    const query = OpportunityListQuerySchema.safeParse(
+      Object.fromEntries(new URL(request.url).searchParams),
+    );
+    if (!query.success) return crmProblem(400, "Invalid request");
+    const url = new URL("/api/v1/sales/opportunities", runtime.config.crmApiOrigin);
+    for (const [name, value] of Object.entries(query.data)) {
+      if (value !== undefined) url.searchParams.set(name, value);
+    }
+    const upstream = await runtime.crmApiFetch(url, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+        "x-correlation-id": authorized.correlationId,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return commercialResponse(upstream, OpportunityListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+export async function handleCrmOpportunityHistory(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  opportunityId: string,
+): Promise<Response> {
+  if (!ContactIdSchema.safeParse(opportunityId).success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
     const upstream = await runtime.crmApiFetch(
-      new URL("/api/v1/sales/opportunities", runtime.config.crmApiOrigin),
+      new URL(`/api/v1/sales/opportunities/${opportunityId}/history`, runtime.config.crmApiOrigin),
       {
         headers: {
           accept: "application/json",
@@ -501,9 +536,42 @@ export async function handleCrmOpportunityList(
         signal: AbortSignal.timeout(5_000),
       },
     );
-    return commercialResponse(upstream, OpportunityListResponseSchema);
+    return commercialResponse(upstream, OpportunityHistoryListResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+export async function handleCrmOpportunityUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  opportunityId: string,
+): Promise<Response> {
+  if (!ContactIdSchema.safeParse(opportunityId).success) return crmProblem(400, "Invalid request");
+  const idempotencyKey = request.headers.get("idempotency-key");
+  const ifMatch = request.headers.get("if-match");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey) || !ifMatch)
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const payload = UpdateOpportunitySchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const headers = memberMutationHeaders(authorized, idempotencyKey);
+    headers.set("if-match", ifMatch);
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/sales/opportunities/${opportunityId}`, runtime.config.crmApiOrigin),
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, OpportunityResponseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
   }
 }
 export async function handleCrmOpportunityCreate(

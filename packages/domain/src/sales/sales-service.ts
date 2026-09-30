@@ -5,6 +5,7 @@ import {
   type Pipeline,
   type PipelineStage,
   type SalesContactLookup,
+  type SalesMemberLookup,
   type SalesRepository,
   SalesValidationError,
   SalesVersionConflictError,
@@ -25,6 +26,7 @@ export class SalesService {
   public constructor(
     private readonly repository: SalesRepository,
     private readonly contacts: SalesContactLookup,
+    private readonly members: SalesMemberLookup = { isActive: async () => false },
     private readonly clock: () => Date = () => new Date(),
   ) {}
   public listPipelines(permissions: readonly IamPermission[]) {
@@ -79,9 +81,21 @@ export class SalesService {
       payloadHash: input.payloadHash,
     });
   }
-  public listOpportunities(actor: CommercialActor, permissions: readonly IamPermission[]) {
+  public listOpportunities(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    filters: Parameters<SalesRepository["listOpportunities"]>[1] = {},
+  ) {
     allow(permissions, "crm:sales:read");
-    return this.repository.listOpportunities(actor);
+    return this.repository.listOpportunities(actor, filters);
+  }
+  public listOpportunityHistory(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly opportunityId: string;
+  }) {
+    allow(input.permissions, "crm:sales:read");
+    return this.repository.listOpportunityHistory(input.actor, input.opportunityId);
   }
   public createOpportunity(input: {
     readonly actor: CommercialActor;
@@ -89,6 +103,7 @@ export class SalesService {
     readonly contactId: string;
     readonly pipelineId: string;
     readonly stageId: string;
+    readonly ownerMemberId?: string | undefined;
     readonly title: string;
     readonly amountMinor: bigint;
     readonly currency: string;
@@ -101,20 +116,27 @@ export class SalesService {
     return Promise.all([
       this.contacts.existsFor(input.actor, input.contactId),
       this.repository.findStage(input.stageId),
-    ]).then(([contactExists, stage]) => {
+      input.ownerMemberId && input.ownerMemberId !== input.actor.memberId
+        ? this.members.isActive(input.ownerMemberId)
+        : Promise.resolve(true),
+    ]).then(([contactExists, stage, ownerIsActive]) => {
       if (!contactExists || !stage || stage.pipelineId !== input.pipelineId)
         throw new SalesValidationError();
+      if (!ownerIsActive) throw new SalesValidationError();
       const now = this.clock();
       return this.repository.createOpportunity({
         opportunity: Object.freeze({
           id: randomUUID(),
-          ownerMemberId: input.actor.memberId,
+          ownerMemberId: input.ownerMemberId ?? input.actor.memberId,
           contactId: input.contactId,
           pipelineId: input.pipelineId,
           stageId: input.stageId,
           title: input.title.trim(),
           amountMinor: input.amountMinor,
           currency: input.currency,
+          status: "OPEN",
+          closeReason: null,
+          closedAt: null,
           version: 1n,
           createdAt: now,
           updatedAt: now,
@@ -124,6 +146,67 @@ export class SalesService {
         payloadHash: input.payloadHash,
       });
     });
+  }
+  public async updateOpportunity(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly opportunityId: string;
+    readonly expectedVersion: bigint;
+    readonly title?: string | undefined;
+    readonly amountMinor?: bigint | undefined;
+    readonly currency?: string | undefined;
+    readonly ownerMemberId?: string | undefined;
+    readonly status?: "OPEN" | "WON" | "LOST" | "ABANDONED" | undefined;
+    readonly closeReason?: string | null | undefined;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) {
+    allow(input.permissions, "crm:sales:update");
+    const current = await this.repository.findOpportunity(input.actor, input.opportunityId);
+    if (!current) throw new SalesNotFoundError();
+    if (current.version !== input.expectedVersion) throw new SalesVersionConflictError();
+    const ownerMemberId = input.ownerMemberId ?? current.ownerMemberId;
+    if (ownerMemberId !== current.ownerMemberId && !(await this.members.isActive(ownerMemberId)))
+      throw new SalesValidationError();
+    const amountMinor = input.amountMinor ?? current.amountMinor;
+    const currency = input.currency ?? current.currency;
+    if (amountMinor < 0n || !/^[A-Z]{3}$/u.test(currency)) throw new SalesValidationError();
+    const status = input.status ?? current.status;
+    const requestedReason =
+      input.closeReason === undefined ? current.closeReason : input.closeReason;
+    const closeReason =
+      status === "LOST" || status === "ABANDONED" ? requestedReason?.trim() : null;
+    if ((status === "LOST" || status === "ABANDONED") && !closeReason)
+      throw new SalesValidationError();
+    const now = this.clock();
+    const closedAt =
+      status === "OPEN"
+        ? null
+        : current.status === status && current.closedAt !== null
+          ? current.closedAt
+          : now;
+    const title = input.title?.trim() ?? current.title;
+    if (!title) throw new SalesValidationError();
+    const result = await this.repository.updateOpportunity({
+      actor: input.actor,
+      opportunity: Object.freeze({
+        ...current,
+        ownerMemberId,
+        title,
+        amountMinor,
+        currency,
+        status,
+        closeReason: closeReason ?? null,
+        closedAt,
+        version: current.version + 1n,
+        updatedAt: now,
+      }),
+      expectedVersion: input.expectedVersion,
+      idempotencyKey: input.idempotencyKey,
+      payloadHash: input.payloadHash,
+    });
+    if (!result) throw new SalesVersionConflictError();
+    return result;
   }
   public async moveOpportunity(input: {
     readonly actor: CommercialActor;
