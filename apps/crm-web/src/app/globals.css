@@ -605,6 +605,18 @@ button:disabled {
   overflow: hidden;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .board-header {
   display: flex;
   align-items: flex-start;
@@ -631,6 +643,32 @@ button:disabled {
   gap: 0.65rem;
 }
 
+.board-view-switch {
+  display: inline-flex;
+  border: 1px solid #d6e0dc;
+  border-radius: 0.7rem;
+  background: #eef3f1;
+  padding: 0.2rem;
+}
+
+.board-view-switch button {
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #65756f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.58rem 0.72rem;
+}
+
+.board-view-switch button[aria-pressed="true"] {
+  background: #fff;
+  color: #10241f;
+  box-shadow: 0 0.15rem 0.5rem rgb(37 65 56 / 0.1);
+}
+
 .board-header-actions .primary-action,
 .filter-submit .primary-action,
 .drawer-submit {
@@ -643,7 +681,7 @@ button:disabled {
 
 .sales-overview {
   display: grid;
-  grid-template-columns: minmax(18rem, 2fr) repeat(3, minmax(9rem, 0.75fr));
+  grid-template-columns: minmax(18rem, 2fr) repeat(4, minmax(8rem, 0.75fr));
   overflow: hidden;
   margin-bottom: 1rem;
   border: 1px solid #dce4df;
@@ -829,6 +867,107 @@ button:disabled {
   overflow-x: auto;
   padding: 0.15rem 0.15rem 1.2rem;
   scrollbar-color: #aabbb4 transparent;
+}
+
+.opportunity-table-shell {
+  overflow: hidden;
+  border: 1px solid #dfe7e3;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1rem 2.5rem rgb(37 65 56 / 0.05);
+}
+
+.opportunity-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #334740;
+  font-size: 0.78rem;
+}
+
+.opportunity-table th,
+.opportunity-table td {
+  border-bottom: 1px solid #e7edea;
+  padding: 0.85rem 0.9rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.opportunity-table th {
+  background: #f3f6f5;
+  color: #77857f;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.opportunity-table tbody tr:hover {
+  background: #f8fbfa;
+}
+
+.opportunity-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.opportunity-table a {
+  color: #587068;
+  text-decoration: none;
+}
+
+.opportunity-table a:hover {
+  color: #087456;
+  text-decoration: underline;
+}
+
+.opportunity-table select {
+  max-width: 10rem;
+  border: 1px solid #d5dfda;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #2b4038;
+  font: inherit;
+  padding: 0.45rem 0.55rem;
+}
+
+.table-deal-title {
+  border: 0;
+  background: transparent;
+  color: #152c24;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+  padding: 0;
+  text-align: left;
+}
+
+.table-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.table-owner .owner-avatar {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.55rem;
+}
+
+.table-value {
+  color: #0d775a;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.table-action {
+  padding: 0.4rem;
+}
+
+.table-empty {
+  margin: 0;
+  color: #71817b;
+  padding: 3rem 1rem;
+  text-align: center;
 }
 
 .kanban-column {
@@ -1238,7 +1377,7 @@ button:disabled {
 
 @media (max-width: 1100px) {
   .sales-overview {
-    grid-template-columns: 1.5fr repeat(3, 1fr);
+    grid-template-columns: 1.5fr repeat(2, 1fr);
   }
   .board-filter-grid {
     grid-template-columns: repeat(3, 1fr);
@@ -1268,7 +1407,7 @@ button:disabled {
     border-top: 1px solid #e4eae6;
   }
   .metric-accent {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
   .contact-detail-grid {
     grid-template-columns: 1fr;
@@ -1281,10 +1420,23 @@ button:disabled {
   }
   .board-header-actions {
     width: 100%;
+    flex-wrap: wrap;
   }
   .board-header-actions button {
     flex: 1;
     justify-content: center;
+  }
+  .board-view-switch {
+    width: 100%;
+  }
+  .board-view-switch button {
+    flex: 1;
+  }
+  .opportunity-table-shell {
+    overflow-x: auto;
+  }
+  .opportunity-table {
+    min-width: 62rem;
   }
   .board-filter-grid {
     grid-template-columns: 1fr;

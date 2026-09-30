@@ -42,6 +42,7 @@ Un usuario autorizado entra al CRM y opera un tablero Kanban real: selecciona un
 - Movimiento accesible por seleccion de etapa con version e idempotencia existentes.
 - Asignacion a un asesor activo, cierre comercial con motivo e historial visible.
 - Filtros por pipeline, etapa, asesor, estado, etiqueta y fecha.
+- Cambio entre vistas Kanban y tabla sobre la misma respuesta real, conservando movimiento y gestion.
 - Carga, error, sesion expirada, responsive y foco visible.
 
 ### No incluido
@@ -64,9 +65,9 @@ Un usuario autorizado entra al CRM y opera un tablero Kanban real: selecciona un
 ## Plan de implementacion
 
 - [x] Consolidar la carga de pipeline, oportunidades y contactos reales.
-- [x] Construir el tablero Kanban y sus paneles de creacion/movimiento.
+- [x] Construir el tablero Kanban, la vista tabular y sus paneles de creacion/movimiento.
 - [x] Agregar pruebas afectadas de comportamiento y contratos cuando cambien.
-- [ ] Validar una vez el commit candidato en el VPS y publicar un unico PR.
+- [x] Validar una vez el commit candidato en el VPS y publicar un unico PR.
 
 ## Riesgos y mitigaciones
 
@@ -103,8 +104,8 @@ Un usuario autorizado entra al CRM y opera un tablero Kanban real: selecciona un
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: candidato `96bfb871be6cccb4e997f72f2ab1da1e49927b94`; PR pendiente de publicacion.
-- Comandos y resultados en el VPS sobre el candidato exacto: Prettier y ESLint afectados aprobados; typecheck de `contracts`, `domain`, `database`, `api` y `crm-web` aprobado; 17/17 pruebas afectadas aprobadas; compilaciones de `api` y `crm-web` aprobadas.
+- Archivos, commits o PR: candidato `96bfb871be6cccb4e997f72f2ab1da1e49927b94` integrado mediante PR #67 como `43c53089f75163b30664123347e7ac162775a004`; ajuste de vistas Stitch validado sobre `bf3c01ebaa6e7b3f4339df4e72f05d7a3c309438` en `feat/PIPE-01-stitch-views`.
+- Comandos y resultados en el VPS: el candidato integrado aprobo Prettier, ESLint, typecheck de cinco paquetes, 17/17 pruebas afectadas y builds de API/CRM web; GitHub aprobo las siete puertas y genero la candidata `60da35d0-d350-522d-b35a-50f832aa9255` con sus diez artefactos. Para el ajuste visual, Prettier y ESLint afectados, typecheck recursivo de `crm-web` y build de sus cuatro consumidores aprobaron en Node 24; no se repitieron pruebas comerciales porque no cambiaron contratos, dominio, datos ni rutas.
 - Documentacion actualizada: ficha y `estado.md`; el checklist oficial no se cierra hasta desplegar y recorrer el piloto autenticado.
 - Desviaciones del plan: el bloque incorporo asignacion, estados de cierre, motivos, historial y filtros porque son parte del recorrido comercial visible requerido por el piloto.
-- Pendientes o decisiones nuevas: publicar el PR, aprobar la matriz unica de GitHub, promover la release y ejecutar el smoke autenticado. `PIPE-08` y `PIPE-13` se implementaran en bloques propietarios posteriores.
+- Pendientes o decisiones nuevas: publicar el PR del ajuste, promover la release con aprobacion MFA y ejecutar el smoke autenticado. La recomendacion visual del agente no se simula: `PIPE-08` y `PIPE-13` se implementaran en bloques propietarios posteriores.

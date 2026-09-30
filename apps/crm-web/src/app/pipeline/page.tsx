@@ -24,6 +24,7 @@ interface BoardFilters {
   readonly createdFrom: string;
   readonly createdTo: string;
 }
+type BoardView = "kanban" | "table";
 
 const emptyFilters: BoardFilters = {
   ownerMemberId: "",
@@ -80,6 +81,7 @@ export default function PipelinePage(): React.JSX.Element {
   const [editor, setEditor] = useState<Opportunity | null>(null);
   const [history, setHistory] = useState<OpportunityHistoryEntry[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [boardView, setBoardView] = useState<BoardView>("kanban");
 
   const selectedPipeline = useMemo(
     () => pipelines.find((pipeline) => pipeline.id === selectedPipelineId) ?? null,
@@ -344,6 +346,10 @@ export default function PipelinePage(): React.JSX.Element {
   const openValue = openOpportunities
     .filter((item) => item.currency === activeCurrency)
     .reduce((total, item) => total + BigInt(item.amountMinor), 0n);
+  const totalValue = opportunities
+    .filter((item) => item.currency === activeCurrency)
+    .reduce((total, item) => total + BigInt(item.amountMinor), 0n);
+  const wonOpportunities = opportunities.filter((item) => item.status === "WON");
 
   return (
     <main className="crm-shell crm-shell-board">
@@ -380,6 +386,22 @@ export default function PipelinePage(): React.JSX.Element {
             <p>Avanza cada negociación desde el primer interés hasta el cierre.</p>
           </div>
           <div className="board-header-actions">
+            <div className="board-view-switch" role="group" aria-label="Vista de oportunidades">
+              <button
+                type="button"
+                aria-pressed={boardView === "kanban"}
+                onClick={() => setBoardView("kanban")}
+              >
+                Kanban
+              </button>
+              <button
+                type="button"
+                aria-pressed={boardView === "table"}
+                onClick={() => setBoardView("table")}
+              >
+                Tabla
+              </button>
+            </div>
             <button className="secondary-action" type="button" onClick={() => void loadWorkspace()}>
               Actualizar
             </button>
@@ -426,16 +448,20 @@ export default function PipelinePage(): React.JSX.Element {
             <p>{selectedPipeline?.description ?? "Crea tu primer pipeline para comenzar."}</p>
           </div>
           <div className="metric">
-            <span>Negociaciones</span>
-            <strong>{opportunities.length}</strong>
+            <span>Valor total</span>
+            <strong>{formatMoney(totalValue.toString(), activeCurrency)}</strong>
           </div>
           <div className="metric">
             <span>Abiertas</span>
             <strong>{openOpportunities.length}</strong>
           </div>
-          <div className="metric metric-accent">
+          <div className="metric">
             <span>Valor abierto</span>
             <strong>{formatMoney(openValue.toString(), activeCurrency)}</strong>
+          </div>
+          <div className="metric metric-accent">
+            <span>Ganadas</span>
+            <strong>{wonOpportunities.length}</strong>
           </div>
         </section>
 
@@ -561,7 +587,7 @@ export default function PipelinePage(): React.JSX.Element {
             <p>Abre “Filtros y configuración”, crea un pipeline y define sus etapas.</p>
           </section>
         ) : null}
-        {!loading && selectedPipeline ? (
+        {!loading && selectedPipeline && boardView === "kanban" ? (
           <div className="kanban" aria-label={`Tablero ${selectedPipeline.name}`}>
             {selectedPipeline.stages.map((stage, index) => {
               const stageItems = opportunities.filter((item) => item.stageId === stage.id);
@@ -654,6 +680,105 @@ export default function PipelinePage(): React.JSX.Element {
                 </section>
               );
             })}
+          </div>
+        ) : null}
+        {!loading && selectedPipeline && boardView === "table" ? (
+          <div className="opportunity-table-shell">
+            <table className="opportunity-table">
+              <caption className="sr-only">Oportunidades de {selectedPipeline.name}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Oportunidad</th>
+                  <th scope="col">Contacto</th>
+                  <th scope="col">Etapa</th>
+                  <th scope="col">Responsable</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Valor</th>
+                  <th scope="col">Actualizada</th>
+                  <th scope="col">
+                    <span className="sr-only">Acciones</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {opportunities.map((opportunity) => {
+                  const contact = contactById.get(opportunity.contactId);
+                  const owner = memberById.get(opportunity.ownerMemberId);
+                  const stage = selectedPipeline.stages.find(
+                    (item) => item.id === opportunity.stageId,
+                  );
+                  return (
+                    <tr key={opportunity.id}>
+                      <td>
+                        <button
+                          className="table-deal-title"
+                          type="button"
+                          onClick={() => void openEditor(opportunity)}
+                        >
+                          {opportunity.title}
+                        </button>
+                      </td>
+                      <td>
+                        <a href={`/contacts/${opportunity.contactId}`}>
+                          {contact?.displayName ?? "Contacto"}
+                        </a>
+                      </td>
+                      <td>
+                        <select
+                          aria-label={`Mover ${opportunity.title}`}
+                          value={opportunity.stageId}
+                          disabled={saving || opportunity.status !== "OPEN"}
+                          onChange={(event) =>
+                            void moveOpportunity(opportunity, event.target.value)
+                          }
+                        >
+                          {selectedPipeline.stages.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="sr-only">{stage?.name}</span>
+                      </td>
+                      <td>
+                        <span className="table-owner">
+                          <span className="owner-avatar" aria-hidden="true">
+                            {initials(owner?.displayName ?? "Q")}
+                          </span>
+                          {owner?.displayName ?? "Sin responsable"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`deal-status status-${opportunity.status.toLowerCase()}`}>
+                          {statusLabels[opportunity.status]}
+                        </span>
+                      </td>
+                      <td className="table-value">
+                        {formatMoney(opportunity.amountMinor, opportunity.currency)}
+                      </td>
+                      <td>
+                        {new Intl.DateTimeFormat("es-CO", {
+                          dateStyle: "medium",
+                        }).format(new Date(opportunity.updatedAt))}
+                      </td>
+                      <td>
+                        <button
+                          className="icon-action table-action"
+                          type="button"
+                          aria-label={`Gestionar ${opportunity.title}`}
+                          onClick={() => void openEditor(opportunity)}
+                        >
+                          •••
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {opportunities.length === 0 ? (
+              <p className="table-empty">No hay oportunidades para los filtros actuales.</p>
+            ) : null}
           </div>
         ) : null}
       </section>
