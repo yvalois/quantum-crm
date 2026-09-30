@@ -43,6 +43,8 @@ const releaseArtifacts = platformReleaseArtifactNames.map((name, index) => ({
 }));
 
 beforeAll(async () => {
+  await pool.query("DELETE FROM operations.activation_delivery_intents");
+  await pool.query("DELETE FROM tenants.tenant_initial_administrators");
   await pool.query("DELETE FROM operations.provisioning_step_results");
   await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
@@ -101,6 +103,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM operations.activation_delivery_intents");
+  await pool.query("DELETE FROM tenants.tenant_initial_administrators");
   await pool.query("DELETE FROM operations.provisioning_step_results");
   await pool.query("DELETE FROM operations.provisioning_operations");
   await pool.query("DELETE FROM infrastructure.capacity_reservations");
@@ -902,6 +906,46 @@ describe("platform tenant profile migration", () => {
       cancellation_result: "cancelled",
       cancellation_expected_version: claimed.version.toString(),
       released_count: "1",
+    });
+  });
+
+  it("requests an activation delivery using the joined tenant version", async () => {
+    const created = await database.tenantProfiles.create({
+      name: "Activation Delivery",
+      slug: "activation-delivery",
+      adminContactName: "Ada",
+      adminContactEmail: "ada@example.test",
+      status: "PENDING",
+    });
+    const subject = "01995f7e-7b52-7000-8000-000000000611";
+    await expect(
+      database.activationDeliveries.reconcileInitialAdministrator({
+        tenantProfileId: created.id,
+        subject,
+        expectedVersion: 0n,
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({ subject, status: "PENDING" });
+
+    await expect(
+      database.activationDeliveries.request({
+        id: "01995f7e-7b52-7000-8000-000000000612",
+        tenantProfileId: created.id,
+        requestedByOperatorId: operatorId,
+        expectedTenantVersion: created.version,
+        idempotencyKey: "activation-delivery-joined-version",
+        payloadHash: "a".repeat(64),
+        correlationId: "activation-delivery-joined-version",
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({
+      idempotentReplay: false,
+      intent: {
+        tenantProfileId: created.id,
+        administratorSubject: subject,
+        generation: 1,
+        status: "PENDING",
+      },
     });
   });
 });
