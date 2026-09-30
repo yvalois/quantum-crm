@@ -3,8 +3,8 @@
 > Este archivo contiene solo metadatos operativos no secretos. Contraseñas, claves privadas y valores de credenciales no se guardan en el repositorio.
 
 - Requisito propietario: `OPS-02`
-- Ultima comprobacion: 2026-09-20
-- Estado: acceso operativo SSH por clave endurecido; inventario y dimensionamiento en curso
+- Ultima comprobacion: 2026-09-29
+- Estado: acceso operativo SSH por clave endurecido; release piloto validada y desplegada; dimensionamiento en curso
 
 ## Identidad y acceso
 
@@ -37,7 +37,7 @@ La contrasena inicial no se conserva en Git ni en archivos de configuracion y ya
 | CPU                       | 1 vCPU                                          |
 | RAM                       | 4,003,916 KiB, aproximadamente 3.82 GiB         |
 | Disco raiz                | 50,839,412,736 bytes, aproximadamente 47.35 GiB |
-| Disponible al inventariar | 47,841,140,736 bytes, aproximadamente 44.56 GiB |
+| Disponible tras el despliegue del 2026-09-29 | aproximadamente 14 GiB; 73 % del filesystem en uso |
 | Filesystem raiz           | ext4 sobre `/dev/sda1`                          |
 | Zona horaria              | UTC                                             |
 | Sincronizacion NTP        | activa                                          |
@@ -53,8 +53,8 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 | Storage driver       | overlayfs                          |
 | Cgroups              | v2                                 |
 | Docker root          | `/var/lib/docker`                  |
-| Contenedores activos | 7 persistentes y saludables        |
-| Imagenes presentes   | 16; 7 usadas por servicios activos |
+| Contenedores activos | 14; 13 con healthcheck saludable y `deploy-host` en ejecucion |
+| Imagenes presentes   | 34; 15 usadas por servicios activos                         |
 
 ## Servicios y puertos existentes
 
@@ -76,19 +76,23 @@ Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento re
 
 El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el consumo a checkouts de build con `node_modules`, `.next`, `dist` y `.pnpm-store`, imagenes historicas e intermedias y cache de Docker; los volumenes persistentes no eran la causa. Se eliminaron solo artefactos reproducibles bajo `/opt/quantum/builds`, imagenes no usadas y cache sin referencias. Se conservaron los fuentes del build vigente, las imagenes activas y el rollback inmediato. Tras construir y desplegar `ADM-05-a`, retirar dos checkouts de prueba, el store local de pnpm y cache reproducible, quedaron 14 GiB usados y 34 GiB libres, 29 % de uso, con siete contenedores saludables. `.dockerignore` excluye ahora `.pnpm-store` para que no vuelva a inflar el contexto de imagen. No se tocaron bases, volumenes persistentes, secretos ni respaldos.
 
+El 2026-09-29, la descarga de los diez artefactos de la release `0.0.0-candidate.22fd67e8b98b` llevo temporalmente el filesystem a 98 %. `docker system df` atribuyo el margen recuperable a cache de builds e imagenes, no a volumenes persistentes. Se retiraron 12.97 GB de cache de compilacion reproducible con `docker builder prune --all`; el uso bajo a 73 % con 14 GiB libres. No se eliminaron volumenes, bases, secretos, configuraciones ni contenedores activos.
+
 ## Plataforma administrativa desplegada
 
 | Servicio          | Imagen o estado inmutable                               | Estado verificado |
 | ----------------- | ------------------------------------------------------- | ----------------- |
 | Caddy             | `qcrm-edge/caddy@sha256:e9c93188...66448`               | `healthy`         |
-| `admin-web`       | `qcrm-platform/admin-web@sha256:abc03081...5590e`       | `healthy`         |
-| `admin-api`       | `qcrm-platform/admin-api@sha256:8b2e42a3...66690c`      | `healthy`         |
-| `deploy-executor` | `qcrm-platform/deploy-executor@sha256:ea57e9c1...808bc` | `healthy`         |
-| Keycloak          | persistente, realm `quantum-platform`                   | `healthy`         |
+| `admin-web`       | `ghcr.io/yvalois/quantum-crm/admin-web@sha256:71d44df3...3dbeb6`       | `healthy`         |
+| `admin-api`       | `ghcr.io/yvalois/quantum-crm/admin-api@sha256:74961cc1...3fda6`        | `healthy`         |
+| `deploy-executor` | `ghcr.io/yvalois/quantum-crm/deploy-executor@sha256:e80cde8b...3ea04` | `healthy`         |
+| Keycloak          | `ghcr.io/yvalois/quantum-crm/keycloak@sha256:9cfa353a...679591`        | `healthy`         |
 | PostgreSQL        | persistente, base y roles de plataforma                 | `healthy`         |
 | Redis             | persistente, ACL exclusiva de sesiones                  | `healthy`         |
 
 Las redes `platform-database`, `platform-session`, `platform-internal` y `platform-oidc` son internas. La ultima contiene solo Caddy y `admin-api` y permite resolver el JWKS HTTPS del issuer exacto sin habilitar salida general a Internet. El operador inicial queda en estado de entrega y debe definir su propia contrasena y TOTP; el secreto inicial permanece fuera de Git con modo `0400`, y las cuentas administrativas temporales de Keycloak fueron retiradas.
+
+La release `ff88f447-78a5-5386-b42e-41e25302e9b1` del commit `22fd67e8b98b870897b52e19df36c04571c1fa9d` quedo `VALIDATED` y desplegada por digests exactos. Ademas de los cuatro componentes anteriores, el perfil `quantum-piloto` ejecuta `crm-web`, `portal-web`, `api`, `worker` y `agent-runtime` desde `ghcr.io/yvalois/quantum-crm`. Admin, CRM e Identity devolvieron `200`; la raiz CRM devolvio `307` hacia OIDC y el login administrativo MFA con consulta protegida de operador y release aprobo. Caddy permanece unido a la red privada tipada del perfil; no se publicaron puertos de aplicacion.
 
 El 2026-09-20, `ADM-02-b` actualizo exclusivamente `admin-api` desde el build persistente `248c4d56426c8aa00bbae40654c98b9551be30f4`. El servicio expone internamente la API v1 protegida de perfiles de cliente. El archivo `platform.env.before-ADM-02-248c4d5` conserva el digest anterior para rollback de aplicacion sin tocar los perfiles persistidos.
 

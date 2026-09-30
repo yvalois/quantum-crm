@@ -185,7 +185,7 @@ Una personalización que requiera código se incorpora al producto común con co
 
 ## 7. CI y construcción de releases
 
-El flujo aprobado en [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-releases.md) usa GitHub Actions para comprobar cambios, construir una sola vez y publicar imagenes en GHCR. El repositorio pendiente debera implementar esas protecciones; esta documentacion no afirma que los workflows ya existan. [Publicacion de imagenes con GitHub Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
+El flujo aprobado en [ADR-0009](../06-decisiones/ADR-0009-integracion-entrega-releases.md) usa GitHub Actions para comprobar cambios, construir una sola vez y publicar imagenes en GHCR. La cadena ya publica diez artefactos por digest, genera SBOM y procedencia, bloquea hallazgos altos o criticos y registra candidatas mediante OIDC inmutable; la promocion y el despliegue siguen requiriendo una release `VALIDATED` y un alcance autorizado. [Publicacion de imagenes con GitHub Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
 
 - [ ] **OPS-10 — Implementar integración continua.**
   - [ ] Verificar instalación reproducible, tipos, formato y compilación.
