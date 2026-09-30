@@ -21,6 +21,9 @@ import type {
   Pipeline,
   PipelineStage,
   SalesRepository,
+  TaskCommentRecord,
+  TaskHistoryRecord,
+  TaskListFilters,
   TaskRecord,
   TaskRepository,
   TaskStatus,
@@ -271,19 +274,43 @@ interface TaskRow {
   readonly title: string;
   readonly description: string;
   readonly priority: string;
+  readonly type: string;
+  readonly origin: string;
   readonly due_at: Date | null;
   readonly status: string;
+  readonly completed_at: Date | null;
+  readonly completed_by_member_id: string | null;
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
-const taskSelection = `id::text, created_by_member_id::text, contact_id::text, opportunity_id::text, assignee_member_id::text, title, description, priority, due_at, status, version::text, created_at, updated_at`;
+interface TaskCommentRow {
+  readonly id: string;
+  readonly task_id: string;
+  readonly author_member_id: string;
+  readonly body: string;
+  readonly created_at: Date;
+}
+interface TaskHistoryRow {
+  readonly id: string;
+  readonly task_id: string;
+  readonly event_type: string;
+  readonly actor_member_id: string;
+  readonly note: string | null;
+  readonly created_at: Date;
+}
+const taskSelection = `id::text, created_by_member_id::text, contact_id::text, opportunity_id::text, assignee_member_id::text, title, description, priority, type, origin, due_at, status, completed_at, completed_by_member_id::text, version::text, created_at, updated_at`;
 function taskFromRow(row: TaskRow): TaskRecord {
   if (row.priority !== "low" && row.priority !== "medium" && row.priority !== "high")
     throw new DatabaseUnavailableError();
   const status = row.status.toUpperCase() as TaskStatus;
   if (!["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED", "EXPIRED"].includes(status))
     throw new DatabaseUnavailableError();
+  const type = row.type.toUpperCase() as TaskRecord["type"];
+  const origin = row.origin.toUpperCase() as TaskRecord["origin"];
+  if (!["CALL", "MESSAGE", "MEETING", "QUOTE", "COLLECTION", "OTHER"].includes(type))
+    throw new DatabaseUnavailableError();
+  if (!["MANUAL", "AUTOMATION", "AGENT"].includes(origin)) throw new DatabaseUnavailableError();
   return Object.freeze({
     id: row.id,
     createdByMemberId: row.created_by_member_id,
@@ -293,12 +320,50 @@ function taskFromRow(row: TaskRow): TaskRecord {
     title: row.title,
     description: row.description,
     priority: row.priority.toUpperCase() as TaskRecord["priority"],
+    type,
+    origin,
     dueAt: row.due_at === null ? null : new Date(row.due_at),
     status,
+    completedAt: row.completed_at === null ? null : new Date(row.completed_at),
+    completedByMemberId: row.completed_by_member_id,
     version: BigInt(row.version),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   });
+}
+function taskCommentFromRow(row: TaskCommentRow): TaskCommentRecord {
+  return Object.freeze({
+    id: row.id,
+    taskId: row.task_id,
+    authorMemberId: row.author_member_id,
+    body: row.body,
+    createdAt: new Date(row.created_at),
+  });
+}
+function taskHistoryFromRow(row: TaskHistoryRow): TaskHistoryRecord {
+  const eventType = row.event_type.toUpperCase() as TaskHistoryRecord["eventType"];
+  if (
+    !["CREATED", "UPDATED", "ASSIGNEE_CHANGED", "STATUS_CHANGED", "COMMENTED"].includes(eventType)
+  )
+    throw new DatabaseUnavailableError();
+  return Object.freeze({
+    id: row.id,
+    taskId: row.task_id,
+    eventType,
+    actorMemberId: row.actor_member_id,
+    note: row.note,
+    createdAt: new Date(row.created_at),
+  });
+}
+async function lockTaskCommand(
+  client: PoolClient,
+  actorMemberId: string,
+  command: string,
+  idempotencyKey: string,
+): Promise<void> {
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+    `${actorMemberId}:${command}:${idempotencyKey}`,
+  ]);
 }
 async function pipelineFromRow(pool: PostgresPool, row: PipelineRow): Promise<Pipeline> {
   const stages = (await pool.query(
@@ -1144,15 +1209,55 @@ export function createCommercialPostgresRepositories(
     },
   });
   const tasks: TaskRepository = Object.freeze<TaskRepository>({
-    list: async (actor) => {
+    list: async (actor, filters: TaskListFilters = {}, now) => {
       try {
+        const effectiveNow = now ?? new Date();
+        if (Number.isNaN(effectiveNow.getTime())) throw new DatabaseUnavailableError();
         const access = visibility(actor, 1, [
           "task.created_by_member_id",
           "task.assignee_member_id",
         ]);
+        const params: unknown[] = [...access.params];
+        const conditions = [access.sql];
+        const parameter = (value: unknown): string => {
+          params.push(value);
+          return `$${params.length}`;
+        };
+        if (filters.contactId !== undefined)
+          conditions.push(`task.contact_id = ${parameter(filters.contactId)}::uuid`);
+        if (filters.opportunityId !== undefined)
+          conditions.push(`task.opportunity_id = ${parameter(filters.opportunityId)}::uuid`);
+        if (filters.assigneeMemberId !== undefined)
+          conditions.push(`task.assignee_member_id = ${parameter(filters.assigneeMemberId)}::uuid`);
+        if (filters.priority !== undefined)
+          conditions.push(`task.priority = ${parameter(filters.priority.toLowerCase())}`);
+        if (filters.type !== undefined)
+          conditions.push(`task.type = ${parameter(filters.type.toLowerCase())}`);
+        if (filters.status !== undefined) {
+          if (filters.status === "EXPIRED") {
+            const at = parameter(effectiveNow);
+            conditions.push(
+              `task.status IN ('pending', 'in_progress') AND task.due_at IS NOT NULL AND task.due_at <= ${at}::timestamptz`,
+            );
+          } else {
+            conditions.push(`task.status = ${parameter(filters.status.toLowerCase())}`);
+            if (filters.status === "PENDING" || filters.status === "IN_PROGRESS") {
+              const at = parameter(effectiveNow);
+              conditions.push(`(task.due_at IS NULL OR task.due_at > ${at}::timestamptz)`);
+            }
+          }
+        }
+        if (filters.dueFrom !== undefined)
+          conditions.push(`task.due_at >= ${parameter(filters.dueFrom)}::timestamptz`);
+        if (filters.dueTo !== undefined)
+          conditions.push(`task.due_at <= ${parameter(filters.dueTo)}::timestamptz`);
         const result = (await pool.query(
-          `SELECT ${taskSelection} FROM tasks.tasks AS task WHERE ${access.sql} ORDER BY task.due_at NULLS LAST, task.id DESC`,
-          access.params,
+          `SELECT ${taskSelection}
+             FROM tasks.tasks AS task
+            WHERE ${conditions.join(" AND ")}
+            ORDER BY task.due_at ASC NULLS LAST, task.id DESC
+            LIMIT 200`,
+          params,
         )) as { readonly rows: readonly TaskRow[] };
         return Object.freeze(result.rows.map(taskFromRow));
       } catch (error) {
@@ -1180,6 +1285,7 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
+        await lockTaskCommand(client, input.actor.memberId, "tasks.create", input.idempotencyKey);
         const replay = await client.query<{
           readonly payload_hash: string;
           readonly response: TaskRow;
@@ -1195,7 +1301,14 @@ export function createCommercialPostgresRepositories(
           return taskFromRow(previous.response);
         }
         const result = await client.query<TaskRow>(
-          `INSERT INTO tasks.tasks (id, created_by_member_id, contact_id, opportunity_id, assignee_member_id, title, description, priority, due_at, status, version, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8, $9, 'pending', $10::bigint, $11, $12) RETURNING ${taskSelection}`,
+          `INSERT INTO tasks.tasks (
+             id, created_by_member_id, contact_id, opportunity_id, assignee_member_id,
+             title, description, priority, type, origin, due_at, status,
+             completed_at, completed_by_member_id, version, created_at, updated_at
+           ) VALUES (
+             $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
+             $6, $7, $8, $9, $10, $11, 'pending', NULL, NULL, $12::bigint, $13, $14
+           ) RETURNING ${taskSelection}`,
           [
             input.task.id,
             input.task.createdByMemberId,
@@ -1205,6 +1318,8 @@ export function createCommercialPostgresRepositories(
             input.task.title,
             input.task.description,
             input.task.priority.toLowerCase(),
+            input.task.type.toLowerCase(),
+            input.task.origin.toLowerCase(),
             input.task.dueAt,
             input.task.version.toString(),
             input.task.createdAt,
@@ -1213,6 +1328,11 @@ export function createCommercialPostgresRepositories(
         );
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
+        await client.query(
+          `INSERT INTO tasks.history (task_id, event_type, actor_member_id, note, created_at)
+           VALUES ($1::uuid, 'created', $2::uuid, $3, $4)`,
+          [row.id, input.actor.memberId, "Tarea creada", row.created_at],
+        );
         await client.query(
           `INSERT INTO tasks.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'tasks.create', $2, $3, $4::jsonb)`,
           [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(row)],
@@ -1229,12 +1349,18 @@ export function createCommercialPostgresRepositories(
     updateStatus: async (input) => {
       let client: PoolClient | undefined;
       try {
-        const access = visibility(input.actor, 5, [
+        const access = visibility(input.actor, 3, [
           "task.created_by_member_id",
           "task.assignee_member_id",
         ]);
         client = await pool.connect();
         await client.query("BEGIN");
+        await lockTaskCommand(
+          client,
+          input.actor.memberId,
+          "tasks.status.update",
+          input.idempotencyKey,
+        );
         const replay = await client.query<{
           readonly payload_hash: string;
           readonly response: TaskRow;
@@ -1249,14 +1375,38 @@ export function createCommercialPostgresRepositories(
           await client.query("COMMIT");
           return taskFromRow(previous.response);
         }
+        const beforeResult = await client.query<TaskRow>(
+          `SELECT ${taskSelection}
+             FROM tasks.tasks AS task
+            WHERE task.id = $1::uuid
+              AND task.version = $2::bigint
+              AND task.status IN ('pending', 'in_progress')
+              AND ${access.sql}
+            FOR UPDATE`,
+          [input.id, input.expectedVersion.toString(), ...access.params],
+        );
+        const before = beforeResult.rows[0];
+        if (!before) {
+          await client.query("COMMIT");
+          return null;
+        }
         const result = await client.query<TaskRow>(
-          `UPDATE tasks.tasks AS task SET status = $2, version = version + 1, updated_at = $3 WHERE task.id = $1::uuid AND task.version = $4::bigint AND ${access.sql} RETURNING ${taskSelection}`,
+          `UPDATE tasks.tasks AS task
+              SET status = $2,
+                  completed_at = CASE WHEN $2 IN ('completed', 'cancelled') THEN $3 ELSE NULL END,
+                  completed_by_member_id = CASE WHEN $2 IN ('completed', 'cancelled') THEN $4::uuid ELSE NULL END,
+                  version = version + 1,
+                  updated_at = $3
+            WHERE task.id = $1::uuid
+              AND task.version = $5::bigint
+              AND task.status IN ('pending', 'in_progress')
+            RETURNING ${taskSelection}`,
           [
             input.id,
             input.status.toLowerCase(),
             input.now,
+            input.actor.memberId,
             input.expectedVersion.toString(),
-            ...access.params,
           ],
         );
         const row = result.rows[0];
@@ -1264,6 +1414,16 @@ export function createCommercialPostgresRepositories(
           await client.query("COMMIT");
           return null;
         }
+        await client.query(
+          `INSERT INTO tasks.history (task_id, event_type, actor_member_id, note, created_at)
+           VALUES ($1::uuid, 'status_changed', $2::uuid, $3, $4)`,
+          [
+            row.id,
+            input.actor.memberId,
+            `${before.status.toUpperCase()} -> ${row.status.toUpperCase()}`,
+            input.now,
+          ],
+        );
         await client.query(
           `INSERT INTO tasks.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'tasks.status.update', $2, $3, $4::jsonb)`,
           [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(row)],
@@ -1275,6 +1435,249 @@ export function createCommercialPostgresRepositories(
         return fail(error);
       } finally {
         client?.release();
+      }
+    },
+    update: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        const access = visibility(input.actor, 3, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await lockTaskCommand(client, input.actor.memberId, "tasks.update", input.idempotencyKey);
+        const replay = await client.query<{
+          readonly payload_hash: string;
+          readonly response: TaskRow;
+        }>(
+          `SELECT payload_hash, response
+             FROM tasks.command_idempotency
+            WHERE actor_member_id = $1::uuid
+              AND command = 'tasks.update'
+              AND idempotency_key = $2
+            FOR UPDATE`,
+          [input.actor.memberId, input.idempotencyKey],
+        );
+        const previous = replay.rows[0];
+        if (previous) {
+          if (previous.payload_hash !== input.payloadHash)
+            throw new CommercialIdempotencyConflictError();
+          await client.query("COMMIT");
+          return taskFromRow(previous.response);
+        }
+        const beforeResult = await client.query<TaskRow>(
+          `SELECT ${taskSelection}
+             FROM tasks.tasks AS task
+            WHERE task.id = $1::uuid
+              AND task.version = $2::bigint
+              AND ${access.sql}
+            FOR UPDATE`,
+          [input.id, input.expectedVersion.toString(), ...access.params],
+        );
+        const before = beforeResult.rows[0];
+        if (!before) {
+          await client.query("COMMIT");
+          return null;
+        }
+        const result = await client.query<TaskRow>(
+          `UPDATE tasks.tasks AS task
+              SET assignee_member_id = CASE WHEN $2::boolean THEN $3::uuid ELSE task.assignee_member_id END,
+                  title = CASE WHEN $4::boolean THEN $5 ELSE task.title END,
+                  description = CASE WHEN $6::boolean THEN $7 ELSE task.description END,
+                  priority = CASE WHEN $8::boolean THEN $9 ELSE task.priority END,
+                  type = CASE WHEN $10::boolean THEN $11 ELSE task.type END,
+                  due_at = CASE WHEN $12::boolean THEN $13::timestamptz ELSE task.due_at END,
+                  version = version + 1,
+                  updated_at = $14
+            WHERE task.id = $1::uuid AND task.version = $15::bigint
+            RETURNING ${taskSelection}`,
+          [
+            input.id,
+            input.patch.assigneeMemberId !== undefined,
+            input.patch.assigneeMemberId ?? null,
+            input.patch.title !== undefined,
+            input.patch.title ?? null,
+            input.patch.description !== undefined,
+            input.patch.description ?? null,
+            input.patch.priority !== undefined,
+            input.patch.priority?.toLowerCase() ?? null,
+            input.patch.type !== undefined,
+            input.patch.type?.toLowerCase() ?? null,
+            input.patch.dueAt !== undefined,
+            input.patch.dueAt ?? null,
+            input.now,
+            input.expectedVersion.toString(),
+          ],
+        );
+        const row = result.rows[0];
+        if (!row) {
+          await client.query("COMMIT");
+          return null;
+        }
+        const assigneeChanged = before.assignee_member_id !== row.assignee_member_id;
+        const updatedFields = [
+          before.title === row.title ? null : "title",
+          before.description === row.description ? null : "description",
+          before.priority === row.priority ? null : "priority",
+          before.type === row.type ? null : "type",
+          before.due_at?.getTime() === row.due_at?.getTime() ? null : "dueAt",
+        ].filter((field): field is string => field !== null);
+        if (assigneeChanged)
+          await client.query(
+            `INSERT INTO tasks.history (task_id, event_type, actor_member_id, note, created_at)
+             VALUES ($1::uuid, 'assignee_changed', $2::uuid, $3, $4)`,
+            [
+              row.id,
+              input.actor.memberId,
+              `${before.assignee_member_id} -> ${row.assignee_member_id}`,
+              input.now,
+            ],
+          );
+        if (updatedFields.length > 0 || !assigneeChanged)
+          await client.query(
+            `INSERT INTO tasks.history (task_id, event_type, actor_member_id, note, created_at)
+             VALUES ($1::uuid, 'updated', $2::uuid, $3, $4)`,
+            [
+              row.id,
+              input.actor.memberId,
+              updatedFields.length > 0
+                ? `Campos actualizados: ${updatedFields.join(", ")}`
+                : "Actualizacion confirmada sin cambios de valor",
+              input.now,
+            ],
+          );
+        await client.query(
+          `INSERT INTO tasks.command_idempotency
+             (actor_member_id, command, idempotency_key, payload_hash, response)
+           VALUES ($1::uuid, 'tasks.update', $2, $3, $4::jsonb)`,
+          [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(row)],
+        );
+        await client.query("COMMIT");
+        return taskFromRow(row);
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    addComment: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        const access = visibility(input.actor, 2, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await lockTaskCommand(
+          client,
+          input.actor.memberId,
+          "tasks.comment.create",
+          input.idempotencyKey,
+        );
+        const replay = await client.query<{
+          readonly payload_hash: string;
+          readonly response: TaskCommentRow;
+        }>(
+          `SELECT payload_hash, response
+             FROM tasks.command_idempotency
+            WHERE actor_member_id = $1::uuid
+              AND command = 'tasks.comment.create'
+              AND idempotency_key = $2
+            FOR UPDATE`,
+          [input.actor.memberId, input.idempotencyKey],
+        );
+        const previous = replay.rows[0];
+        if (previous) {
+          if (previous.payload_hash !== input.payloadHash)
+            throw new CommercialIdempotencyConflictError();
+          await client.query("COMMIT");
+          return taskCommentFromRow(previous.response);
+        }
+        const visible = await client.query<{ readonly id: string }>(
+          `SELECT task.id::text
+             FROM tasks.tasks AS task
+            WHERE task.id = $1::uuid AND ${access.sql}
+            FOR UPDATE`,
+          [input.taskId, ...access.params],
+        );
+        if (!visible.rows[0]) throw new DatabaseUnavailableError();
+        const result = await client.query<TaskCommentRow>(
+          `INSERT INTO tasks.comments (id, task_id, author_member_id, body, created_at)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5)
+           RETURNING id::text, task_id::text, author_member_id::text, body, created_at`,
+          [
+            input.comment.id,
+            input.taskId,
+            input.comment.authorMemberId,
+            input.comment.body,
+            input.comment.createdAt,
+          ],
+        );
+        const row = result.rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        await client.query(
+          `INSERT INTO tasks.history (task_id, event_type, actor_member_id, note, created_at)
+           VALUES ($1::uuid, 'commented', $2::uuid, $3, $4)`,
+          [input.taskId, input.actor.memberId, "Comentario interno agregado", row.created_at],
+        );
+        await client.query(
+          `INSERT INTO tasks.command_idempotency
+             (actor_member_id, command, idempotency_key, payload_hash, response)
+           VALUES ($1::uuid, 'tasks.comment.create', $2, $3, $4::jsonb)`,
+          [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(row)],
+        );
+        await client.query("COMMIT");
+        return taskCommentFromRow(row);
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    listComments: async (actor, taskId) => {
+      try {
+        const access = visibility(actor, 2, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
+        const result = (await pool.query(
+          `SELECT comment.id::text, comment.task_id::text, comment.author_member_id::text,
+                  comment.body, comment.created_at
+             FROM tasks.comments AS comment
+             JOIN tasks.tasks AS task ON task.id = comment.task_id
+            WHERE task.id = $1::uuid AND ${access.sql}
+            ORDER BY comment.created_at ASC, comment.id ASC
+            LIMIT 500`,
+          [taskId, ...access.params],
+        )) as { readonly rows: readonly TaskCommentRow[] };
+        return Object.freeze(result.rows.map(taskCommentFromRow));
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    listHistory: async (actor, taskId) => {
+      try {
+        const access = visibility(actor, 2, [
+          "task.created_by_member_id",
+          "task.assignee_member_id",
+        ]);
+        const result = (await pool.query(
+          `SELECT history.id::text, history.task_id::text, history.event_type,
+                  history.actor_member_id::text, history.note, history.created_at
+             FROM tasks.history AS history
+             JOIN tasks.tasks AS task ON task.id = history.task_id
+            WHERE task.id = $1::uuid AND ${access.sql}
+            ORDER BY history.created_at DESC, history.id DESC
+            LIMIT 500`,
+          [taskId, ...access.params],
+        )) as { readonly rows: readonly TaskHistoryRow[] };
+        return Object.freeze(result.rows.map(taskHistoryFromRow));
+      } catch (error) {
+        return fail(error);
       }
     },
   });

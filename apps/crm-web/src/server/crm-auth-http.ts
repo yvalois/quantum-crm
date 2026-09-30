@@ -44,9 +44,15 @@ import {
   PipelineResponseSchema,
   UpdateOpportunitySchema,
   CreateTaskSchema,
+  CreateTaskCommentSchema,
   TaskAssigneeListResponseSchema,
+  TaskCommentListResponseSchema,
+  TaskCommentResponseSchema,
+  TaskHistoryListResponseSchema,
+  TaskListQuerySchema,
   TaskListResponseSchema,
   TaskResponseSchema,
+  UpdateTaskSchema,
   UpdateTaskStatusSchema,
   ActivateAutomationSchema,
   AutomationActivationResponseSchema,
@@ -643,19 +649,24 @@ export async function handleCrmTaskList(
   const authorized = await authorizedSession(request, runtime);
   if (isResponse(authorized)) return authorized;
   try {
-    const upstream = await runtime.crmApiFetch(
-      new URL("/api/v1/tasks", runtime.config.crmApiOrigin),
-      {
-        headers: {
-          accept: "application/json",
-          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
-          "x-correlation-id": authorized.correlationId,
-        },
-        cache: "no-store",
-        redirect: "manual",
-        signal: AbortSignal.timeout(5_000),
-      },
+    const query = TaskListQuerySchema.safeParse(
+      Object.fromEntries(new URL(request.url).searchParams),
     );
+    if (!query.success) return crmProblem(400, "Invalid request");
+    const endpoint = new URL("/api/v1/tasks", runtime.config.crmApiOrigin);
+    for (const [name, value] of Object.entries(query.data)) {
+      if (value !== undefined) endpoint.searchParams.set(name, value);
+    }
+    const upstream = await runtime.crmApiFetch(endpoint, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+        "x-correlation-id": authorized.correlationId,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
     return commercialResponse(upstream, TaskListResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
@@ -745,6 +756,127 @@ export async function handleCrmTaskStatus(
     return commercialResponse(upstream, TaskResponseSchema);
   } catch {
     return crmProblem(400, "Invalid request");
+  }
+}
+
+export async function handleCrmTaskUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  taskId: string,
+): Promise<Response> {
+  if (!ContactIdSchema.safeParse(taskId).success) return crmProblem(400, "Invalid request");
+  const idempotencyKey = request.headers.get("idempotency-key");
+  const ifMatch = request.headers.get("if-match");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey) || !ifMatch)
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const payload = UpdateTaskSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const headers = memberMutationHeaders(authorized, idempotencyKey);
+    headers.set("if-match", ifMatch);
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/tasks/${taskId}`, runtime.config.crmApiOrigin),
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, TaskResponseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+}
+
+export async function handleCrmTaskCommentList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  taskId: string,
+): Promise<Response> {
+  if (!ContactIdSchema.safeParse(taskId).success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/tasks/${taskId}/comments`, runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, TaskCommentListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmTaskCommentCreate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  taskId: string,
+): Promise<Response> {
+  if (!ContactIdSchema.safeParse(taskId).success) return crmProblem(400, "Invalid request");
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const payload = CreateTaskCommentSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/tasks/${taskId}/comments`, runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized, idempotencyKey),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, TaskCommentResponseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+}
+
+export async function handleCrmTaskHistory(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  taskId: string,
+): Promise<Response> {
+  if (!ContactIdSchema.safeParse(taskId).success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/tasks/${taskId}/history`, runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, TaskHistoryListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
   }
 }
 
