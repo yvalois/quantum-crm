@@ -7,13 +7,19 @@ RUN corepack enable && corepack prepare pnpm@9.13.2 --activate
 COPY . .
 RUN pnpm install --frozen-lockfile --prod=false \
     && pnpm --filter "@quantum-crm/database..." build \
-    && pnpm deploy --filter "@quantum-crm/database" --prod /runtime
+    && pnpm deploy --filter "@quantum-crm/database" --prod /runtime \
+    && schema_engine="$(find node_modules/.pnpm -path '*/node_modules/@prisma/engines/schema-engine-*' -type f -print -quit)" \
+    && test -n "${schema_engine}" \
+    && install -m 0755 "${schema_engine}" /runtime/prisma-schema-engine
 
 FROM ${NODE_IMAGE}
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    PRISMA_SCHEMA_ENGINE_BINARY=/workspace/prisma-schema-engine
 WORKDIR /workspace
 COPY --from=build --chown=node:node /runtime ./
-RUN apk del --no-network apk-tools zlib \
+RUN apk add --no-cache openssl \
+    && apk del --no-network apk-tools zlib \
+    && test -x "${PRISMA_SCHEMA_ENGINE_BINARY}" \
     && node --version \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg

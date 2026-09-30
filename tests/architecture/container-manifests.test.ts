@@ -66,6 +66,10 @@ describe("container manifests", () => {
     expect(crmMigrator).toContain("pnpm install --frozen-lockfile --prod=false");
     expect(crmMigrator).toContain('pnpm deploy --filter "@quantum-crm/database" --prod /runtime');
     expect(crmMigrator).toContain('pnpm --filter "@quantum-crm/database..." build');
+    expect(crmMigrator).toContain("@prisma/engines/schema-engine-*");
+    expect(crmMigrator).toContain("PRISMA_SCHEMA_ENGINE_BINARY=/workspace/prisma-schema-engine");
+    expect(crmMigrator).toContain('test -x "${PRISMA_SCHEMA_ENGINE_BINARY}"');
+    expect(crmMigrator).toContain("apk add --no-cache openssl");
     expect(crmMigrator).toContain("apk del --no-network apk-tools zlib");
     expect(crmMigrator).toContain("node --version");
     expect(crmMigrator).toContain("rm -rf /usr/local/lib/node_modules/npm");

@@ -113,3 +113,15 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 - Documentacion actualizada: ficha, estado, despliegues e inventario del VPS registran la release, su promocion y los digests desplegados.
 - Desviaciones del plan: al recrear el perfil piloto, Caddy perdio la conexion a su red privada aunque los servicios estaban saludables. Se reconecto la red tipada del perfil y el health publico paso de `503` a `200`; no se cambiaron rutas ni se publicaron puertos adicionales.
 - Pendientes o decisiones nuevas: `OPS-10-f` queda cerrada. `release-candidate` calcula el alcance del commit aprobado y omite la publicacion cuando todos los cambios estan bajo `docs/`, `.github/` o terminan en `.md`; la matriz de calidad permanece obligatoria. Las pruebas comerciales completas del entorno y la promocion por cliente permanecen en `OPS-12` y en el flujo de actualizacion de perfiles; no requieren reconstruir esta release.
+
+## Correccion de regresion del migrador CRM (2026-09-30)
+
+- Estado: `EN_CURSO` en `fix/OPS-10-f-crm-migrator-engine`.
+- Evidencia del defecto: la candidata `0.0.0-candidate.24c401e07599` aprobo CI, SBOM y escaneo, pero el aprovisionamiento real del perfil `quantum-demo` quedo reintentando `MIGRATE_DATABASE`. `deploy-host` registro que Prisma no encontraba `schema-engine-linux-musl` dentro de la imagen publicada.
+- Causa: `pnpm deploy --prod /runtime` copio el paquete de Prisma, pero no el binario que su instalacion habia descargado en el `node_modules` de la etapa de build. Ademas, retirar `apk-tools` quitaba `libssl3` y `libcrypto3` al no existir otro paquete que declarara esas dependencias.
+- [x] Copiar al runtime el binario `schema-engine-*` descargado durante el build, declarar `openssl` como dependencia registrada y fallar la construccion si el engine no es ejecutable.
+- [x] Proteger la composicion del Dockerfile con la prueba arquitectonica afectada.
+- [x] Construir la imagen una vez en el VPS y ejecutar el migrador contra la base aislada del perfil de demostracion autorizado.
+- [ ] Publicar un candidato nuevo; no modificar el digest defectuoso ni presentar la release anterior como desplegable.
+
+Evidencia parcial: el commit `b37ad2e` produjo en el VPS `qcrm-candidate/crm-migrator:b37ad2e` con manifiesto local `sha256:401cb722369895962065af0285f2f4d1ddd3f35e6a43c9825028798ee7c95166`. El runtime resolvio el schema engine, conservo `openssl`, `libssl3` y `libcrypto3`, no conservo `apk` ni `zlib`, y aplico correctamente las 13 migraciones CRM sobre la base aislada de `quantum-demo`. Prettier y ESLint del archivo afectado y las 15 pruebas de arquitectura aprobaron en el VPS. Quedan PR, CI, release inmutable nueva y reanudacion controlada del aprovisionamiento.
