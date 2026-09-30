@@ -681,6 +681,35 @@ describe("platform tenant profile migration", () => {
         lease: null,
       },
     });
+
+    await pool.query(
+      `UPDATE operations.provisioning_operations
+       SET current_step = 'migrate_database'
+       WHERE id = $1::uuid AND status = 'pending'`,
+      [recovered.id],
+    );
+    const migrationClaim = await database.provisioningOperations.claimNext({
+      workerId: "executor-migration",
+      leaseDurationSeconds: 60,
+      supportedSteps: ["MIGRATE_DATABASE"],
+    });
+    if (!migrationClaim) throw new Error("Expected migration work");
+    await expect(
+      database.provisioningOperations.completeMigration({
+        operationId: migrationClaim.id,
+        tenantProfileId: migrationClaim.tenantProfileId,
+        workerId: "executor-migration",
+        expectedVersion: migrationClaim.version,
+        attempt: migrationClaim.attempt,
+      }),
+    ).resolves.toMatchObject({
+      outcome: "ADVANCED",
+      operation: {
+        status: "PENDING",
+        currentStep: "START_CONTAINERS",
+        lease: null,
+      },
+    });
     await expect(
       database.provisioningOperations.claimNext({
         workerId: "executor-unsupported",

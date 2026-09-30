@@ -976,7 +976,7 @@ async function completeProvisioningMigration(
     );
     if (!failureCode) {
       const updated = await client.query<ProvisioningOperationRow>(
-        `UPDATE operations.provisioning_operations SET status='pending',current_step='start_containers',failure_code=NULL,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
+        `UPDATE operations.provisioning_operations AS operation SET status='pending',current_step='start_containers',failure_code=NULL,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=operation.version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
         [completion.operationId],
       );
       if (!updated.rows[0]) throw new DatabaseUnavailableError();
@@ -1014,7 +1014,7 @@ async function completeProvisioningMigration(
       [completion.tenantProfileId],
     );
     const updated = await client.query<ProvisioningOperationRow>(
-      `UPDATE operations.provisioning_operations SET status='failed',failure_code=$2::operations.provisioning_validation_failure_code,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
+      `UPDATE operations.provisioning_operations AS operation SET status='failed',failure_code=$2::operations.provisioning_validation_failure_code,lease_owner=NULL,lease_expires_at=NULL,last_heartbeat_at=NULL,version=operation.version+1,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
       [completion.operationId, failureCode],
     );
     if (!updated.rows[0]) throw new DatabaseUnavailableError();
@@ -2169,9 +2169,9 @@ async function completeFinalProvisioningStep(
       );
     }
     const updated = (await client.query<ProvisioningOperationRow>(
-      `UPDATE operations.provisioning_operations SET status=$2::operations.provisioning_operation_status,
+      `UPDATE operations.provisioning_operations AS operation SET status=$2::operations.provisioning_operation_status,
        current_step=COALESCE($3::operations.provisioning_operation_step,current_step),
-       lease_owner=NULL, lease_expires_at=NULL,last_heartbeat_at=NULL,version=version+1,updated_at=CURRENT_TIMESTAMP
+       lease_owner=NULL, lease_expires_at=NULL,last_heartbeat_at=NULL,version=operation.version+1,updated_at=CURRENT_TIMESTAMP
        WHERE id=$1::uuid RETURNING ${provisioningOperationSelection}`,
       [command.operationId, next ? "pending" : "succeeded", next],
     )) as { readonly rows: readonly ProvisioningOperationRow[] };
