@@ -29,6 +29,7 @@ export {
   type CommercialPostgresRepositories,
 } from "./commercial-postgres-database.js";
 export { ConversationIdempotencyConflictError } from "./conversation-postgres-repository.js";
+export { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 export {
   createTenantDatabaseProvisioner,
   TenantDatabaseProvisioningError,

@@ -28,7 +28,7 @@ const navigation: readonly NavigationGroup[] = [
       { href: "/contacts", icon: "◎", label: "Contactos" },
       { href: "/pipeline", icon: "◇", label: "Oportunidades" },
       { href: "/tasks", icon: "✓", label: "Tareas" },
-      { icon: "▦", label: "Calendario" },
+      { href: "/calendar", icon: "▦", label: "Calendario" },
     ],
   },
   {

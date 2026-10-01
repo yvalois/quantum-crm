@@ -1,6 +1,6 @@
 "use client";
 
-import type { Contact, Opportunity, Task } from "@quantum-crm/contracts";
+import type { CalendarEvent, Contact, Opportunity, Task } from "@quantum-crm/contracts";
 import { useEffect, useState } from "react";
 
 import { CrmShell } from "../../crm-shell";
@@ -24,6 +24,7 @@ export function ContactDetailPanel({
   const [contact, setContact] = useState<Contact | null>(null);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +32,7 @@ export function ContactDetailPanel({
     let active = true;
     void (async () => {
       try {
-        const [response, opportunityResponse, taskResponse] = await Promise.all([
+        const [response, opportunityResponse, taskResponse, eventResponse] = await Promise.all([
           fetch(`/api/contacts/${contactId}`, {
             cache: "no-store",
             credentials: "same-origin",
@@ -44,6 +45,10 @@ export function ContactDetailPanel({
             cache: "no-store",
             credentials: "same-origin",
           }),
+          fetch(
+            `/api/calendar/events?contactId=${encodeURIComponent(contactId)}&from=${encodeURIComponent(new Date().toISOString())}`,
+            { cache: "no-store", credentials: "same-origin" },
+          ),
         ]);
         if (response.status === 401) {
           window.location.assign(`/api/auth/login?returnTo=/contacts/${contactId}`);
@@ -52,6 +57,7 @@ export function ContactDetailPanel({
         if (!response.ok) throw new Error(await problemTitle(response));
         if (!opportunityResponse.ok) throw new Error(await problemTitle(opportunityResponse));
         if (!taskResponse.ok) throw new Error(await problemTitle(taskResponse));
+        if (!eventResponse.ok) throw new Error(await problemTitle(eventResponse));
         if (active) {
           setContact(((await response.json()) as ContactPayload).data);
           setOpportunities(
@@ -65,6 +71,11 @@ export function ContactDetailPanel({
                 if (right.dueAt === null) return -1;
                 return Date.parse(left.dueAt) - Date.parse(right.dueAt);
               }),
+          );
+          setEvents(
+            ((await eventResponse.json()) as { readonly data: CalendarEvent[] }).data
+              .filter((item) => !["COMPLETED", "CANCELLED", "NO_SHOW"].includes(item.status))
+              .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt)),
           );
         }
       } catch (cause) {
@@ -202,6 +213,41 @@ export function ContactDetailPanel({
                         </span>
                       </div>
                       <a className="contact-task-link" href="/tasks">
+                        Gestionar
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section className="member-card contact-opportunities-card contact-task-list">
+              <div className="card-heading">
+                <div>
+                  <p className="eyebrow">Agenda</p>
+                  <h2>Próximas citas</h2>
+                </div>
+                <a className="secondary-action" href="/calendar">
+                  Abrir calendario
+                </a>
+              </div>
+              {events.length === 0 ? (
+                <p className="state-message">Este contacto no tiene citas próximas.</p>
+              ) : (
+                <ul className="member-list">
+                  {events.map((item) => (
+                    <li className="member-row" key={item.id}>
+                      <div className="member-details">
+                        <strong>{item.title}</strong>
+                        <span>
+                          {new Intl.DateTimeFormat("es-CO", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          }).format(new Date(item.startsAt))}
+                          {" · "}
+                          {item.status === "CONFIRMED" ? "Confirmada" : "Pendiente"}
+                        </span>
+                      </div>
+                      <a className="contact-task-link" href="/calendar">
                         Gestionar
                       </a>
                     </li>
