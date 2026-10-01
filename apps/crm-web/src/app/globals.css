@@ -2326,36 +2326,54 @@ body {
 }
 
 .crm-shell-stitch {
-  grid-template-columns: 17rem minmax(0, 1fr);
+  --sidebar-width: 15.5rem;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   background: var(--quantum-canvas);
+  transition: grid-template-columns 180ms ease;
+}
+
+.crm-shell-stitch.sidebar-collapsed {
+  --sidebar-width: 4.75rem;
 }
 
 .crm-shell-stitch .crm-sidebar {
   position: sticky;
   top: 0;
   z-index: 30;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
   height: 100vh;
   min-height: 100vh;
-  overflow-y: auto;
+  overflow: hidden;
   border-right: 1px solid rgb(148 163 184 / 0.12);
   background: var(--quantum-night);
-  padding: 1.25rem 1rem 1rem;
+  padding: 0.9rem 0.75rem 0.75rem;
   color: #e2e8f0;
+}
+
+.sidebar-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .crm-shell-stitch .brand {
   gap: 0.7rem;
-  padding: 0.25rem 0.45rem 1.15rem;
+  min-width: 0;
+  padding: 0.15rem 0.35rem;
 }
 
 .crm-shell-stitch .brand-mark {
-  width: 2.2rem;
-  height: 2.2rem;
-  border: 1px solid rgb(255 255 255 / 0.24);
-  border-radius: 0.6rem;
-  background: var(--quantum-primary);
-  box-shadow: 0 0.65rem 1.7rem rgb(79 70 229 / 0.38);
-  font-size: 1rem;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgb(129 140 248 / 0.46);
+  border-radius: 0.55rem;
+  background: linear-gradient(145deg, #4f46e5, #3730a3);
+  box-shadow: 0 0.45rem 1.2rem rgb(49 46 129 / 0.35);
+  font-size: 0.9rem;
   letter-spacing: -0.04em;
 }
 
@@ -2377,16 +2395,45 @@ body {
   letter-spacing: 0.14em;
 }
 
+.sidebar-collapse {
+  display: grid;
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: #718096;
+  cursor: pointer;
+}
+
+.sidebar-collapse:hover {
+  background: rgb(255 255 255 / 0.06);
+  color: #e2e8f0;
+}
+
+.sidebar-collapse svg {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 180ms ease;
+}
+
+.sidebar-collapsed .sidebar-collapse svg {
+  transform: rotate(180deg);
+}
+
 .workspace-chip {
   display: grid;
   grid-template-columns: 2rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.65rem;
-  margin: 0.25rem 0 1.2rem;
+  min-width: 0;
+  margin: 0;
   border: 1px solid rgb(148 163 184 / 0.15);
-  border-radius: 0.75rem;
+  border-radius: 0.65rem;
   background: rgb(255 255 255 / 0.045);
-  padding: 0.65rem;
+  padding: 0.55rem;
 }
 
 .workspace-avatar,
@@ -2405,8 +2452,8 @@ body {
   height: 2rem;
 }
 
-.workspace-chip > span:nth-child(2),
-.sidebar-environment > span:last-child,
+.workspace-copy,
+.environment-copy,
 .operator-copy {
   display: grid;
   min-width: 0;
@@ -2436,8 +2483,15 @@ body {
 
 .crm-shell-stitch .crm-sidebar nav {
   display: grid;
-  gap: 1rem;
+  align-content: start;
+  gap: 0.8rem;
+  min-height: 0;
   margin-top: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.15rem 0.1rem 0.25rem 0;
+  scrollbar-color: rgb(100 116 139 / 0.5) transparent;
+  scrollbar-width: thin;
 }
 
 .nav-group {
@@ -2446,8 +2500,8 @@ body {
 }
 
 .nav-group > p {
-  margin: 0 0 0.35rem;
-  padding: 0 0.7rem;
+  margin: 0 0 0.25rem;
+  padding: 0 0.6rem;
   color: #64748b;
   font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.57rem;
@@ -2458,18 +2512,19 @@ body {
 
 .crm-shell-stitch .crm-sidebar nav a,
 .crm-shell-stitch .crm-sidebar nav .nav-pending {
-  display: grid;
-  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 0.55rem;
-  min-height: 2.3rem;
-  border: 0;
-  border-radius: 0.55rem;
+  gap: 0.62rem;
+  min-height: 2.25rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
   background: transparent;
   color: #aebbd0;
-  padding: 0.48rem 0.65rem;
+  padding: 0.42rem 0.55rem;
   font-size: 0.78rem;
   font-weight: 650;
+  line-height: 1.15;
+  text-decoration: none;
 }
 
 .crm-shell-stitch .crm-sidebar nav a:hover {
@@ -2478,33 +2533,61 @@ body {
 }
 
 .crm-shell-stitch .crm-sidebar nav a[aria-current="page"] {
-  background: var(--quantum-primary);
+  border-color: rgb(129 140 248 / 0.18);
+  background: rgb(79 70 229 / 0.2);
   color: #fff;
-  box-shadow: 0 0.55rem 1.35rem rgb(49 46 129 / 0.32);
+  box-shadow: inset 3px 0 #818cf8;
 }
 
-.nav-icon {
+.crm-shell-stitch .crm-sidebar nav .nav-icon {
   display: grid;
-  width: 1.25rem;
-  height: 1.25rem;
+  flex: 0 0 auto;
+  width: 1.35rem;
+  height: 1.35rem;
   place-items: center;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.94rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: #8493aa;
+}
+
+.crm-shell-stitch .crm-sidebar nav .nav-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.crm-shell-stitch .crm-sidebar nav a[aria-current="page"] .nav-icon,
+.crm-shell-stitch .crm-sidebar nav a:hover .nav-icon {
+  color: #c7d2fe;
+}
+
+.crm-shell-stitch .crm-sidebar nav .nav-label {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-pending {
   cursor: default;
-  opacity: 0.56;
+  opacity: 0.48;
 }
 
-.nav-pending small {
-  border: 1px solid rgb(148 163 184 / 0.2);
-  border-radius: 999px;
-  padding: 0.12rem 0.3rem;
-  color: #94a3b8;
+.crm-shell-stitch .crm-sidebar nav .nav-pending small {
+  margin-left: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: #718096;
   font-size: 0.5rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
@@ -2512,7 +2595,6 @@ body {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  margin-top: 1.1rem;
   border: 1px solid rgb(14 165 233 / 0.16);
   border-radius: 0.7rem;
   background: rgb(14 165 233 / 0.06);
@@ -2532,7 +2614,7 @@ body {
   grid-template-columns: 2rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 0.75rem;
+  margin-top: 0;
   border-top: 1px solid rgb(148 163 184 / 0.12);
   padding: 0.9rem 0.35rem 0;
 }
@@ -2544,15 +2626,100 @@ body {
   background: #1e293b;
 }
 
-.crm-shell-stitch .sidebar-footer button {
-  width: auto;
-  padding: 0.35rem;
+.crm-shell-stitch .sidebar-footer .sidebar-logout {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  padding: 0;
   color: #94a3b8;
   font-size: 0.65rem;
 }
 
-.crm-shell-stitch .sidebar-footer button:hover {
+.crm-shell-stitch .sidebar-footer .sidebar-logout:hover {
+  background: rgb(255 255 255 / 0.06);
   color: #fff;
+}
+
+.sidebar-logout svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.sidebar-collapsed .sidebar-brand-row {
+  display: grid;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.sidebar-collapsed .brand-copy,
+.sidebar-collapsed .workspace-copy,
+.sidebar-collapsed .workspace-chevron,
+.sidebar-collapsed .nav-group > p,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .nav-pending small,
+.sidebar-collapsed .environment-copy,
+.sidebar-collapsed .operator-copy {
+  display: none;
+}
+
+.sidebar-collapsed .workspace-chip,
+.sidebar-collapsed .crm-sidebar nav a,
+.sidebar-collapsed .crm-sidebar nav .nav-pending,
+.sidebar-collapsed .sidebar-environment,
+.sidebar-collapsed .sidebar-footer {
+  justify-content: center;
+}
+
+.sidebar-collapsed .workspace-chip {
+  display: flex;
+  padding: 0.45rem;
+}
+
+.sidebar-collapsed .crm-sidebar nav {
+  gap: 0.55rem;
+  overflow-y: auto;
+  padding-right: 0;
+}
+
+.sidebar-collapsed .nav-group {
+  gap: 0.12rem;
+  border-top: 1px solid rgb(148 163 184 / 0.08);
+  padding-top: 0.55rem;
+}
+
+.sidebar-collapsed .nav-group:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.sidebar-collapsed .crm-sidebar nav a,
+.sidebar-collapsed .crm-sidebar nav .nav-pending {
+  width: 2.55rem;
+  min-height: 2.45rem;
+  margin-inline: auto;
+  padding: 0;
+}
+
+.sidebar-collapsed .crm-sidebar nav a[aria-current="page"] {
+  box-shadow: inset 2px 0 #818cf8;
+}
+
+.sidebar-collapsed .sidebar-environment {
+  padding: 0.7rem;
+}
+
+.sidebar-collapsed .crm-shell-stitch .sidebar-footer,
+.sidebar-collapsed .sidebar-footer {
+  grid-template-columns: 2rem;
+  padding-inline: 0;
+}
+
+.sidebar-collapsed .sidebar-footer .sidebar-logout {
+  display: none;
 }
 
 .crm-shell-stitch .crm-content,
@@ -2995,32 +3162,42 @@ body {
 
 @media (max-width: 900px) {
   .crm-shell-stitch {
+    --sidebar-width: 1fr;
     grid-template-columns: 1fr;
   }
 
   .crm-shell-stitch .crm-sidebar {
     position: relative;
+    display: block;
     height: auto;
     min-height: auto;
+    overflow: visible;
     padding: 0.8rem 1rem;
   }
 
-  .crm-shell-stitch .brand {
-    padding-bottom: 0.7rem;
+  .sidebar-brand-row {
+    margin-bottom: 0.65rem;
   }
 
   .workspace-chip,
   .sidebar-environment,
   .crm-shell-stitch .sidebar-footer,
+  .sidebar-collapse,
   .nav-group > p,
   .nav-pending {
     display: none !important;
+  }
+
+  .sidebar-collapsed .brand-copy,
+  .sidebar-collapsed .nav-label {
+    display: flex;
   }
 
   .crm-shell-stitch .crm-sidebar nav {
     display: flex;
     gap: 0.35rem;
     overflow-x: auto;
+    overflow-y: hidden;
     padding-bottom: 0.2rem;
   }
 
@@ -3032,6 +3209,9 @@ body {
     display: flex;
     flex: 0 0 auto;
     min-height: 2.1rem;
+    width: auto;
+    margin-inline: 0;
+    padding: 0.42rem 0.6rem;
   }
 
   .crm-shell-stitch .inbox-content {
