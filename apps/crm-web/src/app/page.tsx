@@ -1,5 +1,5 @@
-import { MembersPanel } from "./members-panel";
+import { CrmDashboard } from "./crm-dashboard";
 
 export default function CrmHomePage() {
-  return <MembersPanel />;
+  return <CrmDashboard />;
 }

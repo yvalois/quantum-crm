@@ -9,6 +9,8 @@ import {
 } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { CrmShell } from "./crm-shell";
+
 interface MemberListPayload {
   readonly data: Member[];
 }
@@ -408,50 +410,8 @@ export function MembersPanel(): React.JSX.Element {
     setNotice(null);
   };
 
-  const logout = async (): Promise<void> => {
-    if (!csrfToken) return;
-    setError(null);
-    try {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        cache: "no-store",
-        credentials: "same-origin",
-        headers: { "x-csrf-token": csrfToken },
-        redirect: "manual",
-      });
-      if (!response.ok) throw new Error(await responseMessage(response));
-      window.location.assign(response.headers.get("location") ?? "/");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No fue posible cerrar la sesión.");
-    }
-  };
-
   return (
-    <main className="crm-shell">
-      <aside className="crm-sidebar" aria-label="Navegación principal">
-        <a className="brand" href="/">
-          <span className="brand-mark" aria-hidden="true">
-            Q
-          </span>
-          <span>Quantum</span>
-        </a>
-        <nav>
-          <a href="/" aria-current="page">
-            Equipo
-          </a>
-          <a href="/contacts">Contactos</a>
-          <a href="/pipeline">Pipeline</a>
-          <a href="/tasks">Tareas</a>
-          <a href="/inbox">Conversaciones</a>
-          <a href="/tasks">Tareas</a>
-        </nav>
-        <div className="sidebar-footer">
-          <button type="button" onClick={() => void logout()} disabled={!csrfToken}>
-            Cerrar sesión
-          </button>
-        </div>
-      </aside>
-
+    <CrmShell>
       <section className="crm-content" aria-busy={loading}>
         <header className="page-header">
           <div>
@@ -789,6 +749,6 @@ export function MembersPanel(): React.JSX.Element {
           </section>
         ) : null}
       </section>
-    </main>
+    </CrmShell>
   );
 }

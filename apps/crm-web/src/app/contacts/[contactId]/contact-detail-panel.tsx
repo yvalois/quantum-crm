@@ -3,6 +3,8 @@
 import type { Contact, Opportunity, Task } from "@quantum-crm/contracts";
 import { useEffect, useState } from "react";
 
+import { CrmShell } from "../../crm-shell";
+
 interface ContactPayload {
   readonly data: Contact;
 }
@@ -78,25 +80,7 @@ export function ContactDetailPanel({
   }, [contactId]);
 
   return (
-    <main className="crm-shell">
-      <aside className="crm-sidebar" aria-label="Navegación principal">
-        <a className="brand" href="/">
-          <span className="brand-mark" aria-hidden="true">
-            Q
-          </span>
-          <span>Quantum</span>
-        </a>
-        <nav>
-          <a href="/">Equipo</a>
-          <a href="/contacts" aria-current="page">
-            Contactos
-          </a>
-          <a href="/pipeline">Pipeline</a>
-          <a href="/tasks">Tareas</a>
-          <a href="/inbox">Conversaciones</a>
-          <a href="/tasks">Tareas</a>
-        </nav>
-      </aside>
+    <CrmShell>
       <section className="crm-content" aria-busy={loading}>
         <header className="page-header">
           <div>
@@ -228,6 +212,6 @@ export function ContactDetailPanel({
           </div>
         ) : null}
       </section>
-    </main>
+    </CrmShell>
   );
 }

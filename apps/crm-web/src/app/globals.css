@@ -2294,3 +2294,776 @@ button:disabled {
     border-right: 0;
   }
 }
+
+/* PROY-025 — Quantum Precision, referencia visual aprobada en Stitch. */
+:root {
+  --quantum-primary: #4f46e5;
+  --quantum-primary-dark: #3730a3;
+  --quantum-night: #0b132b;
+  --quantum-night-soft: #111c3a;
+  --quantum-cyan: #0ea5e9;
+  --quantum-surface: #ffffff;
+  --quantum-canvas: #f8fafc;
+  --quantum-line: #e2e8f0;
+  --quantum-muted: #64748b;
+  --quantum-ink: #0f172a;
+  color-scheme: light;
+  background: var(--quantum-canvas);
+  color: var(--quantum-ink);
+  font-family:
+    "Instrument Sans",
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+body {
+  background: var(--quantum-canvas);
+}
+
+.crm-shell-stitch {
+  grid-template-columns: 17rem minmax(0, 1fr);
+  background: var(--quantum-canvas);
+}
+
+.crm-shell-stitch .crm-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 100vh;
+  min-height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid rgb(148 163 184 / 0.12);
+  background: var(--quantum-night);
+  padding: 1.25rem 1rem 1rem;
+  color: #e2e8f0;
+}
+
+.crm-shell-stitch .brand {
+  gap: 0.7rem;
+  padding: 0.25rem 0.45rem 1.15rem;
+}
+
+.crm-shell-stitch .brand-mark {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid rgb(255 255 255 / 0.24);
+  border-radius: 0.6rem;
+  background: var(--quantum-primary);
+  box-shadow: 0 0.65rem 1.7rem rgb(79 70 229 / 0.38);
+  font-size: 1rem;
+  letter-spacing: -0.04em;
+}
+
+.brand-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 0.42rem;
+}
+
+.brand-copy strong {
+  font-size: 1.08rem;
+  letter-spacing: -0.035em;
+}
+
+.brand-copy small {
+  color: #818cf8;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.workspace-chip {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0.25rem 0 1.2rem;
+  border: 1px solid rgb(148 163 184 / 0.15);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.045);
+  padding: 0.65rem;
+}
+
+.workspace-avatar,
+.operator-avatar {
+  display: grid;
+  place-items: center;
+  border-radius: 0.55rem;
+  background: #312e81;
+  color: #c7d2fe;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.workspace-avatar {
+  width: 2rem;
+  height: 2rem;
+}
+
+.workspace-chip > span:nth-child(2),
+.sidebar-environment > span:last-child,
+.operator-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.08rem;
+}
+
+.workspace-chip strong,
+.sidebar-environment strong,
+.operator-copy strong {
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-chip small,
+.sidebar-environment small,
+.operator-copy small {
+  color: #94a3b8;
+  font-size: 0.64rem;
+}
+
+.workspace-chevron {
+  color: #64748b;
+}
+
+.crm-shell-stitch .crm-sidebar nav {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0;
+}
+
+.nav-group {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.nav-group > p {
+  margin: 0 0 0.35rem;
+  padding: 0 0.7rem;
+  color: #64748b;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.57rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.crm-shell-stitch .crm-sidebar nav a,
+.crm-shell-stitch .crm-sidebar nav .nav-pending {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.3rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #aebbd0;
+  padding: 0.48rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.crm-shell-stitch .crm-sidebar nav a:hover {
+  background: rgb(255 255 255 / 0.06);
+  color: #fff;
+}
+
+.crm-shell-stitch .crm-sidebar nav a[aria-current="page"] {
+  background: var(--quantum-primary);
+  color: #fff;
+  box-shadow: 0 0.55rem 1.35rem rgb(49 46 129 / 0.32);
+}
+
+.nav-icon {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.94rem;
+}
+
+.nav-pending {
+  cursor: default;
+  opacity: 0.56;
+}
+
+.nav-pending small {
+  border: 1px solid rgb(148 163 184 / 0.2);
+  border-radius: 999px;
+  padding: 0.12rem 0.3rem;
+  color: #94a3b8;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sidebar-environment {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 1.1rem;
+  border: 1px solid rgb(14 165 233 / 0.16);
+  border-radius: 0.7rem;
+  background: rgb(14 165 233 / 0.06);
+  padding: 0.65rem 0.75rem;
+}
+
+.sidebar-environment .pulse-dot {
+  flex: 0 0 auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  background: #22c55e;
+  box-shadow: 0 0 0 0.25rem rgb(34 197 94 / 0.12);
+}
+
+.crm-shell-stitch .sidebar-footer {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid rgb(148 163 184 / 0.12);
+  padding: 0.9rem 0.35rem 0;
+}
+
+.operator-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: #1e293b;
+}
+
+.crm-shell-stitch .sidebar-footer button {
+  width: auto;
+  padding: 0.35rem;
+  color: #94a3b8;
+  font-size: 0.65rem;
+}
+
+.crm-shell-stitch .sidebar-footer button:hover {
+  color: #fff;
+}
+
+.crm-shell-stitch .crm-content,
+.crm-shell-stitch .board-content,
+.crm-shell-stitch .inbox-content {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 2rem clamp(1.25rem, 3vw, 3rem) 4rem;
+}
+
+.crm-shell-stitch .inbox-content {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.crm-shell-stitch .page-header,
+.crm-shell-stitch .board-header,
+.crm-shell-stitch .inbox-header,
+.stitch-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.crm-shell-stitch .page-header h1,
+.crm-shell-stitch .board-header h1,
+.crm-shell-stitch .inbox-header h1,
+.stitch-page-header h1 {
+  margin: 0.2rem 0 0.35rem;
+  color: var(--quantum-ink);
+  font-size: clamp(1.85rem, 3vw, 2.55rem);
+  font-weight: 760;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.crm-shell-stitch .page-header p:last-child,
+.crm-shell-stitch .board-header p:last-child,
+.crm-shell-stitch .inbox-header p:last-child,
+.stitch-page-header p:last-child {
+  margin: 0;
+  color: var(--quantum-muted);
+  font-size: 0.88rem;
+}
+
+.crm-shell-stitch .eyebrow {
+  color: var(--quantum-primary);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.63rem;
+  letter-spacing: 0.12em;
+}
+
+.crm-shell-stitch .primary-action,
+.crm-shell-stitch .drawer-submit,
+.crm-shell-stitch .board-header-actions .primary-action,
+.crm-shell-stitch .filter-submit .primary-action {
+  border-color: var(--quantum-primary);
+  border-radius: 0.55rem;
+  background: var(--quantum-primary);
+  box-shadow: 0 0.45rem 1rem rgb(79 70 229 / 0.18);
+}
+
+.crm-shell-stitch .primary-action:hover,
+.crm-shell-stitch .drawer-submit:hover {
+  background: var(--quantum-primary-dark);
+}
+
+.crm-shell-stitch .secondary-action,
+.crm-shell-stitch .member-actions button,
+.crm-shell-stitch .text-action {
+  border-color: var(--quantum-line);
+  border-radius: 0.55rem;
+  color: #334155;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.crm-shell-stitch .member-card,
+.crm-shell-stitch .sales-overview,
+.crm-shell-stitch .board-filters,
+.crm-shell-stitch .inbox-grid,
+.dashboard-card,
+.dashboard-metrics article {
+  border: 1px solid var(--quantum-line);
+  border-radius: 0.85rem;
+  background: var(--quantum-surface);
+  box-shadow: 0 0.55rem 1.8rem rgb(15 23 42 / 0.045);
+}
+
+.crm-shell-stitch input,
+.crm-shell-stitch select,
+.crm-shell-stitch textarea {
+  border-color: #cbd5e1;
+  border-radius: 0.5rem;
+}
+
+.crm-shell-stitch input:focus,
+.crm-shell-stitch select:focus,
+.crm-shell-stitch textarea:focus,
+.crm-shell-stitch button:focus-visible,
+.crm-shell-stitch a:focus-visible {
+  outline: 3px solid rgb(99 102 241 / 0.35);
+  outline-offset: 2px;
+}
+
+.crm-shell-stitch .board-view-switch button[aria-pressed="true"] {
+  color: var(--quantum-primary-dark);
+}
+
+.crm-shell-stitch .pipeline-column::before,
+.crm-shell-stitch .task-card::before {
+  background: var(--quantum-primary);
+}
+
+.stitch-page-header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  padding: 0.45rem 0.65rem;
+  color: #1e40af;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.live-indicator > span {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-metrics article {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.metric-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.metric-icon-indigo {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.metric-icon-cyan {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.metric-icon-amber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.metric-icon-emerald {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.dashboard-metrics article > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.16rem;
+}
+
+.dashboard-metrics p {
+  margin: 0;
+  color: var(--quantum-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.dashboard-metrics strong {
+  overflow: hidden;
+  color: var(--quantum-ink);
+  font-size: 1.25rem;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-metrics small {
+  color: #94a3b8;
+  font-size: 0.63rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 0.8fr);
+  gap: 1rem;
+}
+
+.dashboard-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dashboard-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #eef2f7;
+  padding: 1rem 1.1rem;
+}
+
+.dashboard-card-heading h2 {
+  margin: 0.18rem 0 0;
+  color: var(--quantum-ink);
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+
+.dashboard-card-heading a {
+  color: var(--quantum-primary);
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.dashboard-deals {
+  display: grid;
+}
+
+.dashboard-deals > a {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.8rem 1.1rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.dashboard-deals > a:last-child {
+  border-bottom: 0;
+}
+
+.dashboard-deals > a:hover {
+  background: #f8fafc;
+}
+
+.deal-avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.dashboard-deals > a > span:nth-child(2),
+.dashboard-task-list li > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.dashboard-deals strong,
+.dashboard-task-list strong {
+  color: #1e293b;
+  font-size: 0.74rem;
+}
+
+.dashboard-deals small,
+.dashboard-task-list small {
+  color: #94a3b8;
+  font-size: 0.63rem;
+}
+
+.dashboard-deals > a > strong {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.dashboard-task-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-task-list li {
+  display: grid;
+  grid-template-columns: 0.55rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.8rem 1.1rem;
+}
+
+.task-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.task-dot.priority-high {
+  background: #ef4444;
+}
+
+.task-dot.priority-medium {
+  background: #f59e0b;
+}
+
+.task-dot.priority-low {
+  background: #0ea5e9;
+}
+
+.dashboard-empty {
+  display: grid;
+  place-items: center;
+  gap: 0.35rem;
+  min-height: 12rem;
+  padding: 1.5rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.dashboard-empty.compact {
+  min-height: 10rem;
+}
+
+.dashboard-empty > span {
+  font-size: 1.4rem;
+}
+
+.dashboard-empty p {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.dashboard-empty a {
+  color: var(--quantum-primary);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.channel-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  padding: 1.1rem;
+}
+
+.channel-overview > div {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid #eef2f7;
+  border-radius: 0.7rem;
+  background: #f8fafc;
+  padding: 0.8rem;
+}
+
+.channel-overview span,
+.channel-overview small {
+  color: var(--quantum-muted);
+  font-size: 0.64rem;
+}
+
+.channel-overview strong {
+  color: var(--quantum-ink);
+  font-size: 1.25rem;
+}
+
+.dashboard-quick-actions {
+  align-self: start;
+}
+
+.dashboard-quick-actions > a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.8rem 1.1rem;
+  color: #334155;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.dashboard-quick-actions > a:hover {
+  background: #f8fafc;
+  color: var(--quantum-primary);
+}
+
+.dashboard-quick-actions > a span {
+  display: grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  place-items: center;
+  border-radius: 0.4rem;
+  background: #eef2ff;
+  color: var(--quantum-primary);
+}
+
+@media (max-width: 1180px) {
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .crm-shell-stitch {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-shell-stitch .crm-sidebar {
+    position: relative;
+    height: auto;
+    min-height: auto;
+    padding: 0.8rem 1rem;
+  }
+
+  .crm-shell-stitch .brand {
+    padding-bottom: 0.7rem;
+  }
+
+  .workspace-chip,
+  .sidebar-environment,
+  .crm-shell-stitch .sidebar-footer,
+  .nav-group > p,
+  .nav-pending {
+    display: none !important;
+  }
+
+  .crm-shell-stitch .crm-sidebar nav {
+    display: flex;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+  }
+
+  .nav-group {
+    display: contents;
+  }
+
+  .crm-shell-stitch .crm-sidebar nav a {
+    display: flex;
+    flex: 0 0 auto;
+    min-height: 2.1rem;
+  }
+
+  .crm-shell-stitch .inbox-content {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 640px) {
+  .crm-shell-stitch .crm-content,
+  .crm-shell-stitch .board-content,
+  .crm-shell-stitch .inbox-content {
+    padding: 1.25rem 0.85rem 3rem;
+  }
+
+  .stitch-page-header,
+  .crm-shell-stitch .page-header,
+  .crm-shell-stitch .board-header,
+  .crm-shell-stitch .inbox-header {
+    flex-direction: column;
+  }
+
+  .dashboard-metrics,
+  .channel-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-deals > a {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .dashboard-deals > a > strong {
+    grid-column: 2;
+  }
+}
