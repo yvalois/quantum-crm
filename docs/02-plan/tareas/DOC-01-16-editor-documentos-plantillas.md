@@ -63,12 +63,13 @@ Un usuario autorizado puede abrir Documentos desde el shell del CRM, crear o edi
 
 ## Plan de implementacion
 
-- [ ] Definir contratos y permisos documentales.
-- [ ] Implementar agregado y servicio de aplicacion con versiones inmutables de contenido.
-- [ ] Crear migracion y repositorio PostgreSQL propietario.
-- [ ] Exponer API, BFF y pruebas de fronteras.
-- [ ] Implementar biblioteca y editor visual conectado a datos reales.
-- [ ] Validar una vez el candidato exacto en el VPS y registrar evidencia.
+- [x] Definir contratos y permisos documentales.
+- [x] Implementar agregado y servicio de aplicacion con versiones inmutables de contenido.
+- [x] Crear migracion y repositorio PostgreSQL propietario.
+- [x] Exponer API y BFF con schemas runtime, permisos e idempotencia.
+- [x] Implementar biblioteca y editor visual conectado a datos reales.
+- [x] Validar una vez el candidato exacto en el VPS y registrar evidencia.
+- [ ] Completar el recorrido HTTP/BFF autenticado despues del despliegue por digest.
 
 ## Riesgos y mitigaciones
 
@@ -108,8 +109,8 @@ Un usuario autorizado puede abrir Documentos desde el shell del CRM, crear o edi
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: ninguna al iniciar.
+- Archivos, commits o PR: candidato `129f11e` en `feat/DOC-01-document-editor`; 26 archivos de contratos, dominio, persistencia, API/BFF, interfaz, migracion y documentacion.
+- Comandos y resultados: en el VPS aprobaron Prettier del repositorio, ESLint afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, 9 pruebas afectadas y builds de las imagenes `api`, `crm-web` y `crm-migrator`. PostgreSQL 18.1 aplico desde cero las 16 migraciones y verifico las cinco tablas, indices, claves y permisos de `documents`; el entorno aislado fue eliminado al terminar.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`; el checklist canonico permanece abierto hasta el recorrido autenticado y el cierre completo de cada requisito.
+- Desviaciones del plan: el smoke HTTP/BFF autenticado queda para el despliegue del digest integrado; no se presenta esta rebanada como cierre total de `DOC-01` a `DOC-16`.
 - Pendientes o decisiones nuevas: PDF, envio, aceptacion, facturacion, pagos, catalogo y archivos conservan sus requisitos propios.
