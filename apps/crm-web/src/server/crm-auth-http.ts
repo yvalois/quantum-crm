@@ -1597,9 +1597,10 @@ export async function handleCrmCallback(
     secure: runtime.config.secureCookies,
   });
   if (!transactionHandle) {
-    const response = crmProblem(400, "Invalid authentication response");
-    response.headers.append("set-cookie", clearLogin);
-    return response;
+    return redirect(
+      new URL("/api/auth/login?returnTo=%2Finbox", runtime.config.origin).toString(),
+      clearLogin,
+    );
   }
   try {
     const received = new URL(request.url);
