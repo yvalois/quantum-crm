@@ -102,8 +102,8 @@ Las rutas funcionales de `crm-web` usan de forma consistente el sistema visual *
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: implementacion base `909662b`, integrada en `main` mediante PR #74; refinamiento del sidebar en el candidato `2395632` de la rama `feat/CAL-01-18-calendar-booking` (PR #75). Afecta `crm-shell.tsx` y `globals.css` sin cambiar rutas, contratos ni handlers.
+- Archivos, commits o PR: implementacion base `909662b`, integrada en `main` mediante PR #74; refinamiento del sidebar en el candidato `2395632` de la rama `feat/CAL-01-18-calendar-booking` (PR #76). Afecta `crm-shell.tsx` y `globals.css` sin cambiar rutas, contratos ni handlers.
 - Comandos y resultados: la implementacion base aprobo Prettier, ESLint, tipos y build en el VPS, se desplego por el digest `sha256:67f2b5d3e19ed4a862c415db1b345677d546bb9a0975457b3d3ac0cc36b5992f` y quedo saludable. El refinamiento `2395632` aprobo en el VPS Prettier, ESLint y typecheck de `crm-web`, ademas del build de `crm-web` con sus dependencias. La correccion elimina los controles visuales duplicados causados por estilos heredados, usa iconos SVG consistentes, reduce la densidad de estados pendientes y permite contraer la navegacion en escritorio manteniendo la variante horizontal movil.
 - Documentacion actualizada: esta ficha, `docs/04-proceso/estado.md` y `docs/08-arquitectura/frontends-experiencia-visual.md`.
 - Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: acreditar los checks del refinamiento en PR #75 y desplegarlo tras su integracion.
+- Pendientes o decisiones nuevas: acreditar los checks del refinamiento en PR #76 y desplegarlo tras su integracion.
