@@ -125,3 +125,9 @@ Las capas finales Alpine eliminan `apk-tools` y su dependencia `zlib` despues de
 - [ ] Publicar un candidato nuevo; no modificar el digest defectuoso ni presentar la release anterior como desplegable.
 
 Evidencia parcial: el commit `b37ad2e` produjo en el VPS `qcrm-candidate/crm-migrator:b37ad2e` con manifiesto local `sha256:401cb722369895962065af0285f2f4d1ddd3f35e6a43c9825028798ee7c95166`. El runtime resolvio el schema engine, conservo `openssl`, `libssl3` y `libcrypto3`, no conservo `apk` ni `zlib`, y aplico correctamente las 13 migraciones CRM sobre la base aislada de `quantum-demo`. Prettier y ESLint del archivo afectado y las 15 pruebas de arquitectura aprobaron en el VPS. Quedan PR, CI, release inmutable nueva y reanudacion controlada del aprovisionamiento.
+
+## Actualizacion de seguridad Keycloak — 2026-10-01
+
+- La release `d170345` publico correctamente `crm-web`, pero su puerta global rechazo `PLATFORM_KEYCLOAK` por `GHSA-cxp5-3px4-pw24` y `GHSA-wv8q-qhhj-9h54` en `jackson-databind 2.21.6`.
+- Se actualiza exclusivamente el override de seguridad a `2.21.7` y su prueba arquitectonica. La release rechazada no se despliega ni se registra como validada.
+- Evidencia VPS del candidato `03e166e`: 15/15 pruebas de arquitectura aprobadas, imagen Keycloak construida con manifiesto local `sha256:5a6f0ae175a24a91b28b871d78e087d6a43d9ac3d26c96da93c7f4f45a126d63` y Grype 0.119.0 aprobado con cero hallazgos altos o criticos. El primer intento de escaneo agoto el `tmpfs`; se repitio solo ese paso usando almacenamiento temporal persistente, sin modificar datos ni contenedores activos.
