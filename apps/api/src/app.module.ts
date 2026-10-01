@@ -15,6 +15,7 @@ import {
   SalesService,
   TaskService,
   AutomationService,
+  CalendarService,
 } from "@quantum-crm/domain";
 
 import {
@@ -40,6 +41,7 @@ import { AcceptMemberInvitationController } from "./accept-member-invitation.con
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
 import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
+import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
 
 @Module({})
 export class AppModule {
@@ -64,6 +66,7 @@ export class AppModule {
         AcceptMemberInvitationController,
         AutomationsController,
         ConversationsController,
+        CalendarController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -126,6 +129,18 @@ export class AppModule {
             new ConversationService(database.commercial.conversations, {
               contactExistsFor: async (actor, contactId) =>
                 (await database.commercial.contacts.find(actor, contactId)) !== null,
+              isActiveMember: async (memberId) =>
+                (await database.members.findById(memberId))?.status === "ACTIVE",
+            }),
+        },
+        {
+          provide: CALENDAR_SERVICE,
+          useFactory: () =>
+            new CalendarService(database.commercial.calendar, {
+              contactExistsFor: async (actor, contactId) =>
+                (await database.commercial.contacts.find(actor, contactId)) !== null,
+              opportunityExistsFor: async (actor, opportunityId) =>
+                (await database.commercial.sales.findOpportunity(actor, opportunityId)) !== null,
               isActiveMember: async (memberId) =>
                 (await database.members.findById(memberId))?.status === "ACTIVE",
             }),

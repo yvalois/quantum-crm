@@ -71,6 +71,24 @@ import {
   QuickReplyResponseSchema,
   SendConversationMessageSchema,
   UpdateConversationSchema,
+  CalendarAvailabilityQuerySchema,
+  CalendarAvailabilityResponseSchema,
+  CalendarConfigurationResponseSchema,
+  CalendarEventHistoryListResponseSchema,
+  CalendarEventListQuerySchema,
+  CalendarEventListResponseSchema,
+  CalendarEventResponseSchema,
+  CalendarListResponseSchema,
+  CalendarResponseSchema,
+  CreateCalendarEventSchema,
+  CreateCalendarSchema,
+  PublicCalendarAvailabilityQuerySchema,
+  PublicCalendarAvailabilityResponseSchema,
+  PublicCalendarBookingSchema,
+  ReplaceCalendarAvailabilitySchema,
+  UpdateCalendarEventSchema,
+  UpdateCalendarEventStatusSchema,
+  UpdateCalendarSchema,
 } from "@quantum-crm/contracts";
 
 const maximumResponseBytes = 1_048_576;
@@ -889,6 +907,274 @@ export async function handleCrmTaskHistory(
     return commercialResponse(upstream, TaskHistoryListResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+function appendParsedQuery(target: URL, data: Readonly<Record<string, unknown>>): void {
+  for (const [name, value] of Object.entries(data)) {
+    if (value !== undefined) target.searchParams.set(name, String(value));
+  }
+}
+
+async function calendarRead(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  target: URL,
+  schema: { parse(input: unknown): unknown },
+): Promise<Response> {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(target, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+        "x-correlation-id": authorized.correlationId,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return commercialResponse(upstream, schema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+async function calendarMutation(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  input: {
+    readonly path: string;
+    readonly method: "POST" | "PATCH" | "PUT";
+    readonly requestSchema: {
+      safeParse(value: unknown): { success: true; data: unknown } | { success: false };
+    };
+    readonly responseSchema: { parse(input: unknown): unknown };
+    readonly requireVersion?: boolean;
+  },
+): Promise<Response> {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  const ifMatch = request.headers.get("if-match");
+  if (
+    !idempotencyKey ||
+    !idempotencyKeyPattern.test(idempotencyKey) ||
+    (input.requireVersion === true && !ifMatch)
+  )
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const payload = input.requestSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const headers = memberMutationHeaders(authorized, idempotencyKey);
+    if (ifMatch) headers.set("if-match", ifMatch);
+    const upstream = await runtime.crmApiFetch(new URL(input.path, runtime.config.crmApiOrigin), {
+      method: input.method,
+      headers,
+      body: JSON.stringify(payload.data),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return commercialResponse(upstream, input.responseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+}
+
+export async function handleCrmCalendarList(request: Request, runtime: CrmAuthRuntime) {
+  return calendarRead(
+    request,
+    runtime,
+    new URL("/api/v1/calendar/calendars", runtime.config.crmApiOrigin),
+    CalendarListResponseSchema,
+  );
+}
+
+export async function handleCrmCalendarCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, {
+    path: "/api/v1/calendar/calendars",
+    method: "POST",
+    requestSchema: CreateCalendarSchema,
+    responseSchema: CalendarResponseSchema,
+  });
+}
+
+export async function handleCrmCalendarConfiguration(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  calendarId: string,
+) {
+  if (!uuidPattern.test(calendarId)) return crmProblem(400, "Invalid request");
+  return calendarRead(
+    request,
+    runtime,
+    new URL(`/api/v1/calendar/calendars/${calendarId}`, runtime.config.crmApiOrigin),
+    CalendarConfigurationResponseSchema,
+  );
+}
+
+export async function handleCrmCalendarUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  calendarId: string,
+) {
+  if (!uuidPattern.test(calendarId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/calendar/calendars/${calendarId}`,
+    method: "PATCH",
+    requestSchema: UpdateCalendarSchema,
+    responseSchema: CalendarResponseSchema,
+    requireVersion: true,
+  });
+}
+
+export async function handleCrmCalendarAvailabilityReplace(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  calendarId: string,
+) {
+  if (!uuidPattern.test(calendarId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/calendar/calendars/${calendarId}/availability`,
+    method: "PUT",
+    requestSchema: ReplaceCalendarAvailabilitySchema,
+    responseSchema: CalendarConfigurationResponseSchema,
+  });
+}
+
+export async function handleCrmCalendarAvailability(request: Request, runtime: CrmAuthRuntime) {
+  const parsed = CalendarAvailabilityQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const target = new URL("/api/v1/calendar/availability", runtime.config.crmApiOrigin);
+  appendParsedQuery(target, parsed.data);
+  return calendarRead(request, runtime, target, CalendarAvailabilityResponseSchema);
+}
+
+export async function handleCrmCalendarEventList(request: Request, runtime: CrmAuthRuntime) {
+  const parsed = CalendarEventListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const target = new URL("/api/v1/calendar/events", runtime.config.crmApiOrigin);
+  appendParsedQuery(target, parsed.data);
+  return calendarRead(request, runtime, target, CalendarEventListResponseSchema);
+}
+
+export async function handleCrmCalendarEventCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, {
+    path: "/api/v1/calendar/events",
+    method: "POST",
+    requestSchema: CreateCalendarEventSchema,
+    responseSchema: CalendarEventResponseSchema,
+  });
+}
+
+export async function handleCrmCalendarEventUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  eventId: string,
+) {
+  if (!uuidPattern.test(eventId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/calendar/events/${eventId}`,
+    method: "PATCH",
+    requestSchema: UpdateCalendarEventSchema,
+    responseSchema: CalendarEventResponseSchema,
+    requireVersion: true,
+  });
+}
+
+export async function handleCrmCalendarEventStatus(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  eventId: string,
+) {
+  if (!uuidPattern.test(eventId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/calendar/events/${eventId}/status`,
+    method: "PATCH",
+    requestSchema: UpdateCalendarEventStatusSchema,
+    responseSchema: CalendarEventResponseSchema,
+    requireVersion: true,
+  });
+}
+
+export async function handleCrmCalendarEventHistory(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  eventId: string,
+) {
+  if (!uuidPattern.test(eventId)) return crmProblem(400, "Invalid request");
+  return calendarRead(
+    request,
+    runtime,
+    new URL(`/api/v1/calendar/events/${eventId}/history`, runtime.config.crmApiOrigin),
+    CalendarEventHistoryListResponseSchema,
+  );
+}
+
+export async function handlePublicCalendarAvailability(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  slug: string,
+) {
+  const parsed = PublicCalendarAvailabilityQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const target = new URL(`/api/v1/calendar/public/${slug}`, runtime.config.crmApiOrigin);
+  appendParsedQuery(target, parsed.data);
+  try {
+    const upstream = await runtime.crmApiFetch(target, {
+      headers: { accept: "application/json", "x-correlation-id": crypto.randomUUID() },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return commercialResponse(upstream, PublicCalendarAvailabilityResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handlePublicCalendarBooking(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  slug: string,
+) {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (
+    !validateRequestOrigin(runtime.config.origin, request.headers.get("origin")) ||
+    !idempotencyKey ||
+    !idempotencyKeyPattern.test(idempotencyKey)
+  )
+    return crmProblem(403, "Request rejected");
+  try {
+    const payload = PublicCalendarBookingSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/calendar/public/${slug}`, runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey,
+          "x-correlation-id": crypto.randomUUID(),
+        },
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, CalendarEventResponseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
   }
 }
 
