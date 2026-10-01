@@ -9,6 +9,8 @@ import type {
 } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { CrmShell } from "../crm-shell";
+
 interface SessionPayload {
   readonly authenticated: boolean;
   readonly csrfToken?: string;
@@ -253,31 +255,7 @@ export default function InboxPage(): React.JSX.Element {
   const selectedContact = selected ? contactById.get(selected.contactId) : undefined;
 
   return (
-    <main className="crm-shell crm-shell-board inbox-shell">
-      <aside className="crm-sidebar" aria-label="Navegación principal">
-        <a className="brand" href="/">
-          <span className="brand-mark">Q</span>
-          <span>Quantum</span>
-        </a>
-        <p className="sidebar-caption">Espacio comercial</p>
-        <nav>
-          <a href="/">Equipo</a>
-          <a href="/contacts">Contactos</a>
-          <a href="/pipeline">Pipeline</a>
-          <a href="/tasks">Tareas</a>
-          <a href="/inbox" aria-current="page">
-            Conversaciones
-          </a>
-        </nav>
-        <div className="sidebar-pulse">
-          <span className="pulse-dot" />
-          <div>
-            <strong>Bandeja conectada</strong>
-            <small>Persistencia activa</small>
-          </div>
-        </div>
-      </aside>
-
+    <CrmShell className="crm-shell-board inbox-shell">
       <section className="crm-content inbox-content" aria-busy={loading}>
         <header className="inbox-header">
           <div>
@@ -618,6 +596,6 @@ export default function InboxPage(): React.JSX.Element {
           </section>
         </div>
       ) : null}
-    </main>
+    </CrmShell>
   );
 }

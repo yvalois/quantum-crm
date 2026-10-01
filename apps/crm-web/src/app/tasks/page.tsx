@@ -11,6 +11,8 @@ import type {
 } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { CrmShell } from "../crm-shell";
+
 interface SessionPayload {
   readonly authenticated: boolean;
   readonly csrfToken?: string;
@@ -384,33 +386,7 @@ export default function TasksPage(): React.JSX.Element {
   }
 
   return (
-    <main className="crm-shell crm-shell-board task-shell">
-      <aside className="crm-sidebar" aria-label="Navegación principal">
-        <a className="brand" href="/">
-          <span className="brand-mark" aria-hidden="true">
-            Q
-          </span>
-          <span>Quantum</span>
-        </a>
-        <p className="sidebar-caption">Espacio comercial</p>
-        <nav>
-          <a href="/">Equipo</a>
-          <a href="/contacts">Contactos</a>
-          <a href="/pipeline">Pipeline</a>
-          <a href="/tasks" aria-current="page">
-            Tareas
-          </a>
-          <a href="/inbox">Conversaciones</a>
-        </nav>
-        <div className="sidebar-pulse">
-          <span className="pulse-dot" aria-hidden="true" />
-          <div>
-            <strong>Seguimiento activo</strong>
-            <small>Datos persistentes</small>
-          </div>
-        </div>
-      </aside>
-
+    <CrmShell className="crm-shell-board task-shell">
       <section className="crm-content board-content" aria-busy={loading}>
         <header className="board-header task-header">
           <div>
@@ -967,6 +943,6 @@ export default function TasksPage(): React.JSX.Element {
           </aside>
         </div>
       ) : null}
-    </main>
+    </CrmShell>
   );
 }

@@ -3,6 +3,8 @@
 import type { Automation, Contact, ContactImportPreviewRow } from "@quantum-crm/contracts";
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { CrmShell } from "../crm-shell";
+
 interface ContactListPayload {
   readonly data: Contact[];
 }
@@ -403,25 +405,7 @@ export function ContactsPanel(): React.JSX.Element {
   }
 
   return (
-    <main className="crm-shell">
-      <aside className="crm-sidebar" aria-label="Navegación principal">
-        <a className="brand" href="/">
-          <span className="brand-mark" aria-hidden="true">
-            Q
-          </span>
-          <span>Quantum</span>
-        </a>
-        <nav>
-          <a href="/">Equipo</a>
-          <a href="/contacts" aria-current="page">
-            Contactos
-          </a>
-          <a href="/pipeline">Pipeline</a>
-          <a href="/tasks">Tareas</a>
-          <a href="/inbox">Conversaciones</a>
-          <a href="/tasks">Tareas</a>
-        </nav>
-      </aside>
+    <CrmShell>
       <section className="crm-content" aria-busy={loading}>
         <header className="page-header">
           <div>
@@ -789,6 +773,6 @@ export function ContactsPanel(): React.JSX.Element {
           </aside>
         </div>
       </section>
-    </main>
+    </CrmShell>
   );
 }

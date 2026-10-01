@@ -1,8 +1,8 @@
 # Frontends y referencia visual
 
-- Estado: referencia visual aprobada para iniciar especificacion e implementacion
-- Ultima actualizacion: 2026-09-18
-- Trabajo relacionado: `PROY-020`
+- Estado: referencia aprobada; primera integracion funcional de `crm-web` desplegada
+- Ultima actualizacion: 2026-09-30
+- Trabajo relacionado: `PROY-020`, `PROY-025`
 - Decision: [ADR-0014](../06-decisiones/ADR-0014-arquitectura-frontends-sistema-visual.md)
 
 ## Proyecto visual
@@ -97,4 +97,6 @@ Pantallas complementarias:
 
 ## Estado de implementacion
 
-El proyecto de Stitch es un boceto visual aprobado. A fecha de este documento no existe aplicacion implementada en el repositorio y ninguna pantalla del lienzo puede marcar requisitos como terminados. El estado comprobable permanece en [estado.md](../04-proceso/estado.md).
+`crm-web` ya implementa el shell compartido Quantum Precision, un dashboard conectado a las APIs existentes y las rutas funcionales de conversaciones, contactos, oportunidades, tareas y equipo. La misma imagen candidata fue validada y desplegada en el perfil piloto; calendario, formularios, catalogo, documentos, automatizaciones, reportes, agente y configuracion permanecen identificados como proximos y no se presentan como terminados.
+
+`portal-web` y las pantallas restantes conservan a Stitch como referencia pendiente de implementacion. La existencia de una pantalla o su similitud visual no acredita por si sola un requisito funcional; el estado comprobable permanece en [estado.md](../04-proceso/estado.md).
