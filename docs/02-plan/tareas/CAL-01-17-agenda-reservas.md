@@ -63,10 +63,10 @@ Una empresa configura calendarios y disponibilidad por asesor, consulta horarios
 
 ## Plan de implementacion
 
-- [ ] Definir contratos y dominio del modulo calendario.
-- [ ] Crear migracion y repositorio con concurrencia, idempotencia, historial, recordatorios y outbox.
-- [ ] Integrar permisos, API, BFF y referencias a contactos, oportunidades y miembros.
-- [ ] Implementar agenda interna y reserva publica con el sistema visual aprobado.
+- [x] Definir contratos y dominio del modulo calendario.
+- [x] Crear migracion y repositorio con concurrencia, idempotencia, historial, recordatorios y outbox.
+- [x] Integrar permisos, API, BFF y referencias a contactos, oportunidades y miembros.
+- [x] Implementar agenda interna y reserva publica con el sistema visual aprobado.
 - [ ] Verificar el candidato en VPS, migrar el perfil sintetico y desplegar por digest.
 
 ## Riesgos y mitigaciones
@@ -81,12 +81,12 @@ Una empresa configura calendarios y disponibilidad por asesor, consulta horarios
 
 ## Criterios de aceptacion
 
-- [ ] Una empresa configura calendario, asesores, franjas, excepciones y separacion entre citas.
-- [ ] La agenda crea, filtra, reprograma, confirma, completa, cancela o marca inasistencia con historial.
-- [ ] Contactos y oportunidades se vinculan sin permitir referencias fuera del alcance.
-- [ ] Una reserva concurrente del mismo asesor y horario confirma una sola operacion.
-- [ ] Un enlace publico ofrece solo horarios vigentes y confirma la reserva de manera idempotente.
-- [ ] Creacion y cambios actualizan recordatorios durables y emiten eventos para integraciones posteriores.
+- [x] Una empresa configura calendario, asesores, franjas, excepciones y separacion entre citas.
+- [x] La agenda crea, filtra, reprograma, confirma, completa, cancela o marca inasistencia con historial.
+- [x] Contactos y oportunidades se vinculan sin permitir referencias fuera del alcance.
+- [x] Una reserva concurrente del mismo asesor y horario confirma una sola operacion.
+- [x] Un enlace publico ofrece solo horarios vigentes y confirma la reserva de manera idempotente.
+- [x] Creacion y cambios actualizan recordatorios durables y emiten eventos para integraciones posteriores.
 - [ ] El mismo candidato validado se despliega en el VPS y el PR termina con checks verdes.
 
 ## Plan de verificacion
@@ -107,8 +107,8 @@ Una empresa configura calendarios y disponibilidad por asesor, consulta horarios
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: pendiente.
-- Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: proveedor externo para `CAL-19` antes de cerrar la seccion completa.
+- Archivos, commits o PR: candidato funcional `c43f39a`; PR pendiente de publicacion.
+- Comandos y resultados: en el VPS, formato y lint afectados aprobados; typecheck de `contracts`, `domain`, `database`, `api` y `crm-web` aprobado; 7 pruebas unitarias aprobadas; builds de API y `crm-web` aprobados. La cadena completa de migraciones CRM se aplico sobre PostgreSQL 18 desechable y una carrera simultanea confirmo una sola reserva (`events=1`, `concurrent_overlap_rejected=true`).
+- Documentacion actualizada: ficha y estado; checklist final queda pendiente hasta desplegar el candidato.
+- Desviaciones del plan: la primera imagen PostgreSQL usada por el arnes desechable tenia un entrypoint de plataforma y se sustituyo por la imagen PostgreSQL oficial ya presente; no afecto codigo, datos ni evidencia final.
+- Pendientes o decisiones nuevas: CI, despliegue por digest y smoke del perfil sintetico; adaptadores reales de recordatorios, tools MCP del agente, consumidores de automatizaciones y proveedor externo para `CAL-19` permanecen en sus bloques propietarios.
