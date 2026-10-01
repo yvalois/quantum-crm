@@ -16,6 +16,7 @@ import {
   TaskService,
   AutomationService,
   CalendarService,
+  DocumentService,
 } from "@quantum-crm/domain";
 
 import {
@@ -42,6 +43,7 @@ import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-ser
 import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
 import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
 import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
+import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js";
 
 @Module({})
 export class AppModule {
@@ -67,6 +69,7 @@ export class AppModule {
         AutomationsController,
         ConversationsController,
         CalendarController,
+        DocumentsController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -143,6 +146,16 @@ export class AppModule {
                 (await database.commercial.sales.findOpportunity(actor, opportunityId)) !== null,
               isActiveMember: async (memberId) =>
                 (await database.members.findById(memberId))?.status === "ACTIVE",
+            }),
+        },
+        {
+          provide: DOCUMENT_SERVICE,
+          useFactory: () =>
+            new DocumentService(database.commercial.documents, {
+              contactExistsFor: async (actor, contactId) =>
+                (await database.commercial.contacts.find(actor, contactId)) !== null,
+              opportunityExistsFor: async (actor, opportunityId) =>
+                (await database.commercial.sales.findOpportunity(actor, opportunityId)) !== null,
             }),
         },
         { provide: APP_GUARD, useClass: CrmAuthenticationGuard },
