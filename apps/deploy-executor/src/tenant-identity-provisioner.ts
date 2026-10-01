@@ -30,6 +30,8 @@ interface KeycloakRealm {
   readonly otpPolicyPeriod?: unknown;
   readonly otpPolicyCodeReusable?: unknown;
   readonly requiredActions?: unknown;
+  readonly browserFlow?: unknown;
+  readonly attributes?: unknown;
 }
 
 interface KeycloakRequiredAction {
@@ -207,7 +209,15 @@ function realmOtpMatches(realm: KeycloakRealm): boolean {
 }
 
 function assertRealm(realm: KeycloakRealm, realmName: string): void {
-  if (!realmCoreMatches(realm, realmName) || !realmOtpMatches(realm)) {
+  const attributes = realm.attributes;
+  if (
+    !realmCoreMatches(realm, realmName) ||
+    !realmOtpMatches(realm) ||
+    realm.browserFlow !== "quantum-crm-browser" ||
+    typeof attributes !== "object" ||
+    attributes === null ||
+    (attributes as Record<string, unknown>)["acr.loa.map"] !== '{"1":1,"2":2}'
+  ) {
     throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
   }
 }
@@ -249,6 +259,18 @@ function assertClient(client: KeycloakClient, clientId: string, origin: string):
     typeof audienceMapper === "object" && audienceMapper !== null
       ? (audienceMapper as Record<string, unknown>).config
       : undefined;
+  const principalMapper = Array.isArray(client.protocolMappers)
+    ? client.protocolMappers.find(
+        (mapper) =>
+          typeof mapper === "object" &&
+          mapper !== null &&
+          (mapper as Record<string, unknown>).name === "quantum-human-principal",
+      )
+    : undefined;
+  const principalConfig =
+    typeof principalMapper === "object" && principalMapper !== null
+      ? (principalMapper as Record<string, unknown>).config
+      : undefined;
   if (
     typeof client.id !== "string" ||
     client.clientId !== clientId ||
@@ -267,6 +289,8 @@ function assertClient(client: KeycloakClient, clientId: string, origin: string):
     typeof attributes !== "object" ||
     attributes === null ||
     (attributes as Record<string, unknown>)["pkce.code.challenge.method"] !== "S256" ||
+    (attributes as Record<string, unknown>)["default.acr.values"] !== "2" ||
+    (attributes as Record<string, unknown>)["minimum.acr.value"] !== "2" ||
     typeof audienceMapper !== "object" ||
     audienceMapper === null ||
     (audienceMapper as Record<string, unknown>).protocol !== "openid-connect" ||
@@ -274,7 +298,15 @@ function assertClient(client: KeycloakClient, clientId: string, origin: string):
     typeof audienceConfig !== "object" ||
     audienceConfig === null ||
     (audienceConfig as Record<string, unknown>)["included.client.audience"] !== "quantum-crm-api" ||
-    (audienceConfig as Record<string, unknown>)["access.token.claim"] !== "true"
+    (audienceConfig as Record<string, unknown>)["access.token.claim"] !== "true" ||
+    typeof principalMapper !== "object" ||
+    principalMapper === null ||
+    (principalMapper as Record<string, unknown>).protocolMapper !== "oidc-hardcoded-claim-mapper" ||
+    typeof principalConfig !== "object" ||
+    principalConfig === null ||
+    (principalConfig as Record<string, unknown>)["claim.name"] !== "qcrm_principal_type" ||
+    (principalConfig as Record<string, unknown>)["claim.value"] !== "human" ||
+    (principalConfig as Record<string, unknown>)["access.token.claim"] !== "true"
   ) {
     throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
   }
@@ -370,6 +402,121 @@ function realmRepresentation(realmName: string): Record<string, unknown> {
     otpPolicyLookAheadWindow: 1,
     otpPolicyPeriod: 30,
     otpPolicyCodeReusable: false,
+    attributes: { "acr.loa.map": '{"1":1,"2":2}' },
+    authenticatorConfig: [
+      {
+        alias: "quantum-crm-loa-1-condition",
+        config: { "loa-condition-level": "1", "loa-max-age": "300" },
+      },
+      {
+        alias: "quantum-crm-loa-2-condition",
+        config: { "loa-condition-level": "2", "loa-max-age": "300" },
+      },
+    ],
+    authenticationFlows: [
+      {
+        alias: "quantum-crm-browser",
+        description: "Quantum CRM browser authentication with mandatory LoA 2",
+        providerId: "basic-flow",
+        topLevel: true,
+        builtIn: false,
+        authenticationExecutions: [
+          {
+            authenticator: "auth-cookie",
+            authenticatorFlow: false,
+            requirement: "ALTERNATIVE",
+            priority: 10,
+            userSetupAllowed: false,
+          },
+          {
+            authenticator: "identity-provider-redirector",
+            authenticatorFlow: false,
+            requirement: "ALTERNATIVE",
+            priority: 20,
+            userSetupAllowed: false,
+          },
+          {
+            authenticatorFlow: true,
+            requirement: "ALTERNATIVE",
+            priority: 30,
+            flowAlias: "quantum-crm-authentication",
+            userSetupAllowed: false,
+          },
+        ],
+      },
+      {
+        alias: "quantum-crm-authentication",
+        description: "Ordered authentication levels for CRM members",
+        providerId: "basic-flow",
+        topLevel: false,
+        builtIn: false,
+        authenticationExecutions: [
+          {
+            authenticatorFlow: true,
+            requirement: "CONDITIONAL",
+            priority: 10,
+            flowAlias: "quantum-crm-loa-1",
+            userSetupAllowed: false,
+          },
+          {
+            authenticatorFlow: true,
+            requirement: "CONDITIONAL",
+            priority: 20,
+            flowAlias: "quantum-crm-loa-2",
+            userSetupAllowed: false,
+          },
+        ],
+      },
+      {
+        alias: "quantum-crm-loa-1",
+        description: "LoA 1 requires the member password",
+        providerId: "basic-flow",
+        topLevel: false,
+        builtIn: false,
+        authenticationExecutions: [
+          {
+            authenticator: "conditional-level-of-authentication",
+            authenticatorConfig: "quantum-crm-loa-1-condition",
+            authenticatorFlow: false,
+            requirement: "REQUIRED",
+            priority: 10,
+            userSetupAllowed: false,
+          },
+          {
+            authenticator: "auth-username-password-form",
+            authenticatorFlow: false,
+            requirement: "REQUIRED",
+            priority: 20,
+            userSetupAllowed: false,
+          },
+        ],
+      },
+      {
+        alias: "quantum-crm-loa-2",
+        description: "LoA 2 requires a time-based one-time password",
+        providerId: "basic-flow",
+        topLevel: false,
+        builtIn: false,
+        authenticationExecutions: [
+          {
+            authenticator: "conditional-level-of-authentication",
+            authenticatorConfig: "quantum-crm-loa-2-condition",
+            authenticatorFlow: false,
+            requirement: "REQUIRED",
+            priority: 10,
+            userSetupAllowed: false,
+          },
+          {
+            authenticator: "auth-otp-form",
+            authenticatorFlow: false,
+            requirement: "REQUIRED",
+            priority: 20,
+            userSetupAllowed: true,
+          },
+        ],
+      },
+    ],
+    browserFlow: "quantum-crm-browser",
     requiredActions,
   };
 }
@@ -386,7 +533,11 @@ function clientRepresentation(clientId: string, origin: string): Record<string, 
     serviceAccountsEnabled: false,
     redirectUris: [`${origin}/api/auth/callback/keycloak`],
     webOrigins: [origin],
-    attributes: { "pkce.code.challenge.method": "S256" },
+    attributes: {
+      "pkce.code.challenge.method": "S256",
+      "default.acr.values": "2",
+      "minimum.acr.value": "2",
+    },
     protocolMappers: [
       {
         name: "quantum-crm-api-audience",
@@ -396,6 +547,22 @@ function clientRepresentation(clientId: string, origin: string): Record<string, 
           "included.client.audience": "quantum-crm-api",
           "access.token.claim": "true",
           "id.token.claim": "false",
+        },
+      },
+      {
+        name: "quantum-human-principal",
+        protocol: "openid-connect",
+        protocolMapper: "oidc-hardcoded-claim-mapper",
+        consentRequired: false,
+        config: {
+          "claim.name": "qcrm_principal_type",
+          "claim.value": "human",
+          "jsonType.label": "String",
+          "id.token.claim": "false",
+          "access.token.claim": "true",
+          "userinfo.token.claim": "false",
+          "introspection.token.claim": "true",
+          "access.tokenResponse.claim": "false",
         },
       },
     ],
