@@ -146,6 +146,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - La activación real completó contraseña y TOTP; ambos permanecen exclusivamente en archivos `0400` fuera de Git, bajo el directorio privado del perfil. El estado durable del administrador y de la entrega terminó `CONSUMED`.
 - La causa del primer enlace no utilizable fue que `deploy-executor` invocaba el proveedor mediante el origen HTTP interno de Keycloak. El candidato exacto `a5ab057` separa administración interna y emisión pública, exige el origen HTTPS configurado y rechaza enlaces internos o ajenos.
 - Verificación única del candidato `a5ab057` en el VPS: lockfile congelado, Prettier y ESLint de los tres archivos afectados, cuatro pruebas del provisionador y typecheck de `deploy-executor`, todo aprobado.
+- El primer login del perfil reveló que el realm emitía `acr=1` y omitía `qcrm_principal_type`, por lo que el BFF rechazaba correctamente el callback con `401`. El realm de `quantum-demo-jueves` quedó reconciliado con LoA 2 y principal humano; el recorrido completo terminó en `/inbox`, `/api/auth/session` respondió `200` y `authenticated=true`. La configuración equivalente queda incorporada al aprovisionador para perfiles nuevos.
 
 ## Decisiones pendientes
 
