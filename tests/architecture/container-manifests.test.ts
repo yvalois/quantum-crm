@@ -79,7 +79,7 @@ describe("container manifests", () => {
     expect(keycloak).toContain("netty-handler-4.1.137.Final.jar");
     expect(keycloak).toContain("! -name '*-proxy-*'");
     expect(keycloak).toContain("bcprov-jdk18on-1.85.jar");
-    expect(keycloak).toContain("jackson-databind-2.21.6.jar");
+    expect(keycloak).toContain("jackson-databind-2.21.7.jar");
     expect(keycloak).toContain("rm -rf /opt/keycloak/bin/client");
     expect(keycloak).toContain("apk del --no-network apk-tools zlib");
   });
@@ -294,7 +294,7 @@ describe("container manifests", () => {
     expect(keycloak).toContain("eclipse-temurin:21-jre-alpine@sha256:");
     expect(keycloak).toContain("netty-handler:4.1.137.Final");
     expect(keycloak).toContain("bcprov-jdk18on:1.85");
-    expect(keycloak).toContain("jackson-databind:2.21.6");
+    expect(keycloak).toContain("jackson-databind:2.21.7");
     expect(keycloak).toContain("FROM ${RUNTIME_IMAGE}");
     expect(keycloak).toContain("USER 1000:1000");
     expect(keycloak).not.toContain("FROM ${KEYCLOAK_IMAGE}\nCOPY --from=builder");
