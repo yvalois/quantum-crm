@@ -128,3 +128,9 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 - La base CRM confirmó exactamente una fila de `iam.members` y una fila de `iam.bootstrap_initial_administrator` para el subject `2f2db230-250d-439b-be54-4a8615f0e94d`; la operación persistió su clave de idempotencia.
 - El contenedor candidato y los archivos temporales fueron eliminados del VPS. La imagen persistente del perfil todavía requiere promoción posterior al CI del PR; esta validación no se presenta como cierre total de `USR-01` porque la administración visual, la invitación de miembros y sus pruebas proporcionales siguen pendientes.
 - Rama y entrega: [PR #62](https://github.com/yvalois/quantum-crm/pull/62) (`feat/USR-01-crm-activation-e2e`).
+
+### Recuperacion del callback CRM — 2026-10-01
+
+- Causa observada: el callback devolvia `400 Invalid authentication response` si el navegador regresaba de Keycloak sin la cookie opaca de transaccion, por ejemplo tras expirar, repetirse o perderse el intento de acceso.
+- Correccion candidata `15b9d57`: limpiar la cookie incompleta y reiniciar OIDC con retorno a `/inbox`, igualando la recuperacion ya existente en `admin-web` sin aceptar callbacks sin estado.
+- Evidencia VPS: Prettier afectado, typecheck de `crm-web` y `crm-auth-http.test.ts` con 13/13 casos aprobados; ninguna ejecucion tecnica local.

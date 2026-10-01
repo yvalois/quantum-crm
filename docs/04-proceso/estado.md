@@ -152,6 +152,11 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## Decisiones pendientes
 
+### Recuperacion del callback CRM sin transaccion — 2026-10-01
+
+- El callback de `crm-web` ya no expone `400 Invalid authentication response` cuando falta la cookie temporal por expiracion, consumo previo o descarte del navegador: limpia el estado incompleto y reinicia OIDC hacia `/inbox`.
+- El candidato `15b9d57` aprobo en el VPS Prettier de los dos archivos afectados, typecheck de `crm-web` y las 13 pruebas de su frontera HTTP de autenticacion. No se ejecutaron comprobaciones tecnicas locales.
+
 - Proveedores iniciales de canales, calendario, pagos y facturacion fiscal.
 - Recursos, sistema operativo y acceso del VPS.
 - Objetivos de rendimiento y disponibilidad; proveedor, region y capacidad del destino externo de backups.
