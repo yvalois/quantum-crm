@@ -94,6 +94,21 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(headers).not.toContain("server-only-access-token");
   });
 
+  it("restarts login when the callback has no transaction cookie", async () => {
+    const authRuntime = runtime();
+    const response = await handleCrmCallback(
+      new Request(`${config.callbackUrl}?error=access_denied`),
+      authRuntime,
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(
+      "https://crm.example.test/api/auth/login?returnTo=%2Finbox",
+    );
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(authRuntime.auth.completeLogin).not.toHaveBeenCalled();
+  });
+
   it("returns only session metadata and validated member data", async () => {
     const member = {
       id: "01995f7e-7b52-7000-8000-000000000102",
