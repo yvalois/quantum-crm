@@ -89,6 +89,16 @@ import {
   UpdateCalendarEventSchema,
   UpdateCalendarEventStatusSchema,
   UpdateCalendarSchema,
+  CreateDocumentSchema,
+  CreateDocumentTemplateSchema,
+  DocumentListQuerySchema,
+  DocumentListResponseSchema,
+  DocumentResponseSchema,
+  DocumentTemplateListResponseSchema,
+  DocumentTemplateResponseSchema,
+  DuplicateDocumentSchema,
+  UpdateDocumentSchema,
+  UpdateDocumentTemplateSchema,
 } from "@quantum-crm/contracts";
 
 const maximumResponseBytes = 1_048_576;
@@ -1176,6 +1186,102 @@ export async function handlePublicCalendarBooking(
   } catch {
     return crmProblem(400, "Invalid request");
   }
+}
+
+export async function handleCrmDocumentList(request: Request, runtime: CrmAuthRuntime) {
+  const parsed = DocumentListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const target = new URL("/api/v1/documents", runtime.config.crmApiOrigin);
+  appendParsedQuery(target, parsed.data);
+  return calendarRead(request, runtime, target, DocumentListResponseSchema);
+}
+
+export async function handleCrmDocumentCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, {
+    path: "/api/v1/documents",
+    method: "POST",
+    requestSchema: CreateDocumentSchema,
+    responseSchema: DocumentResponseSchema,
+  });
+}
+
+export async function handleCrmDocumentGet(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  documentId: string,
+) {
+  if (!uuidPattern.test(documentId)) return crmProblem(400, "Invalid request");
+  return calendarRead(
+    request,
+    runtime,
+    new URL(`/api/v1/documents/${documentId}`, runtime.config.crmApiOrigin),
+    DocumentResponseSchema,
+  );
+}
+
+export async function handleCrmDocumentUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  documentId: string,
+) {
+  if (!uuidPattern.test(documentId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/documents/${documentId}`,
+    method: "PATCH",
+    requestSchema: UpdateDocumentSchema,
+    responseSchema: DocumentResponseSchema,
+    requireVersion: true,
+  });
+}
+
+export async function handleCrmDocumentDuplicate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  documentId: string,
+) {
+  if (!uuidPattern.test(documentId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/documents/${documentId}/duplicate`,
+    method: "POST",
+    requestSchema: DuplicateDocumentSchema,
+    responseSchema: DocumentResponseSchema,
+  });
+}
+
+export async function handleCrmDocumentTemplateList(request: Request, runtime: CrmAuthRuntime) {
+  const parsed = DocumentListQuerySchema.pick({ kind: true }).safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const target = new URL("/api/v1/documents/templates", runtime.config.crmApiOrigin);
+  appendParsedQuery(target, parsed.data);
+  return calendarRead(request, runtime, target, DocumentTemplateListResponseSchema);
+}
+
+export async function handleCrmDocumentTemplateCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, {
+    path: "/api/v1/documents/templates",
+    method: "POST",
+    requestSchema: CreateDocumentTemplateSchema,
+    responseSchema: DocumentTemplateResponseSchema,
+  });
+}
+
+export async function handleCrmDocumentTemplateUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  templateId: string,
+) {
+  if (!uuidPattern.test(templateId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/documents/templates/${templateId}`,
+    method: "PATCH",
+    requestSchema: UpdateDocumentTemplateSchema,
+    responseSchema: DocumentTemplateResponseSchema,
+    requireVersion: true,
+  });
 }
 
 function conversationId(value: string): boolean {

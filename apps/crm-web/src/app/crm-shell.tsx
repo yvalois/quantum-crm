@@ -52,7 +52,7 @@ const navigation: readonly NavigationGroup[] = [
     items: [
       { icon: "forms", label: "Formularios" },
       { icon: "catalog", label: "Catálogo" },
-      { icon: "documents", label: "Documentos" },
+      { href: "/documents", icon: "documents", label: "Documentos" },
       { icon: "automation", label: "Automatizaciones" },
       { icon: "reports", label: "Reportes" },
       { icon: "agent", label: "Agente Quantum" },

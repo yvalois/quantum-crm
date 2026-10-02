@@ -1,0 +1,187 @@
+import { describe, expect, it } from "vitest";
+
+import type { DocumentBlock } from "@quantum-crm/contracts";
+
+import { IamAuthorizationError, type CommercialActor, type IamPermission } from "../iam/index.js";
+import {
+  type CommercialDocumentRecord,
+  type DocumentRepository,
+  type DocumentTemplateRecord,
+  DocumentValidationError,
+} from "./index.js";
+import { defaultDocumentDesign, DocumentService } from "./document-service.js";
+
+const actor: CommercialActor = {
+  memberId: "019db9c7-1268-7d24-bf99-96ea38ebf200",
+  scope: "PROFILE",
+};
+const permissions: readonly IamPermission[] = [
+  "crm:documents:read",
+  "crm:documents:create",
+  "crm:documents:update",
+  "crm:documents:templates",
+];
+const now = new Date("2026-10-01T12:00:00.000Z");
+
+function memoryRepository(seedTemplate?: DocumentTemplateRecord): {
+  readonly repository: DocumentRepository;
+  readonly documents: () => readonly CommercialDocumentRecord[];
+} {
+  const documents: CommercialDocumentRecord[] = [];
+  const templates: DocumentTemplateRecord[] = seedTemplate ? [seedTemplate] : [];
+  const repository: DocumentRepository = {
+    list: async () => documents,
+    find: async (_actor, id) => documents.find((document) => document.id === id) ?? null,
+    create: async ({ document }) => {
+      documents.push(document);
+      return document;
+    },
+    update: async (input) => {
+      const index = documents.findIndex(
+        (document) => document.id === input.id && document.version === input.expectedVersion,
+      );
+      if (index < 0) return null;
+      const current = documents[index]!;
+      const updated = Object.freeze({
+        ...current,
+        title: input.title,
+        contactId: input.contactId,
+        opportunityId: input.opportunityId,
+        blocks: input.blocks,
+        design: input.design,
+        revision: current.revision + 1,
+        version: current.version + 1n,
+        updatedAt: input.now,
+      });
+      documents[index] = updated;
+      return updated;
+    },
+    listTemplates: async (kind) => templates.filter((template) => !kind || template.kind === kind),
+    findTemplate: async (id) => templates.find((template) => template.id === id) ?? null,
+    createTemplate: async ({ template }) => {
+      templates.push(template);
+      return template;
+    },
+    updateTemplate: async (input) => {
+      const index = templates.findIndex(
+        (template) => template.id === input.id && template.version === input.expectedVersion,
+      );
+      if (index < 0) return null;
+      const current = templates[index]!;
+      const updated = Object.freeze({
+        ...current,
+        name: input.name,
+        blocks: input.blocks,
+        design: input.design,
+        revision: current.revision + 1,
+        version: current.version + 1n,
+        updatedAt: input.now,
+      });
+      templates[index] = updated;
+      return updated;
+    },
+  };
+  return { repository, documents: () => documents };
+}
+
+function template(blocks: readonly DocumentBlock[]): DocumentTemplateRecord {
+  return Object.freeze({
+    id: "019db9c7-1268-7d24-bf99-96ea38ebf201",
+    kind: "QUOTE",
+    name: "Propuesta base",
+    blocks,
+    design: defaultDocumentDesign(),
+    revision: 1,
+    version: 1n,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+describe("DocumentService", () => {
+  it("creates an independent draft from a reusable template", async () => {
+    const block: DocumentBlock = {
+      id: "019db9c7-1268-7d24-bf99-96ea38ebf202",
+      type: "TEXT",
+      locked: false,
+      content: "Hola",
+      align: "LEFT",
+    };
+    const seededTemplate = template([block]);
+    const memory = memoryRepository(seededTemplate);
+    const service = new DocumentService(memory.repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+    });
+
+    const created = await service.create({
+      actor,
+      permissions,
+      kind: "QUOTE",
+      title: "Propuesta",
+      contactId: null,
+      opportunityId: null,
+      templateId: seededTemplate.id,
+      idempotencyKey: "document-create-1",
+      payloadHash: "a".repeat(64),
+      now,
+    });
+
+    expect(created).toMatchObject({
+      sourceTemplateId: seededTemplate.id,
+      revision: 1,
+      version: 1n,
+    });
+    expect(created.blocks).toEqual(seededTemplate.blocks);
+    expect(created.blocks).not.toBe(seededTemplate.blocks);
+  });
+
+  it("prevents changing a protected template block in an instance", async () => {
+    const protectedBlock: DocumentBlock = {
+      id: "019db9c7-1268-7d24-bf99-96ea38ebf203",
+      type: "TEXT",
+      locked: true,
+      content: "Legal",
+      align: "LEFT",
+    };
+    const seededTemplate = template([protectedBlock]);
+    const memory = memoryRepository(seededTemplate);
+    const service = new DocumentService(memory.repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+    });
+    const created = await service.create({
+      actor,
+      permissions,
+      kind: "QUOTE",
+      title: "Protegida",
+      contactId: null,
+      opportunityId: null,
+      templateId: seededTemplate.id,
+      idempotencyKey: "document-create-2",
+      payloadHash: "b".repeat(64),
+      now,
+    });
+
+    await expect(
+      service.update({
+        actor,
+        permissions,
+        id: created.id,
+        expectedVersion: 1n,
+        patch: { blocks: [{ ...protectedBlock, content: "Alterado" }] },
+        idempotencyKey: "document-update-1",
+        payloadHash: "c".repeat(64),
+        now,
+      }),
+    ).rejects.toBeInstanceOf(DocumentValidationError);
+  });
+
+  it("denies reads when the authenticated member lacks document permission", async () => {
+    const service = new DocumentService(memoryRepository().repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+    });
+    await expect(service.list(actor, [], {})).rejects.toBeInstanceOf(IamAuthorizationError);
+  });
+});
