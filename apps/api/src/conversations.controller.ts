@@ -307,9 +307,7 @@ export class ConversationsController {
             expectedVersion,
             body: parsed.data.body,
             kind: parsed.data.kind,
-            ...(parsed.data.documentId === undefined
-              ? {}
-              : { documentId: parsed.data.documentId }),
+            ...(parsed.data.documentId === undefined ? {} : { documentId: parsed.data.documentId }),
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash({
               conversationId,
