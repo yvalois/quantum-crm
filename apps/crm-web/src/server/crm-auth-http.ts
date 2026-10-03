@@ -99,6 +99,17 @@ import {
   DuplicateDocumentSchema,
   UpdateDocumentSchema,
   UpdateDocumentTemplateSchema,
+  CompleteFileUploadSchema,
+  CreateFileReferenceSchema,
+  CreateFileUploadIntentSchema,
+  FileDownloadAuthorizationResponseSchema,
+  FileIdSchema,
+  FileListQuerySchema,
+  FileListResponseSchema,
+  FileOperationResponseSchema,
+  FileReferenceResponseSchema,
+  FileResponseSchema,
+  FileUploadIntentResponseSchema,
 } from "@quantum-crm/contracts";
 
 const maximumResponseBytes = 1_048_576;
@@ -1281,6 +1292,160 @@ export async function handleCrmDocumentTemplateUpdate(
     requestSchema: UpdateDocumentTemplateSchema,
     responseSchema: DocumentTemplateResponseSchema,
     requireVersion: true,
+  });
+}
+
+async function fileResponse(
+  upstream: Response,
+  responseSchema: { parse(input: unknown): unknown },
+): Promise<Response> {
+  if (upstream.status === 400) return crmProblem(400, "Invalid request");
+  if (upstream.status === 401) return crmProblem(401, "Unauthorized");
+  if (upstream.status === 403) return crmProblem(403, "Forbidden");
+  if (upstream.status === 404) return crmProblem(404, "Not found");
+  if (upstream.status === 409) return crmProblem(409, "Request conflict");
+  if (!upstream.ok) return crmProblem(503, "CRM service temporarily unavailable");
+  try {
+    const headers = crmNoStoreHeaders();
+    const location = upstream.headers.get("location");
+    if (location) headers.set("location", location.replace("/api/v1/files/", "/api/files/"));
+    return Response.json(responseSchema.parse(await readBoundedJson(upstream)), {
+      status: upstream.status,
+      headers,
+    });
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+async function fileMutation(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  input: {
+    readonly path: string;
+    readonly requestSchema?: {
+      safeParse(value: unknown): { success: true; data: unknown } | { success: false };
+    };
+    readonly responseSchema: { parse(input: unknown): unknown };
+  },
+): Promise<Response> {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey)) {
+    return crmProblem(400, "Invalid request");
+  }
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const raw = input.requestSchema ? await readBoundedRequestJson(request) : undefined;
+    const payload = input.requestSchema?.safeParse(raw);
+    if (payload && !payload.success) return crmProblem(400, "Invalid request");
+    const upstream = await runtime.crmApiFetch(new URL(input.path, runtime.config.crmApiOrigin), {
+      method: "POST",
+      headers: memberMutationHeaders(authorized, idempotencyKey),
+      ...(payload?.success ? { body: JSON.stringify(payload.data) } : {}),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return fileResponse(upstream, input.responseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+}
+
+export async function handleCrmFileList(request: Request, runtime: CrmAuthRuntime) {
+  const parsed = FileListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const target = new URL("/api/v1/files", runtime.config.crmApiOrigin);
+  appendParsedQuery(target, parsed.data);
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(target, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+        "x-correlation-id": authorized.correlationId,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
+    return fileResponse(upstream, FileListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmFileUploadIntent(request: Request, runtime: CrmAuthRuntime) {
+  return fileMutation(request, runtime, {
+    path: "/api/v1/files/upload-intents",
+    requestSchema: CreateFileUploadIntentSchema,
+    responseSchema: FileUploadIntentResponseSchema,
+  });
+}
+
+export async function handleCrmFileGet(request: Request, runtime: CrmAuthRuntime, fileId: string) {
+  if (!FileIdSchema.safeParse(fileId).success) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/files/${fileId}`, runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return fileResponse(upstream, FileResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmFileComplete(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  fileId: string,
+) {
+  if (!FileIdSchema.safeParse(fileId).success) return crmProblem(400, "Invalid request");
+  return fileMutation(request, runtime, {
+    path: `/api/v1/files/${fileId}/complete`,
+    requestSchema: CompleteFileUploadSchema,
+    responseSchema: FileOperationResponseSchema,
+  });
+}
+
+export async function handleCrmFileReferenceCreate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  fileId: string,
+) {
+  if (!FileIdSchema.safeParse(fileId).success) return crmProblem(400, "Invalid request");
+  return fileMutation(request, runtime, {
+    path: `/api/v1/files/${fileId}/references`,
+    requestSchema: CreateFileReferenceSchema,
+    responseSchema: FileReferenceResponseSchema,
+  });
+}
+
+export async function handleCrmFileDownloadAuthorization(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  fileId: string,
+) {
+  if (!FileIdSchema.safeParse(fileId).success) return crmProblem(400, "Invalid request");
+  return fileMutation(request, runtime, {
+    path: `/api/v1/files/${fileId}/download-authorizations`,
+    responseSchema: FileDownloadAuthorizationResponseSchema,
   });
 }
 

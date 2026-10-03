@@ -7,6 +7,7 @@ import type {
   DocumentBlock,
   DocumentTemplate,
   Opportunity,
+  TaskAssignee,
 } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -20,6 +21,30 @@ interface List<T> {
   readonly data: T[];
 }
 
+interface FileUploadIntent {
+  readonly data: {
+    readonly file: { readonly id: string; readonly status: string; readonly sha256: string };
+    readonly upload: {
+      readonly method: "POST";
+      readonly url: string;
+      readonly fields: Readonly<Record<string, string>>;
+      readonly expiresAt: string;
+    };
+  };
+}
+
+interface FileMetadataResponse {
+  readonly data: {
+    readonly id: string;
+    readonly status: string;
+    readonly sha256: string;
+  };
+}
+
+interface FileDownloadAuthorizationResponse {
+  readonly data: { readonly url: string; readonly expiresAt: string; readonly method: "GET" };
+}
+
 const blockLabels: Record<DocumentBlock["type"], string> = {
   TEXT: "Texto",
   IMAGE: "Imagen",
@@ -29,6 +54,7 @@ const blockLabels: Record<DocumentBlock["type"], string> = {
   TERMS: "Condiciones",
   VARIABLE: "Variable",
   SIGNATURE: "Firma",
+  ATTACHMENT: "Adjunto",
 };
 
 function newBlock(type: DocumentBlock["type"]): DocumentBlock {
@@ -46,6 +72,8 @@ function newBlock(type: DocumentBlock["type"]): DocumentBlock {
         caption: "",
         fileId: null,
         checksum: null,
+        replaceable: false,
+        visible: true,
       };
     case "TABLE":
       return {
@@ -75,9 +103,22 @@ function newBlock(type: DocumentBlock["type"]): DocumentBlock {
         key: "contact.name",
         label: "Nombre del contacto",
         fallback: "Cliente",
+        value: null,
+        editable: false,
       };
     case "SIGNATURE":
       return { id, type, locked: false, label: "Firma del cliente", fileId: null, checksum: null };
+    case "ATTACHMENT":
+      return {
+        id,
+        type,
+        locked: false,
+        label: "Ficha técnica",
+        originalName: "",
+        mimeType: "application/pdf",
+        fileId: null,
+        checksum: null,
+      };
   }
 }
 
@@ -88,11 +129,52 @@ async function responseTitle(response: Response): Promise<string> {
     : "No fue posible completar la solicitud.";
 }
 
-function interpolate(value: string, contact: Contact | null): string {
+async function loadJson<T>(url: string): Promise<T> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(await responseTitle(response));
+    return (await response.json()) as T;
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === "AbortError") {
+      throw new Error("La carga de Documentos tardó demasiado. Intenta de nuevo.");
+    }
+    throw cause;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function sha256Base64(file: File): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()));
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function documentChecksum(base64Checksum: string): string {
+  const bytes = Uint8Array.from(atob(base64Checksum), (character) => character.charCodeAt(0));
+  return `sha256:${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function uploadVersionId(response: Response, body: string): string | null {
+  const header = response.headers.get("x-amz-version-id");
+  if (header) return header;
+  return body.match(/<VersionId>([^<]+)<\/VersionId>/u)?.[1] ?? null;
+}
+
+function interpolate(value: string, contact: Contact | null, advisor: TaskAssignee | null): string {
   return value
     .replaceAll("{{contact.name}}", contact?.displayName ?? "Cliente")
     .replaceAll("{{contact.email}}", contact?.email ?? "correo@cliente.com")
-    .replaceAll("{{company.name}}", "Quantum Demo");
+    .replaceAll("{{contact.phone}}", contact?.phone ?? "")
+    .replaceAll("{{advisor.name}}", advisor?.displayName ?? "Asesor")
+    .replaceAll("{{company.name}}", "Quantum CRM");
 }
 
 export default function DocumentsPage(): React.JSX.Element {
@@ -101,6 +183,7 @@ export default function DocumentsPage(): React.JSX.Element {
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [advisors, setAdvisors] = useState<TaskAssignee[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CommercialDocument | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,12 +193,17 @@ export default function DocumentsPage(): React.JSX.Element {
   const [notice, setNotice] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
+  const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<"" | CommercialDocumentKind>("");
 
   const selectedContact = useMemo(
     () => contacts.find((contact) => contact.id === draft?.contactId) ?? null,
     [contacts, draft?.contactId],
+  );
+  const selectedAdvisor = useMemo(
+    () => advisors.find((advisor) => advisor.id === draft?.ownerMemberId) ?? null,
+    [advisors, draft?.ownerMemberId],
   );
   const filteredDocuments = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
@@ -141,19 +229,20 @@ export default function DocumentsPage(): React.JSX.Element {
       const session = (await sessionResponse.json()) as SessionPayload;
       if (!session.authenticated || !session.csrfToken) throw new Error("La sesión no es válida.");
       setCsrf(session.csrfToken);
-      const responses = await Promise.all([
-        fetch("/api/documents", { cache: "no-store", credentials: "same-origin" }),
-        fetch("/api/documents/templates", { cache: "no-store", credentials: "same-origin" }),
-        fetch("/api/contacts", { cache: "no-store", credentials: "same-origin" }),
-        fetch("/api/opportunities", { cache: "no-store", credentials: "same-origin" }),
-      ]);
-      for (const response of responses)
-        if (!response.ok) throw new Error(await responseTitle(response));
-      const nextDocuments = ((await responses[0]!.json()) as List<CommercialDocument>).data;
+      const [documentList, templateList, contactList, opportunityList, advisorList] =
+        await Promise.all([
+          loadJson<List<CommercialDocument>>("/api/documents"),
+          loadJson<List<DocumentTemplate>>("/api/documents/templates"),
+          loadJson<List<Contact>>("/api/contacts"),
+          loadJson<List<Opportunity>>("/api/opportunities"),
+          loadJson<List<TaskAssignee>>("/api/tasks/assignees"),
+        ]);
+      const nextDocuments = documentList.data;
       setDocuments(nextDocuments);
-      setTemplates(((await responses[1]!.json()) as List<DocumentTemplate>).data);
-      setContacts(((await responses[2]!.json()) as List<Contact>).data);
-      setOpportunities(((await responses[3]!.json()) as List<Opportunity>).data);
+      setTemplates(templateList.data);
+      setContacts(contactList.data);
+      setOpportunities(opportunityList.data);
+      setAdvisors(advisorList.data);
       const current =
         nextDocuments.find((item) => item.id === selectedId) ?? nextDocuments[0] ?? null;
       setSelectedId(current?.id ?? null);
@@ -315,6 +404,96 @@ export default function DocumentsPage(): React.JSX.Element {
       setError(cause instanceof Error ? cause.message : "No fue posible crear la plantilla.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadDocumentFile(blockId: string, file: File): Promise<void> {
+    if (!draft) return;
+    setUploadingBlockId(blockId);
+    setError(null);
+    setNotice("Reservando carga segura...");
+    try {
+      const checksum = await sha256Base64(file);
+      const intentResponse = await mutate("/api/files", {
+        owner: {
+          kind: "existing",
+          module: "documents",
+          type: "commercial_document",
+          id: draft.id,
+        },
+        fileClass: file.type.startsWith("image/") ? "IMAGE" : "DOCUMENT",
+        originalName: file.name,
+        declaredMime: file.type || "application/octet-stream",
+        declaredSize: file.size,
+        expectedSha256: checksum,
+      });
+      const intent = (await intentResponse.json()) as FileUploadIntent;
+      const uploadBody = new FormData();
+      for (const [name, value] of Object.entries(intent.data.upload.fields)) {
+        uploadBody.append(name, value);
+      }
+      uploadBody.append("file", file, file.name);
+      const uploadResponse = await fetch(intent.data.upload.url, {
+        method: intent.data.upload.method,
+        body: uploadBody,
+      });
+      const uploadResponseBody = await uploadResponse.text();
+      if (!uploadResponse.ok) throw new Error("El almacenamiento rechazó la carga.");
+      const versionId = uploadVersionId(uploadResponse, uploadResponseBody);
+      if (!versionId) throw new Error("El almacenamiento no confirmó la versión cargada.");
+      await mutate(`/api/files/${intent.data.file.id}/complete`, {
+        versionId,
+        checksum,
+        receipt: uploadResponse.headers.get("etag") ?? versionId,
+      });
+      setNotice("Archivo recibido. Quantum está validando y escaneando su contenido...");
+      let available: FileMetadataResponse["data"] | null = null;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+        const response = await fetch(`/api/files/${intent.data.file.id}`, {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error(await responseTitle(response));
+        const metadata = (await response.json()) as FileMetadataResponse;
+        if (metadata.data.status === "AVAILABLE") {
+          available = metadata.data;
+          break;
+        }
+        if (["REJECTED", "FAILED", "DELETED"].includes(metadata.data.status)) {
+          throw new Error("El archivo no superó la validación de seguridad.");
+        }
+      }
+      if (!available) throw new Error("La validación continúa. Intenta nuevamente en un momento.");
+      const verifiedChecksum = documentChecksum(available.sha256);
+      setDraft((current) =>
+        current
+          ? {
+              ...current,
+              blocks: current.blocks.map((block) => {
+                if (block.id !== blockId) return block;
+                if (block.type === "IMAGE")
+                  return { ...block, fileId: available.id, checksum: verifiedChecksum };
+                if (block.type === "ATTACHMENT")
+                  return {
+                    ...block,
+                    fileId: available.id,
+                    checksum: verifiedChecksum,
+                    originalName: file.name,
+                    mimeType: file.type || "application/octet-stream",
+                  };
+                return block;
+              }),
+            }
+          : current,
+      );
+      setDirty(true);
+      setNotice("Imagen verificada y vinculada. Guarda el documento para conservarla.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible cargar el archivo.");
+      setNotice(null);
+    } finally {
+      setUploadingBlockId(null);
     }
   }
 
@@ -517,6 +696,7 @@ export default function DocumentsPage(): React.JSX.Element {
                       "TERMS",
                       "VARIABLE",
                       "SIGNATURE",
+                      "ATTACHMENT",
                     ] as const
                   ).map((type) => (
                     <button
@@ -537,8 +717,22 @@ export default function DocumentsPage(): React.JSX.Element {
                       <header>
                         <span className="block-handle">⋮⋮</span>
                         <strong>{blockLabels[block.type]}</strong>
-                        {block.locked ? <small>PROTEGIDO</small> : null}
+                        {block.locked ? <small>ESTRUCTURA PROTEGIDA</small> : null}
                         <div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateBlock(block.id, (current) => ({
+                                ...current,
+                                locked: !current.locked,
+                              }))
+                            }
+                            aria-label={
+                              block.locked ? "Permitir editar estructura" : "Proteger estructura"
+                            }
+                          >
+                            {block.locked ? "Desproteger" : "Proteger"}
+                          </button>
                           <button
                             type="button"
                             onClick={() => moveBlock(index, -1)}
@@ -572,6 +766,8 @@ export default function DocumentsPage(): React.JSX.Element {
                       <BlockEditor
                         block={block}
                         onChange={(next) => updateBlock(block.id, () => next)}
+                        uploading={uploadingBlockId === block.id}
+                        onFileSelected={(file) => void uploadDocumentFile(block.id, file)}
                       />
                     </article>
                   ))}
@@ -583,7 +779,12 @@ export default function DocumentsPage(): React.JSX.Element {
                   <span>VISTA PREVIA</span>
                   <small>{draft.design.pageSize} · página 1</small>
                 </div>
-                <DocumentPreview document={draft} contact={selectedContact} />
+                <DocumentPreview
+                  document={draft}
+                  contact={selectedContact}
+                  advisor={selectedAdvisor}
+                  csrf={csrf}
+                />
                 <div className="design-panel">
                   <label>
                     <span>Color principal</span>
@@ -786,9 +987,13 @@ export default function DocumentsPage(): React.JSX.Element {
 function BlockEditor({
   block,
   onChange,
+  uploading,
+  onFileSelected,
 }: {
   readonly block: DocumentBlock;
   readonly onChange: (block: DocumentBlock) => void;
+  readonly uploading: boolean;
+  readonly onFileSelected: (file: File) => void;
 }): React.JSX.Element {
   if (block.type === "TEXT")
     return (
@@ -832,7 +1037,28 @@ function BlockEditor({
         <div>
           <span>IMAGEN</span>
           <strong>{block.fileId ? "Referencia vinculada" : "Espacio editable"}</strong>
-          <small>La carga segura de archivos se conectará al módulo Files.</small>
+          <small>
+            {block.fileId
+              ? "Archivo verificado y listo para guardar."
+              : "La imagen se valida y escanea antes de quedar disponible."}
+          </small>
+          <label className="document-file-button">
+            {uploading
+              ? "Validando archivo..."
+              : block.fileId
+                ? "Sustituir imagen"
+                : "Cargar imagen"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={(block.locked && !block.replaceable) || uploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) onFileSelected(file);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
         </div>
         <label>
           Etiqueta
@@ -849,6 +1075,58 @@ function BlockEditor({
             disabled={block.locked}
             onChange={(event) => onChange({ ...block, alt: event.target.value })}
           />
+        </label>
+        <label className="instance-editability">
+          <input
+            type="checkbox"
+            checked={block.replaceable}
+            disabled={!block.locked}
+            onChange={(event) => onChange({ ...block, replaceable: event.target.checked })}
+          />
+          Permitir cambiar esta imagen al usar la plantilla
+        </label>
+      </div>
+    );
+  if (block.type === "ATTACHMENT")
+    return (
+      <div className="image-slot-editor attachment-slot-editor">
+        <div>
+          <span>ARCHIVO</span>
+          <strong>{block.fileId ? block.originalName : "Ficha o documento"}</strong>
+          <small>
+            {block.fileId
+              ? "Archivo verificado y vinculado."
+              : "PDF o documento permitido; nunca se publica antes del scan."}
+          </small>
+          <label className="document-file-button">
+            {uploading
+              ? "Validando archivo..."
+              : block.fileId
+                ? "Sustituir archivo"
+                : "Cargar archivo"}
+            <input
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/webp"
+              disabled={block.locked || uploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) onFileSelected(file);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </div>
+        <label>
+          Etiqueta
+          <input
+            value={block.label}
+            disabled={block.locked}
+            onChange={(event) => onChange({ ...block, label: event.target.value })}
+          />
+        </label>
+        <label>
+          Nombre
+          <input value={block.originalName} disabled readOnly />
         </label>
       </div>
     );
@@ -928,6 +1206,9 @@ function BlockEditor({
           >
             <option value="contact.name">Nombre del contacto</option>
             <option value="contact.email">Correo del contacto</option>
+            <option value="contact.phone">TelÃ©fono del contacto</option>
+            <option value="advisor.name">Nombre del asesor</option>
+            <option value="advisor.email">Correo del asesor</option>
             <option value="company.name">Nombre de la empresa</option>
             <option value="document.title">Título del documento</option>
           </select>
@@ -939,6 +1220,24 @@ function BlockEditor({
             disabled={block.locked}
             onChange={(event) => onChange({ ...block, fallback: event.target.value })}
           />
+        </label>
+        <label>
+          Valor de esta instancia
+          <input
+            value={block.value ?? ""}
+            disabled={block.locked && !block.editable}
+            placeholder="Se completa al crear desde plantilla"
+            onChange={(event) => onChange({ ...block, value: event.target.value })}
+          />
+        </label>
+        <label className="instance-editability">
+          <input
+            type="checkbox"
+            checked={block.editable}
+            disabled={!block.locked}
+            onChange={(event) => onChange({ ...block, editable: event.target.checked })}
+          />
+          Permitir retocar este dato al usar la plantilla
         </label>
       </div>
     );
@@ -976,9 +1275,13 @@ function BlockEditor({
 function DocumentPreview({
   document,
   contact,
+  advisor,
+  csrf,
 }: {
   readonly document: CommercialDocument;
   readonly contact: Contact | null;
+  readonly advisor: TaskAssignee | null;
+  readonly csrf: string | null;
 }): React.JSX.Element {
   const fontClass =
     document.design.fontFamily === "SERIF"
@@ -1005,21 +1308,31 @@ function DocumentPreview({
                 key={block.id}
                 style={{ textAlign: block.align.toLowerCase() as "left" | "center" | "right" }}
               >
-                {interpolate(block.content, contact)}
+                {interpolate(block.content, contact, advisor)}
               </p>
             );
           if (block.type === "TERMS")
             return (
               <section className="paper-terms" key={block.id}>
                 <strong>{block.title}</strong>
-                <p>{interpolate(block.content, contact)}</p>
+                <p>{interpolate(block.content, contact, advisor)}</p>
               </section>
             );
-          if (block.type === "IMAGE")
+          if (block.type === "IMAGE" && block.visible)
             return (
               <figure className="paper-image" key={block.id}>
-                <span>IMAGEN</span>
-                <strong>{block.label}</strong>
+                {block.fileId && csrf ? (
+                  <AuthorizedFileImage
+                    fileId={block.fileId}
+                    alt={block.alt || block.label}
+                    csrf={csrf}
+                  />
+                ) : (
+                  <>
+                    <span>IMAGEN</span>
+                    <strong>{block.label}</strong>
+                  </>
+                )}
                 {block.caption ? <figcaption>{block.caption}</figcaption> : null}
               </figure>
             );
@@ -1034,7 +1347,7 @@ function DocumentPreview({
             return (
               <div className="paper-columns" key={block.id}>
                 {block.columns.map((column, index) => (
-                  <p key={index}>{interpolate(column, contact)}</p>
+                  <p key={index}>{interpolate(column, contact, advisor)}</p>
                 ))}
               </div>
             );
@@ -1064,11 +1377,23 @@ function DocumentPreview({
               <p className="paper-variable" key={block.id}>
                 <small>{block.label}</small>
                 <strong>
-                  {interpolate(`{{${block.key}}}`, contact) === `{{${block.key}}}`
-                    ? block.fallback
-                    : interpolate(`{{${block.key}}}`, contact)}
+                  {block.value ??
+                    (interpolate(`{{${block.key}}}`, contact, advisor) === `{{${block.key}}}`
+                      ? block.fallback
+                      : interpolate(`{{${block.key}}}`, contact, advisor))}
                 </strong>
               </p>
+            );
+          if (block.type === "ATTACHMENT")
+            return (
+              <div className="paper-attachment" key={block.id}>
+                <span>ARCHIVO ADJUNTO</span>
+                <strong>{block.label}</strong>
+                <small>{block.originalName || "Pendiente de carga"}</small>
+                {block.fileId && csrf ? (
+                  <AuthorizedFileDownload fileId={block.fileId} csrf={csrf} />
+                ) : null}
+              </div>
             );
           return (
             <div className="paper-signature" key={block.id}>
@@ -1083,5 +1408,66 @@ function DocumentPreview({
         {document.design.showPageNumbers ? <small>01 / 01</small> : null}
       </footer>
     </div>
+  );
+}
+
+function AuthorizedFileImage({
+  fileId,
+  alt,
+  csrf,
+}: {
+  readonly fileId: string;
+  readonly alt: string;
+  readonly csrf: string;
+}): React.JSX.Element {
+  const [source, setSource] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/files/${fileId}/download-authorizations`, {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "x-csrf-token": csrf, "idempotency-key": crypto.randomUUID() },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("file-not-available");
+        return (await response.json()) as FileDownloadAuthorizationResponse;
+      })
+      .then((response) => setSource(response.data.url))
+      .catch(() => setSource(null));
+    return () => controller.abort();
+  }, [csrf, fileId]);
+  return source ? <img src={source} alt={alt} /> : <small>Preparando vista previa...</small>;
+}
+
+function AuthorizedFileDownload({
+  fileId,
+  csrf,
+}: {
+  readonly fileId: string;
+  readonly csrf: string;
+}): React.JSX.Element {
+  const [preparing, setPreparing] = useState(false);
+  async function download(): Promise<void> {
+    setPreparing(true);
+    try {
+      const response = await fetch(`/api/files/${fileId}/download-authorizations`, {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "x-csrf-token": csrf, "idempotency-key": crypto.randomUUID() },
+      });
+      if (!response.ok) throw new Error("file-not-available");
+      const authorization = (await response.json()) as FileDownloadAuthorizationResponse;
+      window.location.assign(authorization.data.url);
+    } finally {
+      setPreparing(false);
+    }
+  }
+  return (
+    <button type="button" onClick={() => void download()} disabled={preparing}>
+      {preparing ? "Preparando..." : "Descargar"}
+    </button>
   );
 }

@@ -14,6 +14,9 @@ export default defineConfig({
       "@quantum-crm/contracts": workspaceSource("./packages/contracts/src/index.ts"),
       "@quantum-crm/database": workspaceSource("./packages/database/src/index.ts"),
       "@quantum-crm/domain": workspaceSource("./packages/domain/src/index.ts"),
+      "@quantum-crm/files-infrastructure": workspaceSource(
+        "./packages/files-infrastructure/src/index.ts",
+      ),
       "@quantum-crm/observability": workspaceSource("./packages/observability/src/index.ts"),
       "@quantum-crm/platform-domain": workspaceSource("./packages/platform-domain/src/index.ts"),
     },

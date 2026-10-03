@@ -49,6 +49,15 @@ function crmEnvironment(
     QCRM_OIDC_REQUIRED_ACR: "1",
     QCRM_IAM_BOOTSTRAP_CLIENT_ID: "quantum-crm-bootstrap",
     QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_FILE: "/run/secrets/qcrm_iam_bootstrap_client_secret",
+    QCRM_FILES_S3_ENDPOINT: "http://platform-storage:8333",
+    QCRM_FILES_S3_PUBLIC_ENDPOINT: "https://files.example.test",
+    QCRM_FILES_S3_REGION: "us-east-1",
+    QCRM_FILES_INCOMING_BUCKET: "qcrm-profile-a-incoming",
+    QCRM_FILES_OBJECTS_BUCKET: "qcrm-profile-a-objects",
+    QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE: "/run/secrets/qcrm_files_s3_upload_access_key",
+    QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE: "/run/secrets/qcrm_files_s3_upload_secret_key",
+    QCRM_FILES_S3_DELIVERY_ACCESS_KEY_FILE: "/run/secrets/qcrm_files_s3_delivery_access_key",
+    QCRM_FILES_S3_DELIVERY_SECRET_KEY_FILE: "/run/secrets/qcrm_files_s3_delivery_secret_key",
     ...overrides,
   };
 }

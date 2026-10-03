@@ -110,11 +110,31 @@ services:
       QCRM_OIDC_MAX_TOKEN_AGE_SECONDS: "${QCRM_OIDC_MAX_TOKEN_AGE_SECONDS:?set QCRM_OIDC_MAX_TOKEN_AGE_SECONDS}"
       QCRM_IAM_BOOTSTRAP_CLIENT_ID: "${QCRM_IAM_BOOTSTRAP_CLIENT_ID:?set QCRM_IAM_BOOTSTRAP_CLIENT_ID}"
       QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_FILE: /run/secrets/qcrm_iam_bootstrap_client_secret
+      QCRM_FILES_S3_ENDPOINT: http://platform-storage:8333
+      QCRM_FILES_S3_PUBLIC_ENDPOINT: "${QCRM_FILES_S3_PUBLIC_ENDPOINT:?set QCRM_FILES_S3_PUBLIC_ENDPOINT}"
+      QCRM_FILES_S3_REGION: "${QCRM_FILES_S3_REGION:-us-east-1}"
+      QCRM_FILES_INCOMING_BUCKET: "${QCRM_FILES_INCOMING_BUCKET:?set QCRM_FILES_INCOMING_BUCKET}"
+      QCRM_FILES_OBJECTS_BUCKET: "${QCRM_FILES_OBJECTS_BUCKET:?set QCRM_FILES_OBJECTS_BUCKET}"
+      QCRM_FILES_S3_REQUEST_TIMEOUT_MS: "${QCRM_FILES_S3_REQUEST_TIMEOUT_MS:-10000}"
+      QCRM_FILES_UPLOAD_TTL_SECONDS: "${QCRM_FILES_UPLOAD_TTL_SECONDS:-600}"
+      QCRM_FILES_DOWNLOAD_TTL_SECONDS: "${QCRM_FILES_DOWNLOAD_TTL_SECONDS:-60}"
+      QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE: /run/secrets/qcrm_files_s3_upload_access_key
+      QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE: /run/secrets/qcrm_files_s3_upload_secret_key
+      QCRM_FILES_S3_DELIVERY_ACCESS_KEY_FILE: /run/secrets/qcrm_files_s3_delivery_access_key
+      QCRM_FILES_S3_DELIVERY_SECRET_KEY_FILE: /run/secrets/qcrm_files_s3_delivery_secret_key
     secrets:
       - source: crm-database-url
         target: qcrm_database_url
       - source: iam-bootstrap-client-secret
         target: qcrm_iam_bootstrap_client_secret
+      - source: files-s3-upload-access-key
+        target: qcrm_files_s3_upload_access_key
+      - source: files-s3-upload-secret-key
+        target: qcrm_files_s3_upload_secret_key
+      - source: files-s3-delivery-access-key
+        target: qcrm_files_s3_delivery_access_key
+      - source: files-s3-delivery-secret-key
+        target: qcrm_files_s3_delivery_secret_key
     healthcheck:
       test:
         [
@@ -149,9 +169,26 @@ services:
       QCRM_PORT: "3101"
       QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
       QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+      QCRM_FILES_S3_ENDPOINT: http://platform-storage:8333
+      QCRM_FILES_S3_REGION: "${QCRM_FILES_S3_REGION:-us-east-1}"
+      QCRM_FILES_INCOMING_BUCKET: "${QCRM_FILES_INCOMING_BUCKET:?set QCRM_FILES_INCOMING_BUCKET}"
+      QCRM_FILES_OBJECTS_BUCKET: "${QCRM_FILES_OBJECTS_BUCKET:?set QCRM_FILES_OBJECTS_BUCKET}"
+      QCRM_FILES_S3_REQUEST_TIMEOUT_MS: "${QCRM_FILES_S3_REQUEST_TIMEOUT_MS:-10000}"
+      QCRM_FILES_S3_PROCESSOR_ACCESS_KEY_FILE: /run/secrets/qcrm_files_s3_processor_access_key
+      QCRM_FILES_S3_PROCESSOR_SECRET_KEY_FILE: /run/secrets/qcrm_files_s3_processor_secret_key
+      QCRM_FILES_CLAMAV_HOST: platform-clamav
+      QCRM_FILES_CLAMAV_PORT: "3310"
+      QCRM_FILES_CLAMAV_TIMEOUT_MS: "${QCRM_FILES_CLAMAV_TIMEOUT_MS:-30000}"
+      QCRM_FILES_CLAMAV_MAX_SIGNATURE_AGE_SECONDS: "${QCRM_FILES_CLAMAV_MAX_SIGNATURE_AGE_SECONDS:-172800}"
+      QCRM_FILES_WORKER_POLL_INTERVAL_MS: "${QCRM_FILES_WORKER_POLL_INTERVAL_MS:-2000}"
+      QCRM_FILES_WORKER_LEASE_SECONDS: "${QCRM_FILES_WORKER_LEASE_SECONDS:-300}"
     secrets:
       - source: crm-database-url
         target: qcrm_database_url
+      - source: files-s3-processor-access-key
+        target: qcrm_files_s3_processor_access_key
+      - source: files-s3-processor-secret-key
+        target: qcrm_files_s3_processor_secret_key
     healthcheck:
       test:
         [
@@ -218,3 +255,15 @@ secrets:
     file: "${QCRM_CRM_OIDC_CLIENT_SECRET_FILE:?set QCRM_CRM_OIDC_CLIENT_SECRET_FILE}"
   crm-session-redis-url:
     file: "${QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE:?set QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE}"
+  files-s3-upload-access-key:
+    file: "${QCRM_FILES_S3_UPLOAD_ACCESS_KEY_SECRET_FILE:?set QCRM_FILES_S3_UPLOAD_ACCESS_KEY_SECRET_FILE}"
+  files-s3-upload-secret-key:
+    file: "${QCRM_FILES_S3_UPLOAD_SECRET_KEY_SECRET_FILE:?set QCRM_FILES_S3_UPLOAD_SECRET_KEY_SECRET_FILE}"
+  files-s3-delivery-access-key:
+    file: "${QCRM_FILES_S3_DELIVERY_ACCESS_KEY_SECRET_FILE:?set QCRM_FILES_S3_DELIVERY_ACCESS_KEY_SECRET_FILE}"
+  files-s3-delivery-secret-key:
+    file: "${QCRM_FILES_S3_DELIVERY_SECRET_KEY_SECRET_FILE:?set QCRM_FILES_S3_DELIVERY_SECRET_KEY_SECRET_FILE}"
+  files-s3-processor-access-key:
+    file: "${QCRM_FILES_S3_PROCESSOR_ACCESS_KEY_SECRET_FILE:?set QCRM_FILES_S3_PROCESSOR_ACCESS_KEY_SECRET_FILE}"
+  files-s3-processor-secret-key:
+    file: "${QCRM_FILES_S3_PROCESSOR_SECRET_KEY_SECRET_FILE:?set QCRM_FILES_S3_PROCESSOR_SECRET_KEY_SECRET_FILE}"

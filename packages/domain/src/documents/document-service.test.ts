@@ -136,6 +136,57 @@ describe("DocumentService", () => {
     expect(created.blocks).not.toBe(seededTemplate.blocks);
   });
 
+  it("snapshots client and advisor values while creating an instance from a template", async () => {
+    const seededTemplate = template([
+      {
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf121",
+        type: "TEXT",
+        locked: true,
+        content: "Propuesta para {{contact.name}} preparada por {{advisor.name}}",
+        align: "LEFT",
+      },
+      {
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf122",
+        type: "VARIABLE",
+        locked: true,
+        key: "contact.email",
+        label: "Correo del cliente",
+        fallback: "Sin correo",
+        value: null,
+        editable: true,
+      },
+    ]);
+    const memory = memoryRepository(seededTemplate);
+    const service = new DocumentService(memory.repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+      contactFor: async () => ({
+        displayName: "Andrea Cliente",
+        email: "andrea@example.test",
+        phone: null,
+      }),
+      memberFor: async () => ({ displayName: "Sofía Asesora", email: "sofia@example.test" }),
+    });
+
+    const created = await service.create({
+      actor,
+      permissions,
+      kind: "QUOTE",
+      title: "Propuesta octubre",
+      contactId: "019db9c7-1268-7d24-bf99-96ea38ebf123",
+      opportunityId: null,
+      templateId: seededTemplate.id,
+      idempotencyKey: "document-create-context-1",
+      payloadHash: "d".repeat(64),
+      now,
+    });
+
+    expect(created.blocks).toMatchObject([
+      { content: "Propuesta para Andrea Cliente preparada por Sofía Asesora" },
+      { value: "andrea@example.test", editable: true },
+    ]);
+  });
+
   it("prevents changing a protected template block in an instance", async () => {
     const protectedBlock: DocumentBlock = {
       id: "019db9c7-1268-7d24-bf99-96ea38ebf203",

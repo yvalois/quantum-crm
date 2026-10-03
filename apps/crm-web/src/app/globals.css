@@ -492,6 +492,29 @@
   font-size: 0.55rem;
   line-height: 1.4;
 }
+.document-file-button {
+  display: inline-flex;
+  justify-content: center;
+  margin-top: 0.45rem;
+  border-radius: 0.3rem;
+  background: #0d887c;
+  padding: 0.42rem 0.65rem;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.document-file-button:has(input:disabled) {
+  cursor: progress;
+  opacity: 0.65;
+}
+.document-file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
 
 .document-preview-panel {
   min-width: 0;
@@ -598,6 +621,38 @@
 }
 .paper-image figcaption {
   font-size: 0.48rem;
+}
+.paper-image img {
+  width: 100%;
+  max-height: 9rem;
+  object-fit: contain;
+}
+.paper-attachment {
+  display: grid;
+  gap: 0.15rem;
+  border: 1px solid #d5dfe0;
+  border-left: 3px solid #0d887c;
+  background: #f7fafa;
+  padding: 0.55rem 0.7rem;
+}
+.paper-attachment span {
+  color: #0d887c;
+  font-size: 0.42rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+.paper-attachment small {
+  color: #6b7c80;
+}
+.paper-attachment button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  padding: 0.2rem 0;
+  color: #0d887c;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
 }
 .paper-columns {
   display: grid;

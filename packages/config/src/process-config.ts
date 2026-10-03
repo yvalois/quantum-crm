@@ -35,6 +35,13 @@ import {
   parseActivationDeliveryCallbackConfig,
   type ActivationDeliveryCallbackConfig,
 } from "./activation-delivery-callback-config.js";
+import {
+  filesProcessorEnvironmentKeys,
+  filesSignerEnvironmentKeys,
+  parseFilesStorageConfig,
+  type FilesStorageConfig,
+  type FilesStorageRole,
+} from "./files-storage-config.js";
 
 const qcrmEnvironmentSchema = z.enum(["local", "test", "preview", "staging", "production"]);
 const processEnvironmentKeys = [
@@ -80,6 +87,7 @@ export const processDefinitions = Object.freeze({
     oidc: Object.freeze({ provider: "keycloak", boundary: "crm" }),
     requiresIamBootstrapClient: true,
     requiresIamBootstrapClientSecret: true,
+    requiresFilesStorage: "signer",
   }),
   "admin-api": Object.freeze({
     serviceName: "admin-api",
@@ -95,6 +103,7 @@ export const processDefinitions = Object.freeze({
     defaultHost: "127.0.0.1",
     defaultPort: 3101,
     database: Object.freeze({ target: "crm", requiresTenant: true }),
+    requiresFilesStorage: "processor",
   }),
   "deploy-executor": Object.freeze({
     serviceName: "deploy-executor",
@@ -140,6 +149,7 @@ export interface ProcessDefinition {
   readonly requiresActivationDeliveryCallback?: boolean;
   readonly requiresIamBootstrapClient?: boolean;
   readonly requiresIamBootstrapClientSecret?: boolean;
+  readonly requiresFilesStorage?: FilesStorageRole;
 }
 
 export interface ProcessConfig {
@@ -172,6 +182,7 @@ export interface ProcessConfig {
   readonly activationDeliveryCallback?: ActivationDeliveryCallbackConfig;
   readonly iamBootstrapClientId?: "quantum-crm-bootstrap";
   readonly iamBootstrapClientSecret?: SecretValue;
+  readonly filesStorage?: FilesStorageConfig;
 }
 
 function readEnvironment(): NodeJS.ProcessEnv {
@@ -244,6 +255,8 @@ export function parseProcessConfig(
     ...(definition.requiresActivationDeliveryCallback
       ? activationDeliveryCallbackEnvironmentKeys
       : []),
+    ...(definition.requiresFilesStorage === "signer" ? filesSignerEnvironmentKeys : []),
+    ...(definition.requiresFilesStorage === "processor" ? filesProcessorEnvironmentKeys : []),
     ...(definition.requiresDeployHostSocket ? [deployHostSocketEnvironmentKey] : []),
     ...(definition.requiresDeployHostComposeRuntime
       ? [
@@ -472,6 +485,15 @@ export function parseProcessConfig(
         fileSystem,
       )
     : undefined;
+  const filesStorage = definition.requiresFilesStorage
+    ? parseFilesStorageConfig(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        definition.requiresFilesStorage,
+        environment,
+        fileSystem,
+      )
+    : undefined;
   const iamBootstrapClientId = definition.requiresIamBootstrapClient
     ? environment.QCRM_IAM_BOOTSTRAP_CLIENT_ID === "quantum-crm-bootstrap"
       ? ("quantum-crm-bootstrap" as const)
@@ -535,6 +557,7 @@ export function parseProcessConfig(
     ...(storage ? { storage } : {}),
     ...(identityProvisioner ? { identityProvisioner } : {}),
     ...(activationDeliveryCallback ? { activationDeliveryCallback } : {}),
+    ...(filesStorage ? { filesStorage } : {}),
     ...(iamBootstrapClientId ? { iamBootstrapClientId } : {}),
     ...(iamBootstrapClientSecret ? { iamBootstrapClientSecret } : {}),
   });

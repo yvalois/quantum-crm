@@ -69,7 +69,7 @@ Un usuario autorizado puede abrir Documentos desde el shell del CRM, crear o edi
 - [x] Exponer API y BFF con schemas runtime, permisos e idempotencia.
 - [x] Implementar biblioteca y editor visual conectado a datos reales.
 - [x] Validar una vez el candidato exacto en el VPS y registrar evidencia.
-- [ ] Completar el recorrido HTTP/BFF autenticado despues del despliegue por digest.
+- [x] Completar el recorrido HTTP/BFF autenticado despues del despliegue por digest.
 
 ## Riesgos y mitigaciones
 
@@ -83,13 +83,13 @@ Un usuario autorizado puede abrir Documentos desde el shell del CRM, crear o edi
 
 ## Criterios de aceptacion
 
-- [ ] Documentos aparece activo en el sidebar y abre una pantalla funcional.
-- [ ] Crear un documento vacio o desde plantilla persiste un borrador real.
-- [ ] El usuario agrega, edita, reordena y elimina bloques permitidos y ve la vista previa.
-- [ ] Guardar como plantilla conserva estructura, estilos y reglas editables/protegidas.
-- [ ] Duplicar crea un documento independiente y conserva el original.
-- [ ] Un `If-Match` obsoleto no pisa cambios.
-- [ ] Usuario sin permiso no puede leer ni mutar documentos.
+- [x] Documentos aparece activo en el sidebar y abre una pantalla funcional.
+- [x] Crear un documento vacio o desde plantilla persiste un borrador real.
+- [x] El usuario agrega, edita, reordena y elimina bloques permitidos y ve la vista previa.
+- [x] Guardar como plantilla conserva estructura, estilos y reglas editables/protegidas.
+- [x] Duplicar crea un documento independiente y conserva el original.
+- [x] Un `If-Match` obsoleto no pisa cambios.
+- [x] Usuario sin permiso no puede leer ni mutar documentos.
 
 ## Plan de verificacion
 
@@ -109,8 +109,9 @@ Un usuario autorizado puede abrir Documentos desde el shell del CRM, crear o edi
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: candidato `129f11e` en `feat/DOC-01-document-editor`; 26 archivos de contratos, dominio, persistencia, API/BFF, interfaz, migracion y documentacion.
-- Comandos y resultados: en el VPS aprobaron Prettier del repositorio, ESLint afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, 9 pruebas afectadas y builds de las imagenes `api`, `crm-web` y `crm-migrator`. PostgreSQL 18.1 aplico desde cero las 16 migraciones y verifico las cinco tablas, indices, claves y permisos de `documents`; el entorno aislado fue eliminado al terminar.
-- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`; el checklist canonico permanece abierto hasta el recorrido autenticado y el cierre completo de cada requisito.
-- Desviaciones del plan: el smoke HTTP/BFF autenticado queda para el despliegue del digest integrado; no se presenta esta rebanada como cierre total de `DOC-01` a `DOC-16`.
+- Archivos, commits o PR: PR #79 integrado en `main` como `28d64e0603220bc35e1d7c756f6064963dc5fda2`; 26 archivos de contratos, dominio, persistencia, API/BFF, interfaz, migracion y documentacion.
+- Comandos y resultados: en el VPS aprobaron Prettier del repositorio, ESLint afectado, typecheck de `contracts`, `domain`, `database`, `api` y `crm-web`, 9 pruebas afectadas y builds de las imagenes `api`, `crm-web` y `crm-migrator`. La matriz de GitHub aprobo 7/7 y la release `659d5b84-0647-5a6d-8ccb-bd695516938f` publico imagenes sin hallazgos altos o criticos. El perfil piloto aplico la migracion `20261002010000_doc_editor_templates`; `api` y `crm-web` quedaron saludables con los digests oficiales `sha256:aac80cfc22be52152fff29772558d414445042c47a79408c5b3f7ce60ebf7197` y `sha256:922d7e27a7758a587773a92439b77e29372b5448c472f3245437b7505caee75d`.
+- Recorrido autenticado: password y TOTP permanecieron en archivos privados del VPS; el login termino en `/documents`, la sesion devolvio `authenticated=true`, y crear, editar, guardar plantilla, instanciarla y duplicar devolvieron `200`. La actualizacion con version obsoleta devolvio `412`. El perfil conserva tres documentos sinteticos y una plantilla para la demostracion.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`; solo se cierran las casillas realmente satisfechas por esta rebanada y permanecen abiertos catalogo, paginas, archivos binarios, PDF, envio, aceptacion, facturacion y pagos.
+- Desviaciones del plan: ninguna en el producto. El primer smoke manual omitio la cabecera `Origin` obligatoria y fue rechazado con `403`; al repetir el escenario con el contrato HTTP correcto aprobo sin cambiar codigo ni permisos.
 - Pendientes o decisiones nuevas: PDF, envio, aceptacion, facturacion, pagos, catalogo y archivos conservan sus requisitos propios.

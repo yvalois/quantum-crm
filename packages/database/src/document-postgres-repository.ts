@@ -6,6 +6,7 @@ import type {
   DocumentRepository,
   DocumentTemplateRecord,
 } from "@quantum-crm/domain";
+import { DocumentValidationError } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
 import { CommercialIdempotencyConflictError } from "./commercial-postgres-database.js";
@@ -116,8 +117,203 @@ function visibility(
 }
 
 function fail(error: unknown): never {
-  if (error instanceof CommercialIdempotencyConflictError) throw error;
+  if (
+    error instanceof CommercialIdempotencyConflictError ||
+    error instanceof DocumentValidationError
+  )
+    throw error;
   throw new DatabaseUnavailableError();
+}
+
+interface DocumentFileReference {
+  readonly fileId: string;
+  readonly checksum: string;
+  readonly purpose: "inline_image" | "attachment" | "signature" | "logo" | "background";
+  readonly position: number;
+}
+
+function documentFileReferences(
+  blocksValue: readonly DocumentBlock[],
+  designValue: DocumentDesign,
+): readonly DocumentFileReference[] {
+  const references: DocumentFileReference[] = [];
+  for (const [position, block] of blocksValue.entries()) {
+    if (block.type === "IMAGE" && block.fileId && block.checksum) {
+      references.push({
+        fileId: block.fileId,
+        checksum: block.checksum,
+        purpose: "inline_image",
+        position,
+      });
+    } else if (block.type === "ATTACHMENT" && block.fileId && block.checksum) {
+      references.push({
+        fileId: block.fileId,
+        checksum: block.checksum,
+        purpose: "attachment",
+        position,
+      });
+    } else if (block.type === "SIGNATURE" && block.fileId && block.checksum) {
+      references.push({
+        fileId: block.fileId,
+        checksum: block.checksum,
+        purpose: "signature",
+        position,
+      });
+    }
+  }
+  if (designValue.logoFileId && designValue.logoChecksum) {
+    references.push({
+      fileId: designValue.logoFileId,
+      checksum: designValue.logoChecksum,
+      purpose: "logo",
+      position: references.length,
+    });
+  }
+  if (designValue.backgroundFileId && designValue.backgroundChecksum) {
+    references.push({
+      fileId: designValue.backgroundFileId,
+      checksum: designValue.backgroundChecksum,
+      purpose: "background",
+      position: references.length,
+    });
+  }
+  const unique = new Map<string, DocumentFileReference>();
+  for (const reference of references) {
+    const key = `${reference.fileId}:${reference.purpose}`;
+    const existing = unique.get(key);
+    if (existing && existing.checksum !== reference.checksum) {
+      throw new DocumentValidationError("A file cannot be referenced with two checksums");
+    }
+    unique.set(key, existing ?? reference);
+  }
+  return Object.freeze([...unique.values()]);
+}
+
+async function syncDocumentFileReferences(
+  client: PoolClient,
+  input: {
+    readonly documentId: string;
+    readonly sourceTemplateId: string | null;
+    readonly actorMemberId: string;
+    readonly blocks: readonly DocumentBlock[];
+    readonly design: DocumentDesign;
+    readonly now: Date;
+  },
+): Promise<void> {
+  const references = documentFileReferences(input.blocks, input.design);
+  const fileIds = [...new Set(references.map((reference) => reference.fileId))];
+  if (fileIds.length > 0) {
+    const available = await client.query<{
+      readonly id: string;
+      readonly checksum: string;
+    }>(
+      `SELECT file.id::text,
+              'sha256:' || encode(decode(file.verified_sha256, 'base64'), 'hex') AS checksum
+       FROM files.files AS file
+       WHERE file.id = ANY($1::uuid[])
+         AND file.status = 'available'
+         AND (
+           (file.owner_module = 'documents' AND file.owner_type = 'commercial_document'
+             AND file.owner_id = $2::uuid)
+           OR EXISTS (
+             SELECT 1 FROM files.references AS existing
+             WHERE existing.file_id = file.id
+               AND existing.module = 'documents'
+               AND existing.resource_type = 'commercial_document'
+               AND existing.resource_id = $2::uuid
+           )
+           OR ($3::uuid IS NOT NULL AND EXISTS (
+             SELECT 1 FROM files.references AS template_reference
+             WHERE template_reference.file_id = file.id
+               AND template_reference.module = 'documents'
+               AND template_reference.resource_type = 'document_template'
+               AND template_reference.resource_id = $3::uuid
+           ))
+         )
+       FOR SHARE OF file`,
+      [fileIds, input.documentId, input.sourceTemplateId],
+    );
+    const checksums = new Map(available.rows.map((row) => [row.id, row.checksum]));
+    if (
+      checksums.size !== fileIds.length ||
+      references.some((reference) => checksums.get(reference.fileId) !== reference.checksum)
+    ) {
+      throw new DocumentValidationError("Every document file must be available and authorized");
+    }
+  }
+
+  const current = await client.query<{
+    readonly file_id: string;
+    readonly purpose: DocumentFileReference["purpose"];
+  }>(
+    `SELECT file_id::text, purpose
+     FROM files.references
+     WHERE module = 'documents' AND resource_type = 'commercial_document'
+       AND resource_id = $1::uuid
+     FOR UPDATE`,
+    [input.documentId],
+  );
+  const desiredKeys = new Set(
+    references.map((reference) => `${reference.fileId}:${reference.purpose}`),
+  );
+  const currentKeys = new Set(current.rows.map((row) => `${row.file_id}:${row.purpose}`));
+  for (const row of current.rows.filter(
+    (candidate) => !desiredKeys.has(`${candidate.file_id}:${candidate.purpose}`),
+  )) {
+    await client.query(
+      `DELETE FROM files.references
+       WHERE file_id = $1::uuid AND module = 'documents'
+         AND resource_type = 'commercial_document' AND resource_id = $2::uuid
+         AND purpose = $3`,
+      [row.file_id, input.documentId, row.purpose],
+    );
+    await client.query(
+      `INSERT INTO files.outbox
+        (id, aggregate_id, event_type, payload, created_at, available_at)
+       VALUES (uuidv7(), $1::uuid, 'file.reference.detached',
+         jsonb_build_object('fileId', $1::text, 'module', 'documents',
+           'resourceType', 'commercial_document', 'resourceId', $2::text), $3, $3)`,
+      [row.file_id, input.documentId, input.now],
+    );
+  }
+  for (const reference of references) {
+    const referenceKey = `${reference.fileId}:${reference.purpose}`;
+    if (currentKeys.has(referenceKey)) {
+      await client.query(
+        `UPDATE files.references SET position = $4
+         WHERE file_id = $1::uuid AND module = 'documents'
+           AND resource_type = 'commercial_document' AND resource_id = $2::uuid
+           AND purpose = $3`,
+        [reference.fileId, input.documentId, reference.purpose, reference.position],
+      );
+      continue;
+    }
+    await client.query(
+      `WITH attached AS (
+         INSERT INTO files.references
+           (id, file_id, module, resource_type, resource_id, purpose, position,
+            created_by_member_id, created_at)
+         VALUES (uuidv7(), $1::uuid, 'documents', 'commercial_document', $2::uuid,
+                 $3, $4, $5::uuid, $6)
+         RETURNING id, file_id
+       )
+       INSERT INTO files.outbox
+         (id, aggregate_id, event_type, payload, created_at, available_at)
+       SELECT uuidv7(), attached.file_id, 'file.reference.attached',
+         jsonb_build_object('fileId', attached.file_id::text, 'referenceId', attached.id::text,
+           'module', 'documents', 'resourceType', 'commercial_document',
+           'resourceId', $2::text, 'kind', upper($3)), $6, $6
+       FROM attached`,
+      [
+        reference.fileId,
+        input.documentId,
+        reference.purpose,
+        reference.position,
+        input.actorMemberId,
+        input.now,
+      ],
+    );
+  }
 }
 
 async function lockCommand(
@@ -275,6 +471,14 @@ export function createDocumentPostgresRepository(pool: PostgresPool): DocumentRe
         );
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
+        await syncDocumentFileReferences(client, {
+          documentId: row.id,
+          sourceTemplateId: row.source_template_id,
+          actorMemberId: document.ownerMemberId,
+          blocks: document.blocks,
+          design: document.design,
+          now: document.createdAt,
+        });
         await insertDocumentRevision(client, row, document.ownerMemberId);
         await remember(
           client,
@@ -339,6 +543,14 @@ export function createDocumentPostgresRepository(pool: PostgresPool): DocumentRe
           await client.query("COMMIT");
           return null;
         }
+        await syncDocumentFileReferences(client, {
+          documentId: row.id,
+          sourceTemplateId: row.source_template_id,
+          actorMemberId: input.actor.memberId,
+          blocks: input.blocks,
+          design: input.design,
+          now: input.now,
+        });
         await insertDocumentRevision(client, row, input.actor.memberId);
         await remember(
           client,
