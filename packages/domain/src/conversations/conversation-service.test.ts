@@ -9,6 +9,7 @@ import {
   type ConversationRecord,
   type ConversationRepository,
 } from "./index.js";
+import type { CommercialDocumentRecord } from "../documents/index.js";
 
 const actor: CommercialActor = Object.freeze({
   memberId: "019b0000-0000-7000-8000-000000000001",
@@ -69,6 +70,35 @@ function references(contact = true, member = true) {
     isActiveMember: vi.fn(async () => member),
   };
 }
+
+const document: CommercialDocumentRecord = Object.freeze({
+  id: "019b0000-0000-7000-8000-000000000010",
+  kind: "QUOTE",
+  status: "DRAFT",
+  title: "Oferta piloto",
+  contactId: existing.contactId,
+  opportunityId: null,
+  ownerMemberId: actor.memberId,
+  sourceTemplateId: "019b0000-0000-7000-8000-000000000011",
+  blocks: [],
+  design: {
+    accentColor: "#00A3A3",
+    textColor: "#111111",
+    fontFamily: "INSTRUMENT_SANS",
+    pageSize: "A4",
+    headerText: "",
+    footerText: "",
+    showPageNumbers: false,
+    logoFileId: null,
+    logoChecksum: null,
+    backgroundFileId: null,
+    backgroundChecksum: null,
+  },
+  revision: 2,
+  version: 3n,
+  createdAt: now,
+  updatedAt: now,
+});
 
 describe("ConversationService", () => {
   it("denies a reply without consulting the repository", async () => {
@@ -132,6 +162,57 @@ describe("ConversationService", () => {
         payloadHash: "c".repeat(64),
       }),
     ).rejects.toBeInstanceOf(ConversationValidationError);
+  });
+
+  it("binds a server-owned document snapshot to a document message", async () => {
+    const store = repository();
+    const refs = { ...references(), documentFor: vi.fn(async () => document) };
+    const service = new ConversationService(store, refs, () => now);
+    await service.send({
+      actor,
+      permissions: ["crm:conversations:reply"],
+      conversationId: existing.id,
+      expectedVersion: existing.version,
+      body: "Documento preparado: Oferta piloto",
+      kind: "DOCUMENT",
+      documentId: document.id,
+      idempotencyKey: "document-12345678",
+      payloadHash: "1".repeat(64),
+    });
+    expect(store.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.objectContaining({
+          kind: "DOCUMENT",
+          documentId: document.id,
+          documentSnapshot: expect.objectContaining({
+            id: document.id,
+            title: document.title,
+            revision: document.revision,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("rejects a document from another contact", async () => {
+    const refs = {
+      ...references(),
+      documentFor: vi.fn(async () => ({ ...document, contactId: "019b0000-0000-7000-8000-000000000099" })),
+    };
+    const service = new ConversationService(repository(), refs, () => now);
+    await expect(
+      service.send({
+        actor,
+        permissions: ["crm:conversations:reply"],
+        conversationId: existing.id,
+        expectedVersion: existing.version,
+        body: "Documento cruzado",
+        kind: "DOCUMENT",
+        documentId: document.id,
+        idempotencyKey: "document-87654321",
+        payloadHash: "2".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(ConversationNotFoundError);
   });
 
   it("takes an unassigned conversation for the human actor", async () => {

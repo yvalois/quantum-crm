@@ -1,9 +1,23 @@
 import { z } from "zod";
+import { DocumentBlockSchema, DocumentDesignSchema } from "../../documents/v1/document.js";
 
 const IdSchema = z.string().uuid();
 const TimestampSchema = z.string().datetime({ offset: true });
 const VersionSchema = z.string().regex(/^[1-9][0-9]*$/u);
 const BodySchema = z.string().trim().min(1).max(16_000);
+
+/** Immutable content captured when a document is attached to a conversation message. */
+export const ConversationDocumentSnapshotSchema = z
+  .object({
+    id: IdSchema,
+    kind: z.enum(["QUOTE", "INVOICE"]),
+    title: z.string().trim().min(1).max(240),
+    sourceTemplateId: IdSchema.nullable(),
+    revision: z.number().int().positive(),
+    blocks: z.array(DocumentBlockSchema).max(250),
+    design: DocumentDesignSchema,
+  })
+  .strict();
 
 export const ConversationChannelSchema = z.enum(["EMAIL", "WHATSAPP", "WEBCHAT", "SMS"]);
 export const ConversationStatusSchema = z.enum(["OPEN", "PENDING", "ESCALATED", "CLOSED"]);
@@ -58,6 +72,8 @@ export const ConversationMessageSchema = z
     externalMessageId: z.string().trim().min(1).max(512).nullable(),
     deliveryStatus: ConversationDeliveryStatusSchema,
     failureCode: z.string().trim().min(1).max(120).nullable(),
+    documentId: IdSchema.nullable(),
+    documentSnapshot: ConversationDocumentSnapshotSchema.nullable(),
     createdAt: TimestampSchema,
     updatedAt: TimestampSchema,
   })
@@ -115,8 +131,20 @@ export const UpdateConversationSchema = z
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
 export const SendConversationMessageSchema = z
-  .object({ body: BodySchema, kind: ConversationMessageKindSchema.default("TEXT") })
-  .strict();
+  .object({
+    body: BodySchema,
+    kind: ConversationMessageKindSchema.default("TEXT"),
+    documentId: IdSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.kind === "DOCUMENT" && value.documentId === undefined) {
+      context.addIssue({ code: "custom", path: ["documentId"], message: "Document is required" });
+    }
+    if (value.kind !== "DOCUMENT" && value.documentId !== undefined) {
+      context.addIssue({ code: "custom", path: ["documentId"], message: "Document is not allowed" });
+    }
+  });
 export const CreateConversationNoteSchema = z.object({ body: BodySchema }).strict();
 
 export const QuickReplySchema = z
@@ -165,4 +193,5 @@ export type ConversationChannel = z.infer<typeof ConversationChannelSchema>;
 export type ConversationStatus = z.infer<typeof ConversationStatusSchema>;
 export type ConversationAttentionMode = z.infer<typeof ConversationAttentionModeSchema>;
 export type ConversationMessageKind = z.infer<typeof ConversationMessageKindSchema>;
+export type ConversationDocumentSnapshot = z.infer<typeof ConversationDocumentSnapshotSchema>;
 export type QuickReply = z.infer<typeof QuickReplySchema>;
