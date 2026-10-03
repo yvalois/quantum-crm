@@ -305,7 +305,11 @@ export class ConversationsController {
             ...actor,
             conversationId: id(conversationId),
             expectedVersion,
-            ...parsed.data,
+            body: parsed.data.body,
+            kind: parsed.data.kind,
+            ...(parsed.data.documentId === undefined
+              ? {}
+              : { documentId: parsed.data.documentId }),
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash({
               conversationId,
