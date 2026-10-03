@@ -1,3 +1,4 @@
+import type { ConversationDocumentSnapshot } from "@quantum-crm/contracts";
 import type { CommercialActor } from "../iam/index.js";
 
 export type ConversationChannel = "EMAIL" | "WHATSAPP" | "WEBCHAT" | "SMS";
@@ -35,6 +36,8 @@ export interface ConversationMessageRecord {
   readonly externalMessageId: string | null;
   readonly deliveryStatus: ConversationDeliveryStatus;
   readonly failureCode: string | null;
+  readonly documentId: string | null;
+  readonly documentSnapshot: ConversationDocumentSnapshot | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

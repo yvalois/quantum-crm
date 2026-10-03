@@ -46,6 +46,8 @@ interface MessageRow {
   readonly external_message_id: string | null;
   readonly delivery_status: string;
   readonly failure_code: string | null;
+  readonly document_id: string | null;
+  readonly document_snapshot: ConversationMessageRecord["documentSnapshot"];
   readonly created_at: Date | string;
   readonly updated_at: Date | string;
 }
@@ -75,6 +77,7 @@ const conversationSelection = `conversation.id::text, conversation.contact_id::t
 const messageSelection = `message.id::text, message.conversation_id::text, message.sequence::text,
   message.direction, message.kind, message.author_member_id::text, message.body,
   message.external_message_id, message.delivery_status, message.failure_code,
+  message.document_id::text, message.document_snapshot,
   message.created_at, message.updated_at`;
 
 function conversationFromRow(row: ConversationRow): ConversationRecord {
@@ -108,6 +111,8 @@ function messageFromRow(row: MessageRow): ConversationMessageRecord {
     deliveryStatus:
       row.delivery_status.toUpperCase() as ConversationMessageRecord["deliveryStatus"],
     failureCode: row.failure_code,
+    documentId: row.document_id,
+    documentSnapshot: row.document_snapshot,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   });
@@ -370,8 +375,9 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
         await client.query(
           `INSERT INTO conversations.messages
            (id, conversation_id, sequence, direction, kind, author_member_id, body,
-            external_message_id, delivery_status, failure_code, created_at, updated_at)
-           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, $6::uuid, $7, $8, $9, $10, $11, $12)`,
+            external_message_id, delivery_status, failure_code, document_id, document_snapshot,
+            created_at, updated_at)
+           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, $6::uuid, $7, $8, $9, $10, $11::uuid, $12::jsonb, $13, $14)`,
           [
             input.message.id,
             input.message.conversationId,
@@ -383,6 +389,10 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
             input.message.externalMessageId,
             input.message.deliveryStatus.toLowerCase(),
             input.message.failureCode,
+            input.message.documentId,
+            input.message.documentSnapshot === null
+              ? null
+              : JSON.stringify(input.message.documentSnapshot),
             input.message.createdAt,
             input.message.updatedAt,
           ],
@@ -540,10 +550,12 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
         const result = await client.query<MessageRow>(
           `INSERT INTO conversations.messages
            (id, conversation_id, sequence, direction, kind, author_member_id, body,
-            external_message_id, delivery_status, failure_code, created_at, updated_at)
-           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, $6::uuid, $7, $8, $9, $10, $11, $12)
+            external_message_id, delivery_status, failure_code, document_id, document_snapshot,
+            created_at, updated_at)
+           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, $6::uuid, $7, $8, $9, $10, $11::uuid, $12::jsonb, $13, $14)
            RETURNING id::text, conversation_id::text, sequence::text, direction, kind,
              author_member_id::text, body, external_message_id, delivery_status, failure_code,
+             document_id::text, document_snapshot,
              created_at, updated_at`,
           [
             input.message.id,
@@ -556,6 +568,10 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
             input.message.externalMessageId,
             input.message.deliveryStatus.toLowerCase(),
             input.message.failureCode,
+            input.message.documentId,
+            input.message.documentSnapshot === null
+              ? null
+              : JSON.stringify(input.message.documentSnapshot),
             input.message.createdAt,
             input.message.updatedAt,
           ],

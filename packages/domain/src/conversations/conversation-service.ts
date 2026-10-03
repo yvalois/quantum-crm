@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
+import type { ConversationDocumentSnapshot } from "@quantum-crm/contracts";
 import { IamAuthorizationError, type CommercialActor, type IamPermission } from "../iam/index.js";
+import type { CommercialDocumentRecord } from "../documents/index.js";
 import {
   type ConversationAttentionMode,
   type ConversationChannel,
@@ -27,6 +29,23 @@ function body(value: string): string {
 export interface ConversationReferences {
   readonly contactExistsFor: (actor: CommercialActor, contactId: string) => Promise<boolean>;
   readonly isActiveMember: (memberId: string) => Promise<boolean>;
+  /** Resolves a document through its owning module and returns the server-owned snapshot source. */
+  readonly documentFor?: (
+    actor: CommercialActor,
+    documentId: string,
+  ) => Promise<CommercialDocumentRecord | null>;
+}
+
+function documentSnapshot(document: CommercialDocumentRecord): ConversationDocumentSnapshot {
+  return Object.freeze({
+    id: document.id,
+    kind: document.kind,
+    title: document.title,
+    sourceTemplateId: document.sourceTemplateId,
+    revision: document.revision,
+    blocks: [...document.blocks],
+    design: document.design,
+  });
 }
 
 export class ConversationService {
@@ -103,6 +122,8 @@ export class ConversationService {
         externalMessageId: null,
         deliveryStatus: "QUEUED",
         failureCode: null,
+        documentId: null,
+        documentSnapshot: null,
         createdAt: now,
         updatedAt: now,
       }),
@@ -172,6 +193,7 @@ export class ConversationService {
     readonly expectedVersion: bigint;
     readonly body: string;
     readonly kind: ConversationMessageKind;
+    readonly documentId?: string;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
   }) {
@@ -180,6 +202,16 @@ export class ConversationService {
     if (!current) throw new ConversationNotFoundError();
     if (current.attentionMode !== "HUMAN" || current.status === "CLOSED")
       throw new ConversationValidationError();
+    let attachedDocument: CommercialDocumentRecord | null = null;
+    if (input.kind === "DOCUMENT") {
+      if (!input.documentId || !this.references.documentFor)
+        throw new ConversationValidationError();
+      attachedDocument = await this.references.documentFor(input.actor, input.documentId);
+      if (!attachedDocument || attachedDocument.contactId !== current.contactId)
+        throw new ConversationNotFoundError();
+    } else if (input.documentId !== undefined) {
+      throw new ConversationValidationError();
+    }
     const now = this.clock();
     const result = await this.repository.append({
       actor: input.actor,
@@ -195,6 +227,8 @@ export class ConversationService {
         externalMessageId: null,
         deliveryStatus: "QUEUED",
         failureCode: null,
+        documentId: attachedDocument?.id ?? null,
+        documentSnapshot: attachedDocument ? documentSnapshot(attachedDocument) : null,
         createdAt: now,
         updatedAt: now,
       }),
@@ -232,6 +266,8 @@ export class ConversationService {
         externalMessageId: null,
         deliveryStatus: "NOT_APPLICABLE",
         failureCode: null,
+        documentId: null,
+        documentSnapshot: null,
         createdAt: now,
         updatedAt: now,
       }),

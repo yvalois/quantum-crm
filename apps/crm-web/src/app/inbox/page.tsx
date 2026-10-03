@@ -323,7 +323,11 @@ export default function InboxPage(): React.JSX.Element {
       if (!(await updatePreparedBlocks(preparedDocument.blocks))) return;
       await mutate(
         `/api/conversations/${selected.id}/messages`,
-        { body: `Documento preparado: ${preparedDocument.title}`, kind: "DOCUMENT" },
+        {
+          body: `Documento preparado: ${preparedDocument.title}`,
+          kind: "DOCUMENT",
+          documentId: preparedDocument.id,
+        },
         { version: selected.version },
       );
       setShowDocumentComposer(false);
