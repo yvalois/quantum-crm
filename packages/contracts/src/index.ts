@@ -215,6 +215,7 @@ export {
   ConversationListQuerySchema,
   ConversationListResponseSchema,
   ConversationMessageDirectionSchema,
+  ConversationDocumentSnapshotSchema,
   ConversationMessageKindSchema,
   ConversationMessageResponseSchema,
   ConversationMessageSchema,
@@ -237,6 +238,7 @@ export {
   type ConversationListQuery,
   type ConversationMessage,
   type ConversationMessageKind,
+  type ConversationDocumentSnapshot,
   type ConversationStatus,
   type QuickReply,
 } from "./conversations/v1/conversation.js";

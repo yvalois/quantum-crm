@@ -139,6 +139,8 @@ export class AppModule {
                 (await database.commercial.contacts.find(actor, contactId)) !== null,
               isActiveMember: async (memberId) =>
                 (await database.members.findById(memberId))?.status === "ACTIVE",
+              documentFor: async (actor, documentId) =>
+                database.commercial.documents.find(actor, documentId),
             }),
         },
         {
