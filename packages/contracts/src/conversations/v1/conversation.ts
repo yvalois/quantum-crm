@@ -142,7 +142,11 @@ export const SendConversationMessageSchema = z
       context.addIssue({ code: "custom", path: ["documentId"], message: "Document is required" });
     }
     if (value.kind !== "DOCUMENT" && value.documentId !== undefined) {
-      context.addIssue({ code: "custom", path: ["documentId"], message: "Document is not allowed" });
+      context.addIssue({
+        code: "custom",
+        path: ["documentId"],
+        message: "Document is not allowed",
+      });
     }
   });
 export const CreateConversationNoteSchema = z.object({ body: BodySchema }).strict();

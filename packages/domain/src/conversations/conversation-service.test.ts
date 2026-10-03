@@ -197,7 +197,10 @@ describe("ConversationService", () => {
   it("rejects a document from another contact", async () => {
     const refs = {
       ...references(),
-      documentFor: vi.fn(async () => ({ ...document, contactId: "019b0000-0000-7000-8000-000000000099" })),
+      documentFor: vi.fn(async () => ({
+        ...document,
+        contactId: "019b0000-0000-7000-8000-000000000099",
+      })),
     };
     const service = new ConversationService(repository(), refs, () => now);
     await expect(

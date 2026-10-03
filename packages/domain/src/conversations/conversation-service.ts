@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import type { ConversationDocumentSnapshot } from "@quantum-crm/contracts";
 import { IamAuthorizationError, type CommercialActor, type IamPermission } from "../iam/index.js";
 import type { CommercialDocumentRecord } from "../documents/index.js";
 import {
@@ -35,14 +36,14 @@ export interface ConversationReferences {
   ) => Promise<CommercialDocumentRecord | null>;
 }
 
-function documentSnapshot(document: CommercialDocumentRecord) {
+function documentSnapshot(document: CommercialDocumentRecord): ConversationDocumentSnapshot {
   return Object.freeze({
     id: document.id,
     kind: document.kind,
     title: document.title,
     sourceTemplateId: document.sourceTemplateId,
     revision: document.revision,
-    blocks: document.blocks,
+    blocks: [...document.blocks],
     design: document.design,
   });
 }
@@ -204,12 +205,12 @@ export class ConversationService {
     let attachedDocument: CommercialDocumentRecord | null = null;
     if (input.kind === "DOCUMENT") {
       if (!input.documentId || !this.references.documentFor)
-        throw new ConversationValidationError("A document attachment is required");
+        throw new ConversationValidationError();
       attachedDocument = await this.references.documentFor(input.actor, input.documentId);
       if (!attachedDocument || attachedDocument.contactId !== current.contactId)
         throw new ConversationNotFoundError();
     } else if (input.documentId !== undefined) {
-      throw new ConversationValidationError("Only document messages can include a document");
+      throw new ConversationValidationError();
     }
     const now = this.clock();
     const result = await this.repository.append({
