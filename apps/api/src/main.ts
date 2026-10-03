@@ -5,7 +5,11 @@ import { NestFactory } from "@nestjs/core";
 import { createKeycloakOidcAccessTokenVerifier } from "@quantum-crm/auth";
 import { loadServiceConfig, requireDatabaseConfig, requireOidcConfig } from "@quantum-crm/config";
 import { createCrmPostgresDatabase } from "@quantum-crm/database";
-import { iamPermissions, type FileStorageAuthorization } from "@quantum-crm/domain";
+import {
+  iamPermissions,
+  type FileRecord,
+  type FileStorageAuthorization,
+} from "@quantum-crm/domain";
 import { createS3ObjectStorage } from "@quantum-crm/files-infrastructure";
 
 import { AppModule } from "./app.module.js";
@@ -46,7 +50,7 @@ async function bootstrap(): Promise<void> {
     },
   });
   const fileStorageAuthorization: FileStorageAuthorization = Object.freeze({
-    authorizeUpload: async (file) => {
+    authorizeUpload: async (file: FileRecord) => {
       const authorization = uploadStorage.reserveUpload({
         objectKey: file.incomingObjectKey,
         expectedSha256Base64: file.expectedSha256,
@@ -61,7 +65,7 @@ async function bootstrap(): Promise<void> {
         expiresAt: new Date(authorization.expiresAt),
       });
     },
-    authorizeDownload: async (file) => {
+    authorizeDownload: async (file: FileRecord) => {
       if (!file.objectKey || !file.objectVersionId) {
         throw new Error("available file has no immutable object version");
       }

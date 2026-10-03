@@ -33,6 +33,7 @@ import {
 import { CommercialIdempotencyConflictError } from "@quantum-crm/database";
 import {
   FileNotFoundError,
+  type FileListFilters,
   type FileRecord,
   type FileReferenceRecord,
   FileService,
@@ -115,7 +116,13 @@ export class FilesController {
       const parsed = FileListQuerySchema.safeParse(query);
       if (!parsed.success) throw new BadRequestException();
       const auth = identity(request);
-      const page = await this.service.list(auth.actor, auth.permissions, parsed.data);
+      const filters: FileListFilters = {
+        limit: parsed.data.limit,
+        ...(parsed.data.cursor === undefined ? {} : { cursor: parsed.data.cursor }),
+        ...(parsed.data.status === undefined ? {} : { status: parsed.data.status }),
+        ...(parsed.data.fileClass === undefined ? {} : { fileClass: parsed.data.fileClass }),
+      };
+      const page = await this.service.list(auth.actor, auth.permissions, filters);
       return FileListResponseSchema.parse({
         data: page.items.map(file),
         page: { nextCursor: page.nextCursor },
