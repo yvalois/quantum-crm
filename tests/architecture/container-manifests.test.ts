@@ -150,6 +150,7 @@ describe("container manifests", () => {
         "platform-postgres",
         "platform-redis",
         "platform-storage",
+        "platform-clamav",
       ].sort(),
     );
     expect(foundation).not.toMatch(/^    ports:/m);
