@@ -66,6 +66,16 @@ export function starterDocumentBlocks(): readonly DocumentBlock[] {
   ]);
 }
 
+function lockedProjection(block: DocumentBlock): DocumentBlock {
+  if (block.type === "VARIABLE" && block.editable) {
+    return { ...block, value: null };
+  }
+  if (block.type === "IMAGE" && block.replaceable) {
+    return { ...block, fileId: null, checksum: null, visible: true };
+  }
+  return block;
+}
+
 function assertLockedBlocks(
   current: readonly DocumentBlock[],
   candidate: readonly DocumentBlock[],
@@ -73,10 +83,44 @@ function assertLockedBlocks(
   for (const [index, block] of current.entries()) {
     if (!block.locked) continue;
     const next = candidate[index];
-    if (!next || JSON.stringify(block) !== JSON.stringify(next)) {
+    if (
+      !next ||
+      JSON.stringify(lockedProjection(block)) !== JSON.stringify(lockedProjection(next))
+    ) {
       throw new DocumentValidationError("Protected template blocks cannot be changed or moved");
     }
   }
+}
+
+function replaceTokens(value: string, values: ReadonlyMap<string, string>): string {
+  return value.replace(
+    /\{\{([a-z][a-z0-9_.]{1,119})\}\}/gu,
+    (token, key: string) => values.get(key) ?? token,
+  );
+}
+
+function materializeBlocks(
+  blocks: readonly DocumentBlock[],
+  values: ReadonlyMap<string, string>,
+): readonly DocumentBlock[] {
+  return Object.freeze(
+    blocks.map((block) => {
+      if (block.type === "TEXT") return { ...block, content: replaceTokens(block.content, values) };
+      if (block.type === "TERMS")
+        return { ...block, content: replaceTokens(block.content, values) };
+      if (block.type === "COLUMNS")
+        return { ...block, columns: block.columns.map((column) => replaceTokens(column, values)) };
+      if (block.type === "TABLE")
+        return {
+          ...block,
+          columns: block.columns.map((column) => replaceTokens(column, values)),
+          rows: block.rows.map((row) => row.map((cell) => replaceTokens(cell, values))),
+        };
+      if (block.type === "VARIABLE")
+        return { ...block, value: values.get(block.key) ?? block.fallback };
+      return structuredClone(block);
+    }),
+  );
 }
 
 export class DocumentService {
@@ -126,9 +170,13 @@ export class DocumentService {
     if (template && template.kind !== input.kind)
       throw new DocumentValidationError("Template kind does not match document kind");
     const now = input.now ?? new Date();
+    const documentId = randomUUID();
+    const contextualValues = template
+      ? await this.templateValues(input.actor, input.contactId, input.title)
+      : new Map<string, string>();
     return this.repository.create({
       document: Object.freeze({
-        id: randomUUID(),
+        id: documentId,
         kind: input.kind,
         status: "DRAFT",
         title: requireTitle(input.title, 240),
@@ -136,7 +184,11 @@ export class DocumentService {
         opportunityId: input.opportunityId,
         ownerMemberId: input.actor.memberId,
         sourceTemplateId: template?.id ?? null,
-        blocks: cloneBlocks(template?.blocks ?? input.blocks ?? starterDocumentBlocks()),
+        blocks: cloneBlocks(
+          template
+            ? materializeBlocks(template.blocks, contextualValues)
+            : (input.blocks ?? starterDocumentBlocks()),
+        ),
         design: cloneDesign(template?.design ?? input.design ?? defaultDocumentDesign()),
         revision: 1,
         version: 1n,
@@ -302,5 +354,32 @@ export class DocumentService {
       throw new DocumentValidationError("Contact is not available");
     if (opportunityId && !(await this.references.opportunityExistsFor(actor, opportunityId)))
       throw new DocumentValidationError("Opportunity is not available");
+  }
+
+  private async templateValues(
+    actor: CommercialActor,
+    contactId: string | null,
+    title: string,
+  ): Promise<Map<string, string>> {
+    const values = new Map<string, string>([
+      ["company.name", "Quantum CRM"],
+      ["document.title", title.trim()],
+    ]);
+    const [contact, advisor] = await Promise.all([
+      contactId && this.references.contactFor
+        ? this.references.contactFor(actor, contactId)
+        : Promise.resolve(null),
+      this.references.memberFor ? this.references.memberFor(actor.memberId) : Promise.resolve(null),
+    ]);
+    if (contact) {
+      values.set("contact.name", contact.displayName);
+      if (contact.email) values.set("contact.email", contact.email);
+      if (contact.phone) values.set("contact.phone", contact.phone);
+    }
+    if (advisor) {
+      values.set("advisor.name", advisor.displayName);
+      values.set("advisor.email", advisor.email);
+    }
+    return values;
   }
 }

@@ -4,7 +4,7 @@ const IdSchema = z.string().uuid();
 const VersionSchema = z.string().regex(/^[1-9][0-9]*$/u);
 const TimestampSchema = z.string().datetime({ offset: true });
 const ColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/u);
-const ChecksumSchema = z.string().regex(/^sha256:[0-9a-f]{64}$/u);
+const ChecksumSchema = z.string().regex(/^(?:sha256:[0-9a-f]{64}|[A-Za-z0-9+/]{43}=)$/u);
 
 export const CommercialDocumentKindSchema = z.enum(["QUOTE", "INVOICE"]);
 export const CommercialDocumentStatusSchema = z.enum(["DRAFT"]);
@@ -27,11 +27,40 @@ const ImageDocumentBlockBaseSchema = BlockBaseSchema.extend({
   caption: z.string().trim().max(500),
   fileId: IdSchema.nullable(),
   checksum: ChecksumSchema.nullable(),
+  /** A protected template may still expose this image as an instance-level slot. */
+  replaceable: z.boolean().default(false),
+  /** A replaceable slot can be intentionally omitted from one document instance. */
+  visible: z.boolean().default(true),
 }).strict();
 export const ImageDocumentBlockSchema = ImageDocumentBlockBaseSchema.refine(
   (value) => (value.fileId === null) === (value.checksum === null),
   {
     message: "fileId and checksum must be supplied together",
+  },
+);
+
+const AttachmentDocumentBlockBaseSchema = BlockBaseSchema.extend({
+  type: z.literal("ATTACHMENT"),
+  label: z.string().trim().min(1).max(160),
+  fileId: IdSchema.nullable(),
+  checksum: ChecksumSchema.nullable(),
+  mimeType: z.string().trim().max(160),
+  originalName: z.string().trim().max(255),
+}).strict();
+export const AttachmentDocumentBlockSchema = AttachmentDocumentBlockBaseSchema.superRefine(
+  (value, context) => {
+    if ((value.fileId === null) !== (value.checksum === null)) {
+      context.addIssue({
+        code: "custom",
+        message: "fileId and checksum must be supplied together",
+      });
+    }
+    if (value.fileId !== null && (value.mimeType.length < 1 || value.originalName.length < 1)) {
+      context.addIssue({
+        code: "custom",
+        message: "Attached files require mimeType and originalName",
+      });
+    }
   },
 );
 
@@ -68,6 +97,10 @@ export const VariableDocumentBlockSchema = BlockBaseSchema.extend({
   key: z.string().regex(/^[a-z][a-z0-9_.]{1,119}$/u),
   label: z.string().trim().min(1).max(160),
   fallback: z.string().max(500),
+  /** Snapshot value resolved when a template is instantiated; never a live data lookup. */
+  value: z.string().max(500).nullable().default(null),
+  /** Allows only the resolved value to be changed in an instance of a protected template. */
+  editable: z.boolean().default(false),
 }).strict();
 
 const SignatureDocumentBlockBaseSchema = BlockBaseSchema.extend({
@@ -87,6 +120,7 @@ export const DocumentBlockSchema = z
   .discriminatedUnion("type", [
     TextDocumentBlockSchema,
     ImageDocumentBlockBaseSchema,
+    AttachmentDocumentBlockBaseSchema,
     TableDocumentBlockBaseSchema,
     ColumnsDocumentBlockSchema,
     DividerDocumentBlockSchema,
@@ -103,6 +137,20 @@ export const DocumentBlockSchema = z
         code: "custom",
         message: "fileId and checksum must be supplied together",
       });
+    }
+    if (value.type === "ATTACHMENT") {
+      if ((value.fileId === null) !== (value.checksum === null)) {
+        context.addIssue({
+          code: "custom",
+          message: "fileId and checksum must be supplied together",
+        });
+      }
+      if (value.fileId !== null && (value.mimeType.length < 1 || value.originalName.length < 1)) {
+        context.addIssue({
+          code: "custom",
+          message: "Attached files require mimeType and originalName",
+        });
+      }
     }
     if (value.type === "TABLE" && value.rows.some((row) => row.length !== value.columns.length)) {
       context.addIssue({ code: "custom", message: "Every row must match the table columns" });

@@ -105,6 +105,7 @@ describe("process configuration", () => {
         oidc: { provider: "keycloak", boundary: "crm" },
         requiresIamBootstrapClient: true,
         requiresIamBootstrapClientSecret: true,
+        requiresFilesStorage: "signer",
       },
       "admin-api": {
         serviceName: "admin-api",
@@ -120,6 +121,7 @@ describe("process configuration", () => {
         defaultHost: "127.0.0.1",
         defaultPort: 3101,
         database: { target: "crm", requiresTenant: true },
+        requiresFilesStorage: "processor",
       },
       "deploy-executor": {
         serviceName: "deploy-executor",

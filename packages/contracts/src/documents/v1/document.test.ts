@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AttachmentDocumentBlockSchema,
   CreateDocumentSchema,
   DocumentDesignSchema,
   ImageDocumentBlockSchema,
@@ -53,6 +54,18 @@ describe("document contracts", () => {
         checksum: null,
       }).success,
     ).toBe(false);
+    expect(
+      ImageDocumentBlockSchema.safeParse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf101",
+        type: "IMAGE",
+        locked: false,
+        label: "Portada",
+        alt: "",
+        caption: "",
+        fileId: "019db9c7-1268-7d24-bf99-96ea38ebf102",
+        checksum: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      }).success,
+    ).toBe(true);
   });
 
   it("rejects mixing a template with explicit blocks", () => {
@@ -62,6 +75,45 @@ describe("document contracts", () => {
         title: "Duplicada",
         templateId: "019db9c7-1268-7d24-bf99-96ea38ebf103",
         blocks: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires an immutable file identity for an attachment", () => {
+    expect(
+      AttachmentDocumentBlockSchema.safeParse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf104",
+        type: "ATTACHMENT",
+        locked: false,
+        label: "Ficha tecnica",
+        fileId: null,
+        checksum: null,
+        mimeType: "",
+        originalName: "",
+      }).success,
+    ).toBe(true);
+    expect(
+      AttachmentDocumentBlockSchema.safeParse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf104",
+        type: "ATTACHMENT",
+        locked: false,
+        label: "Ficha tecnica",
+        fileId: "019db9c7-1268-7d24-bf99-96ea38ebf105",
+        checksum: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        mimeType: "application/pdf",
+        originalName: "ficha.pdf",
+      }).success,
+    ).toBe(true);
+    expect(
+      AttachmentDocumentBlockSchema.safeParse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf104",
+        type: "ATTACHMENT",
+        locked: false,
+        label: "Ficha tecnica",
+        fileId: "019db9c7-1268-7d24-bf99-96ea38ebf105",
+        checksum: null,
+        mimeType: "application/pdf",
+        originalName: "ficha.pdf",
       }).success,
     ).toBe(false);
   });

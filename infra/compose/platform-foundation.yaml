@@ -120,6 +120,34 @@ services:
     cpus: 0.5
     networks: [platform-storage]
 
+  platform-clamav:
+    <<: *stateful-defaults
+    image: "${QCRM_CLAMAV_IMAGE_REGISTRY:-clamav/clamav}@sha256:${QCRM_CLAMAV_IMAGE_DIGEST:?set QCRM_CLAMAV_IMAGE_DIGEST}"
+    pull_policy: always
+    read_only: true
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    volumes:
+      - platform-clamav-database:/var/lib/clamav
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+      - /run/clamav:rw,noexec,nosuid,size=16m
+    healthcheck:
+      test: [CMD-SHELL, "clamdscan --ping 1 >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+    mem_limit: 1536m
+    cpus: 0.8
+    networks:
+      platform-storage:
+        aliases: [platform-clamav]
+
   platform-keycloak:
     <<: *stateful-defaults
     init: false
@@ -215,6 +243,8 @@ volumes:
     name: "${QCRM_PLATFORM_REDIS_VOLUME:?set QCRM_PLATFORM_REDIS_VOLUME}"
   platform-storage-data:
     name: "${QCRM_PLATFORM_STORAGE_VOLUME:?set QCRM_PLATFORM_STORAGE_VOLUME}"
+  platform-clamav-database:
+    name: "${QCRM_PLATFORM_CLAMAV_DATABASE_VOLUME:?set QCRM_PLATFORM_CLAMAV_DATABASE_VOLUME}"
 
 secrets:
   postgres-admin-password:

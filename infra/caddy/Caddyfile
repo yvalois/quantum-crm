@@ -84,6 +84,35 @@
 	}
 }
 
+# Frontera S3 pública limitada a operaciones de datos previamente firmadas.
+# Los endpoints administrativos de SeaweedFS permanecen en la red privada.
+{$QCRM_STORAGE_HOST} {
+	import static_headers
+
+	@preflight method OPTIONS
+	handle @preflight {
+		header Access-Control-Allow-Origin "{http.request.header.Origin}"
+		header Access-Control-Allow-Methods "GET, HEAD, POST"
+		header Access-Control-Allow-Headers "Content-Type, X-Amz-Algorithm, X-Amz-Credential, X-Amz-Date, X-Amz-Meta-Qcrm-Sha256, X-Amz-Signature"
+		header Access-Control-Max-Age "600"
+		respond "" 204
+	}
+
+	@object_data method GET HEAD POST
+	handle @object_data {
+		header Access-Control-Allow-Origin "{http.request.header.Origin}"
+		header Access-Control-Expose-Headers "ETag, X-Amz-Version-Id"
+		reverse_proxy platform-storage:8333 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 60s
+			}
+		}
+	}
+
+	respond "Method Not Allowed" 405
+}
+
 # Solo admin-api alcanza este nombre por una red Docker interna dedicada. El
 # handler acepta exactamente el JWKS de GitHub Actions y Caddy fija el destino,
 # Host y SNI; ninguna solicitud controla una URL, host o path de salida.

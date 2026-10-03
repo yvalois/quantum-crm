@@ -17,6 +17,8 @@ import {
   AutomationService,
   CalendarService,
   DocumentService,
+  FileService,
+  type FileStorageAuthorization,
 } from "@quantum-crm/domain";
 
 import {
@@ -44,6 +46,7 @@ import { AUTOMATION_SERVICE, AutomationsController } from "./automations.control
 import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
 import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
 import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js";
+import { FILE_SERVICE, FilesController } from "./files.controller.js";
 
 @Module({})
 export class AppModule {
@@ -53,6 +56,7 @@ export class AppModule {
     policy: CrmAuthPolicy,
     iamBootstrapClientId: "quantum-crm-bootstrap",
     activationIssuer?: MemberActivationIssuer,
+    fileStorageAuthorization?: FileStorageAuthorization,
   ): DynamicModule {
     return {
       module: AppModule,
@@ -70,6 +74,7 @@ export class AppModule {
         ConversationsController,
         CalendarController,
         DocumentsController,
+        FilesController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -156,7 +161,45 @@ export class AppModule {
                 (await database.commercial.contacts.find(actor, contactId)) !== null,
               opportunityExistsFor: async (actor, opportunityId) =>
                 (await database.commercial.sales.findOpportunity(actor, opportunityId)) !== null,
+              contactFor: async (actor, contactId) => {
+                const contact = await database.commercial.contacts.find(actor, contactId);
+                return contact
+                  ? {
+                      displayName: contact.displayName,
+                      email: contact.email,
+                      phone: contact.phone,
+                    }
+                  : null;
+              },
+              memberFor: async (memberId) => {
+                const member = await database.members.findById(memberId);
+                return member ? { displayName: member.displayName, email: member.email } : null;
+              },
             }),
+        },
+        {
+          provide: FILE_SERVICE,
+          useFactory: () => {
+            if (!fileStorageAuthorization) {
+              throw new Error("File storage authorization is required");
+            }
+            return new FileService(
+              database.commercial.files,
+              {
+                canUseOwner: async (actor, owner) => {
+                  if (owner.kind !== "existing" || owner.module !== "documents") return false;
+                  if (owner.type === "commercial_document") {
+                    return (await database.commercial.documents.find(actor, owner.id)) !== null;
+                  }
+                  if (owner.type === "document_template") {
+                    return (await database.commercial.documents.findTemplate(owner.id)) !== null;
+                  }
+                  return false;
+                },
+              },
+              fileStorageAuthorization,
+            );
+          },
         },
         { provide: APP_GUARD, useClass: CrmAuthenticationGuard },
         { provide: APP_GUARD, useClass: CrmAuthorizationGuard },

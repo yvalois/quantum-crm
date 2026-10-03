@@ -32,6 +32,11 @@ export { ConversationIdempotencyConflictError } from "./conversation-postgres-re
 export { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 export { createDocumentPostgresRepository } from "./document-postgres-repository.js";
 export {
+  createFilePostgresRepository,
+  type FileProcessingLease,
+  type FileProcessingRepository,
+} from "./file-postgres-repository.js";
+export {
   createTenantDatabaseProvisioner,
   TenantDatabaseProvisioningError,
 } from "./tenant-database-provisioner.js";

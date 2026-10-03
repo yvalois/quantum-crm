@@ -1,9 +1,12 @@
 "use client";
 
 import type {
+  CommercialDocument,
   Contact,
   Conversation,
   ConversationMessage,
+  DocumentBlock,
+  DocumentTemplate,
   QuickReply,
   TaskAssignee,
 } from "@quantum-crm/contracts";
@@ -86,6 +89,9 @@ export default function InboxPage(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [showDocumentComposer, setShowDocumentComposer] = useState(false);
+  const [documentTemplates, setDocumentTemplates] = useState<DocumentTemplate[]>([]);
+  const [preparedDocument, setPreparedDocument] = useState<CommercialDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const contactById = useMemo(
@@ -228,6 +234,103 @@ export default function InboxPage(): React.JSX.Element {
       await loadList(selected.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible guardar el mensaje.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function openDocumentComposer(): Promise<void> {
+    setError(null);
+    try {
+      const response = await fetch("/api/documents/templates", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error(await problem(response));
+      setDocumentTemplates(((await response.json()) as List<DocumentTemplate>).data);
+      setPreparedDocument(null);
+      setShowDocumentComposer(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible cargar las plantillas.");
+    }
+  }
+
+  async function createDocumentForConversation(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!selected || !csrf) return;
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrf,
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          kind: form.get("kind"),
+          title: form.get("title"),
+          contactId: selected.contactId,
+          templateId: form.get("templateId"),
+        }),
+      });
+      if (!response.ok) throw new Error(await problem(response));
+      setPreparedDocument(((await response.json()) as { data: CommercialDocument }).data);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible preparar el documento.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updatePreparedBlocks(blocks: readonly DocumentBlock[]): Promise<boolean> {
+    if (!preparedDocument || !csrf) return false;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/documents/${preparedDocument.id}`, {
+        method: "PATCH",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrf,
+          "idempotency-key": crypto.randomUUID(),
+          "if-match": `"${preparedDocument.version}"`,
+        },
+        body: JSON.stringify({ blocks }),
+      });
+      if (!response.ok) throw new Error(await problem(response));
+      setPreparedDocument(((await response.json()) as { data: CommercialDocument }).data);
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible guardar los ajustes.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function queuePreparedDocument(): Promise<void> {
+    if (!selected || !preparedDocument) return;
+    setSaving(true);
+    setError(null);
+    try {
+      if (!(await updatePreparedBlocks(preparedDocument.blocks))) return;
+      await mutate(
+        `/api/conversations/${selected.id}/messages`,
+        { body: `Documento preparado: ${preparedDocument.title}`, kind: "DOCUMENT" },
+        { version: selected.version },
+      );
+      setShowDocumentComposer(false);
+      setPreparedDocument(null);
+      await loadList(selected.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible encolar el documento.");
     } finally {
       setSaving(false);
     }
@@ -415,6 +518,14 @@ export default function InboxPage(): React.JSX.Element {
                     maxLength={16000}
                   />
                   <footer>
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      disabled={saving || !csrf}
+                      onClick={() => void openDocumentComposer()}
+                    >
+                      Preparar documento
+                    </button>
                     <select
                       aria-label="Respuesta rápida"
                       defaultValue=""
@@ -593,6 +704,153 @@ export default function InboxPage(): React.JSX.Element {
                 </button>
               </footer>
             </form>
+          </section>
+        </div>
+      ) : null}
+      {showDocumentComposer && selected ? (
+        <div className="dialog-backdrop" role="presentation">
+          <section
+            className="dialog-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="document-composer-title"
+          >
+            <header>
+              <div>
+                <p className="eyebrow">
+                  Documento para {selectedContact?.displayName ?? "el contacto"}
+                </p>
+                <h2 id="document-composer-title">
+                  {preparedDocument ? "Revisa lo que se enviará" : "Elige una plantilla"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                disabled={saving}
+                onClick={() => {
+                  setShowDocumentComposer(false);
+                  setPreparedDocument(null);
+                }}
+              >
+                ×
+              </button>
+            </header>
+            {preparedDocument ? (
+              <>
+                <p>
+                  Los datos ya se llenaron para este cliente. Solo aparecen los valores e imágenes
+                  autorizados por la plantilla; su estructura permanece protegida.
+                </p>
+                <div className="document-composer-fields">
+                  {preparedDocument.blocks.map((block) => {
+                    if (block.type === "VARIABLE" && block.editable)
+                      return (
+                        <label key={block.id}>
+                          {block.label}
+                          <input
+                            value={block.value ?? ""}
+                            disabled={saving}
+                            onChange={(event) =>
+                              setPreparedDocument((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      blocks: current.blocks.map((candidate) =>
+                                        candidate.id === block.id && candidate.type === "VARIABLE"
+                                          ? { ...candidate, value: event.target.value }
+                                          : candidate,
+                                      ),
+                                    }
+                                  : current,
+                              )
+                            }
+                          />
+                        </label>
+                      );
+                    if (block.type === "IMAGE" && block.replaceable)
+                      return (
+                        <label key={block.id} className="composer-toggle">
+                          <input
+                            type="checkbox"
+                            checked={block.visible}
+                            disabled={saving}
+                            onChange={(event) =>
+                              setPreparedDocument((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      blocks: current.blocks.map((candidate) =>
+                                        candidate.id === block.id && candidate.type === "IMAGE"
+                                          ? { ...candidate, visible: event.target.checked }
+                                          : candidate,
+                                      ),
+                                    }
+                                  : current,
+                              )
+                            }
+                          />
+                          Incluir imagen: {block.label}
+                        </label>
+                      );
+                    return null;
+                  })}
+                </div>
+                <footer>
+                  <button
+                    type="button"
+                    className="secondary-action"
+                    disabled={saving}
+                    onClick={() => void updatePreparedBlocks(preparedDocument.blocks)}
+                  >
+                    Guardar ajustes
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-action"
+                    disabled={saving}
+                    onClick={() => void queuePreparedDocument()}
+                  >
+                    Encolar documento
+                  </button>
+                </footer>
+              </>
+            ) : documentTemplates.length ? (
+              <form onSubmit={(event) => void createDocumentForConversation(event)}>
+                <label>
+                  Plantilla
+                  <select name="templateId" required defaultValue="">
+                    <option value="" disabled>
+                      Selecciona una plantilla
+                    </option>
+                    {documentTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Título del documento
+                  <input name="title" required maxLength={240} defaultValue="Propuesta comercial" />
+                </label>
+                <input name="kind" type="hidden" value="QUOTE" />
+                <footer>
+                  <button
+                    type="button"
+                    className="secondary-action"
+                    onClick={() => setShowDocumentComposer(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="primary-action" disabled={saving}>
+                    Preparar para revisar
+                  </button>
+                </footer>
+              </form>
+            ) : (
+              <p>No hay plantillas disponibles todavía. Crea una desde Documentos.</p>
+            )}
           </section>
         </div>
       ) : null}

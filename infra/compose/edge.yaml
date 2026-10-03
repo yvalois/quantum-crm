@@ -18,6 +18,7 @@ services:
       QCRM_IDENTITY_HOST: "${QCRM_IDENTITY_HOST:?set QCRM_IDENTITY_HOST}"
       QCRM_MR_BUSINESS_SITE_HOST: "${QCRM_MR_BUSINESS_SITE_HOST:?set QCRM_MR_BUSINESS_SITE_HOST}"
       QCRM_QUANTUM_SITE_HOST: "${QCRM_QUANTUM_SITE_HOST:?set QCRM_QUANTUM_SITE_HOST}"
+      QCRM_STORAGE_HOST: "${QCRM_STORAGE_HOST:?set QCRM_STORAGE_HOST}"
     ports:
       - "80:80"
       - "443:443"
@@ -54,6 +55,7 @@ services:
       platform-github-actions-oidc:
         aliases:
           - github-actions-oidc
+      platform-storage: {}
 
 networks:
   platform-edge:
@@ -65,6 +67,9 @@ networks:
   platform-github-actions-oidc:
     external: true
     name: "${QCRM_PLATFORM_GITHUB_ACTIONS_OIDC_NETWORK:?set QCRM_PLATFORM_GITHUB_ACTIONS_OIDC_NETWORK}"
+  platform-storage:
+    external: true
+    name: "${QCRM_PLATFORM_STORAGE_NETWORK:?set QCRM_PLATFORM_STORAGE_NETWORK}"
 
 volumes:
   edge-caddy-data:

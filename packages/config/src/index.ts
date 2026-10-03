@@ -83,3 +83,13 @@ export {
   storageEnvironmentKeys,
   type StorageConfig,
 } from "./storage-config.js";
+export {
+  filesProcessorEnvironmentKeys,
+  filesSignerEnvironmentKeys,
+  parseFilesStorageConfig,
+  type FilesProcessorConfig,
+  type FilesSignerConfig,
+  type FilesStorageConfig,
+  type FilesStorageCredentials,
+  type FilesStorageRole,
+} from "./files-storage-config.js";

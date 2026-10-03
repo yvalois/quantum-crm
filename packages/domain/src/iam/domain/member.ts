@@ -84,6 +84,11 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:documents:create",
         "crm:documents:update",
         "crm:documents:templates",
+        "crm:files:read",
+        "crm:files:upload",
+        "crm:files:reference",
+        "crm:files:download",
+        "crm:files:delete",
       ]);
     case "ADVISOR":
       return Object.freeze([
@@ -108,6 +113,10 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:documents:read",
         "crm:documents:create",
         "crm:documents:update",
+        "crm:files:read",
+        "crm:files:upload",
+        "crm:files:reference",
+        "crm:files:download",
       ]);
   }
 }

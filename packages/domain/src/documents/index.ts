@@ -91,6 +91,18 @@ export interface DocumentReferenceLookup {
     actor: CommercialActor,
     opportunityId: string,
   ) => Promise<boolean>;
+  /** Optional contextual data used only to snapshot approved template variables. */
+  readonly contactFor?: (
+    actor: CommercialActor,
+    contactId: string,
+  ) => Promise<{
+    readonly displayName: string;
+    readonly email: string | null;
+    readonly phone: string | null;
+  } | null>;
+  readonly memberFor?: (
+    memberId: string,
+  ) => Promise<{ readonly displayName: string; readonly email: string } | null>;
 }
 
 export class DocumentNotFoundError extends Error {

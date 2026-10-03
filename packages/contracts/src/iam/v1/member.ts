@@ -50,6 +50,11 @@ export const CrmPermissionCatalog = [
   "crm:documents:create",
   "crm:documents:update",
   "crm:documents:templates",
+  "crm:files:read",
+  "crm:files:upload",
+  "crm:files:reference",
+  "crm:files:download",
+  "crm:files:delete",
 ] as const;
 export const CrmPermissionSchema = z.enum(CrmPermissionCatalog);
 export type CrmPermission = z.infer<typeof CrmPermissionSchema>;

@@ -35,5 +35,8 @@ describe("role contracts", () => {
         expect(CrmPermissionCatalog).toContain(`crm:${section}:${action}`);
       }
     }
+    for (const action of ["read", "upload", "reference", "download", "delete"] as const) {
+      expect(CrmPermissionCatalog).toContain(`crm:files:${action}`);
+    }
   });
 });

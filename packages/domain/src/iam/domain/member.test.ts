@@ -75,5 +75,8 @@ describe("IAM member lifecycle", () => {
     expect(permissions).toContain("crm:sales:move");
     expect(permissions).not.toContain("crm:sales:configure");
     expect(permissions).not.toContain("iam:members:read");
+    expect(permissions).toContain("crm:files:upload");
+    expect(permissions).toContain("crm:files:download");
+    expect(permissions).not.toContain("crm:files:delete");
   });
 });
