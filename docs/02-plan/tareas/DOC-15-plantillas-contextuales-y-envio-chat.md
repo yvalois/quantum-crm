@@ -60,11 +60,11 @@ Una plantilla define estructura protegida y campos editables. Al crear una insta
 
 ## Plan de implementacion
 
-- [ ] Definir contrato de variables y reglas de editabilidad.
-- [ ] Resolver y congelar valores contextuales al instanciar plantilla.
-- [ ] Completar editor de plantilla con selector de origen y campos protegidos/editables.
-- [ ] Crear compositor documental de conversación y mensaje durable.
-- [ ] Conectar carga/reemplazo de imágenes con `DOC-14` cuando el archivo sea `AVAILABLE`.
+- [x] Definir contrato de variables y reglas de editabilidad.
+- [x] Resolver y congelar valores contextuales al instanciar plantilla.
+- [x] Completar editor de plantilla con selector de origen y campos protegidos/editables.
+- [x] Crear compositor documental de conversación y mensaje durable.
+- [x] Conectar carga/reemplazo de imágenes con `DOC-14` cuando el archivo sea `AVAILABLE`.
 - [ ] Validar una vez el candidato exacto en VPS, publicar y recorrer el flujo autenticado.
 
 ## Riesgos y mitigaciones
