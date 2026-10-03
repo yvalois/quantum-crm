@@ -139,11 +139,26 @@ function documentFileReferences(
   const references: DocumentFileReference[] = [];
   for (const [position, block] of blocksValue.entries()) {
     if (block.type === "IMAGE" && block.fileId && block.checksum) {
-      references.push({ fileId: block.fileId, checksum: block.checksum, purpose: "inline_image", position });
+      references.push({
+        fileId: block.fileId,
+        checksum: block.checksum,
+        purpose: "inline_image",
+        position,
+      });
     } else if (block.type === "ATTACHMENT" && block.fileId && block.checksum) {
-      references.push({ fileId: block.fileId, checksum: block.checksum, purpose: "attachment", position });
+      references.push({
+        fileId: block.fileId,
+        checksum: block.checksum,
+        purpose: "attachment",
+        position,
+      });
     } else if (block.type === "SIGNATURE" && block.fileId && block.checksum) {
-      references.push({ fileId: block.fileId, checksum: block.checksum, purpose: "signature", position });
+      references.push({
+        fileId: block.fileId,
+        checksum: block.checksum,
+        purpose: "signature",
+        position,
+      });
     }
   }
   if (designValue.logoFileId && designValue.logoChecksum) {

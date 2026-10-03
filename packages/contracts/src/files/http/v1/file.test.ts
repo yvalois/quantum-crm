@@ -91,9 +91,9 @@ describe("file contracts", () => {
   });
 
   it("requires the exact uploaded version, checksum and receipt to complete", () => {
-    expect(
-      CompleteFileUploadSchema.safeParse({ versionId: "v1", checksum: sha256 }).success,
-    ).toBe(false);
+    expect(CompleteFileUploadSchema.safeParse({ versionId: "v1", checksum: sha256 }).success).toBe(
+      false,
+    );
     expect(
       CompleteFileUploadSchema.safeParse({
         versionId: "v1",

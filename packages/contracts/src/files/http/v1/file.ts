@@ -22,12 +22,7 @@ export const FileStatusSchema = z.enum([
   "DELETED",
 ]);
 
-export const FileOwnerModuleSchema = z.enum([
-  "documents",
-  "conversations",
-  "forms",
-  "catalog",
-]);
+export const FileOwnerModuleSchema = z.enum(["documents", "conversations", "forms", "catalog"]);
 export const FileOwnerTypeSchema = z.enum([
   "commercial_document",
   "document_template",
@@ -47,14 +42,13 @@ const ExistingFileOwnerSchema = z
   })
   .strict()
   .superRefine((owner, context) => {
-    const allowedTypes: Readonly<
-      Record<z.infer<typeof FileOwnerModuleSchema>, readonly string[]>
-    > = {
-      documents: ["commercial_document", "document_template"],
-      conversations: ["conversation", "message"],
-      forms: ["form_response"],
-      catalog: ["product", "variant"],
-    };
+    const allowedTypes: Readonly<Record<z.infer<typeof FileOwnerModuleSchema>, readonly string[]>> =
+      {
+        documents: ["commercial_document", "document_template"],
+        conversations: ["conversation", "message"],
+        forms: ["form_response"],
+        catalog: ["product", "variant"],
+      };
     if (!allowedTypes[owner.module].includes(owner.type)) {
       context.addIssue({
         code: "custom",
@@ -225,6 +219,4 @@ export type FileOperation = z.infer<typeof FileOperationSchema>;
 export type FileReferenceKind = z.infer<typeof FileReferenceKindSchema>;
 export type CreateFileReference = z.infer<typeof CreateFileReferenceSchema>;
 export type FileReference = z.infer<typeof FileReferenceSchema>;
-export type CreateFileDownloadAuthorization = z.infer<
-  typeof CreateFileDownloadAuthorizationSchema
->;
+export type CreateFileDownloadAuthorization = z.infer<typeof CreateFileDownloadAuthorizationSchema>;

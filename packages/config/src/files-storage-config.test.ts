@@ -58,10 +58,8 @@ describe("files storage configuration", () => {
       "processor",
       {
         ...common,
-        QCRM_FILES_S3_PROCESSOR_ACCESS_KEY_FILE:
-          "/run/secrets/qcrm_files_s3_processor_access_key",
-        QCRM_FILES_S3_PROCESSOR_SECRET_KEY_FILE:
-          "/run/secrets/qcrm_files_s3_processor_secret_key",
+        QCRM_FILES_S3_PROCESSOR_ACCESS_KEY_FILE: "/run/secrets/qcrm_files_s3_processor_access_key",
+        QCRM_FILES_S3_PROCESSOR_SECRET_KEY_FILE: "/run/secrets/qcrm_files_s3_processor_secret_key",
         QCRM_FILES_CLAMAV_HOST: "platform-clamav",
       },
       fileSystem,

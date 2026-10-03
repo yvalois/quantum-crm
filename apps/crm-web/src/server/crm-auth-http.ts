@@ -1339,17 +1339,14 @@ async function fileMutation(
     const raw = input.requestSchema ? await readBoundedRequestJson(request) : undefined;
     const payload = input.requestSchema?.safeParse(raw);
     if (payload && !payload.success) return crmProblem(400, "Invalid request");
-    const upstream = await runtime.crmApiFetch(
-      new URL(input.path, runtime.config.crmApiOrigin),
-      {
-        method: "POST",
-        headers: memberMutationHeaders(authorized, idempotencyKey),
-        ...(payload?.success ? { body: JSON.stringify(payload.data) } : {}),
-        cache: "no-store",
-        redirect: "manual",
-        signal: AbortSignal.timeout(5_000),
-      },
-    );
+    const upstream = await runtime.crmApiFetch(new URL(input.path, runtime.config.crmApiOrigin), {
+      method: "POST",
+      headers: memberMutationHeaders(authorized, idempotencyKey),
+      ...(payload?.success ? { body: JSON.stringify(payload.data) } : {}),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5_000),
+    });
     return fileResponse(upstream, input.responseSchema);
   } catch {
     return crmProblem(400, "Invalid request");
@@ -1390,11 +1387,7 @@ export async function handleCrmFileUploadIntent(request: Request, runtime: CrmAu
   });
 }
 
-export async function handleCrmFileGet(
-  request: Request,
-  runtime: CrmAuthRuntime,
-  fileId: string,
-) {
+export async function handleCrmFileGet(request: Request, runtime: CrmAuthRuntime, fileId: string) {
   if (!FileIdSchema.safeParse(fileId).success) return crmProblem(400, "Invalid request");
   const authorized = await authorizedSession(request, runtime);
   if (isResponse(authorized)) return authorized;

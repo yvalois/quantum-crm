@@ -90,7 +90,12 @@ const endpointSchema = z
   .string()
   .url()
   .refine((value) => ["http:", "https:"].includes(new URL(value).protocol));
-const safeNameSchema = z.string().trim().min(1).max(128).regex(/^[a-z0-9][a-z0-9.-]+$/u);
+const safeNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[a-z0-9][a-z0-9.-]+$/u);
 
 function loadCredential(
   serviceName: string,
@@ -145,7 +150,12 @@ export function parseFilesStorageConfig(
     QCRM_FILES_S3_REGION: z.string().trim().min(1).max(64).default("us-east-1"),
     QCRM_FILES_INCOMING_BUCKET: safeNameSchema,
     QCRM_FILES_OBJECTS_BUCKET: safeNameSchema,
-    QCRM_FILES_S3_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(10_000),
+    QCRM_FILES_S3_REQUEST_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(10_000),
   });
   const commonResult = commonSchema.safeParse(environment);
   if (!commonResult.success) {
