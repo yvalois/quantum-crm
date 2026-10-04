@@ -58,6 +58,8 @@ model PlatformRelease {
   tenantContainers          TenantContainer[]
   tenantHttpsRoutes         TenantHttpsRoute[]
   foundationPromotions      PlatformFoundationPromotion[]
+  tenantReleasePromotionsPrevious TenantReleasePromotion[] @relation("TenantReleasePromotionPreviousRelease")
+  tenantReleasePromotionsTarget   TenantReleasePromotion[] @relation("TenantReleasePromotionTargetRelease")
 
   @@index([status, createdAt, id], map: "releases_status_created_id_idx")
   @@map("releases")
@@ -193,6 +195,7 @@ model PlatformOperatorMembership {
   requestedProvisioningOperations ProvisioningOperation[] @relation("ProvisioningRequestedBy")
   cancelledProvisioningOperations ProvisioningOperation[] @relation("ProvisioningCancelledBy")
   activationDeliveryIntents ActivationDeliveryIntent[]
+  tenantReleasePromotions TenantReleasePromotion[]
   foundationPromotions PlatformFoundationPromotion[]
 
   @@index([status, createdAt, id], map: "operator_memberships_status_created_id_idx")
@@ -244,6 +247,7 @@ model TenantProfile {
   httpsRoute           TenantHttpsRoute?
   initialAdministrator TenantInitialAdministrator?
   activationDeliveryIntents ActivationDeliveryIntent[]
+  tenantReleasePromotions TenantReleasePromotion[]
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -280,6 +284,65 @@ enum PlatformFoundationPromotionFailureCode {
   TARGET_CONFLICT @map("target_conflict")
   PERMISSION_DENIED @map("permission_denied")
   @@map("platform_foundation_promotion_failure_code")
+  @@schema("operations")
+}
+
+enum TenantReleasePromotionStatus {
+  PENDING @map("pending")
+  RUNNING @map("running")
+  SUCCEEDED @map("succeeded")
+  FAILED @map("failed")
+  @@map("tenant_release_promotion_status")
+  @@schema("operations")
+}
+
+enum TenantReleasePromotionStep {
+  VALIDATE @map("validate")
+  MIGRATE @map("migrate")
+  RECONCILE @map("reconcile")
+  VERIFY @map("verify")
+  ACTIVATE @map("activate")
+  @@map("tenant_release_promotion_step")
+  @@schema("operations")
+}
+
+enum TenantReleasePromotionFailureCode {
+  TENANT_STATE_INVALID @map("tenant_state_invalid")
+  RELEASE_NOT_VALIDATED @map("release_not_validated")
+  TARGET_CONFLICT @map("target_conflict")
+  MIGRATION_FAILED @map("migration_failed")
+  RECONCILIATION_FAILED @map("reconciliation_failed")
+  VERIFICATION_FAILED @map("verification_failed")
+  PERMISSION_DENIED @map("permission_denied")
+  UNAVAILABLE @map("unavailable")
+  @@map("tenant_release_promotion_failure_code")
+  @@schema("operations")
+}
+
+model TenantReleasePromotion {
+  id String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId String @map("tenant_profile_id") @db.Uuid
+  previousReleaseId String @map("previous_release_id") @db.Uuid
+  targetReleaseId String @map("target_release_id") @db.Uuid
+  requestedByOperatorId String @map("requested_by_operator_id") @db.Uuid
+  idempotencyKey String @map("idempotency_key") @db.VarChar(128)
+  correlationId String @map("correlation_id") @db.VarChar(128)
+  status TenantReleasePromotionStatus @default(PENDING)
+  currentStep TenantReleasePromotionStep @default(VALIDATE) @map("current_step")
+  attempt Int @default(0)
+  version BigInt @default(1)
+  failureCode TenantReleasePromotionFailureCode? @map("failure_code")
+  leaseOwner String? @map("lease_owner") @db.VarChar(128)
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile TenantProfile @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  previousRelease PlatformRelease @relation("TenantReleasePromotionPreviousRelease", fields: [previousReleaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  targetRelease PlatformRelease @relation("TenantReleasePromotionTargetRelease", fields: [targetReleaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  requestedByOperator PlatformOperatorMembership @relation(fields: [requestedByOperatorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([requestedByOperatorId, idempotencyKey], map: "tenant_release_promotions_actor_idempotency_key")
+  @@index([status, leaseExpiresAt, createdAt, id], map: "tenant_release_promotions_claim_idx")
+  @@map("tenant_release_promotions")
   @@schema("operations")
 }
 
