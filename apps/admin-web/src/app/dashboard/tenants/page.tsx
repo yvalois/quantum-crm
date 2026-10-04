@@ -405,7 +405,12 @@ export default function TenantProfilesPage() {
       </form>
 
       {canDeploy ? (
-        <section className="release-panel" aria-live="polite" aria-busy={releasesLoading}>
+        <section
+          id="release-controls"
+          className="release-panel"
+          aria-live="polite"
+          aria-busy={releasesLoading}
+        >
           <div className="panel-header">
             <div>
               <span className="section-code">ENTREGA / 01</span>

@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 const navigation = [
   { href: "/dashboard", label: "Resumen de plataforma", glyph: "01", enabled: true },
   { href: "/dashboard/tenants", label: "Tenants y entornos", glyph: "02", enabled: true },
-  { href: "#", label: "Releases y artefactos", glyph: "03", enabled: false },
+  { href: "/dashboard/tenants#release-controls", label: "Releases y artefactos", glyph: "03", enabled: true },
   { href: "#", label: "Despliegues y operaciones", glyph: "04", enabled: false },
   { href: "#", label: "Infraestructura y VPS", glyph: "05", enabled: false },
   { href: "#", label: "Backups y recuperación", glyph: "06", enabled: false },
@@ -75,7 +75,7 @@ export function AdminShell({ children }: Readonly<{ children: ReactNode }>) {
               <Link
                 key={item.label}
                 href={item.href}
-                className={pathname === item.href ? "is-active" : ""}
+                className={pathname === item.href.split("#")[0] ? "is-active" : ""}
                 onClick={() => setMenuOpen(false)}
               >
                 <span aria-hidden="true">{item.glyph}</span>
