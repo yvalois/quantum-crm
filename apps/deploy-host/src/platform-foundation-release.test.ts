@@ -84,5 +84,21 @@ describe("platform foundation release deployer", () => {
       }),
       expect.any(Number),
     );
+    expect(run).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        "--project-name",
+        "quantum-platform",
+        "up",
+        "--wait",
+        "--wait-timeout",
+        "120",
+      ]),
+      expect.objectContaining({
+        QCRM_ADMIN_WEB_DIGEST: "2".repeat(64),
+        QCRM_ADMIN_API_DIGEST: "4".repeat(64),
+        QCRM_DEPLOY_EXECUTOR_DIGEST: "6".repeat(64),
+      }),
+      expect.any(Number),
+    );
   });
 });
