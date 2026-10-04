@@ -1,6 +1,7 @@
 import {
   PlatformReleaseArtifactNames,
   platformFoundationDigestMapping,
+  platformServiceDigestMapping,
   type PlatformReleaseArtifactName,
 } from "@quantum-crm/contracts";
 
@@ -21,6 +22,9 @@ export interface PlatformFoundationReleaseDeployerOptions {
   readonly composeTemplate: string;
   /** Host-controlled compose env file with the foundation's immutable settings. */
   readonly environmentFile: string;
+  /** Optional host-controlled platform compose and env file. */
+  readonly platformComposeTemplate?: string;
+  readonly platformEnvironmentFile?: string;
   readonly imageRegistry: string;
   /** Existing foundation configuration (networks, secrets and other immutable images). */
   readonly baseEnvironment: Readonly<Record<string, string>>;
@@ -29,9 +33,10 @@ export interface PlatformFoundationReleaseDeployerOptions {
 }
 
 /**
- * The only foundation image controlled by a platform release is Keycloak. This
- * deploy-host consumer derives its compose environment from the signed release
- * artifact rather than accepting a free-form digest from an operator.
+ * The deploy-host consumer derives both compose environments from the complete
+ * release catalog rather than accepting free-form digests from an operator.
+ * Foundation state is reconciled first, followed by the stateless platform
+ * services when their host-controlled compose paths are configured.
  */
 export function createPlatformFoundationReleaseDeployer(
   options: PlatformFoundationReleaseDeployerOptions,
@@ -39,6 +44,12 @@ export function createPlatformFoundationReleaseDeployer(
   if (
     !options.composeTemplate.startsWith("/") ||
     !options.environmentFile.startsWith("/") ||
+    (options.platformComposeTemplate !== undefined &&
+      !options.platformComposeTemplate.startsWith("/")) ||
+    (options.platformEnvironmentFile !== undefined &&
+      !options.platformEnvironmentFile.startsWith("/")) ||
+    (options.platformComposeTemplate === undefined) !==
+      (options.platformEnvironmentFile === undefined) ||
     !registryPattern.test(options.imageRegistry)
   ) {
     throw new Error("invalid platform foundation deployment configuration");
@@ -58,7 +69,7 @@ export function createPlatformFoundationReleaseDeployer(
         throw new HostAdapterError("IDENTITY_MISMATCH");
       }
       const mapping = platformFoundationDigestMapping(command.artifacts);
-      const result = await options.commandRunner.run(
+      const foundationResult = await options.commandRunner.run(
         [
           "compose",
           "--env-file",
@@ -79,7 +90,91 @@ export function createPlatformFoundationReleaseDeployer(
         }),
         timeout,
       );
-      if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      if (foundationResult.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      if (options.platformComposeTemplate && options.platformEnvironmentFile) {
+        const platformEnvironment = Object.freeze({
+          ...options.baseEnvironment,
+          QCRM_IMAGE_REGISTRY: options.imageRegistry,
+          ...platformServiceDigestMapping(command.artifacts),
+        });
+        const config = await options.commandRunner.run(
+          [
+            "compose",
+            "--env-file",
+            options.platformEnvironmentFile,
+            "-f",
+            options.platformComposeTemplate,
+            "--project-name",
+            "quantum-platform",
+            "config",
+            "--quiet",
+          ],
+          platformEnvironment,
+          timeout,
+        );
+        if (config.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+        const up = await options.commandRunner.run(
+          [
+            "compose",
+            "--env-file",
+            options.platformEnvironmentFile,
+            "-f",
+            options.platformComposeTemplate,
+            "--project-name",
+            "quantum-platform",
+            "up",
+            "-d",
+            "--remove-orphans",
+            "--wait",
+            "--wait-timeout",
+            String(Math.ceil(timeout / 1000)),
+            "admin-web",
+            "admin-api",
+            "deploy-executor",
+          ],
+          platformEnvironment,
+          timeout,
+        );
+        if (up.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+        const observed = await options.commandRunner.run(
+          [
+            "compose",
+            "--env-file",
+            options.platformEnvironmentFile,
+            "-f",
+            options.platformComposeTemplate,
+            "--project-name",
+            "quantum-platform",
+            "ps",
+            "--format",
+            "json",
+          ],
+          platformEnvironment,
+          timeout,
+        );
+        if (observed.exitCode !== 0 || !platformServicesHealthy(observed.stdout)) {
+          throw new HostAdapterError("UNAVAILABLE");
+        }
+      }
     },
   });
+}
+
+function platformServicesHealthy(stdout: string): boolean {
+  try {
+    const entries = JSON.parse(stdout) as unknown;
+    if (!Array.isArray(entries)) return false;
+    return ["admin-web", "admin-api", "deploy-executor"].every((service) =>
+      entries.some(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          (entry as { readonly Service?: unknown }).Service === service &&
+          (entry as { readonly State?: unknown }).State === "running" &&
+          (entry as { readonly Health?: unknown }).Health === "healthy",
+      ),
+    );
+  } catch {
+    return false;
+  }
 }

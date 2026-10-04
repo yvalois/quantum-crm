@@ -29,6 +29,14 @@ export const PlatformFoundationDigestMappingSchema = z
   })
   .strict();
 
+export const PlatformServiceDigestMappingSchema = z
+  .object({
+    QCRM_ADMIN_WEB_DIGEST: z.string().regex(/^[0-9a-f]{64}$/u),
+    QCRM_ADMIN_API_DIGEST: z.string().regex(/^[0-9a-f]{64}$/u),
+    QCRM_DEPLOY_EXECUTOR_DIGEST: z.string().regex(/^[0-9a-f]{64}$/u),
+  })
+  .strict();
+
 export const PlatformReleaseArtifactSchema = z
   .object({
     name: PlatformReleaseArtifactNameSchema,
@@ -146,6 +154,7 @@ export const PlatformReleaseListResponseSchema = z
 export type CreatePlatformRelease = z.infer<typeof CreatePlatformReleaseSchema>;
 export type PlatformReleaseContract = z.infer<typeof PlatformReleaseSchema>;
 export type PlatformFoundationDigestMapping = z.infer<typeof PlatformFoundationDigestMappingSchema>;
+export type PlatformServiceDigestMapping = z.infer<typeof PlatformServiceDigestMappingSchema>;
 
 export function platformFoundationDigestMapping(
   artifacts: readonly { readonly name: string; readonly digest: string }[],
@@ -154,5 +163,20 @@ export function platformFoundationDigestMapping(
   if (!keycloak) throw new Error("PLATFORM_KEYCLOAK is required for platform foundation promotion");
   return PlatformFoundationDigestMappingSchema.parse({
     QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST: keycloak.digest.slice("sha256:".length),
+  });
+}
+
+export function platformServiceDigestMapping(
+  artifacts: readonly { readonly name: string; readonly digest: string }[],
+): PlatformServiceDigestMapping {
+  const digestFor = (name: "ADMIN_WEB" | "ADMIN_API" | "DEPLOY_EXECUTOR"): string => {
+    const artifact = artifacts.find((candidate) => candidate.name === name);
+    if (!artifact) throw new Error(`${name} is required for platform promotion`);
+    return artifact.digest.slice("sha256:".length);
+  };
+  return PlatformServiceDigestMappingSchema.parse({
+    QCRM_ADMIN_WEB_DIGEST: digestFor("ADMIN_WEB"),
+    QCRM_ADMIN_API_DIGEST: digestFor("ADMIN_API"),
+    QCRM_DEPLOY_EXECUTOR_DIGEST: digestFor("DEPLOY_EXECUTOR"),
   });
 }

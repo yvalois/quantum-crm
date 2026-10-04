@@ -6,6 +6,7 @@ import {
   PlatformReleaseResponseSchema,
   PlatformReleaseStatusSchema,
   platformFoundationDigestMapping,
+  platformServiceDigestMapping,
 } from "./platform-release.js";
 
 const artifacts = [
@@ -59,6 +60,19 @@ describe("platform release HTTP contract", () => {
   it("derives the platform foundation Keycloak digest from its immutable artifact", () => {
     expect(platformFoundationDigestMapping(artifacts)).toEqual({
       QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST: "8".padStart(64, "0"),
+    });
+  });
+
+  it("derives only the three platform service digests", () => {
+    const mapping = platformServiceDigestMapping([
+      { name: "ADMIN_WEB", digest: `sha256:${"a".repeat(64)}` },
+      { name: "ADMIN_API", digest: `sha256:${"b".repeat(64)}` },
+      { name: "DEPLOY_EXECUTOR", digest: `sha256:${"c".repeat(64)}` },
+    ]);
+    expect(mapping).toEqual({
+      QCRM_ADMIN_WEB_DIGEST: "a".repeat(64),
+      QCRM_ADMIN_API_DIGEST: "b".repeat(64),
+      QCRM_DEPLOY_EXECUTOR_DIGEST: "c".repeat(64),
     });
   });
 

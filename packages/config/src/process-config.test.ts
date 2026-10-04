@@ -157,6 +157,8 @@ describe("process configuration", () => {
       deployHostComposeTemplate: "/tmp/qcrm-tenant.yaml",
       deployHostPlatformFoundationComposeTemplate: "/tmp/qcrm-platform-foundation.yaml",
       deployHostPlatformFoundationEnvironmentFile: "/tmp/qcrm-platform-foundation.env",
+      deployHostPlatformComposeTemplate: "/tmp/qcrm-platform.yaml",
+      deployHostPlatformEnvironmentFile: "/tmp/qcrm-platform.env",
       deployHostImageRegistry: "ghcr.io/example/quantum-crm",
       deployHostTenantEdgeNetwork: "qcrm-tenant-edge",
       deployHostPlatformDatabaseNetwork: "qcrm-platform-database",

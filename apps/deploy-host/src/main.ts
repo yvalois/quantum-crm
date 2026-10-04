@@ -16,6 +16,8 @@ if (
   !config.deployHostComposeTemplate ||
   !config.deployHostPlatformFoundationComposeTemplate ||
   !config.deployHostPlatformFoundationEnvironmentFile ||
+  !config.deployHostPlatformComposeTemplate ||
+  !config.deployHostPlatformEnvironmentFile ||
   !config.deployHostImageRegistry ||
   !config.deployHostTenantEdgeNetwork ||
   !config.deployHostPlatformDatabaseNetwork ||
@@ -66,6 +68,8 @@ const server = createHostAdapterServer({
   foundationReleaseDeployer: createPlatformFoundationReleaseDeployer({
     composeTemplate: config.deployHostPlatformFoundationComposeTemplate,
     environmentFile: config.deployHostPlatformFoundationEnvironmentFile,
+    platformComposeTemplate: config.deployHostPlatformComposeTemplate,
+    platformEnvironmentFile: config.deployHostPlatformEnvironmentFile,
     imageRegistry: config.deployHostImageRegistry,
     baseEnvironment: { QCRM_ENV: config.environment },
     commandRunner: createCommandRunner("/usr/bin/docker"),
