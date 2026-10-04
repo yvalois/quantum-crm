@@ -240,20 +240,25 @@ export default function TenantProfilesPage() {
     setPromotionPending(profile.id);
     setError(null);
     try {
-      const current = await fetch(`/api/platform/tenant-profiles/${profile.id}`, { cache: "no-store" });
-      if (!current.ok) throw new Error(await errorTitle(current));
-      const csrf = await csrfToken();
-      const response = await fetch(`/api/platform/tenant-profiles/${profile.id}/release-promotions`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-csrf-token": csrf,
-          "if-match": current.headers.get("etag") ?? "",
-          "idempotency-key": `release-${crypto.randomUUID()}`,
-        },
-        body: JSON.stringify({ targetReleaseId }),
+      const current = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
         cache: "no-store",
       });
+      if (!current.ok) throw new Error(await errorTitle(current));
+      const csrf = await csrfToken();
+      const response = await fetch(
+        `/api/platform/tenant-profiles/${profile.id}/release-promotions`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrf,
+            "if-match": current.headers.get("etag") ?? "",
+            "idempotency-key": `release-${crypto.randomUUID()}`,
+          },
+          body: JSON.stringify({ targetReleaseId }),
+          cache: "no-store",
+        },
+      );
       if (!response.ok) throw new Error(await errorTitle(response));
       setPromotionReleaseId("");
       await loadProfiles();
@@ -352,7 +357,10 @@ export default function TenantProfilesPage() {
                 inputMode="text"
               />
             </label>
-            <small>La operación ejecuta migración, reconciliación, verificación y activación con lock por perfil.</small>
+            <small>
+              La operación ejecuta migración, reconciliación, verificación y activación con lock por
+              perfil.
+            </small>
           </div>
         ) : null}
 
@@ -455,7 +463,9 @@ export default function TenantProfilesPage() {
                               disabled={promotionPending !== null || !promotionReleaseId.trim()}
                               onClick={() => void requestReleasePromotion(profile)}
                             >
-                              {promotionPending === profile.id ? "Promoviendo..." : "Promover release"}
+                              {promotionPending === profile.id
+                                ? "Promoviendo..."
+                                : "Promover release"}
                             </button>
                           ) : null}
                         </div>

@@ -15,33 +15,39 @@ const ids = {
 
 describe("tenant release promotion", () => {
   it("keeps the idempotency key in the typed request", () => {
-    expect(validateTenantReleasePromotionRequest({
-      id: ids.operation,
-      tenantProfileId: ids.tenant,
-      targetReleaseId: ids.release,
-      requestedByOperatorId: ids.operator,
-      idempotencyKey: "release-promote-0001",
-      correlationId: "release-promote-0001",
-      expectedTenantVersion: 3n,
-    })).toMatchObject({ idempotencyKey: "release-promote-0001", expectedTenantVersion: 3n });
+    expect(
+      validateTenantReleasePromotionRequest({
+        id: ids.operation,
+        tenantProfileId: ids.tenant,
+        targetReleaseId: ids.release,
+        requestedByOperatorId: ids.operator,
+        idempotencyKey: "release-promote-0001",
+        correlationId: "release-promote-0001",
+        expectedTenantVersion: 3n,
+      }),
+    ).toMatchObject({ idempotencyKey: "release-promote-0001", expectedTenantVersion: 3n });
   });
 
   it("allows only the next fenced step", () => {
-    expect(validateTenantReleasePromotionAdvance({
-      id: ids.operation,
-      workerId: "deploy-executor:test",
-      expectedVersion: 2n,
-      attempt: 1,
-      currentStep: "VERIFY",
-      nextStep: "ACTIVATE",
-    })).toMatchObject({ nextStep: "ACTIVATE" });
-    expect(() => validateTenantReleasePromotionAdvance({
-      id: ids.operation,
-      workerId: "deploy-executor:test",
-      expectedVersion: 2n,
-      attempt: 1,
-      currentStep: "VERIFY",
-      nextStep: "MIGRATE",
-    })).toThrow(TenantReleasePromotionValidationError);
+    expect(
+      validateTenantReleasePromotionAdvance({
+        id: ids.operation,
+        workerId: "deploy-executor:test",
+        expectedVersion: 2n,
+        attempt: 1,
+        currentStep: "VERIFY",
+        nextStep: "ACTIVATE",
+      }),
+    ).toMatchObject({ nextStep: "ACTIVATE" });
+    expect(() =>
+      validateTenantReleasePromotionAdvance({
+        id: ids.operation,
+        workerId: "deploy-executor:test",
+        expectedVersion: 2n,
+        attempt: 1,
+        currentStep: "VERIFY",
+        nextStep: "MIGRATE",
+      }),
+    ).toThrow(TenantReleasePromotionValidationError);
   });
 });

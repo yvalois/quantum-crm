@@ -32,6 +32,15 @@ export class TenantReleasePromotionExecutor {
   public async runOnce(): Promise<boolean> {
     const promotion = await this.promotions.claimNext(this.options);
     if (!promotion) return false;
+    if (promotion.currentStep === "ACTIVATE") {
+      await this.promotions.complete({
+        id: promotion.id,
+        workerId: this.options.workerId,
+        expectedVersion: promotion.version,
+        attempt: promotion.attempt,
+      });
+      return true;
+    }
     const context = await this.promotions.resolveContext({
       id: promotion.id,
       workerId: this.options.workerId,
@@ -45,7 +54,12 @@ export class TenantReleasePromotionExecutor {
     if (promotion.currentStep === "VALIDATE") {
       const release = await this.releases.findById(promotion.targetReleaseId);
       if (!release || release.status !== "VALIDATED") {
-        await this.fail(promotion.id, promotion.version, promotion.attempt, "RELEASE_NOT_VALIDATED");
+        await this.fail(
+          promotion.id,
+          promotion.version,
+          promotion.attempt,
+          "RELEASE_NOT_VALIDATED",
+        );
         return true;
       }
       await this.promotions.advance({
@@ -76,9 +90,11 @@ export class TenantReleasePromotionExecutor {
         const failureCode =
           error instanceof TenantCrmMigrationProvisioningError && error.reason === "UNAVAILABLE"
             ? "UNAVAILABLE"
-            : error instanceof TenantReleaseConfigurationProvisioningError && error.reason === "PERMISSION_DENIED"
+            : error instanceof TenantReleaseConfigurationProvisioningError &&
+                error.reason === "PERMISSION_DENIED"
               ? "PERMISSION_DENIED"
-              : error instanceof TenantReleaseConfigurationProvisioningError && error.reason === "UNAVAILABLE"
+              : error instanceof TenantReleaseConfigurationProvisioningError &&
+                  error.reason === "UNAVAILABLE"
                 ? "UNAVAILABLE"
                 : "MIGRATION_FAILED";
         await this.fail(promotion.id, promotion.version, promotion.attempt, failureCode);
@@ -106,11 +122,19 @@ export class TenantReleasePromotionExecutor {
           attempt: promotion.attempt,
         });
         if (!observed.ready || !observed.reconciled) {
-          await this.fail(promotion.id, promotion.version, promotion.attempt, "VERIFICATION_FAILED");
+          await this.fail(
+            promotion.id,
+            promotion.version,
+            promotion.attempt,
+            "VERIFICATION_FAILED",
+          );
           return true;
         }
       } catch (error) {
-        const failureCode = error instanceof TenantContainerProvisioningError && error.reason === "UNAVAILABLE" ? "UNAVAILABLE" : "RECONCILIATION_FAILED";
+        const failureCode =
+          error instanceof TenantContainerProvisioningError && error.reason === "UNAVAILABLE"
+            ? "UNAVAILABLE"
+            : "RECONCILIATION_FAILED";
         await this.fail(promotion.id, promotion.version, promotion.attempt, failureCode);
         return true;
       }
@@ -124,12 +148,6 @@ export class TenantReleasePromotionExecutor {
       });
       return true;
     }
-    await this.promotions.complete({
-      id: promotion.id,
-      workerId: this.options.workerId,
-      expectedVersion: promotion.version,
-      attempt: promotion.attempt,
-    });
     return true;
   }
 
@@ -137,14 +155,23 @@ export class TenantReleasePromotionExecutor {
     id: string,
     expectedVersion: bigint,
     attempt: number,
-    failureCode: "TENANT_STATE_INVALID" | "RELEASE_NOT_VALIDATED" | "MIGRATION_FAILED" | "RECONCILIATION_FAILED" | "VERIFICATION_FAILED" | "PERMISSION_DENIED" | "UNAVAILABLE",
+    failureCode:
+      | "TENANT_STATE_INVALID"
+      | "RELEASE_NOT_VALIDATED"
+      | "MIGRATION_FAILED"
+      | "RECONCILIATION_FAILED"
+      | "VERIFICATION_FAILED"
+      | "PERMISSION_DENIED"
+      | "UNAVAILABLE",
   ): Promise<void> {
-    await this.promotions.complete({
-      id,
-      workerId: this.options.workerId,
-      expectedVersion,
-      attempt,
-      failureCode,
-    }).catch(() => undefined);
+    await this.promotions
+      .complete({
+        id,
+        workerId: this.options.workerId,
+        expectedVersion,
+        attempt,
+        failureCode,
+      })
+      .catch(() => undefined);
   }
 }
