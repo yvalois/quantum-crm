@@ -144,11 +144,12 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
         const locked = (await client.query(
           `SELECT ${selection}
              FROM operations.tenant_release_promotions
-            WHERE id=$1::uuid AND status='running' AND current_step='activate'
+            WHERE id=$1::uuid AND status='running'
+              AND ($5::boolean OR current_step='activate')
               AND lease_owner=$2 AND version=$3 AND attempt=$4
               AND lease_expires_at > CURRENT_TIMESTAMP
             FOR UPDATE`,
-          [command.id, command.workerId, command.expectedVersion.toString(), command.attempt],
+          [command.id, command.workerId, command.expectedVersion.toString(), command.attempt, Boolean(command.failureCode)],
         )) as { rows: (PromotionRow & { previous_release_id: string; tenant_profile_id: string; target_release_id: string })[] };
         const current = locked.rows[0];
         if (!current) {
@@ -181,13 +182,14 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
         }
         const result = (await client.query(
           `UPDATE operations.tenant_release_promotions
-              SET status=$5::operations.tenant_release_promotion_status,
-                  failure_code=$6::operations.tenant_release_promotion_failure_code,
+              SET status=$6::operations.tenant_release_promotion_status,
+                  failure_code=$7::operations.tenant_release_promotion_failure_code,
                   lease_owner=NULL, lease_expires_at=NULL, version=version+1,
                   updated_at=CURRENT_TIMESTAMP
             WHERE id=$1::uuid
+              AND ($5::boolean OR current_step='activate')
             RETURNING ${selection}`,
-          [command.id, command.workerId, command.expectedVersion.toString(), command.attempt, command.failureCode ? "failed" : "succeeded", command.failureCode?.toLowerCase() ?? null],
+          [command.id, command.workerId, command.expectedVersion.toString(), command.attempt, Boolean(command.failureCode), command.failureCode ? "failed" : "succeeded", command.failureCode?.toLowerCase() ?? null],
         )) as { rows: PromotionRow[] };
         await client.query("COMMIT");
         return result.rows[0] ? fromRow(result.rows[0]) : null;
