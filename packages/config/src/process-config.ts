@@ -77,6 +77,8 @@ const deployHostPlatformDatabaseNetworkEnvironmentKey =
   "QCRM_DEPLOY_HOST_PLATFORM_DATABASE_NETWORK" as const;
 const deployHostDatabaseSecretRootEnvironmentKey = "QCRM_DEPLOY_HOST_DATABASE_SECRET_ROOT" as const;
 const deployHostTenantRouteRootEnvironmentKey = "QCRM_DEPLOY_HOST_TENANT_ROUTE_ROOT" as const;
+const deployHostStoragePublicEndpointEnvironmentKey =
+  "QCRM_DEPLOY_HOST_STORAGE_PUBLIC_ENDPOINT" as const;
 const safeDefaultEnvironments = new Set<QcrmEnvironment>(["local", "test"]);
 const placeholderPattern = /^(?:change[_-]?me|example|placeholder|todo)$/i;
 
@@ -183,6 +185,7 @@ export interface ProcessConfig {
   readonly deployHostPlatformDatabaseNetwork?: string;
   readonly deployHostDatabaseSecretRoot?: string;
   readonly deployHostTenantRouteRoot?: string;
+  readonly deployHostStoragePublicEndpoint?: string;
   readonly storage?: StorageConfig;
   readonly identityProvisioner?: IdentityProvisionerConfig;
   readonly activationDeliveryCallback?: ActivationDeliveryCallbackConfig;
@@ -280,6 +283,7 @@ export function parseProcessConfig(
           deployHostPlatformDatabaseNetworkEnvironmentKey,
           deployHostDatabaseSecretRootEnvironmentKey,
           deployHostTenantRouteRootEnvironmentKey,
+          deployHostStoragePublicEndpointEnvironmentKey,
         ]
       : []),
   ]);
@@ -405,6 +409,7 @@ export function parseProcessConfig(
   let deployHostPlatformDatabaseNetwork: string | undefined;
   let deployHostDatabaseSecretRoot: string | undefined;
   let deployHostTenantRouteRoot: string | undefined;
+  let deployHostStoragePublicEndpoint: string | undefined;
   if (definition.requiresDeployHostComposeRuntime) {
     const configuredPath = (key: string, fallback: string | undefined): string => {
       const value = environment[key] ?? fallback;
@@ -482,6 +487,27 @@ export function parseProcessConfig(
       deployHostTenantRouteRootEnvironmentKey,
       allowSafeDefaults ? "/tmp/qcrm-tenant-routes" : undefined,
     );
+    const storagePublicEndpoint =
+      environment[deployHostStoragePublicEndpointEnvironmentKey] ??
+      (allowSafeDefaults ? "https://files.example.test" : undefined);
+    try {
+      const endpoint = new URL(storagePublicEndpoint ?? "");
+      if (
+        endpoint.protocol !== "https:" ||
+        endpoint.username ||
+        endpoint.password ||
+        endpoint.pathname !== "/" ||
+        endpoint.search ||
+        endpoint.hash
+      ) {
+        throw new Error("invalid public storage endpoint");
+      }
+      deployHostStoragePublicEndpoint = endpoint.origin;
+    } catch {
+      throw new ConfigurationError(definition.serviceName, [
+        deployHostStoragePublicEndpointEnvironmentKey,
+      ]);
+    }
   }
 
   const storage = definition.requiresStorageAdmin
@@ -574,6 +600,7 @@ export function parseProcessConfig(
     ...(deployHostPlatformDatabaseNetwork ? { deployHostPlatformDatabaseNetwork } : {}),
     ...(deployHostDatabaseSecretRoot ? { deployHostDatabaseSecretRoot } : {}),
     ...(deployHostTenantRouteRoot ? { deployHostTenantRouteRoot } : {}),
+    ...(deployHostStoragePublicEndpoint ? { deployHostStoragePublicEndpoint } : {}),
     ...(storage ? { storage } : {}),
     ...(identityProvisioner ? { identityProvisioner } : {}),
     ...(activationDeliveryCallback ? { activationDeliveryCallback } : {}),

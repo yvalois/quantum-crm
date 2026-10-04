@@ -83,6 +83,7 @@ async function bootstrap(): Promise<void> {
   });
   const containerProvisioner = createTenantContainerProvisioner({
     socketPath: config.deployHostSocketPath,
+    requestTimeoutMilliseconds: 180_000,
   });
   const crmMigrationProvisioner = createTenantCrmMigrationProvisioner(config.deployHostSocketPath);
   const httpsRouteProvisioner = createTenantHttpsRouteProvisioner({
@@ -165,7 +166,7 @@ async function bootstrap(): Promise<void> {
       containerProvisioner,
       {
         workerId: `deploy-executor:${hostname()}:tenant-release`,
-        leaseDurationSeconds: 120,
+        leaseDurationSeconds: 240,
       },
     );
     ready = true;

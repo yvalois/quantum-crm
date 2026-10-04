@@ -46,7 +46,7 @@ export function createTenantCrmMigrationProvisioner(
         const timer = setTimeout(() => {
           client?.destroy();
           reject(new TenantCrmMigrationProvisioningError("UNAVAILABLE"));
-        }, 120_000);
+        }, 180_000);
         client = request(
           {
             socketPath,

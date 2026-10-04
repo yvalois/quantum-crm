@@ -163,7 +163,7 @@ export function createTenantReleasePromotionRepository(
       const command = validateTenantReleasePromotionClaim(raw);
       try {
         const result = (await pool.query(
-          `WITH candidate AS (SELECT id FROM operations.tenant_release_promotions WHERE status='pending' OR (status='running' AND lease_expires_at <= CURRENT_TIMESTAMP) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE operations.tenant_release_promotions promotion SET status='running', attempt=attempt+1, lease_owner=$1, lease_expires_at=CURRENT_TIMESTAMP + ($2::integer * INTERVAL '1 second'), version=version+1, updated_at=CURRENT_TIMESTAMP FROM candidate WHERE promotion.id=candidate.id RETURNING ${selection}`,
+          `WITH candidate AS (SELECT id AS candidate_id FROM operations.tenant_release_promotions WHERE status='pending' OR (status='running' AND (lease_expires_at IS NULL OR lease_expires_at <= CURRENT_TIMESTAMP)) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE operations.tenant_release_promotions promotion SET status='running', attempt=attempt+1, lease_owner=$1, lease_expires_at=CURRENT_TIMESTAMP + ($2::integer * INTERVAL '1 second'), version=version+1, updated_at=CURRENT_TIMESTAMP FROM candidate WHERE promotion.id=candidate.candidate_id RETURNING ${selection}`,
           [command.workerId, command.leaseDurationSeconds],
         )) as { rows: PromotionRow[] };
         return result.rows[0] ? fromRow(result.rows[0]) : null;
@@ -217,6 +217,8 @@ export function createTenantReleasePromotionRepository(
         const result = (await pool.query(
           `UPDATE operations.tenant_release_promotions
               SET current_step = $5::operations.tenant_release_promotion_step,
+                  lease_owner = NULL,
+                  lease_expires_at = NULL,
                   version = version + 1,
                   updated_at = CURRENT_TIMESTAMP
             WHERE id = $1::uuid
@@ -306,6 +308,8 @@ export function createTenantReleasePromotionRepository(
                   updated_at=CURRENT_TIMESTAMP
             WHERE id=$1::uuid
               AND ($5::boolean OR current_step='activate')
+              AND lease_owner=$2 AND version=$3 AND attempt=$4
+              AND lease_expires_at > CURRENT_TIMESTAMP
             RETURNING ${selection}`,
           [
             command.id,
