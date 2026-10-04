@@ -5,7 +5,6 @@ import { randomUUID } from "node:crypto";
 import type { PlatformRelease, PlatformReleaseRepository } from "@quantum-crm/platform-domain";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-const manifestPattern = /^tenant\/([0-9a-f-]{36})\/configuration\.json$/u;
 
 export class TenantReleaseConfigurationProvisioningError extends Error {
   public constructor(public readonly reason: "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT" | "IDENTITY_MISMATCH") {
@@ -15,11 +14,12 @@ export class TenantReleaseConfigurationProvisioningError extends Error {
 }
 
 export interface TenantReleaseConfigurationProvisioner {
-  readonly provision: (command: {
+  readonly provision: (command: TenantReleaseConfigurationCommand) => Promise<{ readonly manifestRef: string; readonly revision: bigint }>;
+}
+export interface TenantReleaseConfigurationCommand {
     readonly tenantProfileId: string;
     readonly targetReleaseId: string;
     readonly expectedRevision: bigint;
-  }) => Promise<{ readonly manifestRef: string; readonly revision: bigint }>;
 }
 
 function assertUuid(value: string): void {
@@ -35,7 +35,7 @@ export function createTenantReleaseConfigurationProvisioner(options: {
   readonly releaseRepository: Pick<PlatformReleaseRepository, "findById">;
 }): TenantReleaseConfigurationProvisioner {
   return Object.freeze({
-    provision: async (command) => {
+    provision: async (command: TenantReleaseConfigurationCommand) => {
       assertUuid(command.tenantProfileId);
       assertUuid(command.targetReleaseId);
       if (command.expectedRevision < 1n) throw new TenantReleaseConfigurationProvisioningError("IDENTITY_MISMATCH");
