@@ -8,6 +8,11 @@ import {
   validateTenantReleasePromotionRequest,
   type TenantReleasePromotion,
   type TenantReleasePromotionRepository,
+  type AdvanceTenantReleasePromotionCommand,
+  type ClaimTenantReleasePromotionCommand,
+  type CompleteTenantReleasePromotionCommand,
+  type RequestTenantReleasePromotionCommand,
+  type ResolveTenantReleasePromotionContextCommand,
 } from "@quantum-crm/platform-domain";
 import type { PoolClient } from "pg";
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
@@ -31,26 +36,26 @@ function fromRow(row: PromotionRow): TenantReleasePromotion {
 
 export function createTenantReleasePromotionRepository(pool: PostgresPool): TenantReleasePromotionRepository {
   return Object.freeze({
-    request: async (raw) => {
+    request: async (raw: RequestTenantReleasePromotionCommand) => {
       const command = validateTenantReleasePromotionRequest(raw); let client: PoolClient | undefined;
       try {
         client = await pool.connect(); await client.query("BEGIN");
-        const profile = await client.query<{ id: string; status: string; release_id: string | null; version: string }>(
-          "SELECT id::text, status::text, release_id::text, version::text FROM tenants.tenant_profiles WHERE id=$1::uuid FOR UPDATE", [command.tenantProfileId]);
+        const profile = (await client.query(
+          "SELECT id::text, status::text, release_id::text, version::text FROM tenants.tenant_profiles WHERE id=$1::uuid FOR UPDATE", [command.tenantProfileId])) as { rows: { id: string; status: string; release_id: string | null; version: string }[] };
         const current = profile.rows[0];
         if (!current || current.status !== "active" || !current.release_id) throw new TenantReleasePromotionValidationError("tenantProfileId");
         if (BigInt(current.version) !== command.expectedTenantVersion) throw new TenantReleasePromotionValidationError("expectedTenantVersion");
         if (current.release_id === command.targetReleaseId) throw new TenantReleasePromotionValidationError("targetReleaseId");
-        const release = await client.query<{ id: string }>("SELECT id::text FROM releases.releases WHERE id=$1::uuid AND status='validated' FOR KEY SHARE", [command.targetReleaseId]);
+        const release = (await client.query("SELECT id::text FROM releases.releases WHERE id=$1::uuid AND status='validated' FOR KEY SHARE", [command.targetReleaseId])) as { rows: { id: string }[] };
         if (!release.rows[0]) throw new TenantReleasePromotionValidationError("targetReleaseId");
-        const replay = await client.query<PromotionRow>(`SELECT ${selection} FROM operations.tenant_release_promotions WHERE requested_by_operator_id=$1::uuid AND idempotency_key=$2 FOR UPDATE`, [command.requestedByOperatorId, command.idempotencyKey]);
+        const replay = (await client.query(`SELECT ${selection} FROM operations.tenant_release_promotions WHERE requested_by_operator_id=$1::uuid AND idempotency_key=$2 FOR UPDATE`, [command.requestedByOperatorId, command.idempotencyKey])) as { rows: PromotionRow[] };
         if (replay.rows[0]) {
           if (replay.rows[0].tenant_profile_id !== command.tenantProfileId || replay.rows[0].target_release_id !== command.targetReleaseId) throw new TenantReleasePromotionConflictError();
           await client.query("COMMIT"); return { promotion: fromRow(replay.rows[0]), tenantVersion: BigInt(current.version), idempotentReplay: true };
         }
-        const existing = await client.query<{ id: string }>("SELECT id::text FROM operations.tenant_release_promotions WHERE tenant_profile_id=$1::uuid AND status IN ('pending','running') FOR UPDATE", [command.tenantProfileId]);
+        const existing = (await client.query("SELECT id::text FROM operations.tenant_release_promotions WHERE tenant_profile_id=$1::uuid AND status IN ('pending','running') FOR UPDATE", [command.tenantProfileId])) as { rows: { id: string }[] };
         if (existing.rows[0]) throw new TenantReleasePromotionConflictError();
-        const inserted = await client.query<PromotionRow>(`INSERT INTO operations.tenant_release_promotions (id, tenant_profile_id, previous_release_id, target_release_id, requested_by_operator_id, idempotency_key, correlation_id) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7) RETURNING ${selection}`, [command.id, command.tenantProfileId, current.release_id, command.targetReleaseId, command.requestedByOperatorId, command.idempotencyKey, command.correlationId]);
+        const inserted = (await client.query(`INSERT INTO operations.tenant_release_promotions (id, tenant_profile_id, previous_release_id, target_release_id, requested_by_operator_id, idempotency_key, correlation_id) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7) RETURNING ${selection}`, [command.id, command.tenantProfileId, current.release_id, command.targetReleaseId, command.requestedByOperatorId, command.idempotencyKey, command.correlationId])) as { rows: PromotionRow[] };
         if (!inserted.rows[0]) throw new DatabaseUnavailableError();
         await client.query("COMMIT"); return { promotion: fromRow(inserted.rows[0]), tenantVersion: BigInt(current.version), idempotentReplay: false };
       } catch (error) {
@@ -59,21 +64,18 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
         throw new DatabaseUnavailableError();
       } finally { client?.release(); }
     },
-    claimNext: async (raw) => {
+    claimNext: async (raw: ClaimTenantReleasePromotionCommand) => {
       const command = validateTenantReleasePromotionClaim(raw);
       try {
-        const result = await pool.query(`WITH candidate AS (SELECT id FROM operations.tenant_release_promotions WHERE status='pending' OR (status='running' AND lease_expires_at <= CURRENT_TIMESTAMP) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE operations.tenant_release_promotions promotion SET status='running', attempt=attempt+1, lease_owner=$1, lease_expires_at=CURRENT_TIMESTAMP + ($2::integer * INTERVAL '1 second'), version=version+1, updated_at=CURRENT_TIMESTAMP FROM candidate WHERE promotion.id=candidate.id RETURNING ${selection}`, [command.workerId, command.leaseDurationSeconds]) as { rows: PromotionRow[] };
+        const result = (await pool.query(`WITH candidate AS (SELECT id FROM operations.tenant_release_promotions WHERE status='pending' OR (status='running' AND lease_expires_at <= CURRENT_TIMESTAMP) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE operations.tenant_release_promotions promotion SET status='running', attempt=attempt+1, lease_owner=$1, lease_expires_at=CURRENT_TIMESTAMP + ($2::integer * INTERVAL '1 second'), version=version+1, updated_at=CURRENT_TIMESTAMP FROM candidate WHERE promotion.id=candidate.id RETURNING ${selection}`, [command.workerId, command.leaseDurationSeconds])) as { rows: PromotionRow[] };
         return result.rows[0] ? fromRow(result.rows[0]) : null;
       } catch { throw new DatabaseUnavailableError(); }
     },
-    resolveContext: async (raw) => {
+    resolveContext: async (raw: ResolveTenantReleasePromotionContextCommand) => {
       const command = validateTenantReleasePromotionContext(raw);
       try {
-        const result = await pool.query<{
-          server_id: string;
-          quota_mib: number;
-          configuration_revision: string;
-        }>(
+        const result = (await pool.query(
+          
           `SELECT configuration.server_id::text AS server_id,
                   storage.quota_mib,
                   configuration.configuration_revision::text AS configuration_revision
@@ -95,7 +97,7 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
               AND promotion.attempt = $4
               AND promotion.lease_expires_at > CURRENT_TIMESTAMP`,
           [command.id, command.workerId, command.expectedVersion.toString(), command.attempt],
-        );
+        )) as { rows: { server_id: string; quota_mib: number; configuration_revision: string }[] };
         const row = result.rows[0];
         if (!row || !Number.isSafeInteger(row.quota_mib) || row.quota_mib < 1) return null;
         const configurationRevision = BigInt(row.configuration_revision);
@@ -110,10 +112,10 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
         throw new DatabaseUnavailableError();
       }
     },
-    advance: async (raw) => {
+    advance: async (raw: AdvanceTenantReleasePromotionCommand) => {
       const command = validateTenantReleasePromotionAdvance(raw);
       try {
-        const result = await pool.query<PromotionRow>(
+        const result = (await pool.query(
           `UPDATE operations.tenant_release_promotions
               SET current_step = $5::operations.tenant_release_promotion_step,
                   version = version + 1,
@@ -127,19 +129,19 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
               AND lease_expires_at > CURRENT_TIMESTAMP
             RETURNING ${selection}`,
           [command.id, command.workerId, command.expectedVersion.toString(), command.attempt, command.nextStep.toLowerCase(), command.currentStep.toLowerCase()],
-        );
+        )) as { rows: PromotionRow[] };
         return result.rows[0] ? fromRow(result.rows[0]) : null;
       } catch {
         throw new DatabaseUnavailableError();
       }
     },
-    complete: async (raw) => {
+    complete: async (raw: CompleteTenantReleasePromotionCommand) => {
       const command = validateTenantReleasePromotionCompletion(raw);
       let client: PoolClient | undefined;
       try {
         client = await pool.connect();
         await client.query("BEGIN");
-        const locked = await client.query<PromotionRow & { previous_release_id: string; tenant_profile_id: string; target_release_id: string }>(
+        const locked = (await client.query(
           `SELECT ${selection}
              FROM operations.tenant_release_promotions
             WHERE id=$1::uuid AND status='running' AND current_step='activate'
@@ -147,7 +149,7 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
               AND lease_expires_at > CURRENT_TIMESTAMP
             FOR UPDATE`,
           [command.id, command.workerId, command.expectedVersion.toString(), command.attempt],
-        );
+        )) as { rows: (PromotionRow & { previous_release_id: string; tenant_profile_id: string; target_release_id: string })[] };
         const current = locked.rows[0];
         if (!current) {
           await client.query("COMMIT");
@@ -177,7 +179,7 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
             [current.tenant_profile_id, current.target_release_id],
           );
         }
-        const result = await client.query<PromotionRow>(
+        const result = (await client.query(
           `UPDATE operations.tenant_release_promotions
               SET status=$5::operations.tenant_release_promotion_status,
                   failure_code=$6::operations.tenant_release_promotion_failure_code,
@@ -186,7 +188,7 @@ export function createTenantReleasePromotionRepository(pool: PostgresPool): Tena
             WHERE id=$1::uuid
             RETURNING ${selection}`,
           [command.id, command.workerId, command.expectedVersion.toString(), command.attempt, command.failureCode ? "failed" : "succeeded", command.failureCode?.toLowerCase() ?? null],
-        );
+        )) as { rows: PromotionRow[] };
         await client.query("COMMIT");
         return result.rows[0] ? fromRow(result.rows[0]) : null;
       } catch (error) {
