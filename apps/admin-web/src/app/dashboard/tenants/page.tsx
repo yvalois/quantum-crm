@@ -6,6 +6,7 @@ import type {
   TenantProfileContract,
   TenantProfileListResponse,
   TenantProfileResponse,
+  PlatformReleaseContract,
 } from "@quantum-crm/contracts";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
@@ -26,7 +27,12 @@ interface Filters {
   readonly releaseId: string;
 }
 
-const emptyFilters: Filters = { search: "", status: "", serverId: "", releaseId: "" };
+const emptyFilters: Filters = {
+  search: "",
+  status: "",
+  serverId: "",
+  releaseId: "",
+};
 
 async function errorTitle(response: Response): Promise<string> {
   try {
@@ -62,6 +68,10 @@ export default function TenantProfilesPage() {
   const [activationPending, setActivationPending] = useState<string | null>(null);
   const [promotionReleaseId, setPromotionReleaseId] = useState("");
   const [promotionPending, setPromotionPending] = useState<string | null>(null);
+  const [releases, setReleases] = useState<readonly PlatformReleaseContract[]>([]);
+  const [releasesLoading, setReleasesLoading] = useState(false);
+  const [releasesError, setReleasesError] = useState<string | null>(null);
+  const [releasePending, setReleasePending] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ pageSize: "25" });
@@ -77,7 +87,9 @@ export default function TenantProfilesPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/platform/tenant-profiles?${query}`, { cache: "no-store" });
+      const response = await fetch(`/api/platform/tenant-profiles?${query}`, {
+        cache: "no-store",
+      });
       if (response.status === 401) {
         window.location.assign(
           `/api/auth/login?returnTo=${encodeURIComponent("/dashboard/tenants")}`,
@@ -95,6 +107,34 @@ export default function TenantProfilesPage() {
     }
   }, [query]);
 
+  const loadReleases = useCallback(async () => {
+    if (!canDeploy) return;
+    setReleasesLoading(true);
+    setReleasesError(null);
+    try {
+      const response = await fetch("/api/platform/releases?status=CANDIDATE&pageSize=20", {
+        cache: "no-store",
+      });
+      if (response.status === 401) {
+        window.location.assign(
+          `/api/auth/login?returnTo=${encodeURIComponent("/dashboard/tenants")}`,
+        );
+        return;
+      }
+      if (!response.ok) throw new Error(await errorTitle(response));
+      const body = (await response.json()) as {
+        readonly data: readonly PlatformReleaseContract[];
+      };
+      setReleases(body.data);
+    } catch (cause) {
+      setReleasesError(
+        cause instanceof Error ? cause.message : "No fue posible consultar las releases",
+      );
+    } finally {
+      setReleasesLoading(false);
+    }
+  }, [canDeploy]);
+
   useEffect(() => {
     void Promise.all([
       loadProfiles(),
@@ -109,6 +149,10 @@ export default function TenantProfilesPage() {
         .catch(() => undefined),
     ]);
   }, [loadProfiles]);
+
+  useEffect(() => {
+    void loadReleases();
+  }, [loadReleases]);
 
   function applyFilters(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -269,6 +313,39 @@ export default function TenantProfilesPage() {
     }
   }
 
+  async function validateRelease(release: PlatformReleaseContract): Promise<void> {
+    if (release.status !== "CANDIDATE") return;
+    setReleasePending(release.id);
+    setReleasesError(null);
+    try {
+      const csrf = await csrfToken();
+      const response = await fetch(`/api/platform/releases/${release.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrf,
+          "if-match": `"${release.version}"`,
+        },
+        body: JSON.stringify({ status: "VALIDATED" }),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(await errorTitle(response));
+      const body = (await response.json()) as {
+        readonly data: PlatformReleaseContract;
+      };
+      setReleases((current) =>
+        current.map((candidate) => (candidate.id === body.data.id ? body.data : candidate)),
+      );
+      setPromotionReleaseId(body.data.id);
+    } catch (cause) {
+      setReleasesError(
+        cause instanceof Error ? cause.message : "No fue posible validar la release",
+      );
+    } finally {
+      setReleasePending(null);
+    }
+  }
+
   return (
     <main className="admin-content tenants-page">
       <section className="page-heading tenants-heading">
@@ -335,6 +412,80 @@ export default function TenantProfilesPage() {
           </button>
         </div>
       </form>
+
+      {canDeploy ? (
+        <section
+          id="release-controls"
+          className="release-panel"
+          aria-live="polite"
+          aria-busy={releasesLoading}
+        >
+          <div className="panel-header">
+            <div>
+              <span className="section-code">ENTREGA / 01</span>
+              <h2>Release candidata</h2>
+            </div>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => void loadReleases()}
+              disabled={releasesLoading}
+            >
+              {releasesLoading ? "Consultando..." : "Actualizar"}
+            </button>
+          </div>
+          {releasesError ? (
+            <div className="release-state state-error" role="alert">
+              <strong>No pudimos consultar las releases</strong>
+              <span>{releasesError}</span>
+            </div>
+          ) : releasesLoading && releases.length === 0 ? (
+            <div className="release-state">Consultando candidatas...</div>
+          ) : releases.length === 0 ? (
+            <div className="release-state">
+              No hay releases candidatas disponibles para validar.
+            </div>
+          ) : (
+            <div className="release-list">
+              {releases.map((release) => (
+                <div className="release-row" key={release.id}>
+                  <div>
+                    <strong>{release.semanticVersion}</strong>
+                    <small>
+                      commit {release.commitSha.slice(0, 12)} · versión {release.version}
+                    </small>
+                  </div>
+                  <span className={`status status-${release.status.toLowerCase()}`}>
+                    {release.status}
+                  </span>
+                  {release.status === "CANDIDATE" ? (
+                    <button
+                      type="button"
+                      className="primary-action"
+                      disabled={releasePending !== null}
+                      onClick={() => void validateRelease(release)}
+                    >
+                      {releasePending === release.id ? "Validando..." : "Validar release"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="quiet-button"
+                      onClick={() => setPromotionReleaseId(release.id)}
+                    >
+                      Usar para promoción
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="release-help">
+            Valida la candidata aquí. Después queda seleccionada como destino en la promoción del
+            perfil piloto.
+          </p>
+        </section>
+      ) : null}
 
       <section className="tenant-panel" aria-live="polite" aria-busy={loading}>
         <div className="panel-header">

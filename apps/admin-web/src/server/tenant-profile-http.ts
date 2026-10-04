@@ -25,12 +25,12 @@ const profileIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const etagPattern = /^"[1-9][0-9]*"$/u;
 
-interface AuthorizedRequest {
+export interface AuthorizedRequest {
   readonly accessToken: SecretValue;
   readonly correlationId: string;
 }
 
-async function authorize(
+export async function authorize(
   request: Request,
   runtime: PlatformAuthRuntime,
   write: boolean,
