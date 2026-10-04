@@ -102,8 +102,8 @@ Un operador autorizado puede seleccionar una release `VALIDATED` y solicitar una
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente de implementacion.
-- Comandos y resultados: pendiente de validacion en VPS.
+- Archivos, commits o PR: `feat/ADM-10-ops-12-tenant-release-promotion`, candidato `8b3861e` (incluye `58d180d`, `4ef7b57`, `67469f6`, `dcde008` y `e2e6873`). PR pendiente de publicar tras el cierre de esta ficha.
+- Comandos y resultados en VPS (Node `24.21.0` dentro de `node:24.21.0-alpine`): `prisma:platform:validate` aprobado; typecheck de `platform-domain`, `contracts`, `database`, `admin-api`, `admin-web`, `deploy-host` y `deploy-executor` aprobado; pruebas focalizadas `tenant-release-promotion.test.ts` y `tenant-release-promotion-executor.test.ts`: 2 archivos, 4 casos verdes.
 - Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
 - Desviaciones del plan: la UI actual no tenia ruta de promocion; se incorpora como operacion explicita.
-- Pendientes o decisiones nuevas: el perfil `ACTIVE` no se mutara directamente; la operacion debe completar verificacion antes de activar la release nueva.
+- Pendientes o decisiones nuevas: publicar PR y pasar la matriz CI; el smoke autenticado/promoción de un perfil demo queda para la release posterior a CI. El perfil `ACTIVE` no se muta directamente: la operación completa migración, reconciliación, verificación y activación transaccional.
