@@ -25,6 +25,8 @@ import { createTenantIamBootstrapClient } from "./tenant-iam-bootstrap-client.js
 import { createTenantCrmMigrationProvisioner } from "./tenant-crm-migration-provisioner.js";
 import { createPlatformFoundationPromotionClient } from "./platform-foundation-promotion-client.js";
 import { PlatformFoundationPromotionExecutor } from "./platform-foundation-promotion-executor.js";
+import { createTenantReleaseConfigurationProvisioner } from "./tenant-release-configuration-provisioner.js";
+import { TenantReleasePromotionExecutor } from "./tenant-release-promotion-executor.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("deploy-executor");
@@ -152,6 +154,20 @@ async function bootstrap(): Promise<void> {
       createPlatformFoundationPromotionClient(config.deployHostSocketPath),
       `deploy-executor:${hostname()}:foundation`,
     );
+    const tenantReleasePromotionExecutor = new TenantReleasePromotionExecutor(
+      database.tenantReleasePromotions,
+      database.releases,
+      createTenantReleaseConfigurationProvisioner({
+        configurationDirectory: config.tenantConfigurationDirectory,
+        releaseRepository: database.releases,
+      }),
+      crmMigrationProvisioner,
+      containerProvisioner,
+      {
+        workerId: `deploy-executor:${hostname()}:tenant-release`,
+        leaseDurationSeconds: 120,
+      },
+    );
     ready = true;
     const close = async (): Promise<void> => {
       if (closing) return;
@@ -189,6 +205,17 @@ async function bootstrap(): Promise<void> {
     };
     void foundationPromotionLoop().catch(async () => {
       process.stderr.write("deploy-executor foundation promotion loop failed\n");
+      process.exitCode = 1;
+      await close();
+    });
+    const tenantReleasePromotionLoop = async (): Promise<void> => {
+      while (!closing) {
+        const processed = await tenantReleasePromotionExecutor.runOnce();
+        if (!processed) await new Promise((resolve) => setTimeout(resolve, 1_000));
+      }
+    };
+    void tenantReleasePromotionLoop().catch(async () => {
+      process.stderr.write("deploy-executor tenant release promotion loop failed\n");
       process.exitCode = 1;
       await close();
     });

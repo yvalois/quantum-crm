@@ -79,6 +79,7 @@ import {
   type PlatformReleaseRepository,
   type PlatformReleaseStatus,
   type PlatformFoundationPromotionRepository,
+  type TenantReleasePromotionRepository,
   type ProvisioningOperation,
   type ProvisioningOperationCancellationRepository,
   type ProvisioningOperationRepository,
@@ -97,6 +98,7 @@ import {
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { createActivationDeliveryRepository } from "./activation-delivery-repository.js";
 import { createPlatformFoundationPromotionRepository } from "./platform-foundation-promotion-repository.js";
+import { createTenantReleasePromotionRepository } from "./tenant-release-promotion-repository.js";
 
 export interface PostgresPool {
   readonly connect: () => Promise<PoolClient>;
@@ -123,6 +125,7 @@ export interface PlatformPostgresDatabase extends PostgresDatabase {
   readonly releases: PlatformReleaseRepository;
   readonly activationDeliveries: ReturnType<typeof createActivationDeliveryRepository>;
   readonly platformFoundationPromotions: PlatformFoundationPromotionRepository;
+  readonly tenantReleasePromotions: TenantReleasePromotionRepository;
 }
 
 export interface PlatformMembershipRepository {
@@ -3563,6 +3566,7 @@ export function createPlatformPostgresDatabase(
     releases,
     activationDeliveries: createActivationDeliveryRepository(pool),
     platformFoundationPromotions: createPlatformFoundationPromotionRepository(pool),
+    tenantReleasePromotions: createTenantReleasePromotionRepository(pool),
     tenantProfiles,
     provisioningOperations: Object.freeze({
       ...provisioningOperations,

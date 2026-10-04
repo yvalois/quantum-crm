@@ -50,6 +50,7 @@ export default function TenantProfilesPage() {
   const [cursorHistory, setCursorHistory] = useState<readonly (string | null)[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [canActivate, setCanActivate] = useState(false);
+  const [canDeploy, setCanDeploy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogMode>(null);
@@ -59,6 +60,8 @@ export default function TenantProfilesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [activationUrl, setActivationUrl] = useState<string | null>(null);
   const [activationPending, setActivationPending] = useState<string | null>(null);
+  const [promotionReleaseId, setPromotionReleaseId] = useState("");
+  const [promotionPending, setPromotionPending] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ pageSize: "25" });
@@ -101,6 +104,7 @@ export default function TenantProfilesPage() {
           const operator = (await response.json()) as PlatformOperatorSelf;
           setCanManage(operator.data.permissions.includes("tenants:manage"));
           setCanActivate(operator.data.permissions.includes("deployments:activate"));
+          setCanDeploy(operator.data.permissions.includes("deployments:execute"));
         })
         .catch(() => undefined),
     ]);
@@ -227,6 +231,39 @@ export default function TenantProfilesPage() {
     }
   }
 
+  async function requestReleasePromotion(profile: TenantProfileContract): Promise<void> {
+    const targetReleaseId = promotionReleaseId.trim().toLowerCase();
+    if (!targetReleaseId) {
+      setError("Indica el UUID de una release VALIDATED antes de promover.");
+      return;
+    }
+    setPromotionPending(profile.id);
+    setError(null);
+    try {
+      const current = await fetch(`/api/platform/tenant-profiles/${profile.id}`, { cache: "no-store" });
+      if (!current.ok) throw new Error(await errorTitle(current));
+      const csrf = await csrfToken();
+      const response = await fetch(`/api/platform/tenant-profiles/${profile.id}/release-promotions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrf,
+          "if-match": current.headers.get("etag") ?? "",
+          "idempotency-key": `release-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ targetReleaseId }),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(await errorTitle(response));
+      setPromotionReleaseId("");
+      await loadProfiles();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible crear la promoción");
+    } finally {
+      setPromotionPending(null);
+    }
+  }
+
   return (
     <main className="admin-content tenants-page">
       <section className="page-heading tenants-heading">
@@ -304,6 +341,20 @@ export default function TenantProfilesPage() {
             {loading ? "CONSULTANDO" : `${profiles.length} EN VISTA`}
           </span>
         </div>
+        {canDeploy ? (
+          <div className="promotion-toolbar">
+            <label>
+              <span>Release VALIDATED destino</span>
+              <input
+                value={promotionReleaseId}
+                onChange={(event) => setPromotionReleaseId(event.target.value)}
+                placeholder="UUID de release"
+                inputMode="text"
+              />
+            </label>
+            <small>La operación ejecuta migración, reconciliación, verificación y activación con lock por perfil.</small>
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="loading-grid" aria-label="Cargando perfiles">
@@ -395,6 +446,16 @@ export default function TenantProfilesPage() {
                               {activationPending === profile.id
                                 ? "Emitiendo..."
                                 : "Activar administrador"}
+                            </button>
+                          ) : null}
+                          {canDeploy && profile.status === "ACTIVE" ? (
+                            <button
+                              className="row-action"
+                              type="button"
+                              disabled={promotionPending !== null || !promotionReleaseId.trim()}
+                              onClick={() => void requestReleasePromotion(profile)}
+                            >
+                              {promotionPending === profile.id ? "Promoviendo..." : "Promover release"}
                             </button>
                           ) : null}
                         </div>

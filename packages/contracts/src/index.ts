@@ -369,6 +369,14 @@ export {
   type PlatformFoundationPromotionContract,
 } from "./deployments/v1/platform-foundation-promotion.js";
 export {
+  RequestTenantReleasePromotionSchema,
+  TenantReleasePromotionResponseSchema,
+  TenantReleasePromotionSchema,
+  type RequestTenantReleasePromotion,
+  type TenantReleasePromotionContract,
+  type TenantReleasePromotionResponse,
+} from "./deployments/v1/tenant-release-promotion.js";
+export {
   CreateInfrastructureServerSchema,
   InfrastructureServerArchitectureSchema,
   InfrastructureServerListQuerySchema,

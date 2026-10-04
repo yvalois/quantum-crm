@@ -43,6 +43,10 @@ import {
   TenantProfilesController,
 } from "./tenant-profiles.controller.js";
 import {
+  TENANT_RELEASE_PROMOTION_REPOSITORY,
+  TenantReleasePromotionsController,
+} from "./tenant-release-promotions.controller.js";
+import {
   InfrastructureServerService,
   PlatformReleaseService,
   TenantProfileService,
@@ -70,6 +74,7 @@ export class AppModule {
         PlatformFoundationPromotionsController,
         ReleasesController,
         TenantProfilesController,
+        TenantReleasePromotionsController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -77,6 +82,10 @@ export class AppModule {
         {
           provide: PLATFORM_FOUNDATION_PROMOTION_REPOSITORY,
           useValue: database.platformFoundationPromotions,
+        },
+        {
+          provide: TENANT_RELEASE_PROMOTION_REPOSITORY,
+          useValue: database.tenantReleasePromotions,
         },
         { provide: ACTIVATION_DELIVERY_CALLBACK_CONFIG, useValue: activationDeliveryCallback },
         ActivationDeliveryWaiters,
