@@ -60,17 +60,17 @@ Una promoción de plataforma ya registrada en el catálogo y solicitada por un o
 
 ## Plan de implementación
 
-- [ ] Extender catálogo de digests para el plano `platform.yaml`.
-- [ ] Implementar reconciliador tipado en `deploy-host` y conectarlo al executor.
-- [ ] Validar configuración y cobertura focalizada.
-- [ ] Verificar commit en VPS autorizado y registrar evidencia.
+- [x] Extender catálogo de digests para el plano `platform.yaml`.
+- [x] Implementar reconciliador tipado en `deploy-host` y conectarlo al executor.
+- [x] Validar configuración y cobertura focalizada.
+- [x] Verificar commit en VPS autorizado y registrar evidencia.
 
 ## Criterios de aceptación
 
-- [ ] Un catálogo incompleto, legacy o con digest inválido no ejecuta Compose.
-- [ ] La operación existente solicita únicamente artefactos registrados y `VALIDATED`.
-- [ ] `platform.yaml` recibe solo los tres digests cerrados y conserva su env-file host-controlled.
-- [ ] El host ejecuta únicamente `config`, `up` y `ps` sobre el proyecto `quantum-platform` y reporta fallo cerrado.
+- [x] Un catálogo incompleto, legacy o con digest inválido no ejecuta Compose.
+- [x] La operación existente solicita únicamente artefactos registrados y `VALIDATED`.
+- [x] `platform.yaml` recibe solo los tres digests cerrados y conserva su env-file host-controlled.
+- [x] El host ejecuta únicamente `config`, `up` y `ps` sobre el proyecto `quantum-platform` y reporta fallo cerrado.
 - [ ] No quedan cambios locales sin commit, secretos ni artefactos temporales.
 
 ## Plan de verificación
@@ -89,8 +89,8 @@ Una promoción de plataforma ya registrada en el catálogo y solicitada por un o
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente de validación en VPS.
-- Documentación actualizada: ficha y `docs/04-proceso/estado.md`.
-- Desviaciones del plan: pendiente.
-- Pendientes o decisiones nuevas: pendiente de CI y promoción real de un release `VALIDATED`.
+- Archivos, commits o PR: commits `13a876b` y `c5db32f` en `feat/OPS-18-platform-promotion`; PR pendiente de publicar.
+- Comandos y resultados: en el VPS autorizado, Node 24.21.0 ejecutó Prettier sobre los seis archivos afectados, typecheck de `contracts`, `config` y `deploy-host`, build de `deploy-host` y dos pruebas focalizadas de `platform-foundation-release`; todos aprobaron. La prueba se repitió una sola vez tras construir las salidas `dist` requeridas por los paquetes workspace.
+- Documentación actualizada: esta ficha, `docs/04-proceso/estado.md` e `infra/README.md`.
+- Desviaciones del plan: la observación de salud usa `compose up --wait --wait-timeout` para no declarar éxito mientras los tres servicios siguen en `starting`.
+- Pendientes o decisiones nuevas: publicar PR, CI, actualizar el `deploy-host` del VPS con esta capacidad y promover un release `VALIDATED` real; no se ejecutó Docker de producción ni se modificaron datos.
