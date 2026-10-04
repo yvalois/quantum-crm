@@ -493,6 +493,53 @@ button:disabled {
   border: 1px solid var(--line);
   background: rgba(11, 15, 16, 0.87);
 }
+.release-panel {
+  margin-bottom: 1rem;
+  border: 1px solid var(--line);
+  background: rgba(11, 15, 16, 0.87);
+}
+.release-list {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+}
+.release-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  background: rgba(11, 15, 16, 0.95);
+}
+.release-row strong,
+.release-row small {
+  display: block;
+}
+.release-row small {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+}
+.release-state {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.4rem 1.2rem;
+  color: var(--muted);
+}
+.release-state strong {
+  color: var(--text);
+}
+.release-state span {
+  color: var(--danger);
+}
+.release-help {
+  margin: 0;
+  padding: 0.9rem 1.2rem 1.1rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
 .panel-header {
   display: flex;
   min-height: 5.2rem;
