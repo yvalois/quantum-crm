@@ -5,15 +5,12 @@ import {
   UpdatePlatformReleaseStatusSchema,
 } from "@quantum-crm/contracts";
 
-import {
-  authorize,
-  type AuthorizedRequest,
-} from "./tenant-profile-http.js";
+import { authorize, type AuthorizedRequest } from "./tenant-profile-http";
 import {
   platformNoStoreHeaders,
   platformProblem,
   type PlatformAuthRuntime,
-} from "./platform-auth-http.js";
+} from "./platform-auth-http";
 
 const maximumResponseBytes = 1_048_576;
 const maximumRequestBytes = 65_536;
@@ -67,7 +64,9 @@ function releaseQuery(request: Request): URLSearchParams | null {
   }
   const parsed = PlatformReleaseListQuerySchema.safeParse(raw);
   if (!parsed.success) return null;
-  const output = new URLSearchParams({ pageSize: parsed.data.pageSize.toString() });
+  const output = new URLSearchParams({
+    pageSize: parsed.data.pageSize.toString(),
+  });
   if (parsed.data.status) output.set("status", parsed.data.status);
   return output;
 }
@@ -154,7 +153,10 @@ export async function handleReleaseStatusUpdate(
       `/api/v1/releases/${id}/status`,
     );
     if (!upstream.ok) return upstreamProblem(upstream.status);
-    return responseWithEtag(PlatformReleaseResponseSchema.parse(await readUpstream(upstream)), upstream);
+    return responseWithEtag(
+      PlatformReleaseResponseSchema.parse(await readUpstream(upstream)),
+      upstream,
+    );
   } catch {
     return platformProblem(503, "Platform unavailable");
   }

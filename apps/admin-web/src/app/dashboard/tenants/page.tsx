@@ -27,7 +27,12 @@ interface Filters {
   readonly releaseId: string;
 }
 
-const emptyFilters: Filters = { search: "", status: "", serverId: "", releaseId: "" };
+const emptyFilters: Filters = {
+  search: "",
+  status: "",
+  serverId: "",
+  releaseId: "",
+};
 
 async function errorTitle(response: Response): Promise<string> {
   try {
@@ -82,7 +87,9 @@ export default function TenantProfilesPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/platform/tenant-profiles?${query}`, { cache: "no-store" });
+      const response = await fetch(`/api/platform/tenant-profiles?${query}`, {
+        cache: "no-store",
+      });
       if (response.status === 401) {
         window.location.assign(
           `/api/auth/login?returnTo=${encodeURIComponent("/dashboard/tenants")}`,
@@ -323,7 +330,9 @@ export default function TenantProfilesPage() {
         cache: "no-store",
       });
       if (!response.ok) throw new Error(await errorTitle(response));
-      const body = (await response.json()) as { readonly data: PlatformReleaseContract };
+      const body = (await response.json()) as {
+        readonly data: PlatformReleaseContract;
+      };
       setReleases((current) =>
         current.map((candidate) => (candidate.id === body.data.id ? body.data : candidate)),
       );
@@ -416,7 +425,12 @@ export default function TenantProfilesPage() {
               <span className="section-code">ENTREGA / 01</span>
               <h2>Release candidata</h2>
             </div>
-            <button type="button" className="quiet-button" onClick={() => void loadReleases()} disabled={releasesLoading}>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => void loadReleases()}
+              disabled={releasesLoading}
+            >
               {releasesLoading ? "Consultando..." : "Actualizar"}
             </button>
           </div>
@@ -454,7 +468,11 @@ export default function TenantProfilesPage() {
                       {releasePending === release.id ? "Validando..." : "Validar release"}
                     </button>
                   ) : (
-                    <button type="button" className="quiet-button" onClick={() => setPromotionReleaseId(release.id)}>
+                    <button
+                      type="button"
+                      className="quiet-button"
+                      onClick={() => setPromotionReleaseId(release.id)}
+                    >
                       Usar para promoción
                     </button>
                   )}
@@ -463,7 +481,8 @@ export default function TenantProfilesPage() {
             </div>
           )}
           <p className="release-help">
-            Valida la candidata aquí. Después queda seleccionada como destino en la promoción del perfil piloto.
+            Valida la candidata aquí. Después queda seleccionada como destino en la promoción del
+            perfil piloto.
           </p>
         </section>
       ) : null}

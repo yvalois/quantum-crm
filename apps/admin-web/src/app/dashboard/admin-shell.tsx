@@ -5,13 +5,38 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 const navigation = [
-  { href: "/dashboard", label: "Resumen de plataforma", glyph: "01", enabled: true },
-  { href: "/dashboard/tenants", label: "Tenants y entornos", glyph: "02", enabled: true },
-  { href: "/dashboard/tenants#release-controls", label: "Releases y artefactos", glyph: "03", enabled: true },
-  { href: "#", label: "Despliegues y operaciones", glyph: "04", enabled: false },
+  {
+    href: "/dashboard",
+    label: "Resumen de plataforma",
+    glyph: "01",
+    enabled: true,
+  },
+  {
+    href: "/dashboard/tenants",
+    label: "Tenants y entornos",
+    glyph: "02",
+    enabled: true,
+  },
+  {
+    href: "/dashboard/tenants#release-controls",
+    label: "Releases y artefactos",
+    glyph: "03",
+    enabled: true,
+  },
+  {
+    href: "#",
+    label: "Despliegues y operaciones",
+    glyph: "04",
+    enabled: false,
+  },
   { href: "#", label: "Infraestructura y VPS", glyph: "05", enabled: false },
   { href: "#", label: "Backups y recuperación", glyph: "06", enabled: false },
-  { href: "#", label: "Incidentes y mantenimiento", glyph: "07", enabled: false },
+  {
+    href: "#",
+    label: "Incidentes y mantenimiento",
+    glyph: "07",
+    enabled: false,
+  },
   { href: "#", label: "Operadores y roles", glyph: "08", enabled: false },
   { href: "#", label: "Auditoría inmutable", glyph: "09", enabled: false },
   { href: "#", label: "Configuración global", glyph: "10", enabled: false },
