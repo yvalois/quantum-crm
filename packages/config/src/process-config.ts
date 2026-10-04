@@ -61,6 +61,10 @@ const deployHostPlatformFoundationComposeTemplateEnvironmentKey =
   "QCRM_DEPLOY_HOST_PLATFORM_FOUNDATION_COMPOSE_TEMPLATE" as const;
 const deployHostPlatformFoundationEnvironmentFileEnvironmentKey =
   "QCRM_DEPLOY_HOST_PLATFORM_FOUNDATION_ENV_FILE" as const;
+const deployHostPlatformComposeTemplateEnvironmentKey =
+  "QCRM_DEPLOY_HOST_PLATFORM_COMPOSE_TEMPLATE" as const;
+const deployHostPlatformEnvironmentFileEnvironmentKey =
+  "QCRM_DEPLOY_HOST_PLATFORM_ENV_FILE" as const;
 const deployHostImageRegistryEnvironmentKey = "QCRM_DEPLOY_HOST_IMAGE_REGISTRY" as const;
 const deployHostTenantEdgeNetworkEnvironmentKey = "QCRM_DEPLOY_HOST_TENANT_EDGE_NETWORK" as const;
 const deployHostPlatformStorageNetworkEnvironmentKey =
@@ -169,6 +173,8 @@ export interface ProcessConfig {
   readonly deployHostComposeTemplate?: string;
   readonly deployHostPlatformFoundationComposeTemplate?: string;
   readonly deployHostPlatformFoundationEnvironmentFile?: string;
+  readonly deployHostPlatformComposeTemplate?: string;
+  readonly deployHostPlatformEnvironmentFile?: string;
   readonly deployHostImageRegistry?: string;
   readonly deployHostTenantEdgeNetwork?: string;
   readonly deployHostPlatformStorageNetwork?: string;
@@ -264,6 +270,8 @@ export function parseProcessConfig(
           deployHostComposeTemplateEnvironmentKey,
           deployHostPlatformFoundationComposeTemplateEnvironmentKey,
           deployHostPlatformFoundationEnvironmentFileEnvironmentKey,
+          deployHostPlatformComposeTemplateEnvironmentKey,
+          deployHostPlatformEnvironmentFileEnvironmentKey,
           deployHostImageRegistryEnvironmentKey,
           deployHostTenantEdgeNetworkEnvironmentKey,
           deployHostPlatformStorageNetworkEnvironmentKey,
@@ -387,6 +395,8 @@ export function parseProcessConfig(
   let deployHostComposeTemplate: string | undefined;
   let deployHostPlatformFoundationComposeTemplate: string | undefined;
   let deployHostPlatformFoundationEnvironmentFile: string | undefined;
+  let deployHostPlatformComposeTemplate: string | undefined;
+  let deployHostPlatformEnvironmentFile: string | undefined;
   let deployHostImageRegistry: string | undefined;
   let deployHostTenantEdgeNetwork: string | undefined;
   let deployHostPlatformStorageNetwork: string | undefined;
@@ -431,6 +441,14 @@ export function parseProcessConfig(
     deployHostPlatformFoundationEnvironmentFile = configuredPath(
       deployHostPlatformFoundationEnvironmentFileEnvironmentKey,
       allowSafeDefaults ? "/tmp/qcrm-platform-foundation.env" : undefined,
+    );
+    deployHostPlatformComposeTemplate = configuredPath(
+      deployHostPlatformComposeTemplateEnvironmentKey,
+      allowSafeDefaults ? "/tmp/qcrm-platform.yaml" : undefined,
+    );
+    deployHostPlatformEnvironmentFile = configuredPath(
+      deployHostPlatformEnvironmentFileEnvironmentKey,
+      allowSafeDefaults ? "/tmp/qcrm-platform.env" : undefined,
     );
     deployHostImageRegistry = configuredName(
       deployHostImageRegistryEnvironmentKey,
@@ -546,6 +564,8 @@ export function parseProcessConfig(
     ...(deployHostPlatformFoundationEnvironmentFile
       ? { deployHostPlatformFoundationEnvironmentFile }
       : {}),
+    ...(deployHostPlatformComposeTemplate ? { deployHostPlatformComposeTemplate } : {}),
+    ...(deployHostPlatformEnvironmentFile ? { deployHostPlatformEnvironmentFile } : {}),
     ...(deployHostImageRegistry ? { deployHostImageRegistry } : {}),
     ...(deployHostTenantEdgeNetwork ? { deployHostTenantEdgeNetwork } : {}),
     ...(deployHostPlatformStorageNetwork ? { deployHostPlatformStorageNetwork } : {}),
