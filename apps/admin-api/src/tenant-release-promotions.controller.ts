@@ -4,8 +4,8 @@ import {
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { RequestTenantReleasePromotionSchema, TenantReleasePromotionResponseSchema, type TenantReleasePromotionContract } from "@quantum-crm/contracts";
-import { DatabaseUnavailableError, type TenantReleasePromotionRepository } from "@quantum-crm/database";
-import { TenantReleasePromotionConflictError, TenantReleasePromotionService, TenantReleasePromotionValidationError, type TenantReleasePromotion } from "@quantum-crm/platform-domain";
+import { DatabaseUnavailableError } from "@quantum-crm/database";
+import { TenantReleasePromotionConflictError, TenantReleasePromotionService, TenantReleasePromotionValidationError, type TenantReleasePromotion, type TenantReleasePromotionRepository } from "@quantum-crm/platform-domain";
 import { platformAuthContext, RequirePlatformPermission } from "./platform-security.js";
 
 export const TENANT_RELEASE_PROMOTION_REPOSITORY = Symbol("TENANT_RELEASE_PROMOTION_REPOSITORY");
