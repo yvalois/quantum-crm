@@ -1,6 +1,9 @@
 import {
   platformReleaseArtifactNames,
   tenantContainerServiceNames,
+  tenantStorageBucketReference,
+  tenantStorageSecretKinds,
+  tenantStorageSecretReference,
   type PlatformReleaseArtifactName,
   type TenantContainerServiceName,
 } from "@quantum-crm/platform-domain";
@@ -68,6 +71,20 @@ export interface TenantConfigurationManifest {
     readonly crmWebClientId: "quantum-crm-web";
     readonly apiAudience: "quantum-crm-api";
   };
+  readonly storage: {
+    readonly endpoint: string;
+    readonly buckets: readonly {
+      readonly kind: "INCOMING" | "OBJECTS";
+      readonly bucketName: string;
+      readonly quotaMiB: number;
+      readonly versioning: "ENABLED";
+    }[];
+    readonly secrets: readonly {
+      readonly kind: "ACCESS_KEY" | "SECRET_KEY";
+      readonly secretRef: string;
+      readonly version: "1";
+    }[];
+  };
 }
 
 export interface ComposePolicyOptions {
@@ -79,6 +96,8 @@ export interface ComposePolicyOptions {
   readonly platformStorageNetwork: string;
   readonly platformSessionNetwork: string;
   readonly platformOidcNetwork: string;
+  readonly storagePublicEndpoint: string;
+  readonly storageSecretRoot: string;
   readonly crmDatabaseSecretFile: string;
   readonly crmMigrationDatabaseSecretFile: string;
   readonly crmOidcClientSecretFile: string;
@@ -140,6 +159,26 @@ function requireAbsolutePath(value: string, field: string): string {
   return value;
 }
 
+function requireHttpsOrigin(value: string, field: string): string {
+  let endpoint: URL;
+  try {
+    endpoint = new URL(value);
+  } catch {
+    throw new ComposePolicyValidationError(field);
+  }
+  if (
+    endpoint.protocol !== "https:" ||
+    endpoint.username ||
+    endpoint.password ||
+    endpoint.pathname !== "/" ||
+    endpoint.search ||
+    endpoint.hash
+  ) {
+    throw new ComposePolicyValidationError(field);
+  }
+  return endpoint.origin;
+}
+
 export function parseTenantConfigurationManifest(
   value: unknown,
   request: ComposePolicyRequest,
@@ -199,6 +238,97 @@ export function parseTenantConfigurationManifest(
   if (platformReleaseArtifactNames.some((name) => !artifacts.has(name))) {
     throw new ComposePolicyValidationError("release.artifacts");
   }
+  if (typeof input.storage !== "object" || input.storage === null || Array.isArray(input.storage)) {
+    throw new ComposePolicyValidationError("storage");
+  }
+  const storage = input.storage as Record<string, unknown>;
+  const storageEndpointValue = requireString(storage.endpoint, "storage.endpoint");
+  let storageEndpoint: URL;
+  try {
+    storageEndpoint = new URL(storageEndpointValue);
+  } catch {
+    throw new ComposePolicyValidationError("storage.endpoint");
+  }
+  if (
+    !["http:", "https:"].includes(storageEndpoint.protocol) ||
+    storageEndpoint.username ||
+    storageEndpoint.password ||
+    storageEndpoint.search ||
+    storageEndpoint.hash
+  ) {
+    throw new ComposePolicyValidationError("storage.endpoint");
+  }
+  if (!Array.isArray(storage.buckets) || storage.buckets.length !== 2) {
+    throw new ComposePolicyValidationError("storage.buckets");
+  }
+  const buckets = new Map<
+    "INCOMING" | "OBJECTS",
+    TenantConfigurationManifest["storage"]["buckets"][number]
+  >();
+  for (const bucket of storage.buckets) {
+    if (typeof bucket !== "object" || bucket === null || Array.isArray(bucket)) {
+      throw new ComposePolicyValidationError("storage.buckets");
+    }
+    const candidate = bucket as Record<string, unknown>;
+    const kind = candidate.kind;
+    const quotaMiB = candidate.quotaMiB;
+    if (kind !== "INCOMING" && kind !== "OBJECTS") {
+      throw new ComposePolicyValidationError("storage.buckets");
+    }
+    if (
+      typeof quotaMiB !== "number" ||
+      !Number.isInteger(quotaMiB) ||
+      quotaMiB < 1 ||
+      buckets.has(kind)
+    ) {
+      throw new ComposePolicyValidationError("storage.buckets");
+    }
+    const expected = tenantStorageBucketReference(tenantProfileId, kind, quotaMiB);
+    if (
+      candidate.bucketName !== expected.bucketName ||
+      candidate.versioning !== expected.versioning
+    ) {
+      throw new ComposePolicyValidationError("storage.buckets");
+    }
+    buckets.set(kind, Object.freeze({ ...expected }));
+  }
+  if (!buckets.has("INCOMING") || !buckets.has("OBJECTS")) {
+    throw new ComposePolicyValidationError("storage.buckets");
+  }
+  if (
+    !Array.isArray(storage.secrets) ||
+    storage.secrets.length !== tenantStorageSecretKinds.length
+  ) {
+    throw new ComposePolicyValidationError("storage.secrets");
+  }
+  const storageSecrets = new Map<
+    "ACCESS_KEY" | "SECRET_KEY",
+    TenantConfigurationManifest["storage"]["secrets"][number]
+  >();
+  for (const secret of storage.secrets) {
+    if (typeof secret !== "object" || secret === null || Array.isArray(secret)) {
+      throw new ComposePolicyValidationError("storage.secrets");
+    }
+    const candidate = secret as Record<string, unknown>;
+    const kind = candidate.kind;
+    if (kind !== "ACCESS_KEY" && kind !== "SECRET_KEY") {
+      throw new ComposePolicyValidationError("storage.secrets");
+    }
+    if (storageSecrets.has(kind)) {
+      throw new ComposePolicyValidationError("storage.secrets");
+    }
+    const expected = tenantStorageSecretReference(tenantProfileId, kind);
+    if (candidate.secretRef !== expected.secretRef || candidate.version !== "1") {
+      throw new ComposePolicyValidationError("storage.secrets");
+    }
+    storageSecrets.set(
+      kind,
+      Object.freeze({ kind, secretRef: expected.secretRef, version: "1" as const }),
+    );
+  }
+  if (!storageSecrets.has("ACCESS_KEY") || !storageSecrets.has("SECRET_KEY")) {
+    throw new ComposePolicyValidationError("storage.secrets");
+  }
   if (
     typeof input.identity !== "object" ||
     input.identity === null ||
@@ -242,6 +372,14 @@ export function parseTenantConfigurationManifest(
           Object.freeze({ name, digest: artifacts.get(name) as string }),
         ),
       ),
+    }),
+    storage: Object.freeze({
+      endpoint: storageEndpoint.toString().replace(/\/$/u, ""),
+      buckets: Object.freeze([buckets.get("INCOMING")!, buckets.get("OBJECTS")!]),
+      secrets: Object.freeze([
+        storageSecrets.get("ACCESS_KEY")!,
+        storageSecrets.get("SECRET_KEY")!,
+      ]),
     }),
     identity: Object.freeze({
       crmWebOrigin: webOrigin.origin,
@@ -288,6 +426,26 @@ export function createTenantComposePlan(
     options.iamBootstrapClientSecretFile,
     "iamBootstrapClientSecretFile",
   );
+  const storageSecretRoot = requireAbsolutePath(
+    options.storageSecretRoot,
+    "storageSecretRoot",
+  ).replace(/\/$/u, "");
+  const storageSecretFile = (kind: "ACCESS_KEY" | "SECRET_KEY"): string => {
+    const secret = manifest.storage.secrets.find((candidate) => candidate.kind === kind);
+    if (!secret || !secret.secretRef.startsWith("tenant/")) {
+      throw new ComposePolicyValidationError("storage.secrets");
+    }
+    return requireAbsolutePath(
+      `${storageSecretRoot}/${secret.secretRef}`,
+      `storage.${kind.toLowerCase()}SecretFile`,
+    );
+  };
+  const storageAccessKeySecretFile = storageSecretFile("ACCESS_KEY");
+  const storageSecretKeySecretFile = storageSecretFile("SECRET_KEY");
+  const storagePublicEndpoint = requireHttpsOrigin(
+    options.storagePublicEndpoint,
+    "storagePublicEndpoint",
+  );
   if (!registryPattern.test(options.imageRegistry)) {
     throw new ComposePolicyValidationError("imageRegistry");
   }
@@ -303,6 +461,11 @@ export function createTenantComposePlan(
   const artifacts = new Map(
     manifest.release.artifacts.map((artifact) => [artifact.name, artifact.digest]),
   );
+  const incomingBucket = manifest.storage.buckets.find((bucket) => bucket.kind === "INCOMING");
+  const objectsBucket = manifest.storage.buckets.find((bucket) => bucket.kind === "OBJECTS");
+  if (!incomingBucket || !objectsBucket) {
+    throw new ComposePolicyValidationError("storage.buckets");
+  }
   const environment: Record<string, string> = {
     QCRM_ENV: options.environment,
     QCRM_IMAGE_REGISTRY: options.imageRegistry,
@@ -317,6 +480,15 @@ export function createTenantComposePlan(
     QCRM_CRM_OIDC_CLIENT_SECRET_FILE: crmOidcClientSecretFile,
     QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_FILE: "/run/secrets/qcrm_iam_bootstrap_client_secret",
     QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE: crmSessionRedisUrlSecretFile,
+    QCRM_FILES_S3_PUBLIC_ENDPOINT: storagePublicEndpoint,
+    QCRM_FILES_INCOMING_BUCKET: incomingBucket.bucketName,
+    QCRM_FILES_OBJECTS_BUCKET: objectsBucket.bucketName,
+    QCRM_FILES_S3_UPLOAD_ACCESS_KEY_SECRET_FILE: storageAccessKeySecretFile,
+    QCRM_FILES_S3_UPLOAD_SECRET_KEY_SECRET_FILE: storageSecretKeySecretFile,
+    QCRM_FILES_S3_DELIVERY_ACCESS_KEY_SECRET_FILE: storageAccessKeySecretFile,
+    QCRM_FILES_S3_DELIVERY_SECRET_KEY_SECRET_FILE: storageSecretKeySecretFile,
+    QCRM_FILES_S3_PROCESSOR_ACCESS_KEY_SECRET_FILE: storageAccessKeySecretFile,
+    QCRM_FILES_S3_PROCESSOR_SECRET_KEY_SECRET_FILE: storageSecretKeySecretFile,
     QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_HOST_FILE: iamBootstrapClientSecretFile,
     QCRM_CRM_WEB_ORIGIN: manifest.identity.crmWebOrigin,
     QCRM_CRM_API_ORIGIN: "http://api:3001",

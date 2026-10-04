@@ -25,7 +25,8 @@ if (
   !config.deployHostPlatformSessionNetwork ||
   !config.deployHostPlatformOidcNetwork ||
   !config.deployHostDatabaseSecretRoot ||
-  !config.deployHostTenantRouteRoot
+  !config.deployHostTenantRouteRoot ||
+  !config.deployHostStoragePublicEndpoint
 ) {
   throw new Error("deploy-host compose runtime configuration missing");
 }
@@ -44,6 +45,7 @@ const reconciler = createTenantComposeReconciler({
   platformSessionNetwork: config.deployHostPlatformSessionNetwork,
   platformOidcNetwork: config.deployHostPlatformOidcNetwork,
   databaseSecretRoot: config.deployHostDatabaseSecretRoot,
+  storagePublicEndpoint: config.deployHostStoragePublicEndpoint,
 });
 const migrationReconciler = createTenantCrmMigrationReconciler({
   configurationRoot: config.deployHostConfigurationRoot,
@@ -59,6 +61,7 @@ const migrationReconciler = createTenantCrmMigrationReconciler({
   platformSessionNetwork: config.deployHostPlatformSessionNetwork,
   platformOidcNetwork: config.deployHostPlatformOidcNetwork,
   databaseSecretRoot: config.deployHostDatabaseSecretRoot,
+  storagePublicEndpoint: config.deployHostStoragePublicEndpoint,
 });
 const server = createHostAdapterServer({
   socketPath: config.deployHostSocketPath,

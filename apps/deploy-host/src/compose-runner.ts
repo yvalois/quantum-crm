@@ -56,6 +56,7 @@ export interface TenantComposeRunnerOptions {
   readonly platformSessionNetwork: string;
   readonly platformOidcNetwork: string;
   readonly databaseSecretRoot: string;
+  readonly storagePublicEndpoint: string;
   readonly dockerBinary?: string;
   readonly commandTimeoutMilliseconds?: number;
   readonly commandRunner?: ComposeCommandRunner;
@@ -265,6 +266,8 @@ async function planForTenant(
       platformStorageNetwork: options.platformStorageNetwork,
       platformSessionNetwork: options.platformSessionNetwork,
       platformOidcNetwork: options.platformOidcNetwork,
+      storagePublicEndpoint: options.storagePublicEndpoint,
+      storageSecretRoot: options.databaseSecretRoot,
       crmDatabaseSecretFile: safeChildPath(
         options.databaseSecretRoot,
         `${request.tenantProfileId}/runtime-url`,
@@ -344,6 +347,12 @@ export function createTenantComposeReconciler(
       );
       await assertSecretFile(plan.environment.QCRM_CRM_OIDC_CLIENT_SECRET_FILE as string);
       await assertSecretFile(plan.environment.QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE as string);
+      await assertSecretFile(
+        plan.environment.QCRM_FILES_S3_UPLOAD_ACCESS_KEY_SECRET_FILE as string,
+      );
+      await assertSecretFile(
+        plan.environment.QCRM_FILES_S3_UPLOAD_SECRET_KEY_SECRET_FILE as string,
+      );
       const environment = plan.environment;
       await ensureTenantEdgeNetwork(
         runner,

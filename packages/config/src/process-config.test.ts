@@ -167,6 +167,7 @@ describe("process configuration", () => {
       deployHostPlatformOidcNetwork: "qcrm-platform-oidc",
       deployHostDatabaseSecretRoot: "/tmp/qcrm-tenant-secrets",
       deployHostTenantRouteRoot: "/tmp/qcrm-tenant-routes",
+      deployHostStoragePublicEndpoint: "https://files.example.test",
     });
 
     expect(() =>
@@ -177,6 +178,20 @@ describe("process configuration", () => {
         QCRM_DEPLOY_HOST_SOCKET_PATH: "/run/deploy-host/adapter.sock",
       }),
     ).toThrow(new ConfigurationError("deploy-host", ["QCRM_DEPLOY_HOST_CONFIGURATION_ROOT"]));
+  });
+
+  it("requires an HTTPS origin for the deploy host public storage endpoint", () => {
+    expect(() =>
+      parseServiceConfig("deploy-host", {
+        QCRM_DEPLOY_HOST_STORAGE_PUBLIC_ENDPOINT: "http://files.example.test",
+      }),
+    ).toThrow(new ConfigurationError("deploy-host", ["QCRM_DEPLOY_HOST_STORAGE_PUBLIC_ENDPOINT"]));
+
+    expect(
+      parseServiceConfig("deploy-host", {
+        QCRM_DEPLOY_HOST_STORAGE_PUBLIC_ENDPOINT: "https://files.example.test",
+      }).deployHostStoragePublicEndpoint,
+    ).toBe("https://files.example.test");
   });
 
   it("keeps the non-secret example valid for worker", () => {

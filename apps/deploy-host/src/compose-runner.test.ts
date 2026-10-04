@@ -44,6 +44,35 @@ const manifest = {
       digest: `sha256:${index.toString(16).padStart(64, "0")}`,
     })),
   },
+  storage: {
+    endpoint: "http://platform-storage:8333",
+    buckets: [
+      {
+        kind: "INCOMING",
+        bucketName: "qcrm-01995f7e7b5270008000000000000201-incoming",
+        quotaMiB: 10240,
+        versioning: "ENABLED",
+      },
+      {
+        kind: "OBJECTS",
+        bucketName: "qcrm-01995f7e7b5270008000000000000201-objects",
+        quotaMiB: 10240,
+        versioning: "ENABLED",
+      },
+    ],
+    secrets: [
+      {
+        kind: "ACCESS_KEY",
+        secretRef: "tenant/01995f7e-7b52-7000-8000-000000000201/storage-access-key",
+        version: "1",
+      },
+      {
+        kind: "SECRET_KEY",
+        secretRef: "tenant/01995f7e-7b52-7000-8000-000000000201/storage-secret-key",
+        version: "1",
+      },
+    ],
+  },
   identity: {
     crmWebOrigin: "https://acme.2-25-172-119.nip.io",
     issuer: "https://identity.example.test/realms/qcrm-01995f7e7b5270008000000000000201",
@@ -73,6 +102,7 @@ async function createFixture(): Promise<{
   const manifestPath = join(configurationRoot, request.manifestRef);
   await mkdir(join(configurationRoot, "tenant", request.tenantProfileId), { recursive: true });
   await mkdir(join(databaseSecretRoot, request.tenantProfileId), { recursive: true });
+  await mkdir(join(databaseSecretRoot, "tenant", request.tenantProfileId), { recursive: true });
   await writeFile(manifestPath, JSON.stringify(manifest), { mode: 0o600 });
   await writeFile(join(databaseSecretRoot, request.tenantProfileId, "runtime-url"), "not-a-url", {
     mode: 0o400,
@@ -88,6 +118,16 @@ async function createFixture(): Promise<{
   await writeFile(
     join(databaseSecretRoot, request.tenantProfileId, "session-redis-url"),
     "redis://session:synthetic@redis:6379/0",
+    { mode: 0o400 },
+  );
+  await writeFile(
+    join(databaseSecretRoot, "tenant", request.tenantProfileId, "storage-access-key"),
+    "synthetic-storage-access-key",
+    { mode: 0o400 },
+  );
+  await writeFile(
+    join(databaseSecretRoot, "tenant", request.tenantProfileId, "storage-secret-key"),
+    "synthetic-storage-secret-key",
     { mode: 0o400 },
   );
   return { root, configurationRoot, databaseSecretRoot };
@@ -113,6 +153,7 @@ function createReconciler(
     platformSessionNetwork: "qcrm-platform-session",
     platformOidcNetwork: "qcrm-platform-oidc",
     databaseSecretRoot,
+    storagePublicEndpoint: "https://files.example.test",
     commandRunner: { run },
   });
 }
@@ -148,6 +189,9 @@ describe("tenant compose runner", () => {
       expect(run.mock.calls[2]?.[0]).toContain("--remove-orphans");
       expect(run.mock.calls[0]?.[1]).toMatchObject({
         QCRM_TENANT_EDGE_NETWORK: `qcrm-tenant-edge-${request.tenantProfileId}`,
+        QCRM_FILES_S3_PUBLIC_ENDPOINT: "https://files.example.test",
+        QCRM_FILES_INCOMING_BUCKET: "qcrm-01995f7e7b5270008000000000000201-incoming",
+        QCRM_FILES_OBJECTS_BUCKET: "qcrm-01995f7e7b5270008000000000000201-objects",
       });
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -195,6 +239,7 @@ describe("tenant compose runner", () => {
           platformSessionNetwork: "qcrm-platform-session",
           platformOidcNetwork: "qcrm-platform-oidc",
           databaseSecretRoot,
+          storagePublicEndpoint: "https://files.example.test",
           commandRunner: { run },
         }).migrate(migration),
       ).resolves.toEqual({ migrated: true, reconciled: true });
