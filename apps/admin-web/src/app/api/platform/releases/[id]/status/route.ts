@@ -1,5 +1,5 @@
-import { handleReleaseStatusUpdate } from "../../../../../server/release-http";
-import { withPlatformAuthRuntime } from "../../../../../server/platform-auth-runtime";
+import { handleReleaseStatusUpdate } from "../../../../../../server/release-http";
+import { withPlatformAuthRuntime } from "../../../../../../server/platform-auth-runtime";
 
 export const dynamic = "force-dynamic";
 
