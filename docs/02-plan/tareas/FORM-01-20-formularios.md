@@ -62,12 +62,12 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 
 ## Plan de implementacion
 
-- [ ] Definir contratos runtime y permisos.
-- [ ] Implementar dominio, validacion condicional e idempotencia.
-- [ ] Crear migracion y repositorio PostgreSQL.
-- [ ] Exponer API privada y publica.
-- [ ] Implementar BFF, constructor CRM y pagina publica.
-- [ ] Validar el candidato en el VPS y registrar evidencia.
+- [x] Definir contratos runtime y permisos.
+- [x] Implementar dominio, validacion condicional e idempotencia.
+- [x] Crear migracion y repositorio PostgreSQL.
+- [x] Exponer API privada y publica.
+- [x] Implementar BFF, constructor CRM y pagina publica.
+- [x] Validar el candidato en el VPS y registrar evidencia.
 
 ## Riesgos y mitigaciones
 
@@ -82,8 +82,8 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 
 - [ ] Un usuario autorizado crea, edita, previsualiza y publica un formulario.
 - [ ] El enlace publico permite enviar una respuesta valida sin iniciar sesion.
-- [ ] Una misma clave idempotente no genera dos respuestas.
-- [ ] El servidor rechaza campos requeridos visibles ausentes y tipos invalidos.
+- [x] Una misma clave idempotente no genera dos respuestas.
+- [x] El servidor rechaza campos requeridos visibles ausentes y tipos invalidos.
 - [ ] El CRM lista, abre y exporta respuestas con su version publicada.
 - [ ] Un formulario cerrado rechaza nuevas respuestas y presenta su mensaje de cierre.
 
@@ -105,8 +105,8 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: ficha y estado iniciales.
-- Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: integraciones externas y archivos publicos permanecen fuera de esta rebanada.
+- Archivos, commits o PR: candidato `9d7903a` en `feat/FORM-01-20-formularios`; PR pendiente de publicacion.
+- Comandos y resultados: en el VPS aprobaron Prettier y ESLint afectados; cinco typechecks; seis pruebas focalizadas; builds de contratos, dominio, plataforma, base de datos, autenticacion, API y CRM web; las 19 migraciones CRM sobre PostgreSQL 18; y smoke create/publicar/consultar/enviar/reintentar/listar con una sola respuesta durable.
+- Documentacion actualizada: ficha y estado oficial.
+- Desviaciones del plan: las integraciones con proveedores externos se excluyeron por decision explicita del propietario.
+- Pendientes o decisiones nuevas: CI, integracion, release y smoke autenticado en la interfaz desplegada; archivos publicos, contacto, chat, agente y consumidores de automatizacion permanecen en sus bloques propietarios.
