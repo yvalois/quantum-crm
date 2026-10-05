@@ -155,6 +155,16 @@ describe("DocumentService", () => {
         value: null,
         editable: true,
       },
+      {
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf124",
+        type: "VARIABLE",
+        locked: true,
+        key: "opportunity.amount",
+        label: "Valor de la oportunidad",
+        fallback: "Sin valor",
+        value: null,
+        editable: false,
+      },
     ]);
     const memory = memoryRepository(seededTemplate);
     const service = new DocumentService(memory.repository, {
@@ -166,6 +176,12 @@ describe("DocumentService", () => {
         phone: null,
       }),
       memberFor: async () => ({ displayName: "Sofía Asesora", email: "sofia@example.test" }),
+      opportunityFor: async () => ({
+        title: "Implementacion anual",
+        amountMinor: 125050n,
+        currency: "COP",
+        status: "OPEN",
+      }),
     });
 
     const created = await service.create({
@@ -174,7 +190,7 @@ describe("DocumentService", () => {
       kind: "QUOTE",
       title: "Propuesta octubre",
       contactId: "019db9c7-1268-7d24-bf99-96ea38ebf123",
-      opportunityId: null,
+      opportunityId: "019db9c7-1268-7d24-bf99-96ea38ebf125",
       templateId: seededTemplate.id,
       idempotencyKey: "document-create-context-1",
       payloadHash: "d".repeat(64),
@@ -184,6 +200,7 @@ describe("DocumentService", () => {
     expect(created.blocks).toMatchObject([
       { content: "Propuesta para Andrea Cliente preparada por Sofía Asesora" },
       { value: "andrea@example.test", editable: true },
+      { value: "COP 1250.50", editable: false },
     ]);
   });
 

@@ -103,6 +103,15 @@ export interface DocumentReferenceLookup {
   readonly memberFor?: (
     memberId: string,
   ) => Promise<{ readonly displayName: string; readonly email: string } | null>;
+  readonly opportunityFor?: (
+    actor: CommercialActor,
+    opportunityId: string,
+  ) => Promise<{
+    readonly title: string;
+    readonly amountMinor: bigint;
+    readonly currency: string;
+    readonly status: "OPEN" | "WON" | "LOST" | "ABANDONED";
+  } | null>;
 }
 
 export class DocumentNotFoundError extends Error {

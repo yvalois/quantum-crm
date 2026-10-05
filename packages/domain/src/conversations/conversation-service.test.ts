@@ -240,6 +240,48 @@ describe("ConversationService", () => {
     );
   });
 
+  it("invalidates a pending agent response when a human takes the conversation", async () => {
+    const agentOwned = Object.freeze({
+      ...existing,
+      attentionMode: "AGENT" as const,
+      assigneeMemberId: null,
+    });
+    const takenOver = Object.freeze({
+      ...agentOwned,
+      attentionMode: "HUMAN" as const,
+      assigneeMemberId: actor.memberId,
+      version: agentOwned.version + 1n,
+    });
+    const store = repository(agentOwned);
+    vi.mocked(store.update).mockResolvedValueOnce(takenOver);
+    const service = new ConversationService(store, references(), () => now);
+
+    await service.update({
+      actor,
+      permissions: ["crm:conversations:control-agent"],
+      id: existing.id,
+      expectedVersion: agentOwned.version,
+      attentionMode: "HUMAN",
+      idempotencyKey: "takeover-race-12345678",
+      payloadHash: "3".repeat(64),
+    });
+
+    vi.mocked(store.find).mockResolvedValueOnce(takenOver);
+    vi.mocked(store.append).mockResolvedValueOnce(null);
+    await expect(
+      service.send({
+        actor,
+        permissions: ["crm:conversations:reply"],
+        conversationId: existing.id,
+        expectedVersion: agentOwned.version,
+        body: "Respuesta calculada antes de la toma humana",
+        kind: "TEXT",
+        idempotencyKey: "stale-agent-response-12345678",
+        payloadHash: "4".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(ConversationVersionConflictError);
+  });
+
   it("rejects unknown contacts and stale versions", async () => {
     const missingContact = new ConversationService(repository(), references(false), () => now);
     await expect(
