@@ -66,7 +66,7 @@ Una plantilla define estructura protegida y campos editables. Al crear una insta
 - [x] Crear compositor documental de conversación y mensaje durable.
 - [x] Conectar carga/reemplazo de imágenes con `DOC-14` cuando el archivo sea `AVAILABLE`.
 - [x] Validar una vez el candidato exacto en VPS y recorrer el flujo autenticado.
-- [ ] Publicar el candidato y aprobar la matriz de GitHub.
+- [x] Publicar el candidato y aprobar la matriz de GitHub.
 
 ## Riesgos y mitigaciones
 
@@ -95,4 +95,6 @@ Una plantilla define estructura protegida y campos editables. Al crear una insta
 
 - Candidato `c9a0b9e05d8a85ef93597b3b761f6e3ca6b46347`: formato, lint, cuatro typechecks, 32 pruebas y builds de API/worker aprobados en el VPS.
 - Despliegue temporal exacto saludable en `quantum-demo-jueves`; recorrido autenticado aprobado: contacto, plantilla contextual, valores de cliente y asesor, imagen verificada y reemplazada, conversacion `EMAIL` y `documentSnapshot` durable.
-- Pendiente: publicacion, matriz de GitHub y completar el origen de oportunidad antes de cerrar `DOC-15` en el checklist canonico.
+- El PR `#89` integro el bloque en `main` como `3d96d3c5846d0a8090b0e289012ac0a404dbbdb0`. La matriz completa de GitHub y el escaneo aprobaron la release `0.0.0-candidate.3d96d3c5846d`; la promocion durable `0f77e00b-09c7-4933-aca3-69025693735c` termino `SUCCEEDED` en el perfil piloto.
+- Verificacion posterior: cinco servicios saludables por digest oficial y smoke autenticado `200` para la pantalla, listado de documentos y listado de plantillas; se observaron seis documentos y dos plantillas persistidas.
+- Pendiente: completar el origen contextual de oportunidad antes de cerrar `DOC-15` en el checklist canonico.

@@ -80,6 +80,8 @@ El 2026-09-29, la descarga de los diez artefactos de la release `0.0.0-candidate
 
 El 2026-10-05 se verifico la ampliacion a 8 vCPU, 31 GiB de RAM y 387 GiB de disco. Durante la comprobacion habia 26 GiB de memoria disponibles, 321 GiB libres, 5 % de inodos utilizados, carga de 1.47/1.54/1.17 y ningun servicio `systemd` fallido. Los 25 contenedores estaban en ejecucion, sin reinicios ni eventos OOM; los 24 que declaran healthcheck estaban saludables. Docker conservaba 12.94 GB de imagenes y 12.41 GB de cache de build recuperables, pero no se podaron porque existe margen suficiente y varias imagenes sostienen candidatos o rollback inmediato. El host no tiene swap: no es presion actual, pero debe decidirse una reserva pequena y controlada antes de aumentar la densidad de perfiles.
 
+Tras promover la release documental `0.0.0-candidate.3d96d3c5846d`, una segunda muestra del 2026-10-05 registro carga 1.00/0.72/0.63, 27 823 MiB de memoria disponibles y 319 GiB libres, con 17.5 % del filesystem raiz utilizado. No habia contenedores no saludables o reiniciando ni unidades `systemd` fallidas. El perfil `quantum-demo-jueves` quedo `ACTIVE` sobre la release `ef673663-f7d6-5bd2-9ed9-472b03d0d13f`; sus cinco servicios ejecutan los digests oficiales y estan saludables. El catalogo administrativo de `staging-primary` aun declara la capacidad anterior de 1000 millicores, 3910 MiB y 48 484 MiB: debe reconciliarse mediante la API tipada de infraestructura, no con una escritura SQL directa.
+
 ## Plataforma administrativa desplegada
 
 | Servicio          | Imagen o estado inmutable                               | Estado verificado |
