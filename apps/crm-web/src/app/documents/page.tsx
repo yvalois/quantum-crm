@@ -168,13 +168,33 @@ function uploadVersionId(response: Response, body: string): string | null {
   return body.match(/<VersionId>([^<]+)<\/VersionId>/u)?.[1] ?? null;
 }
 
-function interpolate(value: string, contact: Contact | null, advisor: TaskAssignee | null): string {
+function opportunityAmount(opportunity: Opportunity | null): string {
+  if (!opportunity) return "";
+  const amountMinor = BigInt(opportunity.amountMinor);
+  const units = amountMinor / 100n;
+  const cents = (amountMinor % 100n).toString().padStart(2, "0");
+  return `${opportunity.currency} ${units.toString()}.${cents}`;
+}
+
+function interpolate(
+  value: string,
+  contact: Contact | null,
+  advisor: TaskAssignee | null,
+  opportunity: Opportunity | null,
+  documentTitle: string,
+): string {
   return value
     .replaceAll("{{contact.name}}", contact?.displayName ?? "Cliente")
     .replaceAll("{{contact.email}}", contact?.email ?? "correo@cliente.com")
     .replaceAll("{{contact.phone}}", contact?.phone ?? "")
     .replaceAll("{{advisor.name}}", advisor?.displayName ?? "Asesor")
-    .replaceAll("{{company.name}}", "Quantum CRM");
+    .replaceAll("{{advisor.email}}", "")
+    .replaceAll("{{company.name}}", "Quantum CRM")
+    .replaceAll("{{opportunity.title}}", opportunity?.title ?? "Oportunidad")
+    .replaceAll("{{opportunity.amount}}", opportunityAmount(opportunity))
+    .replaceAll("{{opportunity.currency}}", opportunity?.currency ?? "")
+    .replaceAll("{{opportunity.status}}", opportunity?.status ?? "")
+    .replaceAll("{{document.title}}", documentTitle);
 }
 
 export default function DocumentsPage(): React.JSX.Element {
@@ -204,6 +224,10 @@ export default function DocumentsPage(): React.JSX.Element {
   const selectedAdvisor = useMemo(
     () => advisors.find((advisor) => advisor.id === draft?.ownerMemberId) ?? null,
     [advisors, draft?.ownerMemberId],
+  );
+  const selectedOpportunity = useMemo(
+    () => opportunities.find((opportunity) => opportunity.id === draft?.opportunityId) ?? null,
+    [draft?.opportunityId, opportunities],
   );
   const filteredDocuments = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
@@ -783,6 +807,7 @@ export default function DocumentsPage(): React.JSX.Element {
                   document={draft}
                   contact={selectedContact}
                   advisor={selectedAdvisor}
+                  opportunity={selectedOpportunity}
                   csrf={csrf}
                 />
                 <div className="design-panel">
@@ -1210,6 +1235,10 @@ function BlockEditor({
             <option value="advisor.name">Nombre del asesor</option>
             <option value="advisor.email">Correo del asesor</option>
             <option value="company.name">Nombre de la empresa</option>
+            <option value="opportunity.title">Nombre de la oportunidad</option>
+            <option value="opportunity.amount">Valor de la oportunidad</option>
+            <option value="opportunity.currency">Moneda de la oportunidad</option>
+            <option value="opportunity.status">Estado de la oportunidad</option>
             <option value="document.title">Título del documento</option>
           </select>
         </label>
@@ -1276,11 +1305,13 @@ function DocumentPreview({
   document,
   contact,
   advisor,
+  opportunity,
   csrf,
 }: {
   readonly document: CommercialDocument;
   readonly contact: Contact | null;
   readonly advisor: TaskAssignee | null;
+  readonly opportunity: Opportunity | null;
   readonly csrf: string | null;
 }): React.JSX.Element {
   const fontClass =
@@ -1308,14 +1339,14 @@ function DocumentPreview({
                 key={block.id}
                 style={{ textAlign: block.align.toLowerCase() as "left" | "center" | "right" }}
               >
-                {interpolate(block.content, contact, advisor)}
+                {interpolate(block.content, contact, advisor, opportunity, document.title)}
               </p>
             );
           if (block.type === "TERMS")
             return (
               <section className="paper-terms" key={block.id}>
                 <strong>{block.title}</strong>
-                <p>{interpolate(block.content, contact, advisor)}</p>
+                <p>{interpolate(block.content, contact, advisor, opportunity, document.title)}</p>
               </section>
             );
           if (block.type === "IMAGE" && block.visible)
@@ -1347,7 +1378,9 @@ function DocumentPreview({
             return (
               <div className="paper-columns" key={block.id}>
                 {block.columns.map((column, index) => (
-                  <p key={index}>{interpolate(column, contact, advisor)}</p>
+                  <p key={index}>
+                    {interpolate(column, contact, advisor, opportunity, document.title)}
+                  </p>
                 ))}
               </div>
             );
@@ -1378,9 +1411,21 @@ function DocumentPreview({
                 <small>{block.label}</small>
                 <strong>
                   {block.value ??
-                    (interpolate(`{{${block.key}}}`, contact, advisor) === `{{${block.key}}}`
+                    (interpolate(
+                      `{{${block.key}}}`,
+                      contact,
+                      advisor,
+                      opportunity,
+                      document.title,
+                    ) === `{{${block.key}}}`
                       ? block.fallback
-                      : interpolate(`{{${block.key}}}`, contact, advisor))}
+                      : interpolate(
+                          `{{${block.key}}}`,
+                          contact,
+                          advisor,
+                          opportunity,
+                          document.title,
+                        ))}
                 </strong>
               </p>
             );

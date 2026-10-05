@@ -84,12 +84,12 @@ Un usuario autorizado puede reservar y subir desde Documentos una imagen o ficha
 
 ## Criterios de aceptacion
 
-- [ ] Una reserva repetida con la misma clave devuelve el mismo resultado y otra carga no reemplaza sus bytes.
-- [ ] Checksum, MIME, magic bytes, extension, tamano y scan se comprueban antes de `AVAILABLE`.
-- [ ] Solo un archivo `AVAILABLE` puede previsualizarse, descargarse o vincularse a un documento.
-- [ ] El editor carga una imagen o ficha real, muestra su estado y guarda el `fileId` exacto.
-- [ ] Ningun usuario, perfil o modulo ajeno enumera o consume buckets, object keys o bytes.
-- [ ] Reintentos, reinicios y resultados tardios convergen sin duplicar ni perder objetos.
+- [x] Una reserva repetida con la misma clave devuelve el mismo resultado y otra carga no reemplaza sus bytes.
+- [x] Checksum, MIME, magic bytes, extension, tamano y scan se comprueban antes de `AVAILABLE`.
+- [x] Solo un archivo `AVAILABLE` puede previsualizarse, descargarse o vincularse a un documento.
+- [x] El editor carga una imagen o ficha real, muestra su estado y guarda el `fileId` exacto.
+- [x] Ningun usuario, perfil o modulo ajeno enumera o consume buckets, object keys o bytes.
+- [x] Reintentos, reinicios y resultados tardios convergen sin duplicar ni perder objetos.
 
 ## Plan de verificacion
 
@@ -109,7 +109,8 @@ Un usuario autorizado puede reservar y subir desde Documentos una imagen o ficha
 
 - Archivos, commits o PR: candidato tecnico `c9a0b9e05d8a85ef93597b3b761f6e3ca6b46347`; integrado en `main` mediante PR `#89`, commit `3d96d3c5846d0a8090b0e289012ac0a404dbbdb0`.
 - Comandos y resultados: en el VPS aprobaron Prettier y ESLint focalizados, typecheck de dominio, base de datos, API y worker, 32 pruebas focalizadas y los builds de API y worker. El recorrido autenticado completo confirmo archivo `AVAILABLE` y vinculado despues de scan ClamAV.
+- Cierre de seguridad del 2026-10-04: el pipeline real del worker, usando ClamAV privado del VPS, llevo la cadena EICAR valida a `REJECTED` con `rejectionCode=MALWARE`; las credenciales S3 del perfil `quantum-demo-jueves` recibieron `PERMISSION_DENIED` al intentar leer el bucket privado de otro perfil. No se promovieron ni persistieron bytes de prueba.
 - Publicacion y operacion: la matriz completa de GitHub y el escaneo de imagenes aprobaron la release `0.0.0-candidate.3d96d3c5846d`; la promocion durable `0f77e00b-09c7-4933-aca3-69025693735c` termino `SUCCEEDED`. El perfil piloto quedo `ACTIVE` sobre la release `ef673663-f7d6-5bd2-9ed9-472b03d0d13f`; `api`, `worker`, `crm-web`, `portal-web` y `agent-runtime` quedaron saludables por digest. Un smoke autenticado posterior devolvio `200` para `/documents`, `/api/documents` y `/api/documents/templates`, con seis documentos y dos plantillas persistidas.
 - Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
 - Desviaciones del plan: el worker existente no iniciaba el bucle de archivos y la transicion PostgreSQL inferia tipos incompatibles; ambos defectos quedaron corregidos. La comparacion de bloques protegidos ahora canoniza JSON para tolerar el orden de propiedades de JSONB sin permitir cambios estructurales.
-- Pendientes o decisiones nuevas: backup externo y recorridos de chat/formularios/catalogo conservan sus requisitos propios.
+- Pendientes o decisiones nuevas: backup externo y recorridos de chat/formularios/catalogo conservan sus requisitos propios; no bloquean el cierre de `DOC-14`.

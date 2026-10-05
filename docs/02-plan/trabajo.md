@@ -638,9 +638,9 @@ Dependencias: Contactos, canales, asesores y conexión con agentes. Las acciones
   - [ ] Comprobar el estado previo si el resultado original es incierto.
 
 - [ ] **CHAT-17 — Prevención de respuestas simultáneas entre el agente y el asesor.**
-  - [ ] Invalidar respuestas pendientes de IA cuando un asesor toma el chat.
-  - [ ] Comprobar el modo de atención justo antes de enviar.
-  - [ ] Evitar que dos procesos publiquen la misma respuesta.
+  - [x] Invalidar respuestas pendientes de IA cuando un asesor toma el chat.
+  - [x] Comprobar el modo de atención justo antes de enviar.
+  - [x] Evitar que dos procesos publiquen la misma respuesta.
 
 - [ ] **CHAT-18 — Resumen automático al escalar la conversación.**
   - [ ] Generar un resumen con motivo, intención y datos recopilados.

@@ -105,6 +105,13 @@ function replaceTokens(value: string, values: ReadonlyMap<string, string>): stri
   );
 }
 
+function formatMinorAmount(amountMinor: bigint, currency: string): string {
+  const absolute = amountMinor < 0n ? -amountMinor : amountMinor;
+  const units = absolute / 100n;
+  const cents = (absolute % 100n).toString().padStart(2, "0");
+  return `${amountMinor < 0n ? "-" : ""}${currency} ${units.toString()}.${cents}`;
+}
+
 function materializeBlocks(
   blocks: readonly DocumentBlock[],
   values: ReadonlyMap<string, string>,
@@ -178,7 +185,7 @@ export class DocumentService {
     const now = input.now ?? new Date();
     const documentId = randomUUID();
     const contextualValues = template
-      ? await this.templateValues(input.actor, input.contactId, input.title)
+      ? await this.templateValues(input.actor, input.contactId, input.opportunityId, input.title)
       : new Map<string, string>();
     return this.repository.create({
       document: Object.freeze({
@@ -365,17 +372,21 @@ export class DocumentService {
   private async templateValues(
     actor: CommercialActor,
     contactId: string | null,
+    opportunityId: string | null,
     title: string,
   ): Promise<Map<string, string>> {
     const values = new Map<string, string>([
       ["company.name", "Quantum CRM"],
       ["document.title", title.trim()],
     ]);
-    const [contact, advisor] = await Promise.all([
+    const [contact, advisor, opportunity] = await Promise.all([
       contactId && this.references.contactFor
         ? this.references.contactFor(actor, contactId)
         : Promise.resolve(null),
       this.references.memberFor ? this.references.memberFor(actor.memberId) : Promise.resolve(null),
+      opportunityId && this.references.opportunityFor
+        ? this.references.opportunityFor(actor, opportunityId)
+        : Promise.resolve(null),
     ]);
     if (contact) {
       values.set("contact.name", contact.displayName);
@@ -385,6 +396,15 @@ export class DocumentService {
     if (advisor) {
       values.set("advisor.name", advisor.displayName);
       values.set("advisor.email", advisor.email);
+    }
+    if (opportunity) {
+      values.set("opportunity.title", opportunity.title);
+      values.set(
+        "opportunity.amount",
+        formatMinorAmount(opportunity.amountMinor, opportunity.currency),
+      );
+      values.set("opportunity.currency", opportunity.currency);
+      values.set("opportunity.status", opportunity.status);
     }
     return values;
   }

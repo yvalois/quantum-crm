@@ -68,7 +68,7 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 - [x] Componer API y BFF protegidos.
 - [x] Implementar bandeja CRM completa y responsive.
 - [x] Añadir pruebas proporcionales y validar el candidato exacto en el VPS.
-- [ ] Desplegar la rebanada y comprobar el recorrido autenticado.
+- [x] Desplegar la rebanada y comprobar el recorrido autenticado.
 
 ## Riesgos y mitigaciones
 
@@ -85,8 +85,8 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 - [x] La bandeja lista conversaciones reales con filtros, responsable, estado, canal y no leidos.
 - [x] El hilo conserva orden, autor, dirección, estado y notas internas diferenciadas.
 - [x] Asignar, transferir, cerrar, tomar y reactivar exige permiso y version vigente.
-- [ ] Una toma humana invalida respuestas pendientes del agente y bloquea seguimientos.
-- [ ] Repetir el mismo mensaje entrante o envio no crea dos mensajes.
+- [ ] Una toma humana invalida respuestas pendientes del agente y bloquea seguimientos. La invalidacion por revision ya esta verificada; falta conectar el bloqueo con el programador de seguimientos.
+- [x] Repetir el mismo comando saliente con la misma clave y payload no crea dos conversaciones ni mensajes.
 - [x] Correo y WhatsApp pueden implementarse como adaptadores sin cambiar entidades o API de la bandeja.
 
 ## Plan de verificacion
@@ -109,6 +109,7 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 - Archivos, commits o PR: contratos `conversations/v1`, servicio de dominio, repositorio PostgreSQL, migracion `20260930020000_chat_omnichannel_inbox`, controlador API, BFF y ruta visual `/inbox` en `feat/CHAT-01-21-omnichannel-inbox`.
 - Comandos y resultados: Node 24 en el VPS aprobo Prettier y ESLint afectados, cinco typechecks, 8/8 pruebas nuevas, builds de `api` y `crm-web`; PostgreSQL 18.1 desechable aplico desde cero las 14 migraciones, creo seis tablas de conversaciones, sembro 13 permisos por rol y confirmo privilegios runtime.
+- Recorrido real del 2026-10-04 en `quantum-demo-jueves`: se creo la conversacion `a01243c1-3ba5-47c2-88e0-bb62f3f0035f`, el reintento con la misma clave devolvio el mismo ID y una respuesta preparada con revision anterior fue rechazada despues de pasar de agente a atencion humana. El mensaje `3778701d-7583-4725-b161-feab5dfb8c2a` se reintento con la misma clave, conservo un solo registro y quedo honestamente `QUEUED`. La conversacion queda visible en `/inbox` hasta conectar un proveedor.
 - Documentacion actualizada: alcance de plantillas `DOC-15`, checklist de trabajo, ficha y estado oficial.
 - Desviaciones del plan: no se afirma entrega externa. Correo, WhatsApp, SMS y chat web registran intencion durable en outbox y muestran `QUEUED` hasta disponer de credenciales y adaptadores reales.
-- Pendientes o decisiones nuevas: CI y despliegue por digest; recorrido autenticado; adaptadores de entrada/salida, deduplicacion de webhooks, cancelacion explicita de respuestas del agente, reintento/conciliacion externa, adjuntos mediante `files` y resumen LangGraph/MCP.
+- Pendientes o decisiones nuevas: adaptadores reales de entrada/salida, deduplicacion de webhooks por ID externo, reintento/conciliacion del proveedor, adjuntos generales mediante `files` y resumen LangGraph/MCP. No se afirma entrega externa antes de configurar el proveedor.

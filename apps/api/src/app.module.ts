@@ -177,6 +177,20 @@ export class AppModule {
                 const member = await database.members.findById(memberId);
                 return member ? { displayName: member.displayName, email: member.email } : null;
               },
+              opportunityFor: async (actor, opportunityId) => {
+                const opportunity = await database.commercial.sales.findOpportunity(
+                  actor,
+                  opportunityId,
+                );
+                return opportunity
+                  ? {
+                      title: opportunity.title,
+                      amountMinor: opportunity.amountMinor,
+                      currency: opportunity.currency,
+                      status: opportunity.status,
+                    }
+                  : null;
+              },
             }),
         },
         {
