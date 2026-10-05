@@ -81,6 +81,7 @@ export function createPlatformFoundationReleaseDeployer(
           "up",
           "-d",
           "--remove-orphans",
+          "--no-deps",
           "platform-keycloak",
         ],
         Object.freeze({
@@ -162,8 +163,15 @@ export function createPlatformFoundationReleaseDeployer(
 
 function platformServicesHealthy(stdout: string): boolean {
   try {
-    const entries = JSON.parse(stdout) as unknown;
-    if (!Array.isArray(entries)) return false;
+    const text = stdout.trim();
+    if (!text) return false;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      parsed = text.split(/\r?\n/u).map((line) => JSON.parse(line) as unknown);
+    }
+    const entries = Array.isArray(parsed) ? parsed : [parsed];
     return ["admin-web", "admin-api", "deploy-executor"].every((service) =>
       entries.some(
         (entry) =>
