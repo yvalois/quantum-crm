@@ -57,6 +57,7 @@ function service(file: FileRecord | null, ownerAllowed = true): FileService {
         fields: { policy: "opaque" },
         expiresAt: new Date("2026-10-01T12:10:00Z"),
       }),
+      inspectUpload: async () => ({ versionId: "version-1", receipt: '"receipt-1"' }),
       authorizeDownload: async (available) => ({
         method: "GET",
         url: "https://files.example.test/download",
@@ -107,6 +108,20 @@ describe("file service authorization", () => {
     await expect(
       service(pendingFile()).authorizeDownload({ actor, permissions, fileId: pendingFile().id }),
     ).rejects.toBeInstanceOf(FileStateConflictError);
+  });
+
+  it("fixes the server-observed upload version when the browser cannot expose it", async () => {
+    const result = await service(pendingFile()).completeUpload({
+      actor,
+      permissions: ["crm:files:upload"],
+      fileId: pendingFile().id,
+      checksum: sha256,
+      idempotencyKey: "idem-complete-1",
+      payloadHash: "hash-complete-1",
+    });
+
+    expect(result.file.incomingVersionId).toBe("version-1");
+    expect(result.file.completionReceipt).toBe('"receipt-1"');
   });
 
   it("hides a file when its owner relationship is not authorized", async () => {

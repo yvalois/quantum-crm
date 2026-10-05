@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import type { CommercialDocumentKind, DocumentBlock, DocumentDesign } from "@quantum-crm/contracts";
+import {
+  DocumentBlockSchema,
+  type CommercialDocumentKind,
+  type DocumentBlock,
+  type DocumentDesign,
+} from "@quantum-crm/contracts";
 
 import { IamAuthorizationError, type CommercialActor, type IamPermission } from "../iam/index.js";
 import {
@@ -76,6 +81,10 @@ function lockedProjection(block: DocumentBlock): DocumentBlock {
   return block;
 }
 
+function canonicalBlock(block: DocumentBlock): string {
+  return JSON.stringify(DocumentBlockSchema.parse(lockedProjection(block)));
+}
+
 function assertLockedBlocks(
   current: readonly DocumentBlock[],
   candidate: readonly DocumentBlock[],
@@ -83,10 +92,7 @@ function assertLockedBlocks(
   for (const [index, block] of current.entries()) {
     if (!block.locked) continue;
     const next = candidate[index];
-    if (
-      !next ||
-      JSON.stringify(lockedProjection(block)) !== JSON.stringify(lockedProjection(next))
-    ) {
+    if (!next || canonicalBlock(block) !== canonicalBlock(next)) {
       throw new DocumentValidationError("Protected template blocks cannot be changed or moved");
     }
   }

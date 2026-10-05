@@ -65,7 +65,8 @@ Una plantilla define estructura protegida y campos editables. Al crear una insta
 - [x] Completar editor de plantilla con selector de origen y campos protegidos/editables.
 - [x] Crear compositor documental de conversación y mensaje durable.
 - [x] Conectar carga/reemplazo de imágenes con `DOC-14` cuando el archivo sea `AVAILABLE`.
-- [ ] Validar una vez el candidato exacto en VPS, publicar y recorrer el flujo autenticado.
+- [x] Validar una vez el candidato exacto en VPS y recorrer el flujo autenticado.
+- [ ] Publicar el candidato y aprobar la matriz de GitHub.
 
 ## Riesgos y mitigaciones
 
@@ -79,10 +80,10 @@ Una plantilla define estructura protegida y campos editables. Al crear una insta
 ## Criterios de aceptacion
 
 - [ ] La plantilla permite seleccionar y etiquetar datos de cliente, asesor, empresa, oportunidad o documento.
-- [ ] La instancia muestra datos rellenados y conserva un snapshot aunque cambien registros luego.
-- [ ] Solo los textos, variables e imagenes marcados editables se pueden cambiar sin abrir el editor estructural.
-- [ ] Desde una conversación se puede preparar una instancia y decidir los cambios antes de encolarla.
-- [ ] Ninguna ruta expone object keys, secretos, URL permanentes ni permite cruzar perfiles.
+- [x] La instancia muestra datos rellenados y conserva un snapshot aunque cambien registros luego.
+- [x] Solo los textos, variables e imagenes marcados editables se pueden cambiar sin abrir el editor estructural.
+- [x] Desde una conversación se puede preparar una instancia y decidir los cambios antes de encolarla.
+- [x] Ninguna ruta expone object keys, secretos, URL permanentes ni permite cruzar perfiles.
 
 ## Verificacion y recuperacion
 
@@ -92,4 +93,6 @@ Una plantilla define estructura protegida y campos editables. Al crear una insta
 
 ## Evidencia de cierre
 
-- Pendiente de candidato, validación VPS y despliegue.
+- Candidato `c9a0b9e05d8a85ef93597b3b761f6e3ca6b46347`: formato, lint, cuatro typechecks, 32 pruebas y builds de API/worker aprobados en el VPS.
+- Despliegue temporal exacto saludable en `quantum-demo-jueves`; recorrido autenticado aprobado: contacto, plantilla contextual, valores de cliente y asesor, imagen verificada y reemplazada, conversacion `EMAIL` y `documentSnapshot` durable.
+- Pendiente: publicacion, matriz de GitHub y completar el origen de oportunidad antes de cerrar `DOC-15` en el checklist canonico.

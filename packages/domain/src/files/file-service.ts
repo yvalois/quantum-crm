@@ -91,21 +91,28 @@ export class FileService {
     readonly actor: CommercialActor;
     readonly permissions: readonly IamPermission[];
     readonly fileId: string;
-    readonly versionId: string;
+    readonly versionId?: string;
     readonly checksum: string;
-    readonly receipt: string;
+    readonly receipt?: string;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
     readonly now?: Date;
   }) {
     allow(input.permissions, "crm:files:upload");
     const current = await this.findAuthorized(input.actor, input.fileId);
+    const observed = await this.storageAuthorization.inspectUpload(current);
+    if (
+      (input.versionId !== undefined && input.versionId !== observed.versionId) ||
+      (input.receipt !== undefined && input.receipt !== observed.receipt)
+    ) {
+      throw new FileStateConflictError("The uploaded object changed before completion");
+    }
     const now = input.now ?? new Date();
     const file = recordFileCompletion({
       file: current,
-      incomingVersionId: input.versionId,
+      incomingVersionId: observed.versionId,
       checksum: input.checksum,
-      receipt: input.receipt,
+      receipt: observed.receipt,
       now,
     });
     const operation = Object.freeze({

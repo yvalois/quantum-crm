@@ -34,7 +34,9 @@ describe("S3 object storage", () => {
     expect(authorization.url).toBe("https://files.example.test/qcrm-profile-a-incoming");
     expect(authorization.expiresAt).toBe("2026-10-01T12:10:00.000Z");
     expect(policy.conditions).toContainEqual({ key: "incoming/019b/file-01" });
+    expect(policy.conditions).toContainEqual({ success_action_status: "201" });
     expect(policy.conditions).toContainEqual(["content-length-range", 1, 20 * 1024 * 1024]);
+    expect(authorization.fields.success_action_status).toBe("201");
     expect(JSON.stringify(authorization)).not.toContain("test-secret");
   });
 
@@ -60,6 +62,22 @@ describe("S3 object storage", () => {
         expiresInSeconds: 121,
       }),
     ).toThrow(new ObjectStorageError("INVALID_INPUT"));
+  });
+
+  it("resolves the immutable incoming version after a Browser POST", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(null, {
+        status: 200,
+        headers: { etag: '"receipt-1"', "x-amz-version-id": "version-1" },
+      }),
+    );
+    const storage = createS3ObjectStorage({ ...options, fetch: fetcher });
+
+    await expect(storage.inspectIncomingUpload("incoming/file-01")).resolves.toEqual({
+      receipt: '"receipt-1"',
+      versionId: "version-1",
+    });
+    expect(fetcher.mock.calls[0]?.[1]?.method).toBe("HEAD");
   });
 
   it("reads only the requested incoming version and enforces observed size", async () => {

@@ -607,11 +607,11 @@ export function createFilePostgresRepository(pool: PostgresPool): FileProcessing
         }
         const file = input.file;
         const updated = await client.query(
-          `UPDATE files.files SET status = $2, observed_mime = $3, observed_size = $4,
+          `UPDATE files.files SET status = $2::varchar, observed_mime = $3, observed_size = $4,
              observed_sha256 = $5, scan_verdict = $6, scanner_version = $7,
              scanner_signatures_updated_at = $8, object_key = $9, object_version_id = $10,
-             verified_sha256 = CASE WHEN $2 = 'available' THEN $5 ELSE verified_sha256 END,
-             available_at = CASE WHEN $2 = 'available' THEN $15 ELSE available_at END,
+             verified_sha256 = CASE WHEN $2::varchar = 'available' THEN $5 ELSE verified_sha256 END,
+             available_at = CASE WHEN $2::varchar = 'available' THEN $15 ELSE available_at END,
              rejection_code = $11, delete_after = $12, version = $13::bigint, updated_at = $15
            WHERE id = $1::uuid AND version = $14::bigint`,
           [

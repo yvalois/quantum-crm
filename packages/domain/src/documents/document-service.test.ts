@@ -228,6 +228,67 @@ describe("DocumentService", () => {
     ).rejects.toBeInstanceOf(DocumentValidationError);
   });
 
+  it("allows replacing a protected image slot after PostgreSQL reorders JSON properties", async () => {
+    const protectedImage: DocumentBlock = {
+      id: "019db9c7-1268-7d24-bf99-96ea38ebf204",
+      type: "IMAGE",
+      locked: true,
+      label: "Imagen principal",
+      alt: "Producto",
+      caption: "",
+      fileId: null,
+      checksum: null,
+      replaceable: true,
+      visible: true,
+    };
+    const seededTemplate = template([protectedImage]);
+    const memory = memoryRepository(seededTemplate);
+    const service = new DocumentService(memory.repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+    });
+    const created = await service.create({
+      actor,
+      permissions,
+      kind: "QUOTE",
+      title: "Imagen reemplazable",
+      contactId: null,
+      opportunityId: null,
+      templateId: seededTemplate.id,
+      idempotencyKey: "document-create-image-slot-1",
+      payloadHash: "e".repeat(64),
+      now,
+    });
+    const reorderedCandidate: DocumentBlock = {
+      visible: true,
+      replaceable: true,
+      checksum: `sha256:${"f".repeat(64)}`,
+      fileId: "019db9c7-1268-7d24-bf99-96ea38ebf205",
+      caption: "",
+      alt: "Producto",
+      label: "Imagen principal",
+      type: "IMAGE",
+      locked: true,
+      id: protectedImage.id,
+    };
+
+    const updated = await service.update({
+      actor,
+      permissions,
+      id: created.id,
+      expectedVersion: 1n,
+      patch: { blocks: [reorderedCandidate] },
+      idempotencyKey: "document-update-image-slot-1",
+      payloadHash: "f".repeat(64),
+      now,
+    });
+
+    expect(updated.blocks[0]).toMatchObject({
+      fileId: reorderedCandidate.fileId,
+      checksum: reorderedCandidate.checksum,
+    });
+  });
+
   it("denies reads when the authenticated member lacks document permission", async () => {
     const service = new DocumentService(memoryRepository().repository, {
       contactExistsFor: async () => true,

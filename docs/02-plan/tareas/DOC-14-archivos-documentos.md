@@ -64,13 +64,13 @@ Un usuario autorizado puede reservar y subir desde Documentos una imagen o ficha
 
 ## Plan de implementacion
 
-- [ ] Auditar el aprovisionamiento y los adaptadores existentes de SeaweedFS.
-- [ ] Definir contratos, permisos y maquina de estados de archivos.
-- [ ] Crear migracion y repositorios propietarios con idempotencia y fencing.
-- [ ] Implementar S3, validacion de tipo/checksum y scan ClamAV sin exponer objetos.
-- [ ] Exponer API/BFF y procesamiento durable en worker.
-- [ ] Integrar carga, estado, imagenes y adjuntos en el editor documental.
-- [ ] Validar el candidato exacto una sola vez en el VPS y recorrerlo autenticado.
+- [x] Auditar el aprovisionamiento y los adaptadores existentes de SeaweedFS.
+- [x] Definir contratos, permisos y maquina de estados de archivos.
+- [x] Crear migracion y repositorios propietarios con idempotencia y fencing.
+- [x] Implementar S3, validacion de tipo/checksum y scan ClamAV sin exponer objetos.
+- [x] Exponer API/BFF y procesamiento durable en worker.
+- [x] Integrar carga, estado, imagenes y adjuntos en el editor documental.
+- [x] Validar el candidato exacto una sola vez en el VPS y recorrerlo autenticado.
 
 ## Riesgos y mitigaciones
 
@@ -107,8 +107,8 @@ Un usuario autorizado puede reservar y subir desde Documentos una imagen o ficha
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente; toda ejecucion tecnica se realizara en el VPS autorizado.
+- Archivos, commits o PR: candidato `c9a0b9e05d8a85ef93597b3b761f6e3ca6b46347` en `feat/DOC-15-documentos-contextuales`.
+- Comandos y resultados: en el VPS aprobaron Prettier y ESLint focalizados, typecheck de dominio, base de datos, API y worker, 32 pruebas focalizadas y los builds de API y worker. El recorrido autenticado completo confirmo archivo `AVAILABLE` y vinculado despues de scan ClamAV.
 - Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
-- Desviaciones del plan: ninguna registrada.
+- Desviaciones del plan: el worker existente no iniciaba el bucle de archivos y la transicion PostgreSQL inferia tipos incompatibles; ambos defectos quedaron corregidos. La comparacion de bloques protegidos ahora canoniza JSON para tolerar el orden de propiedades de JSONB sin permitir cambios estructurales.
 - Pendientes o decisiones nuevas: backup externo y recorridos de chat/formularios/catalogo conservan sus requisitos propios.

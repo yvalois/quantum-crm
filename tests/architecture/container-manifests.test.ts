@@ -185,6 +185,10 @@ describe("container manifests", () => {
   it("adapts vendor credentials from mounted files without secret command arguments", () => {
     const foundation = read("infra/compose/platform-foundation.yaml");
     const redisEntrypoint = read("infra/redis/platform-entrypoint.sh");
+    const tenantIdentityProvisioner = read(
+      "apps/deploy-executor/src/tenant-identity-provisioner.ts",
+    );
+    const workerMain = read("apps/worker/src/main.ts");
     const keycloakEntrypoint = read("infra/keycloak/platform-entrypoint.sh");
     const keycloakBootstrap = read("infra/keycloak/bootstrap-provisioner.sh");
     const provisionOperator = read("infra/platform/provision-operator.sh");
@@ -193,7 +197,12 @@ describe("container manifests", () => {
     expect(foundation).not.toContain("--requirepass");
     expect(foundation).not.toContain("--db-password");
     expect(redisEntrypoint).toContain("/run/secrets/qcrm_redis_password");
-    expect(redisEntrypoint).toContain("--aclfile /tmp/users.acl");
+    expect(redisEntrypoint).toContain("acl_file=/data/users.acl");
+    expect(redisEntrypoint).toContain("awk '!/^user (default|qcrm_admin) /' \"$acl_file\"");
+    expect(redisEntrypoint).toContain('--aclfile "$acl_file"');
+    expect(tenantIdentityProvisioner).toContain('sendCommand(["ACL", "SAVE"])');
+    expect(workerMain).toContain("startFileProcessingLoop({");
+    expect(workerMain).toContain("database.commercial.files.claimNextProcessing");
     expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_DB_PASSWORD_FILE");
     expect(keycloakEntrypoint).toContain("QCRM_KEYCLOAK_PROVISIONER_CLIENT_SECRET_FILE");
     expect(keycloakEntrypoint).not.toContain("set -x");
