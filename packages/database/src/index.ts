@@ -31,6 +31,7 @@ export {
 } from "./commercial-postgres-database.js";
 export { ConversationIdempotencyConflictError } from "./conversation-postgres-repository.js";
 export { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
+export { createFormPostgresRepository } from "./form-postgres-repository.js";
 export { createDocumentPostgresRepository } from "./document-postgres-repository.js";
 export {
   createFilePostgresRepository,

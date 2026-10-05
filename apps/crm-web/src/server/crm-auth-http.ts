@@ -110,6 +110,17 @@ import {
   FileReferenceResponseSchema,
   FileResponseSchema,
   FileUploadIntentResponseSchema,
+  CloseFormSchema,
+  CreateFormSchema,
+  FormListResponseSchema,
+  FormResponseListQuerySchema,
+  FormResponseSchema,
+  PublicFormResponseSchema,
+  PublishFormSchema,
+  SubmitFormResponseSchema,
+  SubmittedFormResponseListSchema,
+  SubmittedFormResponseResponseSchema,
+  UpdateFormSchema,
 } from "@quantum-crm/contracts";
 
 const maximumResponseBytes = 1_048_576;
@@ -135,6 +146,7 @@ async function commercialResponse(
     if (upstream.status === 403) return crmProblem(403, "Forbidden");
     if (upstream.status === 404) return crmProblem(404, "Not found");
     if (upstream.status === 409) return crmProblem(409, "Request conflict");
+    if (upstream.status === 410) return crmProblem(410, "Form closed");
     if (upstream.status === 412) return crmProblem(412, "Resource has changed");
     if (upstream.status === 428) return crmProblem(428, "Version precondition required");
     if (!upstream.ok) return crmProblem(503, "CRM service temporarily unavailable");
@@ -1293,6 +1305,154 @@ export async function handleCrmDocumentTemplateUpdate(
     responseSchema: DocumentTemplateResponseSchema,
     requireVersion: true,
   });
+}
+
+export async function handleCrmFormList(request: Request, runtime: CrmAuthRuntime) {
+  return calendarRead(
+    request,
+    runtime,
+    new URL("/api/v1/forms", runtime.config.crmApiOrigin),
+    FormListResponseSchema,
+  );
+}
+
+export async function handleCrmFormCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, {
+    path: "/api/v1/forms",
+    method: "POST",
+    requestSchema: CreateFormSchema,
+    responseSchema: FormResponseSchema,
+  });
+}
+
+export async function handleCrmFormGet(request: Request, runtime: CrmAuthRuntime, formId: string) {
+  if (!uuidPattern.test(formId)) return crmProblem(400, "Invalid request");
+  return calendarRead(
+    request,
+    runtime,
+    new URL(`/api/v1/forms/${formId}`, runtime.config.crmApiOrigin),
+    FormResponseSchema,
+  );
+}
+
+export async function handleCrmFormUpdate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  formId: string,
+) {
+  if (!uuidPattern.test(formId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/forms/${formId}`,
+    method: "PATCH",
+    requestSchema: UpdateFormSchema,
+    responseSchema: FormResponseSchema,
+    requireVersion: true,
+  });
+}
+
+async function formEmptyMutation(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  formId: string,
+  action: "publish" | "close",
+) {
+  if (!uuidPattern.test(formId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/forms/${formId}/${action}`,
+    method: "POST",
+    requestSchema: action === "publish" ? PublishFormSchema : CloseFormSchema,
+    responseSchema: FormResponseSchema,
+    requireVersion: true,
+  });
+}
+
+export async function handleCrmFormPublish(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  formId: string,
+) {
+  return formEmptyMutation(request, runtime, formId, "publish");
+}
+
+export async function handleCrmFormClose(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  formId: string,
+) {
+  return formEmptyMutation(request, runtime, formId, "close");
+}
+
+export async function handleCrmFormResponses(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  formId: string,
+) {
+  if (!uuidPattern.test(formId)) return crmProblem(400, "Invalid request");
+  const parsed = FormResponseListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const target = new URL(`/api/v1/forms/${formId}/responses`, runtime.config.crmApiOrigin);
+  appendParsedQuery(target, parsed.data);
+  return calendarRead(request, runtime, target, SubmittedFormResponseListSchema);
+}
+
+export async function handlePublicFormGet(
+  _request: Request,
+  runtime: CrmAuthRuntime,
+  slug: string,
+) {
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/forms/public/${slug}`, runtime.config.crmApiOrigin),
+      {
+        headers: { accept: "application/json", "x-correlation-id": crypto.randomUUID() },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, PublicFormResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handlePublicFormSubmit(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  slug: string,
+) {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (
+    !validateRequestOrigin(runtime.config.origin, request.headers.get("origin")) ||
+    !idempotencyKey ||
+    !idempotencyKeyPattern.test(idempotencyKey)
+  )
+    return crmProblem(403, "Request rejected");
+  try {
+    const payload = SubmitFormResponseSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/forms/public/${slug}/responses`, runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey,
+          "x-correlation-id": crypto.randomUUID(),
+        },
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, SubmittedFormResponseResponseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
 }
 
 async function fileResponse(

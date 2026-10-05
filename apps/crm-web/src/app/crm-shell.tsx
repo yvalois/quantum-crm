@@ -50,7 +50,7 @@ const navigation: readonly NavigationGroup[] = [
   {
     label: "Crecimiento",
     items: [
-      { icon: "forms", label: "Formularios" },
+      { href: "/forms", icon: "forms", label: "Formularios" },
       { icon: "catalog", label: "Catálogo" },
       { href: "/documents", icon: "documents", label: "Documentos" },
       { icon: "automation", label: "Automatizaciones" },
