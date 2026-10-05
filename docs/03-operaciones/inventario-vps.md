@@ -3,7 +3,7 @@
 > Este archivo contiene solo metadatos operativos no secretos. Contraseñas, claves privadas y valores de credenciales no se guardan en el repositorio.
 
 - Requisito propietario: `OPS-02`
-- Ultima comprobacion: 2026-09-29
+- Ultima comprobacion: 2026-10-05
 - Estado: acceso operativo SSH por clave endurecido; release piloto validada y desplegada; dimensionamiento en curso
 
 ## Identidad y acceso
@@ -31,18 +31,18 @@ La contrasena inicial no se conserva en Git ni en archivos de configuracion y ya
 | Dato                      | Valor observado                                 |
 | ------------------------- | ----------------------------------------------- |
 | Sistema operativo         | Ubuntu 26.04                                    |
-| Kernel                    | `7.0.0-30-generic`                              |
+| Kernel                    | `7.0.0-34-generic`                              |
 | Virtualizacion            | KVM                                             |
 | Arquitectura              | `x86_64`                                        |
-| CPU                       | 1 vCPU                                          |
-| RAM                       | 4,003,916 KiB, aproximadamente 3.82 GiB         |
-| Disco raiz                | 50,839,412,736 bytes, aproximadamente 47.35 GiB |
-| Disponible tras el despliegue del 2026-09-29 | aproximadamente 14 GiB; 73 % del filesystem en uso |
+| CPU                       | 8 vCPU, AMD EPYC 9354P                          |
+| RAM                       | 31 GiB; 26 GiB disponibles durante la comprobacion |
+| Disco raiz                | 387 GiB                                         |
+| Disponible tras la ampliacion del 2026-10-05 | 321 GiB; 18 % del filesystem en uso |
 | Filesystem raiz           | ext4 sobre `/dev/sda1`                          |
 | Zona horaria              | UTC                                             |
 | Sincronizacion NTP        | activa                                          |
 
-La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a construir y probar imagenes secuencialmente y a medir API, worker, PostgreSQL, Redis, identidad, archivos y candidato antes de fijar concurrencia o prometer blue/green.
+La capacidad no autoriza por si sola un numero de perfiles: la admision sigue dependiendo de reservas y mediciones. La ampliacion elimina la restriccion anterior de un solo vCPU y permite construir los componentes afectados en paralelo con limites, sin prometer blue/green hasta medir dos slots completos.
 
 ## Docker
 
@@ -53,8 +53,8 @@ La capacidad no autoriza todavia un numero de perfiles. Un solo vCPU obliga a co
 | Storage driver       | overlayfs                          |
 | Cgroups              | v2                                 |
 | Docker root          | `/var/lib/docker`                  |
-| Contenedores activos | 14; 13 con healthcheck saludable y `deploy-host` en ejecucion |
-| Imagenes presentes   | 34; 15 usadas por servicios activos                         |
+| Contenedores activos | 25; 24 con healthcheck saludable y `deploy-host` en ejecucion |
+| Imagenes presentes   | 71; 32 usadas por servicios activos                          |
 
 ## Servicios y puertos existentes
 
@@ -77,6 +77,8 @@ Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento re
 El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el consumo a checkouts de build con `node_modules`, `.next`, `dist` y `.pnpm-store`, imagenes historicas e intermedias y cache de Docker; los volumenes persistentes no eran la causa. Se eliminaron solo artefactos reproducibles bajo `/opt/quantum/builds`, imagenes no usadas y cache sin referencias. Se conservaron los fuentes del build vigente, las imagenes activas y el rollback inmediato. Tras construir y desplegar `ADM-05-a`, retirar dos checkouts de prueba, el store local de pnpm y cache reproducible, quedaron 14 GiB usados y 34 GiB libres, 29 % de uso, con siete contenedores saludables. `.dockerignore` excluye ahora `.pnpm-store` para que no vuelva a inflar el contexto de imagen. No se tocaron bases, volumenes persistentes, secretos ni respaldos.
 
 El 2026-09-29, la descarga de los diez artefactos de la release `0.0.0-candidate.22fd67e8b98b` llevo temporalmente el filesystem a 98 %. `docker system df` atribuyo el margen recuperable a cache de builds e imagenes, no a volumenes persistentes. Se retiraron 12.97 GB de cache de compilacion reproducible con `docker builder prune --all`; el uso bajo a 73 % con 14 GiB libres. No se eliminaron volumenes, bases, secretos, configuraciones ni contenedores activos.
+
+El 2026-10-05 se verifico la ampliacion a 8 vCPU, 31 GiB de RAM y 387 GiB de disco. Durante la comprobacion habia 26 GiB de memoria disponibles, 321 GiB libres, 5 % de inodos utilizados, carga de 1.47/1.54/1.17 y ningun servicio `systemd` fallido. Los 25 contenedores estaban en ejecucion, sin reinicios ni eventos OOM; los 24 que declaran healthcheck estaban saludables. Docker conservaba 12.94 GB de imagenes y 12.41 GB de cache de build recuperables, pero no se podaron porque existe margen suficiente y varias imagenes sostienen candidatos o rollback inmediato. El host no tiene swap: no es presion actual, pero debe decidirse una reserva pequena y controlada antes de aumentar la densidad de perfiles.
 
 ## Plataforma administrativa desplegada
 
