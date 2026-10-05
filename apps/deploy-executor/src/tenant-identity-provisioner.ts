@@ -926,6 +926,7 @@ async function provisionRedisAcl(
       "+@all",
       "-@dangerous",
     ]);
+    await client.sendCommand(["ACL", "SAVE"]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (/NOPERM|WRONGPASS|NOAUTH|AUTH failed/iu.test(message)) {

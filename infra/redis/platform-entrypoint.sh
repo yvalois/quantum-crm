@@ -12,14 +12,25 @@ IFS= read -r admin_password <"$admin_secret_file"
 [[ "$password" != "$admin_password" ]] || exit 78
 
 umask 077
+acl_file=/data/users.acl
+acl_next=/data/.users.acl.next
+
+if [[ -e "$acl_file" ]]; then
+  [[ -f "$acl_file" && ! -L "$acl_file" ]] || exit 78
+  awk '!/^user (default|qcrm_admin) /' "$acl_file" >"$acl_next"
+else
+  : >"$acl_next"
+fi
 printf 'user default on >%s ~qcrm:platform:* +@connection +@read +@write -@dangerous +eval +evalsha\n' \
-  "$password" >/tmp/users.acl
-printf 'user qcrm_admin on >%s ~* +@all\n' "$admin_password" >>/tmp/users.acl
-chown redis:redis /tmp/users.acl
+  "$password" >>"$acl_next"
+printf 'user qcrm_admin on >%s ~* +@all\n' "$admin_password" >>"$acl_next"
+chown redis:redis "$acl_next"
+chmod 0600 "$acl_next"
+mv -f -- "$acl_next" "$acl_file"
 unset password admin_password
 
 exec docker-entrypoint.sh redis-server \
-  --aclfile /tmp/users.acl \
+  --aclfile "$acl_file" \
   --appendonly yes \
   --appendfsync everysec \
   --save '900 1 300 10 60 10000'

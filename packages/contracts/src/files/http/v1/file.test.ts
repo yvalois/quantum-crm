@@ -90,10 +90,8 @@ describe("file contracts", () => {
     ).toEqual({ key: "opaque", policy: "opaque-policy" });
   });
 
-  it("requires the exact uploaded version, checksum and receipt to complete", () => {
-    expect(CompleteFileUploadSchema.safeParse({ versionId: "v1", checksum: sha256 }).success).toBe(
-      false,
-    );
+  it("accepts server-side version resolution and rejects undeclared fields", () => {
+    expect(CompleteFileUploadSchema.safeParse({ checksum: sha256 }).success).toBe(true);
     expect(
       CompleteFileUploadSchema.safeParse({
         versionId: "v1",

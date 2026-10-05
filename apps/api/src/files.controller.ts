@@ -197,7 +197,9 @@ export class FilesController {
       const result = await this.service.completeUpload({
         ...auth,
         fileId,
-        ...parsed.data,
+        checksum: parsed.data.checksum,
+        ...(parsed.data.versionId === undefined ? {} : { versionId: parsed.data.versionId }),
+        ...(parsed.data.receipt === undefined ? {} : { receipt: parsed.data.receipt }),
         idempotencyKey: idempotencyKey(key),
         payloadHash: payloadHash({ fileId, ...parsed.data }),
       });

@@ -65,6 +65,8 @@ async function bootstrap(): Promise<void> {
         expiresAt: new Date(authorization.expiresAt),
       });
     },
+    inspectUpload: async (file: FileRecord) =>
+      uploadStorage.inspectIncomingUpload(file.incomingObjectKey),
     authorizeDownload: async (file: FileRecord) => {
       if (!file.objectKey || !file.objectVersionId) {
         throw new Error("available file has no immutable object version");

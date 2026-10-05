@@ -152,9 +152,9 @@ export const FileUploadIntentResponseSchema = z
 
 export const CompleteFileUploadSchema = z
   .object({
-    versionId: OpaqueStorageValueSchema,
+    versionId: OpaqueStorageValueSchema.optional(),
     checksum: Sha256Base64Schema,
-    receipt: OpaqueStorageValueSchema,
+    receipt: OpaqueStorageValueSchema.optional(),
   })
   .strict();
 

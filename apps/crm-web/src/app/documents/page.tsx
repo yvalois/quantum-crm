@@ -440,11 +440,11 @@ export default function DocumentsPage(): React.JSX.Element {
       const uploadResponseBody = await uploadResponse.text();
       if (!uploadResponse.ok) throw new Error("El almacenamiento rechazó la carga.");
       const versionId = uploadVersionId(uploadResponse, uploadResponseBody);
-      if (!versionId) throw new Error("El almacenamiento no confirmó la versión cargada.");
+      const receipt = uploadResponse.headers.get("etag");
       await mutate(`/api/files/${intent.data.file.id}/complete`, {
-        versionId,
         checksum,
-        receipt: uploadResponse.headers.get("etag") ?? versionId,
+        ...(versionId ? { versionId } : {}),
+        ...(receipt ? { receipt } : {}),
       });
       setNotice("Archivo recibido. Quantum está validando y escaneando su contenido...");
       let available: FileMetadataResponse["data"] | null = null;

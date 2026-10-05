@@ -110,6 +110,9 @@ export interface FileStorageAuthorization {
     readonly fields: Readonly<Record<string, string>>;
     readonly expiresAt: Date;
   }>;
+  readonly inspectUpload: (
+    file: FileRecord,
+  ) => Promise<{ readonly versionId: string; readonly receipt: string }>;
   readonly authorizeDownload: (file: FileRecord) => Promise<{
     readonly method: "GET";
     readonly url: string;

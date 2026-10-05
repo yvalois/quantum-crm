@@ -48,6 +48,9 @@ export interface StoredObject {
 
 export interface ObjectStorageClient {
   readonly reserveUpload: (command: BrowserPostCommand) => BrowserPostAuthorization;
+  readonly inspectIncomingUpload: (
+    objectKey: string,
+  ) => Promise<{ readonly versionId: string; readonly receipt: string }>;
   readonly presignDownload: (command: DownloadAuthorizationCommand) => string;
   readonly getIncomingVersion: (
     objectKey: string,
@@ -312,6 +315,7 @@ export function createS3ObjectStorage(options: ObjectStorageClientOptions): Obje
           { "x-amz-algorithm": "AWS4-HMAC-SHA256" },
           { "x-amz-credential": credential },
           { "x-amz-date": now.full },
+          { success_action_status: "201" },
           ["content-length-range", 1, command.maxBytes],
         ],
       };
@@ -331,11 +335,22 @@ export function createS3ObjectStorage(options: ObjectStorageClientOptions): Obje
           "x-amz-algorithm": "AWS4-HMAC-SHA256",
           "x-amz-credential": credential,
           "x-amz-date": now.full,
+          success_action_status: "201",
           policy: encodedPolicy,
           "x-amz-signature": signature,
         }),
         expiresAt: expiresAt.toISOString(),
       });
+    },
+    inspectIncomingUpload: async (key: string) => {
+      assertObjectKey(key);
+      const response = await request(fixedOptions, "HEAD", fixedOptions.incomingBucket, key, []);
+      const versionId = response.headers.get("x-amz-version-id");
+      const receipt = response.headers.get("etag");
+      if (!versionId || !receipt) throw new ObjectStorageError("INVALID_RESPONSE");
+      assertVersion(versionId);
+      assertVersion(receipt);
+      return Object.freeze({ versionId, receipt });
     },
     presignDownload: (command: DownloadAuthorizationCommand) => {
       assertObjectKey(command.objectKey);

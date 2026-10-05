@@ -94,6 +94,12 @@ services:
 
   platform-storage:
     <<: *stateful-defaults
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     image: "${QCRM_FOUNDATION_IMAGE_REGISTRY:?set QCRM_FOUNDATION_IMAGE_REGISTRY}/seaweedfs@sha256:${QCRM_SEAWEEDFS_IMAGE_DIGEST:?set QCRM_SEAWEEDFS_IMAGE_DIGEST}"
     pull_policy: always
     command:
@@ -101,8 +107,14 @@ services:
       - -dir=/data
       - -s3
       - -s3.config=/run/secrets/seaweedfs_s3_config
+      - -s3.iam.readOnly=false
       - -ip.bind=0.0.0.0
       - -metricsPort=9327
+      # Each tenant bucket is an isolated SeaweedFS collection. The upstream
+      # default of eight volumes is exhausted after only a few buckets, even
+      # when the disk still has capacity. This is a logical ceiling, not a
+      # preallocation; the disk guard remains responsible for failing closed.
+      - -volume.max=100
     secrets:
       - source: seaweedfs-s3-config
         target: seaweedfs_s3_config
@@ -122,6 +134,8 @@ services:
 
   platform-clamav:
     <<: *stateful-defaults
+    # The official image already launches through tini and creates /run/lock.
+    init: false
     image: "${QCRM_CLAMAV_IMAGE_REGISTRY:-clamav/clamav}@sha256:${QCRM_CLAMAV_IMAGE_DIGEST:?set QCRM_CLAMAV_IMAGE_DIGEST}"
     pull_policy: always
     read_only: true
@@ -136,6 +150,8 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=256m
       - /run/clamav:rw,noexec,nosuid,size=16m
+      - /var/lock:rw,noexec,nosuid,size=4m
+      - /var/log/clamav:rw,noexec,nosuid,size=16m
     healthcheck:
       test: [CMD-SHELL, "clamdscan --ping 1 >/dev/null 2>&1"]
       interval: 30s
@@ -147,6 +163,9 @@ services:
     networks:
       platform-storage:
         aliases: [platform-clamav]
+      # Only ClamAV receives outbound access so freshclam can update signatures.
+      # No application service joins this network and no port is published.
+      clamav-egress: {}
 
   platform-keycloak:
     <<: *stateful-defaults
@@ -235,6 +254,7 @@ networks:
   platform-storage:
     external: true
     name: "${QCRM_PLATFORM_STORAGE_NETWORK:?set QCRM_PLATFORM_STORAGE_NETWORK}"
+  clamav-egress: {}
 
 volumes:
   platform-postgres-data:
