@@ -29,6 +29,7 @@ import type {
   TaskRepository,
   TaskStatus,
   CalendarRepository,
+  FormRepository,
   DocumentRepository,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
@@ -36,6 +37,7 @@ import type { PoolClient } from "pg";
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
 import { createConversationPostgresRepository } from "./conversation-postgres-repository.js";
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
+import { createFormPostgresRepository } from "./form-postgres-repository.js";
 import { createDocumentPostgresRepository } from "./document-postgres-repository.js";
 import {
   createFilePostgresRepository,
@@ -395,6 +397,7 @@ export interface CommercialPostgresRepositories {
   readonly sales: SalesRepository;
   readonly tasks: TaskRepository;
   readonly calendar: CalendarRepository;
+  readonly forms: FormRepository;
   readonly documents: DocumentRepository;
   readonly files: FileProcessingRepository;
   readonly automation: AutomationRepository;
@@ -1701,6 +1704,7 @@ export function createCommercialPostgresRepositories(
     sales,
     tasks,
     calendar: createCalendarPostgresRepository(pool),
+    forms: createFormPostgresRepository(pool),
     documents: createDocumentPostgresRepository(pool),
     files: createFilePostgresRepository(pool),
     automation,

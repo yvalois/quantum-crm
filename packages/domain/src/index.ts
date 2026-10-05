@@ -7,5 +7,6 @@ export * from "./sales/index.js";
 export * from "./tasks/index.js";
 export * from "./conversations/index.js";
 export * from "./calendar/index.js";
+export * from "./forms/index.js";
 export * from "./documents/index.js";
 export * from "./files/index.js";

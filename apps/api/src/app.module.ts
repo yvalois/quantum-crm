@@ -18,6 +18,7 @@ import {
   CalendarService,
   DocumentService,
   FileService,
+  FormService,
   type FileStorageAuthorization,
 } from "@quantum-crm/domain";
 
@@ -47,6 +48,7 @@ import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.c
 import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
 import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js";
 import { FILE_SERVICE, FilesController } from "./files.controller.js";
+import { FORM_SERVICE, FormsController } from "./forms.controller.js";
 
 @Module({})
 export class AppModule {
@@ -75,6 +77,7 @@ export class AppModule {
         CalendarController,
         DocumentsController,
         FilesController,
+        FormsController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -216,6 +219,10 @@ export class AppModule {
               fileStorageAuthorization,
             );
           },
+        },
+        {
+          provide: FORM_SERVICE,
+          useFactory: () => new FormService(database.commercial.forms),
         },
         { provide: APP_GUARD, useClass: CrmAuthenticationGuard },
         { provide: APP_GUARD, useClass: CrmAuthorizationGuard },
