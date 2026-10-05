@@ -24,7 +24,8 @@ export function proxy(request: NextRequest): NextResponse {
   requestHeaders.set("Content-Security-Policy", csp);
   const hasSession =
     request.cookies.has("__Host-qcrm_crm_session") || request.cookies.has("qcrm_crm_session");
-  const isPublic = request.nextUrl.pathname === "/signed-out";
+  const isPublic =
+    request.nextUrl.pathname === "/signed-out" || request.nextUrl.pathname.startsWith("/f/");
   const response =
     !isPublic && !hasSession
       ? redirectToLogin(request)
