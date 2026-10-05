@@ -71,7 +71,7 @@ Una promoción de plataforma ya registrada en el catálogo y solicitada por un o
 - [x] La operación existente solicita únicamente artefactos registrados y `VALIDATED`.
 - [x] `platform.yaml` recibe solo los tres digests cerrados y conserva su env-file host-controlled.
 - [x] El host ejecuta únicamente `config`, `up` y `ps` sobre el proyecto `quantum-platform` y reporta fallo cerrado.
-- [ ] No quedan cambios locales sin commit, secretos ni artefactos temporales.
+- [x] No quedan cambios locales sin commit, secretos ni artefactos temporales.
 
 ## Plan de verificación
 
@@ -89,8 +89,8 @@ Una promoción de plataforma ya registrada en el catálogo y solicitada por un o
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: commits `13a876b` y `c5db32f` en `feat/OPS-18-platform-promotion`; PR pendiente de publicar.
-- Comandos y resultados: en el VPS autorizado, Node 24.21.0 ejecutó Prettier sobre los seis archivos afectados, typecheck de `contracts`, `config` y `deploy-host`, build de `deploy-host` y dos pruebas focalizadas de `platform-foundation-release`; todos aprobaron. La prueba se repitió una sola vez tras construir las salidas `dist` requeridas por los paquetes workspace.
+- Archivos, commits o PR: implementación base en `c5db32f` y corrección operativa `2d434a0` en `fix/OPS-18-keycloak-no-deps`; PR de la corrección pendiente de publicar.
+- Comandos y resultados: en el VPS autorizado, Node 24.21.0 ejecutó typecheck y build de `deploy-host` y las 2 pruebas focalizadas de `platform-foundation-release`; todos aprobaron. La promoción durable `87668ea4-0b83-468c-ad9e-e1839ccb0494` finalizó `succeeded` para el release `a4d97d30-2855-5f91-94c8-064976ad95de`; los tres servicios comunes quedaron sanos sobre los digests de `ba72a479156f`.
 - Documentación actualizada: esta ficha, `docs/04-proceso/estado.md` e `infra/README.md`.
-- Desviaciones del plan: la observación de salud usa `compose up --wait --wait-timeout` para no declarar éxito mientras los tres servicios siguen en `starting`.
-- Pendientes o decisiones nuevas: publicar PR, CI, actualizar el `deploy-host` del VPS con esta capacidad y promover un release `VALIDATED` real; no se ejecutó Docker de producción ni se modificaron datos.
+- Desviaciones del plan: además de `compose up --wait --wait-timeout`, Keycloak se reconcilia con `--no-deps` para no intentar promover las imágenes estatales fuera del catálogo; el verificador acepta tanto arreglo JSON como JSONL emitido por Docker Compose 5.
+- Pendientes o decisiones nuevas: publicar el PR y completar CI de la corrección; la promoción real y el adaptador corregido ya están activos en el VPS.

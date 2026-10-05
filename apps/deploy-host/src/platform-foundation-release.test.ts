@@ -30,6 +30,7 @@ describe("platform foundation release deployer", () => {
       expect.arrayContaining([
         "--env-file",
         "/etc/quantum/platform-foundation.env",
+        "--no-deps",
         "platform-keycloak",
       ]),
       expect.objectContaining({ QCRM_PLATFORM_KEYCLOAK_IMAGE_DIGEST: "a".repeat(64) }),
@@ -45,11 +46,13 @@ describe("platform foundation release deployer", () => {
       .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
       .mockResolvedValueOnce({
         exitCode: 0,
-        stdout: JSON.stringify([
+        stdout: [
           { Service: "admin-web", State: "running", Health: "healthy" },
           { Service: "admin-api", State: "running", Health: "healthy" },
           { Service: "deploy-executor", State: "running", Health: "healthy" },
-        ]),
+        ]
+          .map((entry) => JSON.stringify(entry))
+          .join("\n"),
         stderr: "",
       });
     const deployer = createPlatformFoundationReleaseDeployer({
