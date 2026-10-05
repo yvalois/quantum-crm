@@ -79,7 +79,7 @@ Una plantilla define estructura protegida y campos editables. Al crear una insta
 
 ## Criterios de aceptacion
 
-- [ ] La plantilla permite seleccionar y etiquetar datos de cliente, asesor, empresa, oportunidad o documento.
+- [x] La plantilla permite seleccionar y etiquetar datos de cliente, asesor, empresa, oportunidad o documento.
 - [x] La instancia muestra datos rellenados y conserva un snapshot aunque cambien registros luego.
 - [x] Solo los textos, variables e imagenes marcados editables se pueden cambiar sin abrir el editor estructural.
 - [x] Desde una conversación se puede preparar una instancia y decidir los cambios antes de encolarla.
@@ -95,4 +95,5 @@ Una plantilla define estructura protegida y campos editables. Al crear una insta
 
 - Candidato `c9a0b9e05d8a85ef93597b3b761f6e3ca6b46347`: formato, lint, cuatro typechecks, 32 pruebas y builds de API/worker aprobados en el VPS.
 - Despliegue temporal exacto saludable en `quantum-demo-jueves`; recorrido autenticado aprobado: contacto, plantilla contextual, valores de cliente y asesor, imagen verificada y reemplazada, conversacion `EMAIL` y `documentSnapshot` durable.
-- Pendiente: publicacion, matriz de GitHub y completar el origen de oportunidad antes de cerrar `DOC-15` en el checklist canonico.
+- El candidato tecnico `8f2eb708dbcbd8df93427334b19e65b5b31acfff` agrega `opportunity.title`, `opportunity.amount`, `opportunity.currency` y `opportunity.status` al selector visual y al snapshot resuelto por el servidor. En el VPS aprobaron formato, lint focalizado, typecheck de dominio/API/CRM web, 13 pruebas y builds con dependencias de API y CRM web.
+- Pendiente: publicacion y matriz de GitHub antes de cerrar `DOC-15` en el checklist canonico.
