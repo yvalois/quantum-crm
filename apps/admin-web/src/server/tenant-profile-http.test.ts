@@ -6,6 +6,7 @@ import type { PlatformAuthRuntime } from "./platform-auth-http.js";
 import {
   handleTenantProfileCreate,
   handleTenantProfileList,
+  handleTenantProvisioningRequest,
   handleTenantProfileUpdate,
 } from "./tenant-profile-http.js";
 
@@ -205,5 +206,95 @@ describe("tenant profile BFF boundary", () => {
     );
 
     expect(response.status).toBe(503);
+  });
+
+  it("requests provisioning with CSRF, current profile version and idempotency", async () => {
+    const serverId = "01995f7e-7b52-7000-8000-000000000201";
+    const releaseId = "01995f7e-7b52-7000-8000-000000000301";
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json(
+        {
+          schemaVersion: "tenant-provisioning-operation/v1",
+          data: {
+            id: "01995f7e-7b52-7000-8000-000000000401",
+            tenantProfileId: profileId,
+            serverId,
+            releaseId,
+            requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
+            capacityReservation: { id: "01995f7e-7b52-7000-8000-000000000501" },
+            status: "PENDING",
+            currentStep: "VALIDATE",
+            attempt: 0,
+            version: "1",
+            createdAt: "2026-09-20T15:00:00.000Z",
+            updatedAt: "2026-09-20T15:00:00.000Z",
+          },
+          meta: { idempotentReplay: false },
+        },
+        { status: 202, headers: { "x-tenant-profile-etag": '"2"' } },
+      ),
+    );
+    const response = await handleTenantProvisioningRequest(
+      new Request(
+        `https://admin.example.test/api/platform/tenant-profiles/${profileId}/provisioning-operations`,
+        {
+          method: "POST",
+          headers: sessionHeaders({
+            "content-type": "application/json",
+            origin: config.origin,
+            "x-csrf-token": csrfToken,
+            "if-match": '"1"',
+            "idempotency-key": "provision-01995f7e",
+          }),
+          body: JSON.stringify({
+            serverId,
+            releaseId,
+            requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
+          }),
+        },
+      ),
+      runtime(upstream as typeof fetch),
+      profileId,
+    );
+
+    expect(response.status).toBe(202);
+    expect(response.headers.get("x-tenant-profile-etag")).toBe('"2"');
+    expect(upstream.mock.calls[0]?.[0].toString()).toBe(
+      `http://admin-api:3002/api/v1/tenant-profiles/${profileId}/provisioning-operations`,
+    );
+    expect(upstream.mock.calls[0]?.[1]).toMatchObject({ method: "POST" });
+    expect(upstream.mock.calls[0]?.[1]?.headers).toMatchObject({
+      "if-match": '"1"',
+      "idempotency-key": "provision-01995f7e",
+    });
+  });
+
+  it("rejects provisioning without the exact CSRF token before calling upstream", async () => {
+    const upstream = vi.fn(fetch);
+    const response = await handleTenantProvisioningRequest(
+      new Request(
+        `https://admin.example.test/api/platform/tenant-profiles/${profileId}/provisioning-operations`,
+        {
+          method: "POST",
+          headers: sessionHeaders({
+            "content-type": "application/json",
+            origin: config.origin,
+            "x-csrf-token": "invalid-token",
+            "if-match": '"1"',
+            "idempotency-key": "provision-01995f7e",
+          }),
+          body: JSON.stringify({
+            serverId: "01995f7e-7b52-7000-8000-000000000201",
+            releaseId: "01995f7e-7b52-7000-8000-000000000301",
+            requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
+          }),
+        },
+      ),
+      runtime(upstream),
+      profileId,
+    );
+
+    expect(response.status).toBe(403);
+    expect(upstream).not.toHaveBeenCalled();
   });
 });

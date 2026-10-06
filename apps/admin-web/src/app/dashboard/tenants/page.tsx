@@ -10,6 +10,8 @@ import type {
 } from "@quantum-crm/contracts";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
+import { TenantProvisioningDialog } from "./tenant-provisioning-dialog";
+
 type DialogMode = "create" | "edit" | null;
 
 const statusLabels: Readonly<Record<TenantProfileContract["status"], string>> = {
@@ -72,6 +74,9 @@ export default function TenantProfilesPage() {
   const [releasesLoading, setReleasesLoading] = useState(false);
   const [releasesError, setReleasesError] = useState<string | null>(null);
   const [releasePending, setReleasePending] = useState<string | null>(null);
+  const [provisioningProfile, setProvisioningProfile] = useState<TenantProfileContract | null>(
+    null,
+  );
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ pageSize: "25" });
@@ -231,9 +236,11 @@ export default function TenantProfilesPage() {
         },
       );
       if (!response.ok) throw new Error(await errorTitle(response));
+      const result = (await response.json()) as TenantProfileResponse;
       setDialog(null);
       setSelected(null);
       await loadProfiles();
+      if (!editing && canDeploy) setProvisioningProfile(result.data);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : "No fue posible guardar el perfil");
     } finally {
@@ -583,7 +590,7 @@ export default function TenantProfilesPage() {
                       </code>
                     </td>
                     <td>
-                      {canManage || canActivate ? (
+                      {canManage || canActivate || canDeploy ? (
                         <div className="row-actions">
                           {canManage ? (
                             <button
@@ -595,7 +602,16 @@ export default function TenantProfilesPage() {
                               Editar
                             </button>
                           ) : null}
-                          {canActivate ? (
+                          {canDeploy && profile.status === "PENDING" ? (
+                            <button
+                              className="row-action row-action-primary"
+                              type="button"
+                              onClick={() => setProvisioningProfile(profile)}
+                            >
+                              Aprovisionar
+                            </button>
+                          ) : null}
+                          {canActivate && profile.status === "ACTIVE" ? (
                             <button
                               className="row-action"
                               type="button"
@@ -745,6 +761,19 @@ export default function TenantProfilesPage() {
             </div>
           </form>
         </dialog>
+      ) : null}
+
+      {provisioningProfile ? (
+        <TenantProvisioningDialog
+          profile={provisioningProfile}
+          onClose={() => setProvisioningProfile(null)}
+          onUpdated={(updated) => {
+            setProfiles((current) =>
+              current.map((profile) => (profile.id === updated.id ? updated : profile)),
+            );
+            setProvisioningProfile(updated);
+          }}
+        />
       ) : null}
     </main>
   );

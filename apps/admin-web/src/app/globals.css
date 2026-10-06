@@ -685,6 +685,11 @@ button:disabled {
   min-height: 2rem;
   font-size: 0.66rem;
 }
+.row-action-primary {
+  border-color: color-mix(in srgb, var(--indigo) 70%, white 12%);
+  color: #dbe4ff;
+  background: color-mix(in srgb, var(--indigo) 20%, transparent);
+}
 .pagination-bar {
   display: flex;
   min-height: 4.3rem;
@@ -754,6 +759,86 @@ button:disabled {
 .profile-form {
   display: grid;
   gap: 1rem;
+}
+.provisioning-dialog {
+  width: min(44rem, calc(100% - 2rem));
+}
+.capacity-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+}
+.capacity-fields legend {
+  padding: 0 0.45rem;
+  color: var(--quiet);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.provision-progress,
+.provision-result {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 8rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  background: rgba(79, 70, 229, 0.08);
+}
+.provision-progress > div:last-child,
+.provision-result > div {
+  display: grid;
+  gap: 0.35rem;
+}
+.provision-progress span,
+.provision-progress small {
+  color: var(--quiet);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+.provision-progress strong,
+.provision-result strong {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+.provision-result p {
+  margin: 0;
+}
+.provision-pulse {
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: 0 0 auto;
+  border: 2px solid rgba(129, 140, 248, 0.22);
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: provision-spin 900ms linear infinite;
+}
+.provision-result > span {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.provision-success {
+  color: var(--cyan);
+  background: rgba(101, 229, 220, 0.06);
+}
+.provision-failed {
+  color: var(--danger);
+  background: rgba(255, 116, 108, 0.06);
+}
+@keyframes provision-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .profile-form label small {
   color: var(--quiet);
@@ -872,6 +957,9 @@ button:disabled {
     flex: 1;
   }
   .form-split {
+    grid-template-columns: 1fr;
+  }
+  .capacity-fields {
     grid-template-columns: 1fr;
   }
   .pagination-bar {
