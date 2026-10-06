@@ -14,7 +14,8 @@
     "overrides": {
       "deepmerge-ts": "8.0.0",
       "multer": "2.4.0",
-      "mysql2": "3.22.0"
+      "mysql2": "3.22.0",
+      "source-map-js": "1.2.2"
     }
   },
   "scripts": {
