@@ -26,12 +26,10 @@ export default async function BootstrapPage({ searchParams }: BootstrapPageProps
           </p>
         ) : null}
         <div className="public-actions">
-          <a href="/api/auth/login?returnTo=%2Fdashboard">
-            Ingresar a Quantum Admin
-          </a>
+          <a href="/api/auth/login?returnTo=%2Fdashboard">Ingresar a Quantum Admin</a>
           <p>
-            En el primer acceso, define tu contraseña y configura el código TOTP desde tu
-            aplicación autenticadora. Para cada ingreso usa un código nuevo.
+            En el primer acceso, define tu contraseña y configura el código TOTP desde tu aplicación
+            autenticadora. Para cada ingreso usa un código nuevo.
           </p>
         </div>
         <p className="public-help">
