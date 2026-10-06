@@ -46,37 +46,37 @@ La imagen final de Keycloak conserva el runtime aprobado y actualiza OpenSSL a u
 
 ## Impacto tecnico
 
-| Area | Impacto previsto |
-|---|---|
-| Aplicaciones y modulos | imagen `PLATFORM_KEYCLOAK` |
-| Contratos y eventos | ninguno |
-| Datos y migraciones | ninguno |
-| Permisos y aislamiento | sin cambios |
-| Configuracion y secretos | sin cambios |
+| Area                       | Impacto previsto              |
+| -------------------------- | ----------------------------- |
+| Aplicaciones y modulos     | imagen `PLATFORM_KEYCLOAK`    |
+| Contratos y eventos        | ninguno                       |
+| Datos y migraciones        | ninguno                       |
+| Permisos y aislamiento     | sin cambios                   |
+| Configuracion y secretos   | sin cambios                   |
 | Observabilidad y operacion | escaneo de imagen y promocion |
-| Documentacion | ficha y estado oficial |
+| Documentacion              | ficha y estado oficial        |
 
 ## Plan de implementacion
 
 - [x] Fijar las revisiones reparadas de OpenSSL antes de retirar el gestor de paquetes.
 - [x] Proteger el cambio con la prueba arquitectonica existente.
-- [ ] Validar build y escaneo focalizado en el VPS.
+- [x] Validar build y escaneo focalizado en el VPS.
 - [ ] Publicar PR y reutilizar la matriz de GitHub para registrar la release.
 
 ## Riesgos y mitigaciones
 
-| Riesgo | Mitigacion | Verificacion |
-|---|---|---|
-| El runtime queda sin librerias requeridas | actualizar antes de la limpieza y arrancar Keycloak | build y smoke focalizado |
-| El repositorio Alpine cambia | fijar versiones exactas y mantener la base por digest | build reproducible |
-| Se oculta el hallazgo | conservar inventario APK y la puerta Grype | reporte con cero altos/criticos |
+| Riesgo                                    | Mitigacion                                            | Verificacion                    |
+| ----------------------------------------- | ----------------------------------------------------- | ------------------------------- |
+| El runtime queda sin librerias requeridas | actualizar antes de la limpieza y arrancar Keycloak   | build y smoke focalizado        |
+| El repositorio Alpine cambia              | fijar versiones exactas y mantener la base por digest | build reproducible              |
+| Se oculta el hallazgo                     | conservar inventario APK y la puerta Grype            | reporte con cero altos/criticos |
 
 ## Criterios de aceptacion
 
-- [ ] La imagen contiene OpenSSL `3.5.9-r0` y no contiene `3.5.8-r0`.
-- [ ] Keycloak arranca y responde readiness en el VPS.
-- [ ] Grype reporta cero hallazgos altos o criticos para `PLATFORM_KEYCLOAK`.
-- [ ] La puerta de seguridad no se relaja.
+- [x] La imagen contiene OpenSSL `3.5.9-r0` y no contiene `3.5.8-r0`.
+- [x] Keycloak arranca y responde readiness en el VPS.
+- [x] Grype reporta cero hallazgos altos o criticos para `PLATFORM_KEYCLOAK`.
+- [x] La puerta de seguridad no se relaja.
 
 ## Plan de verificacion
 
@@ -96,8 +96,8 @@ La imagen final de Keycloak conserva el runtime aprobado y actualiza OpenSSL a u
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
+- Archivos, commits o PR: candidato `ca092f0`; `Dockerfile.keycloak`, prueba arquitectonica, ficha y estado oficial.
+- Comandos y resultados: en el VPS aprobaron Prettier y ESLint afectados, 15/15 pruebas de manifests, build OCI `sha256:48a634ffebe47a1eb86c8515b01a5e9aec8e596235531179371aea0b9939fddd`, inventario APK `3.5.9-r0`, readiness `UP` y Grype con cero altos o criticos.
 - Documentacion actualizada: ficha y estado oficial.
 - Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: registrar y promover la release oficial posterior al merge.
+- Pendientes o decisiones nuevas: publicar el PR, registrar la release oficial desde `main` y promoverla.
