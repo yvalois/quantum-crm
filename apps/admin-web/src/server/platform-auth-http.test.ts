@@ -119,7 +119,9 @@ describe("admin web authentication HTTP boundary", () => {
     );
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://admin.example.test/?access=failed");
+    expect(response.headers.get("location")).toBe(
+      "https://admin.example.test/?access=failed",
+    );
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
   });
 
