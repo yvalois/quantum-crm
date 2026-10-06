@@ -59,8 +59,8 @@ La cadena de `main` deja de incluir la version vulnerable de `source-map-js`, la
 
 ## Plan de implementacion
 
-- [ ] Fijar `source-map-js` corregido y actualizar lockfile.
-- [ ] Validar instalacion congelada, auditoria y build afectado en el VPS.
+- [x] Fijar `source-map-js` corregido y actualizar lockfile.
+- [x] Validar instalacion congelada, auditoria y build afectado en el VPS.
 - [ ] Publicar PR, integrar y confirmar candidata registrada.
 
 ## Riesgos y mitigaciones
@@ -72,8 +72,8 @@ La cadena de `main` deja de incluir la version vulnerable de `source-map-js`, la
 
 ## Criterios de aceptacion
 
-- [ ] No queda `source-map-js <1.2.2` en el lockfile.
-- [ ] Auditoria de produccion y puertas obligatorias aprueban.
+- [x] No queda `source-map-js <1.2.2` en el lockfile.
+- [x] Auditoria de produccion y puertas obligatorias afectadas aprueban en el VPS.
 - [ ] La release candidata del commit integrado se registra.
 
 ## Plan de verificacion
@@ -94,8 +94,8 @@ La cadena de `main` deja de incluir la version vulnerable de `source-map-js`, la
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: candidato `b9d00ac` en `fix/OPS-10-source-map-audit`.
+- Comandos y resultados: instalacion congelada aprobada; auditoria sin hallazgos altos o criticos y con un aviso moderado; build completo de los 19 proyectos construibles aprobado en el VPS.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
+- Desviaciones del plan: ninguna.
+- Pendientes o decisiones nuevas: PR, matriz GitHub y candidata registrada.
