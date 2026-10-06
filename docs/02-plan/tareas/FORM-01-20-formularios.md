@@ -31,6 +31,7 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 - Codigo o documentacion encontrados: requisitos y checklist completos; no existe modulo, contrato, persistencia, API ni interfaz funcional de formularios.
 - Pruebas e historial encontrados: no existen pruebas de formularios. Se reutilizan los patrones aprobados de Calendario, Contactos, Documentos, autorizacion y BFF.
 - Decision de reutilizacion, extension o reemplazo: crear el modulo propietario `forms` y extender los bordes existentes sin duplicar infraestructura, identidad, contactos, archivos ni comunicaciones.
+- Hallazgo operativo del 2026-10-06: API y BFF respondian `200`, pero el HTML estatico de `crm-web` no recibia el nonce generado por el proxy; la CSP bloqueaba los scripts de Next.js y dejaba Documentos y Formularios visibles pero sin hidratacion. Se corrige en el layout raiz para todas las rutas CRM y se protege con una regresion focalizada.
 
 ## Alcance
 

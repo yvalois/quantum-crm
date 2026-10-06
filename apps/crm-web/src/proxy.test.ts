@@ -1,9 +1,17 @@
+import { readFile } from "node:fs/promises";
+
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
 import { proxy } from "./proxy.js";
 
 describe("crm-web proxy", () => {
+  it("renderiza las paginas dinamicamente para propagar el nonce CSP", async () => {
+    const layout = await readFile(new URL("./app/layout.tsx", import.meta.url), "utf8");
+
+    expect(layout).toContain('export const dynamic = "force-dynamic";');
+  });
+
   it("permite abrir un formulario publicado sin sesion", () => {
     const response = proxy(new NextRequest("https://crm.example.test/f/contacto-comercial"));
 
