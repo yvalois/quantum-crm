@@ -307,6 +307,9 @@ describe("container manifests", () => {
     expect(keycloak).toContain("bcprov-jdk18on:1.85");
     expect(keycloak).toContain("jackson-databind:2.21.7");
     expect(keycloak).toContain("jackson-core:2.21.7");
+    expect(keycloak).toContain("openssl=3.5.9-r0");
+    expect(keycloak).toContain("libssl3=3.5.9-r0");
+    expect(keycloak).toContain("libcrypto3=3.5.9-r0");
     expect(keycloak).toContain("FROM ${RUNTIME_IMAGE}");
     expect(keycloak).toContain("USER 1000:1000");
     expect(keycloak).not.toContain("FROM ${KEYCLOAK_IMAGE}\nCOPY --from=builder");
