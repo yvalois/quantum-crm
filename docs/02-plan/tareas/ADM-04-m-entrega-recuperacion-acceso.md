@@ -65,7 +65,7 @@ Un operador autorizado obtiene desde Quantum Admin el correo, URL del CRM y un e
 - [x] Mantener monotónica la generación y limpiar el consumo anterior al emitir.
 - [x] Presentar los datos completos y copiables dentro de la sesión administrativa.
 - [x] Añadir pruebas de dominio y persistencia para recuperación.
-- [ ] Validar el candidato exacto en el VPS y desplegarlo.
+- [x] Validar el candidato exacto en el VPS y desplegarlo.
 
 ## Riesgos y mitigaciones
 
@@ -101,8 +101,8 @@ Un operador autorizado obtiene desde Quantum Admin el correo, URL del CRM y un e
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente de validación VPS.
+- Archivos, commits o PR: candidato `0d38830d20138fc8610354e807f4f2f8fa1db1af` en `feat/ADM-04-entrega-acceso-administrador`.
+- Comandos y resultados: en el VPS aprobaron Prettier, ESLint, 14 pruebas focalizadas, typecheck de `platform-domain`, `database`, `admin-api`, `deploy-executor` y `admin-web`, y builds de las tres imágenes afectadas. `admin-web`, `admin-api` y `deploy-executor` quedaron saludables con `qcrm-candidate/*:0d38830`; el readiness público de Admin respondió `status=ok` y discovery OIDC permaneció disponible.
 - Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
 - Desviaciones del plan: ninguna registrada.
-- Pendientes o decisiones nuevas: SMTP permanece como adaptador futuro.
+- Pendientes o decisiones nuevas: consumir una recuperación desde una sesión administrativa real y promover los digests oficiales después de integrar el PR; SMTP permanece como adaptador futuro.
