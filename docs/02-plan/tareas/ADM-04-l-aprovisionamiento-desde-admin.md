@@ -63,9 +63,9 @@ Un operador autorizado crea o selecciona un perfil en Quantum Admin, elige un se
 
 ## Plan de implementacion
 
-- [ ] Exponer inventario de servidores y solicitud de aprovisionamiento mediante el BFF protegido.
-- [ ] Incorporar el asistente de aprovisionamiento y sus estados en el directorio de perfiles.
-- [ ] Cubrir validacion, permisos, CSRF, version e idempotencia en pruebas afectadas.
+- [x] Exponer inventario de servidores y solicitud de aprovisionamiento mediante el BFF protegido.
+- [x] Incorporar el asistente de aprovisionamiento y sus estados en el directorio de perfiles.
+- [x] Cubrir validacion, permisos, CSRF, version e idempotencia en pruebas afectadas.
 - [ ] Validar el candidato exacto en el VPS, publicar PR y desplegar por el flujo de release.
 - [ ] Crear y aprovisionar `InterAmerican` desde Quantum Admin.
 
@@ -104,8 +104,8 @@ Un operador autorizado crea o selecciona un perfil en Quantum Admin, elige un se
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR:
-- Comandos y resultados:
-- Documentacion actualizada:
-- Desviaciones del plan:
-- Pendientes o decisiones nuevas:
+- Archivos, commits o PR: candidato funcional `574313f` en `feat/ADM-04-admin-provisioning`.
+- Comandos y resultados: en el VPS autorizado aprobaron Prettier y ESLint afectados, 9/9 pruebas BFF, typecheck de `admin-web` y build de produccion con las rutas nuevas incluidas.
+- Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.
+- Desviaciones del plan: ninguna en el alcance implementado.
+- Pendientes o decisiones nuevas: CI, despliegue de la plataforma y alta de `InterAmerican` desde el panel.

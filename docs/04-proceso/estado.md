@@ -161,6 +161,13 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 - Verificación única del candidato `a5ab057` en el VPS: lockfile congelado, Prettier y ESLint de los tres archivos afectados, cuatro pruebas del provisionador y typecheck de `deploy-executor`, todo aprobado.
 - El primer login del perfil reveló que el realm emitía `acr=1` y omitía `qcrm_principal_type`, por lo que el BFF rechazaba correctamente el callback con `401`. El realm de `quantum-demo-jueves` quedó reconciliado con LoA 2 y principal humano; el recorrido completo terminó en `/inbox`, `/api/auth/session` respondió `200` y `authenticated=true`. La configuración equivalente queda incorporada al aprovisionador para perfiles nuevos.
 
+## Evidencia VPS de ADM-04-l — aprovisionamiento desde Quantum Admin
+
+- Fecha: 2026-10-05; rama `feat/ADM-04-admin-provisioning`; no se ejecuto codigo del proyecto en el equipo local.
+- El panel administrativo consulta servidores `AVAILABLE` y releases `VALIDATED`, solicita el alta con CSRF, version vigente e idempotencia y sigue el estado durable del perfil hasta `ACTIVE` o `ERROR`.
+- El candidato funcional `574313f` aprobo en el VPS formato y lint afectados, 9/9 pruebas de las fronteras BFF, typecheck de `admin-web` y build de produccion. El build incluye `/api/platform/infrastructure-servers` y `/api/platform/tenant-profiles/[id]/provisioning-operations`.
+- Falta integrar y desplegar la plataforma; despues se creara `InterAmerican` mediante este flujo y se registrara su operacion durable.
+
 ## Decisiones pendientes
 
 ### Recuperacion del callback CRM sin transaccion — 2026-10-01
