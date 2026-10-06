@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.keycloak.authentication.actiontoken.execactions.ExecuteActionsActionToken;
 import org.keycloak.common.util.Time;
+import org.keycloak.credential.CredentialModel;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
@@ -80,6 +81,17 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
       session.users().setNotBeforeForUser(realm, user, Time.currentTime());
       session.singleUseObjects().remove("qcrm:activation:jti:" + priorValue.get("jti"));
     }
+    /* A recovery link must never depend on a secret written during an older
+     * provisioning attempt. Keycloak generates the next authenticator secret
+     * and QR only when CONFIGURE_TOTP runs. Removing each previous OTP
+     * credential guarantees that the QR shown by this activation is the sole
+     * credential accepted after completion. */
+    user.credentialManager().getStoredCredentialsByTypeStream(CredentialModel.OTP)
+      .toList()
+      .forEach(credential -> user.credentialManager().removeStoredCredentialById(credential.getId()));
+    user.addRequiredAction(UserModel.RequiredAction.UPDATE_PASSWORD.name());
+    user.addRequiredAction(UserModel.RequiredAction.CONFIGURE_TOTP.name());
+    user.addRequiredAction(QuantumActivationCompletionRequiredAction.ID);
     int expiration = Time.currentTime() + TTL_SECONDS;
     // Keycloak signs and consumes the native execute-actions token. The extra entry lets
     // the provider invalidate a prior generation before issuing a replacement.

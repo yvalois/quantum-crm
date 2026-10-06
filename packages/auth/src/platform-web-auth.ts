@@ -121,6 +121,8 @@ export class KeycloakPlatformOidcProvider implements PlatformOidcProvider {
       code_challenge_method: "S256",
       acr_values: this.config.requiredAcr,
       max_age: String(this.config.loginTransactionTtlSeconds),
+      prompt: "login",
+      ui_locales: "es",
       claims: JSON.stringify({
         id_token: {
           acr: { essential: true, values: [this.config.requiredAcr] },

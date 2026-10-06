@@ -130,6 +130,12 @@ function redirect(location: string, cookieHeader?: string): Response {
   return new Response(null, { status: 303, headers });
 }
 
+function signInRecoveryUrl(runtime: PlatformAuthRuntime, reason: "expired" | "failed"): string {
+  const url = new URL("/", runtime.config.origin);
+  url.searchParams.set("access", reason);
+  return url.toString();
+}
+
 export async function handlePlatformLogin(
   request: Request,
   runtime: PlatformAuthRuntime,
@@ -161,10 +167,7 @@ export async function handlePlatformCallback(
     secure: runtime.config.secureCookies,
   });
   if (!transactionHandle) {
-    return redirect(
-      new URL("/api/auth/login?returnTo=%2Fdashboard", runtime.config.origin).toString(),
-      clearLogin,
-    );
+    return redirect(signInRecoveryUrl(runtime, "expired"), clearLogin);
   }
 
   try {
@@ -187,9 +190,7 @@ export async function handlePlatformCallback(
     );
     return new Response(null, { status: 303, headers });
   } catch {
-    const response = platformProblem(401, "Authentication failed");
-    response.headers.append("set-cookie", clearLogin);
-    return response;
+    return redirect(signInRecoveryUrl(runtime, "failed"), clearLogin);
   }
 }
 

@@ -720,6 +720,14 @@ export default function TenantProfilesPage() {
             Quantum entrega este enlace solamente en la sesión actual. Permite definir una nueva
             contraseña y configurar el autenticador sin usar la terminal.
           </p>
+          <ol className="activation-steps">
+            <li>Abre el enlace seguro y crea la contraseña del usuario indicado.</li>
+            <li>Escanea el QR que aparece en Quantum Identity con tu autenticador.</li>
+            <li>Ingresa el código de seis dígitos que genere ese autenticador.</li>
+          </ol>
+          <p className="activation-note">
+            No uses códigos ni secretos TOTP anteriores: cada activación crea un autenticador nuevo.
+          </p>
           <dl className="activation-access-data">
             <div>
               <dt>CRM</dt>

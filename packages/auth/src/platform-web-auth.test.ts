@@ -156,6 +156,8 @@ describe("platform web authentication service", () => {
     expect(url.searchParams.get("state")).toBe("s".repeat(43));
     expect(url.searchParams.get("nonce")).toBe("n".repeat(43));
     expect(url.searchParams.get("acr_values")).toBe("2");
+    expect(url.searchParams.get("prompt")).toBe("login");
+    expect(url.searchParams.get("ui_locales")).toBe("es");
     expect(url.toString()).not.toContain(config.clientSecret.expose());
   });
 
