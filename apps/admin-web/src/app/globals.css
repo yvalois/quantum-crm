@@ -106,17 +106,43 @@ a {
   font-size: 1rem;
   line-height: 1.65;
 }
-.public-panel > a {
+.public-actions {
   position: relative;
   z-index: 1;
-  display: inline-flex;
   margin-top: 1.4rem;
+}
+.public-actions > a {
+  position: relative;
+  display: inline-flex;
   padding: 0.85rem 1.1rem;
   border: 1px solid var(--cyan);
   color: var(--graphite-0);
   background: var(--cyan);
   font-weight: 750;
   text-decoration: none;
+}
+.public-actions > p,
+.public-help,
+.public-notice {
+  max-width: 37rem;
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.public-help {
+  position: relative;
+  z-index: 1;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+.public-notice {
+  position: relative;
+  z-index: 1;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(244, 185, 95, 0.5);
+  color: #ffe0aa;
+  background: rgba(244, 185, 95, 0.1);
 }
 .eyebrow,
 .section-code {

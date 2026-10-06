@@ -2,6 +2,23 @@
 
 Estas reglas se aplican a todo el repositorio.
 
+## Modo temporal: entrega funcional prioritaria
+
+**Estado: ACTIVO.** Este modo existe para acelerar la construccion de funcionalidades visibles y utilizables mientras el propietario recupera ritmo de producto. El propietario puede desactivarlo expresamente cuando considere que el producto esta firme; al hacerlo se elimina esta seccion y vuelven a aplicar sin excepcion todas las reglas procedimentales ordinarias.
+
+Durante este modo, una solicitud funcional prioritaria del propietario se trabaja como un **bloque funcional completo**: interfaz real, caso de uso/API, persistencia necesaria, permisos de servidor y despliegue en el VPS. El resultado debe poder usarse y mostrarse, no limitarse a pantallas, botones, mocks o documentacion.
+
+- La prioridad es la funcionalidad solicitada por el propietario. No se interrumpe por pulido visual, refactorizacion, cobertura ampliada, vulnerabilidades no explotables en la ruta activa, ADRs, fichas extensas, checklist o documentacion final, salvo que sea un bloqueo tecnico directo o comprometa datos, acceso, aislamiento entre clientes, secretos o integridad del VPS.
+- Antes de codigo basta con: identificar el requisito existente, revisar evidencia e implementacion relacionada, y registrar una entrada breve `EN_CURSO` en `docs/04-proceso/estado.md`. La ficha de `docs/02-plan/tareas/` se difiere hasta cerrar el bloque, salvo que haya una migracion irreversible, cambio de arquitectura o integracion externa que no pueda implementarse de forma segura sin ella.
+- La documentacion se actualiza al cierre del bloque en el mismo PR: estado real, evidencia funcional minima y pendientes. No se abren PRs separados ni se consume un bloque funcional solo para documentación, vulnerabilidades, limpieza o refinamientos no bloqueantes.
+- La validacion minima es una comprobacion enfocada de la ruta modificada en el VPS y la evidencia vigente se reutiliza. No se repiten builds, pruebas, migraciones, despliegues o smoke tests ya aprobados para el mismo commit, alcance, entorno e insumos.
+- Un bloque no se entrega como terminado hasta que el flujo solicitado funcione de extremo a extremo en el VPS. Al entregarlo se informa: que funciona, enlace o ruta para verlo, y pendientes pospuestos.
+- Las mejoras diferidas se registran bajo una seccion `Pendientes de estabilizacion posterior`; se retoman solo por instruccion del propietario o al desactivar este modo.
+
+Este modo **no** permite omitir permisos del servidor, aislamiento por perfil, manejo seguro de secretos, migraciones controladas, idempotencia de efectos, ni publicar cambios con un defecto que rompa la funcionalidad solicitada. Tampoco autoriza presentar trabajo parcial como producto terminado.
+
+En caso de conflicto, esta seccion prevalece temporalmente sobre requisitos procedimentales de documentacion, refinamiento y verificacion amplia; las protecciones de datos, identidad, aislamiento y despliegue seguro se mantienen vigentes.
+
 ## Lectura obligatoria
 
 Antes de modificar codigo o documentacion:

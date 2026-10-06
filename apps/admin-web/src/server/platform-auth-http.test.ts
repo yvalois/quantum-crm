@@ -99,10 +99,28 @@ describe("admin web authentication HTTP boundary", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
-      "https://admin.example.test/api/auth/login?returnTo=%2Fdashboard",
+      "https://admin.example.test/?access=expired",
     );
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
     expect(authRuntime.auth.completeLogin).not.toHaveBeenCalled();
+  });
+
+  it("returns a usable sign-in page when OIDC cannot complete", async () => {
+    const authRuntime = runtime();
+    authRuntime.auth.completeLogin = vi.fn(async () => {
+      throw new Error("provider rejected the callback");
+    });
+
+    const response = await handlePlatformCallback(
+      new Request(`${config.callbackUrl}?code=synthetic&state=opaque`, {
+        headers: { cookie: `__Host-qcrm_admin_login=${loginHandle.expose()}` },
+      }),
+      authRuntime,
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://admin.example.test/?access=failed");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
   });
 
   it("returns only bounded session metadata to same-origin code", async () => {
