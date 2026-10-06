@@ -7,6 +7,7 @@ import {
   completeActivationDelivery,
   createActivationDeliveryIntent,
   transitionActivationDelivery,
+  transitionTenantInitialAdministrator,
 } from "./activation-delivery.js";
 
 const now = new Date("2026-09-26T12:00:00.000Z");
@@ -72,5 +73,33 @@ describe("activation delivery intent", () => {
       transitionActivationDelivery(intent, "EXPIRED", new Date(intent.expiresAt.getTime() + 1))
         .status,
     ).toBe("EXPIRED");
+  });
+
+  it("allows a consumed administrator to receive a new one-use access setup", () => {
+    const consumedAt = new Date("2026-09-25T12:00:00.000Z");
+    const administrator = {
+      tenantProfileId: intent.tenantProfileId,
+      subject: intent.administratorSubject,
+      generation: 1,
+      status: "CONSUMED" as const,
+      expiresAt: new Date("2026-09-25T12:30:00.000Z"),
+      consumedAt,
+      version: 3n,
+      createdAt: consumedAt,
+      updatedAt: consumedAt,
+    };
+
+    expect(
+      transitionTenantInitialAdministrator(
+        administrator,
+        "ACTIVATION_ISSUED",
+        now,
+        new Date(now.getTime() + activationDeliveryTtlMilliseconds),
+      ),
+    ).toMatchObject({
+      status: "ACTIVATION_ISSUED",
+      generation: 2,
+      consumedAt: null,
+    });
   });
 });

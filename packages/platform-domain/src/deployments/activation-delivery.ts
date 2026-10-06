@@ -223,7 +223,8 @@ export function transitionTenantInitialAdministrator(
   if (
     status === "ACTIVATION_ISSUED" &&
     administrator.status !== "PENDING" &&
-    administrator.status !== "ACTIVATION_ISSUED"
+    administrator.status !== "ACTIVATION_ISSUED" &&
+    administrator.status !== "CONSUMED"
   )
     throw new ActivationDeliveryValidationError();
   if (
@@ -241,7 +242,7 @@ export function transitionTenantInitialAdministrator(
       status === "ACTIVATION_ISSUED" ? administrator.generation + 1 : administrator.generation,
     status,
     expiresAt: status === "ACTIVATION_ISSUED" ? (expiresAt ?? null) : administrator.expiresAt,
-    consumedAt: status === "CONSUMED" ? now : administrator.consumedAt,
+    consumedAt: status === "CONSUMED" ? now : null,
     version: administrator.version + 1n,
     updatedAt: now,
   });

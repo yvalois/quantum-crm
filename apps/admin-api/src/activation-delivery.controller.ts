@@ -160,8 +160,7 @@ export class ActivationDeliveryController {
       throw new BadRequestException();
     }
     const administrator = await this.deliveries.findInitialAdministrator(tenantProfileId);
-    if (!administrator?.subject || administrator.status === "CONSUMED")
-      throw new ConflictException();
+    if (!administrator?.subject) throw new ConflictException();
     const generation = administrator.generation + 1;
     const key = {
       correlationId: auth.correlationId,

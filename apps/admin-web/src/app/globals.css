@@ -605,6 +605,86 @@ button:disabled {
 .state-error h3 {
   color: var(--danger);
 }
+.activation-link {
+  min-height: 0;
+  margin: 1rem 0;
+  place-items: stretch;
+  align-content: start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  background: rgba(15, 23, 42, 0.92);
+  text-align: left;
+}
+.activation-link > .section-code {
+  display: inline;
+  width: auto;
+  height: auto;
+  border: 0;
+  font-size: 0.68rem;
+}
+.activation-link h2,
+.activation-link p {
+  margin: 0;
+}
+.activation-access-data {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.activation-access-data div {
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  background: rgba(9, 13, 22, 0.72);
+}
+.activation-access-data dt,
+.activation-url-field {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.activation-access-data dd {
+  margin: 0.35rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.activation-access-data a {
+  color: var(--cyan);
+}
+.activation-url-field {
+  display: grid;
+  gap: 0.45rem;
+}
+.activation-url-field textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  padding: 0.75rem;
+  color: var(--text);
+  background: #090d16;
+  font: 0.72rem/1.45 monospace;
+}
+.activation-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+.activation-access-actions .primary-action {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 1.15rem;
+  text-decoration: none;
+}
+@media (max-width: 760px) {
+  .activation-access-data {
+    grid-template-columns: 1fr;
+  }
+}
 .tenant-table-wrap {
   overflow-x: auto;
 }

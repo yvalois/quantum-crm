@@ -29,6 +29,14 @@ interface Filters {
   readonly releaseId: string;
 }
 
+interface DeliveredAdministratorAccess {
+  readonly profileName: string;
+  readonly adminEmail: string;
+  readonly crmUrl: string;
+  readonly activationUrl: string;
+  readonly expiresAt: string;
+}
+
 const emptyFilters: Filters = {
   search: "",
   status: "",
@@ -66,7 +74,9 @@ export default function TenantProfilesPage() {
   const [selectedEtag, setSelectedEtag] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [activationUrl, setActivationUrl] = useState<string | null>(null);
+  const [administratorAccess, setAdministratorAccess] =
+    useState<DeliveredAdministratorAccess | null>(null);
+  const [accessCopyStatus, setAccessCopyStatus] = useState<string | null>(null);
   const [activationPending, setActivationPending] = useState<string | null>(null);
   const [promotionReleaseId, setPromotionReleaseId] = useState("");
   const [promotionPending, setPromotionPending] = useState<string | null>(null);
@@ -249,7 +259,8 @@ export default function TenantProfilesPage() {
   }
 
   async function requestActivation(profile: TenantProfileContract): Promise<void> {
-    setActivationUrl(null);
+    setAdministratorAccess(null);
+    setAccessCopyStatus(null);
     setActivationPending(profile.id);
     setError(null);
     try {
@@ -274,11 +285,39 @@ export default function TenantProfilesPage() {
       );
       if (!response.ok) throw new Error(await errorTitle(response));
       const result = (await response.json()) as ActivationDeliveryResponse;
-      setActivationUrl(result.data.url);
+      const hostnameParts = window.location.hostname.split(".");
+      const sharedDomain = hostnameParts.length > 1 ? hostnameParts.slice(1).join(".") : "";
+      const crmUrl = sharedDomain
+        ? `${window.location.protocol}//${profile.slug}.${sharedDomain}`
+        : `${window.location.protocol}//${window.location.host}`;
+      setAdministratorAccess({
+        profileName: profile.name,
+        adminEmail: profile.adminContactEmail,
+        crmUrl,
+        activationUrl: result.data.url,
+        expiresAt: result.data.expiresAt,
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible emitir la activaciÃ³n");
     } finally {
       setActivationPending(null);
+    }
+  }
+
+  async function copyAdministratorAccess(): Promise<void> {
+    if (!administratorAccess) return;
+    const text = [
+      `Empresa: ${administratorAccess.profileName}`,
+      `CRM: ${administratorAccess.crmUrl}`,
+      `Usuario: ${administratorAccess.adminEmail}`,
+      `Configurar o recuperar acceso: ${administratorAccess.activationUrl}`,
+      `Vence: ${new Date(administratorAccess.expiresAt).toLocaleString("es-CO")}`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setAccessCopyStatus("Datos de acceso copiados.");
+    } catch {
+      setAccessCopyStatus("No fue posible copiar automáticamente. Copia el enlace visible.");
     }
   }
 
@@ -618,9 +657,7 @@ export default function TenantProfilesPage() {
                               disabled={activationPending !== null}
                               onClick={() => void requestActivation(profile)}
                             >
-                              {activationPending === profile.id
-                                ? "Emitiendo..."
-                                : "Activar administrador"}
+                              {activationPending === profile.id ? "Emitiendo..." : "Generar acceso"}
                             </button>
                           ) : null}
                           {canDeploy && profile.status === "ACTIVE" ? (
@@ -675,18 +712,64 @@ export default function TenantProfilesPage() {
         ) : null}
       </section>
 
-      {activationUrl ? (
+      {administratorAccess ? (
         <section className="state-block activation-link" aria-live="assertive">
-          <h2>Enlace de activaciÃ³n listo</h2>
+          <span className="section-code">ACCESO / UN SOLO USO</span>
+          <h2>Acceso de {administratorAccess.profileName} listo</h2>
           <p>
-            Se muestra solo en esta sesiÃ³n. Ãbrelo ahora; no se guardarÃ¡ ni se volverÃ¡ a mostrar.
+            Quantum entrega este enlace solamente en la sesión actual. Permite definir una nueva
+            contraseña y configurar el autenticador sin usar la terminal.
           </p>
-          <a href={activationUrl} target="_blank" rel="noreferrer noopener">
-            Abrir activaciÃ³n segura
-          </a>
-          <button type="button" className="quiet-button" onClick={() => setActivationUrl(null)}>
-            Ocultar enlace
-          </button>
+          <dl className="activation-access-data">
+            <div>
+              <dt>CRM</dt>
+              <dd>
+                <a href={administratorAccess.crmUrl} target="_blank" rel="noreferrer noopener">
+                  {administratorAccess.crmUrl}
+                </a>
+              </dd>
+            </div>
+            <div>
+              <dt>Usuario</dt>
+              <dd>{administratorAccess.adminEmail}</dd>
+            </div>
+            <div>
+              <dt>Vigencia</dt>
+              <dd>{new Date(administratorAccess.expiresAt).toLocaleString("es-CO")}</dd>
+            </div>
+          </dl>
+          <label className="activation-url-field">
+            Enlace seguro
+            <textarea value={administratorAccess.activationUrl} readOnly rows={3} />
+          </label>
+          <div className="activation-access-actions">
+            <a
+              className="primary-action"
+              href={administratorAccess.activationUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Configurar acceso ahora
+            </a>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => void copyAdministratorAccess()}
+            >
+              Copiar datos de acceso
+            </button>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => {
+                setAdministratorAccess(null);
+                setAccessCopyStatus(null);
+              }}
+            >
+              Ocultar
+            </button>
+          </div>
+          {accessCopyStatus ? <small role="status">{accessCopyStatus}</small> : null}
         </section>
       ) : null}
 

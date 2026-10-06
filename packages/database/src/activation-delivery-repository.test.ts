@@ -90,6 +90,48 @@ describe("activation delivery repository expiry", () => {
     expect(statements.at(-1)).toBe("COMMIT");
   });
 
+  it("issues a new generation after the initial administrator already consumed access", async () => {
+    const consumedAdministrator = {
+      ...administratorRow,
+      status: "consumed",
+      consumed_at: new Date("2026-09-27T11:00:00.000Z"),
+    };
+    const clientQuery = vi.fn(async (text: string) => {
+      if (
+        text.includes("FROM operations.activation_delivery_intents WHERE requested_by_operator_id")
+      )
+        return { rows: [] };
+      if (text.includes("FROM tenants.tenant_initial_administrators administrator"))
+        return { rows: [consumedAdministrator] };
+      if (text.startsWith("INSERT INTO operations.activation_delivery_intents"))
+        return { rows: [insertedIntent] };
+      return { rows: [] };
+    });
+    const client = { query: clientQuery, release: vi.fn() } as unknown as PoolClient;
+    const pool = {
+      connect: vi.fn(async () => client),
+      query: vi.fn(),
+      end: vi.fn(),
+      on: vi.fn(),
+    } as unknown as PostgresPool;
+
+    await expect(
+      createActivationDeliveryRepository(pool).request({
+        id: insertedIntent.id,
+        tenantProfileId,
+        requestedByOperatorId: operatorId,
+        expectedTenantVersion: 3n,
+        idempotencyKey,
+        payloadHash: insertedIntent.payload_hash,
+        correlationId: insertedIntent.correlation_id,
+        now,
+      }),
+    ).resolves.toMatchObject({
+      intent: { generation: 2, status: "PENDING" },
+      idempotentReplay: false,
+    });
+  });
+
   it("terminalizes expired pending and claimed intents before finding the next delivery", async () => {
     const query = vi.fn(async () => ({ rows: [] }));
     const pool = { connect: vi.fn(), query, end: vi.fn(), on: vi.fn() } as unknown as PostgresPool;

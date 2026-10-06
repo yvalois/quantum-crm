@@ -121,8 +121,7 @@ export function createActivationDeliveryRepository(
         if (
           !row ||
           BigInt(row.tenant_version) !== command.expectedTenantVersion ||
-          !row.keycloak_subject ||
-          row.status === "consumed"
+          !row.keycloak_subject
         )
           throw new ActivationDeliveryValidationError();
         const result = await client.query<IntentRow>(
@@ -192,7 +191,7 @@ export function createActivationDeliveryRepository(
         if (!updated.rows[0]) throw new DatabaseUnavailableError();
         if (completion.status === "DELIVERED")
           await client.query(
-            `UPDATE tenants.tenant_initial_administrators SET generation=$3, status='activation_issued', expires_at=$4, consumed_at=NULL, version=version+1, updated_at=$5 WHERE tenant_profile_id=$1::uuid AND keycloak_subject=$2 AND status <> 'consumed'`,
+            `UPDATE tenants.tenant_initial_administrators SET generation=$3, status='activation_issued', expires_at=$4, consumed_at=NULL, version=version+1, updated_at=$5 WHERE tenant_profile_id=$1::uuid AND keycloak_subject=$2 AND generation < $3`,
             [
               row.tenant_profile_id,
               row.administrator_subject,

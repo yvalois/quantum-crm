@@ -14,6 +14,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
+> **Actualizacion ADM-04 (2026-10-06):** `feat/ADM-04-entrega-acceso-administrador` elimina la dependencia de terminal para recuperar el acceso del administrador inicial. Quantum Admin reemitirá una activación aun después de un consumo previo y mostrará empresa, CRM, usuario, vencimiento y enlace copiable solo en la sesión actual. Ficha [`ADM-04-m`](../02-plan/tareas/ADM-04-m-entrega-recuperacion-acceso.md).
+
 > **Actualizacion ADM-10 (2026-10-04):** la promocion canonica termino en `SUCCEEDED`: el perfil `quantum-demo-jueves` usa la release `8706edd4-9cae-5723-8c97-4215263ff376`, sus cinco servicios estan saludables y Documentos dispone de API, worker y almacenamiento S3 configurados. `fix/ADM-10-claim-release` corrige el claim SQL, los leases entre pasos, el fence de activacion, los tiempos de espera y la politica S3 de `deploy-host`. Falta publicar el PR, aprobar CI y reemplazar las imagenes operativas temporales por digests oficiales.
 
 | ID       | Descripcion                                          | Responsable | Rama o PR                                                                                    | Inicio     | Ultima actualizacion | Siguiente paso                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
