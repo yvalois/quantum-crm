@@ -31,6 +31,7 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 - Codigo o documentacion encontrados: requisitos y checklist completos; no existe modulo, contrato, persistencia, API ni interfaz funcional de formularios.
 - Pruebas e historial encontrados: no existen pruebas de formularios. Se reutilizan los patrones aprobados de Calendario, Contactos, Documentos, autorizacion y BFF.
 - Decision de reutilizacion, extension o reemplazo: crear el modulo propietario `forms` y extender los bordes existentes sin duplicar infraestructura, identidad, contactos, archivos ni comunicaciones.
+- Hallazgo operativo del 2026-10-06: API y BFF respondian `200`, pero el HTML estatico de `crm-web` no recibia el nonce generado por el proxy; la CSP bloqueaba los scripts de Next.js y dejaba Documentos y Formularios visibles pero sin hidratacion. Se corrige en el layout raiz para todas las rutas CRM y se protege con una regresion focalizada.
 
 ## Alcance
 
@@ -105,8 +106,9 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: candidato `9d7903a` en `feat/FORM-01-20-formularios`; PR pendiente de publicacion.
-- Comandos y resultados: en el VPS aprobaron Prettier y ESLint afectados; cinco typechecks; seis pruebas focalizadas; builds de contratos, dominio, plataforma, base de datos, autenticacion, API y CRM web; las 19 migraciones CRM sobre PostgreSQL 18; y smoke create/publicar/consultar/enviar/reintentar/listar con una sola respuesta durable.
+- Archivos, commits o PR: candidato funcional `9d7903a` y correccion de hidratacion `d9984ff` en `fix/FORM-01-csp-hidratacion`; PR pendiente de publicacion.
+- Comandos y resultados: en el VPS aprobaron Prettier y ESLint afectados; cinco typechecks; seis pruebas focalizadas; builds de contratos, dominio, plataforma, base de datos, autenticacion, API y CRM web; las 19 migraciones CRM sobre PostgreSQL 18; y smoke create/publicar/consultar/enviar/reintentar/listar con una sola respuesta durable. Para `d9984ff` aprobaron Prettier, ESLint, las 3 regresiones del proxy/CSP, typecheck de `crm-web` y builds de `config`, `contracts`, `auth` y `crm-web`; el build clasifico las rutas CRM como dinamicas.
+- Evidencia operativa autenticada: el contenedor candidato `qcrm-candidate/crm-web:d9984ff` esta saludable en InterAmerican. `/forms` hidrata y conserva el borrador `Solicitud inicial InterAmerican` con tres preguntas; `/documents` hidrata, permite editar y creo la plantilla reutilizable `Propuesta comercial InterAmerican` con variables de contacto y asesor y un bloque de imagen reemplazable.
 - Documentacion actualizada: ficha y estado oficial.
 - Desviaciones del plan: las integraciones con proveedores externos se excluyeron por decision explicita del propietario.
-- Pendientes o decisiones nuevas: CI, integracion, release y smoke autenticado en la interfaz desplegada; archivos publicos, contacto, chat, agente y consumidores de automatizacion permanecen en sus bloques propietarios.
+- Pendientes o decisiones nuevas: publicar el PR, aprobar CI y promover el digest oficial. Para cerrar todos los criterios de formularios falta el recorrido autenticado de publicar, responder por el enlace, consultar/exportar respuestas y cerrar la recepcion; archivos publicos, contacto, chat, agente y consumidores de automatizacion permanecen en sus bloques propietarios.
