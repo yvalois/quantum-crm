@@ -25,7 +25,14 @@ export function createTenantRuntimeDecommissioner(options: {
 }): TenantRuntimeDecommissioner {
   const timeout = options.requestTimeoutMilliseconds ?? 180_000;
   return Object.freeze({
-    decommission: async (command) => {
+    decommission: async (command: {
+      readonly operationId: string;
+      readonly tenantProfileId: string;
+      readonly serverId: string;
+      readonly releaseId: string;
+      readonly configurationRevision: bigint;
+      readonly attempt: number;
+    }) => {
       const payload = JSON.stringify({
         action: "DECOMMISSION_TENANT_RUNTIME",
         operationId: command.operationId,
