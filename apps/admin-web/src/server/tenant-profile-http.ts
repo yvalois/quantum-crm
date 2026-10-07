@@ -2,6 +2,7 @@ import { validateCsrf, validateRequestOrigin } from "@quantum-crm/auth";
 import { SecretValue } from "@quantum-crm/config";
 import {
   CreateTenantProfileSchema,
+  ConfirmTenantProfileDeletionSchema,
   TenantProfileListQuerySchema,
   TenantProfileListResponseSchema,
   TenantProfileResponseSchema,
@@ -265,6 +266,51 @@ export async function handleTenantProfileUpdate(
     if (!upstream.ok) return upstreamProblem(upstream.status);
     const body = TenantProfileResponseSchema.parse(await readUpstream(upstream));
     return responseWithEtag(body, upstream);
+  } catch {
+    return platformProblem(503, "Platform unavailable");
+  }
+}
+
+export async function handlePendingTenantProfileDeletion(
+  request: Request,
+  runtime: PlatformAuthRuntime,
+  id: string,
+): Promise<Response> {
+  if (!profileIdPattern.test(id)) return platformProblem(400, "Invalid request");
+  const ifMatch = request.headers.get("if-match");
+  if (!ifMatch || !etagPattern.test(ifMatch)) {
+    return platformProblem(428, "A current tenant profile version is required");
+  }
+  const authorization = await authorize(request, runtime, true);
+  if (isResponse(authorization)) return authorization;
+  let candidate: unknown;
+  try {
+    candidate = await boundedBody(request);
+  } catch {
+    return platformProblem(400, "Invalid request");
+  }
+  const parsed = ConfirmTenantProfileDeletionSchema.safeParse(candidate);
+  if (!parsed.success) return platformProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.platformApiFetch(
+      new URL(`/api/v1/tenant-profiles/${id}`, runtime.config.adminApiOrigin),
+      {
+        method: "DELETE",
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorization.accessToken.expose()}`,
+          "content-type": "application/json",
+          "if-match": ifMatch,
+          "x-correlation-id": authorization.correlationId,
+        },
+        body: JSON.stringify(parsed.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!upstream.ok) return upstreamProblem(upstream.status);
+    return new Response(null, { status: 204, headers: platformNoStoreHeaders() });
   } catch {
     return platformProblem(503, "Platform unavailable");
   }

@@ -1,5 +1,6 @@
 import {
   handleTenantProfileGet,
+  handlePendingTenantProfileDeletion,
   handleTenantProfileUpdate,
 } from "../../../../../server/tenant-profile-http";
 import { withPlatformAuthRuntime } from "../../../../../server/platform-auth-runtime";
@@ -18,4 +19,11 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 export async function PATCH(request: Request, context: RouteContext): Promise<Response> {
   const { id } = await context.params;
   return withPlatformAuthRuntime((runtime) => handleTenantProfileUpdate(request, runtime, id));
+}
+
+export async function DELETE(request: Request, context: RouteContext): Promise<Response> {
+  const { id } = await context.params;
+  return withPlatformAuthRuntime((runtime) =>
+    handlePendingTenantProfileDeletion(request, runtime, id),
+  );
 }

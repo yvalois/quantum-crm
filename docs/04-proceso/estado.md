@@ -14,6 +14,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
+> **ADM-03 (2026-10-07):** En curso el desprovisionamiento y la eliminacion confirmada de perfiles. La accion no retirara solo una fila: conserva una operacion durable y elimina recursos del perfil antes de liberar capacidad y retirar el registro. Ficha [`ADM-03-b`](../02-plan/tareas/ADM-03-b-desprovisionamiento-eliminacion-perfil.md).
+
 > **ADM-04 (2026-10-06):** En curso la correccion del alta del administrador inicial: un perfil no puede quedar indefinidamente en `VERIFY`; el Admin debe entregar el enlace de activacion del usuario master durante el aprovisionamiento y completar la activacion al consumirlo.
 
 > **Evidencia VPS ADM-04 (2026-10-07):** El alta automatica selecciona en el servidor una release validada, un destino con capacidad disponible y la capacidad base; el operador no configura recursos. El candidato `c54ec35` aprobo 32 pruebas focalizadas (contratos, dominio y BFF), compilacion de `admin-api` y `admin-web`, y esta desplegado con ambos servicios `healthy`. La eliminacion real requiere un flujo durable de desprovisionamiento (recursos, identidad, archivos, rutas y capacidad) y no se expondra como un boton que borre solo el registro.

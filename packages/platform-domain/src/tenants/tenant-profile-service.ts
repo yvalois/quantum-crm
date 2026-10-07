@@ -33,6 +33,8 @@ export interface TenantProfileRepository {
     expectedVersion: bigint,
     draft: TenantProfileDraft,
   ) => Promise<TenantProfile | null>;
+  /** Removes only a never-provisioned draft. Provisioned profiles use ADM-03-b. */
+  readonly removePending: (id: string, expectedVersion: bigint) => Promise<boolean>;
 }
 
 export class TenantProfileNotFoundError extends Error {
@@ -103,5 +105,19 @@ export class TenantProfileService {
     const updated = await this.repository.update(id, expectedVersion, draft);
     if (!updated) throw new TenantProfileVersionConflictError();
     return updated;
+  }
+
+  public async removePending(
+    id: string,
+    expectedVersion: bigint,
+    confirmationSlug: string,
+  ): Promise<void> {
+    const current = await this.get(id);
+    if (current.slug !== confirmationSlug.trim().toLowerCase() || current.status !== "PENDING") {
+      throw new TenantProfileConflictError();
+    }
+    if (!(await this.repository.removePending(id, expectedVersion))) {
+      throw new TenantProfileVersionConflictError();
+    }
   }
 }

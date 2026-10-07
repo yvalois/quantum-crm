@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 
 import { TenantProvisioningDialog } from "./tenant-provisioning-dialog";
 
-type DialogMode = "create" | "edit" | null;
+type DialogMode = "create" | "edit" | "delete" | null;
 
 const statusLabels: Readonly<Record<TenantProfileContract["status"], string>> = {
   PENDING: "Pendiente",
@@ -219,6 +219,22 @@ export default function TenantProfilesPage() {
     }
   }
 
+  async function openDelete(profile: TenantProfileContract): Promise<void> {
+    setFormError(null);
+    try {
+      const response = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(await errorTitle(response));
+      const body = (await response.json()) as TenantProfileResponse;
+      setSelected(body.data);
+      setSelectedEtag(response.headers.get("etag"));
+      setDialog("delete");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible abrir el perfil");
+    }
+  }
+
   async function saveProfile(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setSaving(true);
@@ -253,6 +269,43 @@ export default function TenantProfilesPage() {
       if (!editing && canDeploy) setProvisioningProfile(result.data);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : "No fue posible guardar el perfil");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deletePendingProfile(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!selected || !selectedEtag) return;
+    setSaving(true);
+    setFormError(null);
+    const confirmationSlug = String(
+      new FormData(event.currentTarget).get("confirmationSlug") ?? "",
+    );
+    if (confirmationSlug.trim().toLowerCase() !== selected.slug) {
+      setFormError("Escribe exactamente el slug del perfil para confirmar.");
+      setSaving(false);
+      return;
+    }
+    try {
+      const csrf = await csrfToken();
+      const response = await fetch(`/api/platform/tenant-profiles/${selected.id}`, {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrf,
+          "if-match": selectedEtag,
+        },
+        body: JSON.stringify({ confirmationSlug: selected.slug }),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(await errorTitle(response));
+      setDialog(null);
+      setSelected(null);
+      setSelectedEtag(null);
+      await loadProfiles();
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : "No fue posible eliminar el perfil");
     } finally {
       setSaving(false);
     }
@@ -651,6 +704,15 @@ export default function TenantProfilesPage() {
                               Editar
                             </button>
                           ) : null}
+                          {canManage && profile.status === "PENDING" ? (
+                            <button
+                              className="row-action row-action-danger"
+                              type="button"
+                              onClick={() => void openDelete(profile)}
+                            >
+                              Eliminar
+                            </button>
+                          ) : null}
                           {canDeploy && profile.status === "PENDING" ? (
                             <button
                               className="row-action row-action-primary"
@@ -804,54 +866,78 @@ export default function TenantProfilesPage() {
             </button>
           </form>
           <div className="dialog-kicker">
-            {dialog === "create" ? "NUEVO REGISTRO" : "EDICIÓN SEGURA"}
+            {dialog === "create"
+              ? "NUEVO REGISTRO"
+              : dialog === "delete"
+                ? "ELIMINACIÓN CONFIRMADA"
+                : "EDICIÓN SEGURA"}
           </div>
           <h2 id="profile-dialog-title">
-            {dialog === "create"
-              ? "Crear perfil de empresa"
-              : `Editar ${selected?.name ?? "perfil"}`}
+            {dialog === "delete"
+              ? `Eliminar ${selected?.name ?? "perfil"}`
+              : dialog === "create"
+                ? "Crear perfil de empresa"
+                : `Editar ${selected?.name ?? "perfil"}`}
           </h2>
-          <p>Este perfil identifica a la empresa en Quantum; no crea contactos dentro de su CRM.</p>
-          <form className="profile-form" onSubmit={(event) => void saveProfile(event)}>
-            <label>
-              <span>Nombre de la empresa</span>
-              <input name="name" defaultValue={selected?.name ?? ""} required maxLength={160} />
-            </label>
-            <label>
-              <span>Slug operativo</span>
-              <input
-                name="slug"
-                defaultValue={selected?.slug ?? ""}
-                required
-                maxLength={63}
-                pattern="[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-                aria-describedby="slug-help"
-              />
-              <small id="slug-help">
-                Minúsculas, números y guiones. Se usa como referencia estable.
-              </small>
-            </label>
-            <div className="form-split">
+          <p>
+            {dialog === "delete"
+              ? "Esta acción elimina un perfil que aún no tiene recursos aprovisionados. Es irreversible."
+              : "Este perfil identifica a la empresa en Quantum; no crea contactos dentro de su CRM."}
+          </p>
+          <form
+            className="profile-form"
+            onSubmit={(event) =>
+              dialog === "delete" ? void deletePendingProfile(event) : void saveProfile(event)
+            }
+          >
+            {dialog === "delete" ? (
               <label>
-                <span>Contacto administrativo</span>
-                <input
-                  name="adminContactName"
-                  defaultValue={selected?.adminContactName ?? ""}
-                  required
-                  maxLength={160}
-                />
+                <span>Escribe {selected?.slug ?? "el slug"} para confirmar</span>
+                <input name="confirmationSlug" autoComplete="off" required />
               </label>
-              <label>
-                <span>Correo administrativo</span>
-                <input
-                  name="adminContactEmail"
-                  type="email"
-                  defaultValue={selected?.adminContactEmail ?? ""}
-                  required
-                  maxLength={320}
-                />
-              </label>
-            </div>
+            ) : (
+              <>
+                <label>
+                  <span>Nombre de la empresa</span>
+                  <input name="name" defaultValue={selected?.name ?? ""} required maxLength={160} />
+                </label>
+                <label>
+                  <span>Slug operativo</span>
+                  <input
+                    name="slug"
+                    defaultValue={selected?.slug ?? ""}
+                    required
+                    maxLength={63}
+                    pattern="[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+                    aria-describedby="slug-help"
+                  />
+                  <small id="slug-help">
+                    Minúsculas, números y guiones. Se usa como referencia estable.
+                  </small>
+                </label>
+                <div className="form-split">
+                  <label>
+                    <span>Contacto administrativo</span>
+                    <input
+                      name="adminContactName"
+                      defaultValue={selected?.adminContactName ?? ""}
+                      required
+                      maxLength={160}
+                    />
+                  </label>
+                  <label>
+                    <span>Correo administrativo</span>
+                    <input
+                      name="adminContactEmail"
+                      type="email"
+                      defaultValue={selected?.adminContactEmail ?? ""}
+                      required
+                      maxLength={320}
+                    />
+                  </label>
+                </div>
+              </>
+            )}
             {formError ? (
               <p className="form-error" role="alert">
                 {formError}
@@ -862,7 +948,13 @@ export default function TenantProfilesPage() {
                 Cancelar
               </button>
               <button type="submit" className="primary-action" disabled={saving}>
-                {saving ? "Guardando…" : dialog === "create" ? "Crear perfil" : "Guardar cambios"}
+                {saving
+                  ? "Guardando…"
+                  : dialog === "delete"
+                    ? "Eliminar perfil"
+                    : dialog === "create"
+                      ? "Crear perfil"
+                      : "Guardar cambios"}
               </button>
             </div>
           </form>

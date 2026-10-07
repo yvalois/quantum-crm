@@ -354,6 +354,7 @@ export {
 } from "./platform-iam/v1/operator-self.js";
 export {
   CreateTenantProfileSchema,
+  ConfirmTenantProfileDeletionSchema,
   TenantProfileListQuerySchema,
   TenantProfileListResponseSchema,
   TenantProfileResponseSchema,
@@ -362,6 +363,7 @@ export {
   UpdateTenantProfileSchema,
   tenantProfileResponse,
   type CreateTenantProfile,
+  type ConfirmTenantProfileDeletion,
   type TenantProfileContract,
   type TenantProfileListQuery,
   type TenantProfileListResponse,

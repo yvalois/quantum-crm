@@ -41,6 +41,16 @@ export const UpdateTenantProfileSchema = TenantProfileFieldsSchema.omit({
     message: "At least one field is required",
   });
 
+/**
+ * A profile may only be removed after the platform has verified its complete
+ * deprovisioning. The slug makes the destructive acknowledgement explicit.
+ */
+export const ConfirmTenantProfileDeletionSchema = z
+  .object({
+    confirmationSlug: TenantProfileFieldsSchema.shape.slug,
+  })
+  .strict();
+
 export const TenantProfileSchema = TenantProfileFieldsSchema.extend({
   id: z.string().uuid(),
   version: z.string().regex(/^[1-9][0-9]*$/u),
@@ -81,6 +91,7 @@ export const TenantProfileListResponseSchema = z
 
 export type CreateTenantProfile = z.infer<typeof CreateTenantProfileSchema>;
 export type UpdateTenantProfile = z.infer<typeof UpdateTenantProfileSchema>;
+export type ConfirmTenantProfileDeletion = z.infer<typeof ConfirmTenantProfileDeletionSchema>;
 export type TenantProfileContract = z.infer<typeof TenantProfileSchema>;
 export type TenantProfileResponse = z.infer<typeof TenantProfileResponseSchema>;
 export type TenantProfileListQuery = z.infer<typeof TenantProfileListQuerySchema>;

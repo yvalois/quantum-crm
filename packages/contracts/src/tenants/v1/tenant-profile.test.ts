@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ConfirmTenantProfileDeletionSchema,
   CreateTenantProfileSchema,
   TenantProfileListQuerySchema,
   UpdateTenantProfileSchema,
@@ -39,5 +40,17 @@ describe("tenant profile HTTP contracts", () => {
     expect(UpdateTenantProfileSchema.safeParse({ serverId: null }).success).toBe(false);
     expect(UpdateTenantProfileSchema.safeParse({ releaseId: null }).success).toBe(false);
     expect(UpdateTenantProfileSchema.safeParse({ status: "ACTIVE" }).success).toBe(false);
+  });
+
+  it("requires an exact normalized slug to acknowledge deletion", () => {
+    expect(
+      ConfirmTenantProfileDeletionSchema.parse({ confirmationSlug: " Acme-Colombia " }),
+    ).toEqual({
+      confirmationSlug: "acme-colombia",
+    });
+    expect(
+      ConfirmTenantProfileDeletionSchema.safeParse({ confirmationSlug: "acme", extra: true })
+        .success,
+    ).toBe(false);
   });
 });

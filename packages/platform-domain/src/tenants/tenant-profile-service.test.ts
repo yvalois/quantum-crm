@@ -31,6 +31,7 @@ function repository(current: TenantProfile | null = profile()): TenantProfileRep
     update: vi.fn(async (_id, version, draft) =>
       version === 1n ? profile({ ...draft, version: 2n }) : null,
     ),
+    removePending: vi.fn(async (_id, version) => version === 1n),
   };
 }
 
@@ -80,5 +81,15 @@ describe("TenantProfileService", () => {
         name: "Late",
       }),
     ).rejects.toBeInstanceOf(TenantProfileVersionConflictError);
+  });
+
+  it("removes only a confirmed pending draft", async () => {
+    const adapter = repository();
+    await new TenantProfileService(adapter).removePending(
+      "01995f7e-7b52-7000-8000-000000000201",
+      1n,
+      "acme",
+    );
+    expect(adapter.removePending).toHaveBeenCalledWith("01995f7e-7b52-7000-8000-000000000201", 1n);
   });
 });
