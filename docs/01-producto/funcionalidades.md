@@ -29,6 +29,7 @@ Gestionar múltiples perfiles de clientes, sus configuraciones, versiones y oper
 - [ ] **ADM-02** — Crear y administrar perfiles de clientes o tenants.
 - [ ] **ADM-03** — Gestionar el ciclo de vida de cada perfil.
 - [ ] **ADM-04** — Desplegar un perfil nuevo desde el administrador.
+  - [ ] Asignar automáticamente la versión compatible, el servidor disponible y la capacidad base; el operador no configura CPU, memoria o disco durante el alta normal.
 - [ ] **ADM-05** — Registrar los VPS y la ubicación de cada perfil.
 - [ ] **ADM-06** — Consultar la versión instalada y el estado real del despliegue.
 - [ ] **ADM-07** — Habilitar módulos y funcionalidades por cliente.

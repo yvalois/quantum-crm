@@ -16,6 +16,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 > **ADM-04 (2026-10-06):** En curso la correccion del alta del administrador inicial: un perfil no puede quedar indefinidamente en `VERIFY`; el Admin debe entregar el enlace de activacion del usuario master durante el aprovisionamiento y completar la activacion al consumirlo.
 
+> **Evidencia VPS ADM-04 (2026-10-07):** El alta automatica selecciona en el servidor una release validada, un destino con capacidad disponible y la capacidad base; el operador no configura recursos. El candidato `c54ec35` aprobo 32 pruebas focalizadas (contratos, dominio y BFF), compilacion de `admin-api` y `admin-web`, y esta desplegado con ambos servicios `healthy`. La eliminacion real requiere un flujo durable de desprovisionamiento (recursos, identidad, archivos, rutas y capacidad) y no se expondra como un boton que borre solo el registro.
+
 > **ADM-01 (2026-10-06):** En curso una corrección acotada del acceso administrativo: el retorno OIDC fallido o vencido volverá a una pantalla de ingreso utilizable, y el inicio solicitará una autenticación interactiva con contraseña y TOTP. No se abre un registro público de operadores ni se modifica el alta de perfiles.
 
 > **Actualizacion ADM-04 (2026-10-06):** `feat/ADM-04-entrega-acceso-administrador` elimina la dependencia de terminal para recuperar el acceso del administrador inicial. Quantum Admin reemitirá una activación aun después de un consumo previo y mostrará empresa, CRM, usuario, vencimiento y enlace copiable solo en la sesión actual. Ficha [`ADM-04-m`](../02-plan/tareas/ADM-04-m-entrega-recuperacion-acceso.md).

@@ -19,6 +19,7 @@ import {
 } from "@nestjs/common";
 import {
   CancelTenantProvisioningSchema,
+  RequestAutomaticTenantProvisioningSchema,
   CreateTenantProfileSchema,
   ProvisioningCancellationResponseSchema,
   ProvisioningOperationResponseSchema,
@@ -300,6 +301,44 @@ export class TenantProfilesController {
         serverId: parsed.data.serverId,
         releaseId: parsed.data.releaseId,
         requestedCapacity: parsed.data.requestedCapacity,
+        requestedByOperatorId: auth.principal.id,
+        idempotencyKey: idempotencyKey(rawIdempotencyKey),
+        correlationId: auth.correlationId,
+        expectedTenantVersion: expectedVersion(ifMatch),
+      });
+      response.setHeader(
+        "Location",
+        `/api/v1/tenant-profiles/${id}/provisioning-operations/${result.operation.id}`,
+      );
+      response.setHeader("X-Tenant-Profile-ETag", etag(result.tenantVersion));
+      return ProvisioningOperationResponseSchema.parse({
+        schemaVersion: "tenant-provisioning-operation/v1",
+        data: provisioningOperationContract(result.operation),
+        meta: { idempotentReplay: result.idempotentReplay },
+      });
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Post(":id/provisioning-operations/automatic")
+  @HttpCode(202)
+  @RequirePlatformPermission("deployments:execute")
+  public async requestAutomaticProvisioning(
+    @Req() request: Parameters<typeof platformAuthContext>[0],
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Headers("idempotency-key") rawIdempotencyKey: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HeaderResponse,
+  ) {
+    const auth = platformAuthContext(request);
+    if (!RequestAutomaticTenantProvisioningSchema.safeParse(body).success) {
+      throw new BadRequestException();
+    }
+    try {
+      const result = await this.provisioning.requestAutomatically({
+        tenantProfileId: id,
         requestedByOperatorId: auth.principal.id,
         idempotencyKey: idempotencyKey(rawIdempotencyKey),
         correlationId: auth.correlationId,

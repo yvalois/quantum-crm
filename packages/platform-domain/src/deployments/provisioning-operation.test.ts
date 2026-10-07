@@ -120,6 +120,64 @@ describe("tenant provisioning operation", () => {
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ status: "PENDING" }));
   });
 
+  it("selects validated release and available capacity on the server", async () => {
+    const request = vi.fn(async () => ({
+      operation: {} as never,
+      tenantVersion: 2n,
+      idempotentReplay: false,
+    }));
+    const repository = {
+      request,
+      cancel: vi.fn(),
+      claimNext: vi.fn(),
+      renewLease: vi.fn(),
+      completeValidation: vi.fn(),
+      completeDatabase: vi.fn(),
+      completeSecrets: vi.fn(),
+      completeMigration: vi.fn(),
+      completeStorage: vi.fn(),
+      completeConfiguration: vi.fn(),
+      completeContainers: vi.fn(),
+      completeHttps: vi.fn(),
+      resolveHttpsContext: vi.fn(),
+      resolveIdentityContext: vi.fn(),
+      resolveInitialAdministratorContext: vi.fn(),
+      completeInitialAdministrator: vi.fn(),
+      completeVerification: vi.fn(),
+      completeActivation: vi.fn(),
+    } satisfies ProvisioningOperationRepository & ProvisioningOperationCancellationRepository;
+    const service = new TenantProvisioningService(repository, {
+      releases: {
+        list: vi.fn(async () => [{ id: command.releaseId }]),
+      } as never,
+      infrastructureServers: {
+        list: vi.fn(async () => [
+          {
+            id: command.serverId,
+            availableCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
+          },
+        ]),
+      } as never,
+    });
+
+    await expect(
+      service.requestAutomatically({
+        tenantProfileId: command.tenantProfileId,
+        requestedByOperatorId: command.requestedByOperatorId,
+        idempotencyKey: command.idempotencyKey,
+        correlationId: command.correlationId,
+        expectedTenantVersion: command.expectedTenantVersion,
+      }),
+    ).resolves.toMatchObject({ tenantVersion: 2n });
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serverId: command.serverId,
+        releaseId: command.releaseId,
+        requestedCapacity: { cpuMillicores: 500, memoryMiB: 1024, storageMiB: 10240 },
+      }),
+    );
+  });
+
   it("sanitizes cancellation input before delegating and preserves expected version", async () => {
     const cancel = vi.fn(async () => ({
       operation: {} as never,

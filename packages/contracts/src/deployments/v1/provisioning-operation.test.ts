@@ -4,6 +4,7 @@ import {
   CancelTenantProvisioningSchema,
   ProvisioningCancellationResponseSchema,
   ProvisioningOperationSchema,
+  RequestAutomaticTenantProvisioningSchema,
   RequestTenantProvisioningSchema,
 } from "./provisioning-operation.js";
 
@@ -24,6 +25,13 @@ describe("tenant provisioning operation HTTP contract", () => {
         shell: "docker compose up",
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts only an empty automatic provisioning request", () => {
+    expect(RequestAutomaticTenantProvisioningSchema.parse({})).toEqual({});
+    expect(RequestAutomaticTenantProvisioningSchema.safeParse({ serverId: "forged" }).success).toBe(
+      false,
+    );
   });
 
   it("represents observed operation progress without exposing its lease", () => {
