@@ -18,6 +18,36 @@
   color: var(--ink);
 }
 
+.operator-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.operator-card,
+.operator-access {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid var(--line, #243044);
+  padding: 0.9rem;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.operator-card span,
+.operator-card small,
+.operator-access small {
+  color: var(--muted, #94a3b8);
+}
+
+.operator-access {
+  margin: 1rem 0;
+  border-color: var(--accent, #25d9d0);
+}
+
+.operator-access .primary-action {
+  justify-self: start;
+}
+
 * {
   box-sizing: border-box;
 }

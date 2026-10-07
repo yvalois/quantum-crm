@@ -15,6 +15,9 @@ import {
   RequestAutomaticTenantProvisioningSchema,
   RequestTenantReleasePromotionSchema,
   TenantReleasePromotionResponseSchema,
+  CreateProfileOperatorSchema,
+  ProfileOperatorAccessResponseSchema,
+  ProfileOperatorListResponseSchema,
 } from "@quantum-crm/contracts";
 
 import {
@@ -496,6 +499,89 @@ export async function handleActivationDelivery(
     const headers = platformNoStoreHeaders();
     headers.set("referrer-policy", "no-referrer");
     return Response.json(response, { headers });
+  } catch {
+    return platformProblem(503, "Platform unavailable");
+  }
+}
+
+export async function handleProfileOperatorList(
+  request: Request,
+  runtime: PlatformAuthRuntime,
+  id: string,
+): Promise<Response> {
+  if (!profileIdPattern.test(id)) return platformProblem(400, "Invalid request");
+  const authorization = await authorize(request, runtime, false);
+  if (isResponse(authorization)) return authorization;
+  try {
+    const upstream = await runtime.platformApiFetch(
+      new URL(`/api/v1/tenant-profiles/${id}/platform-operators`, runtime.config.adminApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorization.accessToken.expose()}`,
+          "x-correlation-id": authorization.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!upstream.ok) return upstreamProblem(upstream.status);
+    const body = ProfileOperatorListResponseSchema.parse(await readUpstream(upstream));
+    return Response.json(body, { headers: platformNoStoreHeaders() });
+  } catch {
+    return platformProblem(503, "Platform unavailable");
+  }
+}
+
+export async function handleProfileOperatorCreation(
+  request: Request,
+  runtime: PlatformAuthRuntime,
+  id: string,
+): Promise<Response> {
+  if (!profileIdPattern.test(id)) return platformProblem(400, "Invalid request");
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !/^[A-Za-z0-9._:-]{8,128}$/u.test(idempotencyKey)) {
+    return platformProblem(400, "Invalid request");
+  }
+  const authorization = await authorize(request, runtime, true);
+  if (isResponse(authorization)) return authorization;
+  let candidate: unknown;
+  try {
+    candidate = await boundedBody(request);
+  } catch {
+    return platformProblem(400, "Invalid request");
+  }
+  const parsed = CreateProfileOperatorSchema.safeParse(candidate);
+  if (!parsed.success) return platformProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.platformApiFetch(
+      new URL(`/api/v1/tenant-profiles/${id}/platform-operators`, runtime.config.adminApiOrigin),
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorization.accessToken.expose()}`,
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey,
+          "x-correlation-id": authorization.correlationId,
+        },
+        body: JSON.stringify(parsed.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(40_000),
+      },
+    );
+    if (!upstream.ok) {
+      return upstreamProblem(
+        upstream.status,
+        "Este perfil ya tiene dos administradores Quantum o el correo ya está asignado.",
+      );
+    }
+    const body = ProfileOperatorAccessResponseSchema.parse(await readUpstream(upstream));
+    const headers = platformNoStoreHeaders();
+    headers.set("referrer-policy", "no-referrer");
+    return Response.json(body, { headers });
   } catch {
     return platformProblem(503, "Platform unavailable");
   }

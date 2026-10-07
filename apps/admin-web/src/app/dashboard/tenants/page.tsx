@@ -4,6 +4,9 @@ import type {
   ActivationDeliveryResponse,
   DecommissioningOperationResponse,
   PlatformOperatorSelf,
+  ProfileOperatorAccessResponse,
+  ProfileOperatorContract,
+  ProfileOperatorListResponse,
   TenantProfileContract,
   TenantProfileListResponse,
   TenantProfileResponse,
@@ -72,6 +75,7 @@ export default function TenantProfilesPage() {
   const [canManage, setCanManage] = useState(false);
   const [canActivate, setCanActivate] = useState(false);
   const [canDeploy, setCanDeploy] = useState(false);
+  const [canManageOperators, setCanManageOperators] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogMode>(null);
@@ -94,6 +98,13 @@ export default function TenantProfilesPage() {
   );
   const [decommissioningProfile, setDecommissioningProfile] =
     useState<TenantProfileContract | null>(null);
+  const [operatorProfile, setOperatorProfile] = useState<TenantProfileContract | null>(null);
+  const [profileOperators, setProfileOperators] = useState<readonly ProfileOperatorContract[]>([]);
+  const [operatorAccess, setOperatorAccess] = useState<
+    ProfileOperatorAccessResponse["data"] | null
+  >(null);
+  const [operatorPending, setOperatorPending] = useState(false);
+  const [operatorError, setOperatorError] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ pageSize: "25" });
@@ -178,6 +189,7 @@ export default function TenantProfilesPage() {
           setCanManage(operator.data.permissions.includes("tenants:manage"));
           setCanActivate(operator.data.permissions.includes("deployments:activate"));
           setCanDeploy(operator.data.permissions.includes("deployments:execute"));
+          setCanManageOperators(operator.data.permissions.includes("operators:manage"));
         })
         .catch(() => undefined),
     ]);
@@ -212,6 +224,70 @@ export default function TenantProfilesPage() {
     const body = (await response.json()) as { readonly csrfToken?: string };
     if (!body.csrfToken) throw new Error("La sesión no puede autorizar cambios.");
     return body.csrfToken;
+  }
+
+  async function openProfileOperators(profile: TenantProfileContract): Promise<void> {
+    setOperatorProfile(profile);
+    setOperatorAccess(null);
+    setOperatorError(null);
+    try {
+      const response = await fetch(
+        `/api/platform/tenant-profiles/${profile.id}/platform-operators`,
+        {
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) throw new Error(await errorTitle(response));
+      const body = (await response.json()) as ProfileOperatorListResponse;
+      setProfileOperators(body.data);
+    } catch (cause) {
+      setProfileOperators([]);
+      setOperatorError(
+        cause instanceof Error ? cause.message : "No fue posible consultar los administradores",
+      );
+    }
+  }
+
+  async function createProfileOperator(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!operatorProfile) return;
+    const form = event.currentTarget;
+    setOperatorPending(true);
+    setOperatorError(null);
+    setOperatorAccess(null);
+    const data = new FormData(form);
+    try {
+      const csrf = await csrfToken();
+      const response = await fetch(
+        `/api/platform/tenant-profiles/${operatorProfile.id}/platform-operators`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrf,
+            "idempotency-key": `profile-operator:${crypto.randomUUID()}`,
+          },
+          body: JSON.stringify({
+            displayName: String(data.get("displayName") ?? ""),
+            email: String(data.get("email") ?? ""),
+          }),
+        },
+      );
+      if (!response.ok) throw new Error(await errorTitle(response));
+      const body = (await response.json()) as ProfileOperatorAccessResponse;
+      setOperatorAccess(body.data);
+      setProfileOperators((current) => [
+        ...current.filter((operator) => operator.id !== body.data.operator.id),
+        body.data.operator,
+      ]);
+      form.reset();
+    } catch (cause) {
+      setOperatorError(
+        cause instanceof Error ? cause.message : "No fue posible crear el administrador Quantum",
+      );
+    } finally {
+      setOperatorPending(false);
+    }
   }
 
   function openCreate(): void {
@@ -738,6 +814,15 @@ export default function TenantProfilesPage() {
                               Editar
                             </button>
                           ) : null}
+                          {canManageOperators && profile.status !== "DELETED" ? (
+                            <button
+                              className="row-action"
+                              type="button"
+                              onClick={() => void openProfileOperators(profile)}
+                            >
+                              Administradores Quantum
+                            </button>
+                          ) : null}
                           {canManage && !["DECOMMISSIONING", "DELETED"].includes(profile.status) ? (
                             <button
                               className="row-action row-action-danger"
@@ -1015,6 +1100,93 @@ export default function TenantProfilesPage() {
               </button>
             </div>
           </form>
+        </dialog>
+      ) : null}
+
+      {operatorProfile ? (
+        <dialog className="profile-dialog" open aria-labelledby="profile-operators-title">
+          <form method="dialog" className="dialog-dismiss">
+            <button
+              type="submit"
+              onClick={() => {
+                setOperatorProfile(null);
+                setOperatorAccess(null);
+              }}
+              aria-label="Cerrar administradores Quantum"
+            >
+              ×
+            </button>
+          </form>
+          <div className="dialog-kicker">OPERADORES DE QUANTUM</div>
+          <h2 id="profile-operators-title">Responsables de {operatorProfile.name}</h2>
+          <p>
+            Estas cuentas ingresan a Quantum Admin y pueden crear y administrar perfiles CRM. No son
+            usuarios internos del equipo de esta empresa.
+          </p>
+          <div className="operator-list">
+            {profileOperators.length === 0 ? (
+              <p className="read-only">Todavía no hay responsables adicionales.</p>
+            ) : (
+              profileOperators.map((operator) => (
+                <div className="operator-card" key={operator.id}>
+                  <strong>{operator.displayName}</strong>
+                  <span>{operator.email}</span>
+                  <small>{operator.status === "ACTIVE" ? "Activo" : "Creando acceso"}</small>
+                </div>
+              ))
+            )}
+          </div>
+          {operatorAccess ? (
+            <section className="operator-access" aria-live="assertive">
+              <strong>Acceso creado — guarda estos datos ahora</strong>
+              <span>Usuario: {operatorAccess.username}</span>
+              <span>
+                Contraseña temporal: <code>{operatorAccess.temporaryPassword}</code>
+              </span>
+              <a
+                className="primary-action"
+                href={`${operatorAccess.loginPath}?returnTo=${encodeURIComponent("/dashboard/tenants")}`}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Abrir Quantum Admin
+              </a>
+              <small>En el primer ingreso se cambia la contraseña y se configura el TOTP.</small>
+            </section>
+          ) : null}
+          {profileOperators.length < 2 ? (
+            <form className="profile-form" onSubmit={(event) => void createProfileOperator(event)}>
+              <label>
+                <span>Nombre del administrador Quantum</span>
+                <input name="displayName" required maxLength={160} autoComplete="name" />
+              </label>
+              <label>
+                <span>Correo de acceso</span>
+                <input name="email" type="email" required maxLength={320} autoComplete="email" />
+              </label>
+              {operatorError ? (
+                <p className="form-error" role="alert">
+                  {operatorError}
+                </p>
+              ) : null}
+              <div className="dialog-actions">
+                <button
+                  type="button"
+                  className="quiet-button"
+                  onClick={() => setOperatorProfile(null)}
+                >
+                  Cerrar
+                </button>
+                <button type="submit" className="primary-action" disabled={operatorPending}>
+                  {operatorPending ? "Creando acceso…" : "Crear administrador Quantum"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <p className="activation-note">
+              Este perfil ya tiene los dos responsables adicionales.
+            </p>
+          )}
         </dialog>
       ) : null}
 

@@ -101,6 +101,7 @@ import { createActivationDeliveryRepository } from "./activation-delivery-reposi
 import { createPlatformFoundationPromotionRepository } from "./platform-foundation-promotion-repository.js";
 import { createTenantReleasePromotionRepository } from "./tenant-release-promotion-repository.js";
 import { createTenantDecommissioningRepository } from "./tenant-decommissioning-repository.js";
+import { createProfileOperatorRepository } from "./profile-operator-repository.js";
 
 export interface PostgresPool {
   readonly connect: () => Promise<PoolClient>;
@@ -129,6 +130,7 @@ export interface PlatformPostgresDatabase extends PostgresDatabase {
   readonly platformFoundationPromotions: PlatformFoundationPromotionRepository;
   readonly tenantReleasePromotions: TenantReleasePromotionRepository;
   readonly tenantDecommissioningOperations: TenantDecommissioningRepository;
+  readonly profileOperators: ReturnType<typeof createProfileOperatorRepository>;
 }
 
 export interface PlatformMembershipRepository {
@@ -3605,6 +3607,7 @@ export function createPlatformPostgresDatabase(
     platformFoundationPromotions: createPlatformFoundationPromotionRepository(pool),
     tenantReleasePromotions: createTenantReleasePromotionRepository(pool),
     tenantDecommissioningOperations: createTenantDecommissioningRepository(pool),
+    profileOperators: createProfileOperatorRepository(pool),
     tenantProfiles,
     provisioningOperations: Object.freeze({
       ...provisioningOperations,

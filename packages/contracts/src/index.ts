@@ -353,6 +353,18 @@ export {
   type PlatformOperatorSelf,
 } from "./platform-iam/v1/operator-self.js";
 export {
+  CreateProfileOperatorSchema,
+  ProfileOperatorAccessResponseSchema,
+  ProfileOperatorCallbackSchema,
+  ProfileOperatorListResponseSchema,
+  ProfileOperatorSchema,
+  ProfileOperatorStatusSchema,
+  type CreateProfileOperator,
+  type ProfileOperatorAccessResponse,
+  type ProfileOperatorContract,
+  type ProfileOperatorListResponse,
+} from "./platform-iam/v1/profile-operator.js";
+export {
   CreateTenantProfileSchema,
   ConfirmTenantProfileDeletionSchema,
   RequestTenantDecommissioningSchema,
