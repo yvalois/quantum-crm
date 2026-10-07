@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PlatformAuthRuntime } from "./platform-auth-http.js";
 import {
   handleTenantProfileCreate,
+  handlePendingTenantProfileDeletion,
   handleAutomaticTenantProvisioningRequest,
   handleTenantProfileList,
   handleTenantProvisioningRequest,
@@ -193,6 +194,32 @@ describe("tenant profile BFF boundary", () => {
     expect(response.status).toBe(412);
     expect(conflict.mock.calls[0]?.[1]?.headers).toMatchObject({ "if-match": '"1"' });
     expect(await response.text()).not.toContain("server-only-access-token");
+  });
+
+  it("requires CSRF, a current ETag and an exact confirmation before deleting a draft", async () => {
+    const upstream = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 204 }),
+    );
+    const request = new Request(
+      `https://admin.example.test/api/platform/tenant-profiles/${profileId}`,
+      {
+        method: "DELETE",
+        headers: sessionHeaders({
+          "content-type": "application/json",
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "if-match": '"1"',
+        }),
+        body: JSON.stringify({ confirmationSlug: "acme-colombia" }),
+      },
+    );
+    const response = await handlePendingTenantProfileDeletion(
+      request,
+      runtime(upstream as typeof fetch),
+      profileId,
+    );
+    expect(response.status).toBe(204);
+    expect(upstream.mock.calls[0]?.[1]).toMatchObject({ method: "DELETE" });
   });
 
   it("fails closed on malformed successful responses", async () => {

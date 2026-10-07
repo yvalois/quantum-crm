@@ -150,6 +150,7 @@ beforeAll(async () => {
           ? hydrateTenantProfile({ ...tenantProfile, name: "Acme Updated", version: 2n })
           : null,
       ),
+      removePending: vi.fn(async (_id, expectedVersion) => expectedVersion === 1n),
     },
     provisioningOperations: {
       request: vi.fn(async () => ({

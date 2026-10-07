@@ -2636,6 +2636,25 @@ export function createPlatformPostgresDatabase(
         throw new DatabaseUnavailableError();
       }
     },
+    removePending: async (id: string, expectedVersion: bigint): Promise<boolean> => {
+      try {
+        const result = (await pool.query(
+          `
+            DELETE FROM tenants.tenant_profiles
+            WHERE id = $1::uuid
+              AND version = $2::bigint
+              AND status = 'pending'::tenants.tenant_status
+              AND server_id IS NULL
+              AND release_id IS NULL
+            RETURNING id
+          `,
+          [id, expectedVersion.toString()],
+        )) as { readonly rowCount: number | null };
+        return result.rowCount === 1;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
   });
 
   const provisioningOperations = Object.freeze({

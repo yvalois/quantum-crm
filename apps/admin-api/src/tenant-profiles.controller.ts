@@ -13,6 +13,7 @@ import {
   Post,
   Query,
   Body,
+  Delete,
   Req,
   Res,
   ServiceUnavailableException,
@@ -21,6 +22,7 @@ import {
   CancelTenantProvisioningSchema,
   RequestAutomaticTenantProvisioningSchema,
   CreateTenantProfileSchema,
+  ConfirmTenantProfileDeletionSchema,
   ProvisioningCancellationResponseSchema,
   ProvisioningOperationResponseSchema,
   RequestTenantProvisioningSchema,
@@ -276,6 +278,25 @@ export class TenantProfilesController {
       const profile = await this.profiles.update(id, expectedVersion(ifMatch), changes);
       response.setHeader("ETag", etag(profile.version));
       return tenantProfileResponse(toContract(profile));
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePlatformPermission("tenants:manage")
+  public async removePending(
+    @Req() request: Parameters<typeof platformAuthContext>[0],
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Body() body: unknown,
+  ): Promise<void> {
+    platformAuthContext(request);
+    const parsed = ConfirmTenantProfileDeletionSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException();
+    try {
+      await this.profiles.removePending(id, expectedVersion(ifMatch), parsed.data.confirmationSlug);
     } catch (error) {
       translate(error);
     }
