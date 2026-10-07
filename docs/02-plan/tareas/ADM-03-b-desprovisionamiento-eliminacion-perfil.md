@@ -56,8 +56,8 @@ Un operador autorizado puede solicitar desde Quantum Admin la eliminacion confir
 - La solicitud permite eliminar un perfil en `PROVISIONING`: cancela primero la operacion de alta y crea una operacion durable de baja. El conflicto ya no se presenta incorrectamente como `Tenant profile already exists`.
 - Las operaciones de `quantum-piloto`, `quantum-demo`, `quantum-showcase`, `quantum-demo-jueves` e `interamerican` terminaron en `SUCCEEDED/TOMBSTONE`; los cinco perfiles quedaron `DELETED` y desaparecen del listado operativo normal.
 - La creacion de perfiles conserva evidencia funcional: `interamerican` alcanzo `VERIFY` con servidor, release y configuracion antes de que se solicitara su eliminacion.
+- La ruta HTTPS operativa se elimina de `tenant_https_routes` antes de convertir el perfil en tombstone, de modo que un perfil nuevo con el mismo slug pueda registrar su hostname sin colisionar con el perfil `DELETED`; la operacion y sus resultados conservan la evidencia historica. El candidato `57c7aa7` fue validado y desplegado en el VPS, y la operacion afectada avanzo de `CONFIGURE_HTTPS` a `VERIFY` sin recrear el perfil.
 
 ## Pendientes de estabilizacion posterior
 
 - Completar el retiro fisico de identidad, configuracion, objetos y base de datos por adaptadores propietarios. El flujo actual retira el runtime, la ruta y la red, libera capacidad y conserva los registros tecnicos; por esta diferencia respecto del alcance total, la ficha permanece abierta.
-- La ruta HTTPS operativa se elimina de `tenant_https_routes` antes de convertir el perfil en tombstone, de modo que un perfil nuevo con el mismo slug pueda registrar su hostname sin colisionar con el perfil `DELETED`; la operacion y sus resultados conservan la evidencia historica.
