@@ -14,7 +14,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
-> **Correccion ADM-04/USR-01 (2026-10-07):** EN_CURSO la localizacion al espanol de la identidad por perfil. El realm de InterAmerican ya tiene internacionalizacion habilitada, `es` como locale soportado y predeterminado; se incorpora la misma invariante al aprovisionador para perfiles nuevos y reconciliados.
+> **Correccion ADM-04/USR-01 (2026-10-07):** Las pantallas de identidad de plataforma y perfiles usan espanol como unico locale soportado y predeterminado. InterAmerican y `quantum-platform` quedaron reconciliados en vivo; el candidato `912ff08` aprobo lint, typecheck de `deploy-executor`, importacion y validacion administrativa con Keycloak 26.7.4, build y despliegue de `quantum-deploy-executor:912ff08`, que esta saludable. Los perfiles nuevos y existentes convergen a la misma configuracion durante la reconciliacion de identidad.
 
 > **Correccion ADM-03 (2026-10-07):** La eliminacion libera de forma durable el hostname HTTPS antes de convertir el perfil en tombstone. La recreacion de `interamerican` evidencio que la ruta operativa anterior seguia reservando el hostname y dejo el nuevo aprovisionamiento reintentando `CONFIGURE_HTTPS`; se retiro solo el registro tecnico del perfil `DELETED`, la misma operacion avanzo hasta `VERIFY` y su URL responde por HTTPS. El candidato `57c7aa7` aprobo lint, prueba focalizada y typecheck de `database` y `deploy-executor` en el VPS; la imagen `quantum-deploy-executor:57c7aa7` esta desplegada y saludable.
 
