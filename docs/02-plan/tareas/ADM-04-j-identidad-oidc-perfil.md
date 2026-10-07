@@ -38,6 +38,7 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 
 - Puerto tipado de identidad por perfil y adaptador Keycloak exclusivo de `deploy-executor`.
 - Identidad determinista del realm, cliente, audiencia, mappers, PKCE, TOTP y sesiones.
+- Internacionalizacion habilitada con espanol como unico idioma soportado y predeterminado en las pantallas de identidad del perfil.
 - Referencias privadas para secreto OIDC y Redis ACL del perfil; configuración exacta para `crm-web` y configuración pública para API.
 - Reconciliación, conflictos de identidad, timeout, resultados saneados y pruebas de dos perfiles.
 
@@ -85,6 +86,7 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 
 ## Evidencia de cierre
 
+- Localizacion: el candidato `912ff08` habilita internacionalizacion con `es` como unico idioma soportado y predeterminado, reconcilia realms existentes y versiona la misma politica para el realm de plataforma. En el VPS aprobo lint, typecheck de `deploy-executor`, importacion y Admin API de Keycloak 26.7.4, build y despliegue; InterAmerican y `quantum-platform` muestran la configuracion `es` vigente.
 - Archivos y commit: `137dd1c` incorpora el puerto, el adaptador, la configuración y el wiring durable; `2c7b32c` registra la prueba de integración y su evidencia en `tests/integration/tenant-identity-provisioner.test.ts`.
 - Comandos y resultados: en el VPS autorizado, un Keycloak y Redis desechables validaron los tres escenarios de la prueba (aislamiento A/B y reintento, conflicto tipado por divergencia y concurrencia reanudable): **3/3 aprobados**. El principal `quantum-provisioner` se obtuvo mediante bootstrap de servicio y su secreto solo se montó desde un archivo temporal con modo `0600`; la prueba no lo devuelve ni lo persiste. No se ejecutó comprobación técnica local.
 - Documentación actualizada: ADR-0021, índice ADR, esta ficha, estado, plantilla Compose y reglas operativas de infraestructura.

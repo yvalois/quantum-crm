@@ -20,6 +20,9 @@ type ProvisioningFailureReason =
 interface KeycloakRealm {
   readonly realm?: unknown;
   readonly enabled?: unknown;
+  readonly internationalizationEnabled?: unknown;
+  readonly supportedLocales?: unknown;
+  readonly defaultLocale?: unknown;
   readonly registrationAllowed?: unknown;
   readonly bruteForceProtected?: unknown;
   readonly otpPolicyType?: unknown;
@@ -208,11 +211,22 @@ function realmOtpMatches(realm: KeycloakRealm): boolean {
   );
 }
 
+function realmLocaleMatches(realm: KeycloakRealm): boolean {
+  return (
+    realm.internationalizationEnabled === true &&
+    Array.isArray(realm.supportedLocales) &&
+    realm.supportedLocales.length === 1 &&
+    realm.supportedLocales[0] === "es" &&
+    realm.defaultLocale === "es"
+  );
+}
+
 function assertRealm(realm: KeycloakRealm, realmName: string): void {
   const attributes = realm.attributes;
   if (
     !realmCoreMatches(realm, realmName) ||
     !realmOtpMatches(realm) ||
+    !realmLocaleMatches(realm) ||
     realm.browserFlow !== "quantum-crm-browser" ||
     typeof attributes !== "object" ||
     attributes === null ||
@@ -393,6 +407,9 @@ function realmRepresentation(realmName: string): Record<string, unknown> {
   return {
     realm: realmName,
     enabled: true,
+    internationalizationEnabled: true,
+    supportedLocales: ["es"],
+    defaultLocale: "es",
     registrationAllowed: false,
     bruteForceProtected: true,
     otpPolicyType: "totp",
@@ -775,13 +792,19 @@ async function provisionKeycloak(
   if (!realmCoreMatches(realm.body as KeycloakRealm, realmName)) {
     throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
   }
-  if (!realmOtpMatches(realm.body as KeycloakRealm)) {
+  if (
+    !realmOtpMatches(realm.body as KeycloakRealm) ||
+    !realmLocaleMatches(realm.body as KeycloakRealm)
+  ) {
     await request(
       realmUrl,
       {
         method: "PUT",
         headers,
         body: JSON.stringify({
+          internationalizationEnabled: true,
+          supportedLocales: ["es"],
+          defaultLocale: "es",
           otpPolicyType: "totp",
           otpPolicyAlgorithm: "HmacSHA1",
           otpPolicyDigits: 6,

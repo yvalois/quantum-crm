@@ -87,6 +87,9 @@ assert any(key.get("kty") == "RSA" and key.get("use") == "sig" for key in jwks["
 realm = load("realm.json")
 assert realm["realm"] == "quantum-platform"
 assert realm["enabled"] is True
+assert realm["internationalizationEnabled"] is True
+assert realm["supportedLocales"] == ["es"]
+assert realm["defaultLocale"] == "es"
 assert realm["browserFlow"] == "quantum-platform-browser"
 assert realm["bruteForceProtected"] is True
 assert realm["otpPolicyType"] == "totp"
