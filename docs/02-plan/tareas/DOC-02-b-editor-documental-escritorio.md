@@ -86,6 +86,6 @@ Documentos usa toda el area disponible del CRM como una aplicacion de escritorio
 
 ## Evidencia de cierre
 
-- El candidato `0b85224` aprobo en el VPS Prettier, ESLint focalizado, typecheck y build de produccion de `crm-web` con sus dependencias.
-- La imagen `qcrm-candidate/crm-web:0b85224` esta desplegada y saludable en InterAmerican; `/documents` conserva redireccion protegida al login cuando no existe sesion.
+- El candidato `0c7d347` aprobo en el VPS Prettier, ESLint focalizado, typecheck, auditoria sin hallazgos altos y builds de produccion de `crm-web`, `admin-web` y `portal-web` con Next.js `16.3.8`.
+- La imagen `qcrm-candidate/crm-web:0c7d347` esta desplegada y saludable en InterAmerican; `/documents` conserva redireccion protegida al login cuando no existe sesion.
 - Pendiente: recorrido visual autenticado para editar, insertar, guardar, recargar y revisar los breakpoints antes del cierre.
