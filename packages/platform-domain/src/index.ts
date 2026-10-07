@@ -32,6 +32,14 @@ export {
   type PlatformOperatorStatus,
   type PlatformPermission,
 } from "./platform-iam/index.js";
+export {
+  ProfileOperatorConflictError,
+  ProfileOperatorValidationError,
+  profileOperatorStatuses,
+  type ProfileOperatorAssignment,
+  type ProfileOperatorRepository,
+  type ProfileOperatorStatus,
+} from "./platform-iam/index.js";
 
 export const packageIdentity = "@quantum-crm/platform-domain" as const;
 

@@ -14,6 +14,7 @@ import jakarta.ws.rs.ext.Provider;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.UserCredentialModel;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.services.managers.AppAuthManager;
 import org.keycloak.services.resource.RealmResourceProvider;
@@ -39,6 +41,9 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
   private static final int TTL_SECONDS = 30 * 60;
   private static final String PROVISIONER = "quantum-provisioner";
   private static final String BOOTSTRAP = "quantum-crm-bootstrap";
+  private static final SecureRandom RANDOM = new SecureRandom();
+  private static final char[] PASSWORD_ALPHABET =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789".toCharArray();
   private final KeycloakSession session;
 
   QuantumActivationResourceProvider(KeycloakSession session) { this.session = session; }
@@ -89,6 +94,8 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
     user.credentialManager().getStoredCredentialsByTypeStream(CredentialModel.OTP)
       .toList()
       .forEach(credential -> user.credentialManager().removeStoredCredentialById(credential.getId()));
+    String temporaryPassword = temporaryPassword();
+    user.credentialManager().updateCredential(UserCredentialModel.password(temporaryPassword, true));
     user.addRequiredAction(UserModel.RequiredAction.UPDATE_PASSWORD.name());
     user.addRequiredAction(UserModel.RequiredAction.CONFIGURE_TOTP.name());
     user.addRequiredAction(QuantumActivationCompletionRequiredAction.ID);
@@ -130,6 +137,7 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
     String link = uriInfo.getBaseUriBuilder().path("realms").path(realm.getName())
       .path("login-actions/action-token").queryParam("key", serialized).build().toString();
     return Response.ok(Map.of("url", link, "subject", user.getId(), "generation", request.generation,
+      "temporaryPassword", temporaryPassword,
       "expiresAt", Instant.now().plusSeconds(TTL_SECONDS).toString())).header("Cache-Control", "no-store").build();
   }
 
@@ -238,6 +246,14 @@ public final class QuantumActivationResourceProvider implements RealmResourcePro
   private static String sha256(String value) {
     try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
     catch (NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
+  }
+
+  private static String temporaryPassword() {
+    StringBuilder password = new StringBuilder("Qq7!");
+    for (int index = 0; index < 20; index += 1) {
+      password.append(PASSWORD_ALPHABET[RANDOM.nextInt(PASSWORD_ALPHABET.length)]);
+    }
+    return password.toString();
   }
 
   public static final class ActivationRequest {

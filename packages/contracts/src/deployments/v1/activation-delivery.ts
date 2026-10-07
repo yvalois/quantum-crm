@@ -10,6 +10,7 @@ export const ActivationDeliveryResponseSchema = z.object({
   schemaVersion: z.literal("activation-delivery/v1"),
   data: z.object({
     url: z.string().url().max(8_192),
+    temporaryPassword: z.string().min(14).max(128),
     expiresAt: IsoDateTimeSchema,
   }),
   meta: z.object({
@@ -28,6 +29,7 @@ export const ActivationDeliveryCallbackSchema = z.object({
   generation: z.number().int().positive(),
   correlationId: z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/u),
   url: z.string().url().max(8_192),
+  temporaryPassword: z.string().min(14).max(128),
 });
 
 export type ActivationDeliveryResponse = z.infer<typeof ActivationDeliveryResponseSchema>;

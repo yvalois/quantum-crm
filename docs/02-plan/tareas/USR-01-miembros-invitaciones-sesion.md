@@ -42,6 +42,8 @@ Cada perfil dispone de un realm OIDC separado y un administrador inicial. Un adm
 - Realm, cliente OIDC y administrador inicial creados de manera idempotente durante el alta del perfil.
 - BFF de `crm-web`, Authorization Code con PKCE, cookies host-only, CSRF y sesiones opacas separadas de la plataforma.
 - Interfaz real de administración de miembros y auditoría de los cambios sensibles.
+- Alta de administradores adicionales desde el CRM por el propietario del perfil, con contraseña temporal generada por identidad, visible una sola vez y nunca persistida por Quantum.
+- Primer acceso con la credencial temporal, cambio obligatorio de contraseña y configuración TOTP antes de activar la membresía.
 
 ### No incluido
 
@@ -134,3 +136,17 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 - Causa observada: el callback devolvia `400 Invalid authentication response` si el navegador regresaba de Keycloak sin la cookie opaca de transaccion, por ejemplo tras expirar, repetirse o perderse el intento de acceso.
 - Correccion candidata `15b9d57`: limpiar la cookie incompleta y reiniciar OIDC con retorno a `/inbox`, igualando la recuperacion ya existente en `admin-web` sin aceptar callbacks sin estado.
 - Evidencia VPS: Prettier afectado, typecheck de `crm-web` y `crm-auth-http.test.ts` con 13/13 casos aprobados; ninguna ejecucion tecnica local.
+
+### Acceso temporal y administradores adicionales — 2026-10-07
+
+- El candidato `1743a54` genera en Keycloak una contraseña temporal aleatoria que satisface la politica del realm, la marca para cambio obligatorio y conserva `CONFIGURE_TOTP` y la finalizacion Quantum como acciones requeridas.
+- La credencial se transporta solo en la respuesta efimera protegida con `Cache-Control: no-store`: no entra a PostgreSQL, Redis, operaciones durables ni logs. Quantum Admin la muestra una vez para el propietario inicial y el panel `/team` la muestra una vez para cada usuario creado.
+- El propietario puede crear los dos usuarios de seguimiento seleccionando el rol sistema `Administrador`; los roles supervisor, asesor o personalizados siguen creandose dentro del mismo perfil y la autorizacion permanece validada por el API.
+- VPS: Prettier afectado aprobado; typecheck de `contracts`, `admin-api`, `admin-web`, `api`, `crm-web` y `deploy-executor` aprobado; 15/15 pruebas focalizadas aprobadas; Maven y los seis builds de produccion afectados aprobaron.
+- Despliegue funcional: `admin-api`, `admin-web`, `deploy-executor`, Keycloak, API InterAmerican y CRM InterAmerican ejecutan las imagenes `1743a54` y quedaron saludables. Admin responde `200`, CRM redirige a OIDC con `307` y discovery del realm responde `200`.
+- Smoke de identidad: el proveedor emitio para una identidad sintetica una credencial temporal y un enlace del realm correcto; la identidad se elimino al terminar y no se imprimio ni persistio la contraseña.
+
+### Pendientes de estabilizacion posterior
+
+- Promover los artefactos por la cadena oficial despues de integrar el PR; el VPS ejecuta temporalmente las imagenes candidatas del commit validado.
+- Ampliar la automatizacion de navegador del cambio de contraseña y enrolamiento TOTP; no bloquea la ruta activa ya provista por las acciones nativas de Keycloak.

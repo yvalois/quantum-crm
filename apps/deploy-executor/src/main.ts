@@ -29,6 +29,9 @@ import { createTenantReleaseConfigurationProvisioner } from "./tenant-release-co
 import { TenantReleasePromotionExecutor } from "./tenant-release-promotion-executor.js";
 import { TenantDecommissioningExecutor } from "./tenant-decommissioning-executor.js";
 import { createTenantRuntimeDecommissioner } from "./tenant-runtime-decommissioner.js";
+import { createPlatformOperatorProvisioner } from "./platform-operator-provisioner.js";
+import { ProfileOperatorExecutor } from "./profile-operator-executor.js";
+import { createAdminApiProfileOperatorCallback } from "./admin-api-profile-operator-callback.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("deploy-executor");
@@ -108,6 +111,21 @@ async function bootstrap(): Promise<void> {
       token: config.activationDeliveryCallback.token.expose(),
     }),
     `deploy-executor:${hostname()}:activation`,
+  );
+  const profileOperatorExecutor = new ProfileOperatorExecutor(
+    database.profileOperators,
+    createPlatformOperatorProvisioner({
+      keycloakAdminOrigin: config.identityProvisioner.keycloakAdminOrigin,
+      clientId: "quantum-provisioner",
+      clientSecret: config.identityProvisioner.keycloakProvisionerClientSecret.expose(),
+    }),
+    createAdminApiProfileOperatorCallback({
+      origin: config.activationDeliveryCallback.origin,
+      principal: config.activationDeliveryCallback.principal,
+      audience: config.activationDeliveryCallback.audience,
+      token: config.activationDeliveryCallback.token.expose(),
+    }),
+    `deploy-executor:${hostname()}:profile-operator`,
   );
   const iamBootstrap = createTenantIamBootstrapClient({
     tenantSecretDirectory: config.tenantSecretDirectory,
@@ -202,6 +220,17 @@ async function bootstrap(): Promise<void> {
     };
     void activationLoop().catch(async () => {
       process.stderr.write("deploy-executor activation delivery loop failed\n");
+      process.exitCode = 1;
+      await close();
+    });
+    const profileOperatorLoop = async (): Promise<void> => {
+      while (!closing) {
+        const processed = await profileOperatorExecutor.runOnce();
+        if (!processed) await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    };
+    void profileOperatorLoop().catch(async () => {
+      process.stderr.write("deploy-executor profile operator loop failed\n");
       process.exitCode = 1;
       await close();
     });
