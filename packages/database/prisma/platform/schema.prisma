@@ -231,7 +231,7 @@ enum TenantStatus {
 model TenantProfile {
   id                String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
   name              String       @db.Text
-  slug              String       @unique(map: "tenant_profiles_slug_key") @db.Citext
+  slug              String       @db.Citext
   adminContactName  String       @map("admin_contact_name") @db.Text
   adminContactEmail String       @map("admin_contact_email") @db.Citext
   status            TenantStatus @default(PENDING)
@@ -256,6 +256,7 @@ model TenantProfile {
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
   @@index([serverId], map: "tenant_profiles_server_id_idx", where: raw("\"server_id\" IS NOT NULL"))
   @@index([releaseId], map: "tenant_profiles_release_id_idx", where: raw("\"release_id\" IS NOT NULL"))
+  @@unique([slug], map: "tenant_profiles_live_slug_uq", where: raw("\"status\" <> 'deleted'"))
   @@map("tenant_profiles")
   @@schema("tenants")
 }

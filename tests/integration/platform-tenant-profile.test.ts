@@ -220,7 +220,7 @@ describe("platform tenant profile migration", () => {
     expect(indexes.rows.map(({ indexname }) => indexname)).toEqual(
       expect.arrayContaining([
         "tenant_profiles_pkey",
-        "tenant_profiles_slug_key",
+        "tenant_profiles_live_slug_uq",
         "tenant_profiles_status_created_id_idx",
         "tenant_profiles_server_id_idx",
         "tenant_profiles_release_id_idx",
@@ -262,6 +262,45 @@ describe("platform tenant profile migration", () => {
           (' ', 'invalid-name', 'Ana', 'ana@example.test')
       `),
     ).rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("releases the slug only after deletion and preserves the tombstone", async () => {
+    const deleted = await pool.query<{ id: string }>(`
+      INSERT INTO tenants.tenant_profiles
+        (name, slug, admin_contact_name, admin_contact_email, status)
+      VALUES
+        ('Previous InterAmerican', 'interamerican-recreated', 'Gabriela', 'old@example.test', 'deleted')
+      RETURNING id::text
+    `);
+
+    const recreated = await pool.query<{ id: string; slug: string; status: string }>(`
+      INSERT INTO tenants.tenant_profiles
+        (name, slug, admin_contact_name, admin_contact_email)
+      VALUES
+        ('InterAmerican', 'interamerican-recreated', 'Gabriela', 'new@example.test')
+      RETURNING id::text, slug::text, status::text
+    `);
+
+    expect(recreated.rows[0]).toMatchObject({
+      slug: "interamerican-recreated",
+      status: "pending",
+    });
+    expect(recreated.rows[0]?.id).not.toBe(deleted.rows[0]?.id);
+    await expect(
+      pool.query(`
+        INSERT INTO tenants.tenant_profiles
+          (name, slug, admin_contact_name, admin_contact_email)
+        VALUES
+          ('Conflicting live profile', 'interamerican-recreated', 'Ada', 'ada@example.test')
+      `),
+    ).rejects.toMatchObject({ code: "23505" });
+
+    await expect(
+      pool.query(
+        `SELECT count(*)::int AS count FROM tenants.tenant_profiles WHERE slug = $1`,
+        ["interamerican-recreated"],
+      ),
+    ).resolves.toMatchObject({ rows: [{ count: 2 }] });
   });
 
   it("allows runtime DML but denies runtime DDL", async () => {

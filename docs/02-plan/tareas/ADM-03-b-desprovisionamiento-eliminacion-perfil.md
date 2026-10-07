@@ -27,7 +27,7 @@ Un operador autorizado puede solicitar desde Quantum Admin la eliminacion confir
 
 - Eliminar automaticamente perfiles existentes durante el despliegue.
 - Borrar respaldos, auditoria requerida o datos retenidos fuera del dominio de fallo.
-- Reutilizar el `tenant_id` o el slug eliminado.
+- Reutilizar el `tenant_id` eliminado o reactivar sus recursos. El slug puede asignarse a un perfil nuevo solo cuando el anterior ya esta `DELETED`; el nuevo perfil recibe otro UUID y recursos aislados.
 
 ## Riesgos y mitigaciones
 
