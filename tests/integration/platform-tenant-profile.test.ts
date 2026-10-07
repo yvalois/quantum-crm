@@ -296,10 +296,9 @@ describe("platform tenant profile migration", () => {
     ).rejects.toMatchObject({ code: "23505" });
 
     await expect(
-      pool.query(
-        `SELECT count(*)::int AS count FROM tenants.tenant_profiles WHERE slug = $1`,
-        ["interamerican-recreated"],
-      ),
+      pool.query(`SELECT count(*)::int AS count FROM tenants.tenant_profiles WHERE slug = $1`, [
+        "interamerican-recreated",
+      ]),
     ).resolves.toMatchObject({ rows: [{ count: 2 }] });
   });
 

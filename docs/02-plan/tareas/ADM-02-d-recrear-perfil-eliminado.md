@@ -62,10 +62,10 @@ Cuando el perfil anterior esta en `DELETED`, Quantum Admin permite crear otro pe
 
 ## Plan de implementacion
 
-- [ ] Crear migracion y alinear Prisma.
-- [ ] Agregar regresion de perfil eliminado recreable y duplicado operativo rechazado.
-- [ ] Desplegar la migracion y Admin en el VPS.
-- [ ] Comprobar el alta con el mismo slug sin crear el perfil definitivo del propietario.
+- [x] Crear migracion y alinear Prisma.
+- [x] Agregar regresion de perfil eliminado recreable y duplicado operativo rechazado.
+- [x] Desplegar la migracion y Admin en el VPS.
+- [x] Comprobar el alta con el mismo slug sin crear el perfil definitivo del propietario.
 
 ## Riesgos y mitigaciones
 
@@ -77,10 +77,10 @@ Cuando el perfil anterior esta en `DELETED`, Quantum Admin permite crear otro pe
 
 ## Criterios de aceptacion
 
-- [ ] Un slug de un perfil `DELETED` puede crear un perfil `PENDING` nuevo.
-- [ ] Un slug de cualquier perfil no eliminado sigue devolviendo conflicto.
-- [ ] El tombstone conserva su UUID e historial y el perfil nuevo usa otro UUID.
-- [ ] Quantum Admin muestra un error util solo para un conflicto operativo real.
+- [x] Un slug de un perfil `DELETED` puede crear un perfil `PENDING` nuevo.
+- [x] Un slug de cualquier perfil no eliminado sigue devolviendo conflicto.
+- [x] El tombstone conserva su UUID e historial y el perfil nuevo usa otro UUID.
+- [x] Quantum Admin muestra un error util solo para un conflicto operativo real.
 
 ## Plan de verificacion
 
@@ -100,8 +100,9 @@ Cuando el perfil anterior esta en `DELETED`, Quantum Admin permite crear otro pe
 
 ## Evidencia de cierre
 
-- Archivos, commits o PR: pendiente.
-- Comandos y resultados: pendiente.
-- Documentacion actualizada: esta ficha y estado oficial.
+- Archivos, commits o PR: candidato `7b05804` en `fix/ADM-02-recrear-perfil-eliminado`; migracion `20261007020000_adm_02_reuse_deleted_tenant_slug` y BFF administrativo afectados.
+- Comandos y resultados: en el VPS aprobaron schema Prisma, generacion del cliente, 10 pruebas del BFF, typecheck y build de `admin-web`. La migracion se aplico una vez sobre `qcrm_platform`. Una transaccion real inserto un nuevo `PENDING` con slug `interamerican` junto al tombstone `DELETED`, comprobo dos UUID distintos y verifico que un segundo registro vivo sigue produciendo `unique_violation`; la transaccion se revirtio y no creo el perfil definitivo.
+- Despliegue: `admin-web` ejecuta `quantum-admin-web:7b05804`, readiness publico responde `ok` y la base conserva el indice parcial `tenant_profiles_live_slug_uq`.
+- Documentacion actualizada: esta ficha, `ADM-03-b` y estado oficial.
 - Desviaciones del plan: ninguna.
-- Pendientes o decisiones nuevas: retiro fisico completo de recursos historicos permanece en `ADM-03-b`.
+- Pendientes o decisiones nuevas: retiro fisico completo de recursos historicos permanece en `ADM-03-b`; el propietario conserva la creacion definitiva de InterAmerican desde la interfaz.
