@@ -141,6 +141,7 @@ beforeAll(async () => {
       claimNext: vi.fn(),
       complete: vi.fn(),
     },
+    tenantReleasePromotions: {} as never,
     tenantProfiles: {
       create: vi.fn(async () => tenantProfile),
       findById: vi.fn(async () => tenantProfile),
@@ -158,6 +159,7 @@ beforeAll(async () => {
         tenantVersion: 2n,
         idempotentReplay: false,
       })),
+      findLatestByTenantProfileId: vi.fn(async () => provisioningOperation),
       cancel: vi.fn(async (command) => ({
         operation: hydrateProvisioningOperation({
           ...provisioningOperation,
@@ -195,6 +197,14 @@ beforeAll(async () => {
       completeInitialAdministrator: vi.fn(async () => null),
       completeVerification: vi.fn(async () => null),
       completeActivation: vi.fn(async () => null),
+    },
+    tenantDecommissioningOperations: {
+      request: vi.fn(),
+      claimNext: vi.fn(async () => null),
+      findLatestByTenantProfileId: vi.fn(async () => null),
+      resolveRuntimeContext: vi.fn(async () => null),
+      advance: vi.fn(async () => null),
+      complete: vi.fn(async () => null),
     },
   };
   application = await NestFactory.create(

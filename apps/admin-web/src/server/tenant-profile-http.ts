@@ -3,6 +3,7 @@ import { SecretValue } from "@quantum-crm/config";
 import {
   CreateTenantProfileSchema,
   ConfirmTenantProfileDeletionSchema,
+  DecommissioningOperationResponseSchema,
   RequestTenantDecommissioningSchema,
   TenantProfileListQuerySchema,
   TenantProfileListResponseSchema,
@@ -74,13 +75,13 @@ async function boundedBody(request: Request): Promise<unknown> {
   return JSON.parse(body) as unknown;
 }
 
-function upstreamProblem(status: number): Response {
+function upstreamProblem(status: number, conflictTitle?: string): Response {
   const titles: Readonly<Record<number, string>> = {
     400: "Invalid request",
     401: "Unauthorized",
     403: "Forbidden",
     404: "Tenant profile not found",
-    409: "Tenant profile already exists",
+    409: conflictTitle ?? "The operation conflicts with the current tenant profile state",
     412: "Tenant profile changed; reload and try again",
     428: "A current tenant profile version is required",
   };
@@ -188,9 +189,78 @@ export async function handleTenantProfileCreate(
         signal: AbortSignal.timeout(5_000),
       },
     );
-    if (!upstream.ok) return upstreamProblem(upstream.status);
+    if (!upstream.ok) return upstreamProblem(upstream.status, "Tenant profile already exists");
     const body = TenantProfileResponseSchema.parse(await readUpstream(upstream));
     return responseWithEtag(body, upstream);
+  } catch {
+    return platformProblem(503, "Platform unavailable");
+  }
+}
+
+export async function handleLatestTenantDecommissioning(
+  request: Request,
+  runtime: PlatformAuthRuntime,
+  id: string,
+): Promise<Response> {
+  if (!profileIdPattern.test(id)) return platformProblem(400, "Invalid request");
+  const authorization = await authorize(request, runtime, false);
+  if (isResponse(authorization)) return authorization;
+  try {
+    const upstream = await runtime.platformApiFetch(
+      new URL(
+        `/api/v1/tenant-profiles/${id}/decommissioning-operations/latest`,
+        runtime.config.adminApiOrigin,
+      ),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorization.accessToken.expose()}`,
+          "x-correlation-id": authorization.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!upstream.ok) return upstreamProblem(upstream.status);
+    return Response.json(
+      DecommissioningOperationResponseSchema.parse(await readUpstream(upstream)),
+      { headers: platformNoStoreHeaders() },
+    );
+  } catch {
+    return platformProblem(503, "Platform unavailable");
+  }
+}
+
+export async function handleLatestTenantProvisioning(
+  request: Request,
+  runtime: PlatformAuthRuntime,
+  id: string,
+): Promise<Response> {
+  if (!profileIdPattern.test(id)) return platformProblem(400, "Invalid request");
+  const authorization = await authorize(request, runtime, false);
+  if (isResponse(authorization)) return authorization;
+  try {
+    const upstream = await runtime.platformApiFetch(
+      new URL(
+        `/api/v1/tenant-profiles/${id}/provisioning-operations/latest`,
+        runtime.config.adminApiOrigin,
+      ),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorization.accessToken.expose()}`,
+          "x-correlation-id": authorization.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!upstream.ok) return upstreamProblem(upstream.status);
+    return Response.json(ProvisioningOperationResponseSchema.parse(await readUpstream(upstream)), {
+      headers: platformNoStoreHeaders(),
+    });
   } catch {
     return platformProblem(503, "Platform unavailable");
   }
@@ -363,7 +433,12 @@ export async function handleTenantDecommissioningRequest(
         signal: AbortSignal.timeout(10_000),
       },
     );
-    if (!upstream.ok) return upstreamProblem(upstream.status);
+    if (!upstream.ok) {
+      return upstreamProblem(
+        upstream.status,
+        "El perfil tiene otra operaciÃ³n activa. Actualiza el estado e intenta nuevamente.",
+      );
+    }
     return new Response(await upstream.text(), {
       status: 202,
       headers: {

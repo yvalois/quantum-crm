@@ -373,6 +373,12 @@ export {
   type UpdateTenantProfile,
 } from "./tenants/v1/tenant-profile.js";
 export {
+  DecommissioningOperationResponseSchema,
+  DecommissioningOperationSchema,
+  type DecommissioningOperationContract,
+  type DecommissioningOperationResponse,
+} from "./deployments/v1/decommissioning-operation.js";
+export {
   CancelTenantProvisioningSchema,
   ProvisioningCancellationResponseSchema,
   ProvisioningCancellationSchema,

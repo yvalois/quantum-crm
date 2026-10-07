@@ -23,6 +23,7 @@ import {
   RequestAutomaticTenantProvisioningSchema,
   CreateTenantProfileSchema,
   ConfirmTenantProfileDeletionSchema,
+  DecommissioningOperationResponseSchema,
   RequestTenantDecommissioningSchema,
   ProvisioningCancellationResponseSchema,
   ProvisioningOperationResponseSchema,
@@ -33,6 +34,7 @@ import {
   tenantProfileResponse,
   type TenantProfileContract,
   type ProvisioningOperationContract,
+  type DecommissioningOperationContract,
 } from "@quantum-crm/contracts";
 import { DatabaseUnavailableError } from "@quantum-crm/database";
 import {
@@ -55,6 +57,7 @@ import {
   TenantDecommissioningValidationError,
   TenantProvisioningService,
   type ProvisioningOperation,
+  type TenantDecommissioningOperation,
   type TenantProfile,
   type TenantProfileCursor,
   type TenantProfileListCriteria,
@@ -104,6 +107,23 @@ function provisioningOperationContract(
     currentStep: operation.currentStep,
     attempt: operation.attempt,
     version: operation.version.toString(),
+    failureCode: operation.failureCode,
+    createdAt: operation.createdAt.toISOString(),
+    updatedAt: operation.updatedAt.toISOString(),
+  };
+}
+
+function decommissioningOperationContract(
+  operation: TenantDecommissioningOperation,
+): DecommissioningOperationContract {
+  return {
+    id: operation.id,
+    tenantProfileId: operation.tenantProfileId,
+    status: operation.status,
+    currentStep: operation.currentStep,
+    attempt: operation.attempt,
+    version: operation.version.toString(),
+    failureCode: operation.failureCode,
     createdAt: operation.createdAt.toISOString(),
     updatedAt: operation.updatedAt.toISOString(),
   };
@@ -339,17 +359,51 @@ export class TenantProfilesController {
         `/api/v1/tenant-profiles/${id}/decommissioning-operations/${result.operation.id}`,
       );
       response.setHeader("X-Tenant-Profile-ETag", etag(result.tenantVersion));
-      return {
+      return DecommissioningOperationResponseSchema.parse({
         schemaVersion: "tenant-decommissioning-operation/v1",
-        data: {
-          id: result.operation.id,
-          tenantProfileId: result.operation.tenantProfileId,
-          status: result.operation.status,
-          currentStep: result.operation.currentStep,
-          version: result.operation.version.toString(),
-        },
+        data: decommissioningOperationContract(result.operation),
         meta: { idempotentReplay: result.idempotentReplay },
-      };
+      });
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Get(":id/decommissioning-operations/latest")
+  @RequirePlatformPermission("tenants:read")
+  public async latestDecommissioning(
+    @Req() request: Parameters<typeof platformAuthContext>[0],
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ) {
+    platformAuthContext(request);
+    try {
+      const operation = await this.decommissioning.findLatest(id);
+      if (!operation) throw new NotFoundException();
+      return DecommissioningOperationResponseSchema.parse({
+        schemaVersion: "tenant-decommissioning-operation/v1",
+        data: decommissioningOperationContract(operation),
+        meta: { idempotentReplay: false },
+      });
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Get(":id/provisioning-operations/latest")
+  @RequirePlatformPermission("tenants:read")
+  public async latestProvisioning(
+    @Req() request: Parameters<typeof platformAuthContext>[0],
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ) {
+    platformAuthContext(request);
+    try {
+      const operation = await this.provisioning.findLatest(id);
+      if (!operation) throw new NotFoundException();
+      return ProvisioningOperationResponseSchema.parse({
+        schemaVersion: "tenant-provisioning-operation/v1",
+        data: provisioningOperationContract(operation),
+        meta: { idempotentReplay: false },
+      });
     } catch (error) {
       translate(error);
     }

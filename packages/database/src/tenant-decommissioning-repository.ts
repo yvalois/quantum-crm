@@ -125,16 +125,41 @@ export function createTenantDecommissioningRepository(
           !current ||
           current.version !== command.expectedTenantVersion.toString() ||
           current.slug !== command.confirmationSlug ||
-          !["provisioning", "active", "suspended", "error"].includes(current.status)
+          !["provisioning", "active", "suspended", "error", "decommissioning"].includes(
+            current.status,
+          )
         ) {
           throw new TenantDecommissioningConflictError();
         }
-        const openProvisioning = await client.query<{ readonly id: string }>(
-          `SELECT id::text FROM operations.provisioning_operations
-           WHERE tenant_profile_id = $1::uuid AND status IN ('pending', 'running') LIMIT 1`,
-          [command.tenantProfileId],
-        );
-        if (openProvisioning.rows[0]) throw new TenantDecommissioningConflictError();
+        if (current.status === "provisioning") {
+          await client.query(
+            `UPDATE operations.provisioning_operations
+             SET status = 'cancelled', cancelled_by_operator_id = $2::uuid,
+               cancellation_idempotency_key = $3,
+               cancellation_correlation_id = $4,
+               cancellation_reason = 'Eliminacion solicitada desde Quantum Admin',
+               cancellation_expected_version = version,
+               cancellation_tenant_version = $5::bigint,
+               cancellation_result = 'cancelled', cancelled_at = CURRENT_TIMESTAMP,
+               lease_owner = NULL, lease_expires_at = NULL, last_heartbeat_at = NULL,
+               version = version + 1, updated_at = CURRENT_TIMESTAMP
+             WHERE tenant_profile_id = $1::uuid AND status IN ('pending', 'running')`,
+            [
+              command.tenantProfileId,
+              command.requestedByOperatorId,
+              command.idempotencyKey,
+              command.correlationId,
+              (BigInt(current.version) + 1n).toString(),
+            ],
+          );
+        } else {
+          const openProvisioning = await client.query<{ readonly id: string }>(
+            `SELECT id::text FROM operations.provisioning_operations
+             WHERE tenant_profile_id = $1::uuid AND status IN ('pending', 'running') LIMIT 1`,
+            [command.tenantProfileId],
+          );
+          if (openProvisioning.rows[0]) throw new TenantDecommissioningConflictError();
+        }
         const created = await client.query<Row>(
           `INSERT INTO operations.tenant_decommissioning_operations (
              tenant_profile_id, requested_by_operator_id, idempotency_key, correlation_id, confirmation_slug
@@ -165,6 +190,18 @@ export function createTenantDecommissioningRepository(
         throw databaseError(error);
       } finally {
         client?.release();
+      }
+    },
+    findLatestByTenantProfileId: async (tenantProfileId: string) => {
+      try {
+        const result = (await pool.query(
+          `SELECT ${selection} FROM operations.tenant_decommissioning_operations
+           WHERE tenant_profile_id = $1::uuid ORDER BY created_at DESC, id DESC LIMIT 1`,
+          [tenantProfileId],
+        )) as { readonly rows: readonly Row[] };
+        return result.rows[0] ? operation(result.rows[0]) : null;
+      } catch (error) {
+        throw databaseError(error);
       }
     },
     claimNext: async (command: ClaimTenantDecommissioningCommand) => {
