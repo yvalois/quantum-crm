@@ -193,6 +193,7 @@ CROSS JOIN unnest(ARRAY[
   'configuration:manage',
   'deployments:read',
   'deployments:execute',
+  'deployments:activate',
   'operators:manage'
 ]) AS permission
 WHERE membership.oidc_subject = :'subject'
