@@ -186,3 +186,27 @@ export {
   type TenantReleasePromotionStatus,
   type TenantReleasePromotionStep,
 } from "./tenant-release-promotion.js";
+
+export {
+  DecommissionTenantProfileService,
+  TenantDecommissioningConflictError,
+  TenantDecommissioningValidationError,
+  tenantDecommissioningFailureCodes,
+  tenantDecommissioningStatuses,
+  tenantDecommissioningSteps,
+  validateTenantDecommissioningAdvance,
+  validateTenantDecommissioningClaim,
+  validateTenantDecommissioningCompletion,
+  validateTenantDecommissioningRequest,
+  type AdvanceTenantDecommissioningCommand,
+  type ClaimTenantDecommissioningCommand,
+  type CompleteTenantDecommissioningCommand,
+  type RequestTenantDecommissioningCommand,
+  type TenantDecommissioningFailureCode,
+  type TenantDecommissioningOperation,
+  type TenantDecommissioningRepository,
+  type TenantDecommissioningRequestResult,
+  type TenantDecommissioningRuntimeContext,
+  type TenantDecommissioningStatus,
+  type TenantDecommissioningStep,
+} from "./tenant-decommissioning-operation.js";

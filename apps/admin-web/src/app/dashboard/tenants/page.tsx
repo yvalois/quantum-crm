@@ -20,6 +20,8 @@ const statusLabels: Readonly<Record<TenantProfileContract["status"], string>> = 
   ACTIVE: "Activo",
   SUSPENDED: "Suspendido",
   ERROR: "Con error",
+  DECOMMISSIONING: "Eliminando",
+  DELETED: "Eliminado",
 };
 
 interface Filters {
@@ -274,7 +276,7 @@ export default function TenantProfilesPage() {
     }
   }
 
-  async function deletePendingProfile(event: FormEvent<HTMLFormElement>): Promise<void> {
+  async function deleteProfile(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!selected || !selectedEtag) return;
     setSaving(true);
@@ -289,16 +291,23 @@ export default function TenantProfilesPage() {
     }
     try {
       const csrf = await csrfToken();
-      const response = await fetch(`/api/platform/tenant-profiles/${selected.id}`, {
-        method: "DELETE",
+      const isDraft = selected.status === "PENDING";
+      const response = await fetch(
+        isDraft
+          ? `/api/platform/tenant-profiles/${selected.id}`
+          : `/api/platform/tenant-profiles/${selected.id}/decommissioning-operations`,
+        {
+        method: isDraft ? "DELETE" : "POST",
         headers: {
           "content-type": "application/json",
           "x-csrf-token": csrf,
           "if-match": selectedEtag,
+          ...(!isDraft ? { "idempotency-key": `decommission-${crypto.randomUUID()}` } : {}),
         },
         body: JSON.stringify({ confirmationSlug: selected.slug }),
         cache: "no-store",
-      });
+        },
+      );
       if (!response.ok) throw new Error(await errorTitle(response));
       setDialog(null);
       setSelected(null);
@@ -704,7 +713,7 @@ export default function TenantProfilesPage() {
                               Editar
                             </button>
                           ) : null}
-                          {canManage && profile.status === "PENDING" ? (
+                          {canManage && !["DECOMMISSIONING", "DELETED"].includes(profile.status) ? (
                             <button
                               className="row-action row-action-danger"
                               type="button"
@@ -881,13 +890,15 @@ export default function TenantProfilesPage() {
           </h2>
           <p>
             {dialog === "delete"
-              ? "Esta acción elimina un perfil que aún no tiene recursos aprovisionados. Es irreversible."
+              ? selected?.status === "PENDING"
+                ? "Esta acción elimina un perfil que aún no tiene recursos aprovisionados. Es irreversible."
+                : "Quantum retirará de forma ordenada los servicios, identidad, archivos, configuración y capacidad antes de eliminar el perfil. Es irreversible."
               : "Este perfil identifica a la empresa en Quantum; no crea contactos dentro de su CRM."}
           </p>
           <form
             className="profile-form"
             onSubmit={(event) =>
-              dialog === "delete" ? void deletePendingProfile(event) : void saveProfile(event)
+              dialog === "delete" ? void deleteProfile(event) : void saveProfile(event)
             }
           >
             {dialog === "delete" ? (
@@ -951,7 +962,9 @@ export default function TenantProfilesPage() {
                 {saving
                   ? "Guardando…"
                   : dialog === "delete"
-                    ? "Eliminar perfil"
+                    ? selected?.status === "PENDING"
+                      ? "Eliminar perfil"
+                      : "Iniciar eliminación"
                     : dialog === "create"
                       ? "Crear perfil"
                       : "Guardar cambios"}

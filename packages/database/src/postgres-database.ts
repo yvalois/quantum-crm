@@ -80,6 +80,7 @@ import {
   type PlatformReleaseStatus,
   type PlatformFoundationPromotionRepository,
   type TenantReleasePromotionRepository,
+  type TenantDecommissioningRepository,
   type ProvisioningOperation,
   type ProvisioningOperationCancellationRepository,
   type ProvisioningOperationRepository,
@@ -99,6 +100,7 @@ import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { createActivationDeliveryRepository } from "./activation-delivery-repository.js";
 import { createPlatformFoundationPromotionRepository } from "./platform-foundation-promotion-repository.js";
 import { createTenantReleasePromotionRepository } from "./tenant-release-promotion-repository.js";
+import { createTenantDecommissioningRepository } from "./tenant-decommissioning-repository.js";
 
 export interface PostgresPool {
   readonly connect: () => Promise<PoolClient>;
@@ -126,6 +128,7 @@ export interface PlatformPostgresDatabase extends PostgresDatabase {
   readonly activationDeliveries: ReturnType<typeof createActivationDeliveryRepository>;
   readonly platformFoundationPromotions: PlatformFoundationPromotionRepository;
   readonly tenantReleasePromotions: TenantReleasePromotionRepository;
+  readonly tenantDecommissioningOperations: TenantDecommissioningRepository;
 }
 
 export interface PlatformMembershipRepository {
@@ -2554,6 +2557,7 @@ export function createPlatformPostgresDatabase(
       };
 
       if (criteria.status) add("status = ?::tenants.tenant_status", criteria.status.toLowerCase());
+      else conditions.push("status <> 'deleted'::tenants.tenant_status");
       if (criteria.serverId) add("server_id = ?::uuid", criteria.serverId);
       if (criteria.releaseId) add("release_id = ?::uuid", criteria.releaseId);
       if (criteria.search) {
@@ -3586,6 +3590,7 @@ export function createPlatformPostgresDatabase(
     activationDeliveries: createActivationDeliveryRepository(pool),
     platformFoundationPromotions: createPlatformFoundationPromotionRepository(pool),
     tenantReleasePromotions: createTenantReleasePromotionRepository(pool),
+    tenantDecommissioningOperations: createTenantDecommissioningRepository(pool),
     tenantProfiles,
     provisioningOperations: Object.freeze({
       ...provisioningOperations,

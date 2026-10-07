@@ -8,6 +8,8 @@ export const tenantProfileStatuses = [
   "ACTIVE",
   "SUSPENDED",
   "ERROR",
+  "DECOMMISSIONING",
+  "DELETED",
 ] as const;
 
 export type TenantProfileStatus = (typeof tenantProfileStatuses)[number];
@@ -18,6 +20,8 @@ export const tenantProfileLifecycleActions = [
   "MARK_ERROR",
   "SUSPEND",
   "RESUME",
+  "START_DECOMMISSIONING",
+  "MARK_DELETED",
 ] as const;
 
 export type TenantProfileLifecycleAction = (typeof tenantProfileLifecycleActions)[number];
@@ -58,6 +62,17 @@ const lifecycleTransitions: Readonly<
   RESUME: Object.freeze({
     SUSPENDED: "ACTIVE",
     ACTIVE: "ACTIVE",
+  }),
+  START_DECOMMISSIONING: Object.freeze({
+    PENDING: "DECOMMISSIONING",
+    ACTIVE: "DECOMMISSIONING",
+    SUSPENDED: "DECOMMISSIONING",
+    ERROR: "DECOMMISSIONING",
+    DECOMMISSIONING: "DECOMMISSIONING",
+  }),
+  MARK_DELETED: Object.freeze({
+    DECOMMISSIONING: "DELETED",
+    DELETED: "DELETED",
   }),
 });
 

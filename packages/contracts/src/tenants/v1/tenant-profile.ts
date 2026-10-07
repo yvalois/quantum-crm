@@ -6,6 +6,8 @@ export const TenantProfileStatusSchema = z.enum([
   "ACTIVE",
   "SUSPENDED",
   "ERROR",
+  "DECOMMISSIONING",
+  "DELETED",
 ]);
 
 const TenantProfileFieldsSchema = z
@@ -51,6 +53,12 @@ export const ConfirmTenantProfileDeletionSchema = z
   })
   .strict();
 
+/**
+ * The acknowledgement required before the platform starts the durable
+ * deprovisioning operation for a profile that already owns resources.
+ */
+export const RequestTenantDecommissioningSchema = ConfirmTenantProfileDeletionSchema;
+
 export const TenantProfileSchema = TenantProfileFieldsSchema.extend({
   id: z.string().uuid(),
   version: z.string().regex(/^[1-9][0-9]*$/u),
@@ -92,6 +100,7 @@ export const TenantProfileListResponseSchema = z
 export type CreateTenantProfile = z.infer<typeof CreateTenantProfileSchema>;
 export type UpdateTenantProfile = z.infer<typeof UpdateTenantProfileSchema>;
 export type ConfirmTenantProfileDeletion = z.infer<typeof ConfirmTenantProfileDeletionSchema>;
+export type RequestTenantDecommissioning = z.infer<typeof RequestTenantDecommissioningSchema>;
 export type TenantProfileContract = z.infer<typeof TenantProfileSchema>;
 export type TenantProfileResponse = z.infer<typeof TenantProfileResponseSchema>;
 export type TenantProfileListQuery = z.infer<typeof TenantProfileListQuerySchema>;
