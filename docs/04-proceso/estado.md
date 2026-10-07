@@ -14,6 +14,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
+> **ADM-04 (2026-10-06):** En curso la correccion del alta del administrador inicial: un perfil no puede quedar indefinidamente en `VERIFY`; el Admin debe entregar el enlace de activacion del usuario master durante el aprovisionamiento y completar la activacion al consumirlo.
+
 > **ADM-01 (2026-10-06):** En curso una corrección acotada del acceso administrativo: el retorno OIDC fallido o vencido volverá a una pantalla de ingreso utilizable, y el inicio solicitará una autenticación interactiva con contraseña y TOTP. No se abre un registro público de operadores ni se modifica el alta de perfiles.
 
 > **Actualizacion ADM-04 (2026-10-06):** `feat/ADM-04-entrega-acceso-administrador` elimina la dependencia de terminal para recuperar el acceso del administrador inicial. Quantum Admin reemitirá una activación aun después de un consumo previo y mostrará empresa, CRM, usuario, vencimiento y enlace copiable solo en la sesión actual. Ficha [`ADM-04-m`](../02-plan/tareas/ADM-04-m-entrega-recuperacion-acceso.md).

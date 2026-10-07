@@ -283,7 +283,14 @@ export default function TenantProfilesPage() {
           cache: "no-store",
         },
       );
-      if (!response.ok) throw new Error(await errorTitle(response));
+      if (!response.ok) {
+        if (response.status === 409 && profile.status === "PROVISIONING") {
+          throw new Error(
+            "El administrador se está preparando. Actualiza el estado e inténtalo de nuevo en unos segundos.",
+          );
+        }
+        throw new Error(await errorTitle(response));
+      }
       const result = (await response.json()) as ActivationDeliveryResponse;
       const hostnameParts = window.location.hostname.split(".");
       const sharedDomain = hostnameParts.length > 1 ? hostnameParts.slice(1).join(".") : "";
@@ -298,7 +305,10 @@ export default function TenantProfilesPage() {
         expiresAt: result.data.expiresAt,
       });
     } catch (cause) {
+      const activationError =
+        cause instanceof Error ? cause : new Error("No fue posible emitir la activación");
       setError(cause instanceof Error ? cause.message : "No fue posible emitir la activaciÃ³n");
+      throw activationError;
     } finally {
       setActivationPending(null);
     }
@@ -650,14 +660,19 @@ export default function TenantProfilesPage() {
                               Aprovisionar
                             </button>
                           ) : null}
-                          {canActivate && profile.status === "ACTIVE" ? (
+                          {canActivate &&
+                          (profile.status === "ACTIVE" || profile.status === "PROVISIONING") ? (
                             <button
                               className="row-action"
                               type="button"
                               disabled={activationPending !== null}
-                              onClick={() => void requestActivation(profile)}
+                              onClick={() => void requestActivation(profile).catch(() => undefined)}
                             >
-                              {activationPending === profile.id ? "Emitiendo..." : "Generar acceso"}
+                              {activationPending === profile.id
+                                ? "Emitiendo..."
+                                : profile.status === "PROVISIONING"
+                                  ? "Configurar administrador"
+                                  : "Generar acceso"}
                             </button>
                           ) : null}
                           {canDeploy && profile.status === "ACTIVE" ? (
@@ -857,7 +872,9 @@ export default function TenantProfilesPage() {
       {provisioningProfile ? (
         <TenantProvisioningDialog
           profile={provisioningProfile}
+          canActivate={canActivate}
           onClose={() => setProvisioningProfile(null)}
+          onRequestAdministratorAccess={requestActivation}
           onUpdated={(updated) => {
             setProfiles((current) =>
               current.map((profile) => (profile.id === updated.id ? updated : profile)),

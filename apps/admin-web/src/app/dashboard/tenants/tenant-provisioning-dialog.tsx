@@ -12,8 +12,10 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 interface TenantProvisioningDialogProps {
   readonly profile: TenantProfileContract;
+  readonly canActivate: boolean;
   readonly onClose: () => void;
   readonly onUpdated: (profile: TenantProfileContract) => void;
+  readonly onRequestAdministratorAccess: (profile: TenantProfileContract) => Promise<void>;
 }
 
 const defaultCapacity = Object.freeze({
@@ -61,8 +63,10 @@ function capacityLabel(value: number, unit: "cpu" | "memory" | "storage"): strin
 
 export function TenantProvisioningDialog({
   profile,
+  canActivate,
   onClose,
   onUpdated,
+  onRequestAdministratorAccess,
 }: TenantProvisioningDialogProps) {
   const [servers, setServers] = useState<readonly InfrastructureServerContract[]>([]);
   const [releases, setReleases] = useState<readonly PlatformReleaseContract[]>([]);
@@ -73,6 +77,7 @@ export function TenantProvisioningDialog({
   const [error, setError] = useState<string | null>(null);
   const [operation, setOperation] = useState<ProvisioningOperationContract | null>(null);
   const [currentProfile, setCurrentProfile] = useState(profile);
+  const [issuingAccess, setIssuingAccess] = useState(false);
 
   const refreshProfile = useCallback(async () => {
     const response = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
@@ -177,6 +182,23 @@ export function TenantProvisioningDialog({
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function requestAdministratorAccess(): Promise<void> {
+    setIssuingAccess(true);
+    setError(null);
+    try {
+      await onRequestAdministratorAccess(currentProfile);
+      onClose();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No fue posible preparar el acceso del administrador",
+      );
+    } finally {
+      setIssuingAccess(false);
     }
   }
 
@@ -330,19 +352,36 @@ export function TenantProvisioningDialog({
         </form>
       )}
 
+      {error && (operation || completed || failed) ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+
       {operation || completed || failed ? (
         <div className="dialog-actions">
           <button type="button" className="quiet-button" onClick={() => void refreshProfile()}>
             Actualizar estado
           </button>
-          <button
-            type="button"
-            className="primary-action"
-            onClick={onClose}
-            disabled={!completed && !failed}
-          >
-            {completed ? "Finalizar" : failed ? "Cerrar" : "Esperando activación"}
-          </button>
+          {currentProfile.status === "PROVISIONING" && canActivate ? (
+            <button
+              type="button"
+              className="primary-action"
+              onClick={() => void requestAdministratorAccess()}
+              disabled={issuingAccess}
+            >
+              {issuingAccess ? "Preparando acceso..." : "Configurar administrador"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="primary-action"
+              onClick={onClose}
+              disabled={!completed && !failed}
+            >
+              {completed ? "Finalizar" : failed ? "Cerrar" : "Esperando activación"}
+            </button>
+          )}
         </div>
       ) : null}
     </dialog>
