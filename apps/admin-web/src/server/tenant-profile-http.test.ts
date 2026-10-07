@@ -172,6 +172,33 @@ describe("tenant profile BFF boundary", () => {
     );
   });
 
+  it("explains a real live-slug conflict without exposing upstream details", async () => {
+    const upstream = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("database detail", { status: 409 }),
+    );
+    const response = await handleTenantProfileCreate(
+      new Request("https://admin.example.test/api/platform/tenant-profiles", {
+        method: "POST",
+        headers: sessionHeaders({
+          "content-type": "application/json",
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+        }),
+        body: JSON.stringify({
+          name: profile.name,
+          slug: profile.slug,
+          adminContactName: profile.adminContactName,
+          adminContactEmail: profile.adminContactEmail,
+        }),
+      }),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.text()).toContain("Ya existe un perfil operativo con este slug");
+  });
+
   it("forwards optimistic concurrency and bounds upstream errors", async () => {
     const conflict = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 412 }),

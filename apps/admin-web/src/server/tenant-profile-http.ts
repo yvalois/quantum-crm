@@ -189,7 +189,9 @@ export async function handleTenantProfileCreate(
         signal: AbortSignal.timeout(5_000),
       },
     );
-    if (!upstream.ok) return upstreamProblem(upstream.status, "Tenant profile already exists");
+    if (!upstream.ok) {
+      return upstreamProblem(upstream.status, "Ya existe un perfil operativo con este slug");
+    }
     const body = TenantProfileResponseSchema.parse(await readUpstream(upstream));
     return responseWithEtag(body, upstream);
   } catch {
