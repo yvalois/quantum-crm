@@ -28,11 +28,11 @@ Desde la vista de un perfil en Quantum Admin, un operador con `operators:manage`
 
 ## Criterios de aceptacion
 
-- [ ] Crear y listar responsables desde el perfil en Quantum Admin.
+- [x] Crear y listar responsables desde el perfil en Quantum Admin.
 - [ ] La cuenta puede iniciar sesion en Quantum Admin, cambiar la clave temporal y configurar TOTP.
 - [ ] La cuenta creada puede crear y administrar perfiles CRM.
-- [ ] La credencial temporal no se persiste ni se registra.
-- [ ] Usuarios CRM y operadores Quantum permanecen separados.
+- [x] La credencial temporal no se persiste ni se registra.
+- [x] Usuarios CRM y operadores Quantum permanecen separados.
 
 ## Plan de verificacion
 
@@ -44,3 +44,10 @@ Desde la vista de un perfil en Quantum Admin, un operador con `operators:manage`
 
 - Migracion aditiva y compatible.
 - El rollback de aplicacion conserva asignaciones y membresias creadas.
+
+## Evidencia
+
+- Candidato `e901a83` validado exclusivamente en el VPS: formato y lint afectados, seis typechecks, cuatro archivos de pruebas con 16 casos y builds de `database`, `admin-api`, `deploy-executor` y `admin-web` aprobados.
+- Migracion `20261007040000_adm_01_profile_operators` aplicada en `qcrm_platform`; la tabla durable existe y permanece vacia hasta que el propietario cree los operadores reales.
+- `admin-api`, `admin-web` y `deploy-executor` ejecutan imagenes `e901a83` saludables; Admin responde HTTP 200 y la ruta BFF nueva deniega acceso anonimo con HTTP 401.
+- Pendiente de cierre: crear una cuenta real desde Admin y recorrer su primer ingreso, cambio de clave, TOTP y creacion de perfil.
