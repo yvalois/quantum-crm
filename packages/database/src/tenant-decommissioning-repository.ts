@@ -37,6 +37,15 @@ const selection = `
   version::text, failure_code::text, lease_owner, lease_expires_at, created_at, updated_at
 `;
 
+const operationSelection = `
+  operation.id::text AS id, operation.tenant_profile_id::text AS tenant_profile_id,
+  operation.requested_by_operator_id::text AS requested_by_operator_id,
+  operation.idempotency_key, operation.correlation_id, operation.confirmation_slug::text AS confirmation_slug,
+  operation.status::text AS status, operation.current_step::text AS current_step, operation.attempt,
+  operation.version::text AS version, operation.failure_code::text AS failure_code,
+  operation.lease_owner, operation.lease_expires_at, operation.created_at, operation.updated_at
+`;
+
 function operation(row: Row): TenantDecommissioningOperation {
   return Object.freeze({
     id: row.id,
@@ -170,7 +179,7 @@ export function createTenantDecommissioningRepository(
            SET status = 'running', attempt = operation.attempt + 1, lease_owner = $1,
              lease_expires_at = CURRENT_TIMESTAMP + ($2::text || ' seconds')::interval,
              version = operation.version + 1, updated_at = CURRENT_TIMESTAMP
-           FROM candidate WHERE operation.id = candidate.id RETURNING ${selection}`,
+           FROM candidate WHERE operation.id = candidate.id RETURNING ${operationSelection}`,
           [command.workerId, command.leaseDurationSeconds.toString()],
         )) as { readonly rows: Row[] };
         return result.rows[0] ? operation(result.rows[0]) : null;
