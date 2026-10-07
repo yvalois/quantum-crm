@@ -182,7 +182,13 @@ export class MembersController {
     try {
       const input = CreateMemberInvitationSchema.parse(body);
       const result = await this.service.invite({ ...input, actor: actor(request), idempotencyKey });
-      let activation: { readonly url: string; readonly expiresAt: string } | undefined;
+      let activation:
+        | {
+            readonly url: string;
+            readonly temporaryPassword: string;
+            readonly expiresAt: string;
+          }
+        | undefined;
       if (result.invitationToken !== null) {
         if (!this.activationIssuer || !this.activations) throw new ServiceUnavailableException();
         try {
@@ -200,7 +206,11 @@ export class MembersController {
             now: new Date(),
           });
           if (!recorded) throw new ConflictException();
-          activation = { url: issued.url, expiresAt: issued.expiresAt };
+          activation = {
+            url: issued.url,
+            temporaryPassword: issued.temporaryPassword,
+            expiresAt: issued.expiresAt,
+          };
         } catch (error) {
           if (error instanceof ConflictException) throw error;
           if (error instanceof MemberActivationIssuerError) {

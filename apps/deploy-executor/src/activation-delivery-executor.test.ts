@@ -41,6 +41,7 @@ describe("ActivationDeliveryExecutor", () => {
         reconcile: vi.fn(),
         issueActivation: vi.fn(async () => ({
           url: "https://identity.example/action?key=secret",
+          temporaryPassword: "Qq7!TemporaryPassword",
           expiresAt: "2026-09-26T12:30:00.000Z",
         })),
         activationStatus: vi.fn(),

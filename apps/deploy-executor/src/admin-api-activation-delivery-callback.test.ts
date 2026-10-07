@@ -20,6 +20,7 @@ describe("admin API activation callback", () => {
         generation: 1,
         correlationId: "activation-20260927",
         url: "https://identity.example.test/action",
+        temporaryPassword: "Qq7!TemporaryPassword",
       });
       expect(fetchSpy).toHaveBeenCalledWith(
         new URL("http://admin-api:3002/api/v1/internal/activation-deliveries/callback"),

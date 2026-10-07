@@ -10,6 +10,7 @@ RUN corepack enable && corepack prepare pnpm@9.13.2 --activate
 COPY . .
 RUN pnpm install --frozen-lockfile \
     && pnpm --filter "@quantum-crm/database..." build \
+    && apk add --no-cache openssl \
     && apk del --no-network apk-tools zlib \
     && node --version \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \

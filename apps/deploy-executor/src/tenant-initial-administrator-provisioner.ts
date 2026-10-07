@@ -29,9 +29,11 @@ export interface TenantInitialAdministratorProvisioner {
     command: InitialAdministratorCommand,
   ) => Promise<{ readonly subject: string }>;
   /** The return value is deliberately ephemeral: callers must not persist or log it. */
-  readonly issueActivation: (
-    command: ActivationLinkCommand,
-  ) => Promise<{ readonly url: string; readonly expiresAt: string }>;
+  readonly issueActivation: (command: ActivationLinkCommand) => Promise<{
+    readonly url: string;
+    readonly temporaryPassword: string;
+    readonly expiresAt: string;
+  }>;
   readonly activationStatus: (command: ActivationLinkCommand) => Promise<"PENDING" | "CONSUMED">;
 }
 
@@ -227,7 +229,11 @@ export function createTenantInitialAdministratorProvisioner(
 
   const issueActivation = async (
     command: ActivationLinkCommand,
-  ): Promise<{ readonly url: string; readonly expiresAt: string }> => {
+  ): Promise<{
+    readonly url: string;
+    readonly temporaryPassword: string;
+    readonly expiresAt: string;
+  }> => {
     if (
       !uuidPattern.test(command.tenantProfileId) ||
       !uuidPattern.test(command.administratorSubject) ||
@@ -251,9 +257,20 @@ export function createTenantInitialAdministratorProvisioner(
     const value: unknown = await response.json();
     const payload =
       typeof value === "object" && value !== null
-        ? (value as { readonly url?: unknown; readonly expiresAt?: unknown })
+        ? (value as {
+            readonly url?: unknown;
+            readonly temporaryPassword?: unknown;
+            readonly expiresAt?: unknown;
+          })
         : undefined;
-    if (!payload || typeof payload.url !== "string" || typeof payload.expiresAt !== "string")
+    if (
+      !payload ||
+      typeof payload.url !== "string" ||
+      typeof payload.temporaryPassword !== "string" ||
+      payload.temporaryPassword.length < 14 ||
+      payload.temporaryPassword.length > 128 ||
+      typeof payload.expiresAt !== "string"
+    )
       throw new TenantInitialAdministratorProvisioningError("UNAVAILABLE");
     let activationUrl: URL;
     try {
@@ -271,7 +288,11 @@ export function createTenantInitialAdministratorProvisioner(
     ) {
       throw new TenantInitialAdministratorProvisioningError("UNAVAILABLE");
     }
-    return Object.freeze({ url: activationUrl.toString(), expiresAt: payload.expiresAt });
+    return Object.freeze({
+      url: activationUrl.toString(),
+      temporaryPassword: payload.temporaryPassword,
+      expiresAt: payload.expiresAt,
+    });
   };
   const activationStatus = async (
     command: ActivationLinkCommand,

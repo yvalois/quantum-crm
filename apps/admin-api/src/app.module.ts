@@ -25,6 +25,12 @@ import {
 } from "./platform-foundation-promotions.controller.js";
 import { OperatorsController } from "./operators.controller.js";
 import {
+  PROFILE_OPERATOR_REPOSITORY,
+  ProfileOperatorCallbackController,
+  ProfileOperatorWaiters,
+  ProfileOperatorsController,
+} from "./profile-operators.controller.js";
+import {
   PLATFORM_AUTH_POLICY,
   PLATFORM_MEMBERSHIPS,
   PlatformAuthenticationGuard,
@@ -72,6 +78,8 @@ export class AppModule {
         ActivationDeliveryCallbackController,
         InfrastructureServersController,
         OperatorsController,
+        ProfileOperatorsController,
+        ProfileOperatorCallbackController,
         ReleaseCandidatePublisherController,
         PlatformFoundationPromotionsController,
         ReleasesController,
@@ -91,6 +99,8 @@ export class AppModule {
         },
         { provide: ACTIVATION_DELIVERY_CALLBACK_CONFIG, useValue: activationDeliveryCallback },
         ActivationDeliveryWaiters,
+        ProfileOperatorWaiters,
+        { provide: PROFILE_OPERATOR_REPOSITORY, useValue: database.profileOperators },
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: oidcAccessTokenVerifier },
         {
           provide: GITHUB_ACTIONS_RELEASE_PUBLISHER_VERIFIER,

@@ -85,6 +85,7 @@ describe("tenant initial administrator provisioner", () => {
         return response({ access_token: "a".repeat(24) });
       return response({
         url: `https://identity.example/realms/qcrm-019b0000000070008000000000000101/login-actions/action-token?key=opaque`,
+        temporaryPassword: "Qq7!TemporaryPassword",
         expiresAt: "2026-10-01T00:00:00.000Z",
       });
     });
@@ -114,6 +115,7 @@ describe("tenant initial administrator provisioner", () => {
           return response({ access_token: "a".repeat(24) });
         return response({
           url: `http://platform-keycloak:8080/realms/qcrm-019b0000000070008000000000000101/login-actions/action-token?key=opaque`,
+          temporaryPassword: "Qq7!TemporaryPassword",
           expiresAt: "2026-10-01T00:00:00.000Z",
         });
       }),
