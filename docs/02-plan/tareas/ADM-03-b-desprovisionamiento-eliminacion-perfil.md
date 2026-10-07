@@ -60,3 +60,4 @@ Un operador autorizado puede solicitar desde Quantum Admin la eliminacion confir
 ## Pendientes de estabilizacion posterior
 
 - Completar el retiro fisico de identidad, configuracion, objetos y base de datos por adaptadores propietarios. El flujo actual retira el runtime, la ruta y la red, libera capacidad y conserva los registros tecnicos; por esta diferencia respecto del alcance total, la ficha permanece abierta.
+- La ruta HTTPS operativa se elimina de `tenant_https_routes` antes de convertir el perfil en tombstone, de modo que un perfil nuevo con el mismo slug pueda registrar su hostname sin colisionar con el perfil `DELETED`; la operacion y sus resultados conservan la evidencia historica.

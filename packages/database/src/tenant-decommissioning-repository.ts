@@ -338,6 +338,14 @@ export function createTenantDecommissioningRepository(
             if (!released.rows[0]) throw new DatabaseUnavailableError();
           }
           await client.query(
+            `DELETE FROM tenants.tenant_https_routes AS route
+             USING tenants.tenant_profiles AS profile
+             WHERE route.tenant_profile_id = $1::uuid
+               AND profile.id = route.tenant_profile_id
+               AND profile.status = 'decommissioning'`,
+            [done.tenant_profile_id],
+          );
+          await client.query(
             `UPDATE tenants.tenant_profiles SET status = 'deleted', version = version + 1,
               updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid AND status = 'decommissioning'`,
             [done.tenant_profile_id],
