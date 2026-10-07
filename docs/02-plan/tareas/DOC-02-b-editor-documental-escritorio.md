@@ -60,16 +60,16 @@ Documentos usa toda el area disponible del CRM como una aplicacion de escritorio
 
 ## Plan de implementacion
 
-- [ ] Reorganizar la pantalla como editor de escritorio de altura completa.
-- [ ] Integrar la edicion de bloques dentro del lienzo visible.
-- [ ] Hacer plegables biblioteca y propiedades sin perder contexto.
+- [x] Reorganizar la pantalla como editor de escritorio de altura completa.
+- [x] Integrar la edicion de bloques dentro del lienzo visible.
+- [x] Hacer plegables biblioteca y propiedades sin perder contexto.
 - [ ] Validar tipos, build y recorrido autenticado en el VPS.
 
 ## Criterios de aceptacion
 
-- [ ] El lienzo ocupa el area principal y conserva proporcion de pagina legible.
-- [ ] Crear, seleccionar, editar, reordenar y guardar no exige abandonar el lienzo.
-- [ ] Biblioteca y propiedades pueden mostrarse u ocultarse.
+- [x] El lienzo ocupa el area principal y conserva proporcion de pagina legible.
+- [x] Crear, seleccionar, editar, reordenar y guardar no exige abandonar el lienzo.
+- [x] Biblioteca y propiedades pueden mostrarse u ocultarse.
 - [ ] Las funciones documentales existentes permanecen operativas.
 - [ ] La experiencia es utilizable en escritorio y adaptable en pantallas menores.
 
@@ -86,4 +86,6 @@ Documentos usa toda el area disponible del CRM como una aplicacion de escritorio
 
 ## Evidencia de cierre
 
-- Pendiente.
+- El candidato `0b85224` aprobo en el VPS Prettier, ESLint focalizado, typecheck y build de produccion de `crm-web` con sus dependencias.
+- La imagen `qcrm-candidate/crm-web:0b85224` esta desplegada y saludable en InterAmerican; `/documents` conserva redireccion protegida al login cuando no existe sesion.
+- Pendiente: recorrido visual autenticado para editar, insertar, guardar, recargar y revisar los breakpoints antes del cierre.
