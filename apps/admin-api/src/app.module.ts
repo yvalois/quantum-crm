@@ -40,6 +40,7 @@ import {
 import {
   TENANT_PROFILE_SERVICE,
   TENANT_PROVISIONING_SERVICE,
+  TENANT_DECOMMISSIONING_SERVICE,
   TenantProfilesController,
 } from "./tenant-profiles.controller.js";
 import {
@@ -51,6 +52,7 @@ import {
   PlatformReleaseService,
   TenantProfileService,
   TenantProvisioningService,
+  DecommissionTenantProfileService,
 } from "@quantum-crm/platform-domain";
 
 @Module({})
@@ -111,6 +113,11 @@ export class AppModule {
               infrastructureServers: database.infrastructureServers,
               releases: database.releases,
             }),
+        },
+        {
+          provide: TENANT_DECOMMISSIONING_SERVICE,
+          useFactory: () =>
+            new DecommissionTenantProfileService(database.tenantDecommissioningOperations),
         },
         {
           provide: PLATFORM_RELEASE_SERVICE,

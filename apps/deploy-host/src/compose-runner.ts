@@ -19,7 +19,9 @@ import {
   HostAdapterError,
   type HostAdapterMigrationRequest,
   type HostAdapterRequest,
+  type HostAdapterDecommissionRequest,
   type TenantCrmMigrationReconciler,
+  type TenantRuntimeDecommissioner,
   type TenantComposeReconciler,
 } from "./host-adapter.js";
 
@@ -231,6 +233,18 @@ function composeArgs(plan: TenantComposePlan, command: "config" | "up" | "ps"): 
   return [...prefix, "ps", "--format", "json"];
 }
 
+function composeDownArgs(plan: TenantComposePlan): string[] {
+  return [
+    "compose",
+    "-f",
+    plan.templatePath,
+    "--project-name",
+    plan.projectName,
+    "down",
+    "--remove-orphans",
+  ];
+}
+
 function migrationComposeArgs(plan: TenantComposePlan): string[] {
   return [
     "compose",
@@ -403,6 +417,39 @@ export function createTenantCrmMigrationReconciler(
       const result = await runner.run(migrationComposeArgs(plan), plan.environment, timeout);
       if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
       return Object.freeze({ migrated: true, reconciled: true });
+    },
+  });
+}
+
+/**
+ * Stops and removes exactly the compose project derived from a verified tenant
+ * deployment identity. The external edge network is intentionally retained here:
+ * its removal is performed only after Caddy has withdrawn the tenant route.
+ */
+export function createTenantComposeDecommissioner(
+  options: TenantComposeRunnerOptions,
+): Pick<TenantRuntimeDecommissioner, "decommission"> {
+  const runner =
+    options.commandRunner ?? createCommandRunner(options.dockerBinary ?? "/usr/bin/docker");
+  const timeout = options.commandTimeoutMilliseconds ?? defaultTimeoutMilliseconds;
+
+  return Object.freeze({
+    decommission: async (request: HostAdapterDecommissionRequest) => {
+      const composeRequest: HostAdapterRequest = {
+        ...request,
+        action: "RECONCILE_TENANT_COMPOSE",
+      };
+      const plan = await planForTenant(options, composeRequest);
+      const result = await runner.run(composeDownArgs(plan), plan.environment, timeout);
+      if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      return Object.freeze({
+        projectName: plan.projectName,
+        edgeNetworkName: request.edgeNetworkName,
+        containersRemoved: true,
+        routeRemoved: false,
+        networkRemoved: false,
+        decommissioned: false,
+      });
     },
   });
 }

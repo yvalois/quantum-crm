@@ -487,7 +487,8 @@ export interface TenantDatabaseSecretsProvisioner {
 
 export interface ProvisioningValidationSnapshot {
   readonly tenant: {
-    readonly status: "PENDING" | "PROVISIONING" | "ACTIVE" | "SUSPENDED" | "ERROR";
+    readonly status:
+      "PENDING" | "PROVISIONING" | "ACTIVE" | "SUSPENDED" | "ERROR" | "DECOMMISSIONING" | "DELETED";
     readonly serverId: string | null;
     readonly releaseId: string | null;
   };

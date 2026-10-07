@@ -355,6 +355,7 @@ export {
 export {
   CreateTenantProfileSchema,
   ConfirmTenantProfileDeletionSchema,
+  RequestTenantDecommissioningSchema,
   TenantProfileListQuerySchema,
   TenantProfileListResponseSchema,
   TenantProfileResponseSchema,
@@ -364,6 +365,7 @@ export {
   tenantProfileResponse,
   type CreateTenantProfile,
   type ConfirmTenantProfileDeletion,
+  type RequestTenantDecommissioning,
   type TenantProfileContract,
   type TenantProfileListQuery,
   type TenantProfileListResponse,

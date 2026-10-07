@@ -221,6 +221,8 @@ enum TenantStatus {
   ACTIVE       @map("active")
   SUSPENDED    @map("suspended")
   ERROR        @map("error")
+  DECOMMISSIONING @map("decommissioning")
+  DELETED      @map("deleted")
 
   @@map("tenant_status")
   @@schema("tenants")
@@ -248,6 +250,7 @@ model TenantProfile {
   initialAdministrator TenantInitialAdministrator?
   activationDeliveryIntents ActivationDeliveryIntent[]
   tenantReleasePromotions TenantReleasePromotion[]
+  decommissioningOperations TenantDecommissioningOperation[]
   release           PlatformRelease? @relation(fields: [releaseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([status, createdAt, id], map: "tenant_profiles_status_created_id_idx")
@@ -255,6 +258,72 @@ model TenantProfile {
   @@index([releaseId], map: "tenant_profiles_release_id_idx", where: raw("\"release_id\" IS NOT NULL"))
   @@map("tenant_profiles")
   @@schema("tenants")
+}
+
+enum TenantDecommissioningStatus {
+  PENDING @map("pending")
+  RUNNING @map("running")
+  SUCCEEDED @map("succeeded")
+  FAILED @map("failed")
+
+  @@map("tenant_decommissioning_status")
+  @@schema("operations")
+}
+
+enum TenantDecommissioningStep {
+  VALIDATE @map("validate")
+  STOP_CONTAINERS @map("stop_containers")
+  REMOVE_HTTPS @map("remove_https")
+  REMOVE_IDENTITY @map("remove_identity")
+  REMOVE_CONFIGURATION @map("remove_configuration")
+  REMOVE_STORAGE @map("remove_storage")
+  REMOVE_DATABASE @map("remove_database")
+  RELEASE_CAPACITY @map("release_capacity")
+  TOMBSTONE @map("tombstone")
+
+  @@map("tenant_decommissioning_step")
+  @@schema("operations")
+}
+
+enum TenantDecommissioningFailureCode {
+  TENANT_STATE_INVALID @map("tenant_state_invalid")
+  TARGET_CONFLICT @map("target_conflict")
+  CONTAINERS_UNAVAILABLE @map("containers_unavailable")
+  HTTPS_UNAVAILABLE @map("https_unavailable")
+  IDENTITY_UNAVAILABLE @map("identity_unavailable")
+  CONFIGURATION_UNAVAILABLE @map("configuration_unavailable")
+  STORAGE_UNAVAILABLE @map("storage_unavailable")
+  DATABASE_UNAVAILABLE @map("database_unavailable")
+  CAPACITY_ACCOUNTING_INVALID @map("capacity_accounting_invalid")
+  PERMISSION_DENIED @map("permission_denied")
+
+  @@map("tenant_decommissioning_failure_code")
+  @@schema("operations")
+}
+
+model TenantDecommissioningOperation {
+  id                    String                           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantProfileId       String                           @map("tenant_profile_id") @db.Uuid
+  requestedByOperatorId String                           @map("requested_by_operator_id") @db.Uuid
+  idempotencyKey        String                           @map("idempotency_key") @db.VarChar(128)
+  correlationId         String                           @map("correlation_id") @db.VarChar(128)
+  confirmationSlug      String                           @map("confirmation_slug") @db.VarChar(63)
+  status                TenantDecommissioningStatus     @default(PENDING)
+  currentStep           TenantDecommissioningStep       @default(VALIDATE) @map("current_step")
+  attempt               Int                              @default(0)
+  version               BigInt                           @default(1)
+  failureCode           TenantDecommissioningFailureCode? @map("failure_code")
+  leaseOwner            String?                          @map("lease_owner") @db.VarChar(128)
+  leaseExpiresAt        DateTime?                        @map("lease_expires_at") @db.Timestamptz(6)
+  createdAt             DateTime                         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantProfile         TenantProfile                    @relation(fields: [tenantProfileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([requestedByOperatorId, idempotencyKey], map: "tenant_decommissioning_operations_actor_idempotency_key_uq")
+  @@unique([tenantProfileId], map: "tenant_decommissioning_operations_one_open_per_tenant_uq", where: raw("\"status\" IN ('pending', 'running')"))
+  @@index([status, leaseExpiresAt, createdAt, id], map: "tenant_decommissioning_operations_claim_idx", where: raw("\"status\" IN ('pending', 'running')"))
+  @@map("tenant_decommissioning_operations")
+  @@schema("operations")
 }
 
 enum ActivationDeliveryStatus {

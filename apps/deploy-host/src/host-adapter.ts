@@ -36,6 +36,16 @@ const allowedHttpsRequestKeys = new Set([
   "configurationRevision",
   "attempt",
 ]);
+const allowedDecommissionRequestKeys = new Set([
+  "action",
+  "operationId",
+  "tenantProfileId",
+  "serverId",
+  "releaseId",
+  "manifestRef",
+  "configurationRevision",
+  "attempt",
+]);
 const allowedFoundationReleaseRequestKeys = new Set(["action", "artifacts"]);
 const hostnamePattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.[0-9-]+\.nip\.io$/u;
 const edgeNetworkPattern = /^qcrm-tenant-edge-[0-9a-f-]{36}$/u;
@@ -83,6 +93,25 @@ export interface HostAdapterHttpsResult {
   readonly reconciled: boolean;
 }
 
+/**
+ * A teardown request deliberately carries the same immutable deployment identity as
+ * reconciliation.  The host derives the project, Caddy route and edge network from
+ * that identity; callers cannot select host paths, Docker projects or networks.
+ */
+export interface HostAdapterDecommissionRequest extends Omit<HostAdapterRequest, "action"> {
+  readonly action: "DECOMMISSION_TENANT_RUNTIME";
+  readonly edgeNetworkName: string;
+}
+
+export interface HostAdapterDecommissionResult {
+  readonly projectName: string;
+  readonly edgeNetworkName: string;
+  readonly containersRemoved: boolean;
+  readonly routeRemoved: boolean;
+  readonly networkRemoved: boolean;
+  readonly decommissioned: boolean;
+}
+
 export interface TenantComposeReconciler {
   readonly reconcile: (request: HostAdapterRequest) => Promise<HostAdapterResult>;
 }
@@ -114,11 +143,18 @@ export interface TenantHttpsRouteReconciler {
   readonly reconcile: (request: HostAdapterHttpsRequest) => Promise<HostAdapterHttpsResult>;
 }
 
+export interface TenantRuntimeDecommissioner {
+  readonly decommission: (
+    request: HostAdapterDecommissionRequest,
+  ) => Promise<HostAdapterDecommissionResult>;
+}
+
 export interface HostAdapterServerOptions {
   readonly socketPath: string;
   readonly reconciler: TenantComposeReconciler;
   readonly httpsRouteReconciler?: TenantHttpsRouteReconciler;
   readonly migrationReconciler?: TenantCrmMigrationReconciler;
+  readonly runtimeDecommissioner?: TenantRuntimeDecommissioner;
   readonly foundationReleaseDeployer?: PlatformFoundationReleaseDeployer;
   readonly requestTimeoutMilliseconds?: number;
 }
@@ -203,6 +239,25 @@ function parseMigrationRequest(value: unknown): HostAdapterMigrationRequest {
   }
   const base = parseRequest({ ...input, action: "RECONCILE_TENANT_COMPOSE" });
   return Object.freeze({ ...base, action: "MIGRATE_TENANT_CRM_DATABASE" as const });
+}
+
+function parseDecommissionRequest(value: unknown): HostAdapterDecommissionRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const input = value as Record<string, unknown>;
+  if (
+    [...Object.keys(input)].some((key) => !allowedDecommissionRequestKeys.has(key)) ||
+    input.action !== "DECOMMISSION_TENANT_RUNTIME"
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const base = parseRequest({ ...input, action: "RECONCILE_TENANT_COMPOSE" });
+  return Object.freeze({
+    ...base,
+    action: "DECOMMISSION_TENANT_RUNTIME" as const,
+    edgeNetworkName: `qcrm-tenant-edge-${base.tenantProfileId}`,
+  });
 }
 
 function parseFoundationReleaseRequest(value: unknown): HostAdapterFoundationReleaseRequest {
@@ -366,6 +421,27 @@ function parseHttpsResult(
   });
 }
 
+function parseDecommissionResult(
+  value: HostAdapterDecommissionResult,
+  request: HostAdapterDecommissionRequest,
+): HostAdapterDecommissionResult {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    value.projectName !== request.projectName ||
+    value.edgeNetworkName !== request.edgeNetworkName ||
+    !projectPattern.test(value.projectName) ||
+    value.edgeNetworkName !== `qcrm-tenant-edge-${request.tenantProfileId}` ||
+    typeof value.containersRemoved !== "boolean" ||
+    typeof value.routeRemoved !== "boolean" ||
+    typeof value.networkRemoved !== "boolean" ||
+    typeof value.decommissioned !== "boolean"
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  return Object.freeze({ ...value });
+}
+
 async function readBody(request: IncomingMessage, maximumBytes: number): Promise<string> {
   let body = "";
   for await (const chunk of request) {
@@ -400,10 +476,15 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
     const isContainerRequest = request.url === "/v1/tenant-containers/reconcile";
     const isHttpsRequest = request.url === "/v1/tenant-https/reconcile";
     const isMigrationRequest = request.url === "/v1/tenant-database/migrate";
+    const isDecommissionRequest = request.url === "/v1/tenant-runtime/decommission";
     const isFoundationReleaseRequest = request.url === "/v1/platform-foundation/reconcile";
     if (
       request.method !== "POST" ||
-      (!isContainerRequest && !isHttpsRequest && !isMigrationRequest && !isFoundationReleaseRequest)
+      (!isContainerRequest &&
+        !isHttpsRequest &&
+        !isMigrationRequest &&
+        !isDecommissionRequest &&
+        !isFoundationReleaseRequest)
     ) {
       writeJson(response, 404, { reason: "IDENTITY_MISMATCH" });
       return;
@@ -429,6 +510,13 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
         const result = await options.migrationReconciler.migrate(validated);
         if (!result.migrated) throw new HostAdapterError("UNAVAILABLE");
         writeJson(response, 200, { migrated: true, reconciled: result.reconciled });
+        return;
+      }
+      if (isDecommissionRequest) {
+        if (!options.runtimeDecommissioner) throw new HostAdapterError("UNAVAILABLE");
+        const validated = parseDecommissionRequest(parsed);
+        const result = await options.runtimeDecommissioner.decommission(validated);
+        writeJson(response, 200, parseDecommissionResult(result, validated));
         return;
       }
       if (isFoundationReleaseRequest) {

@@ -4,8 +4,12 @@ import {
   createCommandRunner,
   createTenantComposeReconciler,
   createTenantCrmMigrationReconciler,
+  createTenantComposeDecommissioner,
 } from "./compose-runner.js";
-import { createTenantCaddyRouteReconciler } from "./caddy-route-runner.js";
+import {
+  createTenantCaddyRouteDecommissioner,
+  createTenantCaddyRouteReconciler,
+} from "./caddy-route-runner.js";
 import { createHostAdapterServer } from "./host-adapter.js";
 import { createPlatformFoundationReleaseDeployer } from "./platform-foundation-release.js";
 
@@ -63,11 +67,44 @@ const migrationReconciler = createTenantCrmMigrationReconciler({
   databaseSecretRoot: config.deployHostDatabaseSecretRoot,
   storagePublicEndpoint: config.deployHostStoragePublicEndpoint,
 });
+const decommissionCompose = createTenantComposeDecommissioner({
+  configurationRoot: config.deployHostConfigurationRoot,
+  composeTemplate: config.deployHostComposeTemplate,
+  imageRegistry: config.deployHostImageRegistry,
+  environment:
+    config.environment === "local" || config.environment === "test"
+      ? "preview"
+      : config.environment,
+  tenantEdgeNetworkPrefix: config.deployHostTenantEdgeNetwork,
+  platformDatabaseNetwork: config.deployHostPlatformDatabaseNetwork,
+  platformStorageNetwork: config.deployHostPlatformStorageNetwork,
+  platformSessionNetwork: config.deployHostPlatformSessionNetwork,
+  platformOidcNetwork: config.deployHostPlatformOidcNetwork,
+  databaseSecretRoot: config.deployHostDatabaseSecretRoot,
+  storagePublicEndpoint: config.deployHostStoragePublicEndpoint,
+});
+const decommissionCaddy = createTenantCaddyRouteDecommissioner({
+  routeRoot: config.deployHostTenantRouteRoot,
+});
 const server = createHostAdapterServer({
   socketPath: config.deployHostSocketPath,
   requestTimeoutMilliseconds: 180_000,
   reconciler,
   migrationReconciler,
+  runtimeDecommissioner: {
+    decommission: async (request) => {
+      const containers = await decommissionCompose.decommission(request);
+      const route = await decommissionCaddy.removeRoute(request);
+      const network = await decommissionCaddy.removeTenantNetwork(request);
+      return Object.freeze({
+        ...containers,
+        ...route,
+        ...network,
+        decommissioned:
+          containers.containersRemoved && route.routeRemoved && network.networkRemoved,
+      });
+    },
+  },
   foundationReleaseDeployer: createPlatformFoundationReleaseDeployer({
     composeTemplate: config.deployHostPlatformFoundationComposeTemplate,
     environmentFile: config.deployHostPlatformFoundationEnvironmentFile,

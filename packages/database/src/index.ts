@@ -18,6 +18,7 @@ export {
 export { createActivationDeliveryRepository } from "./activation-delivery-repository.js";
 export { createPlatformFoundationPromotionRepository } from "./platform-foundation-promotion-repository.js";
 export { createTenantReleasePromotionRepository } from "./tenant-release-promotion-repository.js";
+export { createTenantDecommissioningRepository } from "./tenant-decommissioning-repository.js";
 export {
   createCrmPostgresDatabase,
   IamMemberConflictError,

@@ -11,6 +11,7 @@ import {
 import { tenantEdgeServiceAlias } from "./compose-policy.js";
 import {
   HostAdapterError,
+  type HostAdapterDecommissionRequest,
   type HostAdapterHttpsRequest,
   type HostAdapterHttpsResult,
   type TenantHttpsRouteReconciler,
@@ -44,6 +45,15 @@ export interface TenantCaddyRouteRunnerOptions {
   readonly dockerBinary?: string;
   readonly commandTimeoutMilliseconds?: number;
   readonly commandRunner?: CaddyCommandRunner;
+}
+
+export interface TenantCaddyRouteDecommissioner {
+  readonly removeRoute: (
+    request: HostAdapterDecommissionRequest,
+  ) => Promise<{ readonly routeRemoved: boolean }>;
+  readonly removeTenantNetwork: (
+    request: HostAdapterDecommissionRequest,
+  ) => Promise<{ readonly networkRemoved: boolean }>;
 }
 
 function createCommandRunner(binary: string): CaddyCommandRunner {
@@ -305,6 +315,129 @@ async function caddyCommand(
         ];
   const result = await runner.run(args, Object.freeze({}), timeout);
   if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+}
+
+async function removeCaddyRoute(
+  options: TenantCaddyRouteRunnerOptions,
+  runner: CaddyCommandRunner,
+  timeout: number,
+  request: HostAdapterDecommissionRequest,
+): Promise<{ readonly routeRemoved: boolean }> {
+  await assertRouteRoot(options.routeRoot);
+  const path = safeChildPath(options.routeRoot, `${request.tenantProfileId}.caddy`);
+  const priorContent = await readRoute(path);
+  if (priorContent === undefined) return Object.freeze({ routeRemoved: true });
+  const containerId = caddyContainerId(
+    await runner.run(
+      [
+        "ps",
+        "--no-trunc",
+        "--filter",
+        `label=com.docker.compose.project=${edgeProjectName}`,
+        "--filter",
+        `label=com.docker.compose.service=${edgeServiceName}`,
+        "--format",
+        "{{.ID}}",
+      ],
+      Object.freeze({}),
+      timeout,
+    ),
+  );
+  await unlink(path).catch((error: unknown) => {
+    const code = (error as { readonly code?: string }).code;
+    if (code === "ENOENT") return;
+    if (code === "EACCES" || code === "EPERM") throw new HostAdapterError("PERMISSION_DENIED");
+    throw new HostAdapterError("UNAVAILABLE");
+  });
+  try {
+    await caddyCommand(runner, timeout, containerId, "validate");
+    await caddyCommand(runner, timeout, containerId, "reload");
+  } catch (error) {
+    await replaceAtomically(path, priorContent).catch(() => undefined);
+    await caddyCommand(runner, timeout, containerId, "reload").catch(() => undefined);
+    throw error;
+  }
+  return Object.freeze({ routeRemoved: true });
+}
+
+async function removeTenantNetwork(
+  runner: CaddyCommandRunner,
+  timeout: number,
+  request: HostAdapterDecommissionRequest,
+): Promise<{ readonly networkRemoved: boolean }> {
+  const inspected = await runner.run(
+    ["network", "inspect", request.edgeNetworkName],
+    Object.freeze({}),
+    timeout,
+  );
+  if (inspected.exitCode === 1) return Object.freeze({ networkRemoved: true });
+  if (inspected.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+
+  const caddyId = caddyContainerId(
+    await runner.run(
+      [
+        "ps",
+        "--no-trunc",
+        "--filter",
+        `label=com.docker.compose.project=${edgeProjectName}`,
+        "--filter",
+        `label=com.docker.compose.service=${edgeServiceName}`,
+        "--format",
+        "{{.ID}}",
+      ],
+      Object.freeze({}),
+      timeout,
+    ),
+  );
+  const disconnected = await runner.run(
+    ["network", "disconnect", request.edgeNetworkName, caddyId],
+    Object.freeze({}),
+    timeout,
+  );
+  if (disconnected.exitCode !== 0) {
+    const observed = await runner.run(
+      ["network", "inspect", request.edgeNetworkName, "--format", "{{json .Containers}}"],
+      Object.freeze({}),
+      timeout,
+    );
+    if (observed.exitCode !== 0 || observed.stdout.includes(caddyId)) {
+      throw new HostAdapterError("UNAVAILABLE");
+    }
+  }
+  const removed = await runner.run(
+    ["network", "rm", request.edgeNetworkName],
+    Object.freeze({}),
+    timeout,
+  );
+  if (removed.exitCode === 0) return Object.freeze({ networkRemoved: true });
+  const observedAfterRemove = await runner.run(
+    ["network", "inspect", request.edgeNetworkName],
+    Object.freeze({}),
+    timeout,
+  );
+  if (observedAfterRemove.exitCode === 1) return Object.freeze({ networkRemoved: true });
+  throw new HostAdapterError("TARGET_CONFLICT");
+}
+
+export function createTenantCaddyRouteDecommissioner(
+  options: TenantCaddyRouteRunnerOptions,
+): TenantCaddyRouteDecommissioner {
+  if (
+    !isAbsolute(options.routeRoot) ||
+    options.routeRoot === "/" ||
+    /[\0\r\n]/u.test(options.routeRoot)
+  ) {
+    throw new Error("invalid tenant route root");
+  }
+  const runner =
+    options.commandRunner ?? createCommandRunner(options.dockerBinary ?? "/usr/bin/docker");
+  const timeout = options.commandTimeoutMilliseconds ?? defaultTimeoutMilliseconds;
+  return Object.freeze({
+    removeRoute: async (request: HostAdapterDecommissionRequest) =>
+      removeCaddyRoute(options, runner, timeout, request),
+    removeTenantNetwork: async (request: HostAdapterDecommissionRequest) =>
+      removeTenantNetwork(runner, timeout, request),
+  });
 }
 
 export function createTenantCaddyRouteReconciler(

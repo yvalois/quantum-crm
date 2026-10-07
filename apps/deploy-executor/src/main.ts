@@ -27,6 +27,8 @@ import { createPlatformFoundationPromotionClient } from "./platform-foundation-p
 import { PlatformFoundationPromotionExecutor } from "./platform-foundation-promotion-executor.js";
 import { createTenantReleaseConfigurationProvisioner } from "./tenant-release-configuration-provisioner.js";
 import { TenantReleasePromotionExecutor } from "./tenant-release-promotion-executor.js";
+import { TenantDecommissioningExecutor } from "./tenant-decommissioning-executor.js";
+import { createTenantRuntimeDecommissioner } from "./tenant-runtime-decommissioner.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("deploy-executor");
@@ -169,6 +171,11 @@ async function bootstrap(): Promise<void> {
         leaseDurationSeconds: 240,
       },
     );
+    const tenantDecommissioningExecutor = new TenantDecommissioningExecutor(
+      database.tenantDecommissioningOperations,
+      createTenantRuntimeDecommissioner({ socketPath: config.deployHostSocketPath }),
+      `deploy-executor:${hostname()}:tenant-decommissioning`,
+    );
     ready = true;
     const close = async (): Promise<void> => {
       if (closing) return;
@@ -217,6 +224,17 @@ async function bootstrap(): Promise<void> {
     };
     void tenantReleasePromotionLoop().catch(async () => {
       process.stderr.write("deploy-executor tenant release promotion loop failed\n");
+      process.exitCode = 1;
+      await close();
+    });
+    const tenantDecommissioningLoop = async (): Promise<void> => {
+      while (!closing) {
+        const processed = await tenantDecommissioningExecutor.runOnce();
+        if (!processed) await new Promise((resolve) => setTimeout(resolve, 1_000));
+      }
+    };
+    void tenantDecommissioningLoop().catch(async () => {
+      process.stderr.write("deploy-executor tenant decommissioning loop failed\n");
       process.exitCode = 1;
       await close();
     });

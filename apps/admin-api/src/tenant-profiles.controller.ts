@@ -23,6 +23,7 @@ import {
   RequestAutomaticTenantProvisioningSchema,
   CreateTenantProfileSchema,
   ConfirmTenantProfileDeletionSchema,
+  RequestTenantDecommissioningSchema,
   ProvisioningCancellationResponseSchema,
   ProvisioningOperationResponseSchema,
   RequestTenantProvisioningSchema,
@@ -49,6 +50,9 @@ import {
   TenantProfileService,
   TenantProfileValidationError,
   TenantProfileVersionConflictError,
+  DecommissionTenantProfileService,
+  TenantDecommissioningConflictError,
+  TenantDecommissioningValidationError,
   TenantProvisioningService,
   type ProvisioningOperation,
   type TenantProfile,
@@ -62,6 +66,7 @@ import { platformAuthContext, RequirePlatformPermission } from "./platform-secur
 
 export const TENANT_PROFILE_SERVICE = Symbol("TENANT_PROFILE_SERVICE");
 export const TENANT_PROVISIONING_SERVICE = Symbol("TENANT_PROVISIONING_SERVICE");
+export const TENANT_DECOMMISSIONING_SERVICE = Symbol("TENANT_DECOMMISSIONING_SERVICE");
 
 interface HeaderResponse {
   readonly setHeader: (name: string, value: string) => void;
@@ -153,6 +158,7 @@ function translate(error: unknown): never {
   if (error instanceof ProvisioningOperationNotFoundError) throw new NotFoundException();
   if (error instanceof TenantProfileNotFoundError) throw new NotFoundException();
   if (error instanceof TenantProfileConflictError) throw new ConflictException();
+  if (error instanceof TenantDecommissioningConflictError) throw new ConflictException();
   if (error instanceof TenantProfileVersionConflictError) {
     throw new HttpException("Precondition Failed", 412);
   }
@@ -171,6 +177,7 @@ function translate(error: unknown): never {
   }
   if (error instanceof ProvisioningOperationValidationError) throw new BadRequestException();
   if (error instanceof TenantProfileValidationError) throw new BadRequestException();
+  if (error instanceof TenantDecommissioningValidationError) throw new BadRequestException();
   if (error instanceof DatabaseUnavailableError) throw new ServiceUnavailableException();
   throw error;
 }
@@ -181,6 +188,8 @@ export class TenantProfilesController {
     @Inject(TENANT_PROFILE_SERVICE) private readonly profiles: TenantProfileService,
     @Inject(TENANT_PROVISIONING_SERVICE)
     private readonly provisioning: TenantProvisioningService,
+    @Inject(TENANT_DECOMMISSIONING_SERVICE)
+    private readonly decommissioning: DecommissionTenantProfileService,
   ) {}
 
   @Get()
@@ -297,6 +306,50 @@ export class TenantProfilesController {
     if (!parsed.success) throw new BadRequestException();
     try {
       await this.profiles.removePending(id, expectedVersion(ifMatch), parsed.data.confirmationSlug);
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Post(":id/decommissioning-operations")
+  @HttpCode(202)
+  @RequirePlatformPermission("tenants:manage")
+  public async requestDecommissioning(
+    @Req() request: Parameters<typeof platformAuthContext>[0],
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Headers("idempotency-key") rawIdempotencyKey: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HeaderResponse,
+  ) {
+    const auth = platformAuthContext(request);
+    const parsed = RequestTenantDecommissioningSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException();
+    try {
+      const result = await this.decommissioning.request({
+        tenantProfileId: id,
+        requestedByOperatorId: auth.principal.id,
+        idempotencyKey: idempotencyKey(rawIdempotencyKey),
+        correlationId: auth.correlationId,
+        expectedTenantVersion: expectedVersion(ifMatch),
+        confirmationSlug: parsed.data.confirmationSlug,
+      });
+      response.setHeader(
+        "Location",
+        `/api/v1/tenant-profiles/${id}/decommissioning-operations/${result.operation.id}`,
+      );
+      response.setHeader("X-Tenant-Profile-ETag", etag(result.tenantVersion));
+      return {
+        schemaVersion: "tenant-decommissioning-operation/v1",
+        data: {
+          id: result.operation.id,
+          tenantProfileId: result.operation.tenantProfileId,
+          status: result.operation.status,
+          currentStep: result.operation.currentStep,
+          version: result.operation.version.toString(),
+        },
+        meta: { idempotentReplay: result.idempotentReplay },
+      };
     } catch (error) {
       translate(error);
     }
