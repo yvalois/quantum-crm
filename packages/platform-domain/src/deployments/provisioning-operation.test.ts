@@ -98,6 +98,7 @@ describe("tenant provisioning operation", () => {
     }));
     const service = new TenantProvisioningService({
       request,
+      findLatestByTenantProfileId: vi.fn(),
       cancel: vi.fn(),
       claimNext: vi.fn(),
       renewLease: vi.fn(),
@@ -128,6 +129,7 @@ describe("tenant provisioning operation", () => {
     }));
     const repository = {
       request,
+      findLatestByTenantProfileId: vi.fn(),
       cancel: vi.fn(),
       claimNext: vi.fn(),
       renewLease: vi.fn(),
@@ -186,6 +188,7 @@ describe("tenant provisioning operation", () => {
     }));
     const service = new TenantProvisioningService({
       request: vi.fn(),
+      findLatestByTenantProfileId: vi.fn(),
       cancel,
       claimNext: vi.fn(),
       renewLease: vi.fn(),

@@ -912,6 +912,72 @@ button:disabled {
   color: var(--ink);
   font-size: 1.05rem;
 }
+.operation-progress-panel {
+  display: grid;
+  gap: 0.85rem;
+}
+.operation-meter {
+  height: 0.45rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+.operation-meter > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #4f46e5, var(--cyan));
+  transition: width 280ms ease;
+}
+.operation-summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 0.8rem;
+  color: var(--quiet);
+  font-size: 0.75rem;
+}
+.operation-summary strong {
+  color: var(--ink);
+  font-size: 1.15rem;
+}
+.operation-summary small {
+  font-family: var(--font-mono), monospace;
+}
+.operation-log {
+  display: grid;
+  max-height: 14rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  list-style: none;
+}
+.operation-log li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.operation-log li:last-child {
+  border-bottom: 0;
+}
+.operation-log li[data-state="Completado"] {
+  color: var(--cyan);
+}
+.operation-log li[data-state="En curso"] {
+  color: var(--ink);
+  background: rgba(79, 70, 229, 0.1);
+}
+.operation-log li[data-state="Falló"] {
+  color: var(--danger);
+}
+.operation-log small {
+  font-family: var(--font-mono), monospace;
+  text-transform: uppercase;
+}
 .provision-result p {
   margin: 0;
 }

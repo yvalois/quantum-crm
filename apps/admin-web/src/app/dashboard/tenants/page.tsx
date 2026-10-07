@@ -2,6 +2,7 @@
 
 import type {
   ActivationDeliveryResponse,
+  DecommissioningOperationResponse,
   PlatformOperatorSelf,
   TenantProfileContract,
   TenantProfileListResponse,
@@ -11,6 +12,7 @@ import type {
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { TenantProvisioningDialog } from "./tenant-provisioning-dialog";
+import { TenantDecommissioningDialog } from "./tenant-decommissioning-dialog";
 
 type DialogMode = "create" | "edit" | "delete" | null;
 
@@ -89,6 +91,8 @@ export default function TenantProfilesPage() {
   const [provisioningProfile, setProvisioningProfile] = useState<TenantProfileContract | null>(
     null,
   );
+  const [decommissioningProfile, setDecommissioningProfile] =
+    useState<TenantProfileContract | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ pageSize: "25" });
@@ -115,14 +119,18 @@ export default function TenantProfilesPage() {
       }
       if (!response.ok) throw new Error(await errorTitle(response));
       const body = (await response.json()) as TenantProfileListResponse;
-      setProfiles(body.data);
+      setProfiles(
+        appliedFilters.status === "DELETED"
+          ? body.data
+          : body.data.filter((profile) => profile.status !== "DELETED"),
+      );
       setNextCursor(body.meta.nextCursor);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "La plataforma no está disponible");
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [appliedFilters.status, query]);
 
   const loadReleases = useCallback(async () => {
     if (!canDeploy) return;
@@ -151,6 +159,13 @@ export default function TenantProfilesPage() {
       setReleasesLoading(false);
     }
   }, [canDeploy]);
+
+  const handleProvisioningUpdated = useCallback((updated: TenantProfileContract) => {
+    setProfiles((current) =>
+      current.map((profile) => (profile.id === updated.id ? updated : profile)),
+    );
+    setProvisioningProfile(updated);
+  }, []);
 
   useEffect(() => {
     void Promise.all([
@@ -309,6 +324,13 @@ export default function TenantProfilesPage() {
         },
       );
       if (!response.ok) throw new Error(await errorTitle(response));
+      if (!isDraft) {
+        const operationResponse = (await response.json()) as DecommissioningOperationResponse;
+        if (operationResponse.data.tenantProfileId !== selected.id) {
+          throw new Error("La operación creada no corresponde al perfil seleccionado");
+        }
+        setDecommissioningProfile({ ...selected, status: "DECOMMISSIONING" });
+      }
       setDialog(null);
       setSelected(null);
       setSelectedEtag(null);
@@ -703,7 +725,7 @@ export default function TenantProfilesPage() {
                     <td>
                       {canManage || canActivate || canDeploy ? (
                         <div className="row-actions">
-                          {canManage ? (
+                          {canManage && !["DECOMMISSIONING", "DELETED"].includes(profile.status) ? (
                             <button
                               className="row-action"
                               type="button"
@@ -731,19 +753,32 @@ export default function TenantProfilesPage() {
                               Aprovisionar
                             </button>
                           ) : null}
-                          {canActivate &&
-                          (profile.status === "ACTIVE" || profile.status === "PROVISIONING") ? (
+                          {canDeploy && profile.status === "PROVISIONING" ? (
+                            <button
+                              className="row-action row-action-primary"
+                              type="button"
+                              onClick={() => setProvisioningProfile(profile)}
+                            >
+                              Ver progreso
+                            </button>
+                          ) : null}
+                          {canManage && profile.status === "DECOMMISSIONING" ? (
+                            <button
+                              className="row-action row-action-primary"
+                              type="button"
+                              onClick={() => setDecommissioningProfile(profile)}
+                            >
+                              Ver eliminación
+                            </button>
+                          ) : null}
+                          {canActivate && profile.status === "ACTIVE" ? (
                             <button
                               className="row-action"
                               type="button"
                               disabled={activationPending !== null}
                               onClick={() => void requestActivation(profile).catch(() => undefined)}
                             >
-                              {activationPending === profile.id
-                                ? "Emitiendo..."
-                                : profile.status === "PROVISIONING"
-                                  ? "Configurar administrador"
-                                  : "Generar acceso"}
+                              {activationPending === profile.id ? "Emitiendo..." : "Generar acceso"}
                             </button>
                           ) : null}
                           {canDeploy && profile.status === "ACTIVE" ? (
@@ -980,12 +1015,15 @@ export default function TenantProfilesPage() {
           canActivate={canActivate}
           onClose={() => setProvisioningProfile(null)}
           onRequestAdministratorAccess={requestActivation}
-          onUpdated={(updated) => {
-            setProfiles((current) =>
-              current.map((profile) => (profile.id === updated.id ? updated : profile)),
-            );
-            setProvisioningProfile(updated);
-          }}
+          onUpdated={handleProvisioningUpdated}
+        />
+      ) : null}
+
+      {decommissioningProfile ? (
+        <TenantDecommissioningDialog
+          profile={decommissioningProfile}
+          onClose={() => setDecommissioningProfile(null)}
+          onFinished={loadProfiles}
         />
       ) : null}
     </main>

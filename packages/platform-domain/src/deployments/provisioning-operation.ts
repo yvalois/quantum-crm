@@ -514,6 +514,9 @@ export interface ProvisioningOperationCancellationRepository {
 
 export interface ProvisioningOperationRepository {
   readonly request: (command: RequestProvisioningCommand) => Promise<ProvisioningRequestResult>;
+  readonly findLatestByTenantProfileId: (
+    tenantProfileId: string,
+  ) => Promise<ProvisioningOperation | null>;
   readonly claimNext: (
     command: ClaimProvisioningOperationCommand,
   ) => Promise<ProvisioningOperation | null>;
@@ -1397,6 +1400,10 @@ export class TenantProvisioningService {
       ...draft,
       expectedTenantVersion: command.expectedTenantVersion,
     });
+  }
+
+  public findLatest(tenantProfileId: string): Promise<ProvisioningOperation | null> {
+    return this.repository.findLatestByTenantProfileId(uuid("tenantProfileId", tenantProfileId));
   }
 
   public async requestAutomatically(

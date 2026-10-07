@@ -104,6 +104,9 @@ export interface TenantDecommissioningRepository {
   readonly claimNext: (
     command: ClaimTenantDecommissioningCommand,
   ) => Promise<TenantDecommissioningOperation | null>;
+  readonly findLatestByTenantProfileId: (
+    tenantProfileId: string,
+  ) => Promise<TenantDecommissioningOperation | null>;
   readonly resolveRuntimeContext: (command: {
     readonly id: string;
     readonly workerId: string;
@@ -231,5 +234,9 @@ export class DecommissionTenantProfileService {
     command: RequestTenantDecommissioningCommand,
   ): Promise<TenantDecommissioningRequestResult> {
     return this.repository.request(validateTenantDecommissioningRequest(command));
+  }
+
+  public findLatest(tenantProfileId: string): Promise<TenantDecommissioningOperation | null> {
+    return this.repository.findLatestByTenantProfileId(uuid("tenantProfileId", tenantProfileId));
   }
 }

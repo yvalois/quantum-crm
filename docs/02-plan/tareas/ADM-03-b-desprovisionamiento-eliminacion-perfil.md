@@ -50,4 +50,13 @@ Un operador autorizado puede solicitar desde Quantum Admin la eliminacion confir
 
 ## Evidencia de cierre
 
-- Pendiente de implementacion y despliegue del bloque.
+- Candidato funcional `3feca81` validado en el VPS con lint, typecheck de `admin-web`, `admin-api`, `deploy-host` y `deploy-executor`, 47 pruebas focalizadas y build de los cuatro servicios.
+- `admin-web`, `admin-api`, `deploy-executor` y `deploy-host` quedaron desplegados y saludables.
+- Quantum Admin consulta la operacion vigente cada dos segundos y presenta porcentaje, paso, registro, estimacion, error recuperable y reintento.
+- La solicitud permite eliminar un perfil en `PROVISIONING`: cancela primero la operacion de alta y crea una operacion durable de baja. El conflicto ya no se presenta incorrectamente como `Tenant profile already exists`.
+- Las operaciones de `quantum-piloto`, `quantum-demo`, `quantum-showcase`, `quantum-demo-jueves` e `interamerican` terminaron en `SUCCEEDED/TOMBSTONE`; los cinco perfiles quedaron `DELETED` y desaparecen del listado operativo normal.
+- La creacion de perfiles conserva evidencia funcional: `interamerican` alcanzo `VERIFY` con servidor, release y configuracion antes de que se solicitara su eliminacion.
+
+## Pendientes de estabilizacion posterior
+
+- Completar el retiro fisico de identidad, configuracion, objetos y base de datos por adaptadores propietarios. El flujo actual retira el runtime, la ruta y la red, libera capacidad y conserva los registros tecnicos; por esta diferencia respecto del alcance total, la ficha permanece abierta.

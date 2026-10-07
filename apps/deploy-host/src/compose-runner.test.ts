@@ -9,12 +9,14 @@ import {
 } from "@quantum-crm/platform-domain";
 
 import {
+  createTenantComposeDecommissioner,
   createTenantComposeReconciler,
   createTenantCrmMigrationReconciler,
   type ComposeCommandResult,
 } from "./compose-runner.js";
 import {
   HostAdapterError,
+  type HostAdapterDecommissionRequest,
   type HostAdapterMigrationRequest,
   type HostAdapterRequest,
 } from "./host-adapter.js";
@@ -252,6 +254,48 @@ describe("tenant compose runner", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("removes a tenant runtime by its verified compose labels without reading an old manifest", async () => {
+    const run = vi.fn(async (args: readonly string[]) => {
+      if (args[0] === "ps" && args.includes("-aq")) {
+        return {
+          exitCode: 0,
+          stdout: run.mock.calls.length === 1 ? `${"a".repeat(64)}\n` : "",
+          stderr: "",
+        };
+      }
+      if (args[0] === "network" && args[1] === "ls") {
+        return { exitCode: 0, stdout: `${"b".repeat(64)}\n`, stderr: "" };
+      }
+      return { exitCode: 0, stdout: "", stderr: "" };
+    });
+    const decommissionRequest: HostAdapterDecommissionRequest = {
+      ...request,
+      action: "DECOMMISSION_TENANT_RUNTIME",
+      edgeNetworkName: `qcrm-tenant-edge-${request.tenantProfileId}`,
+    };
+    const subject = createTenantComposeDecommissioner({
+      configurationRoot: "/configuration-not-required",
+      composeTemplate: "/template-not-required",
+      imageRegistry: "ghcr.io/example/quantum-crm",
+      environment: "staging",
+      tenantEdgeNetworkPrefix: "qcrm-tenant-edge",
+      platformDatabaseNetwork: "qcrm-platform-database",
+      platformStorageNetwork: "qcrm-platform-storage",
+      platformSessionNetwork: "qcrm-platform-session",
+      platformOidcNetwork: "qcrm-platform-oidc",
+      databaseSecretRoot: "/secrets-not-required",
+      storagePublicEndpoint: "https://files.example.test",
+      commandRunner: { run },
+    });
+
+    await expect(subject.decommission(decommissionRequest)).resolves.toMatchObject({
+      projectName: request.projectName,
+      containersRemoved: true,
+    });
+    expect(run).toHaveBeenCalledWith(["rm", "-f", "a".repeat(64)], {}, expect.any(Number));
+    expect(run).toHaveBeenCalledWith(["network", "rm", "b".repeat(64)], {}, expect.any(Number));
   });
 
   it("rejects a malformed manifest before invoking Docker", async () => {

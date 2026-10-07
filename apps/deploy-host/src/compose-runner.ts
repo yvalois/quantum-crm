@@ -233,18 +233,6 @@ function composeArgs(plan: TenantComposePlan, command: "config" | "up" | "ps"): 
   return [...prefix, "ps", "--format", "json"];
 }
 
-function composeDownArgs(plan: TenantComposePlan): string[] {
-  return [
-    "compose",
-    "-f",
-    plan.templatePath,
-    "--project-name",
-    plan.projectName,
-    "down",
-    "--remove-orphans",
-  ];
-}
-
 function migrationComposeArgs(plan: TenantComposePlan): string[] {
   return [
     "compose",
@@ -435,15 +423,52 @@ export function createTenantComposeDecommissioner(
 
   return Object.freeze({
     decommission: async (request: HostAdapterDecommissionRequest) => {
-      const composeRequest: HostAdapterRequest = {
-        ...request,
-        action: "RECONCILE_TENANT_COMPOSE",
-      };
-      const plan = await planForTenant(options, composeRequest);
-      const result = await runner.run(composeDownArgs(plan), plan.environment, timeout);
-      if (result.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      const projectName = `qcrm-t-${request.tenantProfileId}`;
+      const environment = Object.freeze({});
+      const listed = await runner.run(
+        ["ps", "-aq", "--filter", `label=com.docker.compose.project=${projectName}`],
+        environment,
+        timeout,
+      );
+      if (listed.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      const containerIds = listed.stdout
+        .split(/\r?\n/u)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (containerIds.some((value) => !/^[0-9a-f]{12,64}$/u.test(value))) {
+        throw new HostAdapterError("IDENTITY_MISMATCH");
+      }
+      if (containerIds.length > 0) {
+        const removed = await runner.run(["rm", "-f", ...containerIds], environment, timeout);
+        if (removed.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      }
+      const remaining = await runner.run(
+        ["ps", "-aq", "--filter", `label=com.docker.compose.project=${projectName}`],
+        environment,
+        timeout,
+      );
+      if (remaining.exitCode !== 0 || remaining.stdout.trim()) {
+        throw new HostAdapterError("UNAVAILABLE");
+      }
+      const networks = await runner.run(
+        ["network", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`],
+        environment,
+        timeout,
+      );
+      if (networks.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      const networkIds = networks.stdout
+        .split(/\r?\n/u)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (networkIds.some((value) => !/^[0-9a-f]{12,64}$/u.test(value))) {
+        throw new HostAdapterError("IDENTITY_MISMATCH");
+      }
+      if (networkIds.length > 0) {
+        const removed = await runner.run(["network", "rm", ...networkIds], environment, timeout);
+        if (removed.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+      }
       return Object.freeze({
-        projectName: plan.projectName,
+        projectName,
         edgeNetworkName: request.edgeNetworkName,
         containersRemoved: true,
         routeRemoved: false,

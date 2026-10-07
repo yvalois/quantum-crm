@@ -36,6 +36,7 @@ const operation = hydrateProvisioningOperation({
 function repository(overrides: Partial<ProvisioningOperationRepository> = {}) {
   return {
     request: vi.fn(),
+    findLatestByTenantProfileId: vi.fn(async () => null),
     claimNext: vi.fn(async () => null),
     renewLease: vi.fn(async () => null),
     completeValidation: vi.fn(async () => null),

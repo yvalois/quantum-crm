@@ -2662,6 +2662,20 @@ export function createPlatformPostgresDatabase(
   });
 
   const provisioningOperations = Object.freeze({
+    findLatestByTenantProfileId: async (tenantProfileId: string) => {
+      try {
+        const result = (await pool.query(
+          `SELECT ${provisioningOperationSelection}
+           FROM operations.provisioning_operations AS operation
+           WHERE operation.tenant_profile_id = $1::uuid
+           ORDER BY operation.created_at DESC, operation.id DESC LIMIT 1`,
+          [tenantProfileId],
+        )) as { readonly rows: readonly ProvisioningOperationRow[] };
+        return result.rows[0] ? provisioningOperationFromRow(result.rows[0]) : null;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
     request: async (command: RequestProvisioningCommand) => {
       const draft = createProvisioningOperationDraft(command);
       let client: PoolClient | undefined;
