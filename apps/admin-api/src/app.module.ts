@@ -106,7 +106,11 @@ export class AppModule {
         },
         {
           provide: TENANT_PROVISIONING_SERVICE,
-          useFactory: () => new TenantProvisioningService(database.provisioningOperations),
+          useFactory: () =>
+            new TenantProvisioningService(database.provisioningOperations, {
+              infrastructureServers: database.infrastructureServers,
+              releases: database.releases,
+            }),
         },
         {
           provide: PLATFORM_RELEASE_SERVICE,

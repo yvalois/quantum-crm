@@ -1,8 +1,6 @@
 "use client";
 
 import type {
-  InfrastructureServerContract,
-  PlatformReleaseContract,
   ProvisioningOperationContract,
   ProvisioningOperationResponse,
   TenantProfileContract,
@@ -17,12 +15,6 @@ interface TenantProvisioningDialogProps {
   readonly onUpdated: (profile: TenantProfileContract) => void;
   readonly onRequestAdministratorAccess: (profile: TenantProfileContract) => Promise<void>;
 }
-
-const defaultCapacity = Object.freeze({
-  cpuMillicores: 500,
-  memoryMiB: 1024,
-  storageMiB: 10240,
-});
 
 const stepLabels: Readonly<Record<ProvisioningOperationContract["currentStep"], string>> = {
   VALIDATE: "Validando requisitos",
@@ -55,12 +47,6 @@ async function csrfToken(): Promise<string> {
   return body.csrfToken;
 }
 
-function capacityLabel(value: number, unit: "cpu" | "memory" | "storage"): string {
-  if (unit === "cpu") return `${value} mCPU`;
-  if (unit === "memory") return value >= 1024 ? `${value / 1024} GiB` : `${value} MiB`;
-  return `${Math.round((value / 1024) * 10) / 10} GiB`;
-}
-
 export function TenantProvisioningDialog({
   profile,
   canActivate,
@@ -68,11 +54,6 @@ export function TenantProvisioningDialog({
   onUpdated,
   onRequestAdministratorAccess,
 }: TenantProvisioningDialogProps) {
-  const [servers, setServers] = useState<readonly InfrastructureServerContract[]>([]);
-  const [releases, setReleases] = useState<readonly PlatformReleaseContract[]>([]);
-  const [serverId, setServerId] = useState("");
-  const [releaseId, setReleaseId] = useState("");
-  const [loadingOptions, setLoadingOptions] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [operation, setOperation] = useState<ProvisioningOperationContract | null>(null);
@@ -91,45 +72,6 @@ export function TenantProvisioningDialog({
   }, [onUpdated, profile.id]);
 
   useEffect(() => {
-    let active = true;
-    async function loadOptions(): Promise<void> {
-      setLoadingOptions(true);
-      setError(null);
-      try {
-        const [serversResponse, releasesResponse] = await Promise.all([
-          fetch("/api/platform/infrastructure-servers?status=AVAILABLE&pageSize=25", {
-            cache: "no-store",
-          }),
-          fetch("/api/platform/releases?status=VALIDATED&pageSize=25", { cache: "no-store" }),
-        ]);
-        if (!serversResponse.ok) throw new Error(await errorTitle(serversResponse));
-        if (!releasesResponse.ok) throw new Error(await errorTitle(releasesResponse));
-        const serversBody = (await serversResponse.json()) as {
-          readonly data: readonly InfrastructureServerContract[];
-        };
-        const releasesBody = (await releasesResponse.json()) as {
-          readonly data: readonly PlatformReleaseContract[];
-        };
-        if (!active) return;
-        setServers(serversBody.data);
-        setReleases(releasesBody.data);
-        setServerId(serversBody.data[0]?.id ?? "");
-        setReleaseId(releasesBody.data[0]?.id ?? "");
-      } catch (cause) {
-        if (active) {
-          setError(cause instanceof Error ? cause.message : "No fue posible preparar el alta");
-        }
-      } finally {
-        if (active) setLoadingOptions(false);
-      }
-    }
-    void loadOptions();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!operation || currentProfile.status !== "PROVISIONING") return;
     const interval = window.setInterval(() => {
       void refreshProfile().catch((cause: unknown) => {
@@ -143,7 +85,6 @@ export function TenantProvisioningDialog({
     event.preventDefault();
     setSubmitting(true);
     setError(null);
-    const data = new FormData(event.currentTarget);
     try {
       const profileResponse = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
         cache: "no-store",
@@ -151,7 +92,7 @@ export function TenantProvisioningDialog({
       if (!profileResponse.ok) throw new Error(await errorTitle(profileResponse));
       const token = await csrfToken();
       const response = await fetch(
-        `/api/platform/tenant-profiles/${profile.id}/provisioning-operations`,
+        `/api/platform/tenant-profiles/${profile.id}/provisioning-operations/automatic`,
         {
           method: "POST",
           headers: {
@@ -160,15 +101,7 @@ export function TenantProvisioningDialog({
             "if-match": profileResponse.headers.get("etag") ?? "",
             "idempotency-key": `provision-${crypto.randomUUID()}`,
           },
-          body: JSON.stringify({
-            serverId,
-            releaseId,
-            requestedCapacity: {
-              cpuMillicores: Number(data.get("cpuMillicores")),
-              memoryMiB: Number(data.get("memoryMiB")),
-              storageMiB: Number(data.get("storageMiB")),
-            },
-          }),
+          body: "{}",
           cache: "no-store",
         },
       );
@@ -202,7 +135,6 @@ export function TenantProvisioningDialog({
     }
   }
 
-  const selectedServer = servers.find((server) => server.id === serverId);
   const completed = currentProfile.status === "ACTIVE";
   const failed = currentProfile.status === "ERROR";
 
@@ -249,89 +181,15 @@ export function TenantProvisioningDialog({
         </div>
       ) : (
         <form className="profile-form" onSubmit={(event) => void submit(event)}>
-          <label>
-            <span>Servidor disponible</span>
-            <select
-              value={serverId}
-              onChange={(event) => setServerId(event.target.value)}
-              required
-              disabled={loadingOptions}
-            >
-              {servers.map((server) => (
-                <option key={server.id} value={server.id}>
-                  {server.displayName} · {server.region}
-                </option>
-              ))}
-            </select>
-            {selectedServer ? (
-              <small>
-                Libre: {capacityLabel(selectedServer.availableCapacity.cpuMillicores, "cpu")} ·{" "}
-                {capacityLabel(selectedServer.availableCapacity.memoryMiB, "memory")} RAM ·{" "}
-                {capacityLabel(selectedServer.availableCapacity.storageMiB, "storage")} disco
-              </small>
-            ) : null}
-          </label>
-          <label>
-            <span>Release validada</span>
-            <select
-              value={releaseId}
-              onChange={(event) => setReleaseId(event.target.value)}
-              required
-              disabled={loadingOptions}
-            >
-              {releases.map((release) => (
-                <option key={release.id} value={release.id}>
-                  {release.semanticVersion} · {release.commitSha.slice(0, 12)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="capacity-fields">
-            <legend>Reserva inicial</legend>
-            <label>
-              <span>CPU (mCPU)</span>
-              <input
-                name="cpuMillicores"
-                type="number"
-                min="100"
-                step="100"
-                defaultValue={defaultCapacity.cpuMillicores}
-                required
-              />
-            </label>
-            <label>
-              <span>Memoria (MiB)</span>
-              <input
-                name="memoryMiB"
-                type="number"
-                min="512"
-                step="256"
-                defaultValue={defaultCapacity.memoryMiB}
-                required
-              />
-            </label>
-            <label>
-              <span>Disco (MiB)</span>
-              <input
-                name="storageMiB"
-                type="number"
-                min="5120"
-                step="1024"
-                defaultValue={defaultCapacity.storageMiB}
-                required
-              />
-            </label>
-          </fieldset>
-          {!loadingOptions && servers.length === 0 ? (
-            <p className="form-error" role="alert">
-              No hay servidores disponibles.
-            </p>
-          ) : null}
-          {!loadingOptions && releases.length === 0 ? (
-            <p className="form-error" role="alert">
-              No hay releases validadas para desplegar.
-            </p>
-          ) : null}
+          <div className="provision-result" role="status">
+            <div>
+              <strong>Asignación automática</strong>
+              <p>
+                Quantum elegirá una versión validada, un servidor disponible y los recursos
+                necesarios para este CRM. No necesitas configurar infraestructura.
+              </p>
+            </div>
+          </div>
           {error ? (
             <p className="form-error" role="alert">
               {error}
@@ -341,11 +199,7 @@ export function TenantProvisioningDialog({
             <button type="button" className="quiet-button" onClick={onClose}>
               Cancelar
             </button>
-            <button
-              type="submit"
-              className="primary-action"
-              disabled={submitting || loadingOptions || !serverId || !releaseId}
-            >
+            <button type="submit" className="primary-action" disabled={submitting}>
               {submitting ? "Iniciando…" : "Aprovisionar perfil"}
             </button>
           </div>

@@ -70,6 +70,7 @@ Dependencias: contrato de despliegue y diseño de infraestructura de `Quantum_CR
   - [ ] Reanudar operaciones pendientes de forma controlada, revalidando las reglas de envío.
 
 - [ ] **ADM-04 — Desplegar un perfil nuevo desde el administrador.**
+  - [ ] Asignar automáticamente versión, servidor y capacidad base disponible; el operador no configura infraestructura en el alta normal.
   - [ ] Seleccionar versión compatible y servidor con capacidad disponible.
   - [ ] Solicitar al ejecutor la creación de base de datos, credenciales, almacenamiento, configuración y contenedores.
   - [ ] Crear de forma idempotente los buckets privados `incoming` y `objects`, sus cuotas y credenciales de mínimo privilegio para el perfil.

@@ -373,6 +373,7 @@ export {
   ProvisioningCancellationResponseSchema,
   ProvisioningCancellationSchema,
   ProvisioningOperationResponseSchema,
+  RequestAutomaticTenantProvisioningSchema,
   ProvisioningOperationSchema,
   RequestTenantProvisioningSchema,
   type CancelTenantProvisioning,
@@ -380,6 +381,7 @@ export {
   type ProvisioningCancellationResponse,
   type ProvisioningOperationContract,
   type ProvisioningOperationResponse,
+  type RequestAutomaticTenantProvisioning,
   type RequestTenantProvisioning,
 } from "./deployments/v1/provisioning-operation.js";
 export {

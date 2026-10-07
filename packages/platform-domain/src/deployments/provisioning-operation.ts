@@ -1,5 +1,10 @@
 import type { TenantHttpsUpstreamServiceName } from "./tenant-https-route.js";
 import type { TenantOidcIdentity } from "./tenant-oidc-identity.js";
+import type { InfrastructureServerRepository } from "../infrastructure/infrastructure-server-service.js";
+import {
+  PlatformReleaseNotDeployableError,
+  type PlatformReleaseRepository,
+} from "../releases/platform-release-service.js";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
@@ -134,6 +139,21 @@ export interface ProvisioningOperation extends ProvisioningOperationIdentity {
 export interface RequestProvisioningCommand extends ProvisioningOperationIdentity {
   readonly expectedTenantVersion: bigint;
 }
+
+export interface RequestAutomaticProvisioningCommand {
+  readonly tenantProfileId: string;
+  readonly requestedByOperatorId: string;
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
+  readonly expectedTenantVersion: bigint;
+}
+
+/** Baseline aislado para un CRM nuevo; la plataforma, no el operador, lo reserva. */
+export const automaticTenantProvisioningCapacity: ProvisioningCapacity = Object.freeze({
+  cpuMillicores: 500,
+  memoryMiB: 1024,
+  storageMiB: 10_240,
+});
 
 export interface ProvisioningRequestResult {
   readonly operation: ProvisioningOperation;
@@ -1361,6 +1381,10 @@ export class TenantProvisioningService {
   public constructor(
     private readonly repository: ProvisioningOperationRepository &
       ProvisioningOperationCancellationRepository,
+    private readonly placement?: Readonly<{
+      infrastructureServers: InfrastructureServerRepository;
+      releases: PlatformReleaseRepository;
+    }>,
   ) {}
 
   public request(command: RequestProvisioningCommand): Promise<ProvisioningRequestResult> {
@@ -1372,6 +1396,43 @@ export class TenantProvisioningService {
       ...draft,
       expectedTenantVersion: command.expectedTenantVersion,
     });
+  }
+
+  public async requestAutomatically(
+    command: RequestAutomaticProvisioningCommand,
+  ): Promise<ProvisioningRequestResult> {
+    if (!this.placement || command.expectedTenantVersion < 1n) {
+      throw new ProvisioningOperationValidationError("automaticProvisioning");
+    }
+    const [releases, servers] = await Promise.all([
+      this.placement.releases.list({ status: "VALIDATED", limit: 1 }),
+      this.placement.infrastructureServers.list({ status: "AVAILABLE", limit: 100 }),
+    ]);
+    const release = releases[0];
+    if (!release) throw new PlatformReleaseNotDeployableError();
+
+    for (const server of servers) {
+      const available = server.availableCapacity;
+      if (
+        available.cpuMillicores < automaticTenantProvisioningCapacity.cpuMillicores ||
+        available.memoryMiB < automaticTenantProvisioningCapacity.memoryMiB ||
+        available.storageMiB < automaticTenantProvisioningCapacity.storageMiB
+      ) {
+        continue;
+      }
+      try {
+        return await this.request({
+          ...command,
+          serverId: server.id,
+          releaseId: release.id,
+          requestedCapacity: automaticTenantProvisioningCapacity,
+        });
+      } catch (error) {
+        if (error instanceof InfrastructureCapacityExceededError) continue;
+        throw error;
+      }
+    }
+    throw new InfrastructureCapacityExceededError();
   }
 
   public cancel(

@@ -14,6 +14,8 @@ export const RequestTenantProvisioningSchema = z
   })
   .strict();
 
+export const RequestAutomaticTenantProvisioningSchema = z.object({}).strict();
+
 export const CancelTenantProvisioningSchema = z
   .object({
     reason: z
@@ -101,6 +103,9 @@ export const ProvisioningCancellationResponseSchema = z
   .strict();
 
 export type RequestTenantProvisioning = z.infer<typeof RequestTenantProvisioningSchema>;
+export type RequestAutomaticTenantProvisioning = z.infer<
+  typeof RequestAutomaticTenantProvisioningSchema
+>;
 export type CancelTenantProvisioning = z.infer<typeof CancelTenantProvisioningSchema>;
 export type ProvisioningOperationContract = z.infer<typeof ProvisioningOperationSchema>;
 export type ProvisioningOperationResponse = z.infer<typeof ProvisioningOperationResponseSchema>;
