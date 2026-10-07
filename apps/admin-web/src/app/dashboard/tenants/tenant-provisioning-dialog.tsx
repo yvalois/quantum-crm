@@ -8,6 +8,8 @@ import type {
 } from "@quantum-crm/contracts";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
+import { adminCsrfToken, redirectIfAdminSessionExpired } from "../admin-session-client";
+
 interface TenantProvisioningDialogProps {
   readonly profile: TenantProfileContract;
   readonly canActivate: boolean;
@@ -63,14 +65,6 @@ async function errorTitle(response: Response): Promise<string> {
   }
 }
 
-async function csrfToken(): Promise<string> {
-  const response = await fetch("/api/auth/session", { cache: "no-store" });
-  if (!response.ok) throw new Error("La sesión expiró. Ingresa nuevamente.");
-  const body = (await response.json()) as { readonly csrfToken?: string };
-  if (!body.csrfToken) throw new Error("La sesión no puede autorizar cambios.");
-  return body.csrfToken;
-}
-
 export function TenantProvisioningDialog({
   profile,
   canActivate,
@@ -88,6 +82,7 @@ export function TenantProvisioningDialog({
     const response = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
       cache: "no-store",
     });
+    if (redirectIfAdminSessionExpired(response)) return null;
     if (!response.ok) throw new Error(await errorTitle(response));
     const body = (await response.json()) as TenantProfileResponse;
     setCurrentProfile(body.data);
@@ -100,6 +95,7 @@ export function TenantProvisioningDialog({
       `/api/platform/tenant-profiles/${profile.id}/provisioning-operations/latest`,
       { cache: "no-store" },
     );
+    if (redirectIfAdminSessionExpired(response)) return null;
     if (!response.ok) throw new Error(await errorTitle(response));
     const body = (await response.json()) as ProvisioningOperationResponse;
     setOperation(body.data);
@@ -131,8 +127,10 @@ export function TenantProvisioningDialog({
       const profileResponse = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
         cache: "no-store",
       });
+      if (redirectIfAdminSessionExpired(profileResponse)) return;
       if (!profileResponse.ok) throw new Error(await errorTitle(profileResponse));
-      const token = await csrfToken();
+      const token = await adminCsrfToken();
+      if (!token) return;
       const response = await fetch(
         `/api/platform/tenant-profiles/${profile.id}/provisioning-operations/automatic`,
         {
@@ -147,6 +145,7 @@ export function TenantProvisioningDialog({
           cache: "no-store",
         },
       );
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       const body = (await response.json()) as ProvisioningOperationResponse;
       setOperation(body.data);

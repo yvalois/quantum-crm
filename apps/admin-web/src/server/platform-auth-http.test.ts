@@ -136,6 +136,21 @@ describe("admin web authentication HTTP boundary", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
   });
 
+  it("clears a stale session cookie so the next protected navigation can reauthenticate", async () => {
+    const authRuntime = runtime();
+    authRuntime.auth.session = vi.fn(async () => null);
+    const response = await handlePlatformSession(
+      new Request("https://admin.example.test/api/auth/session", {
+        headers: { cookie: `__Host-qcrm_admin_session=${sessionHandle.expose()}` },
+      }),
+      authRuntime,
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("set-cookie")).toContain("__Host-qcrm_admin_session=");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+  });
+
   it("requires both exact Origin and CSRF token for logout", async () => {
     const authRuntime = runtime();
     const rejected = await handlePlatformLogout(

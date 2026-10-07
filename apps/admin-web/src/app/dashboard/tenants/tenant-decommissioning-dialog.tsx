@@ -8,6 +8,8 @@ import type {
 } from "@quantum-crm/contracts";
 import { useCallback, useEffect, useState } from "react";
 
+import { adminCsrfToken, redirectIfAdminSessionExpired } from "../admin-session-client";
+
 interface TenantDecommissioningDialogProps {
   readonly profile: TenantProfileContract;
   readonly onClose: () => void;
@@ -55,14 +57,6 @@ async function errorTitle(response: Response): Promise<string> {
   }
 }
 
-async function csrfToken(): Promise<string> {
-  const response = await fetch("/api/auth/session", { cache: "no-store" });
-  if (!response.ok) throw new Error("La sesión expiró. Ingresa nuevamente.");
-  const body = (await response.json()) as { readonly csrfToken?: string };
-  if (!body.csrfToken) throw new Error("La sesión no puede autorizar cambios.");
-  return body.csrfToken;
-}
-
 export function TenantDecommissioningDialog({
   profile,
   onClose,
@@ -77,6 +71,7 @@ export function TenantDecommissioningDialog({
       `/api/platform/tenant-profiles/${profile.id}/decommissioning-operations/latest`,
       { cache: "no-store" },
     );
+    if (redirectIfAdminSessionExpired(response)) return null;
     if (!response.ok) throw new Error(await errorTitle(response));
     const body = (await response.json()) as DecommissioningOperationResponse;
     setOperation(body.data);
@@ -111,7 +106,8 @@ export function TenantDecommissioningDialog({
       });
       if (!current.ok) throw new Error(await errorTitle(current));
       const currentBody = (await current.json()) as TenantProfileResponse;
-      const token = await csrfToken();
+      const token = await adminCsrfToken();
+      if (!token) return;
       const response = await fetch(
         `/api/platform/tenant-profiles/${profile.id}/decommissioning-operations`,
         {
@@ -126,6 +122,7 @@ export function TenantDecommissioningDialog({
           cache: "no-store",
         },
       );
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       const body = (await response.json()) as DecommissioningOperationResponse;
       setOperation(body.data);
