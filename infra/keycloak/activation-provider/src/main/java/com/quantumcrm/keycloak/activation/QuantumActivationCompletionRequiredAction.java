@@ -32,7 +32,7 @@ public final class QuantumActivationCompletionRequiredAction
       context.failure();
       return;
     }
-    String jti = context.getAuthenticationSession().getAuthNote(AUTH_NOTE_JTI);
+    String jti = activationJti(context);
     Map<String, String> issued = context.getSession().singleUseObjects()
       .get("qcrm:activation:jti:" + jti);
     // The single-use entry TTL is authoritative. Replacing only its status
@@ -58,7 +58,7 @@ public final class QuantumActivationCompletionRequiredAction
   }
 
   private boolean canComplete(RequiredActionContext context) {
-    String jti = context.getAuthenticationSession().getAuthNote(AUTH_NOTE_JTI);
+    String jti = activationJti(context);
     if (jti == null || jti.length() < 1) return false;
     Map<String, String> current = context.getSession().singleUseObjects()
       .get("qcrm:activation:current:" + context.getUser().getId());
@@ -72,6 +72,14 @@ public final class QuantumActivationCompletionRequiredAction
       && context.getUser().getRequiredActionsStream().noneMatch(action ->
         UserModel.RequiredAction.UPDATE_PASSWORD.name().equals(action)
           || UserModel.RequiredAction.CONFIGURE_TOTP.name().equals(action));
+  }
+
+  private String activationJti(RequiredActionContext context) {
+    String actionTokenJti = context.getAuthenticationSession().getAuthNote(AUTH_NOTE_JTI);
+    if (actionTokenJti != null && actionTokenJti.length() > 0) return actionTokenJti;
+    Map<String, String> current = context.getSession().singleUseObjects()
+      .get("qcrm:activation:current:" + context.getUser().getId());
+    return current == null ? null : current.get("jti");
   }
 
   private static String sha256(String value) {

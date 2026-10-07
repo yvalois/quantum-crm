@@ -58,6 +58,11 @@ interface WaiterKey {
   readonly generation: number;
 }
 
+interface DeliveredAccess {
+  readonly url: string;
+  readonly temporaryPassword: string;
+}
+
 function waiterKey(input: WaiterKey): string {
   return `${input.correlationId}:${input.operatorId}:${input.tenantProfileId}:${input.generation}`;
 }
@@ -66,10 +71,10 @@ function waiterKey(input: WaiterKey): string {
 export class ActivationDeliveryWaiters {
   private readonly values = new Map<
     string,
-    { readonly resolve: (value: string) => void; readonly timeout: NodeJS.Timeout }
+    { readonly resolve: (value: DeliveredAccess) => void; readonly timeout: NodeJS.Timeout }
   >();
 
-  public wait(input: WaiterKey, timeoutMilliseconds: number): Promise<string | null> {
+  public wait(input: WaiterKey, timeoutMilliseconds: number): Promise<DeliveredAccess | null> {
     const key = waiterKey(input);
     if (this.values.has(key)) throw new ConflictException();
     return new Promise((resolve) => {
@@ -79,10 +84,10 @@ export class ActivationDeliveryWaiters {
       }, timeoutMilliseconds);
       this.values.set(key, {
         timeout,
-        resolve: (url) => {
+        resolve: (access) => {
           clearTimeout(timeout);
           this.values.delete(key);
-          resolve(url);
+          resolve(access);
         },
       });
     });
@@ -95,10 +100,10 @@ export class ActivationDeliveryWaiters {
     this.values.delete(waiterKey(input));
   }
 
-  public deliver(input: WaiterKey, url: string): boolean {
+  public deliver(input: WaiterKey, access: DeliveredAccess): boolean {
     const value = this.values.get(waiterKey(input));
     if (!value) return false;
-    value.resolve(url);
+    value.resolve(access);
     return true;
   }
 }
@@ -192,12 +197,16 @@ export class ActivationDeliveryController {
         this.waiters.discard(key);
         throw new ConflictException();
       }
-      const url = await waiting;
+      const access = await waiting;
       activationHeaders(response);
-      if (!url) throw new GatewayTimeoutException();
+      if (!access) throw new GatewayTimeoutException();
       return ActivationDeliveryResponseSchema.parse({
         schemaVersion: "activation-delivery/v1",
-        data: { url, expiresAt: result.intent.expiresAt.toISOString() },
+        data: {
+          url: access.url,
+          temporaryPassword: access.temporaryPassword,
+          expiresAt: result.intent.expiresAt.toISOString(),
+        },
         meta: {
           intentId: result.intent.id,
           tenantProfileId,
@@ -251,7 +260,7 @@ export class ActivationDeliveryCallbackController {
         tenantProfileId: parsed.data.tenantProfileId,
         generation: parsed.data.generation,
       },
-      parsed.data.url,
+      { url: parsed.data.url, temporaryPassword: parsed.data.temporaryPassword },
     );
     activationHeaders(response);
     return { accepted };

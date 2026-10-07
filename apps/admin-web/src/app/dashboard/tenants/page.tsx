@@ -38,6 +38,7 @@ interface DeliveredAdministratorAccess {
   readonly adminEmail: string;
   readonly crmUrl: string;
   readonly activationUrl: string;
+  readonly temporaryPassword: string;
   readonly expiresAt: string;
 }
 
@@ -386,6 +387,7 @@ export default function TenantProfilesPage() {
         adminEmail: profile.adminContactEmail,
         crmUrl,
         activationUrl: result.data.url,
+        temporaryPassword: result.data.temporaryPassword,
         expiresAt: result.data.expiresAt,
       });
     } catch (cause) {
@@ -404,6 +406,7 @@ export default function TenantProfilesPage() {
       `Empresa: ${administratorAccess.profileName}`,
       `CRM: ${administratorAccess.crmUrl}`,
       `Usuario: ${administratorAccess.adminEmail}`,
+      `Contraseña temporal: ${administratorAccess.temporaryPassword}`,
       `Configurar o recuperar acceso: ${administratorAccess.activationUrl}`,
       `Vence: ${new Date(administratorAccess.expiresAt).toLocaleString("es-CO")}`,
     ].join("\n");
@@ -838,8 +841,8 @@ export default function TenantProfilesPage() {
           <span className="section-code">ACCESO / UN SOLO USO</span>
           <h2>Acceso de {administratorAccess.profileName} listo</h2>
           <p>
-            Quantum entrega este enlace solamente en la sesión actual. Permite definir una nueva
-            contraseña y configurar el autenticador sin usar la terminal.
+            Quantum entrega la contraseña temporal solamente en la sesión actual. El primer acceso
+            exige cambiarla y configurar el autenticador sin usar la terminal.
           </p>
           <ol className="activation-steps">
             <li>Abre el enlace seguro y crea la contraseña del usuario indicado.</li>
@@ -861,6 +864,12 @@ export default function TenantProfilesPage() {
             <div>
               <dt>Usuario</dt>
               <dd>{administratorAccess.adminEmail}</dd>
+            </div>
+            <div>
+              <dt>Contraseña temporal</dt>
+              <dd>
+                <code>{administratorAccess.temporaryPassword}</code>
+              </dd>
             </div>
             <div>
               <dt>Vigencia</dt>

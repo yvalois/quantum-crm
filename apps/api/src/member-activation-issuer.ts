@@ -20,6 +20,7 @@ export interface MemberActivationIssuer {
   }): Promise<{
     readonly subject: string;
     readonly url: string;
+    readonly temporaryPassword: string;
     readonly expiresAt: string;
     readonly generation: number;
   }>;
@@ -116,6 +117,7 @@ export function createMemberActivationIssuer(options: {
           ? (value as {
               readonly subject?: unknown;
               readonly url?: unknown;
+              readonly temporaryPassword?: unknown;
               readonly expiresAt?: unknown;
               readonly generation?: unknown;
             })
@@ -126,6 +128,9 @@ export function createMemberActivationIssuer(options: {
         !subjectPattern.test(payload.subject) ||
         typeof payload.url !== "string" ||
         !payload.url.startsWith("https://") ||
+        typeof payload.temporaryPassword !== "string" ||
+        payload.temporaryPassword.length < 14 ||
+        payload.temporaryPassword.length > 128 ||
         typeof payload.expiresAt !== "string" ||
         payload.generation !== input.generation
       ) {
@@ -134,6 +139,7 @@ export function createMemberActivationIssuer(options: {
       return Object.freeze({
         subject: payload.subject,
         url: payload.url,
+        temporaryPassword: payload.temporaryPassword,
         expiresAt: payload.expiresAt,
         generation: input.generation,
       });

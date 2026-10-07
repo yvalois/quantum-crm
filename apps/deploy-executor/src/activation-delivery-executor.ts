@@ -12,6 +12,7 @@ export interface ActivationDeliveryCallback {
     readonly generation: number;
     readonly correlationId: string;
     readonly url: string;
+    readonly temporaryPassword: string;
   }) => Promise<{ readonly accepted: boolean }>;
 }
 
@@ -67,6 +68,7 @@ export class ActivationDeliveryExecutor {
         generation: intent.generation,
         correlationId: intent.correlationId,
         url: issued.url,
+        temporaryPassword: issued.temporaryPassword,
       });
       // A missing waiter is not proof that the URL was not exposed (the
       // callback can race request teardown), so the generation remains issued.

@@ -42,6 +42,8 @@ Cada perfil dispone de un realm OIDC separado y un administrador inicial. Un adm
 - Realm, cliente OIDC y administrador inicial creados de manera idempotente durante el alta del perfil.
 - BFF de `crm-web`, Authorization Code con PKCE, cookies host-only, CSRF y sesiones opacas separadas de la plataforma.
 - Interfaz real de administración de miembros y auditoría de los cambios sensibles.
+- Alta de administradores adicionales desde el CRM por el propietario del perfil, con contraseña temporal generada por identidad, visible una sola vez y nunca persistida por Quantum.
+- Primer acceso con la credencial temporal, cambio obligatorio de contraseña y configuración TOTP antes de activar la membresía.
 
 ### No incluido
 

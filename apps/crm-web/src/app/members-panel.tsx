@@ -31,6 +31,7 @@ interface SessionPayload {
 interface InvitationPayload {
   readonly activation?: {
     readonly url: string;
+    readonly temporaryPassword: string;
     readonly expiresAt: string;
   };
 }
@@ -306,7 +307,7 @@ export function MembersPanel(): React.JSX.Element {
       event.currentTarget.reset();
       invitationKey.current = null;
       setActivationLink(payload.activation);
-      setNotice("Invitación registrada. Comparte el enlace de activación con el miembro.");
+      setNotice("Usuario creado. Copia ahora la contraseña temporal: no volverá a mostrarse.");
       await loadMembers();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible crear la invitación.");
@@ -439,12 +440,26 @@ export function MembersPanel(): React.JSX.Element {
           </p>
         ) : null}
         {activationLink ? (
-          <p className="feedback feedback-success" role="status">
+          <section className="feedback feedback-success" role="status">
+            <strong>Acceso temporal listo</strong>
+            <p>
+              Contraseña temporal: <code>{activationLink.temporaryPassword}</code>
+            </p>
+            <button
+              type="button"
+              className="secondary-action"
+              onClick={() => void navigator.clipboard.writeText(activationLink.temporaryPassword)}
+            >
+              Copiar contraseña
+            </button>{" "}
             <a href={activationLink.url} target="_blank" rel="noreferrer">
-              Abrir activación
-            </a>{" "}
-            <small>Válida hasta {dateLabel(activationLink.expiresAt)}.</small>
-          </p>
+              Abrir configuración directa
+            </a>
+            <p>
+              En el primer acceso se exigirá cambiar la contraseña y configurar TOTP. Vigente hasta{" "}
+              {dateLabel(activationLink.expiresAt)}.
+            </p>
+          </section>
         ) : null}
 
         <div className="member-layout">
@@ -560,9 +575,10 @@ export function MembersPanel(): React.JSX.Element {
             ) : (
               <form onSubmit={(event) => void inviteMember(event)}>
                 <p className="eyebrow">Nuevo miembro</p>
-                <h2>Invitar al equipo</h2>
+                <h2>Crear usuario</h2>
                 <p className="form-intro">
-                  Registra una invitación con el rol inicial correspondiente.
+                  Elige Administrador para el dueño y las personas que darán seguimiento. Los demás
+                  roles se asignan aquí mismo cuando se crean sus usuarios.
                 </p>
                 <label>
                   Nombre completo
@@ -583,7 +599,7 @@ export function MembersPanel(): React.JSX.Element {
                   </select>
                 </label>
                 <button type="submit" className="primary-action" disabled={saving || !csrfToken}>
-                  {saving ? "Registrando…" : "Crear invitación"}
+                  {saving ? "Creando…" : "Crear usuario y acceso"}
                 </button>
               </form>
             )}

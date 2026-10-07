@@ -172,6 +172,7 @@ export const InvitationSchema = z.object({
 
 export const InvitationActivationDeliverySchema = z.object({
   url: z.string().url().max(8_192),
+  temporaryPassword: z.string().min(14).max(128),
   expiresAt: IsoDateTimeSchema,
 });
 export const InvitationResponseSchema = z.object({
