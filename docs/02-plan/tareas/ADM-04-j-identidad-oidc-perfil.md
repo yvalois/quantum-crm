@@ -38,6 +38,7 @@ El aprovisionador puede reconciliar la identidad aislada de un perfil: realm, cl
 
 - Puerto tipado de identidad por perfil y adaptador Keycloak exclusivo de `deploy-executor`.
 - Identidad determinista del realm, cliente, audiencia, mappers, PKCE, TOTP y sesiones.
+- Internacionalizacion habilitada con espanol como unico idioma soportado y predeterminado en las pantallas de identidad del perfil.
 - Referencias privadas para secreto OIDC y Redis ACL del perfil; configuración exacta para `crm-web` y configuración pública para API.
 - Reconciliación, conflictos de identidad, timeout, resultados saneados y pruebas de dos perfiles.
 

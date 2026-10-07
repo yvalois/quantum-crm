@@ -14,6 +14,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
+> **Correccion ADM-04/USR-01 (2026-10-07):** EN_CURSO la localizacion al espanol de la identidad por perfil. El realm de InterAmerican ya tiene internacionalizacion habilitada, `es` como locale soportado y predeterminado; se incorpora la misma invariante al aprovisionador para perfiles nuevos y reconciliados.
+
 > **Correccion ADM-03 (2026-10-07):** La eliminacion libera de forma durable el hostname HTTPS antes de convertir el perfil en tombstone. La recreacion de `interamerican` evidencio que la ruta operativa anterior seguia reservando el hostname y dejo el nuevo aprovisionamiento reintentando `CONFIGURE_HTTPS`; se retiro solo el registro tecnico del perfil `DELETED`, la misma operacion avanzo hasta `VERIFY` y su URL responde por HTTPS. El candidato `57c7aa7` aprobo lint, prueba focalizada y typecheck de `database` y `deploy-executor` en el VPS; la imagen `quantum-deploy-executor:57c7aa7` esta desplegada y saludable.
 
 > **ADM-02 (2026-10-07):** La recreacion de perfiles eliminados quedo desplegada. Un tombstone `DELETED` conserva auditoria e identificador historico, pero ya no reserva el slug operativo; el alta nueva usa otro UUID y recursos aislados derivados de ese UUID. La migracion `20261007020000_adm_02_reuse_deleted_tenant_slug`, la imagen `quantum-admin-web:7b05804` y readiness estan aplicados en el VPS. La prueba transaccional con `interamerican` comprobo un nuevo `PENDING`, UUID distinto y rechazo de un segundo perfil vivo, y termino en rollback sin crear el perfil definitivo. Ficha [`ADM-02-d`](../02-plan/tareas/ADM-02-d-recrear-perfil-eliminado.md).
