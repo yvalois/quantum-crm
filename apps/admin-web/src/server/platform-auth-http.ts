@@ -198,7 +198,8 @@ export async function handlePlatformSession(
   request: Request,
   runtime: PlatformAuthRuntime,
 ): Promise<Response> {
-  const sessionHandle = platformCookie(request, cookieNames(runtime.config).session);
+  const names = cookieNames(runtime.config);
+  const sessionHandle = platformCookie(request, names.session);
   if (!sessionHandle) {
     return Response.json(
       { authenticated: false },
@@ -209,10 +210,15 @@ export async function handlePlatformSession(
   try {
     const session = await runtime.auth.session(new SecretValue(sessionHandle));
     if (!session) {
-      return Response.json(
-        { authenticated: false },
-        { status: 401, headers: platformNoStoreHeaders() },
+      const headers = platformNoStoreHeaders();
+      headers.append(
+        "set-cookie",
+        serializeCookie(names.session, "", {
+          maxAge: 0,
+          secure: runtime.config.secureCookies,
+        }),
       );
+      return Response.json({ authenticated: false }, { status: 401, headers });
     }
     return Response.json(
       {

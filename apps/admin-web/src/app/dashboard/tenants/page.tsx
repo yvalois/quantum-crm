@@ -14,6 +14,7 @@ import type {
 } from "@quantum-crm/contracts";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
+import { adminCsrfToken, redirectIfAdminSessionExpired } from "../admin-session-client";
 import { TenantProvisioningDialog } from "./tenant-provisioning-dialog";
 import { TenantDecommissioningDialog } from "./tenant-decommissioning-dialog";
 
@@ -218,14 +219,6 @@ export default function TenantProfilesPage() {
     setCursorHistory([]);
   }
 
-  async function csrfToken(): Promise<string> {
-    const response = await fetch("/api/auth/session", { cache: "no-store" });
-    if (!response.ok) throw new Error("La sesión expiró. Ingresa nuevamente.");
-    const body = (await response.json()) as { readonly csrfToken?: string };
-    if (!body.csrfToken) throw new Error("La sesión no puede autorizar cambios.");
-    return body.csrfToken;
-  }
-
   async function openProfileOperators(profile: TenantProfileContract): Promise<void> {
     setOperatorProfile(profile);
     setOperatorAccess(null);
@@ -237,6 +230,7 @@ export default function TenantProfilesPage() {
           cache: "no-store",
         },
       );
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       const body = (await response.json()) as ProfileOperatorListResponse;
       setProfileOperators(body.data);
@@ -257,7 +251,8 @@ export default function TenantProfilesPage() {
     setOperatorAccess(null);
     const data = new FormData(form);
     try {
-      const csrf = await csrfToken();
+      const csrf = await adminCsrfToken();
+      if (!csrf) return;
       const response = await fetch(
         `/api/platform/tenant-profiles/${operatorProfile.id}/platform-operators`,
         {
@@ -273,6 +268,7 @@ export default function TenantProfilesPage() {
           }),
         },
       );
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       const body = (await response.json()) as ProfileOperatorAccessResponse;
       setOperatorAccess(body.data);
@@ -303,6 +299,7 @@ export default function TenantProfilesPage() {
       const response = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
         cache: "no-store",
       });
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       const body = (await response.json()) as TenantProfileResponse;
       setSelected(body.data);
@@ -319,6 +316,7 @@ export default function TenantProfilesPage() {
       const response = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
         cache: "no-store",
       });
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       const body = (await response.json()) as TenantProfileResponse;
       setSelected(body.data);
@@ -341,7 +339,8 @@ export default function TenantProfilesPage() {
       adminContactEmail: String(data.get("adminContactEmail") ?? ""),
     };
     try {
-      const csrf = await csrfToken();
+      const csrf = await adminCsrfToken();
+      if (!csrf) return;
       const editing = dialog === "edit" && selected;
       const response = await fetch(
         editing ? `/api/platform/tenant-profiles/${selected.id}` : "/api/platform/tenant-profiles",
@@ -355,6 +354,7 @@ export default function TenantProfilesPage() {
           body: JSON.stringify(payload),
         },
       );
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       const result = (await response.json()) as TenantProfileResponse;
       setDialog(null);
@@ -382,7 +382,8 @@ export default function TenantProfilesPage() {
       return;
     }
     try {
-      const csrf = await csrfToken();
+      const csrf = await adminCsrfToken();
+      if (!csrf) return;
       const isDraft = selected.status === "PENDING";
       const response = await fetch(
         isDraft
@@ -400,6 +401,7 @@ export default function TenantProfilesPage() {
           cache: "no-store",
         },
       );
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       if (!isDraft) {
         const operationResponse = (await response.json()) as DecommissioningOperationResponse;
@@ -428,8 +430,10 @@ export default function TenantProfilesPage() {
       const current = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
         cache: "no-store",
       });
+      if (redirectIfAdminSessionExpired(current)) return;
       if (!current.ok) throw new Error(await errorTitle(current));
-      const csrf = await csrfToken();
+      const csrf = await adminCsrfToken();
+      if (!csrf) return;
       const response = await fetch(
         `/api/platform/tenant-profiles/${profile.id}/activation-deliveries`,
         {
@@ -444,6 +448,7 @@ export default function TenantProfilesPage() {
           cache: "no-store",
         },
       );
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) {
         if (response.status === 409 && profile.status === "PROVISIONING") {
           throw new Error(
@@ -506,8 +511,10 @@ export default function TenantProfilesPage() {
       const current = await fetch(`/api/platform/tenant-profiles/${profile.id}`, {
         cache: "no-store",
       });
+      if (redirectIfAdminSessionExpired(current)) return;
       if (!current.ok) throw new Error(await errorTitle(current));
-      const csrf = await csrfToken();
+      const csrf = await adminCsrfToken();
+      if (!csrf) return;
       const response = await fetch(
         `/api/platform/tenant-profiles/${profile.id}/release-promotions`,
         {
@@ -522,6 +529,7 @@ export default function TenantProfilesPage() {
           cache: "no-store",
         },
       );
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       setPromotionReleaseId("");
       await loadProfiles();
@@ -537,7 +545,8 @@ export default function TenantProfilesPage() {
     setReleasePending(release.id);
     setReleasesError(null);
     try {
-      const csrf = await csrfToken();
+      const csrf = await adminCsrfToken();
+      if (!csrf) return;
       const response = await fetch(`/api/platform/releases/${release.id}/status`, {
         method: "PATCH",
         headers: {
@@ -548,6 +557,7 @@ export default function TenantProfilesPage() {
         body: JSON.stringify({ status: "VALIDATED" }),
         cache: "no-store",
       });
+      if (redirectIfAdminSessionExpired(response)) return;
       if (!response.ok) throw new Error(await errorTitle(response));
       const body = (await response.json()) as {
         readonly data: PlatformReleaseContract;

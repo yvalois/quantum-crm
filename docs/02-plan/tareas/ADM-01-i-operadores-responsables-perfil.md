@@ -50,4 +50,5 @@ Desde la vista de un perfil en Quantum Admin, un operador con `operators:manage`
 - Candidato `e901a83` validado exclusivamente en el VPS: formato y lint afectados, seis typechecks, cuatro archivos de pruebas con 16 casos y builds de `database`, `admin-api`, `deploy-executor` y `admin-web` aprobados.
 - Migracion `20261007040000_adm_01_profile_operators` aplicada en `qcrm_platform`; la tabla durable existe y permanece vacia hasta que el propietario cree los operadores reales.
 - `admin-api`, `admin-web` y `deploy-executor` ejecutan imagenes `e901a83` saludables; Admin responde HTTP 200 y la ruta BFF nueva deniega acceso anonimo con HTTP 401.
+- La correccion `b2f7357` evita que una sesion vencida deje bloqueado el formulario de responsables: el BFF elimina la cookie obsoleta y la interfaz reinicia OIDC con retorno a `/dashboard/tenants`. Aprobo 11 pruebas focalizadas, auditoria sin hallazgos altos y `admin-web` quedo saludable en el VPS.
 - Pendiente de cierre: crear una cuenta real desde Admin y recorrer su primer ingreso, cambio de clave, TOTP y creacion de perfil.
