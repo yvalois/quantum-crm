@@ -48,15 +48,15 @@ Documentos usa toda el area disponible del CRM como una aplicacion de escritorio
 
 ## Impacto tecnico
 
-| Area | Impacto previsto |
-|---|---|
-| Aplicaciones y modulos | `crm-web` |
-| Contratos y eventos | Sin cambios |
-| Datos y migraciones | Sin cambios |
-| Permisos y aislamiento | Se conservan los existentes |
-| Configuracion y secretos | Sin cambios |
-| Observabilidad y operacion | Sin cambios |
-| Documentacion | Estado y esta ficha |
+| Area                       | Impacto previsto            |
+| -------------------------- | --------------------------- |
+| Aplicaciones y modulos     | `crm-web`                   |
+| Contratos y eventos        | Sin cambios                 |
+| Datos y migraciones        | Sin cambios                 |
+| Permisos y aislamiento     | Se conservan los existentes |
+| Configuracion y secretos   | Sin cambios                 |
+| Observabilidad y operacion | Sin cambios                 |
+| Documentacion              | Estado y esta ficha         |
 
 ## Plan de implementacion
 

@@ -237,11 +237,11 @@ export default function DocumentsPage(): React.JSX.Element {
       if (!session.authenticated || !session.csrfToken) throw new Error("La sesión no es válida.");
       setCsrf(session.csrfToken);
       const [documentList, templateList, contactList, opportunityList] = await Promise.all([
-          loadJson<List<CommercialDocument>>("/api/documents"),
-          loadJson<List<DocumentTemplate>>("/api/documents/templates"),
-          loadJson<List<Contact>>("/api/contacts"),
-          loadJson<List<Opportunity>>("/api/opportunities"),
-        ]);
+        loadJson<List<CommercialDocument>>("/api/documents"),
+        loadJson<List<DocumentTemplate>>("/api/documents/templates"),
+        loadJson<List<Contact>>("/api/contacts"),
+        loadJson<List<Opportunity>>("/api/opportunities"),
+      ]);
       const nextDocuments = documentList.data;
       setDocuments(nextDocuments);
       setTemplates(templateList.data);
@@ -620,107 +620,105 @@ export default function DocumentsPage(): React.JSX.Element {
         >
           {libraryOpen ? (
             <aside className="document-library" aria-label="Biblioteca de documentos">
-            <div className="library-heading">
-              <div>
-                <span>Biblioteca</span>
-                <strong>{documents.length}</strong>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreate(true)}
-                aria-label="Crear documento"
-              >
-                +
-              </button>
-            </div>
-            <label className="document-search">
-              <span className="sr-only">Buscar documentos</span>
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por nombre…"
-              />
-            </label>
-            <div className="document-kind-tabs">
-              <button
-                className={!kindFilter ? "active" : ""}
-                type="button"
-                onClick={() => setKindFilter("")}
-              >
-                Todos
-              </button>
-              <button
-                className={kindFilter === "QUOTE" ? "active" : ""}
-                type="button"
-                onClick={() => setKindFilter("QUOTE")}
-              >
-                Cotizaciones
-              </button>
-              <button
-                className={kindFilter === "INVOICE" ? "active" : ""}
-                type="button"
-                onClick={() => setKindFilter("INVOICE")}
-              >
-                Facturas
-              </button>
-            </div>
-            <div className="document-list">
-              {loading ? (
-                <p className="empty-copy">Cargando documentos…</p>
-              ) : filteredDocuments.length === 0 ? (
-                <div className="library-empty">
-                  <span>□</span>
-                  <strong>Aún no hay documentos</strong>
-                  <p>Crea un borrador desde cero o usa una plantilla.</p>
+              <div className="library-heading">
+                <div>
+                  <span>Biblioteca</span>
+                  <strong>{documents.length}</strong>
                 </div>
-              ) : (
-                filteredDocuments.map((document) => (
-                  <button
-                    className={document.id === selectedId ? "active" : ""}
-                    type="button"
-                    key={document.id}
-                    onClick={() => selectDocument(document)}
-                  >
-                    <span className={`document-kind-mark ${document.kind.toLowerCase()}`}>
-                      {document.kind === "QUOTE" ? "C" : "F"}
-                    </span>
-                    <span>
-                      <strong>{document.title}</strong>
-                      <small>
-                        {document.kind === "QUOTE" ? "Cotización" : "Factura"} · Rev.{" "}
-                        {document.revision}
-                      </small>
-                    </span>
-                    <time>
-                      {new Intl.DateTimeFormat("es", { day: "2-digit", month: "short" }).format(
-                        new Date(document.updatedAt),
-                      )}
-                    </time>
-                  </button>
-                ))
-              )}
-            </div>
-            {templates.length ? (
-              <div className="template-shelf">
-                <span>PLANTILLAS DISPONIBLES</span>
-                {templates.slice(0, 4).map((template) => (
-                  <div key={template.id}>
-                    <i style={{ background: template.design.accentColor }} />
-                    <strong>{template.name}</strong>
-                    <small>{template.kind === "QUOTE" ? "Cotización" : "Factura"}</small>
-                  </div>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(true)}
+                  aria-label="Crear documento"
+                >
+                  +
+                </button>
               </div>
-            ) : null}
+              <label className="document-search">
+                <span className="sr-only">Buscar documentos</span>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar por nombre…"
+                />
+              </label>
+              <div className="document-kind-tabs">
+                <button
+                  className={!kindFilter ? "active" : ""}
+                  type="button"
+                  onClick={() => setKindFilter("")}
+                >
+                  Todos
+                </button>
+                <button
+                  className={kindFilter === "QUOTE" ? "active" : ""}
+                  type="button"
+                  onClick={() => setKindFilter("QUOTE")}
+                >
+                  Cotizaciones
+                </button>
+                <button
+                  className={kindFilter === "INVOICE" ? "active" : ""}
+                  type="button"
+                  onClick={() => setKindFilter("INVOICE")}
+                >
+                  Facturas
+                </button>
+              </div>
+              <div className="document-list">
+                {loading ? (
+                  <p className="empty-copy">Cargando documentos…</p>
+                ) : filteredDocuments.length === 0 ? (
+                  <div className="library-empty">
+                    <span>□</span>
+                    <strong>Aún no hay documentos</strong>
+                    <p>Crea un borrador desde cero o usa una plantilla.</p>
+                  </div>
+                ) : (
+                  filteredDocuments.map((document) => (
+                    <button
+                      className={document.id === selectedId ? "active" : ""}
+                      type="button"
+                      key={document.id}
+                      onClick={() => selectDocument(document)}
+                    >
+                      <span className={`document-kind-mark ${document.kind.toLowerCase()}`}>
+                        {document.kind === "QUOTE" ? "C" : "F"}
+                      </span>
+                      <span>
+                        <strong>{document.title}</strong>
+                        <small>
+                          {document.kind === "QUOTE" ? "Cotización" : "Factura"} · Rev.{" "}
+                          {document.revision}
+                        </small>
+                      </span>
+                      <time>
+                        {new Intl.DateTimeFormat("es", { day: "2-digit", month: "short" }).format(
+                          new Date(document.updatedAt),
+                        )}
+                      </time>
+                    </button>
+                  ))
+                )}
+              </div>
+              {templates.length ? (
+                <div className="template-shelf">
+                  <span>PLANTILLAS DISPONIBLES</span>
+                  {templates.slice(0, 4).map((template) => (
+                    <div key={template.id}>
+                      <i style={{ background: template.design.accentColor }} />
+                      <strong>{template.name}</strong>
+                      <small>{template.kind === "QUOTE" ? "Cotización" : "Factura"}</small>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </aside>
           ) : null}
 
           {draft ? (
             <main className="document-canvas" aria-label="Editor de documento">
               <div className="document-canvas-meta">
-                <span>
-                  {draft.design.pageSize} · Pagina 1
-                </span>
+                <span>{draft.design.pageSize} · Pagina 1</span>
                 <span>{draft.blocks.length} bloques</span>
               </div>
               <div className="document-canvas-scroll">
@@ -900,9 +898,7 @@ export default function DocumentsPage(): React.JSX.Element {
                   Oportunidad
                   <select
                     value={draft.opportunityId ?? ""}
-                    onChange={(event) =>
-                      patchDraft({ opportunityId: event.target.value || null })
-                    }
+                    onChange={(event) => patchDraft({ opportunityId: event.target.value || null })}
                   >
                     <option value="">Sin oportunidad</option>
                     {opportunities.map((opportunity) => (
@@ -1180,11 +1176,7 @@ function BlockEditor({
       <div className="image-slot-editor">
         <div>
           {block.fileId && csrf ? (
-            <AuthorizedFileImage
-              fileId={block.fileId}
-              alt={block.alt || block.label}
-              csrf={csrf}
-            />
+            <AuthorizedFileImage fileId={block.fileId} alt={block.alt || block.label} csrf={csrf} />
           ) : (
             <>
               <span>IMAGEN</span>
@@ -1367,9 +1359,7 @@ function BlockEditor({
           className="document-add-row"
           type="button"
           disabled={block.locked || block.rows.length >= 100}
-          onClick={() =>
-            onChange({ ...block, rows: [...block.rows, block.columns.map(() => "")] })
-          }
+          onClick={() => onChange({ ...block, rows: [...block.rows, block.columns.map(() => "")] })}
         >
           + Agregar fila
         </button>

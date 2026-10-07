@@ -1653,9 +1653,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 0, rgb(255 255 255 / 70%), transparent 36rem),
-    #e6eaec;
+  background: radial-gradient(circle at 50% 0, rgb(255 255 255 / 70%), transparent 36rem), #e6eaec;
 }
 
 .document-canvas-meta {
