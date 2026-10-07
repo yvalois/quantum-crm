@@ -228,4 +228,13 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 Una fila activa se actualiza cuando cambia el estado o al finalizar una sesion de trabajo. Al cerrar, se elimina de `En curso`, se agrega a `Terminado` con evidencia y se actualizan las casillas correspondientes del checklist.
 
+## Evidencia VPS de USR-01 — acceso temporal y altas administrativas
+
+- Fecha: 2026-10-07; candidato `1743a54` en `feat/USR-01-acceso-temporal`; no se ejecuto codigo del proyecto en el equipo local.
+- Quantum Admin entrega una sola vez usuario, contraseña temporal, CRM y enlace de recuperacion del propietario. El panel CRM `/team` crea usuarios con el rol elegido, incluido `Administrador`, y entrega la credencial temporal una sola vez.
+- El primer acceso mantiene obligatorios el cambio de contraseña, el enrolamiento TOTP y el consumo de la generacion de activacion vigente. La credencial temporal no se persiste ni aparece en logs.
+- Verificacion VPS unica: formato afectado aprobado; seis typechecks aprobados; 15/15 pruebas focalizadas aprobadas; proveedor Maven y seis imagenes de produccion construidos correctamente.
+- Despliegue: plataforma, identidad y los componentes afectados de InterAmerican ejecutan `qcrm-candidate/*:1743a54`, todos saludables. `https://admin.2-25-172-119.nip.io` devuelve `200`, `https://interamerican.2-25-172-119.nip.io` devuelve la redireccion OIDC esperada y discovery devuelve `200`.
+- El smoke tipado del proveedor creo, valido y elimino una identidad sintetica sin revelar la contraseña. Pendiente posterior: promocion oficial tras CI y automatizacion ampliada del navegador para las pantallas nativas de Keycloak.
+
 Regla operativa vigente: el commit exacto se valida primero en el VPS y solo despues se publica en GitHub; el equipo local se limita a edicion y Git.
