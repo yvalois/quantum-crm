@@ -7,9 +7,15 @@ import type {
   DocumentBlock,
   DocumentTemplate,
   Opportunity,
-  TaskAssignee,
 } from "@quantum-crm/contracts";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { CrmShell } from "../crm-shell";
 
@@ -56,6 +62,18 @@ const blockLabels: Record<DocumentBlock["type"], string> = {
   SIGNATURE: "Firma",
   ATTACHMENT: "Adjunto",
 };
+
+const documentBlockTypes = [
+  "TEXT",
+  "IMAGE",
+  "TABLE",
+  "COLUMNS",
+  "DIVIDER",
+  "TERMS",
+  "VARIABLE",
+  "SIGNATURE",
+  "ATTACHMENT",
+] as const satisfies readonly DocumentBlock["type"][];
 
 function newBlock(type: DocumentBlock["type"]): DocumentBlock {
   const id = crypto.randomUUID();
@@ -168,42 +186,12 @@ function uploadVersionId(response: Response, body: string): string | null {
   return body.match(/<VersionId>([^<]+)<\/VersionId>/u)?.[1] ?? null;
 }
 
-function opportunityAmount(opportunity: Opportunity | null): string {
-  if (!opportunity) return "";
-  const amountMinor = BigInt(opportunity.amountMinor);
-  const units = amountMinor / 100n;
-  const cents = (amountMinor % 100n).toString().padStart(2, "0");
-  return `${opportunity.currency} ${units.toString()}.${cents}`;
-}
-
-function interpolate(
-  value: string,
-  contact: Contact | null,
-  advisor: TaskAssignee | null,
-  opportunity: Opportunity | null,
-  documentTitle: string,
-): string {
-  return value
-    .replaceAll("{{contact.name}}", contact?.displayName ?? "Cliente")
-    .replaceAll("{{contact.email}}", contact?.email ?? "correo@cliente.com")
-    .replaceAll("{{contact.phone}}", contact?.phone ?? "")
-    .replaceAll("{{advisor.name}}", advisor?.displayName ?? "Asesor")
-    .replaceAll("{{advisor.email}}", "")
-    .replaceAll("{{company.name}}", "Quantum CRM")
-    .replaceAll("{{opportunity.title}}", opportunity?.title ?? "Oportunidad")
-    .replaceAll("{{opportunity.amount}}", opportunityAmount(opportunity))
-    .replaceAll("{{opportunity.currency}}", opportunity?.currency ?? "")
-    .replaceAll("{{opportunity.status}}", opportunity?.status ?? "")
-    .replaceAll("{{document.title}}", documentTitle);
-}
-
 export default function DocumentsPage(): React.JSX.Element {
   const [csrf, setCsrf] = useState<string | null>(null);
   const [documents, setDocuments] = useState<CommercialDocument[]>([]);
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [advisors, setAdvisors] = useState<TaskAssignee[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CommercialDocument | null>(null);
   const [loading, setLoading] = useState(true);
@@ -216,18 +204,13 @@ export default function DocumentsPage(): React.JSX.Element {
   const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<"" | CommercialDocumentKind>("");
+  const [libraryOpen, setLibraryOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [zoom, setZoom] = useState(90);
 
   const selectedContact = useMemo(
     () => contacts.find((contact) => contact.id === draft?.contactId) ?? null,
     [contacts, draft?.contactId],
-  );
-  const selectedAdvisor = useMemo(
-    () => advisors.find((advisor) => advisor.id === draft?.ownerMemberId) ?? null,
-    [advisors, draft?.ownerMemberId],
-  );
-  const selectedOpportunity = useMemo(
-    () => opportunities.find((opportunity) => opportunity.id === draft?.opportunityId) ?? null,
-    [draft?.opportunityId, opportunities],
   );
   const filteredDocuments = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
@@ -253,20 +236,17 @@ export default function DocumentsPage(): React.JSX.Element {
       const session = (await sessionResponse.json()) as SessionPayload;
       if (!session.authenticated || !session.csrfToken) throw new Error("La sesión no es válida.");
       setCsrf(session.csrfToken);
-      const [documentList, templateList, contactList, opportunityList, advisorList] =
-        await Promise.all([
+      const [documentList, templateList, contactList, opportunityList] = await Promise.all([
           loadJson<List<CommercialDocument>>("/api/documents"),
           loadJson<List<DocumentTemplate>>("/api/documents/templates"),
           loadJson<List<Contact>>("/api/contacts"),
           loadJson<List<Opportunity>>("/api/opportunities"),
-          loadJson<List<TaskAssignee>>("/api/tasks/assignees"),
         ]);
       const nextDocuments = documentList.data;
       setDocuments(nextDocuments);
       setTemplates(templateList.data);
       setContacts(contactList.data);
       setOpportunities(opportunityList.data);
-      setAdvisors(advisorList.data);
       const current =
         nextDocuments.find((item) => item.id === selectedId) ?? nextDocuments[0] ?? null;
       setSelectedId(current?.id ?? null);
@@ -524,26 +504,105 @@ export default function DocumentsPage(): React.JSX.Element {
   return (
     <CrmShell className="documents-shell">
       <section className="documents-page">
-        <header className="documents-topbar">
-          <div>
-            <p className="eyebrow">CIERRE COMERCIAL</p>
-            <h1>Documentos</h1>
-            <p>Cotizaciones y facturas que se sienten hechas a medida.</p>
+        <header className="document-commandbar">
+          <div className="document-command-title">
+            <span className="document-app-mark" aria-hidden="true">
+              QD
+            </span>
+            <div>
+              <p>DOCUMENTOS</p>
+              <strong>{draft?.title ?? "Biblioteca documental"}</strong>
+            </div>
+            {draft ? (
+              <span className={`document-save-state ${dirty ? "is-dirty" : ""}`}>
+                <i />
+                {dirty ? "Cambios sin guardar" : `Guardado · revision ${draft.revision}`}
+              </span>
+            ) : null}
           </div>
-          <div className="documents-top-actions">
-            <button className="button-secondary" type="button" onClick={() => setShowCreate(true)}>
-              Nueva plantilla o documento
+          <div className="document-command-actions">
+            {draft ? (
+              <>
+                <button type="button" onClick={() => void duplicate()} disabled={saving}>
+                  Duplicar
+                </button>
+                <button type="button" onClick={() => setShowTemplate(true)} disabled={saving}>
+                  Guardar como plantilla
+                </button>
+              </>
+            ) : null}
+            <button type="button" onClick={() => setShowCreate(true)}>
+              Nuevo
             </button>
             <button
-              className="button-primary"
+              className="document-save-button"
               type="button"
               onClick={() => void save()}
               disabled={!dirty || saving}
             >
-              {saving ? "Guardando…" : "Guardar cambios"}
+              {saving ? "Guardando..." : "Guardar"}
             </button>
           </div>
         </header>
+
+        <div className="document-toolbar" role="toolbar" aria-label="Herramientas del documento">
+          <div className="document-toolbar-group">
+            <button
+              type="button"
+              className={libraryOpen ? "is-active" : ""}
+              onClick={() => setLibraryOpen((open) => !open)}
+              aria-expanded={libraryOpen}
+              aria-label="Mostrar u ocultar biblioteca"
+            >
+              <span aria-hidden="true">☰</span>
+              Biblioteca
+            </button>
+          </div>
+          {draft ? (
+            <>
+              <div className="document-toolbar-group document-insert-tools">
+                <span>Insertar</span>
+                {documentBlockTypes.map((type) => (
+                  <button
+                    type="button"
+                    key={type}
+                    onClick={() => patchDraft({ blocks: [...draft.blocks, newBlock(type)] })}
+                    title={`Insertar ${blockLabels[type].toLocaleLowerCase("es")}`}
+                  >
+                    {blockLabels[type]}
+                  </button>
+                ))}
+              </div>
+              <div className="document-toolbar-group document-view-tools">
+                <button
+                  type="button"
+                  onClick={() => setZoom((value) => Math.max(60, value - 10))}
+                  disabled={zoom <= 60}
+                  aria-label="Reducir zoom"
+                >
+                  −
+                </button>
+                <output aria-label="Nivel de zoom">{zoom}%</output>
+                <button
+                  type="button"
+                  onClick={() => setZoom((value) => Math.min(120, value + 10))}
+                  disabled={zoom >= 120}
+                  aria-label="Aumentar zoom"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  className={inspectorOpen ? "is-active" : ""}
+                  onClick={() => setInspectorOpen((open) => !open)}
+                  aria-expanded={inspectorOpen}
+                >
+                  Propiedades
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
 
         {error ? (
           <div className="document-alert document-alert-error" role="alert">
@@ -556,8 +615,11 @@ export default function DocumentsPage(): React.JSX.Element {
           </div>
         ) : null}
 
-        <div className="document-studio">
-          <aside className="document-library">
+        <div
+          className={`document-workbench ${libraryOpen ? "has-library" : ""} ${draft && inspectorOpen ? "has-inspector" : ""}`}
+        >
+          {libraryOpen ? (
+            <aside className="document-library" aria-label="Biblioteca de documentos">
             <div className="library-heading">
               <div>
                 <span>Biblioteca</span>
@@ -650,217 +712,148 @@ export default function DocumentsPage(): React.JSX.Element {
                 ))}
               </div>
             ) : null}
-          </aside>
+            </aside>
+          ) : null}
 
           {draft ? (
-            <>
-              <section className="document-editor" aria-label="Editor de documento">
-                <div className="editor-meta-row">
-                  <label>
-                    <span>Título</span>
-                    <input
-                      value={draft.title}
-                      onChange={(event) => patchDraft({ title: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    <span>Contacto</span>
-                    <select
-                      value={draft.contactId ?? ""}
-                      onChange={(event) => patchDraft({ contactId: event.target.value || null })}
-                    >
-                      <option value="">Sin contacto</option>
-                      {contacts.map((contact) => (
-                        <option value={contact.id} key={contact.id}>
-                          {contact.displayName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Oportunidad</span>
-                    <select
-                      value={draft.opportunityId ?? ""}
-                      onChange={(event) =>
-                        patchDraft({ opportunityId: event.target.value || null })
-                      }
-                    >
-                      <option value="">Sin oportunidad</option>
-                      {opportunities.map((opportunity) => (
-                        <option value={opportunity.id} key={opportunity.id}>
-                          {opportunity.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="editor-actions-row">
-                  <span>
-                    <i />
-                    BORRADOR · REV. {draft.revision}
-                  </span>
-                  <div>
-                    <button type="button" onClick={() => void duplicate()}>
-                      Duplicar
-                    </button>
-                    <button type="button" onClick={() => setShowTemplate(true)}>
-                      Guardar como plantilla
-                    </button>
-                  </div>
-                </div>
-                <div className="block-insert-bar">
-                  <span>Insertar bloque</span>
-                  {(
-                    [
-                      "TEXT",
-                      "IMAGE",
-                      "TABLE",
-                      "COLUMNS",
-                      "DIVIDER",
-                      "TERMS",
-                      "VARIABLE",
-                      "SIGNATURE",
-                      "ATTACHMENT",
-                    ] as const
-                  ).map((type) => (
-                    <button
-                      type="button"
-                      key={type}
-                      onClick={() => patchDraft({ blocks: [...draft.blocks, newBlock(type)] })}
-                    >
-                      {blockLabels[type]}
-                    </button>
-                  ))}
-                </div>
-                <div className="document-block-list">
-                  {draft.blocks.map((block, index) => (
-                    <article
-                      className={`document-block ${block.locked ? "locked" : ""}`}
-                      key={block.id}
-                    >
-                      <header>
-                        <span className="block-handle">⋮⋮</span>
-                        <strong>{blockLabels[block.type]}</strong>
-                        {block.locked ? <small>ESTRUCTURA PROTEGIDA</small> : null}
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateBlock(block.id, (current) => ({
-                                ...current,
-                                locked: !current.locked,
-                              }))
-                            }
-                            aria-label={
-                              block.locked ? "Permitir editar estructura" : "Proteger estructura"
-                            }
-                          >
-                            {block.locked ? "Desproteger" : "Proteger"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveBlock(index, -1)}
-                            disabled={index === 0 || block.locked}
-                            aria-label="Mover arriba"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveBlock(index, 1)}
-                            disabled={index === draft.blocks.length - 1 || block.locked}
-                            aria-label="Mover abajo"
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              patchDraft({
-                                blocks: draft.blocks.filter((item) => item.id !== block.id),
-                              })
-                            }
-                            disabled={block.locked}
-                            aria-label="Eliminar"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </header>
-                      <BlockEditor
-                        block={block}
-                        onChange={(next) => updateBlock(block.id, () => next)}
-                        uploading={uploadingBlockId === block.id}
-                        onFileSelected={(file) => void uploadDocumentFile(block.id, file)}
+            <main className="document-canvas" aria-label="Editor de documento">
+              <div className="document-canvas-meta">
+                <span>
+                  {draft.design.pageSize} · Pagina 1
+                </span>
+                <span>{draft.blocks.length} bloques</span>
+              </div>
+              <div className="document-canvas-scroll">
+                <div
+                  className="document-zoom-layer"
+                  style={{ "--document-zoom": zoom / 100 } as CSSProperties}
+                >
+                  <article
+                    className={`document-page ${
+                      draft.design.fontFamily === "SERIF"
+                        ? "preview-serif"
+                        : draft.design.fontFamily === "MONO"
+                          ? "preview-mono"
+                          : ""
+                    }`}
+                    style={{ color: draft.design.textColor }}
+                  >
+                    <header style={{ borderColor: draft.design.accentColor }}>
+                      <input
+                        aria-label="Texto del encabezado"
+                        value={draft.design.headerText}
+                        placeholder="Nombre de la empresa"
+                        onChange={(event) =>
+                          patchDraft({
+                            design: { ...draft.design, headerText: event.target.value },
+                          })
+                        }
                       />
-                    </article>
-                  ))}
+                      <strong>{draft.kind === "QUOTE" ? "COTIZACION" : "FACTURA"}</strong>
+                    </header>
+                    <section className="document-page-title">
+                      <p>PREPARADO PARA</p>
+                      <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
+                      <textarea
+                        aria-label="Titulo del documento"
+                        value={draft.title}
+                        rows={2}
+                        onChange={(event) => patchDraft({ title: event.target.value })}
+                      />
+                    </section>
+                    <div className="document-block-list document-page-blocks">
+                      {draft.blocks.length === 0 ? (
+                        <button
+                          className="document-empty-page"
+                          type="button"
+                          onClick={() =>
+                            patchDraft({ blocks: [...draft.blocks, newBlock("TEXT")] })
+                          }
+                        >
+                          <span>+</span>
+                          Empieza a escribir
+                        </button>
+                      ) : null}
+                      {draft.blocks.map((block, index) => (
+                        <article
+                          className={`document-block ${block.locked ? "locked" : ""}`}
+                          key={block.id}
+                        >
+                          <header className="document-block-tools">
+                            <span className="block-handle" aria-hidden="true">
+                              ⋮⋮
+                            </span>
+                            <strong>{blockLabels[block.type]}</strong>
+                            {block.locked ? <small>Protegido</small> : null}
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateBlock(block.id, (current) => ({
+                                    ...current,
+                                    locked: !current.locked,
+                                  }))
+                                }
+                              >
+                                {block.locked ? "Desproteger" : "Proteger"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveBlock(index, -1)}
+                                disabled={index === 0 || block.locked}
+                                aria-label="Mover bloque arriba"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveBlock(index, 1)}
+                                disabled={index === draft.blocks.length - 1 || block.locked}
+                                aria-label="Mover bloque abajo"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  patchDraft({
+                                    blocks: draft.blocks.filter((item) => item.id !== block.id),
+                                  })
+                                }
+                                disabled={block.locked}
+                                aria-label="Eliminar bloque"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </header>
+                          <BlockEditor
+                            block={block}
+                            onChange={(next) => updateBlock(block.id, () => next)}
+                            uploading={uploadingBlockId === block.id}
+                            onFileSelected={(file) => void uploadDocumentFile(block.id, file)}
+                            csrf={csrf}
+                          />
+                        </article>
+                      ))}
+                    </div>
+                    <footer style={{ borderColor: draft.design.accentColor }}>
+                      <input
+                        aria-label="Texto del pie de pagina"
+                        value={draft.design.footerText}
+                        placeholder="Pie de pagina"
+                        onChange={(event) =>
+                          patchDraft({
+                            design: { ...draft.design, footerText: event.target.value },
+                          })
+                        }
+                      />
+                      {draft.design.showPageNumbers ? <small>01 / 01</small> : null}
+                    </footer>
+                  </article>
                 </div>
-              </section>
-
-              <aside className="document-preview-panel">
-                <div className="preview-heading">
-                  <span>VISTA PREVIA</span>
-                  <small>{draft.design.pageSize} · página 1</small>
-                </div>
-                <DocumentPreview
-                  document={draft}
-                  contact={selectedContact}
-                  advisor={selectedAdvisor}
-                  opportunity={selectedOpportunity}
-                  csrf={csrf}
-                />
-                <div className="design-panel">
-                  <label>
-                    <span>Color principal</span>
-                    <input
-                      type="color"
-                      value={draft.design.accentColor}
-                      onChange={(event) =>
-                        patchDraft({ design: { ...draft.design, accentColor: event.target.value } })
-                      }
-                    />
-                  </label>
-                  <label>
-                    <span>Tipografía</span>
-                    <select
-                      value={draft.design.fontFamily}
-                      onChange={(event) =>
-                        patchDraft({
-                          design: {
-                            ...draft.design,
-                            fontFamily: event.target
-                              .value as CommercialDocument["design"]["fontFamily"],
-                          },
-                        })
-                      }
-                    >
-                      <option value="INSTRUMENT_SANS">Instrument Sans</option>
-                      <option value="SERIF">Editorial Serif</option>
-                      <option value="MONO">IBM Plex Mono</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Encabezado</span>
-                    <input
-                      value={draft.design.headerText}
-                      onChange={(event) =>
-                        patchDraft({ design: { ...draft.design, headerText: event.target.value } })
-                      }
-                    />
-                  </label>
-                  <label>
-                    <span>Pie de página</span>
-                    <input
-                      value={draft.design.footerText}
-                      onChange={(event) =>
-                        patchDraft({ design: { ...draft.design, footerText: event.target.value } })
-                      }
-                    />
-                  </label>
-                </div>
-              </aside>
-            </>
+              </div>
+            </main>
           ) : (
             <section className="document-welcome">
               <span>DOC</span>
@@ -871,6 +864,130 @@ export default function DocumentsPage(): React.JSX.Element {
               </button>
             </section>
           )}
+
+          {draft && inspectorOpen ? (
+            <aside className="document-inspector" aria-label="Propiedades del documento">
+              <header>
+                <div>
+                  <span>PROPIEDADES</span>
+                  <strong>Documento</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInspectorOpen(false)}
+                  aria-label="Cerrar propiedades"
+                >
+                  ×
+                </button>
+              </header>
+              <section>
+                <h2>Datos vinculados</h2>
+                <label>
+                  Contacto
+                  <select
+                    value={draft.contactId ?? ""}
+                    onChange={(event) => patchDraft({ contactId: event.target.value || null })}
+                  >
+                    <option value="">Sin contacto</option>
+                    {contacts.map((contact) => (
+                      <option value={contact.id} key={contact.id}>
+                        {contact.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Oportunidad
+                  <select
+                    value={draft.opportunityId ?? ""}
+                    onChange={(event) =>
+                      patchDraft({ opportunityId: event.target.value || null })
+                    }
+                  >
+                    <option value="">Sin oportunidad</option>
+                    {opportunities.map((opportunity) => (
+                      <option value={opportunity.id} key={opportunity.id}>
+                        {opportunity.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </section>
+              <section>
+                <h2>Apariencia</h2>
+                <div className="document-color-field">
+                  <label>
+                    Color principal
+                    <input
+                      type="color"
+                      value={draft.design.accentColor}
+                      onChange={(event) =>
+                        patchDraft({ design: { ...draft.design, accentColor: event.target.value } })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Color del texto
+                    <input
+                      type="color"
+                      value={draft.design.textColor}
+                      onChange={(event) =>
+                        patchDraft({ design: { ...draft.design, textColor: event.target.value } })
+                      }
+                    />
+                  </label>
+                </div>
+                <label>
+                  Tipografia
+                  <select
+                    value={draft.design.fontFamily}
+                    onChange={(event) =>
+                      patchDraft({
+                        design: {
+                          ...draft.design,
+                          fontFamily: event.target
+                            .value as CommercialDocument["design"]["fontFamily"],
+                        },
+                      })
+                    }
+                  >
+                    <option value="INSTRUMENT_SANS">Instrument Sans</option>
+                    <option value="SERIF">Editorial Serif</option>
+                    <option value="MONO">IBM Plex Mono</option>
+                  </select>
+                </label>
+                <label className="document-toggle-field">
+                  <input
+                    type="checkbox"
+                    checked={draft.design.showPageNumbers}
+                    onChange={(event) =>
+                      patchDraft({
+                        design: { ...draft.design, showPageNumbers: event.target.checked },
+                      })
+                    }
+                  />
+                  Mostrar numero de pagina
+                </label>
+              </section>
+              <section className="document-inspector-summary">
+                <h2>Resumen</h2>
+                <dl>
+                  <div>
+                    <dt>Tipo</dt>
+                    <dd>{draft.kind === "QUOTE" ? "Cotizacion" : "Factura"}</dd>
+                  </div>
+                  <div>
+                    <dt>Estado</dt>
+                    <dd>Borrador</dd>
+                  </div>
+                  <div>
+                    <dt>Revision</dt>
+                    <dd>{draft.revision}</dd>
+                  </div>
+                </dl>
+              </section>
+            </aside>
+          ) : null}
         </div>
       </section>
 
@@ -1014,11 +1131,13 @@ function BlockEditor({
   onChange,
   uploading,
   onFileSelected,
+  csrf,
 }: {
   readonly block: DocumentBlock;
   readonly onChange: (block: DocumentBlock) => void;
   readonly uploading: boolean;
   readonly onFileSelected: (file: File) => void;
+  readonly csrf: string | null;
 }): React.JSX.Element {
   if (block.type === "TEXT")
     return (
@@ -1060,13 +1179,19 @@ function BlockEditor({
     return (
       <div className="image-slot-editor">
         <div>
-          <span>IMAGEN</span>
-          <strong>{block.fileId ? "Referencia vinculada" : "Espacio editable"}</strong>
-          <small>
-            {block.fileId
-              ? "Archivo verificado y listo para guardar."
-              : "La imagen se valida y escanea antes de quedar disponible."}
-          </small>
+          {block.fileId && csrf ? (
+            <AuthorizedFileImage
+              fileId={block.fileId}
+              alt={block.alt || block.label}
+              csrf={csrf}
+            />
+          ) : (
+            <>
+              <span>IMAGEN</span>
+              <strong>Arrastra la atencion hacia una imagen</strong>
+              <small>JPEG, PNG o WebP. Quantum la valida antes de mostrarla.</small>
+            </>
+          )}
           <label className="document-file-button">
             {uploading
               ? "Validando archivo..."
@@ -1140,6 +1265,9 @@ function BlockEditor({
               }}
             />
           </label>
+          {block.fileId && csrf ? (
+            <AuthorizedFileDownload fileId={block.fileId} csrf={csrf} />
+          ) : null}
         </div>
         <label>
           Etiqueta
@@ -1178,39 +1306,73 @@ function BlockEditor({
   if (block.type === "TABLE")
     return (
       <div className="table-editor">
-        <input
-          value={block.columns.join(" | ")}
-          disabled={block.locked}
-          onChange={(event) => {
-            const columns = event.target.value
-              .split("|")
-              .map((value) => value.trim())
-              .filter(Boolean)
-              .slice(0, 8);
-            onChange({
-              ...block,
-              columns,
-              rows: block.rows.map((row) => columns.map((_, index) => row[index] ?? "")),
-            });
-          }}
-        />
-        <textarea
-          value={block.rows.map((row) => row.join(" | ")).join("\n")}
-          disabled={block.locked}
-          onChange={(event) =>
-            onChange({
-              ...block,
-              rows: event.target.value
-                .split("\n")
-                .filter(Boolean)
-                .slice(0, 100)
-                .map((row) => {
-                  const values = row.split("|").map((value) => value.trim());
-                  return block.columns.map((_, index) => values[index] ?? "");
-                }),
-            })
+        <div className="document-table-grid">
+          <div className="document-table-row document-table-head">
+            {block.columns.map((column, columnIndex) => (
+              <input
+                key={columnIndex}
+                value={column}
+                disabled={block.locked}
+                aria-label={`Encabezado ${columnIndex + 1}`}
+                onChange={(event) =>
+                  onChange({
+                    ...block,
+                    columns: block.columns.map((value, index) =>
+                      index === columnIndex ? event.target.value : value,
+                    ),
+                  })
+                }
+              />
+            ))}
+          </div>
+          {block.rows.map((row, rowIndex) => (
+            <div className="document-table-row" key={rowIndex}>
+              {block.columns.map((_, columnIndex) => (
+                <input
+                  key={columnIndex}
+                  value={row[columnIndex] ?? ""}
+                  disabled={block.locked}
+                  aria-label={`Fila ${rowIndex + 1}, columna ${columnIndex + 1}`}
+                  onChange={(event) =>
+                    onChange({
+                      ...block,
+                      rows: block.rows.map((currentRow, currentRowIndex) =>
+                        currentRowIndex === rowIndex
+                          ? currentRow.map((value, currentColumnIndex) =>
+                              currentColumnIndex === columnIndex ? event.target.value : value,
+                            )
+                          : currentRow,
+                      ),
+                    })
+                  }
+                />
+              ))}
+              <button
+                type="button"
+                disabled={block.locked || block.rows.length === 1}
+                onClick={() =>
+                  onChange({
+                    ...block,
+                    rows: block.rows.filter((_, currentRowIndex) => currentRowIndex !== rowIndex),
+                  })
+                }
+                aria-label={`Eliminar fila ${rowIndex + 1}`}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          className="document-add-row"
+          type="button"
+          disabled={block.locked || block.rows.length >= 100}
+          onClick={() =>
+            onChange({ ...block, rows: [...block.rows, block.columns.map(() => "")] })
           }
-        />
+        >
+          + Agregar fila
+        </button>
       </div>
     );
   if (block.type === "VARIABLE")
@@ -1299,161 +1461,6 @@ function BlockEditor({
       </label>
     );
   return <div />;
-}
-
-function DocumentPreview({
-  document,
-  contact,
-  advisor,
-  opportunity,
-  csrf,
-}: {
-  readonly document: CommercialDocument;
-  readonly contact: Contact | null;
-  readonly advisor: TaskAssignee | null;
-  readonly opportunity: Opportunity | null;
-  readonly csrf: string | null;
-}): React.JSX.Element {
-  const fontClass =
-    document.design.fontFamily === "SERIF"
-      ? "preview-serif"
-      : document.design.fontFamily === "MONO"
-        ? "preview-mono"
-        : "";
-  return (
-    <div className={`document-paper ${fontClass}`} style={{ color: document.design.textColor }}>
-      <header style={{ borderColor: document.design.accentColor }}>
-        <span>{document.design.headerText || "QUANTUM DEMO"}</span>
-        <small>{document.kind === "QUOTE" ? "COTIZACIÓN" : "FACTURA"}</small>
-      </header>
-      <section className="paper-title">
-        <p>PREPARADO PARA</p>
-        <h2>{contact?.displayName ?? "Cliente"}</h2>
-        <h1>{document.title}</h1>
-      </section>
-      <div className="paper-blocks">
-        {document.blocks.map((block) => {
-          if (block.type === "TEXT")
-            return (
-              <p
-                key={block.id}
-                style={{ textAlign: block.align.toLowerCase() as "left" | "center" | "right" }}
-              >
-                {interpolate(block.content, contact, advisor, opportunity, document.title)}
-              </p>
-            );
-          if (block.type === "TERMS")
-            return (
-              <section className="paper-terms" key={block.id}>
-                <strong>{block.title}</strong>
-                <p>{interpolate(block.content, contact, advisor, opportunity, document.title)}</p>
-              </section>
-            );
-          if (block.type === "IMAGE" && block.visible)
-            return (
-              <figure className="paper-image" key={block.id}>
-                {block.fileId && csrf ? (
-                  <AuthorizedFileImage
-                    fileId={block.fileId}
-                    alt={block.alt || block.label}
-                    csrf={csrf}
-                  />
-                ) : (
-                  <>
-                    <span>IMAGEN</span>
-                    <strong>{block.label}</strong>
-                  </>
-                )}
-                {block.caption ? <figcaption>{block.caption}</figcaption> : null}
-              </figure>
-            );
-          if (block.type === "DIVIDER")
-            return (
-              <hr
-                key={block.id}
-                style={{ borderTopStyle: block.style === "DASHED" ? "dashed" : "solid" }}
-              />
-            );
-          if (block.type === "COLUMNS")
-            return (
-              <div className="paper-columns" key={block.id}>
-                {block.columns.map((column, index) => (
-                  <p key={index}>
-                    {interpolate(column, contact, advisor, opportunity, document.title)}
-                  </p>
-                ))}
-              </div>
-            );
-          if (block.type === "TABLE")
-            return (
-              <table key={block.id}>
-                <thead>
-                  <tr>
-                    {block.columns.map((column) => (
-                      <th key={column}>{column}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {block.rows.map((row, index) => (
-                    <tr key={index}>
-                      {row.map((cell, cellIndex) => (
-                        <td key={cellIndex}>{cell}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            );
-          if (block.type === "VARIABLE")
-            return (
-              <p className="paper-variable" key={block.id}>
-                <small>{block.label}</small>
-                <strong>
-                  {block.value ??
-                    (interpolate(
-                      `{{${block.key}}}`,
-                      contact,
-                      advisor,
-                      opportunity,
-                      document.title,
-                    ) === `{{${block.key}}}`
-                      ? block.fallback
-                      : interpolate(
-                          `{{${block.key}}}`,
-                          contact,
-                          advisor,
-                          opportunity,
-                          document.title,
-                        ))}
-                </strong>
-              </p>
-            );
-          if (block.type === "ATTACHMENT")
-            return (
-              <div className="paper-attachment" key={block.id}>
-                <span>ARCHIVO ADJUNTO</span>
-                <strong>{block.label}</strong>
-                <small>{block.originalName || "Pendiente de carga"}</small>
-                {block.fileId && csrf ? (
-                  <AuthorizedFileDownload fileId={block.fileId} csrf={csrf} />
-                ) : null}
-              </div>
-            );
-          return (
-            <div className="paper-signature" key={block.id}>
-              <span />
-              <small>{block.label}</small>
-            </div>
-          );
-        })}
-      </div>
-      <footer style={{ borderColor: document.design.accentColor }}>
-        <span>{document.design.footerText}</span>
-        {document.design.showPageNumbers ? <small>01 / 01</small> : null}
-      </footer>
-    </div>
-  );
 }
 
 function AuthorizedFileImage({
