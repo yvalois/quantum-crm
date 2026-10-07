@@ -334,7 +334,10 @@ export class TenantProfilesController {
         expectedTenantVersion: expectedVersion(ifMatch),
         confirmationSlug: parsed.data.confirmationSlug,
       });
-      response.setHeader("Location", `/api/v1/tenant-profiles/${id}/decommissioning-operations/${result.operation.id}`);
+      response.setHeader(
+        "Location",
+        `/api/v1/tenant-profiles/${id}/decommissioning-operations/${result.operation.id}`,
+      );
       response.setHeader("X-Tenant-Profile-ETag", etag(result.tenantVersion));
       return {
         schemaVersion: "tenant-decommissioning-operation/v1",

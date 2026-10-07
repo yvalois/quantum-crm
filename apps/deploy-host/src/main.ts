@@ -71,7 +71,10 @@ const decommissionCompose = createTenantComposeDecommissioner({
   configurationRoot: config.deployHostConfigurationRoot,
   composeTemplate: config.deployHostComposeTemplate,
   imageRegistry: config.deployHostImageRegistry,
-  environment: config.environment === "local" || config.environment === "test" ? "preview" : config.environment,
+  environment:
+    config.environment === "local" || config.environment === "test"
+      ? "preview"
+      : config.environment,
   tenantEdgeNetworkPrefix: config.deployHostTenantEdgeNetwork,
   platformDatabaseNetwork: config.deployHostPlatformDatabaseNetwork,
   platformStorageNetwork: config.deployHostPlatformStorageNetwork,
@@ -97,7 +100,8 @@ const server = createHostAdapterServer({
         ...containers,
         ...route,
         ...network,
-        decommissioned: containers.containersRemoved && route.routeRemoved && network.networkRemoved,
+        decommissioned:
+          containers.containersRemoved && route.routeRemoved && network.networkRemoved,
       });
     },
   },

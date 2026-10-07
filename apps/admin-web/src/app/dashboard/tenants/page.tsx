@@ -297,15 +297,15 @@ export default function TenantProfilesPage() {
           ? `/api/platform/tenant-profiles/${selected.id}`
           : `/api/platform/tenant-profiles/${selected.id}/decommissioning-operations`,
         {
-        method: isDraft ? "DELETE" : "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-csrf-token": csrf,
-          "if-match": selectedEtag,
-          ...(!isDraft ? { "idempotency-key": `decommission-${crypto.randomUUID()}` } : {}),
-        },
-        body: JSON.stringify({ confirmationSlug: selected.slug }),
-        cache: "no-store",
+          method: isDraft ? "DELETE" : "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrf,
+            "if-match": selectedEtag,
+            ...(!isDraft ? { "idempotency-key": `decommission-${crypto.randomUUID()}` } : {}),
+          },
+          body: JSON.stringify({ confirmationSlug: selected.slug }),
+          cache: "no-store",
         },
       );
       if (!response.ok) throw new Error(await errorTitle(response));

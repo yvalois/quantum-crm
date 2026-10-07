@@ -34,8 +34,7 @@ export const tenantDecommissioningFailureCodes = [
   "CAPACITY_ACCOUNTING_INVALID",
   "PERMISSION_DENIED",
 ] as const;
-export type TenantDecommissioningFailureCode =
-  (typeof tenantDecommissioningFailureCodes)[number];
+export type TenantDecommissioningFailureCode = (typeof tenantDecommissioningFailureCodes)[number];
 
 export interface TenantDecommissioningOperation {
   readonly id: string;

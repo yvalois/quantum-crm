@@ -76,11 +76,26 @@ export class TenantDecommissioningExecutor {
     }
     // Identity, configuration, storage and database records remain auditable at platform level;
     // their secrets and live runtime were already withdrawn before this terminal transition.
-    if (operation.currentStep === "REMOVE_IDENTITY") { await this.advance(operation, "REMOVE_CONFIGURATION"); return true; }
-    if (operation.currentStep === "REMOVE_CONFIGURATION") { await this.advance(operation, "REMOVE_STORAGE"); return true; }
-    if (operation.currentStep === "REMOVE_STORAGE") { await this.advance(operation, "REMOVE_DATABASE"); return true; }
-    if (operation.currentStep === "REMOVE_DATABASE") { await this.advance(operation, "RELEASE_CAPACITY"); return true; }
-    if (operation.currentStep === "RELEASE_CAPACITY") { await this.advance(operation, "TOMBSTONE"); return true; }
+    if (operation.currentStep === "REMOVE_IDENTITY") {
+      await this.advance(operation, "REMOVE_CONFIGURATION");
+      return true;
+    }
+    if (operation.currentStep === "REMOVE_CONFIGURATION") {
+      await this.advance(operation, "REMOVE_STORAGE");
+      return true;
+    }
+    if (operation.currentStep === "REMOVE_STORAGE") {
+      await this.advance(operation, "REMOVE_DATABASE");
+      return true;
+    }
+    if (operation.currentStep === "REMOVE_DATABASE") {
+      await this.advance(operation, "RELEASE_CAPACITY");
+      return true;
+    }
+    if (operation.currentStep === "RELEASE_CAPACITY") {
+      await this.advance(operation, "TOMBSTONE");
+      return true;
+    }
     if (operation.currentStep === "TOMBSTONE") {
       await this.complete(operation);
       return true;
@@ -92,13 +107,26 @@ export class TenantDecommissioningExecutor {
     operation: TenantDecommissioningOperation,
     nextStep: TenantDecommissioningStep,
   ): Promise<void> {
-    await this.operations.advance({ id: operation.id, workerId: this.workerId, expectedVersion: operation.version, attempt: operation.attempt, currentStep: operation.currentStep, nextStep });
+    await this.operations.advance({
+      id: operation.id,
+      workerId: this.workerId,
+      expectedVersion: operation.version,
+      attempt: operation.attempt,
+      currentStep: operation.currentStep,
+      nextStep,
+    });
   }
 
   private async complete(
     operation: TenantDecommissioningOperation,
     failureCode?: TenantDecommissioningFailureCode,
   ): Promise<void> {
-    await this.operations.complete({ id: operation.id, workerId: this.workerId, expectedVersion: operation.version, attempt: operation.attempt, ...(failureCode ? { failureCode } : {}) });
+    await this.operations.complete({
+      id: operation.id,
+      workerId: this.workerId,
+      expectedVersion: operation.version,
+      attempt: operation.attempt,
+      ...(failureCode ? { failureCode } : {}),
+    });
   }
 }

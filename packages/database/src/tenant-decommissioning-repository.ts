@@ -197,7 +197,13 @@ export function createTenantDecommissioningRepository(
              AND profile.status = 'decommissioning' AND profile.server_id IS NOT NULL
              AND profile.release_id IS NOT NULL`,
           [command.id, command.workerId, command.expectedVersion.toString(), command.attempt],
-        )) as { readonly rows: readonly { readonly server_id: string; readonly release_id: string; readonly configuration_revision: string }[] };
+        )) as {
+          readonly rows: readonly {
+            readonly server_id: string;
+            readonly release_id: string;
+            readonly configuration_revision: string;
+          }[];
+        };
         const row = result.rows[0];
         return row
           ? Object.freeze({
@@ -219,7 +225,14 @@ export function createTenantDecommissioningRepository(
            WHERE id = $1::uuid AND status = 'running' AND current_step = $2::operations.tenant_decommissioning_step
              AND lease_owner = $3 AND version = $4::bigint AND attempt = $6
            RETURNING ${selection}`,
-          [command.id, command.currentStep.toLowerCase(), command.workerId, command.expectedVersion.toString(), command.nextStep.toLowerCase(), command.attempt],
+          [
+            command.id,
+            command.currentStep.toLowerCase(),
+            command.workerId,
+            command.expectedVersion.toString(),
+            command.nextStep.toLowerCase(),
+            command.attempt,
+          ],
         )) as { readonly rows: Row[] };
         return result.rows[0] ? operation(result.rows[0]) : null;
       } catch (error) {
@@ -237,8 +250,14 @@ export function createTenantDecommissioningRepository(
              lease_expires_at = NULL, version = version + 1, updated_at = CURRENT_TIMESTAMP
            WHERE id = $1::uuid AND status = 'running' AND lease_owner = $2 AND version = $3::bigint AND attempt = $4
            RETURNING ${selection}`,
-          [command.id, command.workerId, command.expectedVersion.toString(), command.attempt,
-            command.failureCode ? "failed" : "succeeded", command.failureCode?.toLowerCase() ?? null],
+          [
+            command.id,
+            command.workerId,
+            command.expectedVersion.toString(),
+            command.attempt,
+            command.failureCode ? "failed" : "succeeded",
+            command.failureCode?.toLowerCase() ?? null,
+          ],
         );
         const done = result.rows[0];
         if (!done) {

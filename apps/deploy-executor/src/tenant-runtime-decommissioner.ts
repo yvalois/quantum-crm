@@ -1,7 +1,9 @@
 import { request } from "node:http";
 
 export class TenantRuntimeDecommissioningError extends Error {
-  public constructor(public readonly reason: "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT") {
+  public constructor(
+    public readonly reason: "UNAVAILABLE" | "PERMISSION_DENIED" | "TARGET_CONFLICT",
+  ) {
     super(`tenant runtime decommissioning failed: ${reason}`);
   }
 }
@@ -45,7 +47,10 @@ export function createTenantRuntimeDecommissioner(options: {
             socketPath: options.socketPath,
             path: "/v1/tenant-runtime/decommission",
             method: "POST",
-            headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) },
+            headers: {
+              "content-type": "application/json",
+              "content-length": Buffer.byteLength(payload),
+            },
           },
           (response) => {
             let body = "";
@@ -64,10 +69,14 @@ export function createTenantRuntimeDecommissioner(options: {
                 return;
               }
               let reason: unknown;
-              try { reason = (JSON.parse(body) as { readonly reason?: unknown }).reason; } catch {}
+              try {
+                reason = (JSON.parse(body) as { readonly reason?: unknown }).reason;
+              } catch {}
               reject(
                 new TenantRuntimeDecommissioningError(
-                  reason === "PERMISSION_DENIED" || reason === "TARGET_CONFLICT" ? reason : "UNAVAILABLE",
+                  reason === "PERMISSION_DENIED" || reason === "TARGET_CONFLICT"
+                    ? reason
+                    : "UNAVAILABLE",
                 ),
               );
             });
