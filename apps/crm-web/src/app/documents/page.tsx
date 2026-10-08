@@ -148,6 +148,7 @@ function imageComposerStyle(image: EditableDocumentImage): CSSProperties {
 function beginImageResize(
   event: ReactPointerEvent<HTMLButtonElement>,
   handle: ImageResizeHandle,
+  originWidthPercent: number,
   onPatch: (patch: ImagePresentationPatch) => void,
 ): void {
   event.preventDefault();
@@ -167,15 +168,18 @@ function beginImageResize(
   const move = (pointerEvent: PointerEvent): void => {
     const horizontalDelta = (pointerEvent.clientX - originX) / horizontalScale;
     const verticalDelta = (pointerEvent.clientY - originY) / verticalScale;
+    const resized = resizeImageObjectFrame(
+      originWidthPx,
+      originHeight,
+      horizontalDelta,
+      verticalDelta,
+      availableWidth,
+      handle,
+    );
     onPatch({
-      ...resizeImageObjectFrame(
-        originWidthPx,
-        originHeight,
-        horizontalDelta,
-        verticalDelta,
-        availableWidth,
-        handle,
-      ),
+      ...resized,
+      widthPercent:
+        handle === "N" || handle === "S" ? originWidthPercent : resized.widthPercent,
       aspectRatio: "FREE",
     });
   };
@@ -2747,6 +2751,7 @@ function ImageDirectManipulationControls({
 }): React.JSX.Element | null {
   if (locked) return null;
   const rotation = image.rotation ?? 0;
+  const currentWidthPercent = imageFrameWidth(image);
 
   return (
     <>
@@ -2793,7 +2798,9 @@ function ImageDirectManipulationControls({
                 ? "Arrastra para cambiar solo el alto"
                 : "Arrastra para cambiar solo el ancho"
           }
-          onPointerDown={(event) => beginImageResize(event, handle, onPatch)}
+          onPointerDown={(event) =>
+            beginImageResize(event, handle, currentWidthPercent, onPatch)
+          }
           onKeyDown={(event) => {
             const handlesHorizontal = handle.includes("E") || handle.includes("W");
             const handlesVertical = handle.includes("N") || handle.includes("S");
@@ -2809,15 +2816,18 @@ function ImageDirectManipulationControls({
             );
             if (!media || !container) return;
             const step = event.shiftKey ? 20 : 4;
+            const resized = resizeImageObjectFrame(
+              media.offsetWidth,
+              media.offsetHeight,
+              event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0,
+              event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0,
+              container.clientWidth,
+              handle,
+            );
             onPatch({
-              ...resizeImageObjectFrame(
-                media.offsetWidth,
-                media.offsetHeight,
-                event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0,
-                event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0,
-                container.clientWidth,
-                handle,
-              ),
+              ...resized,
+              widthPercent:
+                handle === "N" || handle === "S" ? currentWidthPercent : resized.widthPercent,
               aspectRatio: "FREE",
             });
           }}
