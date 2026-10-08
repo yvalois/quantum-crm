@@ -3041,7 +3041,7 @@ function BlockEditor({
                     ) : null}
                     {cell.items.map((item, itemIndex) => (
                       <article
-                        className={`document-column-item item-${item.type.toLowerCase()}`}
+                        className={`document-column-item item-${item.type.toLowerCase()} ${selected && item.type === "IMAGE" ? "selected" : ""}`}
                         key={item.id}
                       >
                         <header className="document-inline-controls">

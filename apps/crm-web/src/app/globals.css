@@ -3191,6 +3191,11 @@ button:disabled {
   margin-bottom: 0.42rem;
 }
 
+.document-studio-shell .document-block-image.selected,
+.document-studio-shell .document-column-item.item-image.selected {
+  z-index: 20;
+}
+
 .document-studio-shell .document-block-image.image-block-flow-float_left,
 .document-studio-shell .document-block-image.image-block-flow-float_right {
   width: var(--image-frame-width, 42%);
