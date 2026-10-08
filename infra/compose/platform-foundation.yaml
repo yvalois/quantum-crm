@@ -158,7 +158,10 @@ services:
       timeout: 5s
       retries: 10
       start_period: 120s
-    mem_limit: 1536m
+    # Current signature sets exceed the former 1536 MiB limit while clamd reloads
+    # after freshclam updates. Keep enough headroom so secure file promotion does
+    # not silently lose its scanner on the 32 GiB platform host.
+    mem_limit: 3072m
     cpus: 0.8
     networks:
       platform-storage:
