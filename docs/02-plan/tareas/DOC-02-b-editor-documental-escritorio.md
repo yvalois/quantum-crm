@@ -79,7 +79,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Sustituir el constructor visible por edicion directa y comprobar que formato, columnas y regiones se conservan al guardar y recargar.
 - [x] Corregir la carga real de imagenes desde el origen HTTPS del CRM hasta el almacenamiento privado.
 - [x] Completar tipografia, formato de texto, cuadricula editable, movimiento de imagenes, margenes y paginacion automatica.
-- [ ] Convertir las imagenes en marcos visuales manipulables y persistentes, tanto en la pagina como dentro de columnas.
+- [x] Convertir las imagenes en marcos visuales manipulables y persistentes, tanto en la pagina como dentro de columnas.
 
 ## Criterios de aceptacion
 
@@ -96,8 +96,8 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] El usuario ajusta filas, columnas y anchos de una tabla sin reconstruirla.
 - [x] Encabezado, pie y margenes se reconocen y editan directamente sobre la hoja.
 - [x] El contenido que excede una pagina continua visualmente en hojas adicionales sin perderse.
-- [ ] Una imagen se redimensiona, recorta, reenfoca, gira y alinea sin perder el archivo ni romper la pagina.
-- [ ] Arrastrar una imagen entre pagina y columnas conserva todos sus atributos visuales; sustituirla conserva el marco.
+- [x] Una imagen se redimensiona, recorta, reenfoca, gira y alinea sin perder el archivo ni romper la pagina.
+- [x] Arrastrar una imagen entre pagina y columnas conserva todos sus atributos visuales; sustituirla conserva el marco.
 
 ## Plan de verificacion
 
@@ -126,8 +126,12 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - La regresion visual reportada despues del primer cierre tenia dos causas verificadas: el firmador S3 ordenaba la consulta con `localeCompare`, incompatible con el orden binario canonico de AWS y SeaweedFS (`SignatureDoesNotMatch`), y el contenedor de ancho completo heredaba los `1.35rem` del asa visual. Los candidatos API `38e82e6` y CRM web `e1e692a` corrigen ambas causas y quedaron saludables.
 - La comprobacion autenticada cargo una imagen PNG de `640 x 360`, verifico dimensiones naturales `640 x 360` y dimensiones visibles `649 x 365`; la autorizacion cambio preventivamente a los 45 segundos y la imagen permanecio completa despues de superar los 60 segundos de la URL original. La prueba se descarto sin guardar y el documento permanecio en la revision 4.
 - Verificacion VPS adicional: Prettier y ESLint focalizados, cinco pruebas del adaptador S3, typecheck de `files-infrastructure` y `api`, builds de API y CRM web, y comprobacion de salud de ambos contenedores.
+- El candidato documental `91b4ff2` aprobo en el VPS Prettier y ESLint focalizados, 26 pruebas de contrato y modelo del editor, typecheck de `contracts` y `crm-web`, y builds de produccion de API y CRM web. InterAmerican ejecuta `qcrm-candidate/api:7defcc3` y `qcrm-candidate/crm-web:91b4ff2`, ambos saludables; el readiness publico respondio `200`.
+- En el recorrido autenticado se cargo una imagen PNG de `640 x 360` y se guardo la revision 5 con ancho `60 %`, marco `16:9`, ajuste `cover`, punto focal `100/0`, giro `3 grados`, opacidad `92 %`, radio `14 px` y flujo izquierdo. Tras recargar, el DOM calculado conservo todos los valores y la imagen natural; un parrafo temporal quedo lateral al marco (`textInputLeft=833`, `imageRight=819`) y luego se descarto sin alterar la revision guardada.
+- La imagen dentro de columnas expone el mismo compositor, asa de redimensionado, proporcion, ajuste, punto focal y acabado; omite deliberadamente el flujo externo porque su contenedor ya es la propia columna. Las pruebas del modelo acreditan que moverla entre celdas o reducir la disposicion conserva la configuracion completa.
 
 ## Pendientes de estabilizacion posterior
 
 - La seleccion de rangos dentro de un mismo parrafo, listas, saltos de pagina y deshacer/rehacer quedan como ampliacion posterior; el alcance validado aplica formato persistente por parrafo y mantiene el documento compatible.
 - Ampliar la prueba automatizada de arrastrar y soltar en navegador. El reordenamiento seguro ya esta cubierto por el modelo puro y por controles de teclado/botones visibles.
+- La posicion libre con capas, superposicion deliberada y ajuste avanzado por delante/detras del texto queda para una ampliacion posterior; el bloque actual cubre flujo en renglon, rodeo izquierdo/derecho y composicion dentro de columnas sin romper la paginacion.
