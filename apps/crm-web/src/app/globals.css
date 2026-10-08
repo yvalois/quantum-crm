@@ -3330,6 +3330,12 @@ button:disabled {
   aspect-ratio: 3 / 4;
 }
 
+.document-studio-shell .image-height-custom .document-image-media {
+  height: var(--image-frame-height);
+  min-height: 5rem;
+  aspect-ratio: auto;
+}
+
 .document-studio-shell .image-aspect-circle .document-image-media {
   border-radius: 50%;
 }
@@ -3415,28 +3421,60 @@ button:disabled {
   touch-action: none;
 }
 
-.document-studio-shell .document-image-resize-handle.corner-nw {
+.document-studio-shell .document-image-resize-handle.handle-nw {
   top: -0.41rem;
   left: -0.41rem;
   cursor: nwse-resize;
 }
 
-.document-studio-shell .document-image-resize-handle.corner-ne {
+.document-studio-shell .document-image-resize-handle.handle-n {
+  top: -0.41rem;
+  left: 50%;
+  border-radius: 999px;
+  cursor: ns-resize;
+  transform: translateX(-50%);
+}
+
+.document-studio-shell .document-image-resize-handle.handle-ne {
   top: -0.41rem;
   right: -0.41rem;
   cursor: nesw-resize;
 }
 
-.document-studio-shell .document-image-resize-handle.corner-sw {
+.document-studio-shell .document-image-resize-handle.handle-e {
+  top: 50%;
+  right: -0.41rem;
+  border-radius: 999px;
+  cursor: ew-resize;
+  transform: translateY(-50%);
+}
+
+.document-studio-shell .document-image-resize-handle.handle-se {
+  right: -0.41rem;
+  bottom: -0.41rem;
+  cursor: nwse-resize;
+}
+
+.document-studio-shell .document-image-resize-handle.handle-s {
+  bottom: -0.41rem;
+  left: 50%;
+  border-radius: 999px;
+  cursor: ns-resize;
+  transform: translateX(-50%);
+}
+
+.document-studio-shell .document-image-resize-handle.handle-sw {
   bottom: -0.41rem;
   left: -0.41rem;
   cursor: nesw-resize;
 }
 
-.document-studio-shell .document-image-resize-handle.corner-se {
-  right: -0.41rem;
-  bottom: -0.41rem;
-  cursor: nwse-resize;
+.document-studio-shell .document-image-resize-handle.handle-w {
+  top: 50%;
+  left: -0.41rem;
+  border-radius: 999px;
+  cursor: ew-resize;
+  transform: translateY(-50%);
 }
 
 .document-studio-shell .document-image-resize-handle:focus-visible,
@@ -3719,6 +3757,30 @@ button:disabled {
   border-color: #58afa7;
   background: #eaf7f5;
   color: #086e67;
+}
+
+.document-studio-shell .image-auto-size {
+  width: 100%;
+  min-height: 1.8rem;
+  border: 1px solid #cbdadc;
+  border-radius: 0.3rem;
+  background: #fff;
+  color: #476066;
+  font: inherit;
+  font-size: 0.54rem;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.document-studio-shell .image-auto-size:hover:not(:disabled) {
+  border-color: #58afa7;
+  background: #eaf7f5;
+  color: #086e67;
+}
+
+.document-studio-shell .image-auto-size:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .document-studio-shell .image-range-control,
@@ -7893,6 +7955,30 @@ body {
   color: #086c64;
 }
 
+.document-studio-shell .document-page .document-block-gutter .document-block-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: 0.2rem;
+  border-left: 1px solid #ead8d6;
+  color: #9d332d;
+}
+
+.document-studio-shell .document-page .document-block-gutter .document-block-delete:hover:not(:disabled) {
+  background: #fff0ee;
+  color: #b32018;
+}
+
+.document-studio-shell .document-page .document-block-gutter .document-block-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.document-studio-shell .document-page .document-block-gutter .document-block-delete span {
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
 .document-studio-shell .document-page .block-editor-grid {
   position: relative;
   display: grid;
@@ -8298,9 +8384,21 @@ body {
 .document-studio-shell .document-page .image-slot-editor > div:first-child img {
   display: block;
   width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: var(--image-fit, contain);
+}
+
+.document-studio-shell .image-aspect-auto .column-image-preview img,
+.document-studio-shell .document-page .image-aspect-auto.image-slot-editor > div:first-child img {
   height: auto;
   max-height: 24rem;
-  object-fit: var(--image-fit, contain);
+}
+
+.document-studio-shell .image-height-custom .column-image-preview img,
+.document-studio-shell .document-page .image-height-custom.image-slot-editor > div:first-child img {
+  height: 100%;
+  max-height: none;
 }
 
 .document-studio-shell .image-fit-cover .column-image-preview img,

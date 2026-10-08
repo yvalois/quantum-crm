@@ -40,6 +40,29 @@ describe("document contracts", () => {
     expect(parsed.fit).toBe("CONTAIN");
   });
 
+  it("persists a freely resized image frame with a bounded height", () => {
+    const image = {
+      id: "019db9c7-1268-7d24-bf99-96ea38ebf098",
+      type: "IMAGE",
+      locked: false,
+      label: "Logotipo",
+      alt: "",
+      caption: "",
+      fileId: null,
+      checksum: null,
+      fit: "CONTAIN",
+      aspectRatio: "FREE",
+      heightPx: 360,
+    } as const;
+
+    expect(ImageDocumentBlockSchema.parse(image)).toMatchObject({
+      aspectRatio: "FREE",
+      heightPx: 360,
+    });
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, heightPx: 40 }).success).toBe(false);
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, heightPx: 1400 }).success).toBe(false);
+  });
+
   it("accepts a bounded document draft", () => {
     const parsed = CreateDocumentSchema.parse({
       kind: "QUOTE",

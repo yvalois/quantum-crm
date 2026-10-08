@@ -5,6 +5,7 @@ export type TableBlock = Extract<DocumentBlock, { readonly type: "TABLE" }>;
 export type DocumentColumnLayout = ColumnsBlock["layout"];
 export type DocumentColumnItemType = DocumentColumnItem["type"];
 export type ImageResizeCorner = "NW" | "NE" | "SW" | "SE";
+export type ImageResizeHandle = ImageResizeCorner | "N" | "E" | "S" | "W";
 
 const minimumTableColumnWidth = 5;
 
@@ -93,10 +94,10 @@ export function resizeImageFrame(
   originWidth: number,
   horizontalDelta: number,
   availableWidth: number,
-  corner: ImageResizeCorner,
+  handle: ImageResizeHandle,
 ): number {
   const safeAvailableWidth = Math.max(availableWidth, 1);
-  const direction = corner.endsWith("E") ? 1 : -1;
+  const direction = handle.endsWith("E") ? 1 : -1;
   return Math.min(
     100,
     Math.max(
@@ -104,6 +105,15 @@ export function resizeImageFrame(
       Math.round(originWidth + (horizontalDelta / safeAvailableWidth) * 100 * direction),
     ),
   );
+}
+
+export function resizeImageFrameHeight(
+  originHeight: number,
+  verticalDelta: number,
+  handle: ImageResizeHandle,
+): number {
+  const direction = handle.startsWith("N") ? -1 : 1;
+  return Math.min(1200, Math.max(80, Math.round(originHeight + verticalDelta * direction)));
 }
 
 export function moveImageFocalPoint(
