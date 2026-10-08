@@ -3282,6 +3282,11 @@ button:disabled {
   margin-left: auto;
 }
 
+/* The outer slot already owns the selected width; its card must fill that slot once. */
+.document-studio-shell .image-slot-editor > .document-image-card {
+  width: 100%;
+}
+
 .document-studio-shell .document-image-card::after {
   display: none;
 }
