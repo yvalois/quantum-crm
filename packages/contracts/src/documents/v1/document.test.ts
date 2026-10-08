@@ -25,22 +25,83 @@ const design = {
 
 describe("document contracts", () => {
   it("accepts a bounded document draft", () => {
+    const parsed = CreateDocumentSchema.parse({
+      kind: "QUOTE",
+      title: "Propuesta comercial",
+      design: DocumentDesignSchema.parse(design),
+      blocks: [
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf100",
+          type: "TEXT",
+          locked: false,
+          content: "Hola {{contact.name}}",
+          align: "LEFT",
+          style: "TITLE",
+          bold: true,
+          italic: false,
+          underline: true,
+        },
+      ],
+    });
+
+    expect(parsed).toMatchObject({ kind: "QUOTE", title: "Propuesta comercial" });
+    expect(parsed.blocks?.[0]).toMatchObject({
+      type: "TEXT",
+      style: "TITLE",
+      bold: true,
+      italic: false,
+      underline: true,
+    });
+  });
+
+  it("keeps legacy text compatible and persists rich formatting inside columns", () => {
     expect(
-      CreateDocumentSchema.parse({
-        kind: "QUOTE",
-        title: "Propuesta comercial",
-        design: DocumentDesignSchema.parse(design),
-        blocks: [
-          {
-            id: "019db9c7-1268-7d24-bf99-96ea38ebf100",
-            type: "TEXT",
-            locked: false,
-            content: "Hola {{contact.name}}",
-            align: "LEFT",
-          },
-        ],
+      DocumentBlockSchema.parse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf145",
+        type: "TEXT",
+        locked: false,
+        content: "Texto anterior",
+        align: "LEFT",
       }),
-    ).toMatchObject({ kind: "QUOTE", title: "Propuesta comercial" });
+    ).toMatchObject({ type: "TEXT", content: "Texto anterior" });
+
+    const parsed = ColumnsDocumentBlockSchema.parse({
+      id: "019db9c7-1268-7d24-bf99-96ea38ebf146",
+      type: "COLUMNS",
+      locked: false,
+      layout: "EQUAL_2",
+      columns: ["Titulo", ""],
+      cells: [
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf147",
+          items: [
+            {
+              id: "019db9c7-1268-7d24-bf99-96ea38ebf148",
+              type: "TEXT",
+              locked: false,
+              content: "Titulo",
+              align: "CENTER",
+              style: "SUBTITLE",
+              bold: true,
+              italic: true,
+              underline: false,
+            },
+          ],
+        },
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf149",
+          items: [],
+        },
+      ],
+    });
+
+    expect(parsed.cells?.[0]?.items[0]).toMatchObject({
+      type: "TEXT",
+      style: "SUBTITLE",
+      bold: true,
+      italic: true,
+      underline: false,
+    });
   });
 
   it("requires an immutable file identity for a selected image", () => {
@@ -231,5 +292,71 @@ describe("document contracts", () => {
       footerAlign: "LEFT",
       footerSpacing: "NORMAL",
     });
+  });
+
+  it("persists explicit page regions used by the visual editor", () => {
+    expect(
+      DocumentDesignSchema.parse({
+        ...design,
+        headerEnabled: true,
+        headerLayout: "LOGO_TEXT",
+        headerAlign: "RIGHT",
+        headerSpacing: "SPACIOUS",
+        showDocumentKind: false,
+        footerEnabled: true,
+        footerAlign: "CENTER",
+        footerSpacing: "COMPACT",
+      }),
+    ).toMatchObject({
+      headerText: "Quantum Demo",
+      headerEnabled: true,
+      headerLayout: "LOGO_TEXT",
+      headerAlign: "RIGHT",
+      headerSpacing: "SPACIOUS",
+      showDocumentKind: false,
+      footerText: "Documento confidencial",
+      footerEnabled: true,
+      footerAlign: "CENTER",
+      footerSpacing: "COMPACT",
+      showPageNumbers: true,
+    });
+  });
+
+  it("rejects incomplete immutable identities for images nested in columns", () => {
+    expect(
+      ColumnsDocumentBlockSchema.safeParse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf140",
+        type: "COLUMNS",
+        locked: false,
+        layout: "EQUAL_2",
+        columns: ["[Imagen: Portada]", ""],
+        cells: [
+          {
+            id: "019db9c7-1268-7d24-bf99-96ea38ebf141",
+            items: [
+              {
+                id: "019db9c7-1268-7d24-bf99-96ea38ebf142",
+                type: "IMAGE",
+                locked: false,
+                label: "Portada",
+                alt: "",
+                caption: "",
+                fileId: "019db9c7-1268-7d24-bf99-96ea38ebf143",
+                checksum: null,
+                replaceable: true,
+                visible: true,
+                width: "FULL",
+                align: "CENTER",
+                fit: "COVER",
+              },
+            ],
+          },
+          {
+            id: "019db9c7-1268-7d24-bf99-96ea38ebf144",
+            items: [],
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });

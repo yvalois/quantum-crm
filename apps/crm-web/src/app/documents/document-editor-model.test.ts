@@ -11,6 +11,7 @@ import {
   moveDocumentBlock,
   moveDocumentBlockTo,
   normalizeColumnsBlock,
+  normalizeDocumentBlocks,
   removeColumnItem,
   splitTextBlock,
   updateColumnItem,
@@ -56,8 +57,30 @@ describe("document editor model", () => {
         locked: false,
         align: "LEFT",
         content: "Texto existente",
+        style: "TITLE",
+        bold: true,
+        italic: true,
+        underline: true,
       }),
-    ).toMatchObject({ id: firstId, type: "COLUMNS", columns: ["Texto existente", ""] });
+    ).toMatchObject({
+      id: firstId,
+      type: "COLUMNS",
+      columns: ["Texto existente", ""],
+      cells: [
+        {
+          items: [
+            {
+              type: "TEXT",
+              content: "Texto existente",
+              style: "TITLE",
+              bold: true,
+              italic: true,
+              underline: true,
+            },
+          ],
+        },
+      ],
+    });
   });
 
   it("does not rewrite a protected legacy column block with random cell identities", () => {
@@ -95,6 +118,90 @@ describe("document editor model", () => {
     expect(movedAcross.cells?.[0]?.items).toHaveLength(1);
     expect(movedAcross.cells?.[1]?.items.at(-1)?.id).toBe(secondId);
     expect(removeColumnItem(movedAcross, secondId).cells?.[1]?.items).toHaveLength(1);
+  });
+
+  it("preserves the complete image configuration while composing and moving columns", () => {
+    const initial = createColumnsBlock("EQUAL_3", "Presentacion", firstId);
+    const firstCellId = initial.cells?.[0]?.id;
+    const thirdCellId = initial.cells?.[2]?.id;
+    expect(firstCellId).toBeTruthy();
+    expect(thirdCellId).toBeTruthy();
+    if (!firstCellId || !thirdCellId) return;
+
+    const image = {
+      ...createColumnItem("IMAGE", secondId),
+      label: "Flota disponible",
+      alt: "Vehiculo listo para reserva",
+      caption: "Categoria ejecutiva",
+      fileId: "019db9c7-1268-7d24-bf99-96ea38ebf203",
+      checksum: `sha256:${"a".repeat(64)}`,
+      replaceable: true,
+      visible: true,
+      width: "MEDIUM" as const,
+      align: "RIGHT" as const,
+      fit: "CONTAIN" as const,
+    };
+    const withImage = addColumnItem(initial, firstCellId, image);
+    const moved = moveColumnItemToCell(withImage, secondId, thirdCellId);
+    const collapsed = changeColumnsLayout(moved, "RIGHT_WIDE");
+
+    expect(
+      collapsed.cells?.flatMap((cell) => cell.items).find((item) => item.id === secondId),
+    ).toEqual(image);
+    expect(collapsed.columns[1]).toContain("[Imagen: Flota disponible]");
+  });
+
+  it("normalizes editable legacy columns without rewriting surrounding page content", () => {
+    const heading = {
+      id: firstId,
+      type: "TEXT" as const,
+      locked: false,
+      align: "CENTER" as const,
+      content: "Propuesta comercial",
+    };
+    const legacyColumns = {
+      id: secondId,
+      type: "COLUMNS" as const,
+      locked: false,
+      layout: "EQUAL_2" as const,
+      columns: ["Cliente", "Asesor"],
+    };
+
+    const normalized = normalizeDocumentBlocks([heading, legacyColumns]);
+
+    expect(normalized[0]).toBe(heading);
+    expect(normalized[1]).toMatchObject({
+      id: secondId,
+      columns: ["Cliente", "Asesor"],
+      cells: [
+        {
+          items: [
+            {
+              type: "TEXT",
+              content: "Cliente",
+              align: "LEFT",
+              style: "BODY",
+              bold: false,
+              italic: false,
+              underline: false,
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              type: "TEXT",
+              content: "Asesor",
+              align: "LEFT",
+              style: "BODY",
+              bold: false,
+              italic: false,
+              underline: false,
+            },
+          ],
+        },
+      ],
+    });
   });
 
   it("does not move a block across a protected neighbour", () => {

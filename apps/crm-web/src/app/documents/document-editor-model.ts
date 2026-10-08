@@ -24,7 +24,19 @@ export function createColumnItem(
   id = newId(),
   content = "",
 ): DocumentColumnItem {
-  if (type === "TEXT") return { id, type, locked: false, content, align: "LEFT" };
+  if (type === "TEXT") {
+    return {
+      id,
+      type,
+      locked: false,
+      content,
+      align: "LEFT",
+      style: "BODY",
+      bold: false,
+      italic: false,
+      underline: false,
+    };
+  }
   if (type === "IMAGE") {
     return {
       id,
@@ -129,7 +141,21 @@ export function splitTextBlock(
   block: Extract<DocumentBlock, { readonly type: "TEXT" }>,
   layout: DocumentColumnLayout = "EQUAL_2",
 ): ColumnsBlock {
-  return createColumnsBlock(layout, block.content, block.id);
+  const columns = createColumnsBlock(layout, block.content, block.id);
+  const firstTextId = columns.cells?.[0]?.items[0]?.id;
+  if (!firstTextId) return columns;
+  return updateColumnItem(columns, firstTextId, (item) =>
+    item.type === "TEXT"
+      ? {
+          ...item,
+          style: block.style ?? "BODY",
+          bold: block.bold ?? false,
+          italic: block.italic ?? false,
+          underline: block.underline ?? false,
+          align: block.align,
+        }
+      : item,
+  );
 }
 
 export function addColumnItem(

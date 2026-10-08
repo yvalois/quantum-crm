@@ -110,7 +110,17 @@ function newBlock(type: DocumentBlock["type"]): DocumentBlock {
   const id = crypto.randomUUID();
   switch (type) {
     case "TEXT":
-      return { id, type, locked: false, content: "Escribe aquí el contenido.", align: "LEFT" };
+      return {
+        id,
+        type,
+        locked: false,
+        content: "Escribe aquí el contenido.",
+        align: "LEFT",
+        style: "BODY",
+        bold: false,
+        italic: false,
+        underline: false,
+      };
     case "IMAGE":
       return {
         id,
@@ -244,10 +254,15 @@ export default function DocumentsPage(): React.JSX.Element {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(90);
+  const [ribbonTab, setRibbonTab] = useState<"HOME" | "INSERT" | "LAYOUT">("HOME");
 
   const selectedContact = useMemo(
     () => contacts.find((contact) => contact.id === draft?.contactId) ?? null,
     [contacts, draft?.contactId],
+  );
+  const selectedBlock = useMemo(
+    () => draft?.blocks.find((block) => block.id === selectedBlockId) ?? null,
+    [draft?.blocks, selectedBlockId],
   );
   const filteredDocuments = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
@@ -606,7 +621,7 @@ export default function DocumentsPage(): React.JSX.Element {
   }
 
   return (
-    <main className="documents-shell document-studio-shell">
+    <main className="documents-shell document-studio-shell document-processor">
       <section className="documents-page">
         <header className="document-commandbar">
           <div className="document-command-title">
@@ -653,8 +668,8 @@ export default function DocumentsPage(): React.JSX.Element {
           </div>
         </header>
 
-        <div className="document-toolbar" role="group" aria-label="Herramientas del documento">
-          <div className="document-toolbar-group">
+        <div className="document-toolbar document-ribbon" aria-label="Herramientas del documento">
+          <div className="document-ribbon-tabs" role="group" aria-label="Opciones de edicion">
             <button
               type="button"
               className={libraryOpen ? "is-active" : ""}
@@ -665,16 +680,214 @@ export default function DocumentsPage(): React.JSX.Element {
               }}
               aria-expanded={libraryOpen}
               aria-controls="document-library-panel"
-              aria-label="Mostrar u ocultar biblioteca"
             >
-              <span aria-hidden="true">☰</span>
               Biblioteca
             </button>
+            {draft
+              ? ([
+                  ["HOME", "Inicio"],
+                  ["INSERT", "Insertar"],
+                  ["LAYOUT", "Diseño"],
+                ] as const).map(([tab, label]) => (
+                  <button
+                    type="button"
+                    aria-pressed={ribbonTab === tab}
+                    className={`document-ribbon-tab ${ribbonTab === tab ? "is-active" : ""}`}
+                    key={tab}
+                    onClick={() => {
+                      setRibbonTab(tab);
+                      setShowColumnLayouts(false);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))
+              : null}
           </div>
           {draft ? (
-            <>
+            <div className="document-ribbon-content">
+              {ribbonTab === "HOME" ? (
+                <>
+                  <div className="document-selection-tools">
+                    <span>SELECCION</span>
+                    <strong>
+                      {selectedBlock ? blockLabels[selectedBlock.type] : "Selecciona contenido"}
+                    </strong>
+                  </div>
+                  {selectedBlock?.type === "TEXT" ? (
+                    <div className="document-toolbar-group" role="group" aria-label="Formato del texto">
+                      <span>Texto</span>
+                      <select
+                        aria-label="Estilo del texto"
+                        value={selectedBlock.style ?? "BODY"}
+                        disabled={selectedBlock.locked}
+                        onChange={(event) =>
+                          updateBlock(selectedBlock.id, (block) =>
+                            block.type === "TEXT"
+                              ? {
+                                  ...block,
+                                  style: event.target.value as NonNullable<typeof block.style>,
+                                }
+                              : block,
+                          )
+                        }
+                      >
+                        <option value="BODY">Parrafo</option>
+                        <option value="TITLE">Titulo</option>
+                        <option value="SUBTITLE">Subtitulo</option>
+                        <option value="CAPTION">Nota</option>
+                      </select>
+                      {([
+                        ["bold", "Negrita", "B"],
+                        ["italic", "Cursiva", "I"],
+                        ["underline", "Subrayado", "U"],
+                      ] as const).map(([property, label, character]) => (
+                        <button
+                          type="button"
+                          key={property}
+                          disabled={selectedBlock.locked}
+                          className={selectedBlock[property] ? "is-active" : ""}
+                          aria-label={label}
+                          aria-pressed={selectedBlock[property] ?? false}
+                          onClick={() =>
+                            updateBlock(selectedBlock.id, (block) =>
+                              block.type === "TEXT"
+                                ? { ...block, [property]: !(block[property] ?? false) }
+                                : block,
+                            )
+                          }
+                        >
+                          {character}
+                        </button>
+                      ))}
+                      <span>Alinear</span>
+                      {(["LEFT", "CENTER", "RIGHT"] as const).map((align) => (
+                        <button
+                          type="button"
+                          key={align}
+                          disabled={selectedBlock.locked}
+                          className={selectedBlock.align === align ? "is-active" : ""}
+                          onClick={() =>
+                            updateBlock(selectedBlock.id, (block) =>
+                              block.type === "TEXT" ? { ...block, align } : block,
+                            )
+                          }
+                          aria-label={
+                            align === "LEFT"
+                              ? "Alinear a la izquierda"
+                              : align === "CENTER"
+                                ? "Centrar"
+                                : "Alinear a la derecha"
+                          }
+                        >
+                          {align === "LEFT" ? "≡←" : align === "CENTER" ? "≡" : "→≡"}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {selectedBlock ? (
+                    <div className="document-toolbar-group" role="group" aria-label="Organizar bloque">
+                      <span>Organizar</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveBlock(
+                            draft.blocks.findIndex((block) => block.id === selectedBlock.id),
+                            -1,
+                          )
+                        }
+                        disabled={
+                          !canMoveBlock(
+                            draft.blocks,
+                            draft.blocks.findIndex((block) => block.id === selectedBlock.id),
+                            -1,
+                          )
+                        }
+                      >
+                        Subir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveBlock(
+                            draft.blocks.findIndex((block) => block.id === selectedBlock.id),
+                            1,
+                          )
+                        }
+                        disabled={
+                          !canMoveBlock(
+                            draft.blocks,
+                            draft.blocks.findIndex((block) => block.id === selectedBlock.id),
+                            1,
+                          )
+                        }
+                      >
+                        Bajar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateBlock(selectedBlock.id, (block) => ({
+                            ...block,
+                            locked: !block.locked,
+                          }))
+                        }
+                      >
+                        {selectedBlock.locked ? "Desproteger" : "Proteger"}
+                      </button>
+                      {selectedBlock.type === "TEXT" && !selectedBlock.locked ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateBlock(selectedBlock.id, (block) =>
+                              block.type === "TEXT" ? splitTextBlock(block) : block,
+                            )
+                          }
+                        >
+                          Dividir texto
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="ribbon-danger"
+                        disabled={selectedBlock.locked}
+                        onClick={() => {
+                          patchDraft({
+                            blocks: draft.blocks.filter(
+                              (block) => block.id !== selectedBlock.id,
+                            ),
+                          });
+                          setSelectedBlockId(null);
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className="document-toolbar-group document-view-tools">
+                    <button
+                      type="button"
+                      onClick={() => setZoom((value) => Math.max(60, value - 10))}
+                      disabled={zoom <= 60}
+                      aria-label="Reducir zoom"
+                    >
+                      −
+                    </button>
+                    <output aria-label="Nivel de zoom">{zoom}%</output>
+                    <button
+                      type="button"
+                      onClick={() => setZoom((value) => Math.min(120, value + 10))}
+                      disabled={zoom >= 120}
+                      aria-label="Aumentar zoom"
+                    >
+                      +
+                    </button>
+                  </div>
+                </>
+              ) : null}
+              {ribbonTab === "INSERT" ? (
               <div className="document-toolbar-group document-insert-tools">
-                <span>Insertar</span>
+                <span>Agregar despues de la seleccion</span>
                 {documentBlockTypes
                   .filter((type) => type !== "COLUMNS")
                   .map((type) => (
@@ -684,6 +897,7 @@ export default function DocumentsPage(): React.JSX.Element {
                       onClick={() => insertBlock(newBlock(type))}
                       title={`Insertar ${blockLabels[type].toLocaleLowerCase("es")}`}
                     >
+                      <i aria-hidden="true">+</i>
                       {blockLabels[type]}
                     </button>
                   ))}
@@ -704,8 +918,8 @@ export default function DocumentsPage(): React.JSX.Element {
                       role="dialog"
                       aria-label="Elegir disposición de columnas"
                     >
-                      <strong>Dividir nuevo renglón</strong>
-                      <span>Se insertará después del bloque seleccionado.</span>
+                      <strong>Composicion del renglon</strong>
+                      <span>Combina texto, imagenes, variables y lineas dentro de cada columna.</span>
                       <div>
                         {documentColumnLayouts.map((layout) => (
                           <button
@@ -732,24 +946,54 @@ export default function DocumentsPage(): React.JSX.Element {
                   ) : null}
                 </div>
               </div>
-              <div className="document-toolbar-group document-view-tools">
-                <button
-                  type="button"
-                  onClick={() => setZoom((value) => Math.max(60, value - 10))}
-                  disabled={zoom <= 60}
-                  aria-label="Reducir zoom"
-                >
-                  −
-                </button>
-                <output aria-label="Nivel de zoom">{zoom}%</output>
-                <button
-                  type="button"
-                  onClick={() => setZoom((value) => Math.min(120, value + 10))}
-                  disabled={zoom >= 120}
-                  aria-label="Aumentar zoom"
-                >
-                  +
-                </button>
+              ) : null}
+              {ribbonTab === "LAYOUT" ? (
+                <>
+                  <div className="document-toolbar-group">
+                    <span>Pagina</span>
+                    {(["A4", "LETTER"] as const).map((pageSize) => (
+                      <button
+                        type="button"
+                        className={draft.design.pageSize === pageSize ? "is-active" : ""}
+                        key={pageSize}
+                        onClick={() => patchDraft({ design: { ...draft.design, pageSize } })}
+                      >
+                        {pageSize === "LETTER" ? "Carta" : "A4"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="document-toolbar-group">
+                    <span>Regiones</span>
+                    <button
+                      type="button"
+                      className={draft.design.headerEnabled ? "is-active" : ""}
+                      onClick={() =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            headerEnabled: !draft.design.headerEnabled,
+                          },
+                        })
+                      }
+                    >
+                      Encabezado
+                    </button>
+                    <button
+                      type="button"
+                      className={draft.design.footerEnabled ? "is-active" : ""}
+                      onClick={() =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            footerEnabled: !draft.design.footerEnabled,
+                          },
+                        })
+                      }
+                    >
+                      Pie de pagina
+                    </button>
+                  </div>
+                  <div className="document-toolbar-group document-view-tools">
                 <button
                   type="button"
                   className={inspectorOpen ? "is-active" : ""}
@@ -761,10 +1005,12 @@ export default function DocumentsPage(): React.JSX.Element {
                   aria-expanded={inspectorOpen}
                   aria-controls="document-inspector-panel"
                 >
-                  Propiedades
+                  Propiedades avanzadas
                 </button>
               </div>
-            </>
+                </>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
@@ -923,6 +1169,8 @@ export default function DocumentsPage(): React.JSX.Element {
                       <header
                         className={`document-page-region document-page-header region-${draft.design.headerSpacing.toLowerCase()} layout-${draft.design.headerLayout.toLowerCase()} align-${draft.design.headerAlign.toLowerCase()}`}
                         style={{ borderColor: draft.design.accentColor }}
+                        title="Doble clic para configurar el encabezado"
+                        onDoubleClick={() => openInspectorSection("document-header-settings")}
                       >
                         <div className="document-header-content">
                           {draft.design.logoFileId && csrf ? (
@@ -974,6 +1222,7 @@ export default function DocumentsPage(): React.JSX.Element {
                       <p>PREPARADO PARA</p>
                       <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
                       <textarea
+                        className="document-title-input"
                         aria-label="Titulo del documento"
                         value={draft.title}
                         rows={2}
@@ -1012,7 +1261,7 @@ export default function DocumentsPage(): React.JSX.Element {
                             dropBlock(index);
                           }}
                         >
-                          <header className="document-block-tools">
+                          <header className="document-block-gutter">
                             <span
                               className="block-handle"
                               draggable={!block.locked}
@@ -1028,63 +1277,11 @@ export default function DocumentsPage(): React.JSX.Element {
                               ⋮⋮
                             </span>
                             <strong>{blockLabels[block.type]}</strong>
-                            {block.locked ? <small>Protegido</small> : null}
-                            <div>
-                              {block.type === "TEXT" && !block.locked ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateBlock(block.id, (current) =>
-                                      current.type === "TEXT" ? splitTextBlock(current) : current,
-                                    )
-                                  }
-                                >
-                                  Dividir
-                                </button>
-                              ) : null}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateBlock(block.id, (current) => ({
-                                    ...current,
-                                    locked: !current.locked,
-                                  }))
-                                }
-                              >
-                                {block.locked ? "Desproteger" : "Proteger"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveBlock(index, -1)}
-                                disabled={!canMoveBlock(draft.blocks, index, -1)}
-                                aria-label="Mover bloque arriba"
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveBlock(index, 1)}
-                                disabled={!canMoveBlock(draft.blocks, index, 1)}
-                                aria-label="Mover bloque abajo"
-                              >
-                                ↓
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  patchDraft({
-                                    blocks: draft.blocks.filter((item) => item.id !== block.id),
-                                  })
-                                }
-                                disabled={block.locked}
-                                aria-label="Eliminar bloque"
-                              >
-                                ×
-                              </button>
-                            </div>
+                            {block.locked ? <small aria-label="Bloque protegido">●</small> : null}
                           </header>
                           <BlockEditor
                             block={block}
+                            selected={selectedBlockId === block.id}
                             onChange={(next) => updateBlock(block.id, () => next)}
                             uploading={uploadingTargetId === `block:${block.id}`}
                             uploadingItemId={
@@ -1109,6 +1306,8 @@ export default function DocumentsPage(): React.JSX.Element {
                       <footer
                         className={`document-page-region document-page-footer region-${draft.design.footerSpacing.toLowerCase()} align-${draft.design.footerAlign.toLowerCase()}`}
                         style={{ borderColor: draft.design.accentColor }}
+                        title="Doble clic para configurar el pie de pagina"
+                        onDoubleClick={() => openInspectorSection("document-footer-settings")}
                       >
                         <textarea
                           aria-label="Texto del pie de pagina"
@@ -1617,6 +1816,7 @@ export default function DocumentsPage(): React.JSX.Element {
 
 function BlockEditor({
   block,
+  selected,
   onChange,
   uploading,
   uploadingItemId,
@@ -1624,6 +1824,7 @@ function BlockEditor({
   csrf,
 }: {
   readonly block: DocumentBlock;
+  readonly selected: boolean;
   readonly onChange: (block: DocumentBlock) => void;
   readonly uploading: boolean;
   readonly uploadingItemId: string | null;
@@ -1632,34 +1833,29 @@ function BlockEditor({
 }): React.JSX.Element {
   if (block.type === "TEXT")
     return (
-      <div className="block-editor-grid">
+      <div className="document-prose-editor">
         <textarea
+          className={`document-prose-input align-${block.align.toLowerCase()} text-style-${(block.style ?? "BODY").toLowerCase()} ${block.bold ? "is-bold" : ""} ${block.italic ? "is-italic" : ""} ${block.underline ? "is-underlined" : ""}`}
+          aria-label="Texto del documento"
           value={block.content}
           disabled={block.locked}
           onChange={(event) => onChange({ ...block, content: event.target.value })}
         />
-        <select
-          value={block.align}
-          disabled={block.locked}
-          onChange={(event) =>
-            onChange({ ...block, align: event.target.value as typeof block.align })
-          }
-        >
-          <option value="LEFT">Izquierda</option>
-          <option value="CENTER">Centro</option>
-          <option value="RIGHT">Derecha</option>
-        </select>
       </div>
     );
   if (block.type === "TERMS")
     return (
-      <div className="block-editor-grid">
+      <div className="document-terms-editor">
         <input
+          className="document-prose-heading"
+          aria-label="Titulo de condiciones"
           value={block.title}
           disabled={block.locked}
           onChange={(event) => onChange({ ...block, title: event.target.value })}
         />
         <textarea
+          className="document-prose-input"
+          aria-label="Contenido de condiciones"
           value={block.content}
           disabled={block.locked}
           onChange={(event) => onChange({ ...block, content: event.target.value })}
@@ -1700,31 +1896,33 @@ function BlockEditor({
             />
           </label>
         </div>
-        <label>
-          Etiqueta
-          <input
-            value={block.label}
-            disabled={block.locked}
-            onChange={(event) => onChange({ ...block, label: event.target.value })}
-          />
-        </label>
-        <label>
-          Texto alternativo
-          <input
-            value={block.alt}
-            disabled={block.locked}
-            onChange={(event) => onChange({ ...block, alt: event.target.value })}
-          />
-        </label>
-        <label>
-          Pie de imagen
-          <input
-            value={block.caption}
-            disabled={block.locked}
-            onChange={(event) => onChange({ ...block, caption: event.target.value })}
-          />
-        </label>
-        <div className="image-presentation-controls">
+        {selected ? (
+          <div className="document-inline-controls" aria-label="Propiedades de la imagen">
+            <label>
+              Etiqueta
+              <input
+                value={block.label}
+                disabled={block.locked}
+                onChange={(event) => onChange({ ...block, label: event.target.value })}
+              />
+            </label>
+            <label>
+              Texto alternativo
+              <input
+                value={block.alt}
+                disabled={block.locked}
+                onChange={(event) => onChange({ ...block, alt: event.target.value })}
+              />
+            </label>
+            <label>
+              Pie de imagen
+              <input
+                value={block.caption}
+                disabled={block.locked}
+                onChange={(event) => onChange({ ...block, caption: event.target.value })}
+              />
+            </label>
+          <div className="image-presentation-controls">
           <label>
             Ancho
             <select
@@ -1767,16 +1965,18 @@ function BlockEditor({
               <option value="CONTAIN">Contener</option>
             </select>
           </label>
-        </div>
-        <label className="instance-editability">
-          <input
-            type="checkbox"
-            checked={block.replaceable}
-            disabled={block.locked}
-            onChange={(event) => onChange({ ...block, replaceable: event.target.checked })}
-          />
-          Permitir cambiar esta imagen al usar la plantilla
-        </label>
+          </div>
+          <label className="instance-editability">
+            <input
+              type="checkbox"
+              checked={block.replaceable}
+              disabled={block.locked}
+              onChange={(event) => onChange({ ...block, replaceable: event.target.checked })}
+            />
+            Permitir cambiar esta imagen al usar la plantilla
+          </label>
+          </div>
+        ) : null}
       </div>
     );
   if (block.type === "ATTACHMENT")
@@ -1828,7 +2028,12 @@ function BlockEditor({
   if (block.type === "COLUMNS")
     return (
       <div className="columns-block-editor">
-        <div className="column-layout-controls" role="group" aria-label="Disposición del renglón">
+        {selected ? (
+        <div
+          className="column-layout-controls document-inline-controls"
+          role="group"
+          aria-label="Disposición del renglón"
+        >
           <span>Distribución</span>
           {documentColumnLayouts.map((layout) => (
             <button
@@ -1852,6 +2057,7 @@ function BlockEditor({
             </button>
           ))}
         </div>
+        ) : null}
         <div
           className="columns-editor"
           style={
@@ -1871,8 +2077,8 @@ function BlockEditor({
               ))
             : block.cells.map((cell, columnIndex) => (
                 <section className="document-column-cell" key={cell.id}>
-                  <header className="document-column-head">
-                    <span>Columna {columnIndex + 1}</span>
+                  <header className="document-column-head document-column-insert">
+                    <span>Agregar en columna {columnIndex + 1}</span>
                     <div aria-label={`Agregar contenido a la columna ${columnIndex + 1}`}>
                       <button
                         type="button"
@@ -1930,7 +2136,7 @@ function BlockEditor({
                         className={`document-column-item item-${item.type.toLowerCase()}`}
                         key={item.id}
                       >
-                        <header>
+                        <header className="document-inline-controls">
                           <strong>
                             {item.type === "TEXT"
                               ? "Texto"
@@ -1998,6 +2204,7 @@ function BlockEditor({
                         <ColumnItemEditor
                           item={item}
                           locked={block.locked}
+                          selected={selected}
                           uploading={uploadingItemId === item.id}
                           csrf={csrf}
                           onChange={(next) =>
@@ -2085,7 +2292,12 @@ function BlockEditor({
     );
   if (block.type === "VARIABLE")
     return (
-      <div className="form-grid-2">
+      <div className="document-variable-editor">
+        <span className="document-variable-value">
+          {block.value || block.fallback || block.label}
+        </span>
+        {selected ? (
+        <div className="form-grid-2 document-inline-controls">
         <label>
           Variable
           <select
@@ -2138,35 +2350,42 @@ function BlockEditor({
           />
           Permitir retocar este dato al usar la plantilla
         </label>
+        </div>
+        ) : null}
       </div>
     );
   if (block.type === "SIGNATURE")
     return (
-      <label className="signature-editor">
-        Etiqueta de firma
+      <div className="signature-editor">
+        <span className="signature-line" aria-hidden="true" />
         <input
+          aria-label="Etiqueta de firma"
           value={block.label}
           disabled={block.locked}
           onChange={(event) => onChange({ ...block, label: event.target.value })}
         />
-      </label>
+      </div>
     );
   if (block.type === "DIVIDER")
     return (
-      <label className="divider-editor">
-        Estilo
-        <select
-          value={block.style}
-          disabled={block.locked}
-          onChange={(event) =>
-            onChange({ ...block, style: event.target.value as typeof block.style })
-          }
-        >
-          <option value="SOLID">Sólido</option>
-          <option value="DASHED">Guiones</option>
-          <option value="DOTTED">Puntos</option>
-        </select>
-      </label>
+      <div className={`divider-editor divider-${block.style.toLowerCase()}`}>
+        <hr />
+        {selected ? (
+          <select
+            className="document-inline-controls"
+            aria-label="Estilo del separador"
+            value={block.style}
+            disabled={block.locked}
+            onChange={(event) =>
+              onChange({ ...block, style: event.target.value as typeof block.style })
+            }
+          >
+            <option value="SOLID">Sólido</option>
+            <option value="DASHED">Guiones</option>
+            <option value="DOTTED">Puntos</option>
+          </select>
+        ) : null}
+      </div>
     );
   return <div />;
 }
@@ -2174,6 +2393,7 @@ function BlockEditor({
 function ColumnItemEditor({
   item,
   locked,
+  selected,
   uploading,
   csrf,
   onChange,
@@ -2181,6 +2401,7 @@ function ColumnItemEditor({
 }: {
   readonly item: DocumentColumnItem;
   readonly locked: boolean;
+  readonly selected: boolean;
   readonly uploading: boolean;
   readonly csrf: string | null;
   readonly onChange: (item: DocumentColumnItem) => void;
@@ -2190,23 +2411,61 @@ function ColumnItemEditor({
     return (
       <div className="column-text-editor">
         <textarea
+          className={`document-prose-input align-${item.align.toLowerCase()} text-style-${(item.style ?? "BODY").toLowerCase()} ${item.bold ? "is-bold" : ""} ${item.italic ? "is-italic" : ""} ${item.underline ? "is-underlined" : ""}`}
           value={item.content}
           disabled={locked}
           placeholder="Escribe en esta columna..."
           onChange={(event) => onChange({ ...item, content: event.target.value })}
         />
-        <select
-          value={item.align}
-          disabled={locked}
-          aria-label="Alineacion del texto"
-          onChange={(event) =>
-            onChange({ ...item, align: event.target.value as typeof item.align })
-          }
-        >
-          <option value="LEFT">Izquierda</option>
-          <option value="CENTER">Centro</option>
-          <option value="RIGHT">Derecha</option>
-        </select>
+        {selected ? (
+          <div className="document-inline-controls" aria-label="Formato del texto de columna">
+            <select
+              value={item.style ?? "BODY"}
+              disabled={locked}
+              aria-label="Estilo del texto"
+              onChange={(event) =>
+                onChange({
+                  ...item,
+                  style: event.target.value as NonNullable<typeof item.style>,
+                })
+              }
+            >
+              <option value="BODY">Parrafo</option>
+              <option value="TITLE">Titulo</option>
+              <option value="SUBTITLE">Subtitulo</option>
+              <option value="CAPTION">Nota</option>
+            </select>
+            {([
+              ["bold", "Negrita", "B"],
+              ["italic", "Cursiva", "I"],
+              ["underline", "Subrayado", "U"],
+            ] as const).map(([property, label, character]) => (
+              <button
+                type="button"
+                key={property}
+                disabled={locked}
+                className={item[property] ? "is-active" : ""}
+                aria-label={label}
+                aria-pressed={item[property] ?? false}
+                onClick={() => onChange({ ...item, [property]: !(item[property] ?? false) })}
+              >
+                {character}
+              </button>
+            ))}
+            <select
+              value={item.align}
+              disabled={locked}
+              aria-label="Alineacion del texto"
+              onChange={(event) =>
+                onChange({ ...item, align: event.target.value as typeof item.align })
+              }
+            >
+              <option value="LEFT">Izquierda</option>
+              <option value="CENTER">Centro</option>
+              <option value="RIGHT">Derecha</option>
+            </select>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -2238,31 +2497,33 @@ function ColumnItemEditor({
             }}
           />
         </label>
-        <label>
-          Etiqueta
-          <input
-            value={item.label}
-            disabled={locked}
-            onChange={(event) => onChange({ ...item, label: event.target.value })}
-          />
-        </label>
-        <label>
-          Texto alternativo
-          <input
-            value={item.alt}
-            disabled={locked}
-            onChange={(event) => onChange({ ...item, alt: event.target.value })}
-          />
-        </label>
-        <label>
-          Pie de imagen
-          <input
-            value={item.caption}
-            disabled={locked}
-            onChange={(event) => onChange({ ...item, caption: event.target.value })}
-          />
-        </label>
-        <div className="image-presentation-controls">
+        {selected ? (
+        <div className="document-inline-controls" aria-label="Propiedades de imagen de columna">
+          <label>
+            Etiqueta
+            <input
+              value={item.label}
+              disabled={locked}
+              onChange={(event) => onChange({ ...item, label: event.target.value })}
+            />
+          </label>
+          <label>
+            Texto alternativo
+            <input
+              value={item.alt}
+              disabled={locked}
+              onChange={(event) => onChange({ ...item, alt: event.target.value })}
+            />
+          </label>
+          <label>
+            Pie de imagen
+            <input
+              value={item.caption}
+              disabled={locked}
+              onChange={(event) => onChange({ ...item, caption: event.target.value })}
+            />
+          </label>
+          <div className="image-presentation-controls">
           <label>
             Ancho
             <select
@@ -2305,8 +2566,8 @@ function ColumnItemEditor({
               <option value="CONTAIN">Contener</option>
             </select>
           </label>
-        </div>
-        <label className="instance-editability">
+          </div>
+          <label className="instance-editability">
           <input
             type="checkbox"
             checked={item.visible}
@@ -2314,8 +2575,8 @@ function ColumnItemEditor({
             onChange={(event) => onChange({ ...item, visible: event.target.checked })}
           />
           Mostrar esta imagen en el documento
-        </label>
-        <label className="instance-editability">
+          </label>
+          <label className="instance-editability">
           <input
             type="checkbox"
             checked={item.replaceable}
@@ -2323,42 +2584,49 @@ function ColumnItemEditor({
             onChange={(event) => onChange({ ...item, replaceable: event.target.checked })}
           />
           Permitir cambiar u ocultar esta imagen al usar la plantilla
-        </label>
+          </label>
+        </div>
+        ) : null}
       </div>
     );
   }
   if (item.type === "VARIABLE") {
     return (
       <div className="column-variable-editor">
-        <select
-          value={item.key}
-          disabled={locked}
-          aria-label="Dato automatico de la columna"
-          onChange={(event) =>
-            onChange({
-              ...item,
-              key: event.target.value,
-              label: event.target.selectedOptions[0]?.text ?? item.label,
-            })
-          }
-        >
-          <option value="contact.name">Nombre del contacto</option>
-          <option value="contact.email">Correo del contacto</option>
-          <option value="contact.phone">Telefono del contacto</option>
-          <option value="advisor.name">Nombre del asesor</option>
-          <option value="advisor.email">Correo del asesor</option>
-          <option value="company.name">Nombre de la empresa</option>
-          <option value="opportunity.title">Nombre de la oportunidad</option>
-          <option value="opportunity.amount">Valor de la oportunidad</option>
-          <option value="document.title">Titulo del documento</option>
-        </select>
-        <input
-          value={item.fallback}
-          disabled={locked}
-          aria-label="Valor alternativo"
-          placeholder="Valor alternativo"
-          onChange={(event) => onChange({ ...item, fallback: event.target.value })}
-        />
+        <span className="document-variable-value">{item.fallback || item.label}</span>
+        {selected ? (
+          <div className="document-inline-controls">
+            <select
+              value={item.key}
+              disabled={locked}
+              aria-label="Dato automatico de la columna"
+              onChange={(event) =>
+                onChange({
+                  ...item,
+                  key: event.target.value,
+                  label: event.target.selectedOptions[0]?.text ?? item.label,
+                })
+              }
+            >
+              <option value="contact.name">Nombre del contacto</option>
+              <option value="contact.email">Correo del contacto</option>
+              <option value="contact.phone">Telefono del contacto</option>
+              <option value="advisor.name">Nombre del asesor</option>
+              <option value="advisor.email">Correo del asesor</option>
+              <option value="company.name">Nombre de la empresa</option>
+              <option value="opportunity.title">Nombre de la oportunidad</option>
+              <option value="opportunity.amount">Valor de la oportunidad</option>
+              <option value="document.title">Titulo del documento</option>
+            </select>
+            <input
+              value={item.fallback}
+              disabled={locked}
+              aria-label="Valor alternativo"
+              placeholder="Valor alternativo"
+              onChange={(event) => onChange({ ...item, fallback: event.target.value })}
+            />
+          </div>
+        ) : null}
       </div>
     );
   }

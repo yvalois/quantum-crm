@@ -6860,3 +6860,1204 @@ body {
     padding-inline: 0.24rem;
   }
 }
+
+/* DOC-02 editorial canvas — direct document editing, not a block configuration form */
+.document-studio-shell {
+  --editor-accent: #0f766e;
+  --editor-accent-soft: #e9f7f5;
+  --editor-ink: #172b30;
+  --editor-muted: #6d7c80;
+  --editor-line: #d9e1e3;
+  --editor-workspace: #dfe3e6;
+  background: var(--editor-workspace);
+}
+
+.document-studio-shell .documents-page {
+  grid-template-rows: 3.85rem 3.15rem minmax(0, 1fr);
+  background: var(--editor-workspace);
+}
+
+.document-studio-shell .document-commandbar {
+  z-index: 21;
+  border-bottom-color: #e1e6e8;
+  background: rgb(255 255 255 / 98%);
+  padding-inline: 1rem;
+  box-shadow: 0 1px 0 rgb(15 31 35 / 3%);
+}
+
+.document-studio-shell .document-command-title strong {
+  color: var(--editor-ink);
+  font-size: 0.86rem;
+  font-weight: 760;
+  letter-spacing: -0.015em;
+}
+
+.document-studio-shell .document-command-title p {
+  color: #829095;
+  font-size: 0.5rem;
+}
+
+.document-studio-shell .document-save-state {
+  color: #77868a;
+  font-size: 0.58rem;
+}
+
+.document-studio-shell .document-command-actions button,
+.document-studio-shell .document-toolbar button {
+  border-radius: 0.42rem;
+  font-weight: 740;
+}
+
+.document-studio-shell .document-command-actions .document-save-button {
+  min-width: 6rem;
+  background: #123b3c;
+  box-shadow: 0 1px 2px rgb(9 37 39 / 16%);
+}
+
+.document-studio-shell .document-toolbar {
+  z-index: 20;
+  gap: 0.75rem;
+  border-bottom-color: #d4dcde;
+  background: #fbfcfc;
+  padding: 0.42rem 0.9rem;
+  box-shadow: 0 3px 12px rgb(19 40 45 / 5%);
+}
+
+.document-studio-shell .document-toolbar-group {
+  gap: 0.28rem;
+}
+
+.document-studio-shell .document-toolbar-group + .document-toolbar-group {
+  border-left-color: #e0e6e7;
+  padding-left: 0.75rem;
+}
+
+.document-studio-shell .document-insert-tools button {
+  min-height: 2.12rem;
+  border-color: #dce3e5;
+  background: #fff;
+  box-shadow: 0 1px 1px rgb(18 42 46 / 3%);
+}
+
+.document-studio-shell .document-insert-tools button:hover,
+.document-studio-shell .document-insert-tools button:focus-visible {
+  border-color: #8bc8c2;
+  background: var(--editor-accent-soft);
+  color: #0a6b64;
+}
+
+.document-ribbon-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  height: 100%;
+  align-items: end;
+  gap: 0.2rem;
+}
+
+.document-ribbon-tab {
+  min-height: 2.15rem !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding-inline: 0.68rem !important;
+  color: #657478 !important;
+}
+
+.document-ribbon-tab.is-active,
+.document-ribbon-tab[aria-selected="true"] {
+  border-bottom-color: var(--editor-accent) !important;
+  color: #0a625d !important;
+}
+
+.document-selection-tools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.24rem;
+  border-left: 1px solid #e0e6e7;
+  padding-left: 0.7rem;
+}
+
+.document-ribbon-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.document-ribbon-content::-webkit-scrollbar {
+  display: none;
+}
+
+.document-ribbon-content .document-toolbar-group > span,
+.document-selection-tools > span {
+  margin-right: 0.2rem;
+  color: #879397;
+  font-size: 0.49rem;
+  font-weight: 850;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.document-selection-tools > strong {
+  overflow: hidden;
+  max-width: 9rem;
+  color: #344b50;
+  font-size: 0.61rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-ribbon-content .ribbon-danger:hover:not(:disabled) {
+  border-color: #f0b6b2;
+  background: #fff2f1;
+  color: #ac2923;
+}
+
+.document-studio-shell .document-workbench {
+  background: var(--editor-workspace);
+}
+
+.document-studio-shell .document-canvas {
+  grid-template-rows: 1.85rem minmax(0, 1fr);
+  background:
+    linear-gradient(rgb(255 255 255 / 15%), rgb(255 255 255 / 15%)),
+    #dfe3e6;
+}
+
+.document-studio-shell .document-canvas-meta {
+  border-bottom: 1px solid rgb(112 126 131 / 18%);
+  background: rgb(239 242 243 / 72%);
+  color: #728085;
+  font-size: 0.51rem;
+  letter-spacing: 0.065em;
+}
+
+.document-studio-shell .document-canvas-scroll {
+  padding: 2.8rem max(3rem, calc((100% - 50rem) / 2)) 10rem;
+  scrollbar-color: #aeb9bc transparent;
+}
+
+.document-studio-shell .document-page {
+  width: 50rem;
+  min-height: var(--document-page-height, 70.7rem);
+  overflow: visible;
+  padding: 3.8rem 4.65rem 3.15rem;
+  color: #1c2c31;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgb(18 31 35 / 16%),
+    0 12px 32px rgb(18 31 35 / 10%),
+    0 34px 80px rgb(18 31 35 / 8%);
+}
+
+.document-studio-shell .document-page-title {
+  padding: 3.2rem 0 2rem;
+}
+
+.document-studio-shell .document-page-title p {
+  color: #879397;
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+}
+
+.document-studio-shell .document-page-title span {
+  color: #607176;
+  font-size: 0.8rem;
+}
+
+.document-studio-shell .document-page-title textarea {
+  field-sizing: content;
+  min-height: 2.8rem;
+  margin-top: 1.1rem;
+  caret-color: var(--editor-accent);
+  font-size: 2.7rem;
+  font-weight: 720;
+  line-height: 1.04;
+  letter-spacing: -0.05em;
+}
+
+.document-studio-shell .document-page-title textarea:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 -1px 0 #a8d7d2;
+}
+
+.document-studio-shell .document-page-blocks {
+  gap: 0.42rem;
+}
+
+.document-studio-shell .document-page .document-block {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  isolation: isolate;
+  transition: background 120ms ease;
+}
+
+.document-studio-shell .document-page .document-block::before {
+  position: absolute;
+  z-index: -1;
+  inset: -0.42rem -0.65rem;
+  border: 1px solid transparent;
+  border-radius: 0.32rem;
+  background: transparent;
+  content: "";
+  pointer-events: none;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.document-studio-shell .document-page .document-block:hover::before {
+  border-color: #d9e9e7;
+  background: rgb(244 250 249 / 22%);
+}
+
+.document-studio-shell .document-page .document-block.selected::before,
+.document-studio-shell .document-page .document-block:focus-within::before {
+  border-color: #82c9c2;
+  background: rgb(238 249 247 / 20%);
+  box-shadow: 0 0 0 0.18rem rgb(42 164 153 / 7%);
+}
+
+.document-studio-shell .document-page .document-block.selected,
+.document-studio-shell .document-page .document-block:focus-within,
+.document-studio-shell .document-page .document-block:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.document-studio-shell .document-page .document-block.selected,
+.document-studio-shell .document-page .document-block:focus-within {
+  z-index: 10;
+}
+
+.document-studio-shell .document-page .document-block.locked {
+  background: transparent;
+}
+
+.document-studio-shell .document-page .document-block.locked::after {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.2rem;
+  color: #839195;
+  content: "\1F512";
+  font-size: 0.58rem;
+  opacity: 0.7;
+}
+
+.document-studio-shell .document-page .document-block-tools,
+.document-block-gutter {
+  position: absolute;
+  z-index: 8;
+  top: -2.5rem;
+  right: -0.35rem;
+  left: auto;
+  display: flex;
+  width: max-content;
+  max-width: 32rem;
+  align-items: center;
+  gap: 0.15rem;
+  border: 1px solid #d4dedf;
+  border-radius: 0.48rem;
+  background: rgb(255 255 255 / 98%);
+  padding: 0.2rem;
+  opacity: 0;
+  box-shadow: 0 8px 24px rgb(26 47 51 / 14%);
+  pointer-events: none;
+  transform: translateY(0.25rem);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.document-studio-shell .document-page .document-block.selected > .document-block-tools,
+.document-studio-shell .document-page .document-block:hover > .document-block-tools,
+.document-studio-shell .document-page .document-block:focus-within > .document-block-tools,
+.document-studio-shell .document-page .document-block.selected > .document-block-gutter,
+.document-studio-shell .document-page .document-block:hover > .document-block-gutter,
+.document-studio-shell .document-page .document-block:focus-within > .document-block-gutter {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.document-studio-shell .document-page .document-block-tools strong {
+  padding-inline: 0.38rem;
+  color: #42575c;
+  font-size: 0.54rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .document-page .document-block-gutter strong {
+  padding-inline: 0.36rem;
+  color: #53676b;
+  font-size: 0.51rem;
+  font-weight: 820;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .document-page .document-block-gutter small {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  color: #9b741e;
+  font-size: 0.38rem;
+}
+
+.document-studio-shell .document-page .document-block-tools small {
+  display: none;
+}
+
+.document-studio-shell .document-page .block-handle {
+  display: grid;
+  min-width: 1.8rem;
+  min-height: 1.75rem;
+  place-items: center;
+  border-right: 1px solid #e4e9ea;
+  color: #819095;
+}
+
+.document-studio-shell .document-page .document-block-tools button,
+.document-block-gutter button {
+  min-width: 1.8rem;
+  min-height: 1.75rem;
+  border-radius: 0.3rem;
+  padding: 0.24rem 0.42rem;
+  color: #4f6266;
+}
+
+.document-studio-shell .document-page .document-block-tools button:hover,
+.document-block-gutter button:hover {
+  background: var(--editor-accent-soft);
+  color: #086c64;
+}
+
+.document-studio-shell .document-page .block-editor-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.document-studio-shell .document-prose-editor,
+.document-studio-shell .document-terms-editor,
+.document-studio-shell .document-variable-editor,
+.document-studio-shell .divider-editor {
+  position: relative;
+}
+
+.document-studio-shell .document-terms-editor {
+  display: grid;
+  gap: 0.35rem;
+  border-left: 2px solid #d5dfe0;
+  padding-left: 0.8rem;
+}
+
+.document-studio-shell .document-prose-heading {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #253a3f;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 760;
+  line-height: 1.45;
+}
+
+.document-studio-shell .document-prose-heading:focus-visible,
+.document-studio-shell .document-prose-input:focus-visible {
+  outline: 0 !important;
+  box-shadow: inset 0 -1px 0 #a8d7d2;
+}
+
+.document-studio-shell .align-left {
+  text-align: left;
+}
+
+.document-studio-shell .align-center {
+  text-align: center;
+}
+
+.document-studio-shell .align-right {
+  text-align: right;
+}
+
+.document-studio-shell .document-page .block-editor-grid textarea,
+.document-studio-shell .document-page .block-editor-grid input,
+.document-studio-shell .document-page .document-prose-input,
+.document-studio-shell .document-page .column-text-editor textarea {
+  field-sizing: content;
+  width: 100%;
+  min-height: 2rem;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  padding: 0.18rem 0;
+  caret-color: var(--editor-accent);
+  color: #26373b;
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  resize: none;
+}
+
+.document-studio-shell .document-page .block-editor-grid input {
+  color: #1d3338;
+  font-size: 1.02rem;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
+.document-studio-shell .document-page .block-editor-grid select,
+.document-studio-shell .document-page .column-text-editor select {
+  position: absolute;
+  z-index: 5;
+  top: -2.35rem;
+  right: 0.2rem;
+  width: auto;
+  min-width: 6.6rem;
+  border: 1px solid #d7e0e1;
+  border-radius: 0.34rem;
+  background: #fff;
+  padding: 0.35rem 0.5rem;
+  opacity: 0;
+  color: #44595e;
+  font-size: 0.56rem;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgb(24 46 51 / 10%);
+}
+
+.document-studio-shell .document-page .document-block.selected .block-editor-grid select,
+.document-studio-shell .document-page .block-editor-grid:focus-within select,
+.document-studio-shell .document-page .document-column-item:focus-within .column-text-editor select {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .columns-block-editor {
+  position: relative;
+  display: grid;
+  gap: 0;
+}
+
+.document-studio-shell .column-layout-controls {
+  position: absolute;
+  z-index: 7;
+  top: -2.48rem;
+  left: -0.2rem;
+  width: max-content;
+  border-color: #d4dedf;
+  border-radius: 0.48rem;
+  background: rgb(255 255 255 / 98%);
+  opacity: 0;
+  box-shadow: 0 8px 24px rgb(26 47 51 / 12%);
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.document-studio-shell .document-block.selected .column-layout-controls,
+.document-studio-shell .columns-block-editor:focus-within .column-layout-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .column-layout-controls > span {
+  display: none;
+}
+
+.document-studio-shell .document-page .columns-editor {
+  display: grid;
+  grid-template-columns: var(--document-columns, 1fr 1fr);
+  align-items: stretch;
+  gap: 1.75rem;
+  padding: 0;
+}
+
+.document-studio-shell .document-page .document-column-cell {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.5rem;
+  padding: 0;
+}
+
+.document-studio-shell .document-page .document-column-cell + .document-column-cell {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.document-studio-shell .document-page .document-block.selected .document-column-cell + .document-column-cell::before,
+.document-studio-shell .document-page .columns-block-editor:focus-within .document-column-cell + .document-column-cell::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -0.9rem;
+  border-left: 1px dashed #d6e2e2;
+  content: "";
+  pointer-events: none;
+}
+
+.document-studio-shell .document-column-head {
+  order: 2;
+  display: grid;
+  max-height: 0;
+  gap: 0;
+  opacity: 0;
+  overflow: visible;
+  pointer-events: none;
+  transition:
+    max-height 120ms ease,
+    opacity 120ms ease;
+}
+
+.document-studio-shell .document-block.selected .document-column-head,
+.document-studio-shell .document-column-cell:focus-within .document-column-head {
+  max-height: 2.1rem;
+  margin-top: 0.12rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .document-column-head > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.document-studio-shell .document-column-head > div {
+  display: flex;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 0.14rem;
+  overflow-x: auto;
+  padding-top: 0.25rem;
+}
+
+.document-studio-shell .document-column-head button {
+  min-height: 1.65rem;
+  border-color: #dce5e6;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #64767a;
+  font-size: 0.51rem;
+  white-space: nowrap;
+}
+
+.document-studio-shell .document-column-items {
+  order: 1;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.document-studio-shell .document-column-item {
+  position: relative;
+  display: grid;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.document-studio-shell .document-column-item::before {
+  position: absolute;
+  inset: -0.28rem;
+  z-index: -1;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  content: "";
+  pointer-events: none;
+}
+
+.document-studio-shell .document-column-item:hover::before,
+.document-studio-shell .document-column-item:focus-within::before {
+  border-color: #d8e6e4;
+}
+
+.document-studio-shell .document-column-item > header {
+  position: absolute;
+  z-index: 6;
+  top: -1.95rem;
+  right: 0;
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid #d7e1e2;
+  border-radius: 0.35rem;
+  background: #fff;
+  padding: 0.16rem 0.2rem;
+  opacity: 0;
+  box-shadow: 0 5px 16px rgb(25 48 53 / 11%);
+  pointer-events: none;
+  transform: translateY(0.2rem);
+  transition: 120ms ease;
+}
+
+.document-studio-shell .document-column-item:hover > header,
+.document-studio-shell .document-column-item:focus-within > header {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.document-studio-shell .document-column-item > header strong {
+  padding-left: 0.28rem;
+  color: #6a7b7f;
+  font-size: 0.45rem;
+}
+
+.document-studio-shell .document-column-item > header div {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .document-column-item > header button {
+  min-width: 1.55rem;
+  min-height: 1.5rem;
+  border: 0;
+  padding: 0.18rem;
+}
+
+.document-studio-shell .document-column-empty {
+  min-height: 6rem;
+  border-color: #cbdad9;
+  border-radius: 0.4rem;
+  background: rgb(248 251 251 / 55%);
+  color: #6c8582;
+}
+
+.document-studio-shell .document-column-empty:hover {
+  border-color: #7fc6bf;
+  background: #f1faf8;
+  color: #0b756c;
+}
+
+.document-studio-shell .legacy-column-cell {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.document-studio-shell .legacy-column-cell > span {
+  display: none;
+}
+
+.document-studio-shell .legacy-column-cell > p {
+  color: #26383d;
+  font-size: 0.85rem;
+  line-height: 1.68;
+}
+
+.document-studio-shell .column-text-editor {
+  position: relative;
+  display: grid;
+  gap: 0;
+}
+
+.document-studio-shell .column-text-editor textarea {
+  min-height: 3rem;
+}
+
+.document-studio-shell .column-image-editor,
+.document-studio-shell .image-slot-editor {
+  position: relative;
+}
+
+.document-studio-shell .column-image-frame,
+.document-studio-shell .document-page .image-slot-editor > div:first-child {
+  overflow: hidden;
+  border: 0;
+  border-radius: 0.32rem;
+  background: #f3f6f6;
+}
+
+.document-studio-shell .column-image-preview,
+.document-studio-shell .document-page .image-slot-editor > div:first-child {
+  min-height: 8rem;
+  border: 1px dashed #c2d0d1;
+  background: linear-gradient(135deg, #f0f4f4, #fafcfc);
+}
+
+.document-studio-shell .column-image-preview img,
+.document-studio-shell .document-page .image-slot-editor > div:first-child img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 24rem;
+  object-fit: var(--image-fit, contain);
+}
+
+.document-studio-shell .image-fit-cover .column-image-preview img,
+.document-studio-shell .image-fit-cover.image-slot-editor > div:first-child img {
+  object-fit: cover;
+}
+
+.document-studio-shell .image-fit-contain .column-image-preview img,
+.document-studio-shell .image-fit-contain.image-slot-editor > div:first-child img {
+  object-fit: contain;
+}
+
+.document-studio-shell .column-image-editor .document-file-button,
+.document-studio-shell .image-slot-editor > div:first-child .document-file-button {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  opacity: 0;
+  box-shadow: 0 8px 24px rgb(10 41 43 / 20%);
+  transform: translate(-50%, -42%);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.document-studio-shell .column-image-editor:hover .document-file-button,
+.document-studio-shell .column-image-editor:focus-within .document-file-button,
+.document-studio-shell .image-slot-editor > div:first-child:hover .document-file-button,
+.document-studio-shell .image-slot-editor > div:first-child:focus-within .document-file-button {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.document-studio-shell .document-image-caption {
+  margin-top: 0.42rem;
+  color: #6a787d;
+  font-family: inherit;
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.document-studio-shell .document-page .image-slot-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+}
+
+.document-studio-shell .document-page .image-slot-editor > label:not(.instance-editability),
+.document-studio-shell .document-page .image-slot-editor > .image-presentation-controls,
+.document-studio-shell .document-page .image-slot-editor > .instance-editability {
+  display: none;
+}
+
+.document-studio-shell .document-page .document-block.selected .image-slot-editor > label:not(.instance-editability),
+.document-studio-shell .document-page .document-block.selected .image-slot-editor > .image-presentation-controls,
+.document-studio-shell .document-page .document-block.selected .image-slot-editor > .instance-editability,
+.document-studio-shell .document-page .image-slot-editor:focus-within > label:not(.instance-editability),
+.document-studio-shell .document-page .image-slot-editor:focus-within > .image-presentation-controls,
+.document-studio-shell .document-page .image-slot-editor:focus-within > .instance-editability {
+  display: grid;
+}
+
+.document-studio-shell .document-page .image-slot-editor > label:not(.document-file-button),
+.document-studio-shell .document-page .image-slot-editor > .image-presentation-controls,
+.document-studio-shell .document-page .image-slot-editor > .instance-editability {
+  border-radius: 0.32rem;
+  background: #f8fafa;
+  padding: 0.45rem;
+}
+
+.document-studio-shell .document-table-grid {
+  border: 1px solid #d8e0e2;
+  border-radius: 0.2rem;
+  background: #fff;
+}
+
+.document-studio-shell .document-page .table-editor {
+  border: 0;
+  padding: 0;
+}
+
+.document-studio-shell .document-table-head {
+  background: #f4f6f7;
+}
+
+.document-studio-shell .document-table-row {
+  border-bottom-color: #dfe5e7;
+}
+
+.document-studio-shell .document-table-row:last-child {
+  border-bottom: 0;
+}
+
+.document-studio-shell .document-table-row input {
+  padding: 0.52rem !important;
+  line-height: 1.35 !important;
+}
+
+.document-studio-shell .document-add-row {
+  margin-top: 0.55rem;
+  border-radius: 0.3rem;
+  padding: 0.3rem 0.48rem;
+}
+
+.document-studio-shell .document-add-row:hover {
+  background: var(--editor-accent-soft);
+}
+
+.document-studio-shell .document-page > .document-page-region {
+  min-height: 2.8rem;
+  padding-block: 0.55rem;
+  color: #3f565b;
+}
+
+.document-studio-shell .document-page > .document-page-header {
+  border-bottom-width: 1px;
+}
+
+.document-studio-shell .document-page > .document-page-footer {
+  margin-top: 3.5rem;
+  border-top-width: 1px;
+}
+
+.document-studio-shell .document-page-region textarea {
+  field-sizing: content;
+  min-height: 1.55rem;
+  caret-color: var(--editor-accent);
+  font-size: 0.61rem;
+  line-height: 1.4;
+}
+
+.document-studio-shell .document-page-footer textarea {
+  color: #65757a;
+  font-size: 0.58rem;
+}
+
+.document-studio-shell .document-page-region:hover,
+.document-studio-shell .document-page-region:focus-within {
+  background: linear-gradient(90deg, transparent, rgb(235 246 244 / 55%), transparent);
+}
+
+.document-studio-shell .document-region-settings {
+  top: 50%;
+  right: -3.85rem;
+  min-width: 3.15rem;
+  border-color: #d3dfe0;
+  border-radius: 999px;
+  color: #506469;
+  box-shadow: 0 5px 16px rgb(25 48 53 / 10%);
+  transform: translateY(-50%);
+}
+
+.document-studio-shell .document-region-settings:hover {
+  border-color: #8ecbc5;
+  background: var(--editor-accent-soft);
+  color: #086d65;
+}
+
+.document-studio-shell .document-region-hidden {
+  min-height: 2.7rem;
+  border-color: #d5dfe0;
+  border-radius: 0;
+  background: transparent;
+  color: #7e8b8f;
+}
+
+.document-studio-shell .document-region-hidden:hover {
+  border-color: #8fcac4;
+  background: #f4faf9;
+  color: #0a7169;
+}
+
+.document-studio-shell .document-library,
+.document-studio-shell .document-inspector {
+  background: #fbfcfc;
+}
+
+.document-studio-shell .document-inspector > header,
+.document-studio-shell .document-inspector > section {
+  background: #fbfcfc;
+}
+
+.document-studio-shell .document-inspector > section {
+  gap: 0.8rem;
+}
+
+.document-studio-shell .document-inspector input:not([type="checkbox"]):not([type="color"]),
+.document-studio-shell .document-inspector select {
+  min-height: 2.35rem;
+  border-color: #d6dfe1;
+  border-radius: 0.42rem;
+}
+
+.document-studio-shell .document-inspector input:focus-visible,
+.document-studio-shell .document-inspector select:focus-visible {
+  border-color: #69bdb5;
+  outline: 2px solid rgb(54 170 159 / 12%);
+  outline-offset: 0;
+}
+
+.document-studio-shell .document-empty-page {
+  min-height: 12rem;
+  border-color: #cbd8d9;
+  border-radius: 0.35rem;
+  background: #fafcfc;
+  color: #667a7e;
+}
+
+.document-studio-shell .document-empty-page:hover {
+  border-color: #83c9c2;
+  background: #f4faf9;
+  color: #096f67;
+}
+
+.document-inline-controls {
+  position: absolute;
+  z-index: 7;
+  top: -2.4rem;
+  right: 0;
+  display: flex;
+  gap: 0.2rem;
+  border: 1px solid #d5dfe0;
+  border-radius: 0.42rem;
+  background: #fff;
+  padding: 0.2rem;
+  box-shadow: 0 7px 20px rgb(23 46 50 / 12%);
+}
+
+.document-studio-shell .image-slot-editor > .document-inline-controls,
+.document-studio-shell .column-image-editor > .document-inline-controls,
+.document-studio-shell .document-variable-editor > .document-inline-controls {
+  top: calc(100% + 0.55rem);
+  right: 0;
+  display: grid;
+  width: min(30rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  border-radius: 0.55rem;
+  padding: 0.65rem;
+}
+
+.document-studio-shell .column-image-editor > .document-inline-controls {
+  width: min(25rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.document-studio-shell .document-variable-editor > .document-inline-controls {
+  width: min(24rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.document-studio-shell .document-inline-controls > label,
+.document-studio-shell .document-inline-controls .image-presentation-controls label {
+  display: grid;
+  min-width: 0;
+  gap: 0.22rem;
+  color: #6f8084;
+  font-size: 0.48rem;
+  font-weight: 780;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .document-inline-controls input:not([type="checkbox"]),
+.document-studio-shell .document-inline-controls select {
+  min-width: 0;
+  width: 100%;
+  min-height: 1.9rem;
+  border: 1px solid #d7e0e1;
+  border-radius: 0.3rem;
+  background: #fff;
+  padding: 0.34rem 0.42rem;
+  color: #30484d;
+  font: inherit;
+  font-size: 0.56rem;
+  text-transform: none;
+}
+
+.document-studio-shell .document-inline-controls .image-presentation-controls {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.document-studio-shell .document-inline-controls .instance-editability {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #52666b;
+  font-size: 0.53rem;
+  text-transform: none;
+}
+
+.document-studio-shell .document-inline-controls .instance-editability input {
+  width: 0.9rem;
+  height: 0.9rem;
+  min-height: 0;
+}
+
+.document-studio-shell .document-variable-value {
+  display: inline-flex;
+  min-height: 1.9rem;
+  align-items: center;
+  border-bottom: 1px solid #bfd2d2;
+  padding: 0.18rem 0;
+  color: #1e383d;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.document-studio-shell .document-variable-value::before {
+  margin-right: 0.45rem;
+  border-radius: 999px;
+  background: #e3f4f1;
+  padding: 0.14rem 0.4rem;
+  color: #0c736a;
+  content: "DATO";
+  font-size: 0.43rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+}
+
+.document-studio-shell .document-page .signature-editor {
+  position: relative;
+  display: grid;
+  width: 45%;
+  gap: 0.38rem;
+  margin-top: 2.8rem;
+  border: 0;
+  padding-top: 0;
+}
+
+.document-studio-shell .signature-line {
+  display: block;
+  width: 100%;
+  border-top: 1px solid #78888d;
+}
+
+.document-studio-shell .signature-editor input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #56686d;
+  font: inherit;
+  font-size: 0.65rem;
+}
+
+.document-studio-shell .divider-editor {
+  padding-block: 0.45rem;
+}
+
+.document-studio-shell .divider-editor::before {
+  display: none;
+}
+
+.document-studio-shell .divider-editor hr {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #8e9da1;
+}
+
+.document-studio-shell .divider-dashed hr {
+  border-top-style: dashed;
+}
+
+.document-studio-shell .divider-dotted hr {
+  border-top-style: dotted;
+}
+
+.document-studio-shell .divider-editor > select.document-inline-controls {
+  top: -2.35rem;
+  right: 0;
+  display: block;
+  width: 7rem;
+  min-height: 1.9rem;
+  padding: 0.3rem 0.4rem;
+  color: #44595e;
+  font-size: 0.55rem;
+}
+
+@media (max-width: 1100px) {
+  .document-studio-shell .document-canvas-scroll {
+    padding-inline: 2rem;
+  }
+
+  .document-studio-shell .document-region-settings {
+    right: 0.2rem;
+    top: -1.55rem;
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .document-studio-shell,
+  .document-studio-shell .documents-page {
+    min-height: 39rem;
+  }
+
+  .document-studio-shell .documents-page {
+    grid-template-rows: 3.6rem 3rem minmax(0, 1fr);
+  }
+
+  .document-studio-shell .document-toolbar {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .document-studio-shell .document-canvas-scroll {
+    padding: 1.5rem 1rem 7rem;
+  }
+
+  .document-studio-shell .document-page {
+    padding: 3rem 3.75rem 2.7rem;
+  }
+
+  .document-studio-shell .document-page-title textarea {
+    font-size: 2.35rem;
+  }
+}
+
+@media (max-width: 620px) {
+  .document-studio-shell .document-command-title > div,
+  .document-studio-shell .document-save-state,
+  .document-studio-shell .document-view-tools {
+    display: none;
+  }
+
+  .document-studio-shell .document-command-actions {
+    margin-left: auto;
+  }
+
+  .document-studio-shell .document-canvas-meta {
+    justify-content: flex-start;
+    overflow: hidden;
+    padding-inline: 1rem;
+    white-space: nowrap;
+  }
+
+  .document-studio-shell .column-layout-picker {
+    top: 6.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .document-studio-shell *,
+  .document-studio-shell *::before,
+  .document-studio-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

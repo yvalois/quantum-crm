@@ -144,6 +144,10 @@ describe("DocumentService", () => {
         locked: true,
         content: "Propuesta para {{contact.name}} preparada por {{advisor.name}}",
         align: "LEFT",
+        style: "TITLE",
+        bold: true,
+        italic: false,
+        underline: false,
       },
       {
         id: "019db9c7-1268-7d24-bf99-96ea38ebf122",
@@ -181,6 +185,10 @@ describe("DocumentService", () => {
                 locked: false,
                 content: "Cliente: {{contact.name}}",
                 align: "LEFT",
+                style: "CAPTION",
+                bold: false,
+                italic: true,
+                underline: false,
               },
             ],
           },
@@ -246,6 +254,30 @@ describe("DocumentService", () => {
         ],
       },
     ]);
+
+    expect(created.blocks[0]).toMatchObject({
+      type: "TEXT",
+      style: "TITLE",
+      bold: true,
+      italic: false,
+      underline: false,
+    });
+    expect(created.blocks[3]).toMatchObject({
+      type: "COLUMNS",
+      cells: [
+        {
+          items: [
+            {
+              type: "TEXT",
+              style: "CAPTION",
+              bold: false,
+              italic: true,
+              underline: false,
+            },
+          ],
+        },
+      ],
+    });
   });
 
   it("prevents changing a protected template block in an instance", async () => {
@@ -353,6 +385,190 @@ describe("DocumentService", () => {
     expect(updated.blocks[0]).toMatchObject({
       fileId: reorderedCandidate.fileId,
       checksum: reorderedCandidate.checksum,
+    });
+  });
+
+  it("allows replacing a protected image nested in a column without unlocking its layout", async () => {
+    const protectedColumns: DocumentBlock = {
+      id: "019db9c7-1268-7d24-bf99-96ea38ebf210",
+      type: "COLUMNS",
+      locked: true,
+      layout: "LEFT_WIDE",
+      columns: ["[Imagen: Vehiculo]", "Datos comerciales"],
+      cells: [
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf211",
+          items: [
+            {
+              id: "019db9c7-1268-7d24-bf99-96ea38ebf212",
+              type: "IMAGE",
+              locked: false,
+              label: "Vehiculo",
+              alt: "Vehiculo seleccionado",
+              caption: "",
+              fileId: null,
+              checksum: null,
+              replaceable: true,
+              visible: true,
+              width: "FULL",
+              align: "CENTER",
+              fit: "COVER",
+            },
+          ],
+        },
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf213",
+          items: [
+            {
+              id: "019db9c7-1268-7d24-bf99-96ea38ebf214",
+              type: "TEXT",
+              locked: false,
+              content: "Datos comerciales",
+              align: "LEFT",
+            },
+          ],
+        },
+      ],
+    };
+    const memory = memoryRepository(template([protectedColumns]));
+    const service = new DocumentService(memory.repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+    });
+    const created = await service.create({
+      actor,
+      permissions,
+      kind: "QUOTE",
+      title: "Imagen en columnas",
+      contactId: null,
+      opportunityId: null,
+      templateId: "019db9c7-1268-7d24-bf99-96ea38ebf201",
+      idempotencyKey: "document-create-column-image-1",
+      payloadHash: "1".repeat(64),
+      now,
+    });
+    const currentColumns = created.blocks[0];
+    expect(currentColumns?.type).toBe("COLUMNS");
+    if (!currentColumns || currentColumns.type !== "COLUMNS" || !currentColumns.cells) return;
+    const replacement = {
+      ...currentColumns,
+      cells: currentColumns.cells.map((cell, cellIndex) => ({
+        ...cell,
+        items: cell.items.map((item) =>
+          cellIndex === 0 && item.type === "IMAGE"
+            ? {
+                ...item,
+                fileId: "019db9c7-1268-7d24-bf99-96ea38ebf215",
+                checksum: `sha256:${"b".repeat(64)}`,
+              }
+            : item,
+        ),
+      })),
+    } satisfies DocumentBlock;
+
+    const updated = await service.update({
+      actor,
+      permissions,
+      id: created.id,
+      expectedVersion: 1n,
+      patch: { blocks: [replacement] },
+      idempotencyKey: "document-update-column-image-1",
+      payloadHash: "2".repeat(64),
+      now,
+    });
+
+    expect(updated.blocks[0]).toMatchObject({
+      locked: true,
+      layout: "LEFT_WIDE",
+      cells: [
+        {
+          items: [
+            {
+              fileId: "019db9c7-1268-7d24-bf99-96ea38ebf215",
+              checksum: `sha256:${"b".repeat(64)}`,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("keeps header and footer configuration through update and duplication", async () => {
+    const memory = memoryRepository();
+    const service = new DocumentService(memory.repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+    });
+    const created = await service.create({
+      actor,
+      permissions,
+      kind: "QUOTE",
+      title: "Documento editorial",
+      contactId: null,
+      opportunityId: null,
+      templateId: null,
+      design: {
+        ...defaultDocumentDesign(),
+        headerText: "InterAmerican Car Rental",
+        headerLayout: "LOGO_TEXT",
+        headerAlign: "RIGHT",
+        headerSpacing: "SPACIOUS",
+        footerText: "Documento confidencial",
+        footerAlign: "CENTER",
+        footerSpacing: "COMPACT",
+      },
+      idempotencyKey: "document-create-editorial-1",
+      payloadHash: "3".repeat(64),
+      now,
+    });
+    const updated = await service.update({
+      actor,
+      permissions,
+      id: created.id,
+      expectedVersion: 1n,
+      patch: {
+        design: {
+          ...created.design,
+          headerText: "Propuesta comercial",
+          footerText: "Pagina contractual",
+          showPageNumbers: false,
+        },
+      },
+      idempotencyKey: "document-update-editorial-1",
+      payloadHash: "4".repeat(64),
+      now,
+    });
+    const duplicated = await service.duplicate({
+      actor,
+      permissions,
+      sourceId: updated.id,
+      idempotencyKey: "document-duplicate-editorial-1",
+      payloadHash: "5".repeat(64),
+      now,
+    });
+    const savedTemplate = await service.createTemplate({
+      actor,
+      permissions,
+      name: "Plantilla editorial",
+      sourceDocumentId: updated.id,
+      idempotencyKey: "document-template-editorial-1",
+      payloadHash: "6".repeat(64),
+      now,
+    });
+
+    expect(duplicated.design).toEqual(updated.design);
+    expect(duplicated.design).not.toBe(updated.design);
+    expect(savedTemplate.design).toEqual(updated.design);
+    expect(savedTemplate.design).not.toBe(updated.design);
+    expect(duplicated.design).toMatchObject({
+      headerText: "Propuesta comercial",
+      headerLayout: "LOGO_TEXT",
+      headerAlign: "RIGHT",
+      headerSpacing: "SPACIOUS",
+      footerText: "Pagina contractual",
+      footerAlign: "CENTER",
+      footerSpacing: "COMPACT",
+      showPageNumbers: false,
     });
   });
 

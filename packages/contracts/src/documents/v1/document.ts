@@ -18,6 +18,11 @@ export const TextDocumentBlockSchema = BlockBaseSchema.extend({
   type: z.literal("TEXT"),
   content: z.string().max(20_000),
   align: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
+  /** Optional for documents created before rich block formatting existed. */
+  style: z.enum(["BODY", "TITLE", "SUBTITLE", "CAPTION"]).optional(),
+  bold: z.boolean().optional(),
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
 }).strict();
 
 const ImageDocumentBlockBaseSchema = BlockBaseSchema.extend({

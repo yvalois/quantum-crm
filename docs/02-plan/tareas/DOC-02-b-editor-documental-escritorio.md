@@ -43,6 +43,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - Celdas de columna con elementos ordenables de texto, imagen, variable y separador; las imagenes conservan validacion, scan y referencia inmutable.
 - Encabezado y pie como regiones configurables del lienzo: visibilidad, distribucion, alineacion, espacio, logotipo, tipo documental y numeracion.
 - Reordenamiento, proteccion, eliminacion, variables, archivos, estilos, duplicacion y plantillas existentes.
+- Edicion editorial sin tarjetas tecnicas permanentes: cinta Inicio/Insertar/Diseno, acciones contextuales y formato persistente de parrafo (titulo, subtitulo, cuerpo o nota; negrita, cursiva, subrayado y alineacion).
 - Estados responsive, foco visible y navegacion accesible.
 
 ### No incluido
@@ -71,6 +72,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Validar tipos, build y recorrido autenticado en el VPS.
 - [ ] Permitir imagenes y elementos ordenados dentro de cada columna sin perder contenido previo.
 - [ ] Convertir encabezado y pie en regiones configurables y comprobar su persistencia.
+- [ ] Sustituir el constructor visible por edicion directa y comprobar que formato, columnas y regiones se conservan al guardar y recargar.
 
 ## Criterios de aceptacion
 
@@ -82,6 +84,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] La experiencia es utilizable en escritorio y adaptable en pantallas menores.
 - [ ] Una columna admite texto, imagen, variable y separador, permite reordenarlos y guarda sus archivos mediante el pipeline seguro.
 - [ ] Encabezado y pie se pueden mostrar u ocultar, alinear, espaciar y configurar con logo, tipo documental y numero de pagina.
+- [ ] La hoja no expone tarjetas ni formularios tecnicos de manera permanente; al seleccionar texto se puede aplicar y persistir estilo, enfasis y alineacion desde la cinta.
 
 ## Plan de verificacion
 

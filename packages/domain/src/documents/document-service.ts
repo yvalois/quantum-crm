@@ -69,6 +69,10 @@ export function starterDocumentBlocks(): readonly DocumentBlock[] {
       locked: false,
       content: "Propuesta preparada para {{contact.name}}",
       align: "LEFT" as const,
+      style: "BODY" as const,
+      bold: false,
+      italic: false,
+      underline: false,
     }),
     Object.freeze({
       id: randomUUID(),
