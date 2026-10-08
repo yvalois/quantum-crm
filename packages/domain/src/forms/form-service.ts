@@ -48,17 +48,25 @@ export function isFormFieldVisible(
 }
 
 function validFor(field: FormField, value: FormAnswerValue): boolean {
-  if (["SHORT_TEXT", "LONG_TEXT", "EMAIL", "PHONE", "DATE", "TIME"].includes(field.type)) {
+  if (["SHORT_TEXT", "LONG_TEXT", "EMAIL", "PHONE", "URL", "ADDRESS", "DATE", "TIME"].includes(field.type)) {
     if (typeof value !== "string") return false;
     if (field.type === "EMAIL" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value)) return false;
     if (field.type === "PHONE" && !/^\+?[0-9 ()-]{7,30}$/u.test(value)) return false;
+    if (field.type === "URL") {
+      try {
+        const url = new URL(value);
+        if (!/^https?:$/u.test(url.protocol)) return false;
+      } catch {
+        return false;
+      }
+    }
     if (field.type === "DATE" && !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
     if (field.type === "TIME" && !/^(?:[01]\d|2[0-3]):[0-5]\d$/u.test(value)) return false;
     if (field.minimum !== undefined && value.length < field.minimum) return false;
     if (field.maximum !== undefined && value.length > field.maximum) return false;
     return true;
   }
-  if (field.type === "NUMBER" || field.type === "SCALE") {
+  if (field.type === "NUMBER" || field.type === "SCALE" || field.type === "RATING") {
     return (
       typeof value === "number" &&
       (field.minimum === undefined || value >= field.minimum) &&

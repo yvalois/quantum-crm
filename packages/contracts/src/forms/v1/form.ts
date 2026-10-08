@@ -12,6 +12,8 @@ export const FormFieldTypeSchema = z.enum([
   "NUMBER",
   "EMAIL",
   "PHONE",
+  "URL",
+  "ADDRESS",
   "DATE",
   "TIME",
   "SINGLE_CHOICE",
@@ -19,6 +21,7 @@ export const FormFieldTypeSchema = z.enum([
   "DROPDOWN",
   "CHECKBOX",
   "SCALE",
+  "RATING",
 ]);
 export const FormConditionOperatorSchema = z.enum([
   "EQUALS",
@@ -102,6 +105,8 @@ export const FormThemeSchema = z
     accentColor: ColorSchema.default("#5de1d4"),
     backgroundColor: ColorSchema.default("#07110f"),
     logoFileId: UuidSchema.nullable().default(null),
+    heroImageUrl: z.string().url().max(2_048).nullable().default(null),
+    headerVideoUrl: z.string().url().max(2_048).nullable().default(null),
     completionMessage: z.string().trim().min(1).max(1_000).default("Respuesta enviada."),
     closedMessage: z.string().trim().min(1).max(1_000).default("Este formulario esta cerrado."),
   })

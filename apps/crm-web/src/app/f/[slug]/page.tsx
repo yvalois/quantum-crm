@@ -69,7 +69,7 @@ export default function PublicFormPage(): React.JSX.Element {
   function field(field: FormField): React.JSX.Element {
     const set = (value: FormAnswerValue) =>
       setAnswers((current) => ({ ...current, [field.id]: value }));
-    if (field.type === "LONG_TEXT")
+    if (["LONG_TEXT", "ADDRESS"].includes(field.type))
       return (
         <textarea
           rows={5}
@@ -146,7 +146,7 @@ export default function PublicFormPage(): React.JSX.Element {
           Confirmar
         </label>
       );
-    if (field.type === "SCALE")
+    if (["SCALE", "RATING"].includes(field.type))
       return (
         <div className="public-form-scale">
           {Array.from(
@@ -154,7 +154,7 @@ export default function PublicFormPage(): React.JSX.Element {
             (_, index) => index + (field.minimum ?? 1),
           ).map((value) => (
             <label key={value}>
-              <span>{value}</span>
+              <span>{field.type === "RATING" ? "★" : value}</span>
               <input
                 type="radio"
                 name={field.id}
@@ -171,6 +171,8 @@ export default function PublicFormPage(): React.JSX.Element {
         ? "email"
         : field.type === "PHONE"
           ? "tel"
+          : field.type === "URL"
+            ? "url"
           : field.type === "DATE"
             ? "date"
             : field.type === "TIME"
@@ -185,7 +187,7 @@ export default function PublicFormPage(): React.JSX.Element {
         min={field.minimum}
         max={field.maximum}
         onChange={(event) =>
-          set(field.type === "NUMBER" ? Number(event.target.value) : event.target.value)
+          set(["NUMBER", "RATING"].includes(field.type) ? Number(event.target.value) : event.target.value)
         }
         required={field.required}
       />
@@ -248,8 +250,10 @@ export default function PublicFormPage(): React.JSX.Element {
         <header>
           <span style={{ background: form.theme.accentColor }}>Q</span>
           <p>FORMULARIO QUANTUM</p>
+          {form.theme.heroImageUrl ? <img className="public-form-hero" src={form.theme.heroImageUrl} alt="Imagen de portada" /> : null}
           <h1>{form.title}</h1>
           <p>{form.description}</p>
+          {form.theme.headerVideoUrl ? <a className="public-form-video" href={form.theme.headerVideoUrl} target="_blank" rel="noreferrer">Ver video de bienvenida ↗</a> : null}
         </header>
         {form.definition.sections.map((section, index) => (
           <section key={section.id}>

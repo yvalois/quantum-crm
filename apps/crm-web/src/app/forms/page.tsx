@@ -28,6 +28,8 @@ const fieldLabels: Record<FormFieldType, string> = {
   NUMBER: "Numero",
   EMAIL: "Correo",
   PHONE: "Telefono",
+  URL: "Sitio web",
+  ADDRESS: "Direccion",
   DATE: "Fecha",
   TIME: "Hora",
   SINGLE_CHOICE: "Opcion unica",
@@ -35,12 +37,24 @@ const fieldLabels: Record<FormFieldType, string> = {
   DROPDOWN: "Lista",
   CHECKBOX: "Casilla",
   SCALE: "Escala",
+  RATING: "Calificacion",
 };
+
+const fieldGroups: readonly {
+  readonly title: string;
+  readonly types: readonly FormFieldType[];
+}[] = [
+  { title: "Datos", types: ["SHORT_TEXT", "LONG_TEXT", "NUMBER", "EMAIL", "PHONE", "URL", "ADDRESS", "DATE", "TIME"] },
+  { title: "Eleccion", types: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "DROPDOWN", "CHECKBOX"] },
+  { title: "Medicion", types: ["SCALE", "RATING"] },
+];
 
 const defaultTheme: FormTheme = {
   accentColor: "#5de1d4",
   backgroundColor: "#07110f",
   logoFileId: null,
+  heroImageUrl: null,
+  headerVideoUrl: null,
   completionMessage: "Gracias. Recibimos tu respuesta.",
   closedMessage: "Este formulario ya no recibe respuestas.",
 };
@@ -80,7 +94,7 @@ async function responseTitle(response: Response): Promise<string> {
 }
 
 function renderPreviewField(field: FormField): React.JSX.Element {
-  if (field.type === "LONG_TEXT") return <textarea rows={3} disabled placeholder="Respuesta" />;
+  if (["LONG_TEXT", "ADDRESS"].includes(field.type)) return <textarea rows={3} disabled placeholder="Respuesta" />;
   if (["SINGLE_CHOICE", "MULTIPLE_CHOICE"].includes(field.type)) {
     return (
       <div className="form-preview-options">
@@ -107,19 +121,19 @@ function renderPreviewField(field: FormField): React.JSX.Element {
         <input type="checkbox" disabled /> Confirmar
       </label>
     );
-  if (field.type === "SCALE")
+  if (["SCALE", "RATING"].includes(field.type))
     return (
       <div className="form-scale">
         {Array.from(
           { length: (field.maximum ?? 5) - (field.minimum ?? 1) + 1 },
           (_, index) => index + (field.minimum ?? 1),
         ).map((value) => (
-          <span key={value}>{value}</span>
+          <span key={value}>{field.type === "RATING" ? "★" : value}</span>
         ))}
       </div>
     );
   const htmlType =
-    field.type === "EMAIL" ? "email" : field.type === "PHONE" ? "tel" : field.type.toLowerCase();
+    field.type === "EMAIL" ? "email" : field.type === "PHONE" ? "tel" : field.type === "URL" ? "url" : field.type.toLowerCase();
   return <input type={htmlType} disabled placeholder="Respuesta" />;
 }
 
@@ -134,6 +148,8 @@ export default function FormsPage(): React.JSX.Element {
   const [draft, setDraft] = useState<FormContract | null>(null);
   const [responses, setResponses] = useState<SubmittedFormResponse[]>([]);
   const [tab, setTab] = useState<"build" | "responses">("build");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -322,6 +338,10 @@ export default function FormsPage(): React.JSX.Element {
       [fields[index], fields[target]] = [fields[target]!, fields[index]!];
       return { ...section, fields };
     });
+  }
+  function addField(sectionId: string, type: FormFieldType): void {
+    updateSection(sectionId, (section) => ({ ...section, fields: [...section.fields, newField(type)] }));
+    setActiveSectionId(sectionId);
   }
   function exportCsv(): void {
     if (!draft) return;
@@ -513,7 +533,9 @@ export default function FormsPage(): React.JSX.Element {
                                           ? field.options
                                           : ["Opcion 1"]
                                         : [],
-                                      ...(type === "SCALE" ? { minimum: 1, maximum: 5 } : {}),
+                                      ...(["SCALE", "RATING"].includes(type)
+                                        ? { minimum: 1, maximum: 5 }
+                                        : {}),
                                     });
                                   }}
                                 >
@@ -552,7 +574,7 @@ export default function FormsPage(): React.JSX.Element {
                                   />
                                 </label>
                               ) : null}
-                              {field.type === "SCALE" ? (
+                              {["SCALE", "RATING"].includes(field.type) ? (
                                 <div className="form-field-limits">
                                   <label>
                                     Minimo
@@ -689,12 +711,7 @@ export default function FormsPage(): React.JSX.Element {
                           ))}
                           <button
                             className="form-add-question"
-                            onClick={() =>
-                              updateSection(section.id, (current) => ({
-                                ...current,
-                                fields: [...current.fields, newField()],
-                              }))
-                            }
+                            onClick={() => addField(section.id, "SHORT_TEXT")}
                           >
                             + Agregar pregunta
                           </button>
@@ -722,14 +739,63 @@ export default function FormsPage(): React.JSX.Element {
                         + Agregar seccion
                       </button>
                     </section>
+                    <aside className="forms-canvas-tools" aria-label="Biblioteca de campos">
+                      <div>
+                        <span className="form-canvas-kicker">INSERTAR</span>
+                        <h2>Campos</h2>
+                        <p>Elige una seccion y agrega el tipo de respuesta que necesites.</p>
+                      </div>
+                      <label className="form-canvas-section-picker">
+                        Seccion activa
+                        <select
+                          value={activeSectionId ?? draft.definition.sections[0]?.id ?? ""}
+                          onChange={(event) => setActiveSectionId(event.target.value)}
+                        >
+                          {draft.definition.sections.map((section, index) => (
+                            <option key={section.id} value={section.id}>
+                              {index + 1}. {section.title || "Sin titulo"}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {fieldGroups.map((group) => (
+                        <section key={group.title}>
+                          <span>{group.title}</span>
+                          <div className="form-field-palette">
+                            {group.types.map((type) => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => addField(activeSectionId ?? draft.definition.sections[0]!.id, type)}
+                              >
+                                <b>{fieldLabels[type]}</b>
+                                <small>{type === "RATING" ? "Estrellas" : type === "ADDRESS" ? "Varias lineas" : type === "SCALE" ? "Escala numerica" : "Agregar"}</small>
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+                      ))}
+                    </aside>
                     <aside
-                      className="forms-preview"
+                      className={`forms-preview forms-preview-${previewDevice}`}
                       style={{ background: draft.theme.backgroundColor }}
                     >
-                      <span>VISTA PREVIA</span>
+                      <header className="forms-preview-heading">
+                        <span>VISTA PREVIA</span>
+                        <div>
+                          <button type="button" className={previewDevice === "desktop" ? "active" : ""} onClick={() => setPreviewDevice("desktop")}>Escritorio</button>
+                          <button type="button" className={previewDevice === "mobile" ? "active" : ""} onClick={() => setPreviewDevice("mobile")}>Móvil</button>
+                        </div>
+                      </header>
                       <div style={{ borderTopColor: draft.theme.accentColor }}>
+                        {draft.theme.heroImageUrl ? (
+                          <img className="form-preview-hero" src={draft.theme.heroImageUrl} alt="Imagen de portada" />
+                        ) : null}
                         <h2>{draft.title}</h2>
                         <p>{draft.description}</p>
+                        {draft.theme.headerVideoUrl ? (
+                          <a className="form-preview-video" href={draft.theme.headerVideoUrl} target="_blank" rel="noreferrer">Ver video de bienvenida ↗</a>
+                        ) : null}
                         {draft.definition.sections.map((section) => (
                           <section key={section.id}>
                             <h3>{section.title}</h3>
@@ -774,6 +840,24 @@ export default function FormsPage(): React.JSX.Element {
                               theme: { ...draft.theme, backgroundColor: event.target.value },
                             })
                           }
+                        />
+                      </label>
+                      <label>
+                        Imagen de portada
+                        <input
+                          type="url"
+                          value={draft.theme.heroImageUrl ?? ""}
+                          placeholder="https://..."
+                          onChange={(event) => setDraft({ ...draft, theme: { ...draft.theme, heroImageUrl: event.target.value || null } })}
+                        />
+                      </label>
+                      <label>
+                        Video de bienvenida
+                        <input
+                          type="url"
+                          value={draft.theme.headerVideoUrl ?? ""}
+                          placeholder="https://..."
+                          onChange={(event) => setDraft({ ...draft, theme: { ...draft.theme, headerVideoUrl: event.target.value || null } })}
                         />
                       </label>
                       <label>
