@@ -8599,17 +8599,22 @@ body {
 }
 
 .document-studio-shell .document-region-hidden {
-  min-height: 2.7rem;
+  width: fit-content;
+  min-height: 0;
+  align-self: center;
   border-color: #d5dfe0;
-  border-radius: 0;
+  border-radius: 999px;
   background: transparent;
+  padding: 0.32rem 0.68rem;
   color: #7e8b8f;
+  opacity: 0.64;
 }
 
 .document-studio-shell .document-region-hidden:hover {
   border-color: #8fcac4;
   background: #f4faf9;
   color: #0a7169;
+  opacity: 1;
 }
 
 .document-studio-shell .document-library,
@@ -8641,9 +8646,11 @@ body {
 }
 
 .document-studio-shell .document-empty-page {
-  min-height: 12rem;
+  width: 11rem;
+  min-height: 7rem;
+  margin: 2.5rem auto;
   border-color: #cbd8d9;
-  border-radius: 0.35rem;
+  border-radius: 0.7rem;
   background: #fafcfc;
   color: #667a7e;
 }
