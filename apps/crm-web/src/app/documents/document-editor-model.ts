@@ -188,7 +188,9 @@ export function resizeImageObjectFrame(
       widthPercent,
       heightPx: Math.max(
         minimumImageDimensionPx,
-        Math.round(((safeAvailableWidth * widthPercent) / 100 / safeOriginWidth) * safeOriginHeight),
+        Math.round(
+          ((safeAvailableWidth * widthPercent) / 100 / safeOriginWidth) * safeOriginHeight,
+        ),
       ),
     };
   }
