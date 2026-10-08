@@ -3162,6 +3162,12 @@ button:disabled {
   }
 }
 
+/* The media frame clips the pixels; the selected card must not clip its direct handles. */
+.document-studio-shell .document-page .image-slot-editor > .document-image-card:first-child,
+.document-studio-shell .document-page .column-image-frame.document-image-card {
+  overflow: visible;
+}
+
 @media (max-width: 620px) {
   .page-header,
   .member-row {
