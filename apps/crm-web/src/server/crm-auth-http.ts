@@ -123,7 +123,7 @@ import {
   UpdateFormSchema,
 } from "@quantum-crm/contracts";
 
-import { siblingStorageOrigin } from "./storage-origin.js";
+import { siblingStorageOrigin } from "./storage-origin";
 
 const maximumResponseBytes = 1_048_576;
 const maximumUploadProxyBytes = 52_428_800;
