@@ -130,6 +130,28 @@ export function createProfileOperatorRepository(pool: PostgresPool): ProfileOper
           [command.tenantProfileId],
         );
         if (Number(count.rows[0]?.count ?? "0") >= 2) throw new ProfileOperatorConflictError();
+        const retried = await client.query<AssignmentRow>(
+          `UPDATE platform_iam.profile_operator_assignments SET id=$1::uuid,requested_by_operator_id=$3::uuid,operator_id=NULL,oidc_subject=NULL,display_name=$4,correlation_id=$6,idempotency_key=$7,status='pending',lease_owner=NULL,lease_expires_at=NULL,version=version+1,updated_at=$8 WHERE tenant_profile_id=$2::uuid AND email=$5 AND status='failed' RETURNING ${selection}`,
+          [
+            command.id,
+            command.tenantProfileId,
+            command.requestedByOperatorId,
+            displayName,
+            email,
+            command.correlationId,
+            command.idempotencyKey,
+            command.now,
+          ],
+        );
+        if (retried.rows[0]) {
+          await client.query("COMMIT");
+          client.release();
+          client = undefined;
+          return Object.freeze({
+            assignment: assignment(retried.rows[0]),
+            idempotentReplay: false,
+          });
+        }
         const result = await client.query<AssignmentRow>(
           `INSERT INTO platform_iam.profile_operator_assignments (id,tenant_profile_id,requested_by_operator_id,display_name,email,correlation_id,idempotency_key,created_at,updated_at) VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$8) RETURNING ${selection}`,
           [
