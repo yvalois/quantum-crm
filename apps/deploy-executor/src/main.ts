@@ -29,7 +29,6 @@ import { createTenantReleaseConfigurationProvisioner } from "./tenant-release-co
 import { TenantReleasePromotionExecutor } from "./tenant-release-promotion-executor.js";
 import { TenantDecommissioningExecutor } from "./tenant-decommissioning-executor.js";
 import { createTenantRuntimeDecommissioner } from "./tenant-runtime-decommissioner.js";
-import { createPlatformOperatorProvisioner } from "./platform-operator-provisioner.js";
 import { ProfileOperatorExecutor } from "./profile-operator-executor.js";
 import { createAdminApiProfileOperatorCallback } from "./admin-api-profile-operator-callback.js";
 
@@ -112,13 +111,13 @@ async function bootstrap(): Promise<void> {
     }),
     `deploy-executor:${hostname()}:activation`,
   );
+  const iamBootstrap = createTenantIamBootstrapClient({
+    tenantSecretDirectory: config.tenantSecretDirectory,
+    identityOrigin: config.identityProvisioner.identityOrigin,
+  });
   const profileOperatorExecutor = new ProfileOperatorExecutor(
     database.profileOperators,
-    createPlatformOperatorProvisioner({
-      keycloakAdminOrigin: config.identityProvisioner.keycloakAdminOrigin,
-      clientId: "quantum-provisioner",
-      clientSecret: config.identityProvisioner.keycloakProvisionerClientSecret.expose(),
-    }),
+    iamBootstrap,
     createAdminApiProfileOperatorCallback({
       origin: config.activationDeliveryCallback.origin,
       principal: config.activationDeliveryCallback.principal,
@@ -127,10 +126,6 @@ async function bootstrap(): Promise<void> {
     }),
     `deploy-executor:${hostname()}:profile-operator`,
   );
-  const iamBootstrap = createTenantIamBootstrapClient({
-    tenantSecretDirectory: config.tenantSecretDirectory,
-    identityOrigin: config.identityProvisioner.identityOrigin,
-  });
   let application: Awaited<ReturnType<typeof NestFactory.createApplicationContext>> | undefined;
   try {
     await database.connect();

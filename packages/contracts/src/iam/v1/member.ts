@@ -180,6 +180,28 @@ export const InvitationResponseSchema = z.object({
   activation: InvitationActivationDeliverySchema.optional(),
 });
 
+export const InternalCreateAdministratorSchema = z
+  .object({
+    displayName: DisplayNameSchema,
+    email: EmailSchema,
+  })
+  .strict();
+
+export const InternalAdministratorAccessResponseSchema = z
+  .object({
+    data: z
+      .object({
+        memberId: MemberIdSchema,
+        subject: z.string().regex(/^[!-~]{1,255}$/u),
+        username: EmailSchema,
+        activationUrl: z.string().url().max(8_192),
+        temporaryPassword: z.string().min(14).max(128),
+        expiresAt: IsoDateTimeSchema,
+      })
+      .strict(),
+  })
+  .strict();
+
 /** The accepted member is the only representation returned; invitation tokens
  * and identity claims never cross this response contract. */
 export const AcceptInvitationResponseSchema = MemberResponseSchema;
@@ -203,6 +225,10 @@ export type UpdateMember = z.infer<typeof UpdateMemberSchema>;
 export type CommercialScope = z.infer<typeof CommercialScopeSchema>;
 export type Invitation = z.infer<typeof InvitationSchema>;
 export type InvitationActivationDelivery = z.infer<typeof InvitationActivationDeliverySchema>;
+export type InternalCreateAdministrator = z.infer<typeof InternalCreateAdministratorSchema>;
+export type InternalAdministratorAccessResponse = z.infer<
+  typeof InternalAdministratorAccessResponseSchema
+>;
 export type AcceptInvitationParams = z.infer<typeof AcceptInvitationParamsSchema>;
 export type AcceptInvitationCommand = z.infer<typeof AcceptInvitationCommandSchema>;
 export type RecordInvitationActivation = z.infer<typeof RecordInvitationActivationSchema>;

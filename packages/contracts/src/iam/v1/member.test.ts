@@ -4,6 +4,8 @@ import {
   AcceptInvitationParamsSchema,
   AcceptInvitationResponseSchema,
   CreateMemberInvitationSchema,
+  InternalAdministratorAccessResponseSchema,
+  InternalCreateAdministratorSchema,
   UpdateMemberSchema,
 } from "./member.js";
 
@@ -42,6 +44,27 @@ describe("member contracts", () => {
     expect(() =>
       UpdateMemberSchema.parse({ displayName: "Ana", commercialScope: "TEAM" }),
     ).toThrow();
+  });
+
+  it("keeps platform-created administrators scoped to CRM activation data", () => {
+    expect(
+      InternalCreateAdministratorSchema.parse({
+        displayName: "David",
+        email: "DAVID@EXAMPLE.TEST",
+      }),
+    ).toEqual({ displayName: "David", email: "david@example.test" });
+    expect(
+      InternalAdministratorAccessResponseSchema.parse({
+        data: {
+          memberId: "01995f7e-7b52-7000-8000-000000000202",
+          subject: "01995f7e-7b52-7000-8000-000000000203",
+          username: "david@example.test",
+          activationUrl: "https://identity.example.test/activate",
+          temporaryPassword: "Aa9!temporary-password",
+          expiresAt: "2026-10-08T00:30:00.000Z",
+        },
+      }).data.username,
+    ).toBe("david@example.test");
   });
 
   it("keeps invitation acceptance identity-free at the HTTP boundary", () => {

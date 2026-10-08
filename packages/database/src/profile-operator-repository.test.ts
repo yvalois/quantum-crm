@@ -23,6 +23,7 @@ describe("profile operator repository", () => {
       tenant_profile_id: command.tenantProfileId,
       requested_by_operator_id: command.requestedByOperatorId,
       operator_id: null,
+      crm_member_id: null,
       oidc_subject: null,
       display_name: command.displayName,
       email: command.email.toLowerCase(),
@@ -65,5 +66,73 @@ describe("profile operator repository", () => {
       expect.stringContaining("INSERT INTO platform_iam.profile_operator_assignments"),
     );
     expect(statements.at(-1)).toBe("COMMIT");
+  });
+
+  it("completes with the isolated CRM member without granting platform permissions", async () => {
+    const memberId = "01999abc-7def-7000-8000-000000000004";
+    const subject = "01999abc-7def-7000-8000-000000000005";
+    const pendingRow = {
+      id: command.id,
+      tenant_profile_id: command.tenantProfileId,
+      requested_by_operator_id: command.requestedByOperatorId,
+      operator_id: null,
+      crm_member_id: null,
+      oidc_subject: null,
+      display_name: command.displayName,
+      email: command.email.toLowerCase(),
+      status: "pending",
+      correlation_id: command.correlationId,
+      idempotency_key: command.idempotencyKey,
+      lease_owner: "deploy-executor:test",
+      lease_expires_at: new Date("2026-10-07T23:31:00.000Z"),
+      version: "2",
+      created_at: now,
+      updated_at: now,
+    };
+    const clientQuery = vi.fn(async (text: string) => {
+      if (text.startsWith("SELECT") && text.includes("status='pending'")) {
+        return { rows: [pendingRow] };
+      }
+      if (
+        text.startsWith("UPDATE platform_iam.profile_operator_assignments SET operator_id=NULL")
+      ) {
+        return {
+          rows: [
+            {
+              ...pendingRow,
+              crm_member_id: memberId,
+              oidc_subject: subject,
+              status: "active",
+              lease_owner: null,
+              lease_expires_at: null,
+              version: "3",
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const client = { query: clientQuery, release: vi.fn() } as unknown as PoolClient;
+    const pool = {
+      connect: vi.fn(async () => client),
+      query: vi.fn(),
+      end: vi.fn(),
+      on: vi.fn(),
+    } as unknown as PostgresPool;
+
+    await expect(
+      createProfileOperatorRepository(pool).complete({
+        assignmentId: command.id,
+        workerId: "deploy-executor:test",
+        expectedVersion: 2n,
+        memberId,
+        oidcSubject: subject,
+        now,
+      }),
+    ).resolves.toMatchObject({ crmMemberId: memberId, operatorId: null, status: "ACTIVE" });
+
+    const statements = clientQuery.mock.calls.map(([text]) => text as string);
+    expect(statements.join("\n")).not.toContain("operator_memberships");
+    expect(statements.join("\n")).not.toContain("operator_permissions");
   });
 });

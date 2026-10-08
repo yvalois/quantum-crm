@@ -42,7 +42,7 @@ Cada perfil dispone de un realm OIDC separado y un administrador inicial. Un adm
 - Realm, cliente OIDC y administrador inicial creados de manera idempotente durante el alta del perfil.
 - BFF de `crm-web`, Authorization Code con PKCE, cookies host-only, CSRF y sesiones opacas separadas de la plataforma.
 - Interfaz real de administración de miembros y auditoría de los cambios sensibles.
-- Alta de administradores adicionales desde el CRM por el propietario del perfil, con contraseña temporal generada por identidad, visible una sola vez y nunca persistida por Quantum.
+- Alta de hasta dos administradores adicionales desde el perfil en Quantum Admin y alta de miembros desde el CRM. Ambos caminos crean membresias en el CRM aislado del perfil; nunca operadores globales de plataforma. La contraseña temporal es generada por identidad, visible una sola vez y nunca persistida por Quantum.
 - Primer acceso con la credencial temporal, cambio obligatorio de contraseña y configuración TOTP antes de activar la membresía.
 
 ### No incluido
@@ -73,6 +73,7 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 - [x] Conectar autorización CRM en API y el BFF protegido de `crm-web`; la configuración real del realm, cliente y secretos continúa en `ADM-04`.
 - [x] Añadir revocación transaccional e idempotente de invitaciones pendientes, protegida por `iam:members:update`, con expiración cerrada y acción visible en la administración.
 - [ ] Completar la administración visual de miembros y el flujo de aceptación.
+- [x] Conectar la creación de administradores desde el perfil de empresa con la membresía, activación y login del CRM aislado, sin conceder permisos de Quantum Admin.
 - [x] Establecer la frontera interna de activación: comando IAM sin token, contrato de servicio con permiso dedicado y correlación durable por invitación/sujeto/generación.
 - [x] Extender `ADM-04` con aprovisionamiento idempotente del realm, cliente y administrador inicial, sin exponer administración Keycloak al CRM.
 - [ ] Añadir pruebas proporcionales de dominio, contrato, aislamiento, revocación e invitación de un único uso.
@@ -150,3 +151,13 @@ Referencia visual para el panel: el shell de productividad de `crm-web` del proy
 
 - Promover los artefactos por la cadena oficial despues de integrar el PR; el VPS ejecuta temporalmente las imagenes candidatas del commit validado.
 - Ampliar la automatizacion de navegador del cambio de contraseña y enrolamiento TOTP; no bloquea la ruta activa ya provista por las acciones nativas de Keycloak.
+
+### Administradores CRM desde Quantum Admin — 2026-10-07
+
+- El perfil de empresa ya no crea operadores globales de Quantum Admin. La accion visible `Administradores CRM` registra una asignacion durable ligada al perfil y solicita al API aislado del CRM una membresia con el rol sistema `ADMINISTRATOR`.
+- El servicio interno usa el permiso minimo `iam:create-administrator`; el perfil se deriva de la operacion durable y del runtime reservado, no de un `tenant_id` libre. La base, el realm y la identidad pertenecen exclusivamente al perfil seleccionado.
+- La activacion entrega una sola vez la contraseña temporal y el enlace del realm del perfil; el primer acceso conserva `UPDATE_PASSWORD`, `CONFIGURE_TOTP` y la confirmacion de activacion de Quantum.
+- Evidencia VPS del candidato tecnico `72c568e`: siete archivos de pruebas con 25 casos aprobados, lint y typecheck afectados aprobados, Prisma plataforma validado y generado, e imagenes de produccion de `admin-api`, `deploy-executor`, `api`, `admin-web` y `platform-migrator` construidas. La correccion final del emisor de activacion aprobo tres pruebas de regresion, dos typechecks y los builds de `api` y `admin-web`.
+- Smoke E2E en InterAmerican: la cola durable paso a `ACTIVE`, creo una membresia `INVITED` con rol `ADMINISTRATOR`, una invitacion pendiente, una identidad en el realm del perfil y una activacion correlacionada por sujeto y generacion. La identidad, membresia, invitacion y asignacion sinteticas se eliminaron y verificaron al terminar.
+- Despliegue: `admin-api`, `deploy-executor`, `admin-web` y el API de InterAmerican quedaron saludables con la migracion `20261008002000_usr_01_tenant_administrator_assignments` aplicada. No se ejecuto codigo del proyecto en el equipo local.
+- Pendiente del requisito completo: terminar las capacidades generales de edicion/desactivacion y sus escenarios integrados; este cierre acredita especificamente el alta de administradores CRM desde el perfil central.

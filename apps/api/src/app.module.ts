@@ -49,6 +49,7 @@ import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
 import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js";
 import { FILE_SERVICE, FilesController } from "./files.controller.js";
 import { FORM_SERVICE, FormsController } from "./forms.controller.js";
+import { InternalAdministratorsController } from "./internal-administrators.controller.js";
 
 @Module({})
 export class AppModule {
@@ -72,6 +73,7 @@ export class AppModule {
         TeamsController,
         BootstrapInitialAdministratorController,
         AcceptMemberInvitationController,
+        InternalAdministratorsController,
         AutomationsController,
         ConversationsController,
         CalendarController,

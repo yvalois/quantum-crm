@@ -143,6 +143,34 @@ export class IamMemberService {
     });
   }
 
+  /** Tenant-local command for a platform-authorized owner creation. The
+   * transport proves the platform service identity; the database supplies the
+   * existing initial administrator used as the immutable audit actor. */
+  public async inviteAdministratorFromPlatform(input: {
+    readonly displayName: string;
+    readonly email: string;
+    readonly idempotencyKey: string;
+  }): Promise<{
+    readonly member: IamMember;
+    readonly invitation: IamInvitation;
+    readonly invitationToken: string | null;
+  }> {
+    const initialAdministrator = await this.repository.findInitialAdministrator?.();
+    if (!initialAdministrator || initialAdministrator.status !== "ACTIVE") {
+      throw new IamAuthorizationError();
+    }
+    return this.invite({
+      actor: {
+        memberId: initialAdministrator.id,
+        permissions: ["iam:members:create"],
+      },
+      displayName: input.displayName,
+      email: input.email,
+      roleCode: "ADMINISTRATOR",
+      idempotencyKey: input.idempotencyKey,
+    });
+  }
+
   public async updateProfile(input: {
     readonly actor: IamActor;
     readonly memberId: string;

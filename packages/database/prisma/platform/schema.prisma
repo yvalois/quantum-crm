@@ -219,6 +219,7 @@ model ProfileOperatorAssignment {
   tenantProfileId       String                          @map("tenant_profile_id") @db.Uuid
   requestedByOperatorId String                          @map("requested_by_operator_id") @db.Uuid
   operatorId            String?                         @map("operator_id") @db.Uuid
+  crmMemberId           String?                         @map("crm_member_id") @db.Uuid
   oidcSubject           String?                         @map("oidc_subject") @db.VarChar(255)
   displayName           String                          @map("display_name") @db.VarChar(160)
   email                 String                          @db.Citext

@@ -279,7 +279,7 @@ export default function TenantProfilesPage() {
       form.reset();
     } catch (cause) {
       setOperatorError(
-        cause instanceof Error ? cause.message : "No fue posible crear el administrador Quantum",
+        cause instanceof Error ? cause.message : "No fue posible crear el administrador del CRM",
       );
     } finally {
       setOperatorPending(false);
@@ -830,7 +830,7 @@ export default function TenantProfilesPage() {
                               type="button"
                               onClick={() => void openProfileOperators(profile)}
                             >
-                              Administradores Quantum
+                              Administradores CRM
                             </button>
                           ) : null}
                           {canManage && !["DECOMMISSIONING", "DELETED"].includes(profile.status) ? (
@@ -1122,20 +1122,20 @@ export default function TenantProfilesPage() {
                 setOperatorProfile(null);
                 setOperatorAccess(null);
               }}
-              aria-label="Cerrar administradores Quantum"
+              aria-label="Cerrar administradores del CRM"
             >
               ×
             </button>
           </form>
-          <div className="dialog-kicker">OPERADORES DE QUANTUM</div>
-          <h2 id="profile-operators-title">Responsables de {operatorProfile.name}</h2>
+          <div className="dialog-kicker">ACCESO AL CRM</div>
+          <h2 id="profile-operators-title">Administradores de {operatorProfile.name}</h2>
           <p>
-            Estas cuentas ingresan a Quantum Admin y pueden crear y administrar perfiles CRM. No son
-            usuarios internos del equipo de esta empresa.
+            Estas cuentas ingresan al CRM de esta empresa con rol Administrador y alcance completo.
+            Los demás usuarios y roles se gestionan dentro del CRM.
           </p>
           <div className="operator-list">
             {profileOperators.length === 0 ? (
-              <p className="read-only">Todavía no hay responsables adicionales.</p>
+              <p className="read-only">Todavía no hay administradores adicionales.</p>
             ) : (
               profileOperators.map((operator) => (
                 <div className="operator-card" key={operator.id}>
@@ -1148,18 +1148,18 @@ export default function TenantProfilesPage() {
           </div>
           {operatorAccess ? (
             <section className="operator-access" aria-live="assertive">
-              <strong>Acceso creado — guarda estos datos ahora</strong>
+              <strong>Acceso al CRM creado — guarda estos datos ahora</strong>
               <span>Usuario: {operatorAccess.username}</span>
               <span>
                 Contraseña temporal: <code>{operatorAccess.temporaryPassword}</code>
               </span>
               <a
                 className="primary-action"
-                href={`${operatorAccess.loginPath}?returnTo=${encodeURIComponent("/dashboard/tenants")}`}
+                href={operatorAccess.activationUrl}
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                Abrir Quantum Admin
+                Configurar acceso al CRM
               </a>
               <small>En el primer ingreso se cambia la contraseña y se configura el TOTP.</small>
             </section>
@@ -1167,7 +1167,7 @@ export default function TenantProfilesPage() {
           {profileOperators.length < 2 ? (
             <form className="profile-form" onSubmit={(event) => void createProfileOperator(event)}>
               <label>
-                <span>Nombre del administrador Quantum</span>
+                <span>Nombre del administrador del CRM</span>
                 <input name="displayName" required maxLength={160} autoComplete="name" />
               </label>
               <label>
@@ -1188,13 +1188,13 @@ export default function TenantProfilesPage() {
                   Cerrar
                 </button>
                 <button type="submit" className="primary-action" disabled={operatorPending}>
-                  {operatorPending ? "Creando acceso…" : "Crear administrador Quantum"}
+                  {operatorPending ? "Creando acceso…" : "Crear administrador del CRM"}
                 </button>
               </div>
             </form>
           ) : (
             <p className="activation-note">
-              Este perfil ya tiene los dos responsables adicionales.
+              Este perfil ya tiene los dos administradores adicionales.
             </p>
           )}
         </dialog>

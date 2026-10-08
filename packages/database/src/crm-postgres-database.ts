@@ -361,6 +361,19 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         throw new DatabaseUnavailableError();
       }
     },
+    findInitialAdministrator: async (): Promise<IamMember | null> => {
+      try {
+        const result = (await pool.query(
+          `SELECT ${memberSelection}
+             FROM iam.members
+            WHERE id = (SELECT member_id FROM iam.bootstrap_initial_administrator WHERE singleton = true)`,
+        )) as { readonly rows: readonly IamMemberRow[] };
+        const row = result.rows[0];
+        return row ? memberFromRow(row) : null;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
     createInvitation: async (input: Parameters<IamMemberRepository["createInvitation"]>[0]) => {
       let client: PoolClient | undefined;
       try {
