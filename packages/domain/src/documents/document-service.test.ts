@@ -170,7 +170,7 @@ describe("DocumentService", () => {
         type: "COLUMNS",
         locked: true,
         layout: "LEFT_WIDE",
-        columns: ["Cliente: {{contact.name}}", "Asesora: {{advisor.name}}"],
+        columns: ["Cliente: {{contact.name}}", "{{advisor.name}}"],
         cells: [
           {
             id: "019db9c7-1268-7d24-bf99-96ea38ebf127",
@@ -239,7 +239,7 @@ describe("DocumentService", () => {
       { value: "COP 1250.50", editable: false },
       {
         layout: "LEFT_WIDE",
-        columns: ["Cliente: Andrea Cliente", "Asesora: Sofía Asesora"],
+        columns: ["Cliente: Andrea Cliente", "Sofía Asesora"],
         cells: [
           { items: [{ content: "Cliente: Andrea Cliente" }] },
           { items: [{ value: "Sofía Asesora" }] },

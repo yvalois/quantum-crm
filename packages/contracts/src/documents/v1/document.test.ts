@@ -165,7 +165,7 @@ describe("document contracts", () => {
       type: "COLUMNS",
       locked: false,
       layout: "EQUAL_2",
-      columns: ["Presentacion", ""],
+      columns: ["[Imagen: Vehiculo]", ""],
       cells: [
         {
           id: "019db9c7-1268-7d24-bf99-96ea38ebf110",
