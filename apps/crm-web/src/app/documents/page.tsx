@@ -156,9 +156,7 @@ function beginImageResize(
   event.preventDefault();
   event.stopPropagation();
   const media = event.currentTarget.closest<HTMLElement>(".document-image-media");
-  const container = media?.closest<HTMLElement>(
-    ".image-slot-editor, .column-image-editor",
-  );
+  const container = media?.closest<HTMLElement>(".image-slot-editor, .column-image-editor");
   if (!container || !media) return;
   const availableWidth = Math.max(container.getBoundingClientRect().width, 1);
   const mediaBounds = media.getBoundingClientRect();
@@ -188,12 +186,7 @@ function beginImageResize(
     }
     const patch: ImagePresentationPatch = {};
     if (handle.includes("E") || handle.includes("W")) {
-      patch.widthPercent = resizeImageFrame(
-        originWidth,
-        horizontalDelta,
-        availableWidth,
-        handle,
-      );
+      patch.widthPercent = resizeImageFrame(originWidth, horizontalDelta, availableWidth, handle);
     }
     if (handle.includes("N") || handle.includes("S")) {
       patch.heightPx = resizeImageFrameHeight(originHeight, verticalDelta, handle);
@@ -2562,7 +2555,9 @@ function ImagePresentationControls({
                 onPatch({ fit: "COVER", heightPx: Number(event.target.value), aspectRatio: "FREE" })
               }
             />
-            <output>{image.fit === "CONTAIN" ? "Proporcional" : height ? `${height}px` : "Auto"}</output>
+            <output>
+              {image.fit === "CONTAIN" ? "Proporcional" : height ? `${height}px` : "Auto"}
+            </output>
           </label>
           <button
             className="image-auto-size"
@@ -2804,10 +2799,10 @@ function ImageDirectManipulationControls({
             scalesProportionally
               ? `Escalar imagen desde ${handle}`
               : handle === "N" || handle === "S"
-              ? `Ajustar alto desde ${handle}`
-              : handle === "E" || handle === "W"
-                ? `Ajustar ancho desde ${handle}`
-                : `Ajustar ancho y alto desde ${handle}`
+                ? `Ajustar alto desde ${handle}`
+                : handle === "E" || handle === "W"
+                  ? `Ajustar ancho desde ${handle}`
+                  : `Ajustar ancho y alto desde ${handle}`
           }
           title={
             scalesProportionally

@@ -9939,9 +9939,6 @@ body {
   object-fit: contain;
 }
 
-.document-studio-shell
-  .document-page
-  .image-slot-editor
-  > .document-image-card::after {
+.document-studio-shell .document-page .image-slot-editor > .document-image-card::after {
   display: none;
 }
