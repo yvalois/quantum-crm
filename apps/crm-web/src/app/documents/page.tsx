@@ -1409,6 +1409,11 @@ export default function DocumentsPage(): React.JSX.Element {
                           design: {
                             ...draft.design,
                             headerEnabled: !draft.design.headerEnabled,
+                            ...(!draft.design.headerEnabled &&
+                            draft.design.headerText.trim().length === 0 &&
+                            draft.design.logoFileId === null
+                              ? { showDocumentKind: false }
+                              : {}),
                           },
                         })
                       }
@@ -1664,7 +1669,6 @@ export default function DocumentsPage(): React.JSX.Element {
                             aria-label="Texto del encabezado"
                             value={draft.design.headerText}
                             rows={2}
-                            placeholder="Nombre de la empresa"
                             onChange={(event) =>
                               patchDraft({
                                 design: { ...draft.design, headerText: event.target.value },
@@ -1689,7 +1693,15 @@ export default function DocumentsPage(): React.JSX.Element {
                         type="button"
                         onClick={() =>
                           patchDraft({
-                            design: { ...draft.design, headerEnabled: true },
+                            design: {
+                              ...draft.design,
+                              headerEnabled: true,
+                              showDocumentKind:
+                                draft.design.headerText.trim().length === 0 &&
+                                draft.design.logoFileId === null
+                                  ? false
+                                  : draft.design.showDocumentKind,
+                            },
                           })
                         }
                       >

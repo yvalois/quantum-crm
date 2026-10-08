@@ -56,7 +56,7 @@ export function defaultDocumentDesign(): DocumentDesign {
     headerLayout: "SPLIT",
     headerAlign: "LEFT",
     headerSpacing: "NORMAL",
-    showDocumentKind: true,
+    showDocumentKind: false,
     identityEnabled: false,
     footerEnabled: false,
     footerAlign: "LEFT",
