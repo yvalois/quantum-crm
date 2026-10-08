@@ -306,6 +306,7 @@ function normalizeDocumentForEditor(document: CommercialDocument): CommercialDoc
     design: {
       ...document.design,
       margins: document.design.margins ?? { top: 20, right: 18, bottom: 20, left: 18 },
+      identityEnabled: document.design.identityEnabled ?? true,
     },
     blocks: normalizeDocumentBlocks(document.blocks),
   };
@@ -1416,6 +1417,20 @@ export default function DocumentsPage(): React.JSX.Element {
                     </button>
                     <button
                       type="button"
+                      className={draft.design.identityEnabled ? "is-active" : ""}
+                      onClick={() =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            identityEnabled: !draft.design.identityEnabled,
+                          },
+                        })
+                      }
+                    >
+                      Datos del documento
+                    </button>
+                    <button
+                      type="button"
                       className={draft.design.footerEnabled ? "is-active" : ""}
                       onClick={() =>
                         patchDraft({
@@ -1681,17 +1696,42 @@ export default function DocumentsPage(): React.JSX.Element {
                         + Agregar encabezado
                       </button>
                     )}
-                    <section className="document-page-title">
-                      <p>PREPARADO PARA</p>
-                      <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
-                      <textarea
-                        className="document-title-input"
-                        aria-label="Titulo del documento"
-                        value={draft.title}
-                        rows={2}
-                        onChange={(event) => patchDraft({ title: event.target.value })}
-                      />
-                    </section>
+                    {draft.design.identityEnabled ? (
+                      <section className="document-page-title">
+                        <p>PREPARADO PARA</p>
+                        <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
+                        <textarea
+                          className="document-title-input"
+                          aria-label="Titulo del documento"
+                          value={draft.title}
+                          rows={2}
+                          onChange={(event) => patchDraft({ title: event.target.value })}
+                        />
+                        <button
+                          className="document-region-settings"
+                          type="button"
+                          onClick={() =>
+                            patchDraft({
+                              design: { ...draft.design, identityEnabled: false },
+                            })
+                          }
+                        >
+                          Quitar datos del documento
+                        </button>
+                      </section>
+                    ) : (
+                      <button
+                        className="document-region-hidden identity-hidden"
+                        type="button"
+                        onClick={() =>
+                          patchDraft({
+                            design: { ...draft.design, identityEnabled: true },
+                          })
+                        }
+                      >
+                        + Agregar datos del documento
+                      </button>
+                    )}
                     <div className="document-block-list document-page-blocks">
                       {draft.blocks.length === 0 ? (
                         <button
@@ -2633,6 +2673,14 @@ function ImagePresentationControls({
               />
               <output>{rotation}deg</output>
             </label>
+            <button
+              className="image-auto-size"
+              type="button"
+              disabled={locked || rotation === 0}
+              onClick={() => onPatch({ rotation: 0 })}
+            >
+              Enderezar a 0deg
+            </button>
             <label className="image-range-control">
               <span>Opacidad</span>
               <input
@@ -2686,11 +2734,17 @@ function ImageDirectManipulationControls({
         className="document-image-rotation-handle"
         type="button"
         aria-label="Girar imagen"
-        title="Arrastra para girar. Usa las flechas para ajuste fino."
+        title="Arrastra para girar. Doble clic o Inicio para volver a 0 grados."
+        onDoubleClick={() => onPatch({ rotation: 0 })}
         onPointerDown={(event) =>
           beginImageRotation(event, image, (nextRotation) => onPatch({ rotation: nextRotation }))
         }
         onKeyDown={(event) => {
+          if (event.key === "Home") {
+            event.preventDefault();
+            onPatch({ rotation: 0 });
+            return;
+          }
           if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
           event.preventDefault();
           const step = event.shiftKey ? 15 : 1;
@@ -2931,8 +2985,8 @@ function BlockEditor({
                     onChange({ ...block, fit: event.target.value as typeof block.fit })
                   }
                 >
-                  <option value="COVER">Recortar</option>
-                  <option value="CONTAIN">Contener</option>
+                  <option value="CONTAIN">Imagen completa</option>
+                  <option value="COVER">Recortar para llenar</option>
                 </select>
               </label>
             </div>
@@ -3706,8 +3760,8 @@ function ColumnItemEditor({
                     onChange({ ...item, fit: event.target.value as typeof item.fit })
                   }
                 >
-                  <option value="COVER">Recortar</option>
-                  <option value="CONTAIN">Contener</option>
+                  <option value="CONTAIN">Imagen completa</option>
+                  <option value="COVER">Recortar para llenar</option>
                 </select>
               </label>
             </div>

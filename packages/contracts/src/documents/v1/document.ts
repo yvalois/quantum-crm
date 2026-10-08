@@ -341,6 +341,8 @@ export const DocumentDesignSchema = z
     headerAlign: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
     headerSpacing: z.enum(["COMPACT", "NORMAL", "SPACIOUS"]).default("NORMAL"),
     showDocumentKind: z.boolean().default(true),
+    /** Legacy documents show this fixed identity region; new blank documents can omit it. */
+    identityEnabled: z.boolean().optional(),
     footerEnabled: z.boolean().default(true),
     footerAlign: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
     footerSpacing: z.enum(["COMPACT", "NORMAL", "SPACIOUS"]).default("NORMAL"),

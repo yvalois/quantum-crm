@@ -99,6 +99,35 @@ function template(blocks: readonly DocumentBlock[]): DocumentTemplateRecord {
 }
 
 describe("DocumentService", () => {
+  it("creates a truly blank document when no template or explicit content is supplied", async () => {
+    const memory = memoryRepository();
+    const service = new DocumentService(memory.repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+    });
+
+    const created = await service.create({
+      actor,
+      permissions,
+      kind: "QUOTE",
+      title: "Documento en blanco",
+      contactId: null,
+      opportunityId: null,
+      templateId: null,
+      idempotencyKey: "document-create-blank-1",
+      payloadHash: "0".repeat(64),
+      now,
+    });
+
+    expect(created.blocks).toEqual([]);
+    expect(created.design).toMatchObject({
+      headerEnabled: false,
+      identityEnabled: false,
+      footerEnabled: false,
+      showPageNumbers: false,
+    });
+  });
+
   it("creates an independent draft from a reusable template", async () => {
     const block: DocumentBlock = {
       id: "019db9c7-1268-7d24-bf99-96ea38ebf202",

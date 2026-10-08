@@ -44,6 +44,7 @@ describe("document editor model", () => {
     expect(createColumnItem("IMAGE", secondId)).toMatchObject({
       fit: "CONTAIN",
       aspectRatio: "AUTO",
+      rotation: 0,
     });
   });
 

@@ -32,6 +32,7 @@ function cloneDesign(design: DocumentDesign): DocumentDesign {
   return Object.freeze({
     ...cloned,
     margins: cloned.margins ?? { top: 20, right: 18, bottom: 20, left: 18 },
+    identityEnabled: cloned.identityEnabled ?? true,
   });
 }
 
@@ -49,14 +50,15 @@ export function defaultDocumentDesign(): DocumentDesign {
     pageSize: "A4",
     margins: { top: 20, right: 18, bottom: 20, left: 18 },
     headerText: "",
-    footerText: "Documento generado con Quantum",
-    showPageNumbers: true,
-    headerEnabled: true,
+    footerText: "",
+    showPageNumbers: false,
+    headerEnabled: false,
     headerLayout: "SPLIT",
     headerAlign: "LEFT",
     headerSpacing: "NORMAL",
     showDocumentKind: true,
-    footerEnabled: true,
+    identityEnabled: false,
+    footerEnabled: false,
     footerAlign: "LEFT",
     footerSpacing: "NORMAL",
     logoFileId: null,
@@ -67,27 +69,7 @@ export function defaultDocumentDesign(): DocumentDesign {
 }
 
 export function starterDocumentBlocks(): readonly DocumentBlock[] {
-  return Object.freeze([
-    Object.freeze({
-      id: randomUUID(),
-      type: "TEXT" as const,
-      locked: false,
-      content: "Propuesta preparada para {{contact.name}}",
-      align: "LEFT" as const,
-      style: "BODY" as const,
-      bold: false,
-      italic: false,
-      underline: false,
-      fontFamily: "INHERIT" as const,
-    }),
-    Object.freeze({
-      id: randomUUID(),
-      type: "TERMS" as const,
-      locked: false,
-      title: "Condiciones comerciales",
-      content: "Agrega aqui vigencia, garantias y observaciones.",
-    }),
-  ]);
+  return Object.freeze([]);
 }
 
 function lockedColumnItemProjection(item: DocumentColumnItem): DocumentColumnItem {
