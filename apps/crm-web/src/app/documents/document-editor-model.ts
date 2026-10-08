@@ -116,6 +116,52 @@ export function resizeImageFrameHeight(
   return Math.min(1200, Math.max(80, Math.round(originHeight + verticalDelta * direction)));
 }
 
+/**
+ * Scales a complete image as one object. Unlike a crop frame, every handle keeps
+ * the natural aspect ratio, so the selection always matches the visible pixels.
+ */
+export function resizeContainedImageFrame(
+  originWidthPx: number,
+  originHeightPx: number,
+  horizontalDelta: number,
+  verticalDelta: number,
+  availableWidth: number,
+  handle: ImageResizeHandle,
+): number {
+  const safeAvailableWidth = Math.max(availableWidth, 1);
+  const safeOriginWidth = Math.max(originWidthPx, 1);
+  const safeOriginHeight = Math.max(originHeightPx, 1);
+  const aspectRatio = safeOriginWidth / safeOriginHeight;
+
+  const horizontalWidth = handle.includes("E")
+    ? safeOriginWidth + horizontalDelta
+    : safeOriginWidth - horizontalDelta;
+  const verticalHeight = handle.includes("S")
+    ? safeOriginHeight + verticalDelta
+    : safeOriginHeight - verticalDelta;
+  const verticalWidth = verticalHeight * aspectRatio;
+
+  const hasHorizontalAxis = handle.includes("E") || handle.includes("W");
+  const hasVerticalAxis = handle.includes("N") || handle.includes("S");
+  let nextWidth = safeOriginWidth;
+  if (hasHorizontalAxis && hasVerticalAxis) {
+    const horizontalScaleDelta = Math.abs(horizontalWidth - safeOriginWidth) / safeOriginWidth;
+    const verticalScaleDelta = Math.abs(verticalWidth - safeOriginWidth) / safeOriginWidth;
+    nextWidth = horizontalScaleDelta >= verticalScaleDelta ? horizontalWidth : verticalWidth;
+  } else if (hasHorizontalAxis) {
+    nextWidth = horizontalWidth;
+  } else if (hasVerticalAxis) {
+    nextWidth = verticalWidth;
+  }
+
+  const minimumWidth = Math.min(
+    safeAvailableWidth,
+    Math.max(safeAvailableWidth * 0.1, 80 * aspectRatio),
+  );
+  const boundedWidth = Math.min(safeAvailableWidth, Math.max(minimumWidth, nextWidth));
+  return Math.round((boundedWidth / safeAvailableWidth) * 100);
+}
+
 export function moveImageFocalPoint(
   originX: number,
   originY: number,

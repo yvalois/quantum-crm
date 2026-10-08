@@ -20,6 +20,7 @@ import {
   removeColumnItem,
   removeTableColumn,
   removeTableRow,
+  resizeContainedImageFrame,
   resizeImageFrame,
   resizeImageFrameHeight,
   rotateImageFromPointer,
@@ -60,6 +61,19 @@ describe("document editor model", () => {
     expect(resizeImageFrameHeight(220, -60, "N")).toBe(280);
     expect(resizeImageFrameHeight(90, 40, "N")).toBe(80);
     expect(resizeImageFrameHeight(1180, 100, "SE")).toBe(1200);
+  });
+
+  it("scales a complete image from every handle without breaking its natural ratio", () => {
+    expect(resizeContainedImageFrame(300, 150, -60, 0, 600, "E")).toBe(40);
+    expect(resizeContainedImageFrame(300, 150, 60, 0, 600, "W")).toBe(40);
+    expect(resizeContainedImageFrame(300, 150, 0, -30, 600, "S")).toBe(40);
+    expect(resizeContainedImageFrame(300, 150, 0, 30, 600, "N")).toBe(40);
+    expect(resizeContainedImageFrame(300, 150, 20, 40, 600, "SE")).toBe(63);
+  });
+
+  it("keeps proportional image scaling inside the canvas and above a usable size", () => {
+    expect(resizeContainedImageFrame(570, 285, 200, 0, 600, "E")).toBe(100);
+    expect(resizeContainedImageFrame(300, 150, -500, 0, 600, "E")).toBe(27);
   });
 
   it("moves the crop with the dragged image while keeping its focal point bounded", () => {

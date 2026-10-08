@@ -41,6 +41,7 @@ import {
   removeColumnItem,
   removeTableColumn,
   removeTableRow,
+  resizeContainedImageFrame,
   resizeImageFrame,
   resizeImageFrameHeight,
   rotateImageFromPointer,
@@ -114,6 +115,22 @@ type ImagePresentationPatch = Partial<
   >
 >;
 
+function imageFitPatch(fit: EditableDocumentImage["fit"]): ImagePresentationPatch {
+  return fit === "CONTAIN"
+    ? { fit, aspectRatio: "AUTO", heightPx: undefined, focalX: 50, focalY: 50 }
+    : { fit };
+}
+
+function imageAspectPatch(
+  aspectRatio: NonNullable<EditableDocumentImage["aspectRatio"]>,
+  currentHeight?: number,
+): ImagePresentationPatch {
+  if (aspectRatio === "AUTO") return { aspectRatio, heightPx: undefined };
+  return aspectRatio === "FREE"
+    ? { fit: "COVER", aspectRatio, heightPx: currentHeight ?? 220 }
+    : { fit: "COVER", aspectRatio, heightPx: undefined };
+}
+
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
@@ -138,29 +155,48 @@ function beginImageResize(
 ): void {
   event.preventDefault();
   event.stopPropagation();
-  const container = event.currentTarget.closest<HTMLElement>(
+  const media = event.currentTarget.closest<HTMLElement>(".document-image-media");
+  const container = media?.closest<HTMLElement>(
     ".image-slot-editor, .column-image-editor",
   );
-  if (!container) return;
+  if (!container || !media) return;
   const availableWidth = Math.max(container.getBoundingClientRect().width, 1);
-  const media = container.querySelector<HTMLElement>(".document-image-media");
-  const originHeight = media?.getBoundingClientRect().height ?? image.heightPx ?? 220;
+  const mediaBounds = media.getBoundingClientRect();
+  const originWidthPx = Math.max(mediaBounds.width, 1);
+  const originHeight = Math.max(mediaBounds.height, 1);
   const originX = event.clientX;
   const originY = event.clientY;
   const originWidth = imageFrameWidth(image);
 
   const move = (pointerEvent: PointerEvent): void => {
+    const horizontalDelta = pointerEvent.clientX - originX;
+    const verticalDelta = pointerEvent.clientY - originY;
+    if (image.fit === "CONTAIN") {
+      onPatch({
+        widthPercent: resizeContainedImageFrame(
+          originWidthPx,
+          originHeight,
+          horizontalDelta,
+          verticalDelta,
+          availableWidth,
+          handle,
+        ),
+        aspectRatio: "AUTO",
+        heightPx: undefined,
+      });
+      return;
+    }
     const patch: ImagePresentationPatch = {};
     if (handle.includes("E") || handle.includes("W")) {
       patch.widthPercent = resizeImageFrame(
         originWidth,
-        pointerEvent.clientX - originX,
+        horizontalDelta,
         availableWidth,
         handle,
       );
     }
     if (handle.includes("N") || handle.includes("S")) {
-      patch.heightPx = resizeImageFrameHeight(originHeight, pointerEvent.clientY - originY, handle);
+      patch.heightPx = resizeImageFrameHeight(originHeight, verticalDelta, handle);
       patch.aspectRatio = "FREE";
     }
     onPatch(patch);
@@ -220,9 +256,9 @@ function beginImageRotation(
 ): void {
   event.preventDefault();
   event.stopPropagation();
-  const card = event.currentTarget.closest<HTMLElement>(".document-image-card");
-  if (!card) return;
-  const bounds = card.getBoundingClientRect();
+  const media = event.currentTarget.closest<HTMLElement>(".document-image-media");
+  if (!media) return;
+  const bounds = media.getBoundingClientRect();
   const centerX = bounds.left + bounds.width / 2;
   const centerY = bounds.top + bounds.height / 2;
   const originPointerX = event.clientX;
@@ -2414,14 +2450,10 @@ function ImagePresentationControls({
             disabled={locked}
             onChange={(event) =>
               onPatch(
-                event.target.value === "FREE"
-                  ? { aspectRatio: "FREE", heightPx: height ?? 220 }
-                  : {
-                      aspectRatio: event.target.value as NonNullable<
-                        EditableDocumentImage["aspectRatio"]
-                      >,
-                      heightPx: undefined,
-                    },
+                imageAspectPatch(
+                  event.target.value as NonNullable<EditableDocumentImage["aspectRatio"]>,
+                  height,
+                ),
               )
             }
           >
@@ -2440,7 +2472,7 @@ function ImagePresentationControls({
             value={image.fit}
             disabled={locked}
             onChange={(event) =>
-              onPatch({ fit: event.target.value as EditableDocumentImage["fit"] })
+              onPatch(imageFitPatch(event.target.value as EditableDocumentImage["fit"]))
             }
           >
             <option value="CONTAIN">Imagen completa</option>
@@ -2525,12 +2557,12 @@ function ImagePresentationControls({
               min={80}
               max={800}
               value={height ?? 220}
-              disabled={locked}
+              disabled={locked || image.fit === "CONTAIN"}
               onChange={(event) =>
-                onPatch({ heightPx: Number(event.target.value), aspectRatio: "FREE" })
+                onPatch({ fit: "COVER", heightPx: Number(event.target.value), aspectRatio: "FREE" })
               }
             />
-            <output>{height ? `${height}px` : "Auto"}</output>
+            <output>{image.fit === "CONTAIN" ? "Proporcional" : height ? `${height}px` : "Auto"}</output>
           </label>
           <button
             className="image-auto-size"
@@ -2552,14 +2584,10 @@ function ImagePresentationControls({
                 disabled={locked}
                 onChange={(event) =>
                   onPatch(
-                    event.target.value === "FREE"
-                      ? { aspectRatio: "FREE", heightPx: height ?? 220 }
-                      : {
-                          aspectRatio: event.target.value as NonNullable<
-                            EditableDocumentImage["aspectRatio"]
-                          >,
-                          heightPx: undefined,
-                        },
+                    imageAspectPatch(
+                      event.target.value as NonNullable<EditableDocumentImage["aspectRatio"]>,
+                      height,
+                    ),
                   )
                 }
               >
@@ -2578,7 +2606,7 @@ function ImagePresentationControls({
                 value={image.fit}
                 disabled={locked}
                 onChange={(event) =>
-                  onPatch({ fit: event.target.value as EditableDocumentImage["fit"] })
+                  onPatch(imageFitPatch(event.target.value as EditableDocumentImage["fit"]))
                 }
               >
                 <option value="CONTAIN">Mostrar imagen completa</option>
@@ -2739,6 +2767,7 @@ function ImageDirectManipulationControls({
   const width = imageFrameWidth(image);
   const height = image.heightPx ?? 220;
   const rotation = image.rotation ?? 0;
+  const scalesProportionally = image.fit === "CONTAIN";
 
   return (
     <>
@@ -2772,32 +2801,66 @@ function ImageDirectManipulationControls({
           type="button"
           key={handle}
           aria-label={
-            handle === "N" || handle === "S"
+            scalesProportionally
+              ? `Escalar imagen desde ${handle}`
+              : handle === "N" || handle === "S"
               ? `Ajustar alto desde ${handle}`
               : handle === "E" || handle === "W"
                 ? `Ajustar ancho desde ${handle}`
                 : `Ajustar ancho y alto desde ${handle}`
           }
-          title="Arrastra para cambiar ancho y alto"
+          title={
+            scalesProportionally
+              ? "Arrastra para escalar la imagen completa sin deformarla"
+              : "Arrastra para cambiar el marco de recorte"
+          }
           onPointerDown={(event) => beginImageResize(event, image, handle, onPatch)}
           onKeyDown={(event) => {
-            const step = event.shiftKey ? 5 : 1;
+            const handlesHorizontal = handle.includes("E") || handle.includes("W");
+            const handlesVertical = handle.includes("N") || handle.includes("S");
+            const horizontalKey = event.key === "ArrowLeft" || event.key === "ArrowRight";
+            const verticalKey = event.key === "ArrowUp" || event.key === "ArrowDown";
             if (
-              (handle.includes("E") || handle.includes("W")) &&
-              (event.key === "ArrowLeft" || event.key === "ArrowRight")
+              scalesProportionally &&
+              ((handlesHorizontal && horizontalKey) || (handlesVertical && verticalKey))
             ) {
               event.preventDefault();
-              const direction = event.key === "ArrowRight" ? 1 : -1;
-              onPatch({ widthPercent: clamp(width + step * direction, 10, 100) });
-            }
-            if (
-              (handle.includes("N") || handle.includes("S")) &&
-              (event.key === "ArrowUp" || event.key === "ArrowDown")
-            ) {
-              event.preventDefault();
-              const direction = event.key === "ArrowDown" ? 1 : -1;
+              const media = event.currentTarget.closest<HTMLElement>(".document-image-media");
+              const container = media?.closest<HTMLElement>(
+                ".image-slot-editor, .column-image-editor",
+              );
+              if (!media || !container) return;
+              const bounds = media.getBoundingClientRect();
+              const step = event.shiftKey ? 20 : 4;
               onPatch({
-                heightPx: clamp(height + step * 4 * direction, 80, 1200),
+                widthPercent: resizeContainedImageFrame(
+                  bounds.width,
+                  bounds.height,
+                  event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0,
+                  event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0,
+                  container.getBoundingClientRect().width,
+                  handle,
+                ),
+                aspectRatio: "AUTO",
+                heightPx: undefined,
+              });
+              return;
+            }
+            const step = event.shiftKey ? 5 : 1;
+            if (handlesHorizontal && horizontalKey) {
+              event.preventDefault();
+              const pointerDirection = event.key === "ArrowRight" ? 1 : -1;
+              const handleDirection = handle.includes("E") ? 1 : -1;
+              onPatch({
+                widthPercent: clamp(width + step * pointerDirection * handleDirection, 10, 100),
+              });
+            }
+            if (handlesVertical && verticalKey) {
+              event.preventDefault();
+              const pointerDirection = event.key === "ArrowDown" ? 1 : -1;
+              const handleDirection = handle.includes("S") ? 1 : -1;
+              onPatch({
+                heightPx: clamp(height + step * 4 * pointerDirection * handleDirection, 80, 1200),
                 aspectRatio: "FREE",
               });
             }
@@ -2867,7 +2930,7 @@ function BlockEditor({
       >
         <div className="document-image-card">
           <div
-            className={`document-image-media ${selected && block.fileId && block.fit === "COVER" && (block.aspectRatio ?? "AUTO") !== "AUTO" && !block.locked ? "is-direct-crop" : ""}`}
+            className={`document-image-media ${block.fileId ? "has-image" : ""} ${selected && block.fileId && block.fit === "COVER" && (block.aspectRatio ?? "AUTO") !== "AUTO" && !block.locked ? "is-direct-crop" : ""}`}
             onPointerDown={(event) => {
               if (
                 !selected ||
@@ -2905,6 +2968,13 @@ function BlockEditor({
                 <span className="document-image-crop-hint">Arrastra para reencuadrar</span>
               </>
             ) : null}
+            {selected ? (
+              <ImageDirectManipulationControls
+                image={block}
+                locked={block.locked}
+                onPatch={(patch) => onChange({ ...block, ...patch })}
+              />
+            ) : null}
           </div>
           {block.caption ? <small className="document-image-caption">{block.caption}</small> : null}
           <label className="document-file-button">
@@ -2924,13 +2994,6 @@ function BlockEditor({
               }}
             />
           </label>
-          {selected ? (
-            <ImageDirectManipulationControls
-              image={block}
-              locked={block.locked}
-              onPatch={(patch) => onChange({ ...block, ...patch })}
-            />
-          ) : null}
         </div>
         {selected ? (
           <div className="document-inline-controls" aria-label="Propiedades de la imagen">
@@ -2994,7 +3057,10 @@ function BlockEditor({
                   value={block.fit}
                   disabled={block.locked}
                   onChange={(event) =>
-                    onChange({ ...block, fit: event.target.value as typeof block.fit })
+                    onChange({
+                      ...block,
+                      ...imageFitPatch(event.target.value as typeof block.fit),
+                    })
                   }
                 >
                   <option value="CONTAIN">Imagen completa</option>
@@ -3651,7 +3717,7 @@ function ColumnItemEditor({
       >
         <div className="column-image-frame document-image-card">
           <div
-            className={`column-image-preview document-image-media ${selected && item.fileId && item.fit === "COVER" && (item.aspectRatio ?? "AUTO") !== "AUTO" && !locked ? "is-direct-crop" : ""}`}
+            className={`column-image-preview document-image-media ${item.fileId ? "has-image" : ""} ${selected && item.fileId && item.fit === "COVER" && (item.aspectRatio ?? "AUTO") !== "AUTO" && !locked ? "is-direct-crop" : ""}`}
             onPointerDown={(event) => {
               if (
                 !selected ||
@@ -3684,15 +3750,15 @@ function ColumnItemEditor({
                 <span className="document-image-crop-hint">Arrastra para reencuadrar</span>
               </>
             ) : null}
+            {selected ? (
+              <ImageDirectManipulationControls
+                image={item}
+                locked={locked}
+                onPatch={(patch) => onChange({ ...item, ...patch })}
+              />
+            ) : null}
           </div>
           {item.caption ? <small className="document-image-caption">{item.caption}</small> : null}
-          {selected ? (
-            <ImageDirectManipulationControls
-              image={item}
-              locked={locked}
-              onPatch={(patch) => onChange({ ...item, ...patch })}
-            />
-          ) : null}
         </div>
         <label className="document-file-button">
           {uploading ? "Validando imagen..." : item.fileId ? "Sustituir imagen" : "Cargar imagen"}
@@ -3769,7 +3835,10 @@ function ColumnItemEditor({
                   value={item.fit}
                   disabled={locked}
                   onChange={(event) =>
-                    onChange({ ...item, fit: event.target.value as typeof item.fit })
+                    onChange({
+                      ...item,
+                      ...imageFitPatch(event.target.value as typeof item.fit),
+                    })
                   }
                 >
                   <option value="CONTAIN">Imagen completa</option>
