@@ -264,7 +264,9 @@ describe("DocumentService", () => {
     });
     const composedBlock = created.blocks[3];
     expect(composedBlock?.type).toBe("COLUMNS");
-    expect(composedBlock?.type === "COLUMNS" ? composedBlock.cells?.[0]?.items[0] : null).toMatchObject({
+    expect(
+      composedBlock?.type === "COLUMNS" ? composedBlock.cells?.[0]?.items[0] : null,
+    ).toMatchObject({
       type: "TEXT",
       style: "CAPTION",
       bold: false,
