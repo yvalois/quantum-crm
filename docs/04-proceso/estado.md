@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Actualizado: 2026-10-07
+Actualizado: 2026-10-08
 
 Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No sustituye el checklist.
 
@@ -14,7 +14,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
-> **DOC-02 / DOC-03 / DOC-05 (2026-10-08):** COMPLETADO el bloque de manipulacion directa de imagenes en `feat/DOC-02-direct-image-manipulation`. La imagen se selecciona y edita sobre el lienzo con cuatro tiradores de tamano, control superior de giro y arrastre del propio contenido para reencuadrar; mover el bloque usa un asa separada y los valores exactos quedaron en un panel secundario plegable. El candidato `c5d0fa7` esta desplegado y saludable en InterAmerican; aprobo formato, lint, 18 pruebas focalizadas, typecheck y build de produccion. El recorrido autenticado comprobo los cuatro tiradores, la superficie directa de recorte y cambios de ancho `60 %` a `65 %` y giro de `3` a `4` grados mediante los controles del lienzo. Ficha [`DOC-02-b`](../02-plan/tareas/DOC-02-b-editor-documental-escritorio.md).
+> **DOC-02 / DOC-03 / DOC-05 (2026-10-08):** COMPLETADO en `feat/DOC-02-direct-image-manipulation` el encaje completo de imagenes. `CONTAIN` es el valor predeterminado del contrato, de imagenes nuevas y de imagenes dentro de columnas; `Recortar para llenar` permanece disponible solo como eleccion explicita. El candidato `2b16727a` aprobo formato, lint focalizado, 31 pruebas y los typechecks y builds afectados en el VPS; API y CRM web estan saludables y el readiness publico responde `200`. En InterAmerican se cambio el documento `preuba` a `Imagen completa`, se guardo la revision 6 y, despues de recargar, se comprobo `object-fit: contain` sobre el archivo natural de `640 x 360`. Ficha [`DOC-02-b`](../02-plan/tareas/DOC-02-b-editor-documental-escritorio.md).
 
 > **Correccion USR-01 (2026-10-07):** Desplegado y comprobado el alta visible desde el perfil de empresa como `Administradores CRM`: crea membresia `ADMINISTRATOR`, invitacion e identidad dentro del CRM y realm aislados del perfil, con contraseña temporal, cambio obligatorio y TOTP. No concede permisos de Quantum Admin. El smoke E2E atraveso la cola durable, API, PostgreSQL y Keycloak de InterAmerican; todos los datos sinteticos fueron eliminados y los servicios quedaron saludables.
 

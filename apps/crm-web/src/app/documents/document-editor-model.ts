@@ -57,7 +57,7 @@ export function createColumnItem(
       width: "FULL",
       widthPercent: 100,
       align: "CENTER",
-      fit: "COVER",
+      fit: "CONTAIN",
       aspectRatio: "AUTO",
       focalX: 50,
       focalY: 50,
