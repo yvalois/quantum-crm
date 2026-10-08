@@ -25,6 +25,21 @@ const design = {
 } as const;
 
 describe("document contracts", () => {
+  it("shows an image completely when no crop mode was explicitly selected", () => {
+    const parsed = ImageDocumentBlockSchema.parse({
+      id: "019db9c7-1268-7d24-bf99-96ea38ebf099",
+      type: "IMAGE",
+      locked: false,
+      label: "Logotipo",
+      alt: "",
+      caption: "",
+      fileId: null,
+      checksum: null,
+    });
+
+    expect(parsed.fit).toBe("CONTAIN");
+  });
+
   it("accepts a bounded document draft", () => {
     const parsed = CreateDocumentSchema.parse({
       kind: "QUOTE",

@@ -39,6 +39,13 @@ describe("document editor model", () => {
     expect(imageFrameWidth({ width: "SMALL", widthPercent: 37 })).toBe(37);
   });
 
+  it("creates column images showing the complete file by default", () => {
+    expect(createColumnItem("IMAGE", secondId)).toMatchObject({
+      fit: "CONTAIN",
+      aspectRatio: "AUTO",
+    });
+  });
+
   it("resizes from each visual corner and clamps the frame to usable limits", () => {
     expect(resizeImageFrame(60, 80, 400, "SE")).toBe(80);
     expect(resizeImageFrame(60, -80, 400, "SW")).toBe(80);
