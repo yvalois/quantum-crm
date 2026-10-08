@@ -23,6 +23,7 @@ import {
   resizeContainedImageFrame,
   resizeImageFrame,
   resizeImageFrameHeight,
+  resizeImageObjectFrame,
   rotateImageFromPointer,
   setTableColumnWidth,
   splitTextBlock,
@@ -63,17 +64,39 @@ describe("document editor model", () => {
     expect(resizeImageFrameHeight(1180, 100, "SE")).toBe(1200);
   });
 
-  it("scales a complete image from every handle without breaking its natural ratio", () => {
-    expect(resizeContainedImageFrame(300, 150, -60, 0, 600, "E")).toBe(40);
-    expect(resizeContainedImageFrame(300, 150, 60, 0, 600, "W")).toBe(40);
-    expect(resizeContainedImageFrame(300, 150, 0, -30, 600, "S")).toBe(40);
-    expect(resizeContainedImageFrame(300, 150, 0, 30, 600, "N")).toBe(40);
+  it("scales a complete image proportionally from its corner handles", () => {
     expect(resizeContainedImageFrame(300, 150, 20, 40, 600, "SE")).toBe(63);
   });
 
   it("keeps proportional image scaling inside the canvas and above a usable size", () => {
-    expect(resizeContainedImageFrame(570, 285, 200, 0, 600, "E")).toBe(100);
-    expect(resizeContainedImageFrame(300, 150, -500, 0, 600, "E")).toBe(27);
+    expect(resizeContainedImageFrame(570, 285, 200, 0, 600, "NE")).toBe(100);
+    expect(resizeContainedImageFrame(300, 150, -500, 0, 600, "SE")).toBe(27);
+  });
+
+  it("changes only width or height from the middle handles", () => {
+    expect(resizeImageObjectFrame(300, 150, -60, 0, 600, "E")).toEqual({
+      widthPercent: 40,
+      heightPx: 150,
+    });
+    expect(resizeImageObjectFrame(300, 150, 60, 0, 600, "W")).toEqual({
+      widthPercent: 40,
+      heightPx: 150,
+    });
+    expect(resizeImageObjectFrame(300, 150, 0, 60, 600, "S")).toEqual({
+      widthPercent: 50,
+      heightPx: 210,
+    });
+    expect(resizeImageObjectFrame(300, 150, 0, 40, 600, "N")).toEqual({
+      widthPercent: 50,
+      heightPx: 110,
+    });
+  });
+
+  it("changes both dimensions proportionally from a corner", () => {
+    expect(resizeImageObjectFrame(300, 150, 20, 40, 600, "SE")).toEqual({
+      widthPercent: 63,
+      heightPx: 189,
+    });
   });
 
   it("moves the crop with the dragged image while keeping its focal point bounded", () => {

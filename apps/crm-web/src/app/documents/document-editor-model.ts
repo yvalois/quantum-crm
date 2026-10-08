@@ -117,8 +117,8 @@ export function resizeImageFrameHeight(
 }
 
 /**
- * Scales a complete image as one object. Unlike a crop frame, every handle keeps
- * the natural aspect ratio, so the selection always matches the visible pixels.
+ * Scales a complete image from a corner while preserving the current aspect
+ * ratio, so the selection always matches the visible pixels.
  */
 export function resizeContainedImageFrame(
   originWidthPx: number,
@@ -160,6 +160,55 @@ export function resizeContainedImageFrame(
   );
   const boundedWidth = Math.min(safeAvailableWidth, Math.max(minimumWidth, nextWidth));
   return Math.round((boundedWidth / safeAvailableWidth) * 100);
+}
+
+export function resizeImageObjectFrame(
+  originWidthPx: number,
+  originHeightPx: number,
+  horizontalDelta: number,
+  verticalDelta: number,
+  availableWidth: number,
+  handle: ImageResizeHandle,
+): { readonly widthPercent: number; readonly heightPx: number } {
+  const safeAvailableWidth = Math.max(availableWidth, 1);
+  const safeOriginWidth = Math.max(originWidthPx, 1);
+  const safeOriginHeight = Math.max(originHeightPx, 1);
+  const originWidthPercent = Math.round((safeOriginWidth / safeAvailableWidth) * 100);
+  const isCorner = handle.length === 2;
+
+  if (isCorner) {
+    const widthPercent = resizeContainedImageFrame(
+      safeOriginWidth,
+      safeOriginHeight,
+      horizontalDelta,
+      verticalDelta,
+      safeAvailableWidth,
+      handle,
+    );
+    return {
+      widthPercent,
+      heightPx: Math.round(
+        ((safeAvailableWidth * widthPercent) / 100 / safeOriginWidth) * safeOriginHeight,
+      ),
+    };
+  }
+
+  if (handle === "E" || handle === "W") {
+    return {
+      widthPercent: resizeImageFrame(
+        originWidthPercent,
+        horizontalDelta,
+        safeAvailableWidth,
+        handle,
+      ),
+      heightPx: Math.round(safeOriginHeight),
+    };
+  }
+
+  return {
+    widthPercent: Math.min(100, Math.max(10, originWidthPercent)),
+    heightPx: resizeImageFrameHeight(safeOriginHeight, verticalDelta, handle),
+  };
 }
 
 export function moveImageFocalPoint(

@@ -41,9 +41,7 @@ import {
   removeColumnItem,
   removeTableColumn,
   removeTableRow,
-  resizeContainedImageFrame,
-  resizeImageFrame,
-  resizeImageFrameHeight,
+  resizeImageObjectFrame,
   rotateImageFromPointer,
   setTableColumnWidth,
   splitTextBlock,
@@ -149,7 +147,6 @@ function imageComposerStyle(image: EditableDocumentImage): CSSProperties {
 
 function beginImageResize(
   event: ReactPointerEvent<HTMLButtonElement>,
-  image: EditableDocumentImage,
   handle: ImageResizeHandle,
   onPatch: (patch: ImagePresentationPatch) => void,
 ): void {
@@ -164,35 +161,21 @@ function beginImageResize(
   const originHeight = Math.max(mediaBounds.height, 1);
   const originX = event.clientX;
   const originY = event.clientY;
-  const originWidth = imageFrameWidth(image);
 
   const move = (pointerEvent: PointerEvent): void => {
     const horizontalDelta = pointerEvent.clientX - originX;
     const verticalDelta = pointerEvent.clientY - originY;
-    if (image.fit === "CONTAIN") {
-      onPatch({
-        widthPercent: resizeContainedImageFrame(
-          originWidthPx,
-          originHeight,
-          horizontalDelta,
-          verticalDelta,
-          availableWidth,
-          handle,
-        ),
-        aspectRatio: "AUTO",
-        heightPx: undefined,
-      });
-      return;
-    }
-    const patch: ImagePresentationPatch = {};
-    if (handle.includes("E") || handle.includes("W")) {
-      patch.widthPercent = resizeImageFrame(originWidth, horizontalDelta, availableWidth, handle);
-    }
-    if (handle.includes("N") || handle.includes("S")) {
-      patch.heightPx = resizeImageFrameHeight(originHeight, verticalDelta, handle);
-      patch.aspectRatio = "FREE";
-    }
-    onPatch(patch);
+    onPatch({
+      ...resizeImageObjectFrame(
+        originWidthPx,
+        originHeight,
+        horizontalDelta,
+        verticalDelta,
+        availableWidth,
+        handle,
+      ),
+      aspectRatio: "FREE",
+    });
   };
   const finish = (): void => {
     window.removeEventListener("pointermove", move);
@@ -2550,14 +2533,12 @@ function ImagePresentationControls({
               min={80}
               max={800}
               value={height ?? 220}
-              disabled={locked || image.fit === "CONTAIN"}
+              disabled={locked}
               onChange={(event) =>
-                onPatch({ fit: "COVER", heightPx: Number(event.target.value), aspectRatio: "FREE" })
+                onPatch({ heightPx: Number(event.target.value), aspectRatio: "FREE" })
               }
             />
-            <output>
-              {image.fit === "CONTAIN" ? "Proporcional" : height ? `${height}px` : "Auto"}
-            </output>
+            <output>{height ? `${height}px` : "Auto"}</output>
           </label>
           <button
             className="image-auto-size"
@@ -2759,10 +2740,7 @@ function ImageDirectManipulationControls({
   readonly onPatch: (patch: ImagePresentationPatch) => void;
 }): React.JSX.Element | null {
   if (locked) return null;
-  const width = imageFrameWidth(image);
-  const height = image.heightPx ?? 220;
   const rotation = image.rotation ?? 0;
-  const scalesProportionally = image.fit === "CONTAIN";
 
   return (
     <>
@@ -2796,69 +2774,49 @@ function ImageDirectManipulationControls({
           type="button"
           key={handle}
           aria-label={
-            scalesProportionally
+            handle.length === 2
               ? `Escalar imagen desde ${handle}`
               : handle === "N" || handle === "S"
                 ? `Ajustar alto desde ${handle}`
-                : handle === "E" || handle === "W"
-                  ? `Ajustar ancho desde ${handle}`
-                  : `Ajustar ancho y alto desde ${handle}`
+                : `Ajustar ancho desde ${handle}`
           }
           title={
-            scalesProportionally
-              ? "Arrastra para escalar la imagen completa sin deformarla"
-              : "Arrastra para cambiar el marco de recorte"
+            handle.length === 2
+              ? "Arrastra la esquina para mantener la proporcion"
+              : handle === "N" || handle === "S"
+                ? "Arrastra para cambiar solo el alto"
+                : "Arrastra para cambiar solo el ancho"
           }
-          onPointerDown={(event) => beginImageResize(event, image, handle, onPatch)}
+          onPointerDown={(event) => beginImageResize(event, handle, onPatch)}
           onKeyDown={(event) => {
             const handlesHorizontal = handle.includes("E") || handle.includes("W");
             const handlesVertical = handle.includes("N") || handle.includes("S");
             const horizontalKey = event.key === "ArrowLeft" || event.key === "ArrowRight";
             const verticalKey = event.key === "ArrowUp" || event.key === "ArrowDown";
             if (
-              scalesProportionally &&
-              ((handlesHorizontal && horizontalKey) || (handlesVertical && verticalKey))
+              !((handlesHorizontal && horizontalKey) || (handlesVertical && verticalKey))
             ) {
-              event.preventDefault();
-              const media = event.currentTarget.closest<HTMLElement>(".document-image-media");
-              const container = media?.closest<HTMLElement>(
-                ".image-slot-editor, .column-image-editor",
-              );
-              if (!media || !container) return;
-              const bounds = media.getBoundingClientRect();
-              const step = event.shiftKey ? 20 : 4;
-              onPatch({
-                widthPercent: resizeContainedImageFrame(
-                  bounds.width,
-                  bounds.height,
-                  event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0,
-                  event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0,
-                  container.getBoundingClientRect().width,
-                  handle,
-                ),
-                aspectRatio: "AUTO",
-                heightPx: undefined,
-              });
               return;
             }
-            const step = event.shiftKey ? 5 : 1;
-            if (handlesHorizontal && horizontalKey) {
-              event.preventDefault();
-              const pointerDirection = event.key === "ArrowRight" ? 1 : -1;
-              const handleDirection = handle.includes("E") ? 1 : -1;
-              onPatch({
-                widthPercent: clamp(width + step * pointerDirection * handleDirection, 10, 100),
-              });
-            }
-            if (handlesVertical && verticalKey) {
-              event.preventDefault();
-              const pointerDirection = event.key === "ArrowDown" ? 1 : -1;
-              const handleDirection = handle.includes("S") ? 1 : -1;
-              onPatch({
-                heightPx: clamp(height + step * 4 * pointerDirection * handleDirection, 80, 1200),
-                aspectRatio: "FREE",
-              });
-            }
+            event.preventDefault();
+            const media = event.currentTarget.closest<HTMLElement>(".document-image-media");
+            const container = media?.closest<HTMLElement>(
+              ".image-slot-editor, .column-image-editor",
+            );
+            if (!media || !container) return;
+            const bounds = media.getBoundingClientRect();
+            const step = event.shiftKey ? 20 : 4;
+            onPatch({
+              ...resizeImageObjectFrame(
+                bounds.width,
+                bounds.height,
+                event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0,
+                event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0,
+                container.getBoundingClientRect().width,
+                handle,
+              ),
+              aspectRatio: "FREE",
+            });
           }}
         />
       ))}
