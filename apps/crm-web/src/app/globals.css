@@ -594,6 +594,382 @@
   }
 }
 
+/* DOC-02 professional document studio */
+.document-studio-shell {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  min-height: 42rem;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+  background: #e5eaeb;
+}
+
+.document-studio-shell .documents-page {
+  height: 100dvh;
+  grid-template-rows: 3.5rem 3rem minmax(0, 1fr);
+}
+
+.document-back-link {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.38rem;
+  border-right: 1px solid #dfe5e6;
+  padding-right: 0.85rem;
+  color: #506267;
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.document-back-link span {
+  color: #0a766c;
+  font-size: 1rem;
+}
+
+.document-back-link:hover {
+  color: #0a766c;
+}
+
+.library-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.document-studio-shell .document-commandbar {
+  min-width: 0;
+  padding-inline: 0.9rem;
+}
+
+.document-studio-shell .document-toolbar {
+  z-index: 18;
+  overflow: visible;
+  padding: 0.4rem 0.9rem;
+}
+
+.document-studio-shell .document-insert-tools {
+  overflow: visible;
+}
+
+.document-layout-trigger {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.column-layout-picker {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.65rem);
+  left: 50%;
+  display: grid;
+  width: 24rem;
+  gap: 0.35rem;
+  border: 1px solid #cfdbdc;
+  border-radius: 0.7rem;
+  background: #fff;
+  padding: 0.9rem;
+  box-shadow: 0 18px 46px rgb(18 42 46 / 18%);
+  transform: translateX(-50%);
+}
+
+.column-layout-picker::before {
+  position: absolute;
+  top: -0.36rem;
+  left: calc(50% - 0.35rem);
+  width: 0.7rem;
+  height: 0.7rem;
+  border-top: 1px solid #cfdbdc;
+  border-left: 1px solid #cfdbdc;
+  background: #fff;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.column-layout-picker > strong {
+  color: #17373b;
+  font-size: 0.72rem;
+}
+
+.column-layout-picker > span {
+  color: #718287;
+  font-size: 0.61rem;
+}
+
+.column-layout-picker > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.document-toolbar .column-layout-picker button {
+  display: grid;
+  min-width: 0;
+  min-height: 4.4rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.4rem;
+  border-color: #d8e2e3;
+  background: #fbfcfc;
+  padding: 0.5rem;
+}
+
+.document-toolbar .column-layout-picker button:hover {
+  border-color: #55bdb1;
+  background: #effaf8;
+}
+
+.column-layout-picker small {
+  color: #52666b;
+  font-size: 0.52rem;
+  line-height: 1.2;
+}
+
+.column-layout-icon {
+  display: grid;
+  width: 2.9rem;
+  height: 1.65rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.16rem;
+  border: 1px solid #aebfc1;
+  border-radius: 0.2rem;
+  background: #fff;
+  padding: 0.18rem;
+}
+
+.column-layout-icon b {
+  display: block;
+  min-width: 0;
+  border-radius: 0.08rem;
+  background: #b9d8d4;
+}
+
+.column-layout-icon.layout-left_wide {
+  grid-template-columns: 2fr 1fr;
+}
+
+.column-layout-icon.layout-right_wide {
+  grid-template-columns: 1fr 2fr;
+}
+
+.column-layout-icon.layout-equal_3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.document-studio-shell .document-workbench,
+.document-studio-shell .document-workbench.has-library,
+.document-studio-shell .document-workbench.has-inspector,
+.document-studio-shell .document-workbench.has-library.has-inspector {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.document-studio-shell .document-library,
+.document-studio-shell .document-inspector {
+  position: absolute;
+  z-index: 15;
+  top: 0;
+  width: min(22rem, calc(100vw - 2rem));
+  height: 100%;
+  animation: document-panel-enter 150ms ease-out;
+}
+
+.document-studio-shell .document-library {
+  left: 0;
+  border-right: 1px solid #cbd8da;
+  box-shadow: 20px 0 50px rgb(21 45 49 / 18%);
+}
+
+.document-studio-shell .document-inspector {
+  right: 0;
+  border-left: 1px solid #cbd8da;
+  box-shadow: -20px 0 50px rgb(21 45 49 / 18%);
+}
+
+@keyframes document-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateX(0.5rem);
+  }
+}
+
+.document-studio-shell .document-canvas {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.document-studio-shell .document-canvas-scroll {
+  padding: 2.5rem max(2rem, calc((100% - 50rem) / 2)) 8rem;
+}
+
+.document-studio-shell .document-zoom-layer,
+.document-studio-shell .document-page {
+  min-height: var(--document-page-height, 70.7rem);
+}
+
+.document-studio-shell .document-page .document-block.selected {
+  border-color: #45b8ac;
+  box-shadow: 0 0 0 0.22rem rgb(43 177 164 / 11%);
+}
+
+.document-studio-shell .document-page .document-block.dragging {
+  opacity: 0.46;
+}
+
+.document-studio-shell .block-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.document-studio-shell .block-handle:active {
+  cursor: grabbing;
+}
+
+.document-studio-shell .document-page .document-block.selected > .document-block-tools {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.document-studio-shell .document-page .document-block:focus-within,
+.document-studio-shell .document-page input:focus-visible,
+.document-studio-shell .document-page textarea:focus-visible {
+  outline: 2px solid #25a99c;
+  outline-offset: 2px;
+}
+
+.columns-block-editor {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.column-layout-controls {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid #d8e2e3;
+  border-radius: 0.42rem;
+  background: #f8fafa;
+  padding: 0.25rem;
+}
+
+.column-layout-controls > span {
+  padding-inline: 0.35rem;
+  color: #718287;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.column-layout-controls button {
+  display: grid;
+  min-width: 2.5rem;
+  min-height: 2.15rem;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 0.28rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.column-layout-controls button:hover,
+.column-layout-controls button.active {
+  border-color: #9ed7d0;
+  background: #e8f8f6;
+}
+
+.column-layout-controls .column-layout-icon {
+  width: 1.9rem;
+  height: 1.1rem;
+}
+
+.document-page .columns-editor {
+  display: grid;
+  grid-template-columns: var(--document-columns, 1fr 1fr);
+  gap: 1.4rem;
+}
+
+.document-page .document-column-cell {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.document-page .document-column-cell + .document-column-cell {
+  border-left: 1px solid #d9e3e4;
+  padding-left: 1.4rem;
+}
+
+.document-page .document-column-cell > span {
+  color: #8a989b;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.document-page .document-column-cell textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.document-page .document-column-cell textarea::placeholder {
+  color: #a1adaf;
+}
+
+.document-studio-shell button:focus-visible,
+.document-studio-shell a:focus-visible,
+.document-studio-shell select:focus-visible {
+  outline: 2px solid #168f84;
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .document-studio-shell,
+  .document-studio-shell .documents-page {
+    height: 100dvh;
+    min-height: 36rem;
+  }
+
+  .document-studio-shell .document-command-title > div,
+  .document-studio-shell .document-app-mark,
+  .document-studio-shell .document-save-state {
+    display: none;
+  }
+
+  .document-studio-shell .document-command-actions > button:not(.document-save-button) {
+    display: none;
+  }
+
+  .document-studio-shell .document-toolbar {
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  .column-layout-picker {
+    position: fixed;
+    top: 7rem;
+    left: 50%;
+    width: min(24rem, calc(100vw - 1.5rem));
+  }
+
+  .document-studio-shell .document-canvas-scroll {
+    padding: 1.5rem 1rem 6rem;
+  }
+}
+
 /* Document studio */
 .documents-page {
   min-width: 0;
@@ -6023,5 +6399,1730 @@ body {
 
   .booking-intro .eyebrow {
     margin-top: 2rem;
+  }
+}
+
+/* DOC-02 composed columns and managed page regions */
+.document-studio-shell .document-page > .document-page-region {
+  position: relative;
+  display: flex;
+  min-height: 2.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.7rem;
+}
+
+.document-studio-shell .document-page > .document-page-header {
+  border-bottom: 2px solid;
+}
+
+.document-studio-shell .document-page > .document-page-footer {
+  margin-top: auto;
+  border-top: 1px solid;
+  border-bottom: 0;
+}
+
+.document-page-region.region-compact {
+  min-height: 2.15rem;
+  padding-block: 0.35rem;
+}
+
+.document-page-region.region-spacious {
+  min-height: 5rem;
+  padding-block: 1.25rem;
+}
+
+.document-header-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.document-header-logo {
+  display: grid;
+  width: 4.25rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+}
+
+.document-header-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.document-page-region.layout-text .document-header-logo {
+  display: none;
+}
+
+.document-page-region.layout-logo_text {
+  flex-wrap: wrap;
+  align-content: center;
+}
+
+.document-page-region.layout-logo_text .document-header-content {
+  flex-basis: 100%;
+}
+
+.document-page-region.layout-logo_text > strong {
+  color: #6c8285;
+  font-size: 0.52rem;
+}
+
+.document-page-region.layout-logo_text:has(.document-header-logo) > strong {
+  margin-left: 5rem;
+}
+
+.document-page-region textarea {
+  min-width: 0;
+  min-height: 1.7rem;
+  flex: 1;
+  overflow: hidden;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  resize: none;
+  text-transform: uppercase;
+}
+
+.document-page-footer textarea {
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  text-transform: none;
+}
+
+.document-page-region.align-center textarea {
+  text-align: center;
+}
+
+.document-page-region.align-right textarea {
+  text-align: right;
+}
+
+.document-region-settings {
+  position: absolute;
+  z-index: 4;
+  top: -1.7rem;
+  right: 0;
+  border: 1px solid #cfe0df;
+  border-radius: 0.3rem;
+  background: #fff;
+  padding: 0.25rem 0.45rem;
+  color: #176f68;
+  font-size: 0.52rem;
+  font-weight: 750;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgb(23 55 58 / 12%);
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.document-page-region:hover .document-region-settings,
+.document-page-region:focus-within .document-region-settings {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-region-hidden {
+  width: 100%;
+  border: 1px dashed #c8d6d7;
+  border-radius: 0.35rem;
+  background: #f8fbfb;
+  padding: 0.55rem;
+  color: #698084;
+  font-size: 0.58rem;
+  cursor: pointer;
+}
+
+.document-region-hidden.footer-hidden {
+  margin-top: auto;
+}
+
+.document-region-inspector .document-inspector-grid,
+.document-inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.document-logo-control {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  border: 1px solid #dce6e6;
+  border-radius: 0.45rem;
+  background: #f8fafa;
+  padding: 0.5rem;
+}
+
+.document-logo-control > img,
+.document-logo-control > span {
+  display: grid;
+  width: 3.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 0.25rem;
+  background: #e8efef;
+  object-fit: contain;
+  color: #799093;
+  font-size: 0.55rem;
+  font-weight: 850;
+}
+
+.document-logo-control > button {
+  border: 0;
+  background: transparent;
+  color: #9d3a3a;
+  font-size: 0.6rem;
+  cursor: pointer;
+}
+
+.document-studio-shell .document-page .columns-editor {
+  align-items: start;
+  gap: 1rem;
+}
+
+.document-studio-shell .document-page .document-column-cell {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.55rem;
+}
+
+.document-column-head {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.document-column-head > span {
+  color: #779093;
+  font-size: 0.5rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.document-column-head > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
+.document-column-head button,
+.document-column-item > header button {
+  border: 1px solid #d5e2e2;
+  border-radius: 0.22rem;
+  background: #fff;
+  min-height: 1.7rem;
+  padding: 0.25rem 0.38rem;
+  color: #456166;
+  font-size: 0.54rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.document-column-head button:hover,
+.document-column-item > header button:hover {
+  border-color: #86cfc7;
+  color: #08796e;
+}
+
+.document-column-items {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.document-column-item {
+  position: relative;
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid #dce6e6;
+  border-radius: 0.35rem;
+  background: rgb(249 252 252 / 86%);
+  padding: 0.45rem;
+}
+
+.document-column-item > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.document-column-item > header strong {
+  color: #688084;
+  font-size: 0.48rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.document-column-item > header div {
+  display: flex;
+  gap: 0.15rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.document-column-item:hover > header div,
+.document-column-item:focus-within > header div {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-column-empty {
+  min-height: 4rem;
+  border: 1px dashed #c7d9d8;
+  border-radius: 0.35rem;
+  background: #fbfdfd;
+  color: #72908d;
+  font-size: 0.56rem;
+  cursor: pointer;
+}
+
+.legacy-column-cell {
+  border-left: 2px solid #dce7e7;
+  padding-left: 0.7rem;
+}
+
+.legacy-column-cell > span {
+  color: #789093;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legacy-column-cell > p {
+  margin: 0;
+  color: #233b40;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.column-text-editor,
+.column-variable-editor,
+.column-image-editor {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.column-text-editor textarea {
+  min-height: 4.5rem;
+}
+
+.column-text-editor select,
+.column-variable-editor select,
+.column-variable-editor input,
+.column-image-editor input,
+.column-image-editor select,
+.column-divider-editor,
+.image-presentation-controls select {
+  width: 100%;
+  border: 1px solid #d9e4e4;
+  border-radius: 0.28rem;
+  background: #fff;
+  padding: 0.35rem;
+  color: #294348;
+  font-size: 0.56rem;
+}
+
+.column-image-preview {
+  position: relative;
+  display: grid;
+  min-height: 6rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.28rem;
+  background: linear-gradient(135deg, #edf4f3, #f8fbfb);
+  color: #79908e;
+  font-size: 0.55rem;
+  font-weight: 850;
+}
+
+.column-image-frame {
+  width: 100%;
+}
+
+.column-image-preview img {
+  width: 100%;
+  height: 8rem;
+  object-fit: cover;
+}
+
+.column-image-editor.image-hidden .column-image-preview {
+  opacity: 0.42;
+  filter: grayscale(1);
+}
+
+.column-image-editor.image-hidden .column-image-preview::after {
+  content: "Oculta en el documento";
+  position: absolute;
+  inset: auto 0 0;
+  padding: 0.3rem 0.45rem;
+  color: #f4f7f8;
+  background: rgb(8 25 29 / 78%);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.document-image-caption {
+  display: block;
+  color: #63777b;
+  font-size: 0.56rem;
+  font-style: italic;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.image-fit-contain .column-image-preview img,
+.image-fit-contain.image-slot-editor img {
+  object-fit: contain;
+}
+
+.image-presentation-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.document-column-cell .image-presentation-controls {
+  grid-template-columns: 1fr;
+}
+
+.document-file-button:has(input:focus-visible) {
+  outline: 2px solid #13a89c;
+  outline-offset: 2px;
+}
+
+.image-presentation-controls label,
+.column-image-editor > label:not(.document-file-button) {
+  display: grid;
+  gap: 0.2rem;
+  color: #718589;
+  font-size: 0.5rem;
+}
+
+.image-width-wide .column-image-frame,
+.image-width-wide.image-slot-editor > div:first-child {
+  width: 80%;
+}
+
+.image-width-medium .column-image-frame,
+.image-width-medium.image-slot-editor > div:first-child {
+  width: 62%;
+}
+
+.image-width-small .column-image-frame,
+.image-width-small.image-slot-editor > div:first-child {
+  width: 42%;
+}
+
+.image-align-center .column-image-frame,
+.image-align-center.image-slot-editor > div:first-child {
+  margin-inline: auto;
+}
+
+.image-align-right .column-image-frame,
+.image-align-right.image-slot-editor > div:first-child {
+  margin-left: auto;
+}
+
+.document-column-item.item-divider {
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .document-column-head > div {
+    gap: 0.12rem;
+  }
+
+  .document-column-head button {
+    padding-inline: 0.24rem;
+  }
+}
+
+/* DOC-02 editorial canvas — direct document editing, not a block configuration form */
+.document-studio-shell {
+  --editor-accent: #0f766e;
+  --editor-accent-soft: #e9f7f5;
+  --editor-ink: #172b30;
+  --editor-muted: #6d7c80;
+  --editor-line: #d9e1e3;
+  --editor-workspace: #dfe3e6;
+  background: var(--editor-workspace);
+}
+
+.document-studio-shell .documents-page {
+  grid-template-rows: 3.85rem 3.15rem minmax(0, 1fr);
+  background: var(--editor-workspace);
+}
+
+.document-studio-shell .document-commandbar {
+  z-index: 21;
+  border-bottom-color: #e1e6e8;
+  background: rgb(255 255 255 / 98%);
+  padding-inline: 1rem;
+  box-shadow: 0 1px 0 rgb(15 31 35 / 3%);
+}
+
+.document-studio-shell .document-command-title strong {
+  color: var(--editor-ink);
+  font-size: 0.86rem;
+  font-weight: 760;
+  letter-spacing: -0.015em;
+}
+
+.document-studio-shell .document-command-title p {
+  color: #829095;
+  font-size: 0.5rem;
+}
+
+.document-studio-shell .document-save-state {
+  color: #77868a;
+  font-size: 0.58rem;
+}
+
+.document-studio-shell .document-command-actions button,
+.document-studio-shell .document-toolbar button {
+  border-radius: 0.42rem;
+  font-weight: 740;
+}
+
+.document-studio-shell .document-command-actions .document-save-button {
+  min-width: 6rem;
+  background: #123b3c;
+  box-shadow: 0 1px 2px rgb(9 37 39 / 16%);
+}
+
+.document-studio-shell .document-toolbar {
+  z-index: 20;
+  gap: 0.75rem;
+  border-bottom-color: #d4dcde;
+  background: #fbfcfc;
+  padding: 0.42rem 0.9rem;
+  box-shadow: 0 3px 12px rgb(19 40 45 / 5%);
+}
+
+.document-studio-shell .document-toolbar-group {
+  gap: 0.28rem;
+}
+
+.document-studio-shell .document-toolbar-group + .document-toolbar-group {
+  border-left-color: #e0e6e7;
+  padding-left: 0.75rem;
+}
+
+.document-studio-shell .document-insert-tools button {
+  min-height: 2.12rem;
+  border-color: #dce3e5;
+  background: #fff;
+  box-shadow: 0 1px 1px rgb(18 42 46 / 3%);
+}
+
+.document-studio-shell .document-insert-tools button:hover,
+.document-studio-shell .document-insert-tools button:focus-visible {
+  border-color: #8bc8c2;
+  background: var(--editor-accent-soft);
+  color: #0a6b64;
+}
+
+.document-ribbon-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  height: 100%;
+  align-items: end;
+  gap: 0.2rem;
+}
+
+.document-ribbon-tab {
+  min-height: 2.15rem !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding-inline: 0.68rem !important;
+  color: #657478 !important;
+}
+
+.document-ribbon-tab.is-active,
+.document-ribbon-tab[aria-selected="true"] {
+  border-bottom-color: var(--editor-accent) !important;
+  color: #0a625d !important;
+}
+
+.document-selection-tools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.24rem;
+  border-left: 1px solid #e0e6e7;
+  padding-left: 0.7rem;
+}
+
+.document-ribbon-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.document-ribbon-content::-webkit-scrollbar {
+  display: none;
+}
+
+.document-ribbon-content .document-toolbar-group > span,
+.document-selection-tools > span {
+  margin-right: 0.2rem;
+  color: #879397;
+  font-size: 0.49rem;
+  font-weight: 850;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.document-selection-tools > strong {
+  overflow: hidden;
+  max-width: 9rem;
+  color: #344b50;
+  font-size: 0.61rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-ribbon-content .ribbon-danger:hover:not(:disabled) {
+  border-color: #f0b6b2;
+  background: #fff2f1;
+  color: #ac2923;
+}
+
+.document-studio-shell .document-workbench {
+  background: var(--editor-workspace);
+}
+
+.document-studio-shell .document-canvas {
+  grid-template-rows: 1.85rem minmax(0, 1fr);
+  background: linear-gradient(rgb(255 255 255 / 15%), rgb(255 255 255 / 15%)), #dfe3e6;
+}
+
+.document-studio-shell .document-canvas-meta {
+  border-bottom: 1px solid rgb(112 126 131 / 18%);
+  background: rgb(239 242 243 / 72%);
+  color: #728085;
+  font-size: 0.51rem;
+  letter-spacing: 0.065em;
+}
+
+.document-studio-shell .document-canvas-scroll {
+  padding: 2.8rem max(3rem, calc((100% - 50rem) / 2)) 10rem;
+  scrollbar-color: #aeb9bc transparent;
+}
+
+.document-studio-shell .document-page {
+  width: 50rem;
+  min-height: var(--document-page-height, 70.7rem);
+  overflow: visible;
+  padding: 3.8rem 4.65rem 3.15rem;
+  color: #1c2c31;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgb(18 31 35 / 16%),
+    0 12px 32px rgb(18 31 35 / 10%),
+    0 34px 80px rgb(18 31 35 / 8%);
+}
+
+.document-studio-shell .document-page-title {
+  padding: 3.2rem 0 2rem;
+}
+
+.document-studio-shell .document-page-title p {
+  color: #879397;
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+}
+
+.document-studio-shell .document-page-title span {
+  color: #607176;
+  font-size: 0.8rem;
+}
+
+.document-studio-shell .document-page-title textarea {
+  field-sizing: content;
+  min-height: 2.8rem;
+  margin-top: 1.1rem;
+  caret-color: var(--editor-accent);
+  font-size: 2.7rem;
+  font-weight: 720;
+  line-height: 1.04;
+  letter-spacing: -0.05em;
+}
+
+.document-studio-shell .document-page-title textarea:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 -1px 0 #a8d7d2;
+}
+
+.document-studio-shell .document-page-blocks {
+  gap: 0.42rem;
+}
+
+.document-studio-shell .document-page .document-block {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  isolation: isolate;
+  transition: background 120ms ease;
+}
+
+.document-studio-shell .document-page .document-block::before {
+  position: absolute;
+  z-index: -1;
+  inset: -0.42rem -0.65rem;
+  border: 1px solid transparent;
+  border-radius: 0.32rem;
+  background: transparent;
+  content: "";
+  pointer-events: none;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.document-studio-shell .document-page .document-block:hover::before {
+  border-color: #d9e9e7;
+  background: rgb(244 250 249 / 22%);
+}
+
+.document-studio-shell .document-page .document-block.selected::before,
+.document-studio-shell .document-page .document-block:focus-within::before {
+  border-color: #82c9c2;
+  background: rgb(238 249 247 / 20%);
+  box-shadow: 0 0 0 0.18rem rgb(42 164 153 / 7%);
+}
+
+.document-studio-shell .document-page .document-block.selected,
+.document-studio-shell .document-page .document-block:focus-within,
+.document-studio-shell .document-page .document-block:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.document-studio-shell .document-page .document-block.selected,
+.document-studio-shell .document-page .document-block:focus-within {
+  z-index: 10;
+}
+
+.document-studio-shell .document-page .document-block.locked {
+  background: transparent;
+}
+
+.document-studio-shell .document-page .document-block.locked::after {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.2rem;
+  color: #839195;
+  content: "\1F512";
+  font-size: 0.58rem;
+  opacity: 0.7;
+}
+
+.document-studio-shell .document-page .document-block-tools,
+.document-block-gutter {
+  position: absolute;
+  z-index: 8;
+  top: -2.5rem;
+  right: -0.35rem;
+  left: auto;
+  display: flex;
+  width: max-content;
+  max-width: 32rem;
+  align-items: center;
+  gap: 0.15rem;
+  border: 1px solid #d4dedf;
+  border-radius: 0.48rem;
+  background: rgb(255 255 255 / 98%);
+  padding: 0.2rem;
+  opacity: 0;
+  box-shadow: 0 8px 24px rgb(26 47 51 / 14%);
+  pointer-events: none;
+  transform: translateY(0.25rem);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.document-studio-shell .document-page .document-block.selected > .document-block-tools,
+.document-studio-shell .document-page .document-block:hover > .document-block-tools,
+.document-studio-shell .document-page .document-block:focus-within > .document-block-tools,
+.document-studio-shell .document-page .document-block.selected > .document-block-gutter,
+.document-studio-shell .document-page .document-block:hover > .document-block-gutter,
+.document-studio-shell .document-page .document-block:focus-within > .document-block-gutter {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.document-studio-shell .document-page .document-block-tools strong {
+  padding-inline: 0.38rem;
+  color: #42575c;
+  font-size: 0.54rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .document-page .document-block-gutter strong {
+  padding-inline: 0.36rem;
+  color: #53676b;
+  font-size: 0.51rem;
+  font-weight: 820;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .document-page .document-block-gutter small {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  color: #9b741e;
+  font-size: 0.38rem;
+}
+
+.document-studio-shell .document-page .document-block-tools small {
+  display: none;
+}
+
+.document-studio-shell .document-page .block-handle {
+  display: grid;
+  min-width: 1.8rem;
+  min-height: 1.75rem;
+  place-items: center;
+  border-right: 1px solid #e4e9ea;
+  color: #819095;
+}
+
+.document-studio-shell .document-page .document-block-tools button,
+.document-block-gutter button {
+  min-width: 1.8rem;
+  min-height: 1.75rem;
+  border-radius: 0.3rem;
+  padding: 0.24rem 0.42rem;
+  color: #4f6266;
+}
+
+.document-studio-shell .document-page .document-block-tools button:hover,
+.document-block-gutter button:hover {
+  background: var(--editor-accent-soft);
+  color: #086c64;
+}
+
+.document-studio-shell .document-page .block-editor-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.document-studio-shell .document-prose-editor,
+.document-studio-shell .document-terms-editor,
+.document-studio-shell .document-variable-editor,
+.document-studio-shell .divider-editor {
+  position: relative;
+}
+
+.document-studio-shell .document-terms-editor {
+  display: grid;
+  gap: 0.35rem;
+  border-left: 2px solid #d5dfe0;
+  padding-left: 0.8rem;
+}
+
+.document-studio-shell .document-prose-heading {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #253a3f;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 760;
+  line-height: 1.45;
+}
+
+.document-studio-shell .document-prose-heading:focus-visible,
+.document-studio-shell .document-prose-input:focus-visible {
+  outline: 0 !important;
+  box-shadow: inset 0 -1px 0 #a8d7d2;
+}
+
+.document-studio-shell .align-left {
+  text-align: left;
+}
+
+.document-studio-shell .align-center {
+  text-align: center;
+}
+
+.document-studio-shell .align-right {
+  text-align: right;
+}
+
+.document-studio-shell .document-page .block-editor-grid textarea,
+.document-studio-shell .document-page .block-editor-grid input,
+.document-studio-shell .document-page .document-prose-input,
+.document-studio-shell .document-page .column-text-editor textarea {
+  field-sizing: content;
+  width: 100%;
+  min-height: 2rem;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  padding: 0.18rem 0;
+  caret-color: var(--editor-accent);
+  color: #26373b;
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  resize: none;
+}
+
+.document-studio-shell .document-page .block-editor-grid input {
+  color: #1d3338;
+  font-size: 1.02rem;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
+.document-studio-shell .document-page .document-prose-input.text-style-title {
+  min-height: 2.7rem;
+  font-size: 1.72rem;
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+
+.document-studio-shell .document-page .document-prose-input.text-style-subtitle {
+  min-height: 2.2rem;
+  color: #344b50;
+  font-size: 1.18rem;
+  line-height: 1.35;
+  letter-spacing: -0.018em;
+}
+
+.document-studio-shell .document-page .document-prose-input.text-style-caption {
+  min-height: 1.7rem;
+  color: #66787c;
+  font-size: 0.69rem;
+  line-height: 1.5;
+}
+
+.document-studio-shell .document-page .document-prose-input.is-bold {
+  font-weight: 760;
+}
+
+.document-studio-shell .document-page .document-prose-input.is-italic {
+  font-style: italic;
+}
+
+.document-studio-shell .document-page .document-prose-input.is-underlined {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentcolor 62%, transparent);
+  text-decoration-thickness: 0.075em;
+  text-underline-offset: 0.14em;
+}
+
+.document-studio-shell .document-page .block-editor-grid select,
+.document-studio-shell .document-page .column-text-editor select {
+  position: absolute;
+  z-index: 5;
+  top: -2.35rem;
+  right: 0.2rem;
+  width: auto;
+  min-width: 6.6rem;
+  border: 1px solid #d7e0e1;
+  border-radius: 0.34rem;
+  background: #fff;
+  padding: 0.35rem 0.5rem;
+  opacity: 0;
+  color: #44595e;
+  font-size: 0.56rem;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgb(24 46 51 / 10%);
+}
+
+.document-studio-shell .document-page .document-block.selected .block-editor-grid select,
+.document-studio-shell .document-page .block-editor-grid:focus-within select,
+.document-studio-shell
+  .document-page
+  .document-column-item:focus-within
+  .column-text-editor
+  select {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .columns-block-editor {
+  position: relative;
+  display: grid;
+  gap: 0;
+}
+
+.document-studio-shell .column-layout-controls {
+  position: absolute;
+  z-index: 7;
+  top: -2.48rem;
+  left: -0.2rem;
+  width: max-content;
+  border-color: #d4dedf;
+  border-radius: 0.48rem;
+  background: rgb(255 255 255 / 98%);
+  opacity: 0;
+  box-shadow: 0 8px 24px rgb(26 47 51 / 12%);
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.document-studio-shell .document-block.selected .column-layout-controls,
+.document-studio-shell .columns-block-editor:focus-within .column-layout-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .column-layout-controls > span {
+  display: none;
+}
+
+.document-studio-shell .document-page .columns-editor {
+  display: grid;
+  grid-template-columns: var(--document-columns, 1fr 1fr);
+  align-items: stretch;
+  gap: 1.75rem;
+  padding: 0;
+}
+
+.document-studio-shell .document-page .document-column-cell {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.5rem;
+  padding: 0;
+}
+
+.document-studio-shell .document-page .document-column-cell + .document-column-cell {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.document-studio-shell
+  .document-page
+  .document-block.selected
+  .document-column-cell
+  + .document-column-cell::before,
+.document-studio-shell
+  .document-page
+  .columns-block-editor:focus-within
+  .document-column-cell
+  + .document-column-cell::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -0.9rem;
+  border-left: 1px dashed #d6e2e2;
+  content: "";
+  pointer-events: none;
+}
+
+.document-studio-shell .document-column-head {
+  order: 2;
+  display: grid;
+  max-height: 0;
+  gap: 0;
+  opacity: 0;
+  overflow: visible;
+  pointer-events: none;
+  transition:
+    max-height 120ms ease,
+    opacity 120ms ease;
+}
+
+.document-studio-shell .document-block.selected .document-column-head,
+.document-studio-shell .document-column-cell:focus-within .document-column-head {
+  max-height: 2.1rem;
+  margin-top: 0.12rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .document-column-head > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.document-studio-shell .document-column-head > div {
+  display: flex;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 0.14rem;
+  overflow-x: auto;
+  padding-top: 0.25rem;
+}
+
+.document-studio-shell .document-column-head button {
+  min-height: 1.65rem;
+  border-color: #dce5e6;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #64767a;
+  font-size: 0.51rem;
+  white-space: nowrap;
+}
+
+.document-studio-shell .document-column-items {
+  order: 1;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.document-studio-shell .document-column-item {
+  position: relative;
+  display: grid;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.document-studio-shell .document-column-item::before {
+  position: absolute;
+  inset: -0.28rem;
+  z-index: -1;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  content: "";
+  pointer-events: none;
+}
+
+.document-studio-shell .document-column-item:hover::before,
+.document-studio-shell .document-column-item:focus-within::before {
+  border-color: #d8e6e4;
+}
+
+.document-studio-shell .document-column-item > header {
+  position: absolute;
+  z-index: 6;
+  top: -1.95rem;
+  right: 0;
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid #d7e1e2;
+  border-radius: 0.35rem;
+  background: #fff;
+  padding: 0.16rem 0.2rem;
+  opacity: 0;
+  box-shadow: 0 5px 16px rgb(25 48 53 / 11%);
+  pointer-events: none;
+  transform: translateY(0.2rem);
+  transition: 120ms ease;
+}
+
+.document-studio-shell .document-column-item:hover > header,
+.document-studio-shell .document-column-item:focus-within > header {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.document-studio-shell .document-column-item > header strong {
+  padding-left: 0.28rem;
+  color: #6a7b7f;
+  font-size: 0.45rem;
+}
+
+.document-studio-shell .document-column-item > header div {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .document-column-item > header button {
+  min-width: 1.55rem;
+  min-height: 1.5rem;
+  border: 0;
+  padding: 0.18rem;
+}
+
+.document-studio-shell .document-column-empty {
+  min-height: 6rem;
+  border-color: #cbdad9;
+  border-radius: 0.4rem;
+  background: rgb(248 251 251 / 55%);
+  color: #6c8582;
+}
+
+.document-studio-shell .document-column-empty:hover {
+  border-color: #7fc6bf;
+  background: #f1faf8;
+  color: #0b756c;
+}
+
+.document-studio-shell .legacy-column-cell {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.document-studio-shell .legacy-column-cell > span {
+  display: none;
+}
+
+.document-studio-shell .legacy-column-cell > p {
+  color: #26383d;
+  font-size: 0.85rem;
+  line-height: 1.68;
+}
+
+.document-studio-shell .column-text-editor {
+  position: relative;
+  display: grid;
+  gap: 0;
+}
+
+.document-studio-shell .column-text-editor textarea {
+  min-height: 3rem;
+}
+
+.document-studio-shell .column-image-editor,
+.document-studio-shell .image-slot-editor {
+  position: relative;
+}
+
+.document-studio-shell .column-image-frame,
+.document-studio-shell .document-page .image-slot-editor > div:first-child {
+  overflow: hidden;
+  border: 0;
+  border-radius: 0.32rem;
+  background: #f3f6f6;
+}
+
+.document-studio-shell .column-image-preview,
+.document-studio-shell .document-page .image-slot-editor > div:first-child {
+  min-height: 8rem;
+  border: 1px dashed #c2d0d1;
+  background: linear-gradient(135deg, #f0f4f4, #fafcfc);
+}
+
+.document-studio-shell .column-image-preview img,
+.document-studio-shell .document-page .image-slot-editor > div:first-child img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 24rem;
+  object-fit: var(--image-fit, contain);
+}
+
+.document-studio-shell .image-fit-cover .column-image-preview img,
+.document-studio-shell .image-fit-cover.image-slot-editor > div:first-child img {
+  object-fit: cover;
+}
+
+.document-studio-shell .image-fit-contain .column-image-preview img,
+.document-studio-shell .image-fit-contain.image-slot-editor > div:first-child img {
+  object-fit: contain;
+}
+
+.document-studio-shell .column-image-editor .document-file-button,
+.document-studio-shell .image-slot-editor > div:first-child .document-file-button {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  opacity: 0;
+  box-shadow: 0 8px 24px rgb(10 41 43 / 20%);
+  transform: translate(-50%, -42%);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.document-studio-shell .column-image-editor:hover .document-file-button,
+.document-studio-shell .column-image-editor:focus-within .document-file-button,
+.document-studio-shell .image-slot-editor > div:first-child:hover .document-file-button,
+.document-studio-shell .image-slot-editor > div:first-child:focus-within .document-file-button {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.document-studio-shell .document-image-caption {
+  margin-top: 0.42rem;
+  color: #6a787d;
+  font-family: inherit;
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.document-studio-shell .document-page .image-slot-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+}
+
+.document-studio-shell .document-page .image-slot-editor > label:not(.instance-editability),
+.document-studio-shell .document-page .image-slot-editor > .image-presentation-controls,
+.document-studio-shell .document-page .image-slot-editor > .instance-editability {
+  display: none;
+}
+
+.document-studio-shell
+  .document-page
+  .document-block.selected
+  .image-slot-editor
+  > label:not(.instance-editability),
+.document-studio-shell
+  .document-page
+  .document-block.selected
+  .image-slot-editor
+  > .image-presentation-controls,
+.document-studio-shell
+  .document-page
+  .document-block.selected
+  .image-slot-editor
+  > .instance-editability,
+.document-studio-shell
+  .document-page
+  .image-slot-editor:focus-within
+  > label:not(.instance-editability),
+.document-studio-shell
+  .document-page
+  .image-slot-editor:focus-within
+  > .image-presentation-controls,
+.document-studio-shell .document-page .image-slot-editor:focus-within > .instance-editability {
+  display: grid;
+}
+
+.document-studio-shell .document-page .image-slot-editor > label:not(.document-file-button),
+.document-studio-shell .document-page .image-slot-editor > .image-presentation-controls,
+.document-studio-shell .document-page .image-slot-editor > .instance-editability {
+  border-radius: 0.32rem;
+  background: #f8fafa;
+  padding: 0.45rem;
+}
+
+.document-studio-shell .document-table-grid {
+  border: 1px solid #d8e0e2;
+  border-radius: 0.2rem;
+  background: #fff;
+}
+
+.document-studio-shell .document-page .table-editor {
+  border: 0;
+  padding: 0;
+}
+
+.document-studio-shell .document-table-head {
+  background: #f4f6f7;
+}
+
+.document-studio-shell .document-table-row {
+  border-bottom-color: #dfe5e7;
+}
+
+.document-studio-shell .document-table-row:last-child {
+  border-bottom: 0;
+}
+
+.document-studio-shell .document-table-row input {
+  padding: 0.52rem !important;
+  line-height: 1.35 !important;
+}
+
+.document-studio-shell .document-add-row {
+  margin-top: 0.55rem;
+  border-radius: 0.3rem;
+  padding: 0.3rem 0.48rem;
+}
+
+.document-studio-shell .document-add-row:hover {
+  background: var(--editor-accent-soft);
+}
+
+.document-studio-shell .document-page > .document-page-region {
+  min-height: 2.8rem;
+  padding-block: 0.55rem;
+  color: #3f565b;
+}
+
+.document-studio-shell .document-page > .document-page-header {
+  border-bottom-width: 1px;
+}
+
+.document-studio-shell .document-page > .document-page-footer {
+  margin-top: 3.5rem;
+  border-top-width: 1px;
+}
+
+.document-studio-shell .document-page-region textarea {
+  field-sizing: content;
+  min-height: 1.55rem;
+  caret-color: var(--editor-accent);
+  font-size: 0.61rem;
+  line-height: 1.4;
+}
+
+.document-studio-shell .document-page-footer textarea {
+  color: #65757a;
+  font-size: 0.58rem;
+}
+
+.document-studio-shell .document-page-region:hover,
+.document-studio-shell .document-page-region:focus-within {
+  background: linear-gradient(90deg, transparent, rgb(235 246 244 / 55%), transparent);
+}
+
+.document-studio-shell .document-region-settings {
+  top: 50%;
+  right: -3.85rem;
+  min-width: 3.15rem;
+  border-color: #d3dfe0;
+  border-radius: 999px;
+  color: #506469;
+  box-shadow: 0 5px 16px rgb(25 48 53 / 10%);
+  transform: translateY(-50%);
+}
+
+.document-studio-shell .document-region-settings:hover {
+  border-color: #8ecbc5;
+  background: var(--editor-accent-soft);
+  color: #086d65;
+}
+
+.document-studio-shell .document-region-hidden {
+  min-height: 2.7rem;
+  border-color: #d5dfe0;
+  border-radius: 0;
+  background: transparent;
+  color: #7e8b8f;
+}
+
+.document-studio-shell .document-region-hidden:hover {
+  border-color: #8fcac4;
+  background: #f4faf9;
+  color: #0a7169;
+}
+
+.document-studio-shell .document-library,
+.document-studio-shell .document-inspector {
+  background: #fbfcfc;
+}
+
+.document-studio-shell .document-inspector > header,
+.document-studio-shell .document-inspector > section {
+  background: #fbfcfc;
+}
+
+.document-studio-shell .document-inspector > section {
+  gap: 0.8rem;
+}
+
+.document-studio-shell .document-inspector input:not([type="checkbox"]):not([type="color"]),
+.document-studio-shell .document-inspector select {
+  min-height: 2.35rem;
+  border-color: #d6dfe1;
+  border-radius: 0.42rem;
+}
+
+.document-studio-shell .document-inspector input:focus-visible,
+.document-studio-shell .document-inspector select:focus-visible {
+  border-color: #69bdb5;
+  outline: 2px solid rgb(54 170 159 / 12%);
+  outline-offset: 0;
+}
+
+.document-studio-shell .document-empty-page {
+  min-height: 12rem;
+  border-color: #cbd8d9;
+  border-radius: 0.35rem;
+  background: #fafcfc;
+  color: #667a7e;
+}
+
+.document-studio-shell .document-empty-page:hover {
+  border-color: #83c9c2;
+  background: #f4faf9;
+  color: #096f67;
+}
+
+.document-inline-controls {
+  position: absolute;
+  z-index: 7;
+  top: -2.4rem;
+  right: 0;
+  display: flex;
+  gap: 0.2rem;
+  border: 1px solid #d5dfe0;
+  border-radius: 0.42rem;
+  background: #fff;
+  padding: 0.2rem;
+  box-shadow: 0 7px 20px rgb(23 46 50 / 12%);
+}
+
+.document-studio-shell .image-slot-editor > .document-inline-controls,
+.document-studio-shell .column-image-editor > .document-inline-controls,
+.document-studio-shell .document-variable-editor > .document-inline-controls {
+  top: calc(100% + 0.55rem);
+  right: 0;
+  display: grid;
+  width: min(30rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  border-radius: 0.55rem;
+  padding: 0.65rem;
+}
+
+.document-studio-shell .column-image-editor > .document-inline-controls {
+  width: min(25rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.document-studio-shell .document-variable-editor > .document-inline-controls {
+  width: min(24rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.document-studio-shell .document-inline-controls > label,
+.document-studio-shell .document-inline-controls .image-presentation-controls label {
+  display: grid;
+  min-width: 0;
+  gap: 0.22rem;
+  color: #6f8084;
+  font-size: 0.48rem;
+  font-weight: 780;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .document-inline-controls input:not([type="checkbox"]),
+.document-studio-shell .document-inline-controls select {
+  min-width: 0;
+  width: 100%;
+  min-height: 1.9rem;
+  border: 1px solid #d7e0e1;
+  border-radius: 0.3rem;
+  background: #fff;
+  padding: 0.34rem 0.42rem;
+  color: #30484d;
+  font: inherit;
+  font-size: 0.56rem;
+  text-transform: none;
+}
+
+.document-studio-shell .document-inline-controls .image-presentation-controls {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.document-studio-shell .document-inline-controls .instance-editability {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #52666b;
+  font-size: 0.53rem;
+  text-transform: none;
+}
+
+.document-studio-shell .document-inline-controls .instance-editability input {
+  width: 0.9rem;
+  height: 0.9rem;
+  min-height: 0;
+}
+
+.document-studio-shell .document-variable-value {
+  display: inline-flex;
+  min-height: 1.9rem;
+  align-items: center;
+  border-bottom: 1px solid #bfd2d2;
+  padding: 0.18rem 0;
+  color: #1e383d;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.document-studio-shell .document-variable-value::before {
+  margin-right: 0.45rem;
+  border-radius: 999px;
+  background: #e3f4f1;
+  padding: 0.14rem 0.4rem;
+  color: #0c736a;
+  content: "DATO";
+  font-size: 0.43rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+}
+
+.document-studio-shell .document-page .signature-editor {
+  position: relative;
+  display: grid;
+  width: 45%;
+  gap: 0.38rem;
+  margin-top: 2.8rem;
+  border: 0;
+  padding-top: 0;
+}
+
+.document-studio-shell .signature-line {
+  display: block;
+  width: 100%;
+  border-top: 1px solid #78888d;
+}
+
+.document-studio-shell .signature-editor input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #56686d;
+  font: inherit;
+  font-size: 0.65rem;
+}
+
+.document-studio-shell .divider-editor {
+  padding-block: 0.45rem;
+}
+
+.document-studio-shell .divider-editor::before {
+  display: none;
+}
+
+.document-studio-shell .divider-editor hr {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid #8e9da1;
+}
+
+.document-studio-shell .divider-dashed hr {
+  border-top-style: dashed;
+}
+
+.document-studio-shell .divider-dotted hr {
+  border-top-style: dotted;
+}
+
+.document-studio-shell .divider-editor > select.document-inline-controls {
+  top: -2.35rem;
+  right: 0;
+  display: block;
+  width: 7rem;
+  min-height: 1.9rem;
+  padding: 0.3rem 0.4rem;
+  color: #44595e;
+  font-size: 0.55rem;
+}
+
+@media (max-width: 1100px) {
+  .document-studio-shell .document-canvas-scroll {
+    padding-inline: 2rem;
+  }
+
+  .document-studio-shell .document-region-settings {
+    right: 0.2rem;
+    top: -1.55rem;
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .document-studio-shell,
+  .document-studio-shell .documents-page {
+    min-height: 39rem;
+  }
+
+  .document-studio-shell .documents-page {
+    grid-template-rows: 3.6rem 3rem minmax(0, 1fr);
+  }
+
+  .document-studio-shell .document-toolbar {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .document-studio-shell .document-canvas-scroll {
+    padding: 1.5rem 1rem 7rem;
+  }
+
+  .document-studio-shell .document-page {
+    padding: 3rem 3.75rem 2.7rem;
+  }
+
+  .document-studio-shell .document-page-title textarea {
+    font-size: 2.35rem;
+  }
+}
+
+@media (max-width: 620px) {
+  .document-studio-shell .document-command-title > div,
+  .document-studio-shell .document-save-state,
+  .document-studio-shell .document-view-tools {
+    display: none;
+  }
+
+  .document-studio-shell .document-command-actions {
+    margin-left: auto;
+  }
+
+  .document-studio-shell .document-canvas-meta {
+    justify-content: flex-start;
+    overflow: hidden;
+    padding-inline: 1rem;
+    white-space: nowrap;
+  }
+
+  .document-studio-shell .column-layout-picker {
+    top: 6.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .document-studio-shell *,
+  .document-studio-shell *::before,
+  .document-studio-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

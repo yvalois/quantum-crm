@@ -160,6 +160,20 @@ function documentFileReferences(
         position,
       });
     }
+    if (block.type === "COLUMNS") {
+      for (const cell of block.cells ?? []) {
+        for (const item of cell.items) {
+          if (item.type === "IMAGE" && item.fileId && item.checksum) {
+            references.push({
+              fileId: item.fileId,
+              checksum: item.checksum,
+              purpose: "inline_image",
+              position: references.length,
+            });
+          }
+        }
+      }
+    }
   }
   if (designValue.logoFileId && designValue.logoChecksum) {
     references.push({
@@ -189,11 +203,13 @@ function documentFileReferences(
   return Object.freeze([...unique.values()]);
 }
 
-async function syncDocumentFileReferences(
+async function syncDocumentResourceFileReferences(
   client: PoolClient,
   input: {
-    readonly documentId: string;
+    readonly resourceType: "commercial_document" | "document_template";
+    readonly resourceId: string;
     readonly sourceTemplateId: string | null;
+    readonly sourceDocumentId: string | null;
     readonly actorMemberId: string;
     readonly blocks: readonly DocumentBlock[];
     readonly design: DocumentDesign;
@@ -213,25 +229,41 @@ async function syncDocumentFileReferences(
        WHERE file.id = ANY($1::uuid[])
          AND file.status = 'available'
          AND (
-           (file.owner_module = 'documents' AND file.owner_type = 'commercial_document'
-             AND file.owner_id = $2::uuid)
+           (file.owner_module = 'documents' AND (
+             (file.owner_type = $3 AND file.owner_id = $2::uuid)
+             OR ($5::uuid IS NOT NULL AND file.owner_type = 'commercial_document'
+               AND file.owner_id = $5::uuid)
+           ))
            OR EXISTS (
              SELECT 1 FROM files.references AS existing
              WHERE existing.file_id = file.id
                AND existing.module = 'documents'
-               AND existing.resource_type = 'commercial_document'
+               AND existing.resource_type = $3
                AND existing.resource_id = $2::uuid
            )
-           OR ($3::uuid IS NOT NULL AND EXISTS (
+           OR ($4::uuid IS NOT NULL AND EXISTS (
              SELECT 1 FROM files.references AS template_reference
              WHERE template_reference.file_id = file.id
                AND template_reference.module = 'documents'
                AND template_reference.resource_type = 'document_template'
-               AND template_reference.resource_id = $3::uuid
+               AND template_reference.resource_id = $4::uuid
+           ))
+           OR ($5::uuid IS NOT NULL AND EXISTS (
+             SELECT 1 FROM files.references AS source_reference
+             WHERE source_reference.file_id = file.id
+               AND source_reference.module = 'documents'
+               AND source_reference.resource_type = 'commercial_document'
+               AND source_reference.resource_id = $5::uuid
            ))
          )
        FOR SHARE OF file`,
-      [fileIds, input.documentId, input.sourceTemplateId],
+      [
+        fileIds,
+        input.resourceId,
+        input.resourceType,
+        input.sourceTemplateId,
+        input.sourceDocumentId,
+      ],
     );
     const checksums = new Map(available.rows.map((row) => [row.id, row.checksum]));
     if (
@@ -248,10 +280,10 @@ async function syncDocumentFileReferences(
   }>(
     `SELECT file_id::text, purpose
      FROM files.references
-     WHERE module = 'documents' AND resource_type = 'commercial_document'
+     WHERE module = 'documents' AND resource_type = $2
        AND resource_id = $1::uuid
      FOR UPDATE`,
-    [input.documentId],
+    [input.resourceId, input.resourceType],
   );
   const desiredKeys = new Set(
     references.map((reference) => `${reference.fileId}:${reference.purpose}`),
@@ -263,17 +295,17 @@ async function syncDocumentFileReferences(
     await client.query(
       `DELETE FROM files.references
        WHERE file_id = $1::uuid AND module = 'documents'
-         AND resource_type = 'commercial_document' AND resource_id = $2::uuid
-         AND purpose = $3`,
-      [row.file_id, input.documentId, row.purpose],
+         AND resource_type = $3 AND resource_id = $2::uuid
+         AND purpose = $4`,
+      [row.file_id, input.resourceId, input.resourceType, row.purpose],
     );
     await client.query(
       `INSERT INTO files.outbox
         (id, aggregate_id, event_type, payload, created_at, available_at)
        VALUES (uuidv7(), $1::uuid, 'file.reference.detached',
          jsonb_build_object('fileId', $1::text, 'module', 'documents',
-           'resourceType', 'commercial_document', 'resourceId', $2::text), $3, $3)`,
-      [row.file_id, input.documentId, input.now],
+           'resourceType', $3::text, 'resourceId', $2::text), $4, $4)`,
+      [row.file_id, input.resourceId, input.resourceType, input.now],
     );
   }
   for (const reference of references) {
@@ -282,9 +314,15 @@ async function syncDocumentFileReferences(
       await client.query(
         `UPDATE files.references SET position = $4
          WHERE file_id = $1::uuid AND module = 'documents'
-           AND resource_type = 'commercial_document' AND resource_id = $2::uuid
+           AND resource_type = $5 AND resource_id = $2::uuid
            AND purpose = $3`,
-        [reference.fileId, input.documentId, reference.purpose, reference.position],
+        [
+          reference.fileId,
+          input.resourceId,
+          reference.purpose,
+          reference.position,
+          input.resourceType,
+        ],
       );
       continue;
     }
@@ -293,20 +331,21 @@ async function syncDocumentFileReferences(
          INSERT INTO files.references
            (id, file_id, module, resource_type, resource_id, purpose, position,
             created_by_member_id, created_at)
-         VALUES (uuidv7(), $1::uuid, 'documents', 'commercial_document', $2::uuid,
-                 $3, $4, $5::uuid, $6)
+         VALUES (uuidv7(), $1::uuid, 'documents', $3, $2::uuid,
+                 $4, $5, $6::uuid, $7)
          RETURNING id, file_id
        )
        INSERT INTO files.outbox
          (id, aggregate_id, event_type, payload, created_at, available_at)
        SELECT uuidv7(), attached.file_id, 'file.reference.attached',
          jsonb_build_object('fileId', attached.file_id::text, 'referenceId', attached.id::text,
-           'module', 'documents', 'resourceType', 'commercial_document',
-           'resourceId', $2::text, 'kind', upper($3)), $6, $6
+           'module', 'documents', 'resourceType', $3::text,
+           'resourceId', $2::text, 'kind', upper($4)), $7, $7
        FROM attached`,
       [
         reference.fileId,
-        input.documentId,
+        input.resourceId,
+        input.resourceType,
         reference.purpose,
         reference.position,
         input.actorMemberId,
@@ -471,9 +510,11 @@ export function createDocumentPostgresRepository(pool: PostgresPool): DocumentRe
         );
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
-        await syncDocumentFileReferences(client, {
-          documentId: row.id,
+        await syncDocumentResourceFileReferences(client, {
+          resourceType: "commercial_document",
+          resourceId: row.id,
           sourceTemplateId: row.source_template_id,
+          sourceDocumentId: input.sourceDocumentId ?? null,
           actorMemberId: document.ownerMemberId,
           blocks: document.blocks,
           design: document.design,
@@ -543,9 +584,11 @@ export function createDocumentPostgresRepository(pool: PostgresPool): DocumentRe
           await client.query("COMMIT");
           return null;
         }
-        await syncDocumentFileReferences(client, {
-          documentId: row.id,
+        await syncDocumentResourceFileReferences(client, {
+          resourceType: "commercial_document",
+          resourceId: row.id,
           sourceTemplateId: row.source_template_id,
+          sourceDocumentId: null,
           actorMemberId: input.actor.memberId,
           blocks: input.blocks,
           design: input.design,
@@ -628,6 +671,16 @@ export function createDocumentPostgresRepository(pool: PostgresPool): DocumentRe
         );
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
+        await syncDocumentResourceFileReferences(client, {
+          resourceType: "document_template",
+          resourceId: row.id,
+          sourceTemplateId: null,
+          sourceDocumentId: input.sourceDocumentId,
+          actorMemberId: input.actorMemberId,
+          blocks: template.blocks,
+          design: template.design,
+          now: template.createdAt,
+        });
         await insertTemplateRevision(client, row, input.actorMemberId);
         await remember(
           client,
@@ -684,6 +737,16 @@ export function createDocumentPostgresRepository(pool: PostgresPool): DocumentRe
           await client.query("COMMIT");
           return null;
         }
+        await syncDocumentResourceFileReferences(client, {
+          resourceType: "document_template",
+          resourceId: row.id,
+          sourceTemplateId: null,
+          sourceDocumentId: null,
+          actorMemberId: input.actorMemberId,
+          blocks: input.blocks,
+          design: input.design,
+          now: input.now,
+        });
         await insertTemplateRevision(client, row, input.actorMemberId);
         await remember(
           client,

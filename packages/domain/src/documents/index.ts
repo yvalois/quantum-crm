@@ -46,6 +46,7 @@ export interface DocumentRepository {
   readonly find: (actor: CommercialActor, id: string) => Promise<CommercialDocumentRecord | null>;
   readonly create: (input: {
     readonly document: CommercialDocumentRecord;
+    readonly sourceDocumentId?: string | null;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
   }) => Promise<CommercialDocumentRecord>;
@@ -68,6 +69,7 @@ export interface DocumentRepository {
   readonly findTemplate: (id: string) => Promise<DocumentTemplateRecord | null>;
   readonly createTemplate: (input: {
     readonly template: DocumentTemplateRecord;
+    readonly sourceDocumentId: string;
     readonly actorMemberId: string;
     readonly idempotencyKey: string;
     readonly payloadHash: string;

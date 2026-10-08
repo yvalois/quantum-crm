@@ -18,6 +18,11 @@ export const TextDocumentBlockSchema = BlockBaseSchema.extend({
   type: z.literal("TEXT"),
   content: z.string().max(20_000),
   align: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
+  /** Optional for documents created before rich block formatting existed. */
+  style: z.enum(["BODY", "TITLE", "SUBTITLE", "CAPTION"]).optional(),
+  bold: z.boolean().optional(),
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
 }).strict();
 
 const ImageDocumentBlockBaseSchema = BlockBaseSchema.extend({
@@ -31,6 +36,9 @@ const ImageDocumentBlockBaseSchema = BlockBaseSchema.extend({
   replaceable: z.boolean().default(false),
   /** A replaceable slot can be intentionally omitted from one document instance. */
   visible: z.boolean().default(true),
+  width: z.enum(["FULL", "WIDE", "MEDIUM", "SMALL"]).default("FULL"),
+  align: z.enum(["LEFT", "CENTER", "RIGHT"]).default("CENTER"),
+  fit: z.enum(["CONTAIN", "COVER"]).default("COVER"),
 }).strict();
 export const ImageDocumentBlockSchema = ImageDocumentBlockBaseSchema.refine(
   (value) => (value.fileId === null) === (value.checksum === null),
@@ -76,20 +84,9 @@ export const TableDocumentBlockSchema = TableDocumentBlockBaseSchema.refine(
   },
 );
 
-export const ColumnsDocumentBlockSchema = BlockBaseSchema.extend({
-  type: z.literal("COLUMNS"),
-  columns: z.array(z.string().max(10_000)).min(2).max(3),
-}).strict();
-
 export const DividerDocumentBlockSchema = BlockBaseSchema.extend({
   type: z.literal("DIVIDER"),
   style: z.enum(["SOLID", "DASHED", "DOTTED"]).default("SOLID"),
-}).strict();
-
-export const TermsDocumentBlockSchema = BlockBaseSchema.extend({
-  type: z.literal("TERMS"),
-  title: z.string().trim().min(1).max(160),
-  content: z.string().max(20_000),
 }).strict();
 
 export const VariableDocumentBlockSchema = BlockBaseSchema.extend({
@@ -101,6 +98,83 @@ export const VariableDocumentBlockSchema = BlockBaseSchema.extend({
   value: z.string().max(500).nullable().default(null),
   /** Allows only the resolved value to be changed in an instance of a protected template. */
   editable: z.boolean().default(false),
+}).strict();
+
+export const DocumentColumnItemSchema = z
+  .discriminatedUnion("type", [
+    TextDocumentBlockSchema,
+    ImageDocumentBlockBaseSchema,
+    DividerDocumentBlockSchema,
+    VariableDocumentBlockSchema,
+  ])
+  .superRefine((value, context) => {
+    if (value.type === "IMAGE" && (value.fileId === null) !== (value.checksum === null)) {
+      context.addIssue({
+        code: "custom",
+        message: "fileId and checksum must be supplied together",
+      });
+    }
+  });
+
+export const DocumentColumnCellSchema = z
+  .object({
+    id: IdSchema,
+    items: z.array(DocumentColumnItemSchema).max(24),
+  })
+  .strict();
+
+function columnItemProjection(item: z.infer<typeof DocumentColumnItemSchema>): string {
+  if (item.type === "TEXT") return item.content;
+  if (item.type === "VARIABLE") return item.value ?? `{{${item.key}}}`;
+  if (item.type === "IMAGE") return item.label ? `[Imagen: ${item.label}]` : "[Imagen]";
+  return "---";
+}
+
+const ColumnsDocumentBlockBaseSchema = BlockBaseSchema.extend({
+  type: z.literal("COLUMNS"),
+  columns: z.array(z.string().max(500_000)).min(2).max(3),
+  layout: z.enum(["EQUAL_2", "LEFT_WIDE", "RIGHT_WIDE", "EQUAL_3"]).default("EQUAL_2"),
+  cells: z.array(DocumentColumnCellSchema).min(2).max(3).optional(),
+}).strict();
+export const ColumnsDocumentBlockSchema = ColumnsDocumentBlockBaseSchema.refine(
+  (value) => {
+    const count = value.layout === "EQUAL_3" ? 3 : 2;
+    return (
+      value.columns.length === count && (value.cells === undefined || value.cells.length === count)
+    );
+  },
+  { message: "Column count must match the selected layout" },
+).superRefine((value, context) => {
+  if (!value.cells) return;
+  const ids = new Set<string>();
+  for (const [cellIndex, cell] of value.cells.entries()) {
+    if (ids.has(cell.id)) {
+      context.addIssue({ code: "custom", message: "Column cell and item IDs must be unique" });
+    }
+    ids.add(cell.id);
+    for (const item of cell.items) {
+      if (ids.has(item.id)) {
+        context.addIssue({ code: "custom", message: "Column cell and item IDs must be unique" });
+      }
+      ids.add(item.id);
+      if (item.locked) {
+        context.addIssue({
+          code: "custom",
+          message: "Nested items inherit protection from their column block",
+        });
+      }
+    }
+    const projected = cell.items.map(columnItemProjection).filter(Boolean).join("\n\n");
+    if (value.columns[cellIndex] !== projected) {
+      context.addIssue({ code: "custom", message: "Column projection does not match its items" });
+    }
+  }
+});
+
+export const TermsDocumentBlockSchema = BlockBaseSchema.extend({
+  type: z.literal("TERMS"),
+  title: z.string().trim().min(1).max(160),
+  content: z.string().max(20_000),
 }).strict();
 
 const SignatureDocumentBlockBaseSchema = BlockBaseSchema.extend({
@@ -122,7 +196,7 @@ export const DocumentBlockSchema = z
     ImageDocumentBlockBaseSchema,
     AttachmentDocumentBlockBaseSchema,
     TableDocumentBlockBaseSchema,
-    ColumnsDocumentBlockSchema,
+    ColumnsDocumentBlockBaseSchema,
     DividerDocumentBlockSchema,
     TermsDocumentBlockSchema,
     VariableDocumentBlockSchema,
@@ -152,6 +226,53 @@ export const DocumentBlockSchema = z
         });
       }
     }
+    if (value.type === "COLUMNS" && value.columns.length !== (value.layout === "EQUAL_3" ? 3 : 2)) {
+      context.addIssue({
+        code: "custom",
+        message: "Column count must match the selected layout",
+      });
+    }
+    if (
+      value.type === "COLUMNS" &&
+      value.cells !== undefined &&
+      value.cells.length !== (value.layout === "EQUAL_3" ? 3 : 2)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Column cell count must match the selected layout",
+      });
+    }
+    if (value.type === "COLUMNS" && value.cells) {
+      const ids = new Set<string>();
+      for (const [cellIndex, cell] of value.cells.entries()) {
+        if (ids.has(cell.id)) {
+          context.addIssue({ code: "custom", message: "Column cell and item IDs must be unique" });
+        }
+        ids.add(cell.id);
+        for (const item of cell.items) {
+          if (ids.has(item.id)) {
+            context.addIssue({
+              code: "custom",
+              message: "Column cell and item IDs must be unique",
+            });
+          }
+          ids.add(item.id);
+          if (item.locked) {
+            context.addIssue({
+              code: "custom",
+              message: "Nested items inherit protection from their column block",
+            });
+          }
+        }
+        const projected = cell.items.map(columnItemProjection).filter(Boolean).join("\n\n");
+        if (value.columns[cellIndex] !== projected) {
+          context.addIssue({
+            code: "custom",
+            message: "Column projection does not match its items",
+          });
+        }
+      }
+    }
     if (value.type === "TABLE" && value.rows.some((row) => row.length !== value.columns.length)) {
       context.addIssue({ code: "custom", message: "Every row must match the table columns" });
     }
@@ -166,6 +287,14 @@ export const DocumentDesignSchema = z
     headerText: z.string().max(500),
     footerText: z.string().max(500),
     showPageNumbers: z.boolean(),
+    headerEnabled: z.boolean().default(true),
+    headerLayout: z.enum(["TEXT", "LOGO_TEXT", "SPLIT"]).default("SPLIT"),
+    headerAlign: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
+    headerSpacing: z.enum(["COMPACT", "NORMAL", "SPACIOUS"]).default("NORMAL"),
+    showDocumentKind: z.boolean().default(true),
+    footerEnabled: z.boolean().default(true),
+    footerAlign: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
+    footerSpacing: z.enum(["COMPACT", "NORMAL", "SPACIOUS"]).default("NORMAL"),
     logoFileId: IdSchema.nullable(),
     logoChecksum: ChecksumSchema.nullable(),
     backgroundFileId: IdSchema.nullable(),
@@ -277,6 +406,8 @@ export const DocumentTemplateListResponseSchema = z
 export type CommercialDocument = z.infer<typeof CommercialDocumentSchema>;
 export type CommercialDocumentKind = z.infer<typeof CommercialDocumentKindSchema>;
 export type DocumentBlock = z.infer<typeof DocumentBlockSchema>;
+export type DocumentColumnCell = z.infer<typeof DocumentColumnCellSchema>;
+export type DocumentColumnItem = z.infer<typeof DocumentColumnItemSchema>;
 export type DocumentDesign = z.infer<typeof DocumentDesignSchema>;
 export type DocumentTemplate = z.infer<typeof DocumentTemplateSchema>;
 export type CreateDocument = z.infer<typeof CreateDocumentSchema>;
