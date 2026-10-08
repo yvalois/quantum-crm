@@ -17,6 +17,7 @@ import {
   normalizeColumnsBlock,
   normalizeDocumentBlocks,
   normalizeTableBlock,
+  normalizeTableGrid,
   removeColumnItem,
   removeTableColumn,
   removeTableRow,
@@ -345,6 +346,27 @@ describe("document editor model", () => {
     ]);
     expect(withoutMiddleColumn.columnWidths?.reduce((total, width) => total + width, 0)).toBe(100);
     expect(withoutFirstRow.rows).toEqual([["Soporte", ""]]);
+  });
+
+  it("normalizes legacy table content into a complete V2 grid without mutating it", () => {
+    const source = {
+      id: firstId,
+      type: "TABLE" as const,
+      locked: false,
+      columns: ["Servicio", "Valor"],
+      rows: [["Renta", "Q650.00"]],
+      columnWidths: [65, 35],
+    };
+
+    const grid = normalizeTableGrid(source);
+
+    expect(source).not.toHaveProperty("grid");
+    expect(grid.columns.map((column) => column.widthPercent)).toEqual([65, 35]);
+    expect(grid.rows).toHaveLength(2);
+    expect(grid.rows[0]?.section).toBe("HEADER");
+    expect(grid.rows[0]?.cells.map((cell) => cell.content)).toEqual(["Servicio", "Valor"]);
+    expect(grid.rows[1]?.cells.map((cell) => cell.content)).toEqual(["Renta", "Q650.00"]);
+    expect(normalizeTableGrid({ ...source, grid })).toBe(grid);
   });
 
   it("keeps table operations within contract limits and protects locked tables", () => {

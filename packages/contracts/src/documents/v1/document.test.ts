@@ -8,6 +8,7 @@ import {
   DocumentDesignSchema,
   ImageDocumentBlockSchema,
   TableDocumentBlockSchema,
+  TableGridSchema,
 } from "./document.js";
 
 const design = {
@@ -198,6 +199,79 @@ describe("document contracts", () => {
         }).success,
       ).toBe(false);
     }
+  });
+
+  it("accepts merged V2 cells with per-cell presentation and rejects invalid grids", () => {
+    const grid = {
+      columns: [
+        { id: "019db9c7-1268-7d24-bf99-96ea38ebf160", widthPercent: 40 },
+        { id: "019db9c7-1268-7d24-bf99-96ea38ebf161", widthPercent: 30 },
+        { id: "019db9c7-1268-7d24-bf99-96ea38ebf162", widthPercent: 30 },
+      ],
+      rows: [
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf163",
+          section: "HEADER",
+          cells: [
+            {
+              id: "019db9c7-1268-7d24-bf99-96ea38ebf164",
+              column: 0,
+              colSpan: 3,
+              rowSpan: 1,
+              content: "INFORMACION DEL SERVICIO",
+              style: {
+                horizontalAlign: "CENTER",
+                bold: true,
+                backgroundColor: "#333333",
+                color: "#FFFFFF",
+                borders: { bottom: { style: "SOLID", color: "#222222", width: 1 } },
+              },
+            },
+          ],
+        },
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf165",
+          cells: [
+            { id: "019db9c7-1268-7d24-bf99-96ea38ebf166", column: 0, rowSpan: 2, content: "Fecha" },
+            { id: "019db9c7-1268-7d24-bf99-96ea38ebf167", column: 1, content: "Inicio" },
+            { id: "019db9c7-1268-7d24-bf99-96ea38ebf168", column: 2, content: "Destino" },
+          ],
+        },
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf169",
+          cells: [
+            { id: "019db9c7-1268-7d24-bf99-96ea38ebf170", column: 1, content: "17/07/2025" },
+            { id: "019db9c7-1268-7d24-bf99-96ea38ebf171", column: 2, content: "17/07/2025" },
+          ],
+        },
+      ],
+    } as const;
+    const firstBodyRow = grid.rows[1]!;
+
+    expect(TableGridSchema.parse(grid).rows[0]?.cells[0]?.style?.backgroundColor).toBe("#333333");
+    expect(
+      TableGridSchema.safeParse({ ...grid, columns: [...grid.columns.slice(0, 2)] }).success,
+    ).toBe(false);
+    expect(
+      TableGridSchema.safeParse({
+        ...grid,
+        rows: [
+          ...grid.rows.slice(0, 1),
+          {
+            ...firstBodyRow,
+            cells: [
+              ...firstBodyRow.cells,
+              {
+                id: "019db9c7-1268-7d24-bf99-96ea38ebf172",
+                column: 0,
+                content: "Solapa Fecha",
+              },
+            ],
+          },
+          grid.rows[2],
+        ],
+      }).success,
+    ).toBe(false);
   });
 
   it("requires an immutable file identity for a selected image", () => {

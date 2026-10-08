@@ -9918,6 +9918,7 @@ body {
   .column-image-editor
   > .column-image-frame.document-image-card {
   width: var(--image-frame-width);
+  max-width: 100%;
   min-height: 0;
   overflow: visible;
   border: 0;
@@ -9975,9 +9976,122 @@ body {
   height: 100%;
   max-width: none;
   max-height: none;
-  object-fit: fill;
+  object-fit: contain;
 }
 
 .document-studio-shell .document-page .image-slot-editor > .document-image-card::after {
   display: none;
+}
+
+/* A sheet is now a physical page, not one tall paper with decorative lines.
+   The React paginator moves whole blocks before they can cross this boundary. */
+.document-studio-shell .document-page-sheet {
+  box-sizing: border-box;
+  height: var(--document-page-height, 70.7rem);
+  min-height: var(--document-page-height, 70.7rem);
+  overflow: hidden;
+  background-image: none;
+}
+
+.document-studio-shell .document-page-sheet-list {
+  display: grid;
+  width: 50rem;
+  gap: 1.4rem;
+  margin-inline: auto;
+}
+
+.document-studio-shell .document-page-sheet .document-page-blocks {
+  min-height: 0;
+}
+
+.document-studio-shell .document-page-sheet > .document-page-footer {
+  margin-top: auto;
+}
+
+/* Table V2 is a real grid: cells own their spans and presentation instead of
+   relying on a visually similar but non-editable overlay. */
+.document-studio-shell .document-table-v2-grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  border-top: 1px solid #cbd5e1;
+  border-left: 1px solid #cbd5e1;
+  overflow: hidden;
+}
+
+.document-studio-shell .document-table-v2-cell {
+  position: relative;
+  display: block;
+  min-width: 0;
+  min-height: 2.3rem;
+  padding: 0.36rem 0.46rem;
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  background: #fff;
+}
+
+.document-studio-shell .document-table-v2-cell textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 1.35rem;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1.35;
+  text-align: inherit;
+}
+
+.document-studio-shell .document-table-v2-cell-controls {
+  position: absolute;
+  z-index: 2;
+  top: -2.1rem;
+  right: 0;
+  display: flex;
+  gap: 0.2rem;
+  align-items: center;
+  padding: 0.2rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.3rem;
+  background: #fff;
+  box-shadow: 0 0.3rem 0.8rem rgb(15 23 42 / 16%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.document-studio-shell .document-table-v2-cell:focus-within .document-table-v2-cell-controls,
+.document-studio-shell .document-table-v2-cell:hover .document-table-v2-cell-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-studio-shell .document-table-v2-cell-controls button,
+.document-studio-shell .document-table-v2-cell-controls select,
+.document-studio-shell .document-table-v2-cell-controls input {
+  min-height: 1.45rem;
+  border: 1px solid #94a3b8;
+  border-radius: 0.2rem;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.67rem;
+}
+
+.document-studio-shell .document-table-v2-cell-controls button {
+  width: 1.45rem;
+  font-weight: 800;
+}
+
+.document-studio-shell .document-table-v2-cell-controls input[type="color"] {
+  width: 1.6rem;
+  padding: 0.05rem;
+}
+
+.document-studio-shell .document-table-v2-help {
+  margin: 0.55rem 0 0;
+  color: #475569;
+  font-size: 0.74rem;
 }

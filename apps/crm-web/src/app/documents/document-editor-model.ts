@@ -2,6 +2,7 @@ import type { DocumentBlock, DocumentColumnCell, DocumentColumnItem } from "@qua
 
 export type ColumnsBlock = Extract<DocumentBlock, { readonly type: "COLUMNS" }>;
 export type TableBlock = Extract<DocumentBlock, { readonly type: "TABLE" }>;
+export type TableGrid = NonNullable<TableBlock["grid"]>;
 export type DocumentColumnLayout = ColumnsBlock["layout"];
 export type DocumentColumnItemType = DocumentColumnItem["type"];
 export type ImageResizeCorner = "NW" | "NE" | "SW" | "SE";
@@ -308,6 +309,66 @@ export function tableColumnWidths(block: TableBlock): number[] {
     return [...block.columnWidths];
   }
   return distributeTableWidths(block.columns.map(() => 1));
+}
+
+/**
+ * Produces a V2 grid for an existing rectangular table without changing the
+ * persisted legacy projection. The V2 editor can persist this grid when the
+ * author first uses merged cells or per-cell presentation.
+ */
+export function normalizeTableGrid(block: TableBlock): TableGrid {
+  if (block.grid) return block.grid;
+  const widths = tableColumnWidths(block);
+  return {
+    columns: widths.map((widthPercent) => ({ id: newId(), widthPercent })),
+    rows: [
+      {
+        id: newId(),
+        section: "HEADER",
+        cells: block.columns.map((content, column) => ({
+          id: newId(),
+          column,
+          colSpan: 1,
+          rowSpan: 1,
+          content,
+        })),
+      },
+      ...block.rows.map((values) => ({
+        id: newId(),
+        section: "BODY" as const,
+        cells: values.map((content, column) => ({
+          id: newId(),
+          column,
+          colSpan: 1,
+          rowSpan: 1,
+          content,
+        })),
+      })),
+    ],
+  };
+}
+
+/**
+ * Keeps the legacy rectangular projection in sync while V2 owns the visual
+ * grid. Older readers retain meaningful headers, values and column widths.
+ */
+export function projectTableGrid(block: TableBlock, grid: TableGrid): TableBlock {
+  const header = grid.rows.find((row) => row.section === "HEADER") ?? grid.rows[0];
+  const cellContentAt = (row: TableGrid["rows"][number] | undefined, column: number): string =>
+    row?.cells.find((cell) => cell.column === column)?.content ?? "";
+  const columns = grid.columns.map(
+    (_, column) => cellContentAt(header, column) || `Columna ${column + 1}`,
+  );
+  const rows = grid.rows
+    .filter((row) => row !== header)
+    .map((row) => grid.columns.map((_, column) => cellContentAt(row, column)));
+  return {
+    ...block,
+    columns,
+    rows,
+    columnWidths: grid.columns.map((column) => column.widthPercent),
+    grid,
+  };
 }
 
 export function normalizeTableBlock(block: TableBlock): TableBlock {

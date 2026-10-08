@@ -12,6 +12,8 @@ export const CommercialDocumentStatusSchema = z.enum(["DRAFT"]);
 const BlockBaseSchema = z.object({
   id: IdSchema,
   locked: z.boolean().default(false),
+  /** Starts a new physical sheet before this block when composing a paginated document. */
+  breakBefore: z.boolean().optional(),
 });
 
 export const TextDocumentBlockSchema = BlockBaseSchema.extend({
@@ -88,12 +90,162 @@ export const AttachmentDocumentBlockSchema = AttachmentDocumentBlockBaseSchema.s
   },
 );
 
+const TableCellBorderSideSchema = z
+  .object({
+    style: z.enum(["NONE", "SOLID", "DASHED", "DOTTED"]).default("SOLID"),
+    color: ColorSchema.default("#000000"),
+    width: z.number().finite().min(0).max(12).default(1),
+  })
+  .strict();
+
+/** Presentation deliberately lives with the cell, never with the page renderer. */
+export const TableCellStyleSchema = z
+  .object({
+    horizontalAlign: z.enum(["LEFT", "CENTER", "RIGHT"]).optional(),
+    verticalAlign: z.enum(["TOP", "MIDDLE", "BOTTOM"]).optional(),
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    fontFamily: z.enum(["INHERIT", "SANS", "SERIF", "MONO"]).optional(),
+    fontSize: z.number().int().min(8).max(96).optional(),
+    color: ColorSchema.optional(),
+    backgroundColor: ColorSchema.optional(),
+    paddingMm: z.number().finite().min(0).max(40).optional(),
+    borders: z
+      .object({
+        top: TableCellBorderSideSchema.optional(),
+        right: TableCellBorderSideSchema.optional(),
+        bottom: TableCellBorderSideSchema.optional(),
+        left: TableCellBorderSideSchema.optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+export const TableGridColumnSchema = z
+  .object({
+    id: IdSchema,
+    widthPercent: z.number().int().min(5).max(100),
+  })
+  .strict();
+
+export const TableGridCellSchema = z
+  .object({
+    id: IdSchema,
+    column: z.number().int().min(0).max(7),
+    colSpan: z.number().int().min(1).max(8).default(1),
+    rowSpan: z.number().int().min(1).max(100).default(1),
+    content: z.string().max(20_000),
+    style: TableCellStyleSchema.optional(),
+  })
+  .strict();
+
+export const TableGridRowSchema = z
+  .object({
+    id: IdSchema,
+    section: z.enum(["HEADER", "BODY", "FOOTER"]).default("BODY"),
+    heightMm: z.number().finite().positive().max(240).optional(),
+    cells: z.array(TableGridCellSchema).min(1).max(8),
+  })
+  .strict();
+
+export const TableGridSchema = z
+  .object({
+    columns: z.array(TableGridColumnSchema).min(1).max(8),
+    rows: z.array(TableGridRowSchema).min(1).max(100),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.columns.reduce((total, column) => total + column.widthPercent, 0) !== 100) {
+      context.addIssue({
+        code: "custom",
+        path: ["columns"],
+        message: "Grid column widths must total 100",
+      });
+    }
+    const ids = new Set<string>();
+    const occupied = new Set<string>();
+    for (const [columnIndex, column] of value.columns.entries()) {
+      if (ids.has(column.id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["columns", columnIndex, "id"],
+          message: "Grid IDs must be unique",
+        });
+      }
+      ids.add(column.id);
+    }
+    for (const [rowIndex, row] of value.rows.entries()) {
+      if (ids.has(row.id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["rows", rowIndex, "id"],
+          message: "Grid IDs must be unique",
+        });
+      }
+      ids.add(row.id);
+      for (const [cellIndex, cell] of row.cells.entries()) {
+        if (ids.has(cell.id)) {
+          context.addIssue({
+            code: "custom",
+            path: ["rows", rowIndex, "cells", cellIndex, "id"],
+            message: "Grid IDs must be unique",
+          });
+        }
+        ids.add(cell.id);
+        if (
+          cell.column + cell.colSpan > value.columns.length ||
+          rowIndex + cell.rowSpan > value.rows.length
+        ) {
+          context.addIssue({
+            code: "custom",
+            path: ["rows", rowIndex, "cells", cellIndex],
+            message: "Cell span must stay within the grid",
+          });
+          continue;
+        }
+        for (let coveredRow = rowIndex; coveredRow < rowIndex + cell.rowSpan; coveredRow += 1) {
+          for (
+            let coveredColumn = cell.column;
+            coveredColumn < cell.column + cell.colSpan;
+            coveredColumn += 1
+          ) {
+            const coordinate = `${coveredRow}:${coveredColumn}`;
+            if (occupied.has(coordinate)) {
+              context.addIssue({
+                code: "custom",
+                path: ["rows", rowIndex, "cells", cellIndex],
+                message: "Grid cells must not overlap",
+              });
+            }
+            occupied.add(coordinate);
+          }
+        }
+      }
+    }
+    for (let rowIndex = 0; rowIndex < value.rows.length; rowIndex += 1) {
+      for (let columnIndex = 0; columnIndex < value.columns.length; columnIndex += 1) {
+        if (!occupied.has(`${rowIndex}:${columnIndex}`)) {
+          context.addIssue({
+            code: "custom",
+            path: ["rows", rowIndex],
+            message: "Every grid coordinate must be covered by exactly one cell",
+          });
+          return;
+        }
+      }
+    }
+  });
+
 const TableDocumentBlockBaseSchema = BlockBaseSchema.extend({
   type: z.literal("TABLE"),
   columns: z.array(z.string().trim().min(1).max(120)).min(1).max(8),
   rows: z.array(z.array(z.string().max(2_000)).min(1).max(8)).max(100),
   /** Percentage widths. Legacy tables without widths are normalized by the editor. */
   columnWidths: z.array(z.number().int().min(5).max(100)).min(1).max(8).optional(),
+  /** V2 grid. Legacy columns/rows remain required as a compatibility projection. */
+  grid: TableGridSchema.optional(),
 }).strict();
 export const TableDocumentBlockSchema = TableDocumentBlockBaseSchema.superRefine(
   (value, context) => {

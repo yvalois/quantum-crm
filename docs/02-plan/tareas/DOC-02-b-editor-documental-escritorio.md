@@ -17,6 +17,10 @@
 
 Documentos funciona como un estudio de edicion dedicado, sin el sidebar global del CRM durante la composicion: barra superior, herramientas de insercion, lienzo paginado central editable y paneles temporales. El usuario edita viendo el resultado final, puede dividir un renglon en columnas y no pierde el ancho de pagina por navegacion o propiedades permanentes.
 
+### Extension activa - plantillas comerciales paginadas
+
+Las referencias de alquiler SUV y traslado sedan aportadas por el propietario se reproducen como plantillas reutilizables reales: contenido dentro de limites fisicos de hoja, encabezado y pie coherentes, imagenes reemplazables contenidas, tablas comerciales editables y datos dinamicos de cliente, empresa, asesor y servicio. La interfaz no permite que un bloque o una imagen rebase horizontalmente el area imprimible; cuando el flujo excede el alto util, continua en una pagina siguiente.
+
 ## Lectura obligatoria aplicada
 
 - [x] Requisito en `docs/01-producto/funcionalidades.md`.
@@ -85,6 +89,9 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Permitir ajustar ancho y alto desde ocho tiradores directos y eliminar cualquier bloque desde su barra contextual.
 - [x] Iniciar documentos sin plantilla con un lienzo vacio y mantener encabezado, datos del documento y pie como regiones opcionales.
 - [x] Iniciar toda imagen nueva a cero grados y escalar la imagen completa dentro de marcos menores sin recortarla.
+- [x] Implementar limites fisicos de ancho y alto en cada pagina, con continuidad de flujo sin desbordar la hoja.
+- [x] Incorporar las capacidades de tabla y texto necesarias para las dos plantillas comerciales de referencia.
+- [x] Crear y verificar las plantillas reutilizables de traslado sedan y alquiler SUV dentro del CRM.
 
 ## Criterios de aceptacion
 
@@ -122,6 +129,10 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - El rollback coordinado consiste en desplegar las imagenes anteriores de `api` y `crm-web`; los documentos permanecen legibles, aunque la interfaz anterior no conserva al volver a guardar una proporcion de columnas nueva.
 
 ## Evidencia de cierre
+
+- El candidato `f8a0132b` incorporo geometria fisica A4/Letter, paginacion determinista de bloques, salto de pagina explicito, cuadricula de tabla validada con spans y las dos bases comerciales. En el VPS aprobaron Prettier de los archivos afectados, 44 pruebas focalizadas de contrato/modelo/paginacion y los builds de produccion de `api` y `crm-web`; no se ejecuto codigo del proyecto en el equipo local.
+- El primer recorrido autenticado revelo que la API activa aun validaba el contrato anterior y devolvio `Invalid request` al crear el bloque con cuadricula. Se construyo y desplego la API del mismo commit, junto con el CRM web: `qcrm-candidate/api:f8a0132b` y `qcrm-candidate/crm-web:f8a0132b` quedaron `healthy`; readiness publico respondio `200`.
+- En `https://interamerican.2-25-172-119.nip.io/documents`, el recorrido autenticado creo `Cotizacion · Traslado Sedan` como borrador y plantilla reutilizable (Letter, 2 paginas, 8 bloques) y `Cotizacion · Alquiler SUV` (Letter, 3 paginas, 10 bloques). Los dos muestran encabezado, pie, numeracion, columnas editables, tablas comerciales y zonas de imagen sustituibles sin salir de la hoja.
 
 - El candidato `32fea33` aprobo una sola vez en el VPS Prettier, ESLint focalizado, 18 pruebas de modelo/contrato/dominio, typecheck de `contracts`, `domain`, `api` y `crm-web`, y builds de produccion de API y CRM web con Next.js `16.3.8`. No se ejecuto codigo del proyecto en el equipo local.
 - Estan desplegadas y saludables en InterAmerican `qcrm-candidate/api:32fea33` (`sha256:15220709306f22c6825207f0f1d444e6353f58058a76c9a27d4c83fa81afcaf2`) y `qcrm-candidate/crm-web:32fea33` (`sha256:cea714f6e0006f13ab66846e1a74326c3c5d47d81cef63dcbcffd19174253679`). Readiness publico respondio `200` y `/documents` sin sesion conservo la redireccion OIDC `307`.
