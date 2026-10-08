@@ -34,9 +34,7 @@ describe("crm-web proxy", () => {
 
     const policy = proxy(request).headers.get("content-security-policy");
 
-    expect(policy).toContain(
-      "img-src 'self' blob: data: https://storage.2-25-172-119.nip.io",
-    );
+    expect(policy).toContain("img-src 'self' blob: data: https://storage.2-25-172-119.nip.io");
     expect(policy).toContain("connect-src 'self' https://storage.2-25-172-119.nip.io");
     expect(policy).not.toContain("https://*.nip.io");
   });

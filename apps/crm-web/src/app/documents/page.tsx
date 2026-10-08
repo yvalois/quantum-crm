@@ -493,7 +493,11 @@ export default function DocumentsPage(): React.JSX.Element {
         image = { ...block, locked: false };
         return [];
       }
-      if (source.kind === "COLUMN_ITEM" && block.id === source.blockId && block.type === "COLUMNS") {
+      if (
+        source.kind === "COLUMN_ITEM" &&
+        block.id === source.blockId &&
+        block.type === "COLUMNS"
+      ) {
         if (block.locked) return [block];
         const candidate = block.cells
           ?.flatMap((cell) => cell.items)
@@ -908,8 +912,9 @@ export default function DocumentsPage(): React.JSX.Element {
                             block.type === "TEXT"
                               ? {
                                   ...block,
-                                  fontFamily: event.target
-                                    .value as NonNullable<typeof block.fontFamily>,
+                                  fontFamily: event.target.value as NonNullable<
+                                    typeof block.fontFamily
+                                  >,
                                 }
                               : block,
                           )
@@ -2568,124 +2573,124 @@ function BlockEditor({
       </div>
     );
   if (block.type === "TABLE") {
-      const widths = tableColumnWidths(block);
-      const rowTemplate = `${widths.map((width) => `${width}fr`).join(" ")} ${selected ? "2.25rem" : "0"}`;
-      return (
-        <div className="table-editor document-table-composer">
-          <div className="document-table-grid">
-            <div
-              className="document-table-row document-table-head"
-              style={{ gridTemplateColumns: rowTemplate }}
-            >
-              {block.columns.map((column, columnIndex) => (
-                <div className="document-table-heading-cell" key={columnIndex}>
-                  <input
-                    className="document-table-column-control"
-                    value={column}
-                    disabled={block.locked}
-                    aria-label={`Encabezado ${columnIndex + 1}`}
-                    onChange={(event) =>
-                      onChange({
-                        ...block,
-                        columns: block.columns.map((value, index) =>
-                          index === columnIndex ? event.target.value : value,
-                        ),
-                      })
-                    }
-                  />
-                  {selected ? (
-                    <div className="document-table-column-tools document-inline-controls">
-                      <label>
-                        <span className="sr-only">Ancho de {column}</span>
-                        <input
-                          className="document-table-resizer"
-                          type="range"
-                          min={5}
-                          max={100 - 5 * (block.columns.length - 1)}
-                          value={widths[columnIndex] ?? 5}
-                          disabled={block.locked || block.columns.length === 1}
-                          onChange={(event) =>
-                            onChange(
-                              setTableColumnWidth(block, columnIndex, Number(event.target.value)),
-                            )
-                          }
-                        />
-                      </label>
-                      <output>{widths[columnIndex]}%</output>
-                      <button
-                        type="button"
-                        disabled={block.locked || block.columns.length === 1}
-                        onClick={() => onChange(removeTableColumn(block, columnIndex))}
-                        aria-label={`Eliminar columna ${columnIndex + 1}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-              {selected ? <span aria-hidden="true" /> : null}
-            </div>
-            {block.rows.map((row, rowIndex) => (
-              <div
-                className="document-table-row"
-                style={{ gridTemplateColumns: rowTemplate }}
-                key={rowIndex}
-              >
-                {block.columns.map((_, columnIndex) => (
-                  <input
-                    key={columnIndex}
-                    value={row[columnIndex] ?? ""}
-                    disabled={block.locked}
-                    aria-label={`Fila ${rowIndex + 1}, columna ${columnIndex + 1}`}
-                    onChange={(event) =>
-                      onChange({
-                        ...block,
-                        rows: block.rows.map((currentRow, currentRowIndex) =>
-                          currentRowIndex === rowIndex
-                            ? currentRow.map((value, currentColumnIndex) =>
-                                currentColumnIndex === columnIndex ? event.target.value : value,
-                              )
-                            : currentRow,
-                        ),
-                      })
-                    }
-                  />
-                ))}
+    const widths = tableColumnWidths(block);
+    const rowTemplate = `${widths.map((width) => `${width}fr`).join(" ")} ${selected ? "2.25rem" : "0"}`;
+    return (
+      <div className="table-editor document-table-composer">
+        <div className="document-table-grid">
+          <div
+            className="document-table-row document-table-head"
+            style={{ gridTemplateColumns: rowTemplate }}
+          >
+            {block.columns.map((column, columnIndex) => (
+              <div className="document-table-heading-cell" key={columnIndex}>
+                <input
+                  className="document-table-column-control"
+                  value={column}
+                  disabled={block.locked}
+                  aria-label={`Encabezado ${columnIndex + 1}`}
+                  onChange={(event) =>
+                    onChange({
+                      ...block,
+                      columns: block.columns.map((value, index) =>
+                        index === columnIndex ? event.target.value : value,
+                      ),
+                    })
+                  }
+                />
                 {selected ? (
-                  <button
-                    type="button"
-                    disabled={block.locked}
-                    onClick={() => onChange(removeTableRow(block, rowIndex))}
-                    aria-label={`Eliminar fila ${rowIndex + 1}`}
-                  >
-                    ×
-                  </button>
+                  <div className="document-table-column-tools document-inline-controls">
+                    <label>
+                      <span className="sr-only">Ancho de {column}</span>
+                      <input
+                        className="document-table-resizer"
+                        type="range"
+                        min={5}
+                        max={100 - 5 * (block.columns.length - 1)}
+                        value={widths[columnIndex] ?? 5}
+                        disabled={block.locked || block.columns.length === 1}
+                        onChange={(event) =>
+                          onChange(
+                            setTableColumnWidth(block, columnIndex, Number(event.target.value)),
+                          )
+                        }
+                      />
+                    </label>
+                    <output>{widths[columnIndex]}%</output>
+                    <button
+                      type="button"
+                      disabled={block.locked || block.columns.length === 1}
+                      onClick={() => onChange(removeTableColumn(block, columnIndex))}
+                      aria-label={`Eliminar columna ${columnIndex + 1}`}
+                    >
+                      ×
+                    </button>
+                  </div>
                 ) : null}
               </div>
             ))}
+            {selected ? <span aria-hidden="true" /> : null}
           </div>
-          {selected ? (
-            <div className="document-table-actions document-table-toolbar document-inline-controls">
-              <button
-                className="document-add-row"
-                type="button"
-                disabled={block.locked || block.rows.length >= 100}
-                onClick={() => onChange(addTableRow(block))}
-              >
-                + Fila
-              </button>
-              <button
-                type="button"
-                disabled={block.locked || block.columns.length >= 8}
-                onClick={() => onChange(addTableColumn(block))}
-              >
-                + Columna
-              </button>
+          {block.rows.map((row, rowIndex) => (
+            <div
+              className="document-table-row"
+              style={{ gridTemplateColumns: rowTemplate }}
+              key={rowIndex}
+            >
+              {block.columns.map((_, columnIndex) => (
+                <input
+                  key={columnIndex}
+                  value={row[columnIndex] ?? ""}
+                  disabled={block.locked}
+                  aria-label={`Fila ${rowIndex + 1}, columna ${columnIndex + 1}`}
+                  onChange={(event) =>
+                    onChange({
+                      ...block,
+                      rows: block.rows.map((currentRow, currentRowIndex) =>
+                        currentRowIndex === rowIndex
+                          ? currentRow.map((value, currentColumnIndex) =>
+                              currentColumnIndex === columnIndex ? event.target.value : value,
+                            )
+                          : currentRow,
+                      ),
+                    })
+                  }
+                />
+              ))}
+              {selected ? (
+                <button
+                  type="button"
+                  disabled={block.locked}
+                  onClick={() => onChange(removeTableRow(block, rowIndex))}
+                  aria-label={`Eliminar fila ${rowIndex + 1}`}
+                >
+                  ×
+                </button>
+              ) : null}
             </div>
-          ) : null}
+          ))}
         </div>
-      );
+        {selected ? (
+          <div className="document-table-actions document-table-toolbar document-inline-controls">
+            <button
+              className="document-add-row"
+              type="button"
+              disabled={block.locked || block.rows.length >= 100}
+              onClick={() => onChange(addTableRow(block))}
+            >
+              + Fila
+            </button>
+            <button
+              type="button"
+              disabled={block.locked || block.columns.length >= 8}
+              onClick={() => onChange(addTableColumn(block))}
+            >
+              + Columna
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
   }
   if (block.type === "VARIABLE")
     return (

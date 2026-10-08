@@ -2065,11 +2065,8 @@
   min-height: 70.7rem;
   flex-direction: column;
   overflow: visible;
-  padding:
-    var(--document-margin-top, 3.8rem)
-    var(--document-margin-right, 4.65rem)
-    var(--document-margin-bottom, 3.15rem)
-    var(--document-margin-left, 4.65rem);
+  padding: var(--document-margin-top, 3.8rem) var(--document-margin-right, 4.65rem)
+    var(--document-margin-bottom, 3.15rem) var(--document-margin-left, 4.65rem);
   background: #fff;
   padding: 3.35rem 4.4rem 2.8rem;
   box-shadow:
@@ -8199,11 +8196,8 @@ body {
   flex-direction: column;
   overflow: visible;
   background: #fff;
-  padding:
-    var(--document-margin-top, 3.8rem)
-    var(--document-margin-right, 4.65rem)
-    var(--document-margin-bottom, 3.15rem)
-    var(--document-margin-left, 4.65rem);
+  padding: var(--document-margin-top, 3.8rem) var(--document-margin-right, 4.65rem)
+    var(--document-margin-bottom, 3.15rem) var(--document-margin-left, 4.65rem);
   box-shadow:
     0 1px 2px rgb(18 31 35 / 16%),
     0 12px 32px rgb(18 31 35 / 10%),

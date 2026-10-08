@@ -147,11 +147,7 @@ describe("document contracts", () => {
       }).columnWidths,
     ).toEqual([65, 35]);
 
-    for (const columnWidths of [
-      [65],
-      [65, 30],
-      [96, 4],
-    ]) {
+    for (const columnWidths of [[65], [65, 30], [96, 4]]) {
       expect(
         DocumentBlockSchema.safeParse({
           id: "019db9c7-1268-7d24-bf99-96ea38ebf152",

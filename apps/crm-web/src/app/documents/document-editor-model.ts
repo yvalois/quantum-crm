@@ -108,9 +108,7 @@ function distributeTableWidths(weights: readonly number[], total = 100): number[
   if (weights.length === 0) return [];
   if (weights.length === 1) return [total];
   const distributable = total - minimumTableColumnWidth * weights.length;
-  const safeWeights = weights.map((weight) =>
-    Number.isFinite(weight) && weight > 0 ? weight : 1,
-  );
+  const safeWeights = weights.map((weight) => (Number.isFinite(weight) && weight > 0 ? weight : 1));
   const weightTotal = safeWeights.reduce((sum, weight) => sum + weight, 0);
   const exactExtras = safeWeights.map((weight) => (weight / weightTotal) * distributable);
   const extras = exactExtras.map(Math.floor);
