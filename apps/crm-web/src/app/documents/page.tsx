@@ -1835,14 +1835,44 @@ export default function DocumentsPage(): React.JSX.Element {
                           >
                             <span className="document-region-label">ENCABEZADO</span>
                             <div className="document-header-content">
-                              {draft.design.logoFileId && csrf ? (
-                                <span className="document-header-logo">
-                                  <AuthorizedFileImage
-                                    fileId={draft.design.logoFileId}
-                                    alt="Logotipo de la empresa"
-                                    csrf={csrf}
+                              {draft.design.headerLayout !== "TEXT" ? (
+                                <label
+                                  className={`document-header-logo ${draft.design.logoFileId ? "" : "is-empty"}`}
+                                  title={
+                                    draft.design.logoFileId
+                                      ? "Haz clic para sustituir el logotipo"
+                                      : "Haz clic para cargar el logotipo"
+                                  }
+                                >
+                                  {draft.design.logoFileId && csrf ? (
+                                    <AuthorizedFileImage
+                                      fileId={draft.design.logoFileId}
+                                      alt="Logotipo de la empresa"
+                                      csrf={csrf}
+                                    />
+                                  ) : (
+                                    <span>
+                                      {uploadingTargetId === "design:logo"
+                                        ? "Cargando..."
+                                        : "Agregar logo"}
+                                    </span>
+                                  )}
+                                  <input
+                                    aria-label={
+                                      draft.design.logoFileId
+                                        ? "Sustituir logotipo del encabezado"
+                                        : "Cargar logotipo en el encabezado"
+                                    }
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    disabled={uploadingTargetId === "design:logo"}
+                                    onChange={(event) => {
+                                      const file = event.target.files?.[0];
+                                      if (file) void uploadDocumentFile({ kind: "LOGO" }, file);
+                                      event.currentTarget.value = "";
+                                    }}
                                   />
-                                </span>
+                                </label>
                               ) : null}
                               <textarea
                                 aria-label="Texto del encabezado"
