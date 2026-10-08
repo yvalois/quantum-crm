@@ -66,6 +66,31 @@ interface List<T> {
   readonly data: T[];
 }
 
+function commercialHeaderSegments(design: CommercialDocument["design"]): {
+  readonly left: string;
+  readonly right: string;
+} {
+  const rightHeaderText = design.headerRightText ?? "";
+  if (rightHeaderText.trim().length > 0) {
+    return { left: design.headerText, right: rightHeaderText };
+  }
+  // Existing documents used a padded string. Read it once as two regions so
+  // they immediately gain stable alignment without forcing a data migration.
+  const legacy = design.headerText.match(/^(.*?)\s{2,}(Cotizaci[oó]n\s+No\..+)$/iu);
+  return legacy
+    ? { left: (legacy[1] ?? "").trimEnd(), right: legacy[2] ?? "" }
+    : { left: design.headerText, right: "" };
+}
+
+function closeImagePropertiesOutside(target: EventTarget | null) {
+  if (!(target instanceof Element)) return;
+  document
+    .querySelectorAll<HTMLDetailsElement>("details.document-image-properties[open]")
+    .forEach((panel) => {
+      if (!panel.contains(target)) panel.open = false;
+    });
+}
+
 interface FileUploadIntent {
   readonly data: {
     readonly file: { readonly id: string; readonly status: string; readonly sha256: string };
@@ -593,6 +618,10 @@ export default function DocumentsPage(): React.JSX.Element {
   const selectedBlock = useMemo(
     () => draft?.blocks.find((block) => block.id === selectedBlockId) ?? null,
     [draft?.blocks, selectedBlockId],
+  );
+  const headerSegments = useMemo(
+    () => (draft ? commercialHeaderSegments(draft.design) : { left: "", right: "" }),
+    [draft],
   );
   const pagedBlocks = useMemo(() => {
     if (!draft) return [] as readonly (readonly DocumentBlock[])[];
@@ -1124,7 +1153,10 @@ export default function DocumentsPage(): React.JSX.Element {
   }
 
   return (
-    <main className="documents-shell document-studio-shell document-processor">
+    <main
+      className="documents-shell document-studio-shell document-processor"
+      onPointerDownCapture={(event) => closeImagePropertiesOutside(event.target)}
+    >
       <section className="documents-page">
         <header className="document-commandbar">
           <div className="document-command-title">
@@ -1814,15 +1846,36 @@ export default function DocumentsPage(): React.JSX.Element {
                               ) : null}
                               <textarea
                                 aria-label="Texto del encabezado"
-                                value={draft.design.headerText}
+                                value={headerSegments.left}
                                 rows={2}
                                 onChange={(event) =>
                                   patchDraft({
-                                    design: { ...draft.design, headerText: event.target.value },
+                                    design: {
+                                      ...draft.design,
+                                      headerText: event.target.value,
+                                      headerRightText: headerSegments.right,
+                                    },
                                   })
                                 }
                               />
                             </div>
+                            {draft.design.headerLayout === "SPLIT" ? (
+                              <textarea
+                                className="document-header-reference"
+                                aria-label="Referencia derecha del encabezado"
+                                value={headerSegments.right}
+                                rows={2}
+                                onChange={(event) =>
+                                  patchDraft({
+                                    design: {
+                                      ...draft.design,
+                                      headerText: headerSegments.left,
+                                      headerRightText: event.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                            ) : null}
                             {draft.design.showDocumentKind ? (
                               <strong>{draft.kind === "QUOTE" ? "COTIZACION" : "FACTURA"}</strong>
                             ) : null}
@@ -2172,6 +2225,25 @@ export default function DocumentsPage(): React.JSX.Element {
                   Mostrar encabezado
                 </label>
                 <div className="document-inspector-grid">
+                  <label>
+                    Referencia derecha
+                    <input
+                      value={headerSegments.right}
+                      disabled={
+                        !draft.design.headerEnabled || draft.design.headerLayout !== "SPLIT"
+                      }
+                      placeholder="Cotizacion No. {{quote.number}}"
+                      onChange={(event) =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            headerText: headerSegments.left,
+                            headerRightText: event.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
                   <label>
                     Distribucion
                     <select
@@ -3141,94 +3213,111 @@ function BlockEditor({
           </label>
         </div>
         {selected ? (
-          <div className="document-inline-controls" aria-label="Propiedades de la imagen">
-            <label>
-              Etiqueta
-              <input
-                value={block.label}
-                disabled={block.locked}
-                onChange={(event) => onChange({ ...block, label: event.target.value })}
-              />
-            </label>
-            <label>
-              Texto alternativo
-              <input
-                value={block.alt}
-                disabled={block.locked}
-                onChange={(event) => onChange({ ...block, alt: event.target.value })}
-              />
-            </label>
-            <label>
-              Pie de imagen
-              <input
-                value={block.caption}
-                disabled={block.locked}
-                onChange={(event) => onChange({ ...block, caption: event.target.value })}
-              />
-            </label>
-            <div className="image-presentation-controls">
+          <details
+            className="document-image-properties"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.currentTarget.removeAttribute("open");
+              event.currentTarget.querySelector<HTMLElement>("summary")?.focus();
+            }}
+          >
+            <summary>Propiedades</summary>
+            <div className="document-inline-controls" aria-label="Propiedades de la imagen">
               <label>
-                Ancho
-                <select
-                  value={block.width}
+                Etiqueta
+                <input
+                  value={block.label}
                   disabled={block.locked}
-                  onChange={(event) =>
-                    onChange({ ...block, width: event.target.value as typeof block.width })
-                  }
-                >
-                  <option value="FULL">Completo</option>
-                  <option value="WIDE">Amplio</option>
-                  <option value="MEDIUM">Mediano</option>
-                  <option value="SMALL">Pequeño</option>
-                </select>
+                  onChange={(event) => onChange({ ...block, label: event.target.value })}
+                />
               </label>
               <label>
-                Alineacion
-                <select
-                  value={block.align}
+                Texto alternativo
+                <input
+                  value={block.alt}
                   disabled={block.locked}
-                  onChange={(event) =>
-                    onChange({ ...block, align: event.target.value as typeof block.align })
-                  }
-                >
-                  <option value="LEFT">Izquierda</option>
-                  <option value="CENTER">Centro</option>
-                  <option value="RIGHT">Derecha</option>
-                </select>
+                  onChange={(event) => onChange({ ...block, alt: event.target.value })}
+                />
               </label>
               <label>
-                Ajuste
-                <select
-                  value={block.fit}
+                Pie de imagen
+                <input
+                  value={block.caption}
                   disabled={block.locked}
-                  onChange={(event) =>
-                    onChange({
-                      ...block,
-                      ...imageFitPatch(event.target.value as typeof block.fit),
-                    })
-                  }
-                >
-                  <option value="CONTAIN">Imagen completa</option>
-                  <option value="COVER">Recortar para llenar</option>
-                </select>
+                  onChange={(event) => onChange({ ...block, caption: event.target.value })}
+                />
               </label>
+              <div className="image-presentation-controls">
+                <label>
+                  Ancho
+                  <select
+                    value={block.width}
+                    disabled={block.locked}
+                    onChange={(event) =>
+                      onChange({ ...block, width: event.target.value as typeof block.width })
+                    }
+                  >
+                    <option value="FULL">Completo</option>
+                    <option value="WIDE">Amplio</option>
+                    <option value="MEDIUM">Mediano</option>
+                    <option value="SMALL">Pequeño</option>
+                  </select>
+                </label>
+                <label>
+                  Alineacion
+                  <select
+                    value={block.align}
+                    disabled={block.locked}
+                    onChange={(event) =>
+                      onChange({ ...block, align: event.target.value as typeof block.align })
+                    }
+                  >
+                    <option value="LEFT">Izquierda</option>
+                    <option value="CENTER">Centro</option>
+                    <option value="RIGHT">Derecha</option>
+                  </select>
+                </label>
+                <label>
+                  Ajuste
+                  <select
+                    value={block.fit}
+                    disabled={block.locked}
+                    onChange={(event) =>
+                      onChange({
+                        ...block,
+                        ...imageFitPatch(event.target.value as typeof block.fit),
+                      })
+                    }
+                  >
+                    <option value="CONTAIN">Imagen completa</option>
+                    <option value="COVER">Recortar para llenar</option>
+                  </select>
+                </label>
+              </div>
+              <ImagePresentationControls
+                image={block}
+                locked={block.locked}
+                allowFlow
+                onPatch={(patch) => onChange({ ...block, ...patch })}
+              />
+              <label className="instance-editability">
+                <input
+                  type="checkbox"
+                  checked={block.replaceable}
+                  disabled={block.locked}
+                  onChange={(event) => onChange({ ...block, replaceable: event.target.checked })}
+                />
+                Permitir cambiar esta imagen al usar la plantilla
+              </label>
+              <button
+                className="document-image-properties-close"
+                type="button"
+                onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}
+              >
+                Cerrar configuracion
+              </button>
             </div>
-            <ImagePresentationControls
-              image={block}
-              locked={block.locked}
-              allowFlow
-              onPatch={(patch) => onChange({ ...block, ...patch })}
-            />
-            <label className="instance-editability">
-              <input
-                type="checkbox"
-                checked={block.replaceable}
-                disabled={block.locked}
-                onChange={(event) => onChange({ ...block, replaceable: event.target.checked })}
-              />
-              Permitir cambiar esta imagen al usar la plantilla
-            </label>
-          </div>
+          </details>
         ) : null}
       </div>
     );
@@ -4024,103 +4113,120 @@ function ColumnItemEditor({
           />
         </label>
         {selected ? (
-          <div className="document-inline-controls" aria-label="Propiedades de imagen de columna">
-            <label>
-              Etiqueta
-              <input
-                value={item.label}
-                disabled={locked}
-                onChange={(event) => onChange({ ...item, label: event.target.value })}
-              />
-            </label>
-            <label>
-              Texto alternativo
-              <input
-                value={item.alt}
-                disabled={locked}
-                onChange={(event) => onChange({ ...item, alt: event.target.value })}
-              />
-            </label>
-            <label>
-              Pie de imagen
-              <input
-                value={item.caption}
-                disabled={locked}
-                onChange={(event) => onChange({ ...item, caption: event.target.value })}
-              />
-            </label>
-            <div className="image-presentation-controls">
+          <details
+            className="document-image-properties"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.currentTarget.removeAttribute("open");
+              event.currentTarget.querySelector<HTMLElement>("summary")?.focus();
+            }}
+          >
+            <summary>Propiedades</summary>
+            <div className="document-inline-controls" aria-label="Propiedades de imagen de columna">
               <label>
-                Ancho
-                <select
-                  value={item.width}
+                Etiqueta
+                <input
+                  value={item.label}
                   disabled={locked}
-                  onChange={(event) =>
-                    onChange({ ...item, width: event.target.value as typeof item.width })
-                  }
-                >
-                  <option value="FULL">Completo</option>
-                  <option value="WIDE">Amplio</option>
-                  <option value="MEDIUM">Mediano</option>
-                  <option value="SMALL">Pequeño</option>
-                </select>
+                  onChange={(event) => onChange({ ...item, label: event.target.value })}
+                />
               </label>
               <label>
-                Alineacion
-                <select
-                  value={item.align}
+                Texto alternativo
+                <input
+                  value={item.alt}
                   disabled={locked}
-                  onChange={(event) =>
-                    onChange({ ...item, align: event.target.value as typeof item.align })
-                  }
-                >
-                  <option value="LEFT">Izquierda</option>
-                  <option value="CENTER">Centro</option>
-                  <option value="RIGHT">Derecha</option>
-                </select>
+                  onChange={(event) => onChange({ ...item, alt: event.target.value })}
+                />
               </label>
               <label>
-                Ajuste
-                <select
-                  value={item.fit}
+                Pie de imagen
+                <input
+                  value={item.caption}
                   disabled={locked}
-                  onChange={(event) =>
-                    onChange({
-                      ...item,
-                      ...imageFitPatch(event.target.value as typeof item.fit),
-                    })
-                  }
-                >
-                  <option value="CONTAIN">Imagen completa</option>
-                  <option value="COVER">Recortar para llenar</option>
-                </select>
+                  onChange={(event) => onChange({ ...item, caption: event.target.value })}
+                />
               </label>
+              <div className="image-presentation-controls">
+                <label>
+                  Ancho
+                  <select
+                    value={item.width}
+                    disabled={locked}
+                    onChange={(event) =>
+                      onChange({ ...item, width: event.target.value as typeof item.width })
+                    }
+                  >
+                    <option value="FULL">Completo</option>
+                    <option value="WIDE">Amplio</option>
+                    <option value="MEDIUM">Mediano</option>
+                    <option value="SMALL">Pequeño</option>
+                  </select>
+                </label>
+                <label>
+                  Alineacion
+                  <select
+                    value={item.align}
+                    disabled={locked}
+                    onChange={(event) =>
+                      onChange({ ...item, align: event.target.value as typeof item.align })
+                    }
+                  >
+                    <option value="LEFT">Izquierda</option>
+                    <option value="CENTER">Centro</option>
+                    <option value="RIGHT">Derecha</option>
+                  </select>
+                </label>
+                <label>
+                  Ajuste
+                  <select
+                    value={item.fit}
+                    disabled={locked}
+                    onChange={(event) =>
+                      onChange({
+                        ...item,
+                        ...imageFitPatch(event.target.value as typeof item.fit),
+                      })
+                    }
+                  >
+                    <option value="CONTAIN">Imagen completa</option>
+                    <option value="COVER">Recortar para llenar</option>
+                  </select>
+                </label>
+              </div>
+              <ImagePresentationControls
+                image={item}
+                locked={locked}
+                allowFlow={false}
+                onPatch={(patch) => onChange({ ...item, ...patch })}
+              />
+              <label className="instance-editability">
+                <input
+                  type="checkbox"
+                  checked={item.visible}
+                  disabled={locked && !item.replaceable}
+                  onChange={(event) => onChange({ ...item, visible: event.target.checked })}
+                />
+                Mostrar esta imagen en el documento
+              </label>
+              <label className="instance-editability">
+                <input
+                  type="checkbox"
+                  checked={item.replaceable}
+                  disabled={locked}
+                  onChange={(event) => onChange({ ...item, replaceable: event.target.checked })}
+                />
+                Permitir cambiar u ocultar esta imagen al usar la plantilla
+              </label>
+              <button
+                className="document-image-properties-close"
+                type="button"
+                onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}
+              >
+                Cerrar configuracion
+              </button>
             </div>
-            <ImagePresentationControls
-              image={item}
-              locked={locked}
-              allowFlow={false}
-              onPatch={(patch) => onChange({ ...item, ...patch })}
-            />
-            <label className="instance-editability">
-              <input
-                type="checkbox"
-                checked={item.visible}
-                disabled={locked && !item.replaceable}
-                onChange={(event) => onChange({ ...item, visible: event.target.checked })}
-              />
-              Mostrar esta imagen en el documento
-            </label>
-            <label className="instance-editability">
-              <input
-                type="checkbox"
-                checked={item.replaceable}
-                disabled={locked}
-                onChange={(event) => onChange({ ...item, replaceable: event.target.checked })}
-              />
-              Permitir cambiar u ocultar esta imagen al usar la plantilla
-            </label>
-          </div>
+          </details>
         ) : null}
       </div>
     );

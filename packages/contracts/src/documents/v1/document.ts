@@ -486,6 +486,8 @@ export const DocumentDesignSchema = z
       .strict()
       .default({ top: 20, right: 18, bottom: 20, left: 18 }),
     headerText: z.string().max(500),
+    /** Independent right-hand reference in a split commercial header. */
+    headerRightText: z.string().max(500).default(""),
     footerText: z.string().max(500),
     showPageNumbers: z.boolean(),
     headerEnabled: z.boolean().default(true),

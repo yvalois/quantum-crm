@@ -26,6 +26,10 @@ const design = {
 } as const;
 
 describe("document contracts", () => {
+  it("defaults the independent commercial header reference for existing documents", () => {
+    expect(DocumentDesignSchema.parse(design).headerRightText).toBe("");
+  });
+
   it("shows an image completely when no crop mode was explicitly selected", () => {
     const parsed = ImageDocumentBlockSchema.parse({
       id: "019db9c7-1268-7d24-bf99-96ea38ebf099",

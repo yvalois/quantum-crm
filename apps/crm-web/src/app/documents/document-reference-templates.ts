@@ -210,8 +210,8 @@ const design: DocumentDesign = {
   fontFamily: "INSTRUMENT_SANS",
   pageSize: "LETTER",
   margins: { top: 15, right: 15, bottom: 15, left: 15 },
-  headerText:
-    "InterAmerican Car Rental                                               Cotizacion No. {{quote.number}}",
+  headerText: "InterAmerican Car Rental",
+  headerRightText: "Cotizacion No. {{quote.number}}",
   footerText: "1a. Calle 5-20, Zona 13 Guatemala, C. A. 01013",
   showPageNumbers: true,
   headerEnabled: true,

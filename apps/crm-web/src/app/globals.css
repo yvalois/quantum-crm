@@ -7174,6 +7174,33 @@ body {
   gap: 0.75rem;
 }
 
+/* A commercial split header is two independently aligned editorial zones.
+   It must never rely on typed spaces to position the quotation reference. */
+.document-studio-shell .document-page > .document-page-region.layout-split {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(10rem, 0.7fr);
+  align-items: center;
+}
+
+.document-page-region.layout-split .document-header-content {
+  width: 100%;
+}
+
+.document-page-region.layout-split .document-header-content textarea {
+  width: 100%;
+  field-sizing: fixed;
+}
+
+.document-page-region .document-header-reference {
+  width: 100%;
+  min-width: 0;
+  min-height: 1.7rem;
+  flex: 0 0 auto;
+  align-self: center;
+  field-sizing: fixed;
+  text-align: right;
+}
+
 .document-header-logo {
   display: grid;
   width: 4.25rem;
@@ -8803,6 +8830,68 @@ body {
   width: 0.9rem;
   height: 0.9rem;
   min-height: 0;
+}
+
+/* Selecting an image keeps its direct resize handles available, but no longer
+   forces the full properties card over the document. The card is opt-in and
+   can be closed by clicking the same compact control again. */
+.document-studio-shell .document-page .document-image-properties {
+  position: absolute;
+  z-index: 9;
+  top: -2.35rem;
+  right: 0;
+}
+
+.document-studio-shell .document-page .document-image-properties > summary {
+  list-style: none;
+  border: 1px solid #cfe0df;
+  border-radius: 0.36rem;
+  background: #fff;
+  padding: 0.3rem 0.55rem;
+  color: #176f68;
+  cursor: pointer;
+  font-size: 0.54rem;
+  font-weight: 780;
+}
+
+.document-studio-shell .document-page .document-image-properties > summary::-webkit-details-marker {
+  display: none;
+}
+
+.document-studio-shell
+  .document-page
+  .document-image-properties:not([open])
+  > .document-inline-controls {
+  display: none;
+}
+
+.document-studio-shell .document-page .document-image-properties > .document-inline-controls {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  display: grid;
+  width: min(30rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  border-radius: 0.55rem;
+  padding: 0.65rem;
+}
+
+.document-studio-shell .column-image-editor .document-image-properties > .document-inline-controls {
+  width: min(25rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.document-studio-shell .document-image-properties-close {
+  grid-column: 1 / -1;
+  justify-self: end;
+  border: 0;
+  background: transparent;
+  color: #176f68;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.56rem;
+  font-weight: 800;
 }
 
 .document-studio-shell .document-variable-value {

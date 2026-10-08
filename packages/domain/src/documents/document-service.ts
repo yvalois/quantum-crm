@@ -50,6 +50,7 @@ export function defaultDocumentDesign(): DocumentDesign {
     pageSize: "A4",
     margins: { top: 20, right: 18, bottom: 20, left: 18 },
     headerText: "",
+    headerRightText: "",
     footerText: "",
     showPageNumbers: false,
     headerEnabled: false,
