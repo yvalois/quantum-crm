@@ -348,7 +348,7 @@ function newBlock(type: DocumentBlock["type"]): DocumentBlock {
         width: "FULL",
         widthPercent: 100,
         align: "CENTER",
-        fit: "COVER",
+        fit: "CONTAIN",
         aspectRatio: "AUTO",
         focalX: 50,
         focalY: 50,
@@ -2344,8 +2344,8 @@ function ImagePresentationControls({
               onPatch({ fit: event.target.value as EditableDocumentImage["fit"] })
             }
           >
-            <option value="COVER">Rellenar</option>
-            <option value="CONTAIN">Completa</option>
+            <option value="CONTAIN">Imagen completa</option>
+            <option value="COVER">Recortar para llenar</option>
           </select>
         </label>
         <label>
@@ -2454,8 +2454,8 @@ function ImagePresentationControls({
                   onPatch({ fit: event.target.value as EditableDocumentImage["fit"] })
                 }
               >
-                <option value="COVER">Rellenar y recortar</option>
-                <option value="CONTAIN">Mostrar completa</option>
+                <option value="CONTAIN">Mostrar imagen completa</option>
+                <option value="COVER">Recortar para llenar</option>
               </select>
             </label>
             <label>
