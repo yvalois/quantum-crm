@@ -41,10 +41,12 @@ const ImageDocumentBlockBaseSchema = BlockBaseSchema.extend({
   width: z.enum(["FULL", "WIDE", "MEDIUM", "SMALL"]).default("FULL"),
   /** Exact frame width used by the visual composer. Legacy presets remain supported. */
   widthPercent: z.number().int().min(10).max(100).optional(),
+  /** Exact frame height after a free vertical resize. Omitted means automatic height. */
+  heightPx: z.number().int().min(80).max(1200).optional(),
   align: z.enum(["LEFT", "CENTER", "RIGHT"]).default("CENTER"),
   fit: z.enum(["CONTAIN", "COVER"]).default("CONTAIN"),
   aspectRatio: z
-    .enum(["AUTO", "SQUARE", "LANDSCAPE_4_3", "WIDE_16_9", "PORTRAIT_3_4", "CIRCLE"])
+    .enum(["AUTO", "FREE", "SQUARE", "LANDSCAPE_4_3", "WIDE_16_9", "PORTRAIT_3_4", "CIRCLE"])
     .optional(),
   focalX: z.number().int().min(0).max(100).optional(),
   focalY: z.number().int().min(0).max(100).optional(),
@@ -339,6 +341,8 @@ export const DocumentDesignSchema = z
     headerAlign: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
     headerSpacing: z.enum(["COMPACT", "NORMAL", "SPACIOUS"]).default("NORMAL"),
     showDocumentKind: z.boolean().default(true),
+    /** Legacy documents show this fixed identity region; new blank documents can omit it. */
+    identityEnabled: z.boolean().optional(),
     footerEnabled: z.boolean().default(true),
     footerAlign: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
     footerSpacing: z.enum(["COMPACT", "NORMAL", "SPACIOUS"]).default("NORMAL"),

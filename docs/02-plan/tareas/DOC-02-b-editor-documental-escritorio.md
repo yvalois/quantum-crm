@@ -82,6 +82,9 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Convertir las imagenes en marcos visuales manipulables y persistentes, tanto en la pagina como dentro de columnas.
 - [x] Hacer que tamano, giro y reencuadre se manipulen directamente sobre la imagen, separando el asa de movimiento de la superficie de edicion.
 - [x] Mostrar la imagen completa de forma predeterminada y conservar el recorte como una eleccion explicita.
+- [x] Permitir ajustar ancho y alto desde ocho tiradores directos y eliminar cualquier bloque desde su barra contextual.
+- [x] Iniciar documentos sin plantilla con un lienzo vacio y mantener encabezado, datos del documento y pie como regiones opcionales.
+- [x] Iniciar toda imagen nueva a cero grados y escalar la imagen completa dentro de marcos menores sin recortarla.
 
 ## Criterios de aceptacion
 
@@ -102,6 +105,10 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Arrastrar una imagen entre pagina y columnas conserva todos sus atributos visuales; sustituirla conserva el marco.
 - [x] Al seleccionar una imagen aparecen tiradores convencionales; el usuario redimensiona desde cualquier esquina, gira desde el control superior y reencuadra arrastrando el contenido sin abrir un panel.
 - [x] Una imagen nueva se presenta completa dentro de su marco; solo se recorta cuando el usuario elige `Recortar para llenar`.
+- [x] El modo de imagen completa no se recorta con proporciones distintas a la del archivo; el alto libre se guarda y puede volver al tamaño original.
+- [x] Al seleccionar un bloque aparece una accion `Eliminar` junto al elemento, sin depender de la cinta superior.
+- [x] Un documento nuevo sin plantilla tiene cero bloques y ninguna region impresa hasta que el usuario la agrega.
+- [x] `Imagen completa` limita ancho y alto preservando la proporcion, y `Enderezar a 0deg` elimina cualquier giro deliberado anterior.
 
 ## Plan de verificacion
 
@@ -138,6 +145,12 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - El candidato `2b16727a` cambio a `CONTAIN` el valor predeterminado del contrato, los bloques de imagen nuevos y las imagenes dentro de columnas; `Recortar para llenar` permanece disponible como ajuste explicito. En el VPS aprobaron Prettier, ESLint focalizado, 31 pruebas, typecheck de `contracts` y `crm-web`, y los builds de produccion de API y CRM web.
 - InterAmerican ejecuta `qcrm-candidate/api:2b16727` (`sha256:cdfb0eb723733ee62a5de9a54214f8d1d57056520fc5578a35dbb8232272d88d`) y `qcrm-candidate/crm-web:2b16727` (`sha256:0b6a69c55fd5e7a3d787bd1d639ffd8d5f5505d6f3af309ff10e2b7525889fb3`), ambos saludables; el readiness publico respondio `200`.
 - En el recorrido autenticado se selecciono la imagen del documento `preuba`, se cambio de `Recortar para llenar` a `Imagen completa` y se guardo la revision 6. Despues de recargar persistieron `object-fit: contain`, dimensiones visibles `387 x 218` y dimensiones naturales `640 x 360`, sin sustituir ni perder el archivo.
+- La regresion posterior se debia a una regla CSS mas especifica que imponia `height: auto` despues de configurar el marco, por lo que una imagen con proporcion distinta podia desbordarse y quedar recortada pese a declarar `contain`. El candidato `35569776` aplica `height: 100%` a marcos fijos o libres y conserva `height: auto` solo para la proporcion original.
+- El mismo candidato incorpora `heightPx` acotado y compatible en el contrato, proporcion libre, control de alto exacto, restauracion al tamaño original y ocho tiradores directos para ancho y alto. En el VPS aprobaron Prettier, ESLint focalizado, 33 pruebas, typecheck de `contracts`, `crm-web` y `api`, y los builds de produccion de API y CRM web.
+- InterAmerican ejecuta `qcrm-candidate/api:3556977` (`sha256:095854478368728d4e3bdb60f0bd0b011427818b35aa4b764c50a29d072cc12d`) y `qcrm-candidate/crm-web:3556977` (`sha256:2b4c9709b9d027410404b899acb9392686a85e76fcba2dce7c604b1e9f30ac79`), ambos saludables; readiness publico respondio `200`.
+- El recorrido autenticado cambio temporalmente la imagen natural `640 x 360` a un marco vertical `386 x 516` y comprobo `object-fit: contain` sin recorte; luego activo alto libre y lo modifico desde el tirador inferior. Tambien creo un bloque de texto temporal y lo elimino con la accion contextual del propio bloque, pasando de 4 a 5 y de nuevo a 4 bloques. Se recargo sin guardar y la revision 6 permanecio intacta.
+- El candidato funcional `6186faf1` aprobo en el VPS Prettier, ESLint focalizado, 42 pruebas documentales, typecheck de `contracts`, `domain`, `api` y `crm-web`, y builds de produccion de API y CRM web. InterAmerican ejecuta `qcrm-candidate/api:ab3278a` y `qcrm-candidate/crm-web:6186faf`, ambos saludables; readiness publico respondio `200`.
+- El recorrido autenticado creo `Documento en blanco` y comprobo cero bloques, encabezado oculto, datos fijos ocultos y pie oculto, conservando botones discretos para agregar cada region. En `preuba`, la imagen de `640 x 360` quedo guardada en revision 7 con giro `0deg`; despues de recargar, `object-fit: contain` la mantuvo completa dentro del marco (`348 x 196` visibles dentro de `350 x 197`).
 
 ## Pendientes de estabilizacion posterior
 

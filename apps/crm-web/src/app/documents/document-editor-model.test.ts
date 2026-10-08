@@ -21,6 +21,7 @@ import {
   removeTableColumn,
   removeTableRow,
   resizeImageFrame,
+  resizeImageFrameHeight,
   rotateImageFromPointer,
   setTableColumnWidth,
   splitTextBlock,
@@ -43,6 +44,7 @@ describe("document editor model", () => {
     expect(createColumnItem("IMAGE", secondId)).toMatchObject({
       fit: "CONTAIN",
       aspectRatio: "AUTO",
+      rotation: 0,
     });
   });
 
@@ -51,6 +53,13 @@ describe("document editor model", () => {
     expect(resizeImageFrame(60, -80, 400, "SW")).toBe(80);
     expect(resizeImageFrame(95, 200, 400, "NE")).toBe(100);
     expect(resizeImageFrame(15, 200, 400, "NW")).toBe(10);
+  });
+
+  it("resizes image height from the direct vertical handles and keeps it bounded", () => {
+    expect(resizeImageFrameHeight(220, 60, "S")).toBe(280);
+    expect(resizeImageFrameHeight(220, -60, "N")).toBe(280);
+    expect(resizeImageFrameHeight(90, 40, "N")).toBe(80);
+    expect(resizeImageFrameHeight(1180, 100, "SE")).toBe(1200);
   });
 
   it("moves the crop with the dragged image while keeping its focal point bounded", () => {

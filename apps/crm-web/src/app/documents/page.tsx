@@ -31,7 +31,7 @@ import {
   createColumnsBlock,
   documentColumnLayouts,
   imageFrameWidth,
-  type ImageResizeCorner,
+  type ImageResizeHandle,
   moveImageFocalPoint,
   moveColumnItem,
   moveColumnItemToCell,
@@ -42,6 +42,7 @@ import {
   removeTableColumn,
   removeTableRow,
   resizeImageFrame,
+  resizeImageFrameHeight,
   rotateImageFromPointer,
   setTableColumnWidth,
   splitTextBlock,
@@ -100,6 +101,7 @@ type ImagePresentationPatch = Partial<
     EditableDocumentImage,
     | "width"
     | "widthPercent"
+    | "heightPx"
     | "align"
     | "fit"
     | "aspectRatio"
@@ -119,6 +121,7 @@ function clamp(value: number, minimum: number, maximum: number): number {
 function imageComposerStyle(image: EditableDocumentImage): CSSProperties {
   return {
     "--image-frame-width": `${imageFrameWidth(image)}%`,
+    "--image-frame-height": image.heightPx ? `${image.heightPx}px` : undefined,
     "--image-focal-x": `${image.focalX ?? 50}%`,
     "--image-focal-y": `${image.focalY ?? 50}%`,
     "--image-opacity": `${(image.opacity ?? 100) / 100}`,
@@ -130,8 +133,8 @@ function imageComposerStyle(image: EditableDocumentImage): CSSProperties {
 function beginImageResize(
   event: ReactPointerEvent<HTMLButtonElement>,
   image: EditableDocumentImage,
-  corner: ImageResizeCorner,
-  onWidth: (widthPercent: number) => void,
+  handle: ImageResizeHandle,
+  onPatch: (patch: ImagePresentationPatch) => void,
 ): void {
   event.preventDefault();
   event.stopPropagation();
@@ -140,11 +143,27 @@ function beginImageResize(
   );
   if (!container) return;
   const availableWidth = Math.max(container.getBoundingClientRect().width, 1);
+  const media = container.querySelector<HTMLElement>(".document-image-media");
+  const originHeight = media?.getBoundingClientRect().height ?? image.heightPx ?? 220;
   const originX = event.clientX;
+  const originY = event.clientY;
   const originWidth = imageFrameWidth(image);
 
   const move = (pointerEvent: PointerEvent): void => {
-    onWidth(resizeImageFrame(originWidth, pointerEvent.clientX - originX, availableWidth, corner));
+    const patch: ImagePresentationPatch = {};
+    if (handle.includes("E") || handle.includes("W")) {
+      patch.widthPercent = resizeImageFrame(
+        originWidth,
+        pointerEvent.clientX - originX,
+        availableWidth,
+        handle,
+      );
+    }
+    if (handle.includes("N") || handle.includes("S")) {
+      patch.heightPx = resizeImageFrameHeight(originHeight, pointerEvent.clientY - originY, handle);
+      patch.aspectRatio = "FREE";
+    }
+    onPatch(patch);
   };
   const finish = (): void => {
     window.removeEventListener("pointermove", move);
@@ -287,6 +306,7 @@ function normalizeDocumentForEditor(document: CommercialDocument): CommercialDoc
     design: {
       ...document.design,
       margins: document.design.margins ?? { top: 20, right: 18, bottom: 20, left: 18 },
+      identityEnabled: document.design.identityEnabled ?? true,
     },
     blocks: normalizeDocumentBlocks(document.blocks),
   };
@@ -1397,6 +1417,20 @@ export default function DocumentsPage(): React.JSX.Element {
                     </button>
                     <button
                       type="button"
+                      className={draft.design.identityEnabled ? "is-active" : ""}
+                      onClick={() =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            identityEnabled: !draft.design.identityEnabled,
+                          },
+                        })
+                      }
+                    >
+                      Datos del documento
+                    </button>
+                    <button
+                      type="button"
                       className={draft.design.footerEnabled ? "is-active" : ""}
                       onClick={() =>
                         patchDraft({
@@ -1662,17 +1696,42 @@ export default function DocumentsPage(): React.JSX.Element {
                         + Agregar encabezado
                       </button>
                     )}
-                    <section className="document-page-title">
-                      <p>PREPARADO PARA</p>
-                      <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
-                      <textarea
-                        className="document-title-input"
-                        aria-label="Titulo del documento"
-                        value={draft.title}
-                        rows={2}
-                        onChange={(event) => patchDraft({ title: event.target.value })}
-                      />
-                    </section>
+                    {draft.design.identityEnabled ? (
+                      <section className="document-page-title">
+                        <p>PREPARADO PARA</p>
+                        <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
+                        <textarea
+                          className="document-title-input"
+                          aria-label="Titulo del documento"
+                          value={draft.title}
+                          rows={2}
+                          onChange={(event) => patchDraft({ title: event.target.value })}
+                        />
+                        <button
+                          className="document-region-settings"
+                          type="button"
+                          onClick={() =>
+                            patchDraft({
+                              design: { ...draft.design, identityEnabled: false },
+                            })
+                          }
+                        >
+                          Quitar datos del documento
+                        </button>
+                      </section>
+                    ) : (
+                      <button
+                        className="document-region-hidden identity-hidden"
+                        type="button"
+                        onClick={() =>
+                          patchDraft({
+                            design: { ...draft.design, identityEnabled: true },
+                          })
+                        }
+                      >
+                        + Agregar datos del documento
+                      </button>
+                    )}
                     <div className="document-block-list document-page-blocks">
                       {draft.blocks.length === 0 ? (
                         <button
@@ -1742,6 +1801,27 @@ export default function DocumentsPage(): React.JSX.Element {
                             </span>
                             <strong>{blockLabels[block.type]}</strong>
                             {block.locked ? <small aria-label="Bloque protegido">●</small> : null}
+                            <button
+                              className="document-block-delete"
+                              type="button"
+                              disabled={block.locked}
+                              aria-label={`Eliminar ${blockLabels[block.type]}`}
+                              title={
+                                block.locked
+                                  ? "Desprotege el elemento para eliminarlo"
+                                  : "Eliminar del lienzo"
+                              }
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                patchDraft({
+                                  blocks: draft.blocks.filter((item) => item.id !== block.id),
+                                });
+                                setSelectedBlockId(null);
+                              }}
+                            >
+                              <span aria-hidden="true">×</span>
+                              Eliminar
+                            </button>
                           </header>
                           <BlockEditor
                             block={block}
@@ -2296,6 +2376,7 @@ function ImagePresentationControls({
   readonly onPatch: (patch: ImagePresentationPatch) => void;
 }): React.JSX.Element {
   const width = imageFrameWidth(image);
+  const height = image.heightPx;
   const aspectRatio = image.aspectRatio ?? "AUTO";
   const focalX = image.focalX ?? 50;
   const focalY = image.focalY ?? 50;
@@ -2320,14 +2401,20 @@ function ImagePresentationControls({
             value={aspectRatio}
             disabled={locked}
             onChange={(event) =>
-              onPatch({
-                aspectRatio: event.target.value as NonNullable<
-                  EditableDocumentImage["aspectRatio"]
-                >,
-              })
+              onPatch(
+                event.target.value === "FREE"
+                  ? { aspectRatio: "FREE", heightPx: height ?? 220 }
+                  : {
+                      aspectRatio: event.target.value as NonNullable<
+                        EditableDocumentImage["aspectRatio"]
+                      >,
+                      heightPx: undefined,
+                    },
+              )
             }
           >
             <option value="AUTO">Original</option>
+            <option value="FREE">Libre</option>
             <option value="SQUARE">1:1</option>
             <option value="LANDSCAPE_4_3">4:3</option>
             <option value="WIDE_16_9">16:9</option>
@@ -2419,6 +2506,28 @@ function ImagePresentationControls({
             />
             <output>{width}%</output>
           </label>
+          <label className="image-range-control">
+            <span>Alto exacto</span>
+            <input
+              type="range"
+              min={80}
+              max={800}
+              value={height ?? 220}
+              disabled={locked}
+              onChange={(event) =>
+                onPatch({ heightPx: Number(event.target.value), aspectRatio: "FREE" })
+              }
+            />
+            <output>{height ? `${height}px` : "Auto"}</output>
+          </label>
+          <button
+            className="image-auto-size"
+            type="button"
+            disabled={locked || (height === undefined && aspectRatio === "AUTO")}
+            onClick={() => onPatch({ heightPx: undefined, aspectRatio: "AUTO", fit: "CONTAIN" })}
+          >
+            Ajustar al tamaño original
+          </button>
         </div>
 
         <div className="image-composer-section image-layout-section">
@@ -2430,14 +2539,20 @@ function ImagePresentationControls({
                 value={aspectRatio}
                 disabled={locked}
                 onChange={(event) =>
-                  onPatch({
-                    aspectRatio: event.target.value as NonNullable<
-                      EditableDocumentImage["aspectRatio"]
-                    >,
-                  })
+                  onPatch(
+                    event.target.value === "FREE"
+                      ? { aspectRatio: "FREE", heightPx: height ?? 220 }
+                      : {
+                          aspectRatio: event.target.value as NonNullable<
+                            EditableDocumentImage["aspectRatio"]
+                          >,
+                          heightPx: undefined,
+                        },
+                  )
                 }
               >
                 <option value="AUTO">Original</option>
+                <option value="FREE">Libre</option>
                 <option value="SQUARE">Cuadrada 1:1</option>
                 <option value="LANDSCAPE_4_3">Horizontal 4:3</option>
                 <option value="WIDE_16_9">Panoramica 16:9</option>
@@ -2558,6 +2673,14 @@ function ImagePresentationControls({
               />
               <output>{rotation}deg</output>
             </label>
+            <button
+              className="image-auto-size"
+              type="button"
+              disabled={locked || rotation === 0}
+              onClick={() => onPatch({ rotation: 0 })}
+            >
+              Enderezar a 0deg
+            </button>
             <label className="image-range-control">
               <span>Opacidad</span>
               <input
@@ -2589,7 +2712,7 @@ function ImagePresentationControls({
   );
 }
 
-const imageResizeCorners = ["NW", "NE", "SW", "SE"] as const;
+const imageResizeHandles = ["NW", "N", "NE", "E", "SE", "S", "SW", "W"] as const;
 
 function ImageDirectManipulationControls({
   image,
@@ -2602,6 +2725,7 @@ function ImageDirectManipulationControls({
 }): React.JSX.Element | null {
   if (locked) return null;
   const width = imageFrameWidth(image);
+  const height = image.heightPx ?? 220;
   const rotation = image.rotation ?? 0;
 
   return (
@@ -2610,11 +2734,17 @@ function ImageDirectManipulationControls({
         className="document-image-rotation-handle"
         type="button"
         aria-label="Girar imagen"
-        title="Arrastra para girar. Usa las flechas para ajuste fino."
+        title="Arrastra para girar. Doble clic o Inicio para volver a 0 grados."
+        onDoubleClick={() => onPatch({ rotation: 0 })}
         onPointerDown={(event) =>
           beginImageRotation(event, image, (nextRotation) => onPatch({ rotation: nextRotation }))
         }
         onKeyDown={(event) => {
+          if (event.key === "Home") {
+            event.preventDefault();
+            onPatch({ rotation: 0 });
+            return;
+          }
           if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
           event.preventDefault();
           const step = event.shiftKey ? 15 : 1;
@@ -2624,22 +2754,41 @@ function ImageDirectManipulationControls({
       >
         <span aria-hidden="true" />
       </button>
-      {imageResizeCorners.map((corner) => (
+      {imageResizeHandles.map((handle) => (
         <button
-          className={`document-image-resize-handle corner-${corner.toLowerCase()}`}
+          className={`document-image-resize-handle handle-${handle.toLowerCase()}`}
           type="button"
-          key={corner}
-          aria-label={`Redimensionar desde la esquina ${corner}`}
-          title="Arrastra para cambiar el tamano"
-          onPointerDown={(event) =>
-            beginImageResize(event, image, corner, (widthPercent) => onPatch({ widthPercent }))
+          key={handle}
+          aria-label={
+            handle === "N" || handle === "S"
+              ? `Ajustar alto desde ${handle}`
+              : handle === "E" || handle === "W"
+                ? `Ajustar ancho desde ${handle}`
+                : `Ajustar ancho y alto desde ${handle}`
           }
+          title="Arrastra para cambiar ancho y alto"
+          onPointerDown={(event) => beginImageResize(event, image, handle, onPatch)}
           onKeyDown={(event) => {
-            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-            event.preventDefault();
             const step = event.shiftKey ? 5 : 1;
-            const direction = event.key === "ArrowRight" ? 1 : -1;
-            onPatch({ widthPercent: clamp(width + step * direction, 10, 100) });
+            if (
+              (handle.includes("E") || handle.includes("W")) &&
+              (event.key === "ArrowLeft" || event.key === "ArrowRight")
+            ) {
+              event.preventDefault();
+              const direction = event.key === "ArrowRight" ? 1 : -1;
+              onPatch({ widthPercent: clamp(width + step * direction, 10, 100) });
+            }
+            if (
+              (handle.includes("N") || handle.includes("S")) &&
+              (event.key === "ArrowUp" || event.key === "ArrowDown")
+            ) {
+              event.preventDefault();
+              const direction = event.key === "ArrowDown" ? 1 : -1;
+              onPatch({
+                heightPx: clamp(height + step * 4 * direction, 80, 1200),
+                aspectRatio: "FREE",
+              });
+            }
           }}
         />
       ))}
@@ -2701,7 +2850,7 @@ function BlockEditor({
   if (block.type === "IMAGE")
     return (
       <div
-        className={`image-slot-editor document-image-composer image-width-${block.width.toLowerCase()} image-align-${block.align.toLowerCase()} image-fit-${block.fit.toLowerCase()} image-aspect-${(block.aspectRatio ?? "AUTO").toLowerCase()} image-flow-${(block.flow ?? "INLINE").toLowerCase()}`}
+        className={`image-slot-editor document-image-composer image-width-${block.width.toLowerCase()} image-align-${block.align.toLowerCase()} image-fit-${block.fit.toLowerCase()} image-aspect-${(block.aspectRatio ?? "AUTO").toLowerCase()} ${block.heightPx ? "image-height-custom" : ""} image-flow-${(block.flow ?? "INLINE").toLowerCase()}`}
         style={imageComposerStyle(block)}
       >
         <div className="document-image-card">
@@ -2836,8 +2985,8 @@ function BlockEditor({
                     onChange({ ...block, fit: event.target.value as typeof block.fit })
                   }
                 >
-                  <option value="COVER">Recortar</option>
-                  <option value="CONTAIN">Contener</option>
+                  <option value="CONTAIN">Imagen completa</option>
+                  <option value="COVER">Recortar para llenar</option>
                 </select>
               </label>
             </div>
@@ -3485,7 +3634,7 @@ function ColumnItemEditor({
   if (item.type === "IMAGE") {
     return (
       <div
-        className={`column-image-editor document-image-composer image-width-${item.width.toLowerCase()} image-align-${item.align.toLowerCase()} image-fit-${item.fit.toLowerCase()} image-aspect-${(item.aspectRatio ?? "AUTO").toLowerCase()} ${item.visible ? "" : "image-hidden"}`}
+        className={`column-image-editor document-image-composer image-width-${item.width.toLowerCase()} image-align-${item.align.toLowerCase()} image-fit-${item.fit.toLowerCase()} image-aspect-${(item.aspectRatio ?? "AUTO").toLowerCase()} ${item.heightPx ? "image-height-custom" : ""} ${item.visible ? "" : "image-hidden"}`}
         style={imageComposerStyle(item)}
       >
         <div className="column-image-frame document-image-card">
@@ -3611,8 +3760,8 @@ function ColumnItemEditor({
                     onChange({ ...item, fit: event.target.value as typeof item.fit })
                   }
                 >
-                  <option value="COVER">Recortar</option>
-                  <option value="CONTAIN">Contener</option>
+                  <option value="CONTAIN">Imagen completa</option>
+                  <option value="COVER">Recortar para llenar</option>
                 </select>
               </label>
             </div>
