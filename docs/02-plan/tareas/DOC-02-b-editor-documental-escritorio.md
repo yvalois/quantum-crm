@@ -70,9 +70,9 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Implementar disposiciones de columnas y conversion de un renglon conservando su contenido.
 - [x] Integrar la edicion de bloques dentro del lienzo visible.
 - [x] Validar tipos, build y recorrido autenticado en el VPS.
-- [ ] Permitir imagenes y elementos ordenados dentro de cada columna sin perder contenido previo.
-- [ ] Convertir encabezado y pie en regiones configurables y comprobar su persistencia.
-- [ ] Sustituir el constructor visible por edicion directa y comprobar que formato, columnas y regiones se conservan al guardar y recargar.
+- [x] Permitir imagenes y elementos ordenados dentro de cada columna sin perder contenido previo.
+- [x] Convertir encabezado y pie en regiones configurables y comprobar su persistencia.
+- [x] Sustituir el constructor visible por edicion directa y comprobar que formato, columnas y regiones se conservan al guardar y recargar.
 
 ## Criterios de aceptacion
 
@@ -82,9 +82,9 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Un bloque de texto puede convertirse en dos o tres columnas y cambiar de proporcion conservando su contenido.
 - [x] Las funciones documentales existentes permanecen operativas.
 - [x] La experiencia es utilizable en escritorio y adaptable en pantallas menores.
-- [ ] Una columna admite texto, imagen, variable y separador, permite reordenarlos y guarda sus archivos mediante el pipeline seguro.
-- [ ] Encabezado y pie se pueden mostrar u ocultar, alinear, espaciar y configurar con logo, tipo documental y numero de pagina.
-- [ ] La hoja no expone tarjetas ni formularios tecnicos de manera permanente; al seleccionar texto se puede aplicar y persistir estilo, enfasis y alineacion desde la cinta.
+- [x] Una columna admite texto, imagen, variable y separador, permite reordenarlos y guarda sus archivos mediante el pipeline seguro.
+- [x] Encabezado y pie se pueden mostrar u ocultar, alinear, espaciar y configurar con logo, tipo documental y numero de pagina.
+- [x] La hoja no expone tarjetas ni formularios tecnicos de manera permanente; al seleccionar texto se puede aplicar y persistir estilo, enfasis y alineacion desde la cinta.
 
 ## Plan de verificacion
 
@@ -103,8 +103,11 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - Estan desplegadas y saludables en InterAmerican `qcrm-candidate/api:32fea33` (`sha256:15220709306f22c6825207f0f1d444e6353f58058a76c9a27d4c83fa81afcaf2`) y `qcrm-candidate/crm-web:32fea33` (`sha256:cea714f6e0006f13ab66846e1a74326c3c5d47d81cef63dcbcffd19174253679`). Readiness publico respondio `200` y `/documents` sin sesion conservo la redireccion OIDC `307`.
 - El recorrido autenticado abrio el estudio sin sidebar, comprobo biblioteca e inspector como paneles superpuestos, inserto un renglon de tres columnas, escribio contenido diferente en sus tres celdas, guardo la revision 2 y confirmo los mismos valores despues de recargar. La consola del navegador no registro errores.
 - La vista estrecha de `900 x 900` conservo el papel, las herramientas y las tres columnas utilizables; el navegador quedo restaurado a su tamano normal y `/documents` abierto para el propietario.
+- El candidato `1bbb1d6` aprobo en el VPS Prettier y ESLint focalizados, 29 pruebas documentales, typecheck de `contracts`, `domain`, `api` y `crm-web`, y builds de produccion de API y CRM web. Las imagenes desplegadas son `qcrm-candidate/api:7113472` (`sha256:be78c68e7513d16e41c6c87b56c15891cf5885839aacfe5407594913f2e59bd4`) y `qcrm-candidate/crm-web:7113472` (`sha256:2c4ae7936c01a8066a79cc7cd33d59b5a08c3d3f8b3380d228539a9de80d0d43`); ambos contenedores quedaron saludables.
+- El recorrido autenticado aplico titulo y negrita a un parrafo, guardo la revision 3, recargo y comprobo ambos atributos persistidos; despues restauro el contenido de prueba y guardo la revision 4. Tambien inserto una imagen dentro de la primera columna, verifico sus controles de archivo, ancho, alineacion, ajuste y reemplazo, y descarto esa prueba sin alterar la revision guardada. El doble clic en el encabezado abrio la configuracion completa de encabezado y pie.
+- La carga segura de imagenes recupero su dependencia operativa: ClamAV estaba vivo pero sin `clamd` por OOM con el limite anterior de 1536 MiB. `platform-foundation.yaml` fija ahora 3072 MiB para el host de 32 GiB; el contenedor se reinicio con ese limite y quedo `healthy`, `OOMKilled=false` y con socket de `clamd` disponible.
 
 ## Pendientes de estabilizacion posterior
 
-- Permitir bloques arbitrarios anidados dentro de cada columna; este cierre conserva celdas textuales y variables, como declara el alcance.
+- La seleccion de rangos dentro de un mismo parrafo, listas, saltos de pagina y deshacer/rehacer quedan como ampliacion posterior; el alcance validado aplica formato persistente por parrafo y mantiene el documento compatible.
 - Ampliar la prueba automatizada de arrastrar y soltar en navegador. El reordenamiento seguro ya esta cubierto por el modelo puro y por controles de teclado/botones visibles.
