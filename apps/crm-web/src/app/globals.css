@@ -3182,6 +3182,466 @@ button:disabled {
   }
 }
 
+/* DOC-02: professional image composition inside the document canvas. */
+.document-studio-shell .document-page-blocks {
+  display: flow-root;
+}
+
+.document-studio-shell .document-page-blocks > .document-block {
+  margin-bottom: 0.42rem;
+}
+
+.document-studio-shell .document-block-image.image-block-flow-float_left,
+.document-studio-shell .document-block-image.image-block-flow-float_right {
+  width: var(--image-frame-width, 42%);
+  min-width: 8.5rem;
+  max-width: 100%;
+}
+
+.document-studio-shell .document-block-image.image-block-flow-float_left {
+  float: left;
+  margin: 0.2rem 1rem 0.65rem 0;
+}
+
+.document-studio-shell .document-block-image.image-block-flow-float_right {
+  float: right;
+  margin: 0.2rem 0 0.65rem 1rem;
+}
+
+.document-studio-shell
+  .document-block-image:is(.image-block-flow-float_left, .image-block-flow-float_right)
+  .document-image-card {
+  width: 100%;
+}
+
+.document-studio-shell
+  .document-block-image:is(.image-block-flow-float_left, .image-block-flow-float_right)
+  ~ :is(.document-block-text, .document-block-terms, .document-block-variable) {
+  min-width: 8rem;
+  overflow: hidden;
+}
+
+.document-studio-shell
+  .document-page-blocks
+  > .document-block:not(.document-block-text):not(.document-block-terms):not(
+    .document-block-variable
+  ):not(.document-block-image) {
+  clear: both;
+}
+
+.document-studio-shell .document-image-composer {
+  --image-frame-width: 100%;
+  --image-focal-x: 50%;
+  --image-focal-y: 50%;
+  --image-opacity: 1;
+  --image-corner-radius: 0px;
+  --image-rotation: 0deg;
+  position: relative;
+}
+
+.document-studio-shell .document-image-card,
+.document-studio-shell .column-image-frame.document-image-card,
+.document-studio-shell .image-slot-editor > .document-image-card {
+  position: relative;
+  display: block;
+  width: var(--image-frame-width);
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 1;
+  box-shadow: none;
+  transform: rotate(var(--image-rotation));
+  transform-origin: center;
+  transition:
+    width 100ms ease,
+    transform 120ms ease;
+}
+
+.document-studio-shell .image-align-center > .document-image-card,
+.document-studio-shell .image-align-center .column-image-frame.document-image-card {
+  margin-inline: auto;
+}
+
+.document-studio-shell .image-align-right > .document-image-card,
+.document-studio-shell .image-align-right .column-image-frame.document-image-card {
+  margin-left: auto;
+}
+
+.document-studio-shell .document-image-card::after {
+  display: none;
+}
+
+.document-studio-shell .document-image-media,
+.document-studio-shell .column-image-preview.document-image-media {
+  position: relative;
+  display: grid;
+  min-height: 7rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed #b9cbcc;
+  border-radius: var(--image-corner-radius);
+  background:
+    linear-gradient(135deg, rgb(230 240 239 / 72%), rgb(250 252 252 / 92%)),
+    repeating-linear-gradient(45deg, transparent 0 8px, rgb(12 89 84 / 3%) 8px 16px);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 82%);
+  transition:
+    border-color 130ms ease,
+    border-radius 130ms ease,
+    box-shadow 130ms ease;
+}
+
+.document-studio-shell .document-block.selected .document-image-media,
+.document-studio-shell .document-column-item.selected .document-image-media {
+  border-color: #43aaa1;
+  box-shadow:
+    0 0 0 2px rgb(67 170 161 / 12%),
+    0 10px 26px rgb(14 54 57 / 8%);
+}
+
+.document-studio-shell .image-aspect-square .document-image-media,
+.document-studio-shell .image-aspect-circle .document-image-media {
+  aspect-ratio: 1;
+}
+
+.document-studio-shell .image-aspect-landscape_4_3 .document-image-media {
+  aspect-ratio: 4 / 3;
+}
+
+.document-studio-shell .image-aspect-wide_16_9 .document-image-media {
+  aspect-ratio: 16 / 9;
+}
+
+.document-studio-shell .image-aspect-portrait_3_4 .document-image-media {
+  aspect-ratio: 3 / 4;
+}
+
+.document-studio-shell .image-aspect-circle .document-image-media {
+  border-radius: 50%;
+}
+
+.document-studio-shell .document-image-media img,
+.document-studio-shell .column-image-preview.document-image-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: inherit;
+  cursor: grab;
+  object-fit: cover;
+  object-position: var(--image-focal-x) var(--image-focal-y);
+  opacity: var(--image-opacity);
+  transition:
+    object-position 80ms linear,
+    opacity 120ms ease;
+}
+
+.document-studio-shell .image-aspect-auto .document-image-media img {
+  height: auto;
+  max-height: 30rem;
+}
+
+.document-studio-shell .image-fit-contain .document-image-media img {
+  object-fit: contain;
+}
+
+.document-studio-shell .document-image-empty {
+  display: grid;
+  min-height: 7rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.28rem;
+  padding: 1.5rem;
+  color: #708589;
+  text-align: center;
+}
+
+.document-studio-shell .document-image-empty span {
+  color: #09857b;
+  font-size: 0.48rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.document-studio-shell .document-image-empty strong {
+  color: #324c51;
+  font-size: 0.76rem;
+}
+
+.document-studio-shell .document-image-empty small {
+  max-width: 19rem;
+  color: #7c8e91;
+  font-size: 0.58rem;
+}
+
+.document-studio-shell .document-image-resize-handle {
+  position: absolute;
+  z-index: 8;
+  right: -0.42rem;
+  bottom: -0.42rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid #fff;
+  border-radius: 0.2rem;
+  background: #087b73;
+  cursor: nwse-resize;
+  box-shadow: 0 2px 8px rgb(7 49 50 / 28%);
+  touch-action: none;
+}
+
+.document-studio-shell .image-align-right .document-image-resize-handle {
+  right: auto;
+  left: -0.42rem;
+  cursor: nesw-resize;
+}
+
+.document-studio-shell .document-image-resize-handle:focus-visible,
+.document-studio-shell .document-image-focal-handle:focus-visible {
+  outline: 2px solid #16b8ab;
+  outline-offset: 2px;
+}
+
+.document-studio-shell .document-image-focal-handle {
+  position: absolute;
+  z-index: 7;
+  top: var(--image-focal-y);
+  left: var(--image-focal-x);
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 92%);
+  border-radius: 50%;
+  background: rgb(9 67 69 / 72%);
+  color: #fff;
+  cursor: move;
+  opacity: 0;
+  box-shadow: 0 3px 12px rgb(7 34 37 / 22%);
+  transform: translate(-50%, -50%);
+  transition: opacity 100ms ease;
+  touch-action: none;
+}
+
+.document-studio-shell .document-image-media:hover .document-image-focal-handle,
+.document-studio-shell .document-image-focal-handle:focus-visible {
+  opacity: 1;
+}
+
+.document-studio-shell .document-image-focal-handle span {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.document-studio-shell .document-image-card > .document-image-caption {
+  margin-top: 0.45rem;
+  transform: rotate(calc(-1 * var(--image-rotation)));
+}
+
+.document-studio-shell :is(.image-slot-editor, .column-image-editor) > .document-inline-controls {
+  width: min(34rem, calc(100vw - 5rem));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  border: 1px solid #cad8d9;
+  background: rgb(255 255 255 / 98%);
+  padding: 0.7rem;
+  box-shadow: 0 14px 34px rgb(18 48 51 / 16%);
+}
+
+.document-studio-shell
+  :is(.image-slot-editor, .column-image-editor)
+  > .document-inline-controls
+  > .image-presentation-controls {
+  display: none;
+}
+
+.document-studio-shell .image-composer-panel {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #d9e3e4;
+  border-radius: 0.45rem;
+  background: #fbfdfd;
+}
+
+.document-studio-shell .image-composer-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #dce6e6;
+  background: linear-gradient(90deg, #edf8f6, #f9fcfc);
+  padding: 0.56rem 0.65rem;
+}
+
+.document-studio-shell .image-composer-panel-heading div {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.document-studio-shell .image-composer-panel-heading span,
+.document-studio-shell .image-composer-section-title {
+  color: #688083;
+  font-size: 0.43rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .image-composer-panel-heading strong {
+  color: #17393c;
+  font-family: var(--font-display, Georgia), serif;
+  font-size: 0.76rem;
+}
+
+.document-studio-shell .image-composer-panel-heading output {
+  border-radius: 999px;
+  background: #0b7770;
+  padding: 0.18rem 0.5rem;
+  color: #fff;
+  font-size: 0.53rem;
+  font-weight: 800;
+}
+
+.document-studio-shell .image-composer-section {
+  display: grid;
+  gap: 0.45rem;
+  border-bottom: 1px solid #e2e9ea;
+  padding: 0.58rem 0.65rem;
+}
+
+.document-studio-shell .image-composer-section:last-child {
+  border-bottom: 0;
+}
+
+.document-studio-shell .image-width-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.28rem;
+}
+
+.document-studio-shell .image-width-presets button {
+  min-height: 1.65rem;
+  border: 1px solid #d5e0e1;
+  border-radius: 0.28rem;
+  background: #fff;
+  color: #53696d;
+  font-size: 0.52rem;
+  font-weight: 760;
+}
+
+.document-studio-shell .image-width-presets button:hover,
+.document-studio-shell .image-width-presets button.is-active {
+  border-color: #58afa7;
+  background: #eaf7f5;
+  color: #086e67;
+}
+
+.document-studio-shell .image-range-control,
+.document-studio-shell .image-focal-ranges label {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) 2.7rem;
+  align-items: center;
+  gap: 0.45rem;
+  color: #607579;
+  font-size: 0.49rem;
+  font-weight: 720;
+}
+
+.document-studio-shell .image-range-control input,
+.document-studio-shell .image-focal-ranges input {
+  min-height: 0;
+  accent-color: #0b8c82;
+}
+
+.document-studio-shell .image-range-control output,
+.document-studio-shell .image-focal-ranges output {
+  color: #24474a;
+  font-size: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.document-studio-shell .image-composer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+.document-studio-shell .image-composer-grid label {
+  display: grid;
+  gap: 0.2rem;
+  color: #708185;
+  font-size: 0.45rem;
+  font-weight: 790;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .image-composer-grid select {
+  min-height: 1.9rem;
+  border: 1px solid #d3dfe0;
+  border-radius: 0.3rem;
+  background: #fff;
+  color: #304a4e;
+  font-size: 0.54rem;
+  text-transform: none;
+}
+
+.document-studio-shell .image-focal-controls {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.document-studio-shell .image-focal-grid {
+  display: grid;
+  aspect-ratio: 1;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  border: 1px solid #cad8d9;
+  border-radius: 0.35rem;
+  background: #d9e5e5;
+  padding: 0.28rem;
+}
+
+.document-studio-shell .image-focal-grid button {
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.document-studio-shell .image-focal-grid button:hover,
+.document-studio-shell .image-focal-grid button.is-active {
+  background: #0a8a80;
+  box-shadow: inset 0 0 0 2px #fff;
+}
+
+.document-studio-shell .image-focal-ranges,
+.document-studio-shell .image-finish-controls {
+  display: grid;
+  gap: 0.38rem;
+}
+
+@media (max-width: 620px) {
+  .document-studio-shell .document-block-image.image-block-flow-float_left,
+  .document-studio-shell .document-block-image.image-block-flow-float_right {
+    float: none;
+    width: 100%;
+    margin: 0 0 0.65rem;
+  }
+
+  .document-studio-shell .image-composer-grid,
+  .document-studio-shell .image-focal-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Pipeline comercial: superficie de trabajo densa, clara y conectada a datos reales. */
 .crm-shell-board {
   background:

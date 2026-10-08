@@ -300,8 +300,16 @@ describe("document contracts", () => {
               replaceable: true,
               visible: true,
               width: "FULL",
+              widthPercent: 64,
               align: "CENTER",
               fit: "COVER",
+              aspectRatio: "WIDE_16_9",
+              focalX: 68,
+              focalY: 31,
+              rotation: 3,
+              opacity: 92,
+              cornerRadius: 14,
+              flow: "INLINE",
             },
           ],
         },
@@ -311,7 +319,23 @@ describe("document contracts", () => {
         },
       ],
     });
-    expect(parsed.cells?.[0]?.items[0]).toMatchObject({ type: "IMAGE", label: "Vehiculo" });
+    expect(parsed.cells?.[0]?.items[0]).toMatchObject({
+      type: "IMAGE",
+      label: "Vehiculo",
+      widthPercent: 64,
+      aspectRatio: "WIDE_16_9",
+      focalX: 68,
+      focalY: 31,
+      rotation: 3,
+      opacity: 92,
+      cornerRadius: 14,
+    });
+
+    const image = parsed.cells?.[0]?.items[0];
+    expect(image?.type).toBe("IMAGE");
+    if (!image || image.type !== "IMAGE") return;
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, widthPercent: 101 }).success).toBe(false);
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, focalX: -1 }).success).toBe(false);
 
     expect(
       ColumnsDocumentBlockSchema.safeParse({
