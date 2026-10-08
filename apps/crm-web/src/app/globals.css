@@ -7776,6 +7776,12 @@ body {
   z-index: 10;
 }
 
+.document-studio-shell .document-page .document-block-image.selected,
+.document-studio-shell .document-page .document-block-image:focus-within,
+.document-studio-shell .document-column-item.item-image.selected {
+  z-index: 30;
+}
+
 .document-studio-shell .document-page .document-block.locked {
   background: transparent;
 }
