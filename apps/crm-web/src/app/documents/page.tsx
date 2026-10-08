@@ -160,11 +160,7 @@ function beginImageResize(
       );
     }
     if (handle.includes("N") || handle.includes("S")) {
-      patch.heightPx = resizeImageFrameHeight(
-        originHeight,
-        pointerEvent.clientY - originY,
-        handle,
-      );
+      patch.heightPx = resizeImageFrameHeight(originHeight, pointerEvent.clientY - originY, handle);
       patch.aspectRatio = "FREE";
     }
     onPatch(patch);
