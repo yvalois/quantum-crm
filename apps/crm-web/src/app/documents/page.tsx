@@ -3102,8 +3102,12 @@ function AuthorizedFileImage({
   readonly csrf: string;
 }): React.JSX.Element {
   const [source, setSource] = useState<string | null>(null);
+  const [authorizationGeneration, setAuthorizationGeneration] = useState(0);
+  const retryTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
     const controller = new AbortController();
+    let refreshTimer: number | null = null;
     void fetch(`/api/files/${fileId}/download-authorizations`, {
       method: "POST",
       cache: "no-store",
@@ -3115,11 +3119,49 @@ function AuthorizedFileImage({
         if (!response.ok) throw new Error("file-not-available");
         return (await response.json()) as FileDownloadAuthorizationResponse;
       })
-      .then((response) => setSource(response.data.url))
-      .catch(() => setSource(null));
-    return () => controller.abort();
-  }, [csrf, fileId]);
-  return source ? <img src={source} alt={alt} /> : <small>Preparando vista previa...</small>;
+      .then((response) => {
+        if (controller.signal.aborted) return;
+        setSource(response.data.url);
+        refreshTimer = window.setTimeout(
+          () => setAuthorizationGeneration((current) => current + 1),
+          45_000,
+        );
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setSource(null);
+        refreshTimer = window.setTimeout(
+          () => setAuthorizationGeneration((current) => current + 1),
+          5_000,
+        );
+      });
+    return () => {
+      controller.abort();
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+    };
+  }, [authorizationGeneration, csrf, fileId]);
+
+  useEffect(
+    () => () => {
+      if (retryTimerRef.current !== null) window.clearTimeout(retryTimerRef.current);
+    },
+    [],
+  );
+
+  function recoverExpiredPreview(): void {
+    setSource(null);
+    if (retryTimerRef.current !== null) return;
+    retryTimerRef.current = window.setTimeout(() => {
+      retryTimerRef.current = null;
+      setAuthorizationGeneration((current) => current + 1);
+    }, 1_000);
+  }
+
+  return source ? (
+    <img src={source} alt={alt} onError={recoverExpiredPreview} />
+  ) : (
+    <small>Renovando vista previa...</small>
+  );
 }
 
 function AuthorizedFileDownload({

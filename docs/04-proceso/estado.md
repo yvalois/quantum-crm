@@ -14,7 +14,7 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
-> **DOC-02 / DOC-03 / DOC-05 (2026-10-08):** EN_REVISION el cierre funcional del editor documental tipo procesador de texto sobre `feat/DOC-02-word-editor-complete`, candidato `a09a1e51`. En el VPS de InterAmerican quedaron saludables API `20909c1` y CRM web `a09a1e5`; el recorrido autenticado comprobo carga y validacion real de imagenes, fuentes y enfasis, tabla con filas, columnas y anchos ajustables, zonas compatibles para imagenes, encabezado, pie, margenes y crecimiento automatico de una a dos paginas. Pendiente unicamente publicacion del PR y matriz CI; la ficha conserva los refinamientos no bloqueantes para estabilizacion posterior.
+> **DOC-02 / DOC-03 / DOC-05 (2026-10-08):** EN_CURSO la correccion final del editor documental sobre `feat/DOC-02-word-editor-complete` y PR `#114`. La carga y el scan concluyen correctamente, pero la vista previa conserva una autorizacion firmada de 60 segundos y muestra una imagen rota al expirar; el bloque queda abierto hasta renovar esa autorizacion automaticamente, validar la permanencia visual en el VPS y recuperar las siete comprobaciones verdes.
 
 > **Correccion USR-01 (2026-10-07):** Desplegado y comprobado el alta visible desde el perfil de empresa como `Administradores CRM`: crea membresia `ADMINISTRATOR`, invitacion e identidad dentro del CRM y realm aislados del perfil, con contraseña temporal, cambio obligatorio y TOTP. No concede permisos de Quantum Admin. El smoke E2E atraveso la cola durable, API, PostgreSQL y Keycloak de InterAmerican; todos los datos sinteticos fueron eliminados y los servicios quedaron saludables.
 
