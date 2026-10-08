@@ -262,21 +262,14 @@ describe("DocumentService", () => {
       italic: false,
       underline: false,
     });
-    expect(created.blocks[3]).toMatchObject({
-      type: "COLUMNS",
-      cells: [
-        {
-          items: [
-            {
-              type: "TEXT",
-              style: "CAPTION",
-              bold: false,
-              italic: true,
-              underline: false,
-            },
-          ],
-        },
-      ],
+    const composedBlock = created.blocks[3];
+    expect(composedBlock?.type).toBe("COLUMNS");
+    expect(composedBlock?.type === "COLUMNS" ? composedBlock.cells?.[0]?.items[0] : null).toMatchObject({
+      type: "TEXT",
+      style: "CAPTION",
+      bold: false,
+      italic: true,
+      underline: false,
     });
   });
 
@@ -477,19 +470,16 @@ describe("DocumentService", () => {
       now,
     });
 
-    expect(updated.blocks[0]).toMatchObject({
+    const updatedColumns = updated.blocks[0];
+    expect(updatedColumns).toMatchObject({
       locked: true,
       layout: "LEFT_WIDE",
-      cells: [
-        {
-          items: [
-            {
-              fileId: "019db9c7-1268-7d24-bf99-96ea38ebf215",
-              checksum: `sha256:${"b".repeat(64)}`,
-            },
-          ],
-        },
-      ],
+    });
+    expect(
+      updatedColumns?.type === "COLUMNS" ? updatedColumns.cells?.[0]?.items[0] : null,
+    ).toMatchObject({
+      fileId: "019db9c7-1268-7d24-bf99-96ea38ebf215",
+      checksum: `sha256:${"b".repeat(64)}`,
     });
   });
 

@@ -50,36 +50,30 @@ describe("document editor model", () => {
   });
 
   it("splits text without losing its identity or content", () => {
-    expect(
-      splitTextBlock({
-        id: firstId,
-        type: "TEXT",
-        locked: false,
-        align: "LEFT",
-        content: "Texto existente",
-        style: "TITLE",
-        bold: true,
-        italic: true,
-        underline: true,
-      }),
-    ).toMatchObject({
+    const split = splitTextBlock({
+      id: firstId,
+      type: "TEXT",
+      locked: false,
+      align: "LEFT",
+      content: "Texto existente",
+      style: "TITLE",
+      bold: true,
+      italic: true,
+      underline: true,
+    });
+
+    expect(split).toMatchObject({
       id: firstId,
       type: "COLUMNS",
       columns: ["Texto existente", ""],
-      cells: [
-        {
-          items: [
-            {
-              type: "TEXT",
-              content: "Texto existente",
-              style: "TITLE",
-              bold: true,
-              italic: true,
-              underline: true,
-            },
-          ],
-        },
-      ],
+    });
+    expect(split.cells?.[0]?.items[0]).toMatchObject({
+      type: "TEXT",
+      content: "Texto existente",
+      style: "TITLE",
+      bold: true,
+      italic: true,
+      underline: true,
     });
   });
 
