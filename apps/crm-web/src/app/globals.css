@@ -9913,6 +9913,8 @@ body {
 }
 
 .document-studio-shell .document-page .document-image-media {
+  width: 100%;
+  box-sizing: border-box;
   overflow: visible;
 }
 
