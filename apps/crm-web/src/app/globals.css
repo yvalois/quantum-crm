@@ -3816,6 +3816,18 @@ button:disabled {
   accent-color: #0b8c82;
 }
 
+.document-studio-shell .image-range-control input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d3dfe0;
+  border-radius: 0.28rem;
+  background: #fff;
+  color: #24474a;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  padding: 0.3rem 0.4rem;
+}
+
 .document-studio-shell .image-range-control output,
 .document-studio-shell .image-focal-ranges output {
   color: #24474a;

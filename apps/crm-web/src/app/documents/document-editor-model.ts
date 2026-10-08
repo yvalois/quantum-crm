@@ -8,6 +8,13 @@ export type ImageResizeCorner = "NW" | "NE" | "SW" | "SE";
 export type ImageResizeHandle = ImageResizeCorner | "N" | "E" | "S" | "W";
 
 const minimumTableColumnWidth = 5;
+const minimumImageDimensionPx = 1;
+
+function imageWidthPercent(widthPx: number, availableWidth: number): number {
+  const safeAvailableWidth = Math.max(availableWidth, minimumImageDimensionPx);
+  const safeWidth = Math.max(widthPx, minimumImageDimensionPx);
+  return Math.round((safeWidth / safeAvailableWidth) * 10_000) / 100;
+}
 
 export const documentColumnLayouts = [
   { id: "EQUAL_2", label: "Dos iguales", template: "1fr 1fr" },
@@ -98,12 +105,9 @@ export function resizeImageFrame(
 ): number {
   const safeAvailableWidth = Math.max(availableWidth, 1);
   const direction = handle.endsWith("E") ? 1 : -1;
-  return Math.min(
-    100,
-    Math.max(
-      10,
-      Math.round(originWidth + (horizontalDelta / safeAvailableWidth) * 100 * direction),
-    ),
+  return imageWidthPercent(
+    (originWidth / 100) * safeAvailableWidth + horizontalDelta * direction,
+    safeAvailableWidth,
   );
 }
 
@@ -113,7 +117,7 @@ export function resizeImageFrameHeight(
   handle: ImageResizeHandle,
 ): number {
   const direction = handle.startsWith("N") ? -1 : 1;
-  return Math.min(1200, Math.max(80, Math.round(originHeight + verticalDelta * direction)));
+  return Math.max(minimumImageDimensionPx, Math.round(originHeight + verticalDelta * direction));
 }
 
 /**
@@ -154,12 +158,7 @@ export function resizeContainedImageFrame(
     nextWidth = verticalWidth;
   }
 
-  const minimumWidth = Math.min(
-    safeAvailableWidth,
-    Math.max(safeAvailableWidth * 0.1, 80 * aspectRatio),
-  );
-  const boundedWidth = Math.min(safeAvailableWidth, Math.max(minimumWidth, nextWidth));
-  return Math.round((boundedWidth / safeAvailableWidth) * 100);
+  return imageWidthPercent(nextWidth, safeAvailableWidth);
 }
 
 export function resizeImageObjectFrame(
@@ -173,7 +172,7 @@ export function resizeImageObjectFrame(
   const safeAvailableWidth = Math.max(availableWidth, 1);
   const safeOriginWidth = Math.max(originWidthPx, 1);
   const safeOriginHeight = Math.max(originHeightPx, 1);
-  const originWidthPercent = Math.round((safeOriginWidth / safeAvailableWidth) * 100);
+  const originWidthPercent = imageWidthPercent(safeOriginWidth, safeAvailableWidth);
   const isCorner = handle.length === 2;
 
   if (isCorner) {
@@ -187,8 +186,9 @@ export function resizeImageObjectFrame(
     );
     return {
       widthPercent,
-      heightPx: Math.round(
-        ((safeAvailableWidth * widthPercent) / 100 / safeOriginWidth) * safeOriginHeight,
+      heightPx: Math.max(
+        minimumImageDimensionPx,
+        Math.round(((safeAvailableWidth * widthPercent) / 100 / safeOriginWidth) * safeOriginHeight),
       ),
     };
   }
@@ -206,7 +206,7 @@ export function resizeImageObjectFrame(
   }
 
   return {
-    widthPercent: Math.min(100, Math.max(10, originWidthPercent)),
+    widthPercent: originWidthPercent,
     heightPx: resizeImageFrameHeight(safeOriginHeight, verticalDelta, handle),
   };
 }

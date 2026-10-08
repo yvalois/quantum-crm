@@ -40,7 +40,7 @@ describe("document contracts", () => {
     expect(parsed.fit).toBe("CONTAIN");
   });
 
-  it("persists a freely resized image frame with a bounded height", () => {
+  it("persists a freely resized image frame without artificial size limits", () => {
     const image = {
       id: "019db9c7-1268-7d24-bf99-96ea38ebf098",
       type: "IMAGE",
@@ -59,8 +59,9 @@ describe("document contracts", () => {
       aspectRatio: "FREE",
       heightPx: 360,
     });
-    expect(ImageDocumentBlockSchema.safeParse({ ...image, heightPx: 40 }).success).toBe(false);
-    expect(ImageDocumentBlockSchema.safeParse({ ...image, heightPx: 1400 }).success).toBe(false);
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, heightPx: 40 }).success).toBe(true);
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, heightPx: 1400 }).success).toBe(true);
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, heightPx: 0 }).success).toBe(false);
   });
 
   it("accepts a bounded document draft", () => {
@@ -372,7 +373,8 @@ describe("document contracts", () => {
     const image = parsed.cells?.[0]?.items[0];
     expect(image?.type).toBe("IMAGE");
     if (!image || image.type !== "IMAGE") return;
-    expect(ImageDocumentBlockSchema.safeParse({ ...image, widthPercent: 101 }).success).toBe(false);
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, widthPercent: 101 }).success).toBe(true);
+    expect(ImageDocumentBlockSchema.safeParse({ ...image, widthPercent: 0 }).success).toBe(false);
     expect(ImageDocumentBlockSchema.safeParse({ ...image, focalX: -1 }).success).toBe(false);
 
     expect(

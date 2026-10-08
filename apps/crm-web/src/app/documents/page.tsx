@@ -2519,26 +2519,30 @@ function ImagePresentationControls({
           <label className="image-range-control">
             <span>Ancho exacto</span>
             <input
-              type="range"
-              min={10}
-              max={100}
+              type="number"
+              min={0.01}
+              step={0.1}
               value={width}
               disabled={locked}
-              onChange={(event) => onPatch({ widthPercent: Number(event.target.value) })}
+              onChange={(event) => {
+                const widthPercent = Number(event.target.value);
+                if (widthPercent > 0) onPatch({ widthPercent });
+              }}
             />
             <output>{width}%</output>
           </label>
           <label className="image-range-control">
             <span>Alto exacto</span>
             <input
-              type="range"
-              min={80}
-              max={800}
+              type="number"
+              min={1}
+              step={1}
               value={height ?? 220}
               disabled={locked}
-              onChange={(event) =>
-                onPatch({ heightPx: Number(event.target.value), aspectRatio: "FREE" })
-              }
+              onChange={(event) => {
+                const heightPx = Number(event.target.value);
+                if (heightPx > 0) onPatch({ heightPx, aspectRatio: "FREE" });
+              }}
             />
             <output>{height ? `${height}px` : "Auto"}</output>
           </label>

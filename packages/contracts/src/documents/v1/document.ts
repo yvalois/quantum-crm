@@ -40,9 +40,9 @@ const ImageDocumentBlockBaseSchema = BlockBaseSchema.extend({
   visible: z.boolean().default(true),
   width: z.enum(["FULL", "WIDE", "MEDIUM", "SMALL"]).default("FULL"),
   /** Exact frame width used by the visual composer. Legacy presets remain supported. */
-  widthPercent: z.number().int().min(10).max(100).optional(),
+  widthPercent: z.number().finite().positive().optional(),
   /** Exact frame height after a free vertical resize. Omitted means automatic height. */
-  heightPx: z.number().int().min(80).max(1200).optional(),
+  heightPx: z.number().finite().positive().optional(),
   align: z.enum(["LEFT", "CENTER", "RIGHT"]).default("CENTER"),
   fit: z.enum(["CONTAIN", "COVER"]).default("CONTAIN"),
   aspectRatio: z
