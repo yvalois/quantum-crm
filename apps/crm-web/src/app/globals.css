@@ -8995,6 +8995,12 @@ body {
   box-shadow: none;
 }
 
+.document-studio-shell
+  .image-width-full.image-slot-editor
+  > .document-image-handle {
+  width: 100%;
+}
+
 .document-studio-shell .image-slot-editor > .document-image-handle:active {
   cursor: grabbing;
 }
