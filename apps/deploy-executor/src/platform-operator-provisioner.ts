@@ -54,7 +54,12 @@ interface KeycloakUser {
   readonly attributes?: unknown;
 }
 
-function subjectFor(value: unknown, assignmentId: string, email: string): string | null {
+function subjectFor(
+  value: unknown,
+  assignmentId: string,
+  email: string,
+  requireAssignmentMarker = true,
+): string | null {
   if (!Array.isArray(value)) throw new PlatformOperatorProvisioningError();
   if (value.length === 0) return null;
   if (value.length !== 1 || typeof value[0] !== "object" || value[0] === null) {
@@ -69,8 +74,9 @@ function subjectFor(value: unknown, assignmentId: string, email: string): string
     typeof user.id !== "string" ||
     user.username !== email ||
     user.email !== email ||
-    !Array.isArray(attributes.qcrmProfileOperatorAssignment) ||
-    attributes.qcrmProfileOperatorAssignment[0] !== assignmentId
+    (requireAssignmentMarker &&
+      (!Array.isArray(attributes.qcrmProfileOperatorAssignment) ||
+        attributes.qcrmProfileOperatorAssignment[0] !== assignmentId))
   ) {
     throw new PlatformOperatorProvisioningError();
   }
@@ -92,6 +98,7 @@ export function createPlatformOperatorProvisioner(options: Options): PlatformOpe
     let response = await fetch(lookup, { headers, signal: AbortSignal.timeout(5_000) });
     if (!response.ok) throw new PlatformOperatorProvisioningError();
     let subject = subjectFor(await response.json(), command.assignmentId, command.email);
+    let createdSubject: string | null = null;
     if (!subject) {
       response = await fetch(users, {
         method: "POST",
@@ -107,29 +114,47 @@ export function createPlatformOperatorProvisioner(options: Options): PlatformOpe
         }),
         signal: AbortSignal.timeout(5_000),
       });
-      if (response.status !== 201 && response.status !== 409) {
+      if (response.status !== 201) {
         throw new PlatformOperatorProvisioningError();
       }
       const retried = await fetch(lookup, { headers, signal: AbortSignal.timeout(5_000) });
       if (!retried.ok) throw new PlatformOperatorProvisioningError();
-      subject = subjectFor(await retried.json(), command.assignmentId, command.email);
+      subject = subjectFor(await retried.json(), command.assignmentId, command.email, false);
       if (!subject) throw new PlatformOperatorProvisioningError();
+      createdSubject = subject;
     }
-    const temporaryPassword = `Aa9!${randomBytes(18).toString("base64url")}`;
-    const reset = await fetch(
-      new URL(
-        `/admin/realms/quantum-platform/users/${encodeURIComponent(subject)}/reset-password`,
-        options.keycloakAdminOrigin,
-      ),
-      {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ type: "password", value: temporaryPassword, temporary: true }),
-        signal: AbortSignal.timeout(5_000),
-      },
-    );
-    if (reset.status !== 204) throw new PlatformOperatorProvisioningError();
-    return Object.freeze({ subject, temporaryPassword });
+    try {
+      const temporaryPassword = `Aa9!${randomBytes(18).toString("base64url")}`;
+      const reset = await fetch(
+        new URL(
+          `/admin/realms/quantum-platform/users/${encodeURIComponent(subject)}/reset-password`,
+          options.keycloakAdminOrigin,
+        ),
+        {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ type: "password", value: temporaryPassword, temporary: true }),
+          signal: AbortSignal.timeout(5_000),
+        },
+      );
+      if (reset.status !== 204) throw new PlatformOperatorProvisioningError();
+      return Object.freeze({ subject, temporaryPassword });
+    } catch {
+      if (createdSubject) {
+        await fetch(
+          new URL(
+            `/admin/realms/quantum-platform/users/${encodeURIComponent(createdSubject)}`,
+            options.keycloakAdminOrigin,
+          ),
+          {
+            method: "DELETE",
+            headers: { authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(5_000),
+          },
+        ).catch(() => undefined);
+      }
+      throw new PlatformOperatorProvisioningError();
+    }
   };
   return Object.freeze({ provision });
 }
