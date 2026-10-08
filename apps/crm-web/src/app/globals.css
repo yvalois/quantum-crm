@@ -189,11 +189,6 @@
   justify-content: center;
   background: #eaf0f1;
 }
-.forms-studio-host { grid-template-columns: 1fr !important; }
-.forms-studio-host .crm-sidebar { display: none; }
-.forms-studio-host .crm-content.forms-page { width: 100%; max-width: none; padding: 0; }
-.forms-studio-host .forms-topbar { margin: 0; padding: 18px 28px; background: #fff; border-bottom: 1px solid #d7e1e1; }
-.forms-studio-host .forms-workspace { border: 0; min-height: calc(100dvh - 116px); }
 .forms-builder {
   grid-area: canvas;
   display: grid;

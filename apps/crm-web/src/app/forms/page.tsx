@@ -377,7 +377,7 @@ export default function FormsPage(): React.JSX.Element {
   }
 
   return (
-    <CrmShell className="forms-studio-host">
+    <CrmShell>
       <section className="crm-content forms-page">
         <header className="forms-topbar">
           <div>
