@@ -1,15 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-function storageOrigin(request: NextRequest): string | null {
-  if (request.nextUrl.protocol !== "https:") return null;
-  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const host = forwardedHost ?? request.headers.get("host") ?? request.nextUrl.hostname;
-  if (!/^[a-z0-9.-]+(?::[0-9]{1,5})?$/iu.test(host)) return null;
-  const hostname = host.replace(/:[0-9]{1,5}$/u, "");
-  const labels = hostname.split(".");
-  if (labels.length < 3 || labels.some((label) => !/^[a-z0-9-]+$/iu.test(label))) return null;
-  return `https://storage.${labels.slice(1).join(".")}`;
-}
+import { siblingStorageOrigin } from "./server/storage-origin";
 
 function contentSecurityPolicy(nonce: string, filesOrigin: string | null): string {
   const filesSource = filesOrigin ? ` ${filesOrigin}` : "";
@@ -30,7 +21,7 @@ function contentSecurityPolicy(nonce: string, filesOrigin: string | null): strin
 
 export function proxy(request: NextRequest): NextResponse {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const csp = contentSecurityPolicy(nonce, storageOrigin(request));
+  const csp = contentSecurityPolicy(nonce, siblingStorageOrigin(request.url, request.headers));
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);

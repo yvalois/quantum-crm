@@ -700,11 +700,13 @@ export default function DocumentsPage(): React.JSX.Element {
       for (const [name, value] of Object.entries(intent.data.upload.fields)) {
         uploadBody.append(name, value);
       }
+      uploadBody.append("qcrm-upload-url", intent.data.upload.url);
       uploadBody.append("file", file, file.name);
-      const uploadResponse = await fetch(intent.data.upload.url, {
-        method: intent.data.upload.method,
+      const uploadResponse = await fetch("/api/files/upload", {
+        method: "POST",
         body: uploadBody,
-        credentials: "omit",
+        credentials: "same-origin",
+        headers: { "x-csrf-token": csrf },
       });
       const uploadResponseBody = await uploadResponse.text();
       if (!uploadResponse.ok) throw new Error("El almacenamiento rechazó la carga.");

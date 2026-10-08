@@ -12,6 +12,7 @@ import {
   handleCrmMemberUpdate,
   handleCrmContactList,
   handleCrmContactUpdate,
+  handleCrmFileUploadTransport,
   handleCrmOpportunityList,
   handleCrmOpportunityUpdate,
   handleCrmSession,
@@ -68,6 +69,62 @@ function runtime(crmApiFetch: typeof fetch = vi.fn(fetch)): CrmAuthRuntime {
 }
 
 describe("CRM web authentication HTTP boundary", () => {
+  it("transporta una carga firmada solo al almacenamiento hermano autorizado", async () => {
+    const upstream = vi.fn(async (url: URL | RequestInfo, init?: RequestInit) => {
+      expect(String(url)).toBe("https://storage.example.test/incoming");
+      const body = init?.body;
+      expect(body).toBeInstanceOf(FormData);
+      expect((body as FormData).has("qcrm-upload-url")).toBe(false);
+      expect(((body as FormData).get("file") as File).name).toBe("propuesta.png");
+      return new Response("<PostResponse />", {
+        status: 201,
+        headers: { etag: '"receipt"', "x-amz-version-id": "version-1" },
+      });
+    });
+    const form = new FormData();
+    form.set("qcrm-upload-url", "https://storage.example.test/incoming");
+    form.set("key", "incoming/test");
+    form.set("file", new File([new Uint8Array([1, 2, 3])], "propuesta.png", { type: "image/png" }));
+    const response = await handleCrmFileUploadTransport(
+      new Request("https://crm.example.test/api/files/upload", {
+        method: "POST",
+        headers: {
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+        },
+        body: form,
+      }),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get("etag")).toBe('"receipt"');
+    expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it("rechaza reenviar cargas a un host distinto", async () => {
+    const upstream = vi.fn(fetch);
+    const form = new FormData();
+    form.set("qcrm-upload-url", "https://attacker.example.test/incoming");
+    form.set("file", new File([new Uint8Array([1])], "archivo.png", { type: "image/png" }));
+    const response = await handleCrmFileUploadTransport(
+      new Request("https://crm.example.test/api/files/upload", {
+        method: "POST",
+        headers: {
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+        },
+        body: form,
+      }),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(400);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("uses a host-only opaque login cookie", async () => {
     const response = await handleCrmLogin(
       new Request("https://crm.example.test/api/auth/login?returnTo=%2Fmembers"),

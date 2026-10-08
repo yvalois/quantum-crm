@@ -123,7 +123,10 @@ import {
   UpdateFormSchema,
 } from "@quantum-crm/contracts";
 
+import { siblingStorageOrigin } from "./storage-origin.js";
+
 const maximumResponseBytes = 1_048_576;
+const maximumUploadProxyBytes = 52_428_800;
 const idempotencyKeyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
@@ -1545,6 +1548,69 @@ export async function handleCrmFileUploadIntent(request: Request, runtime: CrmAu
     requestSchema: CreateFileUploadIntentSchema,
     responseSchema: FileUploadIntentResponseSchema,
   });
+}
+
+export async function handleCrmFileUploadTransport(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  const contentType = request.headers.get("content-type") ?? "";
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (
+    !contentType.toLocaleLowerCase("en").startsWith("multipart/form-data;") ||
+    !Number.isFinite(declaredLength) ||
+    declaredLength > maximumUploadProxyBytes
+  ) {
+    return crmProblem(400, "Invalid request");
+  }
+  try {
+    const form = await request.formData();
+    const uploadUrl = form.get("qcrm-upload-url");
+    const files = form.getAll("file");
+    const entries = [...form.entries()];
+    if (
+      typeof uploadUrl !== "string" ||
+      files.length !== 1 ||
+      !(files[0] instanceof File) ||
+      files[0].size < 1 ||
+      files[0].size > maximumUploadProxyBytes ||
+      entries.length > 64
+    ) {
+      return crmProblem(400, "Invalid request");
+    }
+    const allowedOrigin = siblingStorageOrigin(request.url, request.headers);
+    const target = new URL(uploadUrl);
+    if (
+      !allowedOrigin ||
+      target.origin !== allowedOrigin ||
+      target.username ||
+      target.password ||
+      target.search ||
+      target.hash
+    ) {
+      return crmProblem(400, "Invalid request");
+    }
+    form.delete("qcrm-upload-url");
+    const upstream = await runtime.crmApiFetch(target, {
+      method: "POST",
+      body: form,
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(60_000),
+    });
+    const body = await upstream.arrayBuffer();
+    if (body.byteLength > maximumResponseBytes) return crmProblem(503, "Storage unavailable");
+    const headers = crmNoStoreHeaders();
+    for (const name of ["content-type", "etag", "x-amz-version-id"] as const) {
+      const value = upstream.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    return new Response(body, { status: upstream.status, headers });
+  } catch {
+    return crmProblem(503, "Storage unavailable");
+  }
 }
 
 export async function handleCrmFileGet(request: Request, runtime: CrmAuthRuntime, fileId: string) {
