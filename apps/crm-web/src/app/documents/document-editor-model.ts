@@ -1,8 +1,4 @@
-import type {
-  DocumentBlock,
-  DocumentColumnCell,
-  DocumentColumnItem,
-} from "@quantum-crm/contracts";
+import type { DocumentBlock, DocumentColumnCell, DocumentColumnItem } from "@quantum-crm/contracts";
 
 export type ColumnsBlock = Extract<DocumentBlock, { readonly type: "COLUMNS" }>;
 export type DocumentColumnLayout = ColumnsBlock["layout"];
@@ -72,7 +68,10 @@ function itemFallback(item: DocumentColumnItem): string {
   return "---";
 }
 
-function syncColumnFallbacks(block: ColumnsBlock, cells: readonly DocumentColumnCell[]): ColumnsBlock {
+function syncColumnFallbacks(
+  block: ColumnsBlock,
+  cells: readonly DocumentColumnCell[],
+): ColumnsBlock {
   return {
     ...block,
     cells: [...cells],
@@ -113,10 +112,7 @@ export function changeColumnsLayout(
   const targetCount = layout === "EQUAL_3" ? 3 : 2;
   if (targetCount === block.cells?.length) return { ...block, layout };
   if (targetCount === 3) {
-    return syncColumnFallbacks(
-      { ...block, layout },
-      [...(block.cells ?? []), createCell("")],
-    );
+    return syncColumnFallbacks({ ...block, layout }, [...(block.cells ?? []), createCell("")]);
   }
 
   const [first = createCell(""), second = createCell(""), ...remaining] = block.cells ?? [];
@@ -126,10 +122,7 @@ export function changeColumnsLayout(
       cell.items.length > 0 ? [createColumnItem("DIVIDER"), ...cell.items] : [],
     ),
   ];
-  return syncColumnFallbacks(
-    { ...block, layout },
-    [first, { ...second, items: mergedItems }],
-  );
+  return syncColumnFallbacks({ ...block, layout }, [first, { ...second, items: mergedItems }]);
 }
 
 export function splitTextBlock(
@@ -205,7 +198,9 @@ export function moveColumnItemToCell(
   targetCellId: string,
 ): ColumnsBlock {
   const block = normalizeColumnsBlock(source);
-  const item = block.cells?.flatMap((cell) => cell.items).find((candidate) => candidate.id === itemId);
+  const item = block.cells
+    ?.flatMap((cell) => cell.items)
+    .find((candidate) => candidate.id === itemId);
   if (!item || block.cells?.some((cell) => cell.id === targetCellId && cell.items.includes(item))) {
     return block;
   }

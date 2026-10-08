@@ -156,7 +156,10 @@ function materializeBlocks(
         return { ...block, content: replaceTokens(block.content, values) };
       if (block.type === "COLUMNS") {
         if (!block.cells) {
-          return { ...block, columns: block.columns.map((column) => replaceTokens(column, values)) };
+          return {
+            ...block,
+            columns: block.columns.map((column) => replaceTokens(column, values)),
+          };
         }
         const cells = block.cells.map((cell) => ({
           ...cell,

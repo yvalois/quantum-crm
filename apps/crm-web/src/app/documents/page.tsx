@@ -331,7 +331,9 @@ export default function DocumentsPage(): React.JSX.Element {
     setDirty(true);
   }
 
-  function openInspectorSection(sectionId: "document-header-settings" | "document-footer-settings"): void {
+  function openInspectorSection(
+    sectionId: "document-header-settings" | "document-footer-settings",
+  ): void {
     setInspectorOpen(true);
     window.requestAnimationFrame(() => {
       document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1868,136 +1870,145 @@ function BlockEditor({
                 </section>
               ))
             : block.cells.map((cell, columnIndex) => (
-            <section className="document-column-cell" key={cell.id}>
-              <header className="document-column-head">
-                <span>Columna {columnIndex + 1}</span>
-                <div aria-label={`Agregar contenido a la columna ${columnIndex + 1}`}>
-                  <button
-                    type="button"
-                    disabled={block.locked}
-                    onClick={() => onChange(addColumnItem(block, cell.id, createColumnItem("TEXT")))}
-                  >
-                    + Texto
-                  </button>
-                  <button
-                    type="button"
-                    disabled={block.locked}
-                    onClick={() =>
-                      onChange(addColumnItem(block, cell.id, createColumnItem("IMAGE")))
-                    }
-                  >
-                    + Imagen
-                  </button>
-                  <button
-                    type="button"
-                    disabled={block.locked}
-                    onClick={() =>
-                      onChange(addColumnItem(block, cell.id, createColumnItem("VARIABLE")))
-                    }
-                  >
-                    + Variable
-                  </button>
-                  <button
-                    type="button"
-                    disabled={block.locked}
-                    onClick={() =>
-                      onChange(addColumnItem(block, cell.id, createColumnItem("DIVIDER")))
-                    }
-                  >
-                    + Linea
-                  </button>
-                </div>
-              </header>
-              <div className="document-column-items">
-                {cell.items.length === 0 ? (
-                  <button
-                    type="button"
-                    className="document-column-empty"
-                    disabled={block.locked}
-                    onClick={() => onChange(addColumnItem(block, cell.id, createColumnItem("TEXT")))}
-                  >
-                    + Agregar contenido
-                  </button>
-                ) : null}
-                {cell.items.map((item, itemIndex) => (
-                  <article className={`document-column-item item-${item.type.toLowerCase()}`} key={item.id}>
-                    <header>
-                      <strong>
-                        {item.type === "TEXT"
-                          ? "Texto"
-                          : item.type === "IMAGE"
-                            ? "Imagen"
-                            : item.type === "VARIABLE"
-                              ? "Variable"
-                              : "Separador"}
-                      </strong>
-                      <div>
-                        <button
-                          type="button"
-                          disabled={block.locked || columnIndex === 0}
-                          aria-label="Mover elemento a la columna anterior"
-                          onClick={() => {
-                            const target = block.cells?.[columnIndex - 1];
-                            if (target) onChange(moveColumnItemToCell(block, item.id, target.id));
-                          }}
-                        >
-                          ←
-                        </button>
-                        <button
-                          type="button"
-                          disabled={block.locked || columnIndex === (block.cells?.length ?? 0) - 1}
-                          aria-label="Mover elemento a la columna siguiente"
-                          onClick={() => {
-                            const target = block.cells?.[columnIndex + 1];
-                            if (target) onChange(moveColumnItemToCell(block, item.id, target.id));
-                          }}
-                        >
-                          →
-                        </button>
-                        <button
-                          type="button"
-                          disabled={block.locked || itemIndex === 0}
-                          aria-label="Mover elemento arriba"
-                          onClick={() =>
-                            onChange(moveColumnItem(block, cell.id, itemIndex, -1))
+                <section className="document-column-cell" key={cell.id}>
+                  <header className="document-column-head">
+                    <span>Columna {columnIndex + 1}</span>
+                    <div aria-label={`Agregar contenido a la columna ${columnIndex + 1}`}>
+                      <button
+                        type="button"
+                        disabled={block.locked}
+                        onClick={() =>
+                          onChange(addColumnItem(block, cell.id, createColumnItem("TEXT")))
+                        }
+                      >
+                        + Texto
+                      </button>
+                      <button
+                        type="button"
+                        disabled={block.locked}
+                        onClick={() =>
+                          onChange(addColumnItem(block, cell.id, createColumnItem("IMAGE")))
+                        }
+                      >
+                        + Imagen
+                      </button>
+                      <button
+                        type="button"
+                        disabled={block.locked}
+                        onClick={() =>
+                          onChange(addColumnItem(block, cell.id, createColumnItem("VARIABLE")))
+                        }
+                      >
+                        + Variable
+                      </button>
+                      <button
+                        type="button"
+                        disabled={block.locked}
+                        onClick={() =>
+                          onChange(addColumnItem(block, cell.id, createColumnItem("DIVIDER")))
+                        }
+                      >
+                        + Linea
+                      </button>
+                    </div>
+                  </header>
+                  <div className="document-column-items">
+                    {cell.items.length === 0 ? (
+                      <button
+                        type="button"
+                        className="document-column-empty"
+                        disabled={block.locked}
+                        onClick={() =>
+                          onChange(addColumnItem(block, cell.id, createColumnItem("TEXT")))
+                        }
+                      >
+                        + Agregar contenido
+                      </button>
+                    ) : null}
+                    {cell.items.map((item, itemIndex) => (
+                      <article
+                        className={`document-column-item item-${item.type.toLowerCase()}`}
+                        key={item.id}
+                      >
+                        <header>
+                          <strong>
+                            {item.type === "TEXT"
+                              ? "Texto"
+                              : item.type === "IMAGE"
+                                ? "Imagen"
+                                : item.type === "VARIABLE"
+                                  ? "Variable"
+                                  : "Separador"}
+                          </strong>
+                          <div>
+                            <button
+                              type="button"
+                              disabled={block.locked || columnIndex === 0}
+                              aria-label="Mover elemento a la columna anterior"
+                              onClick={() => {
+                                const target = block.cells?.[columnIndex - 1];
+                                if (target)
+                                  onChange(moveColumnItemToCell(block, item.id, target.id));
+                              }}
+                            >
+                              ←
+                            </button>
+                            <button
+                              type="button"
+                              disabled={
+                                block.locked || columnIndex === (block.cells?.length ?? 0) - 1
+                              }
+                              aria-label="Mover elemento a la columna siguiente"
+                              onClick={() => {
+                                const target = block.cells?.[columnIndex + 1];
+                                if (target)
+                                  onChange(moveColumnItemToCell(block, item.id, target.id));
+                              }}
+                            >
+                              →
+                            </button>
+                            <button
+                              type="button"
+                              disabled={block.locked || itemIndex === 0}
+                              aria-label="Mover elemento arriba"
+                              onClick={() =>
+                                onChange(moveColumnItem(block, cell.id, itemIndex, -1))
+                              }
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              disabled={block.locked || itemIndex === cell.items.length - 1}
+                              aria-label="Mover elemento abajo"
+                              onClick={() => onChange(moveColumnItem(block, cell.id, itemIndex, 1))}
+                            >
+                              ↓
+                            </button>
+                            <button
+                              type="button"
+                              disabled={block.locked}
+                              aria-label="Eliminar elemento de columna"
+                              onClick={() => onChange(removeColumnItem(block, item.id))}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </header>
+                        <ColumnItemEditor
+                          item={item}
+                          locked={block.locked}
+                          uploading={uploadingItemId === item.id}
+                          csrf={csrf}
+                          onChange={(next) =>
+                            onChange(updateColumnItem(block, item.id, () => next))
                           }
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          disabled={block.locked || itemIndex === cell.items.length - 1}
-                          aria-label="Mover elemento abajo"
-                          onClick={() =>
-                            onChange(moveColumnItem(block, cell.id, itemIndex, 1))
-                          }
-                        >
-                          ↓
-                        </button>
-                        <button
-                          type="button"
-                          disabled={block.locked}
-                          aria-label="Eliminar elemento de columna"
-                          onClick={() => onChange(removeColumnItem(block, item.id))}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </header>
-                    <ColumnItemEditor
-                      item={item}
-                      locked={block.locked}
-                      uploading={uploadingItemId === item.id}
-                      csrf={csrf}
-                      onChange={(next) =>
-                        onChange(updateColumnItem(block, item.id, () => next))
-                      }
-                      onFileSelected={(file) => onFileSelected(file, item.id)}
-                    />
-                  </article>
-                ))}
-              </div>
-            </section>
+                          onFileSelected={(file) => onFileSelected(file, item.id)}
+                        />
+                      </article>
+                    ))}
+                  </div>
+                </section>
               ))}
         </div>
       </div>
@@ -2357,9 +2368,7 @@ function ColumnItemEditor({
       value={item.style}
       disabled={locked}
       aria-label="Estilo del separador"
-      onChange={(event) =>
-        onChange({ ...item, style: event.target.value as typeof item.style })
-      }
+      onChange={(event) => onChange({ ...item, style: event.target.value as typeof item.style })}
     >
       <option value="SOLID">Linea solida</option>
       <option value="DASHED">Guiones</option>

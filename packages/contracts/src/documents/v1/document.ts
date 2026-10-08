@@ -103,10 +103,7 @@ export const DocumentColumnItemSchema = z
     VariableDocumentBlockSchema,
   ])
   .superRefine((value, context) => {
-    if (
-      value.type === "IMAGE" &&
-      (value.fileId === null) !== (value.checksum === null)
-    ) {
+    if (value.type === "IMAGE" && (value.fileId === null) !== (value.checksum === null)) {
       context.addIssue({
         code: "custom",
         message: "fileId and checksum must be supplied together",
@@ -137,7 +134,9 @@ const ColumnsDocumentBlockBaseSchema = BlockBaseSchema.extend({
 export const ColumnsDocumentBlockSchema = ColumnsDocumentBlockBaseSchema.refine(
   (value) => {
     const count = value.layout === "EQUAL_3" ? 3 : 2;
-    return value.columns.length === count && (value.cells === undefined || value.cells.length === count);
+    return (
+      value.columns.length === count && (value.cells === undefined || value.cells.length === count)
+    );
   },
   { message: "Column count must match the selected layout" },
 ).superRefine((value, context) => {
@@ -262,7 +261,10 @@ export const DocumentBlockSchema = z
         }
         const projected = cell.items.map(columnItemProjection).filter(Boolean).join("\n\n");
         if (value.columns[cellIndex] !== projected) {
-          context.addIssue({ code: "custom", message: "Column projection does not match its items" });
+          context.addIssue({
+            code: "custom",
+            message: "Column projection does not match its items",
+          });
         }
       }
     }
