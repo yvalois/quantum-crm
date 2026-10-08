@@ -7321,6 +7321,43 @@ body {
   line-height: 1.4;
 }
 
+.document-studio-shell .document-page .document-prose-input.text-style-title {
+  min-height: 2.7rem;
+  font-size: 1.72rem;
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+
+.document-studio-shell .document-page .document-prose-input.text-style-subtitle {
+  min-height: 2.2rem;
+  color: #344b50;
+  font-size: 1.18rem;
+  line-height: 1.35;
+  letter-spacing: -0.018em;
+}
+
+.document-studio-shell .document-page .document-prose-input.text-style-caption {
+  min-height: 1.7rem;
+  color: #66787c;
+  font-size: 0.69rem;
+  line-height: 1.5;
+}
+
+.document-studio-shell .document-page .document-prose-input.is-bold {
+  font-weight: 760;
+}
+
+.document-studio-shell .document-page .document-prose-input.is-italic {
+  font-style: italic;
+}
+
+.document-studio-shell .document-page .document-prose-input.is-underlined {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentcolor 62%, transparent);
+  text-decoration-thickness: 0.075em;
+  text-underline-offset: 0.14em;
+}
+
 .document-studio-shell .document-page .block-editor-grid select,
 .document-studio-shell .document-page .column-text-editor select {
   position: absolute;
