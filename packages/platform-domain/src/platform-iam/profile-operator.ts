@@ -6,6 +6,7 @@ export interface ProfileOperatorAssignment {
   readonly tenantProfileId: string;
   readonly requestedByOperatorId: string;
   readonly operatorId: string | null;
+  readonly crmMemberId: string | null;
   readonly oidcSubject: string | null;
   readonly displayName: string;
   readonly email: string;
@@ -57,6 +58,7 @@ export interface ProfileOperatorRepository {
     readonly assignmentId: string;
     readonly workerId: string;
     readonly expectedVersion: bigint;
+    readonly memberId: string;
     readonly oidcSubject: string;
     readonly now: Date;
   }) => Promise<ProfileOperatorAssignment | null>;

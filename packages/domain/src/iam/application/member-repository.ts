@@ -13,6 +13,7 @@ export interface IamMemberRepository {
   }): Promise<IamMemberPage>;
   findById(memberId: string): Promise<IamMember | null>;
   findByOidcSubject(oidcSubject: string): Promise<IamMember | null>;
+  findInitialAdministrator?(): Promise<IamMember | null>;
   createInvitation(input: {
     readonly member: IamMember;
     readonly invitation: IamInvitation;

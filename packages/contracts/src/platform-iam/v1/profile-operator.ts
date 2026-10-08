@@ -32,7 +32,7 @@ export const ProfileOperatorAccessResponseSchema = z
         operator: ProfileOperatorSchema,
         username: z.string().trim().toLowerCase().email().max(320),
         temporaryPassword: z.string().min(14).max(128),
-        loginPath: z.literal("/api/auth/login"),
+        activationUrl: z.string().url().max(8_192),
       })
       .strict(),
   })
@@ -43,6 +43,7 @@ export const ProfileOperatorCallbackSchema = z
     correlationId: z.string().min(1).max(128),
     requestedByOperatorId: z.string().uuid(),
     assignmentId: z.string().uuid(),
+    activationUrl: z.string().url().max(8_192),
     temporaryPassword: z.string().min(14).max(128),
   })
   .strict();

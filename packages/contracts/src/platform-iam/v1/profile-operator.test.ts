@@ -31,7 +31,7 @@ describe("profile operator contracts", () => {
           },
           username: "admin@example.com",
           temporaryPassword: "short",
-          loginPath: "/api/auth/login",
+          activationUrl: "https://identity.example.com/activate",
         },
       }),
     ).toThrow();

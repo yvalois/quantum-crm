@@ -126,6 +126,55 @@ describe("IAM member service", () => {
     expect(invitationHash).not.toContain(result.invitationToken);
   });
 
+  it("creates a tenant administrator from the platform using the initial administrator as audit actor", async () => {
+    const initialAdministrator = {
+      id: actorId,
+      oidcSubject: "01995f7e-7b52-7000-8000-000000000202",
+      displayName: "Propietario inicial",
+      email: "owner@example.test",
+      status: "ACTIVE" as const,
+      authorizationRevision: 1n,
+      createdAt: now,
+      updatedAt: now,
+      deactivatedAt: null,
+    };
+    const createInvitation = vi.fn(
+      async (input: Parameters<IamMemberRepository["createInvitation"]>[0]) => ({
+        member: input.member,
+        invitation: input.invitation,
+        replayed: false,
+      }),
+    );
+    const repository: IamMemberRepository = {
+      list: async () => ({ members: [], nextCursor: null }),
+      findById: async () => null,
+      findByOidcSubject: async () => null,
+      findInitialAdministrator: async () => initialAdministrator,
+      createInvitation,
+      update: async (member) => member,
+      assignRole: async () => null,
+      acceptInvitation: async () => null,
+      bootstrapInitialAdministrator: async ({ member }) => ({ member, replayed: false }),
+    };
+
+    const result = await new IamMemberService(
+      repository,
+      () => now,
+    ).inviteAdministratorFromPlatform({
+      displayName: "David",
+      email: "david@example.test",
+      idempotencyKey: "platform-admin-20261007",
+    });
+
+    expect(result.member.status).toBe("INVITED");
+    expect(createInvitation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createdByMemberId: initialAdministrator.id,
+        roleCode: "ADMINISTRATOR",
+      }),
+    );
+  });
+
   it("denies an invitation before a repository can write it", async () => {
     const repository: IamMemberRepository = {
       list: async () => ({ members: [], nextCursor: null }),

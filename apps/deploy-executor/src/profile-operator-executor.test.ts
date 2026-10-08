@@ -12,6 +12,7 @@ const pending: ProfileOperatorAssignment = {
   tenantProfileId: "01999abc-7def-7000-8000-000000000002",
   requestedByOperatorId: "01999abc-7def-7000-8000-000000000003",
   operatorId: null,
+  crmMemberId: null,
   oidcSubject: null,
   displayName: "Gabriela Nufio",
   email: "admin@example.com",
@@ -29,7 +30,7 @@ describe("ProfileOperatorExecutor", () => {
   it("provisions the identity, activates the membership and delivers the password ephemerally", async () => {
     const complete = vi.fn(async () => ({
       ...pending,
-      operatorId: "01999abc-7def-7000-8000-000000000004",
+      crmMemberId: "01999abc-7def-7000-8000-000000000004",
       oidcSubject: "01999abc-7def-7000-8000-000000000005",
       status: "ACTIVE" as const,
     }));
@@ -38,33 +39,40 @@ describe("ProfileOperatorExecutor", () => {
       complete,
       fail: vi.fn(),
     } as unknown as ProfileOperatorRepository;
-    const provision = vi.fn(async () => ({
+    const createAdministrator = vi.fn(async () => ({
+      memberId: "01999abc-7def-7000-8000-000000000004",
       subject: "01999abc-7def-7000-8000-000000000005",
+      activationUrl: "https://identity.example.com/activate",
       temporaryPassword: "Aa9!temporary-password",
+      expiresAt: "2026-10-07T12:30:00.000Z",
     }));
     const deliver = vi.fn(async () => ({ accepted: true }));
     const executor = new ProfileOperatorExecutor(
       repository,
-      { provision },
+      { createAdministrator },
       { deliver },
       "deploy-executor:test",
     );
 
     await expect(executor.runOnce()).resolves.toBe(true);
-    expect(provision).toHaveBeenCalledWith({
-      assignmentId: pending.id,
+    expect(createAdministrator).toHaveBeenCalledWith({
+      tenantProfileId: pending.tenantProfileId,
       displayName: pending.displayName,
       email: pending.email,
+      idempotencyKey: pending.id,
+      correlationId: pending.correlationId,
     });
     expect(complete).toHaveBeenCalledWith(
       expect.objectContaining({
         assignmentId: pending.id,
+        memberId: "01999abc-7def-7000-8000-000000000004",
         oidcSubject: "01999abc-7def-7000-8000-000000000005",
       }),
     );
     expect(deliver).toHaveBeenCalledWith(
       expect.objectContaining({
         assignmentId: pending.id,
+        activationUrl: "https://identity.example.com/activate",
         temporaryPassword: "Aa9!temporary-password",
       }),
     );

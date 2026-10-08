@@ -575,7 +575,7 @@ export async function handleProfileOperatorCreation(
     if (!upstream.ok) {
       return upstreamProblem(
         upstream.status,
-        "Este perfil ya tiene dos administradores Quantum o el correo ya está asignado.",
+        "Este perfil ya tiene dos administradores adicionales o el correo ya está asignado.",
       );
     }
     const body = ProfileOperatorAccessResponseSchema.parse(await readUpstream(upstream));

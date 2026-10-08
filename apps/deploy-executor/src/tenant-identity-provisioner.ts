@@ -370,7 +370,7 @@ function assertBootstrapClient(client: KeycloakClient): string {
     config === null ||
     (config as Record<string, unknown>)["claim.name"] !== "qcrm_service_permissions" ||
     (config as Record<string, unknown>)["claim.value"] !==
-      "iam:bootstrap-initial-administrator iam:accept-member-invitation" ||
+      "iam:bootstrap-initial-administrator iam:accept-member-invitation iam:create-administrator" ||
     typeof audience !== "object" ||
     audience === null ||
     (audience as Record<string, unknown>).protocolMapper !== "oidc-audience-mapper" ||
@@ -588,7 +588,8 @@ function bootstrapClientRepresentation(): Record<string, unknown> {
         protocolMapper: "oidc-hardcoded-claim-mapper",
         config: {
           "claim.name": "qcrm_service_permissions",
-          "claim.value": "iam:bootstrap-initial-administrator iam:accept-member-invitation",
+          "claim.value":
+            "iam:bootstrap-initial-administrator iam:accept-member-invitation iam:create-administrator",
           "access.token.claim": "true",
           "id.token.claim": "false",
           "userinfo.token.claim": "false",

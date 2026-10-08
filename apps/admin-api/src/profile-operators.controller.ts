@@ -53,6 +53,7 @@ interface CallbackRequest {
 }
 
 interface DeliveredAccess {
+  readonly activationUrl: string;
   readonly temporaryPassword: string;
 }
 
@@ -153,7 +154,7 @@ export class ProfileOperatorsController {
   ) {}
 
   @Get()
-  @RequirePlatformPermission("operators:manage")
+  @RequirePlatformPermission("tenants:manage")
   public async list(@Param("tenantProfileId", new ParseUUIDPipe()) tenantProfileId: string) {
     try {
       const values = await this.repository.list(tenantProfileId);
@@ -168,7 +169,7 @@ export class ProfileOperatorsController {
 
   @Post()
   @HttpCode(200)
-  @RequirePlatformPermission("operators:manage")
+  @RequirePlatformPermission("tenants:manage")
   public async create(
     @Req() request: Parameters<typeof platformAuthContext>[0] & { readonly body?: unknown },
     @Param("tenantProfileId", new ParseUUIDPipe()) tenantProfileId: string,
@@ -209,7 +210,7 @@ export class ProfileOperatorsController {
           operator: contract({ ...result.assignment, status: "ACTIVE", updatedAt: new Date() }),
           username: result.assignment.email,
           temporaryPassword: access.temporaryPassword,
-          loginPath: "/api/auth/login",
+          activationUrl: access.activationUrl,
         },
       });
     } catch (error) {
@@ -252,7 +253,10 @@ export class ProfileOperatorCallbackController {
         requestedByOperatorId: parsed.data.requestedByOperatorId,
         assignmentId: parsed.data.assignmentId,
       },
-      { temporaryPassword: parsed.data.temporaryPassword },
+      {
+        activationUrl: parsed.data.activationUrl,
+        temporaryPassword: parsed.data.temporaryPassword,
+      },
     );
     noStore(response);
     return { accepted };

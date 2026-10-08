@@ -13,6 +13,7 @@ interface AssignmentRow {
   readonly tenant_profile_id: string;
   readonly requested_by_operator_id: string;
   readonly operator_id: string | null;
+  readonly crm_member_id: string | null;
   readonly oidc_subject: string | null;
   readonly display_name: string;
   readonly email: string;
@@ -27,7 +28,7 @@ interface AssignmentRow {
 }
 
 const selection =
-  "id::text, tenant_profile_id::text, requested_by_operator_id::text, operator_id::text, oidc_subject, display_name, email::text, status::text, correlation_id, idempotency_key, lease_owner, lease_expires_at, version::text, created_at, updated_at";
+  "id::text, tenant_profile_id::text, requested_by_operator_id::text, operator_id::text, crm_member_id::text, oidc_subject, display_name, email::text, status::text, correlation_id, idempotency_key, lease_owner, lease_expires_at, version::text, created_at, updated_at";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 function assignment(row: AssignmentRow): ProfileOperatorAssignment {
@@ -36,6 +37,7 @@ function assignment(row: AssignmentRow): ProfileOperatorAssignment {
     tenantProfileId: row.tenant_profile_id,
     requestedByOperatorId: row.requested_by_operator_id,
     operatorId: row.operator_id,
+    crmMemberId: row.crm_member_id,
     oidcSubject: row.oidc_subject,
     displayName: row.display_name,
     email: row.email,
@@ -72,7 +74,7 @@ export function createProfileOperatorRepository(pool: PostgresPool): ProfileOper
       if (!uuidPattern.test(tenantProfileId)) throw new ProfileOperatorValidationError();
       try {
         const result = (await pool.query(
-          `SELECT ${selection} FROM platform_iam.profile_operator_assignments WHERE tenant_profile_id=$1::uuid AND status <> 'failed' ORDER BY created_at,id LIMIT 2`,
+          `SELECT ${selection} FROM platform_iam.profile_operator_assignments WHERE tenant_profile_id=$1::uuid AND status <> 'failed' AND (status <> 'active' OR crm_member_id IS NOT NULL) ORDER BY created_at,id LIMIT 2`,
           [tenantProfileId],
         )) as { readonly rows: readonly AssignmentRow[] };
         return Object.freeze(result.rows.map(assignment));
@@ -126,12 +128,12 @@ export function createProfileOperatorRepository(pool: PostgresPool): ProfileOper
           return Object.freeze({ assignment: current, idempotentReplay: true });
         }
         const count = await client.query<{ readonly count: string }>(
-          "SELECT count(*)::text AS count FROM platform_iam.profile_operator_assignments WHERE tenant_profile_id=$1::uuid AND status IN ('pending','active')",
+          "SELECT count(*)::text AS count FROM platform_iam.profile_operator_assignments WHERE tenant_profile_id=$1::uuid AND (status='pending' OR (status='active' AND crm_member_id IS NOT NULL))",
           [command.tenantProfileId],
         );
         if (Number(count.rows[0]?.count ?? "0") >= 2) throw new ProfileOperatorConflictError();
         const retried = await client.query<AssignmentRow>(
-          `UPDATE platform_iam.profile_operator_assignments SET id=$1::uuid,requested_by_operator_id=$3::uuid,operator_id=NULL,oidc_subject=NULL,display_name=$4,correlation_id=$6,idempotency_key=$7,status='pending',lease_owner=NULL,lease_expires_at=NULL,version=version+1,updated_at=$8 WHERE tenant_profile_id=$2::uuid AND email=$5 AND status='failed' RETURNING ${selection}`,
+          `UPDATE platform_iam.profile_operator_assignments SET id=$1::uuid,requested_by_operator_id=$3::uuid,operator_id=NULL,crm_member_id=NULL,oidc_subject=NULL,display_name=$4,correlation_id=$6,idempotency_key=$7,status='pending',lease_owner=NULL,lease_expires_at=NULL,version=version+1,updated_at=$8 WHERE tenant_profile_id=$2::uuid AND email=$5 AND status='failed' RETURNING ${selection}`,
           [
             command.id,
             command.tenantProfileId,
@@ -199,7 +201,11 @@ export function createProfileOperatorRepository(pool: PostgresPool): ProfileOper
     },
     complete: async (command) => {
       validateDate(command.now);
-      if (!uuidPattern.test(command.assignmentId) || !uuidPattern.test(command.oidcSubject)) {
+      if (
+        !uuidPattern.test(command.assignmentId) ||
+        !uuidPattern.test(command.memberId) ||
+        !uuidPattern.test(command.oidcSubject)
+      ) {
         throw new ProfileOperatorValidationError();
       }
       let client: PoolClient | undefined;
@@ -216,19 +222,9 @@ export function createProfileOperatorRepository(pool: PostgresPool): ProfileOper
           client = undefined;
           return null;
         }
-        const membership = await client.query<{ readonly id: string }>(
-          "INSERT INTO platform_iam.operator_memberships (oidc_subject,status) VALUES ($1,'active') ON CONFLICT (oidc_subject) DO UPDATE SET status='active',authorization_revision=platform_iam.operator_memberships.authorization_revision + CASE WHEN platform_iam.operator_memberships.status='active' THEN 0 ELSE 1 END,updated_at=$2 RETURNING id::text",
-          [command.oidcSubject, command.now],
-        );
-        const operatorId = membership.rows[0]?.id;
-        if (!operatorId) throw new DatabaseUnavailableError();
-        await client.query(
-          `INSERT INTO platform_iam.operator_permissions (operator_id,permission) SELECT $1::uuid,permission::platform_iam.platform_permission FROM unnest(ARRAY['tenants:read','tenants:manage','configuration:read','configuration:manage','deployments:read','deployments:execute','deployments:activate','operators:manage']) permission ON CONFLICT DO NOTHING`,
-          [operatorId],
-        );
         const result = await client.query<AssignmentRow>(
-          `UPDATE platform_iam.profile_operator_assignments SET operator_id=$2::uuid,oidc_subject=$3,status='active',lease_owner=NULL,lease_expires_at=NULL,version=version+1,updated_at=$4 WHERE id=$1::uuid RETURNING ${selection}`,
-          [command.assignmentId, operatorId, command.oidcSubject, command.now],
+          `UPDATE platform_iam.profile_operator_assignments SET operator_id=NULL,crm_member_id=$2::uuid,oidc_subject=$3,status='active',lease_owner=NULL,lease_expires_at=NULL,version=version+1,updated_at=$4 WHERE id=$1::uuid RETURNING ${selection}`,
+          [command.assignmentId, command.memberId, command.oidcSubject, command.now],
         );
         if (!result.rows[0]) throw new DatabaseUnavailableError();
         await client.query("COMMIT");

@@ -8,6 +8,7 @@ import { z } from "zod";
 export const ServicePermissionCatalog = [
   "iam:bootstrap-initial-administrator",
   "iam:accept-member-invitation",
+  "iam:create-administrator",
 ] as const;
 
 export const ServicePermissionSchema = z.enum(ServicePermissionCatalog);
