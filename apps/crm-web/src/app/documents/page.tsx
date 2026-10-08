@@ -527,17 +527,23 @@ export default function DocumentsPage(): React.JSX.Element {
 
   function moveImageToPage(source: DocumentImageDragSource, targetIndex: number): void {
     if (!draft || source.kind !== "COLUMN_ITEM") return;
-    let image: Extract<DocumentBlock, { readonly type: "IMAGE" }> | null = null;
-    const withoutSource = draft.blocks.map((block) => {
-      if (block.id !== source.blockId || block.type !== "COLUMNS" || block.locked) return block;
-      const candidate = block.cells
-        ?.flatMap((cell) => cell.items)
-        .find((item) => item.id === source.itemId);
-      if (candidate?.type !== "IMAGE") return block;
-      image = { ...candidate, locked: false };
-      return removeColumnItem(block, source.itemId);
-    });
-    if (!image) return;
+    const sourceBlock = draft.blocks.find(
+      (block) => block.id === source.blockId && block.type === "COLUMNS",
+    );
+    if (!sourceBlock || sourceBlock.type !== "COLUMNS" || sourceBlock.locked) return;
+    const candidate = sourceBlock.cells
+      ?.flatMap((cell) => cell.items)
+      .find((item) => item.id === source.itemId);
+    if (candidate?.type !== "IMAGE") return;
+    const image: Extract<DocumentBlock, { readonly type: "IMAGE" }> = {
+      ...candidate,
+      locked: false,
+    };
+    const withoutSource = draft.blocks.map((block) =>
+      block.id === sourceBlock.id && block.type === "COLUMNS"
+        ? removeColumnItem(block, source.itemId)
+        : block,
+    );
     const insertionIndex = Math.max(0, Math.min(targetIndex, withoutSource.length));
     const next = [
       ...withoutSource.slice(0, insertionIndex),
