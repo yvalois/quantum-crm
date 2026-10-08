@@ -5,7 +5,7 @@
 ## Identificacion
 
 - Requisito principal: `DOC-02`.
-- Requisitos relacionados: `DOC-01`, `DOC-03`, `DOC-04`, `DOC-05`, `DOC-11`, `DOC-13`, `DOC-15` y `DOC-16`.
+- Requisitos relacionados: `DOC-01`, `DOC-03`, `DOC-04`, `DOC-05`, `DOC-06`, `DOC-11`, `DOC-13`, `DOC-15` y `DOC-16`.
 - Fase del MVP: 8. Cierre comercial.
 - Estado oficial: [`estado.md`](../../04-proceso/estado.md).
 - Responsable: Codex.
@@ -41,7 +41,10 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - Barra de herramientas simplificada y paneles superpuestos de biblioteca y propiedades.
 - Selector visual de disposiciones de dos y tres columnas, cambio de proporcion y conversion de texto a renglon dividido sin perder contenido.
 - Celdas de columna con elementos ordenables de texto, imagen, variable y separador; las imagenes conservan validacion, scan y referencia inmutable.
-- Encabezado y pie como regiones configurables del lienzo: visibilidad, distribucion, alineacion, espacio, logotipo, tipo documental y numeracion.
+- Encabezado y pie como regiones visibles y configurables del lienzo: visibilidad, distribucion, alineacion, espacio, logotipo, tipo documental y numeracion.
+- Margenes configurables y paginacion visual automatica cuando el contenido supera el alto util de la hoja.
+- Tablas con filas y columnas agregables o eliminables y anchos ajustables desde la cuadricula.
+- Movimiento directo de imagenes entre el flujo principal y las celdas compatibles mediante arrastrar y soltar.
 - Reordenamiento, proteccion, eliminacion, variables, archivos, estilos, duplicacion y plantillas existentes.
 - Edicion editorial sin tarjetas tecnicas permanentes: cinta Inicio/Insertar/Diseno, acciones contextuales y formato persistente de parrafo (titulo, subtitulo, cuerpo o nota; negrita, cursiva, subrayado y alineacion).
 - Estados responsive, foco visible y navegacion accesible.
@@ -49,7 +52,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 ### No incluido
 
 - PDF, envio, firma, pagos o calculos comerciales nuevos.
-- Columnas anidadas dentro de columnas y paginacion automatica; se evitan estructuras recursivas sin limite y se mantiene compatibilidad con documentos existentes.
+- Columnas anidadas dentro de columnas; se evitan estructuras recursivas sin limite y se mantiene compatibilidad con documentos existentes.
 
 ## Impacto tecnico
 
@@ -73,6 +76,8 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Permitir imagenes y elementos ordenados dentro de cada columna sin perder contenido previo.
 - [x] Convertir encabezado y pie en regiones configurables y comprobar su persistencia.
 - [x] Sustituir el constructor visible por edicion directa y comprobar que formato, columnas y regiones se conservan al guardar y recargar.
+- [ ] Corregir la carga real de imagenes desde el origen HTTPS del CRM hasta el almacenamiento privado.
+- [ ] Completar tipografia, formato de texto, cuadricula editable, movimiento de imagenes, margenes y paginacion automatica.
 
 ## Criterios de aceptacion
 
@@ -85,6 +90,10 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Una columna admite texto, imagen, variable y separador, permite reordenarlos y guarda sus archivos mediante el pipeline seguro.
 - [x] Encabezado y pie se pueden mostrar u ocultar, alinear, espaciar y configurar con logo, tipo documental y numero de pagina.
 - [x] La hoja no expone tarjetas ni formularios tecnicos de manera permanente; al seleccionar texto se puede aplicar y persistir estilo, enfasis y alineacion desde la cinta.
+- [ ] Cargar una imagen no produce errores de red y la imagen queda disponible tras validacion.
+- [ ] El usuario ajusta filas, columnas y anchos de una tabla sin reconstruirla.
+- [ ] Encabezado, pie y margenes se reconocen y editan directamente sobre la hoja.
+- [ ] El contenido que excede una pagina continua visualmente en hojas adicionales sin perderse.
 
 ## Plan de verificacion
 

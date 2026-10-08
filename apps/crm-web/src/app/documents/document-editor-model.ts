@@ -1,8 +1,11 @@
 import type { DocumentBlock, DocumentColumnCell, DocumentColumnItem } from "@quantum-crm/contracts";
 
 export type ColumnsBlock = Extract<DocumentBlock, { readonly type: "COLUMNS" }>;
+export type TableBlock = Extract<DocumentBlock, { readonly type: "TABLE" }>;
 export type DocumentColumnLayout = ColumnsBlock["layout"];
 export type DocumentColumnItemType = DocumentColumnItem["type"];
+
+const minimumTableColumnWidth = 5;
 
 export const documentColumnLayouts = [
   { id: "EQUAL_2", label: "Dos iguales", template: "1fr 1fr" },
@@ -35,6 +38,7 @@ export function createColumnItem(
       bold: false,
       italic: false,
       underline: false,
+      fontFamily: "INHERIT",
     };
   }
   if (type === "IMAGE") {
@@ -100,8 +104,142 @@ export function normalizeColumnsBlock(block: ColumnsBlock): ColumnsBlock {
   );
 }
 
+function distributeTableWidths(weights: readonly number[], total = 100): number[] {
+  if (weights.length === 0) return [];
+  if (weights.length === 1) return [total];
+  const distributable = total - minimumTableColumnWidth * weights.length;
+  const safeWeights = weights.map((weight) =>
+    Number.isFinite(weight) && weight > 0 ? weight : 1,
+  );
+  const weightTotal = safeWeights.reduce((sum, weight) => sum + weight, 0);
+  const exactExtras = safeWeights.map((weight) => (weight / weightTotal) * distributable);
+  const extras = exactExtras.map(Math.floor);
+  let remainder = distributable - extras.reduce((sum, width) => sum + width, 0);
+  const byFraction = exactExtras
+    .map((width, index) => ({ index, fraction: width - Math.floor(width) }))
+    .sort((left, right) => right.fraction - left.fraction || left.index - right.index);
+  for (const candidate of byFraction) {
+    if (remainder <= 0) break;
+    extras[candidate.index] = (extras[candidate.index] ?? 0) + 1;
+    remainder -= 1;
+  }
+  return extras.map((width) => width + minimumTableColumnWidth);
+}
+
+export function tableColumnWidths(block: TableBlock): number[] {
+  if (
+    block.columnWidths?.length === block.columns.length &&
+    block.columnWidths.every((width) => Number.isInteger(width) && width >= 5) &&
+    block.columnWidths.reduce((sum, width) => sum + width, 0) === 100
+  ) {
+    return [...block.columnWidths];
+  }
+  return distributeTableWidths(block.columns.map(() => 1));
+}
+
+export function normalizeTableBlock(block: TableBlock): TableBlock {
+  if (block.locked) return block;
+  const widths = tableColumnWidths(block);
+  if (
+    block.columnWidths?.length === widths.length &&
+    block.columnWidths.every((width, index) => width === widths[index])
+  ) {
+    return block;
+  }
+  return { ...block, columnWidths: widths };
+}
+
+export function addTableRow(source: TableBlock, values: readonly string[] = []): TableBlock {
+  if (source.locked || source.rows.length >= 100) return source;
+  const row = source.columns.map((_, index) => values[index] ?? "");
+  return { ...normalizeTableBlock(source), rows: [...source.rows, row] };
+}
+
+export function removeTableRow(source: TableBlock, rowIndex: number): TableBlock {
+  if (source.locked || rowIndex < 0 || rowIndex >= source.rows.length) return source;
+  return {
+    ...normalizeTableBlock(source),
+    rows: source.rows.filter((_, index) => index !== rowIndex),
+  };
+}
+
+export function addTableColumn(source: TableBlock, label = "Nueva columna"): TableBlock {
+  if (source.locked || source.columns.length >= 8) return source;
+  const block = normalizeTableBlock(source);
+  const currentWidths = tableColumnWidths(block);
+  const newColumnWeight = Math.max(
+    minimumTableColumnWidth,
+    Math.round(100 / (source.columns.length + 1)),
+  );
+  return {
+    ...block,
+    columns: [...block.columns, label.trim() || "Nueva columna"],
+    rows: block.rows.map((row) => [...row, ""]),
+    columnWidths: distributeTableWidths([...currentWidths, newColumnWeight]),
+  };
+}
+
+export function removeTableColumn(source: TableBlock, columnIndex: number): TableBlock {
+  if (
+    source.locked ||
+    source.columns.length <= 1 ||
+    columnIndex < 0 ||
+    columnIndex >= source.columns.length
+  ) {
+    return source;
+  }
+  const block = normalizeTableBlock(source);
+  return {
+    ...block,
+    columns: block.columns.filter((_, index) => index !== columnIndex),
+    rows: block.rows.map((row) => row.filter((_, index) => index !== columnIndex)),
+    columnWidths: distributeTableWidths(
+      tableColumnWidths(block).filter((_, index) => index !== columnIndex),
+    ),
+  };
+}
+
+export function setTableColumnWidth(
+  source: TableBlock,
+  columnIndex: number,
+  requestedWidth: number,
+): TableBlock {
+  if (
+    source.locked ||
+    columnIndex < 0 ||
+    columnIndex >= source.columns.length ||
+    !Number.isFinite(requestedWidth)
+  ) {
+    return source;
+  }
+  const block = normalizeTableBlock(source);
+  if (block.columns.length === 1) return { ...block, columnWidths: [100] };
+  const maximum = 100 - minimumTableColumnWidth * (block.columns.length - 1);
+  const selectedWidth = Math.min(
+    maximum,
+    Math.max(minimumTableColumnWidth, Math.round(requestedWidth)),
+  );
+  const current = tableColumnWidths(block);
+  const remainingIndexes = current
+    .map((_, index) => index)
+    .filter((index) => index !== columnIndex);
+  const redistributed = distributeTableWidths(
+    remainingIndexes.map((index) => current[index] ?? 1),
+    100 - selectedWidth,
+  );
+  const widths = current.map((_, index) => {
+    if (index === columnIndex) return selectedWidth;
+    return redistributed[remainingIndexes.indexOf(index)] ?? minimumTableColumnWidth;
+  });
+  return { ...block, columnWidths: widths };
+}
+
 export function normalizeDocumentBlocks(blocks: readonly DocumentBlock[]): DocumentBlock[] {
-  return blocks.map((block) => (block.type === "COLUMNS" ? normalizeColumnsBlock(block) : block));
+  return blocks.map((block) => {
+    if (block.type === "COLUMNS") return normalizeColumnsBlock(block);
+    if (block.type === "TABLE") return normalizeTableBlock(block);
+    return block;
+  });
 }
 
 export function createColumnsBlock(
@@ -152,6 +290,8 @@ export function splitTextBlock(
           bold: block.bold ?? false,
           italic: block.italic ?? false,
           underline: block.underline ?? false,
+          fontFamily: block.fontFamily ?? "INHERIT",
+          ...(block.fontSize === undefined ? {} : { fontSize: block.fontSize }),
           align: block.align,
         }
       : item,

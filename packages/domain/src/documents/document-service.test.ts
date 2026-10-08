@@ -136,6 +136,48 @@ describe("DocumentService", () => {
     expect(created.blocks).not.toBe(seededTemplate.blocks);
   });
 
+  it("preserves table widths while materializing template values", async () => {
+    const seededTemplate = template([
+      {
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf216",
+        type: "TABLE",
+        locked: false,
+        columns: ["Documento", "Cliente"],
+        rows: [["{{document.title}}", "{{contact.name}}"]],
+        columnWidths: [40, 60],
+      },
+    ]);
+    const memory = memoryRepository(seededTemplate);
+    const service = new DocumentService(memory.repository, {
+      contactExistsFor: async () => true,
+      opportunityExistsFor: async () => true,
+      contactFor: async () => ({
+        displayName: "Andrea Cliente",
+        email: null,
+        phone: null,
+      }),
+    });
+
+    const created = await service.create({
+      actor,
+      permissions,
+      kind: "QUOTE",
+      title: "Propuesta octubre",
+      contactId: "019db9c7-1268-7d24-bf99-96ea38ebf217",
+      opportunityId: null,
+      templateId: seededTemplate.id,
+      idempotencyKey: "document-create-table-layout-1",
+      payloadHash: "7".repeat(64),
+      now,
+    });
+
+    expect(created.blocks[0]).toMatchObject({
+      type: "TABLE",
+      rows: [["Propuesta octubre", "Andrea Cliente"]],
+      columnWidths: [40, 60],
+    });
+  });
+
   it("snapshots client and advisor values while creating an instance from a template", async () => {
     const seededTemplate = template([
       {
@@ -148,6 +190,8 @@ describe("DocumentService", () => {
         bold: true,
         italic: false,
         underline: false,
+        fontFamily: "SERIF",
+        fontSize: 30,
       },
       {
         id: "019db9c7-1268-7d24-bf99-96ea38ebf122",
@@ -189,6 +233,8 @@ describe("DocumentService", () => {
                 bold: false,
                 italic: true,
                 underline: false,
+                fontFamily: "MONO",
+                fontSize: 13,
               },
             ],
           },
@@ -261,6 +307,8 @@ describe("DocumentService", () => {
       bold: true,
       italic: false,
       underline: false,
+      fontFamily: "SERIF",
+      fontSize: 30,
     });
     const composedBlock = created.blocks[3];
     expect(composedBlock?.type).toBe("COLUMNS");
@@ -272,6 +320,8 @@ describe("DocumentService", () => {
       bold: false,
       italic: true,
       underline: false,
+      fontFamily: "MONO",
+      fontSize: 13,
     });
   });
 
@@ -508,6 +558,7 @@ describe("DocumentService", () => {
         footerText: "Documento confidencial",
         footerAlign: "CENTER",
         footerSpacing: "COMPACT",
+        margins: { top: 14, right: 16, bottom: 18, left: 20 },
       },
       idempotencyKey: "document-create-editorial-1",
       payloadHash: "3".repeat(64),
@@ -524,6 +575,7 @@ describe("DocumentService", () => {
           headerText: "Propuesta comercial",
           footerText: "Pagina contractual",
           showPageNumbers: false,
+          margins: { top: 12, right: 14, bottom: 16, left: 22 },
         },
       },
       idempotencyKey: "document-update-editorial-1",
@@ -561,6 +613,7 @@ describe("DocumentService", () => {
       footerAlign: "CENTER",
       footerSpacing: "COMPACT",
       showPageNumbers: false,
+      margins: { top: 12, right: 14, bottom: 16, left: 22 },
     });
   });
 
