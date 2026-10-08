@@ -8437,6 +8437,10 @@ body {
   max-height: 24rem;
 }
 
+.document-studio-shell .image-height-custom.image-fit-contain .document-image-media {
+  width: 100%;
+}
+
 .document-studio-shell
   .image-height-custom.image-fit-contain
   .column-image-preview.document-image-media
