@@ -4,6 +4,7 @@ export type ColumnsBlock = Extract<DocumentBlock, { readonly type: "COLUMNS" }>;
 export type TableBlock = Extract<DocumentBlock, { readonly type: "TABLE" }>;
 export type DocumentColumnLayout = ColumnsBlock["layout"];
 export type DocumentColumnItemType = DocumentColumnItem["type"];
+export type ImageResizeCorner = "NW" | "NE" | "SW" | "SE";
 
 const minimumTableColumnWidth = 5;
 
@@ -86,6 +87,58 @@ export function imageFrameWidth(
 ): number {
   if (image.widthPercent !== undefined) return image.widthPercent;
   return { FULL: 100, WIDE: 80, MEDIUM: 62, SMALL: 42 }[image.width];
+}
+
+export function resizeImageFrame(
+  originWidth: number,
+  horizontalDelta: number,
+  availableWidth: number,
+  corner: ImageResizeCorner,
+): number {
+  const safeAvailableWidth = Math.max(availableWidth, 1);
+  const direction = corner.endsWith("E") ? 1 : -1;
+  return Math.min(
+    100,
+    Math.max(
+      10,
+      Math.round(originWidth + (horizontalDelta / safeAvailableWidth) * 100 * direction),
+    ),
+  );
+}
+
+export function moveImageFocalPoint(
+  originX: number,
+  originY: number,
+  horizontalDelta: number,
+  verticalDelta: number,
+  frameWidth: number,
+  frameHeight: number,
+): { readonly x: number; readonly y: number } {
+  return {
+    x: Math.min(
+      100,
+      Math.max(0, Math.round(originX - (horizontalDelta / Math.max(frameWidth, 1)) * 100)),
+    ),
+    y: Math.min(
+      100,
+      Math.max(0, Math.round(originY - (verticalDelta / Math.max(frameHeight, 1)) * 100)),
+    ),
+  };
+}
+
+export function rotateImageFromPointer(
+  originRotation: number,
+  centerX: number,
+  centerY: number,
+  originPointerX: number,
+  originPointerY: number,
+  pointerX: number,
+  pointerY: number,
+): number {
+  const originAngle = Math.atan2(originPointerY - centerY, originPointerX - centerX);
+  const pointerAngle = Math.atan2(pointerY - centerY, pointerX - centerX);
+  const degrees = originRotation + ((pointerAngle - originAngle) * 180) / Math.PI;
+  return Math.round(((((degrees + 180) % 360) + 360) % 360) - 180);
 }
 
 function createCell(content: string, id = newId(), itemId = newId()): DocumentColumnCell {

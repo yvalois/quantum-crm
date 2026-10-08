@@ -3162,6 +3162,12 @@ button:disabled {
   }
 }
 
+/* The media frame clips the pixels; the selected card must not clip its direct handles. */
+.document-studio-shell .document-page .image-slot-editor > .document-image-card:first-child,
+.document-studio-shell .document-page .column-image-frame.document-image-card {
+  overflow: visible;
+}
+
 @media (max-width: 620px) {
   .page-header,
   .member-row {
@@ -3189,6 +3195,11 @@ button:disabled {
 
 .document-studio-shell .document-page-blocks > .document-block {
   margin-bottom: 0.42rem;
+}
+
+.document-studio-shell .document-block-image.selected,
+.document-studio-shell .document-column-item.item-image.selected {
+  z-index: 20;
 }
 
 .document-studio-shell .document-block-image.image-block-flow-float_left,
@@ -3330,13 +3341,28 @@ button:disabled {
   height: 100%;
   max-height: none;
   border-radius: inherit;
-  cursor: grab;
+  cursor: default;
   object-fit: cover;
   object-position: var(--image-focal-x) var(--image-focal-y);
   opacity: var(--image-opacity);
   transition:
     object-position 80ms linear,
     opacity 120ms ease;
+}
+
+.document-studio-shell .document-image-media.is-direct-crop {
+  cursor: grab;
+  touch-action: none;
+}
+
+.document-studio-shell .document-image-media.is-direct-crop:active {
+  cursor: grabbing;
+}
+
+.document-studio-shell .document-image-media.is-direct-crop img {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .document-studio-shell .image-aspect-auto .document-image-media img {
@@ -3380,28 +3406,138 @@ button:disabled {
 .document-studio-shell .document-image-resize-handle {
   position: absolute;
   z-index: 8;
-  right: -0.42rem;
-  bottom: -0.42rem;
-  width: 0.95rem;
-  height: 0.95rem;
+  width: 0.82rem;
+  height: 0.82rem;
   border: 2px solid #fff;
-  border-radius: 0.2rem;
+  border-radius: 0.16rem;
   background: #087b73;
-  cursor: nwse-resize;
   box-shadow: 0 2px 8px rgb(7 49 50 / 28%);
   touch-action: none;
 }
 
-.document-studio-shell .image-align-right .document-image-resize-handle {
-  right: auto;
-  left: -0.42rem;
+.document-studio-shell .document-image-resize-handle.corner-nw {
+  top: -0.41rem;
+  left: -0.41rem;
+  cursor: nwse-resize;
+}
+
+.document-studio-shell .document-image-resize-handle.corner-ne {
+  top: -0.41rem;
+  right: -0.41rem;
   cursor: nesw-resize;
 }
 
+.document-studio-shell .document-image-resize-handle.corner-sw {
+  bottom: -0.41rem;
+  left: -0.41rem;
+  cursor: nesw-resize;
+}
+
+.document-studio-shell .document-image-resize-handle.corner-se {
+  right: -0.41rem;
+  bottom: -0.41rem;
+  cursor: nwse-resize;
+}
+
 .document-studio-shell .document-image-resize-handle:focus-visible,
-.document-studio-shell .document-image-focal-handle:focus-visible {
+.document-studio-shell .document-image-focal-handle:focus-visible,
+.document-studio-shell .document-image-rotation-handle:focus-visible {
   outline: 2px solid #16b8ab;
   outline-offset: 2px;
+}
+
+.document-studio-shell .document-image-rotation-handle {
+  position: absolute;
+  z-index: 8;
+  top: -2.15rem;
+  left: 50%;
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #087b73;
+  cursor: grab;
+  box-shadow: 0 2px 8px rgb(7 49 50 / 28%);
+  transform: translateX(-50%);
+  touch-action: none;
+}
+
+.document-studio-shell .document-image-rotation-handle::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 1px;
+  height: 0.95rem;
+  background: #087b73;
+  content: "";
+}
+
+.document-studio-shell .document-image-rotation-handle span {
+  position: absolute;
+  inset: 0.22rem;
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-top-color: transparent;
+  border-radius: 50%;
+}
+
+.document-studio-shell .document-image-focus-point {
+  position: absolute;
+  z-index: 6;
+  top: var(--image-focal-y);
+  left: var(--image-focal-x);
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1px solid rgb(255 255 255 / 92%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgb(8 73 70 / 70%),
+    0 2px 8px rgb(7 34 37 / 22%);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.document-studio-shell .document-image-focus-point::before,
+.document-studio-shell .document-image-focus-point::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: rgb(255 255 255 / 94%);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.document-studio-shell .document-image-focus-point::before {
+  width: 0.65rem;
+  height: 1px;
+}
+
+.document-studio-shell .document-image-focus-point::after {
+  width: 1px;
+  height: 0.65rem;
+}
+
+.document-studio-shell .document-image-crop-hint {
+  position: absolute;
+  z-index: 6;
+  bottom: 0.6rem;
+  left: 50%;
+  border: 1px solid rgb(255 255 255 / 45%);
+  border-radius: 999px;
+  background: rgb(9 48 50 / 76%);
+  padding: 0.26rem 0.58rem;
+  color: #fff;
+  font-size: 0.49rem;
+  font-weight: 760;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 120ms ease;
+}
+
+.document-studio-shell .document-image-media.is-direct-crop:hover .document-image-crop-hint,
+.document-studio-shell .document-image-media.is-direct-crop:active .document-image-crop-hint {
+  opacity: 1;
 }
 
 .document-studio-shell .document-image-focal-handle {
@@ -3466,6 +3602,51 @@ button:disabled {
   border: 1px solid #d9e3e4;
   border-radius: 0.45rem;
   background: #fbfdfd;
+}
+
+.document-studio-shell .image-composer-quickbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.38rem;
+  padding: 0.58rem 0.65rem;
+}
+
+.document-studio-shell .image-composer-quickbar label {
+  display: grid;
+  gap: 0.18rem;
+  color: #708185;
+  font-size: 0.43rem;
+  font-weight: 790;
+  text-transform: uppercase;
+}
+
+.document-studio-shell .image-composer-quickbar select {
+  min-width: 0;
+  min-height: 1.85rem;
+  border: 1px solid #d3dfe0;
+  border-radius: 0.3rem;
+  background: #fff;
+  color: #304a4e;
+  font-size: 0.52rem;
+  text-transform: none;
+}
+
+.document-studio-shell .image-composer-advanced {
+  border-top: 1px solid #e2e9ea;
+}
+
+.document-studio-shell .image-composer-advanced > summary {
+  padding: 0.52rem 0.65rem;
+  color: #426568;
+  cursor: pointer;
+  font-size: 0.5rem;
+  font-weight: 790;
+  list-style-position: inside;
+}
+
+.document-studio-shell .image-composer-advanced[open] > summary {
+  border-bottom: 1px solid #e2e9ea;
+  background: #f4f9f8;
 }
 
 .document-studio-shell .image-composer-panel-heading {
@@ -7601,6 +7782,12 @@ body {
   z-index: 10;
 }
 
+.document-studio-shell .document-page .document-block-image.selected,
+.document-studio-shell .document-page .document-block-image:focus-within,
+.document-studio-shell .document-column-item.item-image.selected {
+  z-index: 30;
+}
+
 .document-studio-shell .document-page .document-block.locked {
   background: transparent;
 }
@@ -9368,9 +9555,9 @@ body {
 
 .document-studio-shell .image-slot-editor img,
 .document-studio-shell .column-image-preview img {
-  cursor: grab;
+  cursor: inherit;
   user-select: none;
-  -webkit-user-drag: element;
+  -webkit-user-drag: none;
 }
 
 .document-studio-shell .image-slot-editor img:active,
