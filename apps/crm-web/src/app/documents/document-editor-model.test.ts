@@ -9,6 +9,7 @@ import {
   createColumnItem,
   createColumnsBlock,
   imageFrameWidth,
+  moveImageFocalPoint,
   moveColumnItem,
   moveColumnItemToCell,
   moveDocumentBlock,
@@ -19,6 +20,8 @@ import {
   removeColumnItem,
   removeTableColumn,
   removeTableRow,
+  resizeImageFrame,
+  rotateImageFromPointer,
   setTableColumnWidth,
   splitTextBlock,
   tableColumnWidths,
@@ -34,6 +37,23 @@ describe("document editor model", () => {
     expect(imageFrameWidth({ width: "WIDE" })).toBe(80);
     expect(imageFrameWidth({ width: "MEDIUM" })).toBe(62);
     expect(imageFrameWidth({ width: "SMALL", widthPercent: 37 })).toBe(37);
+  });
+
+  it("resizes from each visual corner and clamps the frame to usable limits", () => {
+    expect(resizeImageFrame(60, 80, 400, "SE")).toBe(80);
+    expect(resizeImageFrame(60, -80, 400, "SW")).toBe(80);
+    expect(resizeImageFrame(95, 200, 400, "NE")).toBe(100);
+    expect(resizeImageFrame(15, 200, 400, "NW")).toBe(10);
+  });
+
+  it("moves the crop with the dragged image while keeping its focal point bounded", () => {
+    expect(moveImageFocalPoint(50, 50, 50, -25, 200, 100)).toEqual({ x: 25, y: 75 });
+    expect(moveImageFocalPoint(10, 90, 500, -500, 200, 100)).toEqual({ x: 0, y: 100 });
+  });
+
+  it("calculates direct rotation around the image centre", () => {
+    expect(rotateImageFromPointer(0, 100, 100, 100, 0, 200, 100)).toBe(90);
+    expect(rotateImageFromPointer(170, 100, 100, 200, 100, 100, 200)).toBe(-100);
   });
 
   it.each([

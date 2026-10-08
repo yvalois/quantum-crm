@@ -31,6 +31,8 @@ import {
   createColumnsBlock,
   documentColumnLayouts,
   imageFrameWidth,
+  type ImageResizeCorner,
+  moveImageFocalPoint,
   moveColumnItem,
   moveColumnItemToCell,
   moveDocumentBlock,
@@ -39,6 +41,8 @@ import {
   removeColumnItem,
   removeTableColumn,
   removeTableRow,
+  resizeImageFrame,
+  rotateImageFromPointer,
   setTableColumnWidth,
   splitTextBlock,
   tableColumnWidths,
@@ -126,6 +130,7 @@ function imageComposerStyle(image: EditableDocumentImage): CSSProperties {
 function beginImageResize(
   event: ReactPointerEvent<HTMLButtonElement>,
   image: EditableDocumentImage,
+  corner: ImageResizeCorner,
   onWidth: (widthPercent: number) => void,
 ): void {
   event.preventDefault();
@@ -137,17 +142,16 @@ function beginImageResize(
   const availableWidth = Math.max(container.getBoundingClientRect().width, 1);
   const originX = event.clientX;
   const originWidth = imageFrameWidth(image);
-  const direction = image.align === "RIGHT" ? -1 : 1;
 
   const move = (pointerEvent: PointerEvent): void => {
-    const next = clamp(
-      Math.round(
-        originWidth + ((pointerEvent.clientX - originX) / availableWidth) * 100 * direction,
+    onWidth(
+      resizeImageFrame(
+        originWidth,
+        pointerEvent.clientX - originX,
+        availableWidth,
+        corner,
       ),
-      10,
-      100,
     );
-    onWidth(next);
   };
   const finish = (): void => {
     window.removeEventListener("pointermove", move);
@@ -160,7 +164,8 @@ function beginImageResize(
 }
 
 function beginImageFocalAdjustment(
-  event: ReactPointerEvent<HTMLButtonElement>,
+  event: ReactPointerEvent<HTMLElement>,
+  image: EditableDocumentImage,
   onPoint: (x: number, y: number) => void,
 ): void {
   event.preventDefault();
@@ -168,19 +173,22 @@ function beginImageFocalAdjustment(
   const media = event.currentTarget.closest<HTMLElement>(".document-image-media");
   if (!media) return;
 
+  const bounds = media.getBoundingClientRect();
+  const originPointerX = event.clientX;
+  const originPointerY = event.clientY;
+  const originFocalX = image.focalX ?? 50;
+  const originFocalY = image.focalY ?? 50;
+
   const update = (pointerEvent: Pick<PointerEvent, "clientX" | "clientY">): void => {
-    const bounds = media.getBoundingClientRect();
-    const x = clamp(
-      Math.round(((pointerEvent.clientX - bounds.left) / bounds.width) * 100),
-      0,
-      100,
+    const point = moveImageFocalPoint(
+      originFocalX,
+      originFocalY,
+      pointerEvent.clientX - originPointerX,
+      pointerEvent.clientY - originPointerY,
+      bounds.width,
+      bounds.height,
     );
-    const y = clamp(
-      Math.round(((pointerEvent.clientY - bounds.top) / bounds.height) * 100),
-      0,
-      100,
-    );
-    onPoint(x, y);
+    onPoint(point.x, point.y);
   };
   const move = (pointerEvent: PointerEvent): void => update(pointerEvent);
   const finish = (): void => {
@@ -188,7 +196,44 @@ function beginImageFocalAdjustment(
     window.removeEventListener("pointerup", finish);
     window.removeEventListener("pointercancel", finish);
   };
-  update(event.nativeEvent);
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", finish, { once: true });
+  window.addEventListener("pointercancel", finish, { once: true });
+}
+
+function beginImageRotation(
+  event: ReactPointerEvent<HTMLButtonElement>,
+  image: EditableDocumentImage,
+  onRotation: (rotation: number) => void,
+): void {
+  event.preventDefault();
+  event.stopPropagation();
+  const card = event.currentTarget.closest<HTMLElement>(".document-image-card");
+  if (!card) return;
+  const bounds = card.getBoundingClientRect();
+  const centerX = bounds.left + bounds.width / 2;
+  const centerY = bounds.top + bounds.height / 2;
+  const originPointerX = event.clientX;
+  const originPointerY = event.clientY;
+  const originRotation = image.rotation ?? 0;
+
+  const move = (pointerEvent: PointerEvent): void =>
+    onRotation(
+      rotateImageFromPointer(
+        originRotation,
+        centerX,
+        centerY,
+        originPointerX,
+        originPointerY,
+        pointerEvent.clientX,
+        pointerEvent.clientY,
+      ),
+    );
+  const finish = (): void => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", finish);
+    window.removeEventListener("pointercancel", finish);
+  };
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", finish, { once: true });
   window.addEventListener("pointercancel", finish, { once: true });
@@ -2275,6 +2320,78 @@ function ImagePresentationControls({
         <output>{width}%</output>
       </header>
 
+      <div className="image-composer-quickbar">
+        <label>
+          Proporcion
+          <select
+            value={aspectRatio}
+            disabled={locked}
+            onChange={(event) =>
+              onPatch({
+                aspectRatio: event.target.value as NonNullable<
+                  EditableDocumentImage["aspectRatio"]
+                >,
+              })
+            }
+          >
+            <option value="AUTO">Original</option>
+            <option value="SQUARE">1:1</option>
+            <option value="LANDSCAPE_4_3">4:3</option>
+            <option value="WIDE_16_9">16:9</option>
+            <option value="PORTRAIT_3_4">3:4</option>
+            <option value="CIRCLE">Circular</option>
+          </select>
+        </label>
+        <label>
+          Ajuste
+          <select
+            value={image.fit}
+            disabled={locked}
+            onChange={(event) =>
+              onPatch({ fit: event.target.value as EditableDocumentImage["fit"] })
+            }
+          >
+            <option value="COVER">Rellenar</option>
+            <option value="CONTAIN">Completa</option>
+          </select>
+        </label>
+        <label>
+          Alineacion
+          <select
+            value={image.align}
+            disabled={locked}
+            onChange={(event) =>
+              onPatch({ align: event.target.value as EditableDocumentImage["align"] })
+            }
+          >
+            <option value="LEFT">Izquierda</option>
+            <option value="CENTER">Centro</option>
+            <option value="RIGHT">Derecha</option>
+          </select>
+        </label>
+        {allowFlow ? (
+          <label>
+            Flujo
+            <select
+              value={image.flow ?? "INLINE"}
+              disabled={locked}
+              onChange={(event) =>
+                onPatch({
+                  flow: event.target.value as NonNullable<EditableDocumentImage["flow"]>,
+                })
+              }
+            >
+              <option value="INLINE">Renglon</option>
+              <option value="FLOAT_LEFT">Izquierda</option>
+              <option value="FLOAT_RIGHT">Derecha</option>
+            </select>
+          </label>
+        ) : null}
+      </div>
+
+      <details className="image-composer-advanced">
+        <summary>Ajustes precisos</summary>
+
       <div className="image-composer-section image-size-section">
         <span className="image-composer-section-title">Tamano</span>
         <div className="image-width-presets" role="group" aria-label="Anchos predefinidos">
@@ -2474,7 +2591,68 @@ function ImagePresentationControls({
           </label>
         </div>
       </div>
+      </details>
     </section>
+  );
+}
+
+const imageResizeCorners = ["NW", "NE", "SW", "SE"] as const;
+
+function ImageDirectManipulationControls({
+  image,
+  locked,
+  onPatch,
+}: {
+  readonly image: EditableDocumentImage;
+  readonly locked: boolean;
+  readonly onPatch: (patch: ImagePresentationPatch) => void;
+}): React.JSX.Element | null {
+  if (locked) return null;
+  const width = imageFrameWidth(image);
+  const rotation = image.rotation ?? 0;
+
+  return (
+    <>
+      <button
+        className="document-image-rotation-handle"
+        type="button"
+        aria-label="Girar imagen"
+        title="Arrastra para girar. Usa las flechas para ajuste fino."
+        onPointerDown={(event) =>
+          beginImageRotation(event, image, (nextRotation) => onPatch({ rotation: nextRotation }))
+        }
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          const step = event.shiftKey ? 15 : 1;
+          const direction = event.key === "ArrowRight" ? 1 : -1;
+          onPatch({ rotation: clamp(rotation + step * direction, -180, 180) });
+        }}
+      >
+        <span aria-hidden="true" />
+      </button>
+      {imageResizeCorners.map((corner) => (
+        <button
+          className={`document-image-resize-handle corner-${corner.toLowerCase()}`}
+          type="button"
+          key={corner}
+          aria-label={`Redimensionar desde la esquina ${corner}`}
+          title="Arrastra para cambiar el tamano"
+          onPointerDown={(event) =>
+            beginImageResize(event, image, corner, (widthPercent) =>
+              onPatch({ widthPercent }),
+            )
+          }
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const step = event.shiftKey ? 5 : 1;
+            const direction = event.key === "ArrowRight" ? 1 : -1;
+            onPatch({ widthPercent: clamp(width + step * direction, 10, 100) });
+          }}
+        />
+      ))}
+    </>
   );
 }
 
@@ -2537,13 +2715,23 @@ function BlockEditor({
       >
         <div
           className="document-image-card"
-          draggable={!block.locked}
-          onDragStart={(event) => {
-            if (!block.locked) setImageDragData(event, { kind: "BLOCK", blockId: block.id });
-          }}
-          title={block.locked ? undefined : "Arrastra la imagen dentro de una columna"}
         >
-          <div className="document-image-media">
+          <div
+            className={`document-image-media ${selected && block.fileId && block.fit === "COVER" && (block.aspectRatio ?? "AUTO") !== "AUTO" && !block.locked ? "is-direct-crop" : ""}`}
+            onPointerDown={(event) => {
+              if (
+                !selected ||
+                !block.fileId ||
+                block.fit !== "COVER" ||
+                (block.aspectRatio ?? "AUTO") === "AUTO" ||
+                block.locked
+              )
+                return;
+              beginImageFocalAdjustment(event, block, (focalX, focalY) =>
+                onChange({ ...block, focalX, focalY }),
+              );
+            }}
+          >
             {block.fileId && csrf ? (
               <AuthorizedFileImage
                 fileId={block.fileId}
@@ -2557,20 +2745,15 @@ function BlockEditor({
                 <small>JPEG, PNG o WebP. Se valida antes de mostrarla.</small>
               </div>
             )}
-            {selected && block.fileId && block.fit === "COVER" && !block.locked ? (
-              <button
-                className="document-image-focal-handle"
-                type="button"
-                aria-label="Arrastrar para reencuadrar la imagen"
-                title="Arrastra para elegir el punto focal"
-                onPointerDown={(event) =>
-                  beginImageFocalAdjustment(event, (focalX, focalY) =>
-                    onChange({ ...block, focalX, focalY }),
-                  )
-                }
-              >
-                <span aria-hidden="true">+</span>
-              </button>
+            {selected &&
+            block.fileId &&
+            block.fit === "COVER" &&
+            (block.aspectRatio ?? "AUTO") !== "AUTO" &&
+            !block.locked ? (
+              <>
+                <span className="document-image-focus-point" aria-hidden="true" />
+                <span className="document-image-crop-hint">Arrastra para reencuadrar</span>
+              </>
             ) : null}
           </div>
           {block.caption ? <small className="document-image-caption">{block.caption}</small> : null}
@@ -2591,17 +2774,11 @@ function BlockEditor({
               }}
             />
           </label>
-          {selected && !block.locked ? (
-            <button
-              className="document-image-resize-handle"
-              type="button"
-              aria-label="Redimensionar imagen"
-              title="Arrastra para cambiar el ancho"
-              onPointerDown={(event) =>
-                beginImageResize(event, block, (widthPercent) =>
-                  onChange({ ...block, widthPercent }),
-                )
-              }
+          {selected ? (
+            <ImageDirectManipulationControls
+              image={block}
+              locked={block.locked}
+              onPatch={(patch) => onChange({ ...block, ...patch })}
             />
           ) : null}
         </div>
@@ -2877,16 +3054,6 @@ function BlockEditor({
                       <article
                         className={`document-column-item item-${item.type.toLowerCase()}`}
                         key={item.id}
-                        draggable={item.type === "IMAGE" && !block.locked}
-                        onDragStart={(event) => {
-                          if (item.type !== "IMAGE" || block.locked) return;
-                          event.stopPropagation();
-                          setImageDragData(event, {
-                            kind: "COLUMN_ITEM",
-                            blockId: block.id,
-                            itemId: item.id,
-                          });
-                        }}
                       >
                         <header className="document-inline-controls">
                           <strong>
@@ -2899,7 +3066,21 @@ function BlockEditor({
                                   : "Separador"}
                           </strong>
                           {item.type === "IMAGE" && !block.locked ? (
-                            <span className="document-image-handle" aria-hidden="true">
+                            <span
+                              className="document-image-handle document-image-move-handle"
+                              draggable
+                              role="button"
+                              tabIndex={0}
+                              title="Arrastra desde aqui para mover la imagen"
+                              onDragStart={(event) => {
+                                event.stopPropagation();
+                                setImageDragData(event, {
+                                  kind: "COLUMN_ITEM",
+                                  blockId: block.id,
+                                  itemId: item.id,
+                                });
+                              }}
+                            >
                               Arrastrar
                             </span>
                           ) : null}
@@ -3319,7 +3500,22 @@ function ColumnItemEditor({
         style={imageComposerStyle(item)}
       >
         <div className="column-image-frame document-image-card">
-          <div className="column-image-preview document-image-media">
+          <div
+            className={`column-image-preview document-image-media ${selected && item.fileId && item.fit === "COVER" && (item.aspectRatio ?? "AUTO") !== "AUTO" && !locked ? "is-direct-crop" : ""}`}
+            onPointerDown={(event) => {
+              if (
+                !selected ||
+                !item.fileId ||
+                item.fit !== "COVER" ||
+                (item.aspectRatio ?? "AUTO") === "AUTO" ||
+                locked
+              )
+                return;
+              beginImageFocalAdjustment(event, item, (focalX, focalY) =>
+                onChange({ ...item, focalX, focalY }),
+              );
+            }}
+          >
             {item.fileId && csrf ? (
               <AuthorizedFileImage fileId={item.fileId} alt={item.alt || item.label} csrf={csrf} />
             ) : (
@@ -3328,32 +3524,23 @@ function ColumnItemEditor({
                 <strong>Agrega una imagen</strong>
               </div>
             )}
-            {selected && item.fileId && item.fit === "COVER" && !locked ? (
-              <button
-                className="document-image-focal-handle"
-                type="button"
-                aria-label="Arrastrar para reencuadrar la imagen"
-                title="Arrastra para elegir el punto focal"
-                onPointerDown={(event) =>
-                  beginImageFocalAdjustment(event, (focalX, focalY) =>
-                    onChange({ ...item, focalX, focalY }),
-                  )
-                }
-              >
-                <span aria-hidden="true">+</span>
-              </button>
+            {selected &&
+            item.fileId &&
+            item.fit === "COVER" &&
+            (item.aspectRatio ?? "AUTO") !== "AUTO" &&
+            !locked ? (
+              <>
+                <span className="document-image-focus-point" aria-hidden="true" />
+                <span className="document-image-crop-hint">Arrastra para reencuadrar</span>
+              </>
             ) : null}
           </div>
           {item.caption ? <small className="document-image-caption">{item.caption}</small> : null}
-          {selected && !locked ? (
-            <button
-              className="document-image-resize-handle"
-              type="button"
-              aria-label="Redimensionar imagen"
-              title="Arrastra para cambiar el ancho"
-              onPointerDown={(event) =>
-                beginImageResize(event, item, (widthPercent) => onChange({ ...item, widthPercent }))
-              }
+          {selected ? (
+            <ImageDirectManipulationControls
+              image={item}
+              locked={locked}
+              onPatch={(patch) => onChange({ ...item, ...patch })}
             />
           ) : null}
         </div>

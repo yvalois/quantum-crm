@@ -80,6 +80,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Corregir la carga real de imagenes desde el origen HTTPS del CRM hasta el almacenamiento privado.
 - [x] Completar tipografia, formato de texto, cuadricula editable, movimiento de imagenes, margenes y paginacion automatica.
 - [x] Convertir las imagenes en marcos visuales manipulables y persistentes, tanto en la pagina como dentro de columnas.
+- [ ] Hacer que tamano, giro y reencuadre se manipulen directamente sobre la imagen, separando el asa de movimiento de la superficie de edicion.
 
 ## Criterios de aceptacion
 
@@ -98,6 +99,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] El contenido que excede una pagina continua visualmente en hojas adicionales sin perderse.
 - [x] Una imagen se redimensiona, recorta, reenfoca, gira y alinea sin perder el archivo ni romper la pagina.
 - [x] Arrastrar una imagen entre pagina y columnas conserva todos sus atributos visuales; sustituirla conserva el marco.
+- [ ] Al seleccionar una imagen aparecen tiradores convencionales; el usuario redimensiona desde cualquier esquina, gira desde el control superior y reencuadra arrastrando el contenido sin abrir un panel.
 
 ## Plan de verificacion
 
