@@ -81,6 +81,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Completar tipografia, formato de texto, cuadricula editable, movimiento de imagenes, margenes y paginacion automatica.
 - [x] Convertir las imagenes en marcos visuales manipulables y persistentes, tanto en la pagina como dentro de columnas.
 - [x] Hacer que tamano, giro y reencuadre se manipulen directamente sobre la imagen, separando el asa de movimiento de la superficie de edicion.
+- [x] Mostrar la imagen completa de forma predeterminada y conservar el recorte como una eleccion explicita.
 
 ## Criterios de aceptacion
 
@@ -100,6 +101,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Una imagen se redimensiona, recorta, reenfoca, gira y alinea sin perder el archivo ni romper la pagina.
 - [x] Arrastrar una imagen entre pagina y columnas conserva todos sus atributos visuales; sustituirla conserva el marco.
 - [x] Al seleccionar una imagen aparecen tiradores convencionales; el usuario redimensiona desde cualquier esquina, gira desde el control superior y reencuadra arrastrando el contenido sin abrir un panel.
+- [x] Una imagen nueva se presenta completa dentro de su marco; solo se recorta cuando el usuario elige `Recortar para llenar`.
 
 ## Plan de verificacion
 
@@ -133,6 +135,9 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - La imagen dentro de columnas expone el mismo compositor, asa de redimensionado, proporcion, ajuste, punto focal y acabado; omite deliberadamente el flujo externo porque su contenedor ya es la propia columna. Las pruebas del modelo acreditan que moverla entre celdas o reducir la disposicion conserva la configuracion completa.
 - El candidato `c5d0fa7` con manipulacion directa aprobo en el VPS formato, lint focalizado, 18 pruebas del modelo, typecheck de `crm-web` y build de produccion con Next.js `16.3.8`. La imagen `qcrm-candidate/crm-web:c5d0fa7` (`sha256:b97a6c23b202c7e2f1458964f86888fee52ce7249f6a3da757f11bfd4d7cab0a`) quedo desplegada y saludable en InterAmerican; readiness publico respondio `200`.
 - El recorrido autenticado selecciono la imagen de la revision 5, encontro cuatro tiradores de esquina, un control de giro y la superficie directa de reencuadre. El teclado sobre los mismos controles cambio el ancho de `60 %` a `65 %` y el giro de `3` a `4` grados sin abrir los ajustes precisos; la prueba no se guardo y la revision 5 permanecio intacta. La comprobacion visual detecto y corrigio antes del cierre dos reglas heredadas que tapaban y recortaban el control superior.
+- El candidato `2b16727a` cambio a `CONTAIN` el valor predeterminado del contrato, los bloques de imagen nuevos y las imagenes dentro de columnas; `Recortar para llenar` permanece disponible como ajuste explicito. En el VPS aprobaron Prettier, ESLint focalizado, 31 pruebas, typecheck de `contracts` y `crm-web`, y los builds de produccion de API y CRM web.
+- InterAmerican ejecuta `qcrm-candidate/api:2b16727` (`sha256:cdfb0eb723733ee62a5de9a54214f8d1d57056520fc5578a35dbb8232272d88d`) y `qcrm-candidate/crm-web:2b16727` (`sha256:0b6a69c55fd5e7a3d787bd1d639ffd8d5f5505d6f3af309ff10e2b7525889fb3`), ambos saludables; el readiness publico respondio `200`.
+- En el recorrido autenticado se selecciono la imagen del documento `preuba`, se cambio de `Recortar para llenar` a `Imagen completa` y se guardo la revision 6. Despues de recargar persistieron `object-fit: contain`, dimensiones visibles `387 x 218` y dimensiones naturales `640 x 360`, sin sustituir ni perder el archivo.
 
 ## Pendientes de estabilizacion posterior
 
