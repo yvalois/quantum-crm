@@ -171,6 +171,35 @@ describe("DocumentService", () => {
         locked: true,
         layout: "LEFT_WIDE",
         columns: ["Cliente: {{contact.name}}", "Asesora: {{advisor.name}}"],
+        cells: [
+          {
+            id: "019db9c7-1268-7d24-bf99-96ea38ebf127",
+            items: [
+              {
+                id: "019db9c7-1268-7d24-bf99-96ea38ebf128",
+                type: "TEXT",
+                locked: false,
+                content: "Cliente: {{contact.name}}",
+                align: "LEFT",
+              },
+            ],
+          },
+          {
+            id: "019db9c7-1268-7d24-bf99-96ea38ebf129",
+            items: [
+              {
+                id: "019db9c7-1268-7d24-bf99-96ea38ebf130",
+                type: "VARIABLE",
+                locked: false,
+                key: "advisor.name",
+                label: "Asesora",
+                fallback: "Sin asesora",
+                value: null,
+                editable: false,
+              },
+            ],
+          },
+        ],
       },
     ]);
     const memory = memoryRepository(seededTemplate);
@@ -211,6 +240,10 @@ describe("DocumentService", () => {
       {
         layout: "LEFT_WIDE",
         columns: ["Cliente: Andrea Cliente", "Asesora: Sofía Asesora"],
+        cells: [
+          { items: [{ content: "Cliente: Andrea Cliente" }] },
+          { items: [{ value: "Sofía Asesora" }] },
+        ],
       },
     ]);
   });
@@ -268,6 +301,9 @@ describe("DocumentService", () => {
       checksum: null,
       replaceable: true,
       visible: true,
+      width: "FULL",
+      align: "CENTER",
+      fit: "COVER",
     };
     const seededTemplate = template([protectedImage]);
     const memory = memoryRepository(seededTemplate);
@@ -298,6 +334,9 @@ describe("DocumentService", () => {
       type: "IMAGE",
       locked: true,
       id: protectedImage.id,
+      width: "FULL",
+      align: "CENTER",
+      fit: "COVER",
     };
 
     const updated = await service.update({

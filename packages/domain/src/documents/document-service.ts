@@ -4,6 +4,7 @@ import {
   DocumentBlockSchema,
   type CommercialDocumentKind,
   type DocumentBlock,
+  type DocumentColumnItem,
   type DocumentDesign,
 } from "@quantum-crm/contracts";
 
@@ -45,6 +46,14 @@ export function defaultDocumentDesign(): DocumentDesign {
     headerText: "",
     footerText: "Documento generado con Quantum",
     showPageNumbers: true,
+    headerEnabled: true,
+    headerLayout: "SPLIT",
+    headerAlign: "LEFT",
+    headerSpacing: "NORMAL",
+    showDocumentKind: true,
+    footerEnabled: true,
+    footerAlign: "LEFT",
+    footerSpacing: "NORMAL",
     logoFileId: null,
     logoChecksum: null,
     backgroundFileId: null,
@@ -71,12 +80,29 @@ export function starterDocumentBlocks(): readonly DocumentBlock[] {
   ]);
 }
 
+function lockedColumnItemProjection(item: DocumentColumnItem): DocumentColumnItem {
+  if (item.type === "VARIABLE" && item.editable) return { ...item, value: null };
+  if (item.type === "IMAGE" && item.replaceable) {
+    return { ...item, fileId: null, checksum: null, visible: true };
+  }
+  return item;
+}
+
 function lockedProjection(block: DocumentBlock): DocumentBlock {
   if (block.type === "VARIABLE" && block.editable) {
     return { ...block, value: null };
   }
   if (block.type === "IMAGE" && block.replaceable) {
     return { ...block, fileId: null, checksum: null, visible: true };
+  }
+  if (block.type === "COLUMNS" && block.cells) {
+    return {
+      ...block,
+      cells: block.cells.map((cell) => ({
+        ...cell,
+        items: cell.items.map(lockedColumnItemProjection),
+      })),
+    };
   }
   return block;
 }
@@ -105,6 +131,13 @@ function replaceTokens(value: string, values: ReadonlyMap<string, string>): stri
   );
 }
 
+function columnItemProjection(item: DocumentColumnItem): string {
+  if (item.type === "TEXT") return item.content;
+  if (item.type === "VARIABLE") return item.value ?? `{{${item.key}}}`;
+  if (item.type === "IMAGE") return item.label ? `[Imagen: ${item.label}]` : "[Imagen]";
+  return "---";
+}
+
 function formatMinorAmount(amountMinor: bigint, currency: string): string {
   const absolute = amountMinor < 0n ? -amountMinor : amountMinor;
   const units = absolute / 100n;
@@ -121,8 +154,30 @@ function materializeBlocks(
       if (block.type === "TEXT") return { ...block, content: replaceTokens(block.content, values) };
       if (block.type === "TERMS")
         return { ...block, content: replaceTokens(block.content, values) };
-      if (block.type === "COLUMNS")
-        return { ...block, columns: block.columns.map((column) => replaceTokens(column, values)) };
+      if (block.type === "COLUMNS") {
+        if (!block.cells) {
+          return { ...block, columns: block.columns.map((column) => replaceTokens(column, values)) };
+        }
+        const cells = block.cells.map((cell) => ({
+          ...cell,
+          items: cell.items.map((item) => {
+            if (item.type === "TEXT") {
+              return { ...item, content: replaceTokens(item.content, values) };
+            }
+            if (item.type === "VARIABLE") {
+              return { ...item, value: values.get(item.key) ?? item.fallback };
+            }
+            return structuredClone(item);
+          }),
+        }));
+        return {
+          ...block,
+          cells,
+          columns: cells.map((cell) =>
+            cell.items.map(columnItemProjection).filter(Boolean).join("\n\n"),
+          ),
+        };
+      }
       if (block.type === "TABLE")
         return {
           ...block,
@@ -172,6 +227,8 @@ export class DocumentService {
     readonly templateId: string | null;
     readonly blocks?: readonly DocumentBlock[];
     readonly design?: DocumentDesign;
+    /** Internal provenance used only when duplicating an already authorized document. */
+    readonly authorizedSourceDocumentId?: string;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
     readonly now?: Date;
@@ -208,6 +265,7 @@ export class DocumentService {
         createdAt: now,
         updatedAt: now,
       }),
+      sourceDocumentId: input.authorizedSourceDocumentId ?? null,
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,
     });
@@ -280,6 +338,7 @@ export class DocumentService {
       templateId: null,
       blocks: source.blocks,
       design: source.design,
+      authorizedSourceDocumentId: source.id,
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,
       ...(input.now === undefined ? {} : { now: input.now }),
@@ -319,6 +378,7 @@ export class DocumentService {
         createdAt: now,
         updatedAt: now,
       }),
+      sourceDocumentId: source.id,
       actorMemberId: input.actor.memberId,
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,

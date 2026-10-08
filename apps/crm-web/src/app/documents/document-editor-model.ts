@@ -1,7 +1,12 @@
-import type { DocumentBlock } from "@quantum-crm/contracts";
+import type {
+  DocumentBlock,
+  DocumentColumnCell,
+  DocumentColumnItem,
+} from "@quantum-crm/contracts";
 
 export type ColumnsBlock = Extract<DocumentBlock, { readonly type: "COLUMNS" }>;
 export type DocumentColumnLayout = ColumnsBlock["layout"];
+export type DocumentColumnItemType = DocumentColumnItem["type"];
 
 export const documentColumnLayouts = [
   { id: "EQUAL_2", label: "Dos iguales", template: "1fr 1fr" },
@@ -14,31 +19,117 @@ export const documentColumnLayouts = [
   readonly template: string;
 }[];
 
-export function createColumnsBlock(
-  layout: DocumentColumnLayout,
-  firstContent = "",
-  id = crypto.randomUUID(),
-): ColumnsBlock {
+function newId(): string {
+  return crypto.randomUUID();
+}
+
+export function createColumnItem(
+  type: DocumentColumnItemType,
+  id = newId(),
+  content = "",
+): DocumentColumnItem {
+  if (type === "TEXT") return { id, type, locked: false, content, align: "LEFT" };
+  if (type === "IMAGE") {
+    return {
+      id,
+      type,
+      locked: false,
+      label: "Imagen de la columna",
+      alt: "",
+      caption: "",
+      fileId: null,
+      checksum: null,
+      replaceable: false,
+      visible: true,
+      width: "FULL",
+      align: "CENTER",
+      fit: "COVER",
+    };
+  }
+  if (type === "VARIABLE") {
+    return {
+      id,
+      type,
+      locked: false,
+      key: "contact.name",
+      label: "Nombre del contacto",
+      fallback: "Cliente",
+      value: null,
+      editable: false,
+    };
+  }
+  return { id, type: "DIVIDER", locked: false, style: "SOLID" };
+}
+
+function createCell(content: string, id = newId(), itemId = newId()): DocumentColumnCell {
+  return { id, items: [createColumnItem("TEXT", itemId, content)] };
+}
+
+function itemFallback(item: DocumentColumnItem): string {
+  if (item.type === "TEXT") return item.content;
+  if (item.type === "VARIABLE") return item.value ?? `{{${item.key}}}`;
+  if (item.type === "IMAGE") return item.label ? `[Imagen: ${item.label}]` : "[Imagen]";
+  return "---";
+}
+
+function syncColumnFallbacks(block: ColumnsBlock, cells: readonly DocumentColumnCell[]): ColumnsBlock {
   return {
-    id,
-    type: "COLUMNS",
-    locked: false,
-    layout,
-    columns: layout === "EQUAL_3" ? [firstContent, "", ""] : [firstContent, ""],
+    ...block,
+    cells: [...cells],
+    columns: cells.map((cell) => cell.items.map(itemFallback).filter(Boolean).join("\n\n")),
   };
 }
 
+export function normalizeColumnsBlock(block: ColumnsBlock): ColumnsBlock {
+  if (block.cells) return syncColumnFallbacks(block, block.cells);
+  if (block.locked) return block;
+  return syncColumnFallbacks(
+    block,
+    block.columns.map((content) => createCell(content)),
+  );
+}
+
+export function normalizeDocumentBlocks(blocks: readonly DocumentBlock[]): DocumentBlock[] {
+  return blocks.map((block) => (block.type === "COLUMNS" ? normalizeColumnsBlock(block) : block));
+}
+
+export function createColumnsBlock(
+  layout: DocumentColumnLayout,
+  firstContent = "",
+  id = newId(),
+): ColumnsBlock {
+  const contents = layout === "EQUAL_3" ? [firstContent, "", ""] : [firstContent, ""];
+  return syncColumnFallbacks(
+    { id, type: "COLUMNS", locked: false, layout, columns: contents },
+    contents.map((content) => createCell(content)),
+  );
+}
+
 export function changeColumnsLayout(
-  block: ColumnsBlock,
+  source: ColumnsBlock,
   layout: DocumentColumnLayout,
 ): ColumnsBlock {
+  const block = normalizeColumnsBlock(source);
   const targetCount = layout === "EQUAL_3" ? 3 : 2;
-  if (targetCount === block.columns.length) return { ...block, layout };
-  if (targetCount === 3) return { ...block, layout, columns: [...block.columns, ""] };
+  if (targetCount === block.cells?.length) return { ...block, layout };
+  if (targetCount === 3) {
+    return syncColumnFallbacks(
+      { ...block, layout },
+      [...(block.cells ?? []), createCell("")],
+    );
+  }
 
-  const [first = "", second = "", ...remaining] = block.columns;
-  const mergedSecond = [second, ...remaining].filter((value) => value.trim()).join("\n\n");
-  return { ...block, layout, columns: [first, mergedSecond] };
+  const [first = createCell(""), second = createCell(""), ...remaining] = block.cells ?? [];
+  const mergedItems = [
+    ...second.items,
+    ...remaining.flatMap((cell) =>
+      cell.items.length > 0 ? [createColumnItem("DIVIDER"), ...cell.items] : [],
+    ),
+  ];
+  return syncColumnFallbacks(
+    { ...block, layout },
+    [first, { ...second, items: mergedItems }],
+  );
 }
 
 export function splitTextBlock(
@@ -46,6 +137,88 @@ export function splitTextBlock(
   layout: DocumentColumnLayout = "EQUAL_2",
 ): ColumnsBlock {
   return createColumnsBlock(layout, block.content, block.id);
+}
+
+export function addColumnItem(
+  source: ColumnsBlock,
+  cellId: string,
+  item: DocumentColumnItem,
+): ColumnsBlock {
+  const block = normalizeColumnsBlock(source);
+  return syncColumnFallbacks(
+    block,
+    (block.cells ?? []).map((cell) =>
+      cell.id === cellId ? { ...cell, items: [...cell.items, item] } : cell,
+    ),
+  );
+}
+
+export function updateColumnItem(
+  source: ColumnsBlock,
+  itemId: string,
+  updater: (item: DocumentColumnItem) => DocumentColumnItem,
+): ColumnsBlock {
+  const block = normalizeColumnsBlock(source);
+  return syncColumnFallbacks(
+    block,
+    (block.cells ?? []).map((cell) => ({
+      ...cell,
+      items: cell.items.map((item) => (item.id === itemId ? updater(item) : item)),
+    })),
+  );
+}
+
+export function removeColumnItem(source: ColumnsBlock, itemId: string): ColumnsBlock {
+  const block = normalizeColumnsBlock(source);
+  return syncColumnFallbacks(
+    block,
+    (block.cells ?? []).map((cell) => ({
+      ...cell,
+      items: cell.items.filter((item) => item.id !== itemId),
+    })),
+  );
+}
+
+export function moveColumnItem(
+  source: ColumnsBlock,
+  cellId: string,
+  itemIndex: number,
+  offset: -1 | 1,
+): ColumnsBlock {
+  const block = normalizeColumnsBlock(source);
+  const cells = (block.cells ?? []).map((cell) => {
+    if (cell.id !== cellId) return cell;
+    const target = itemIndex + offset;
+    if (target < 0 || target >= cell.items.length) return cell;
+    const items = [...cell.items];
+    const [item] = items.splice(itemIndex, 1);
+    if (!item) return cell;
+    items.splice(target, 0, item);
+    return { ...cell, items };
+  });
+  return syncColumnFallbacks(block, cells);
+}
+
+export function moveColumnItemToCell(
+  source: ColumnsBlock,
+  itemId: string,
+  targetCellId: string,
+): ColumnsBlock {
+  const block = normalizeColumnsBlock(source);
+  const item = block.cells?.flatMap((cell) => cell.items).find((candidate) => candidate.id === itemId);
+  if (!item || block.cells?.some((cell) => cell.id === targetCellId && cell.items.includes(item))) {
+    return block;
+  }
+  return syncColumnFallbacks(
+    block,
+    (block.cells ?? []).map((cell) => ({
+      ...cell,
+      items:
+        cell.id === targetCellId
+          ? [...cell.items, item]
+          : cell.items.filter((candidate) => candidate.id !== itemId),
+    })),
+  );
 }
 
 export function canMoveBlock(

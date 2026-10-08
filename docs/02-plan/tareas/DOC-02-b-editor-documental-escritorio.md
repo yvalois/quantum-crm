@@ -40,13 +40,15 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - Lienzo central tipo Word con edicion directa por bloques.
 - Barra de herramientas simplificada y paneles superpuestos de biblioteca y propiedades.
 - Selector visual de disposiciones de dos y tres columnas, cambio de proporcion y conversion de texto a renglon dividido sin perder contenido.
+- Celdas de columna con elementos ordenables de texto, imagen, variable y separador; las imagenes conservan validacion, scan y referencia inmutable.
+- Encabezado y pie como regiones configurables del lienzo: visibilidad, distribucion, alineacion, espacio, logotipo, tipo documental y numeracion.
 - Reordenamiento, proteccion, eliminacion, variables, archivos, estilos, duplicacion y plantillas existentes.
 - Estados responsive, foco visible y navegacion accesible.
 
 ### No incluido
 
 - PDF, envio, firma, pagos o calculos comerciales nuevos.
-- Bloques anidados arbitrarios dentro de una columna; esta iteracion mantiene celdas de texto sin romper documentos existentes.
+- Columnas anidadas dentro de columnas y paginacion automatica; se evitan estructuras recursivas sin limite y se mantiene compatibilidad con documentos existentes.
 
 ## Impacto tecnico
 
@@ -67,6 +69,8 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Implementar disposiciones de columnas y conversion de un renglon conservando su contenido.
 - [x] Integrar la edicion de bloques dentro del lienzo visible.
 - [x] Validar tipos, build y recorrido autenticado en el VPS.
+- [ ] Permitir imagenes y elementos ordenados dentro de cada columna sin perder contenido previo.
+- [ ] Convertir encabezado y pie en regiones configurables y comprobar su persistencia.
 
 ## Criterios de aceptacion
 
@@ -76,6 +80,8 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Un bloque de texto puede convertirse en dos o tres columnas y cambiar de proporcion conservando su contenido.
 - [x] Las funciones documentales existentes permanecen operativas.
 - [x] La experiencia es utilizable en escritorio y adaptable en pantallas menores.
+- [ ] Una columna admite texto, imagen, variable y separador, permite reordenarlos y guarda sus archivos mediante el pipeline seguro.
+- [ ] Encabezado y pie se pueden mostrar u ocultar, alinear, espaciar y configurar con logo, tipo documental y numero de pagina.
 
 ## Plan de verificacion
 

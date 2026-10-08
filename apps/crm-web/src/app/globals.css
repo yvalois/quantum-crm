@@ -6401,3 +6401,462 @@ body {
     margin-top: 2rem;
   }
 }
+
+/* DOC-02 composed columns and managed page regions */
+.document-studio-shell .document-page > .document-page-region {
+  position: relative;
+  display: flex;
+  min-height: 2.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.7rem;
+}
+
+.document-studio-shell .document-page > .document-page-header {
+  border-bottom: 2px solid;
+}
+
+.document-studio-shell .document-page > .document-page-footer {
+  margin-top: auto;
+  border-top: 1px solid;
+  border-bottom: 0;
+}
+
+.document-page-region.region-compact {
+  min-height: 2.15rem;
+  padding-block: 0.35rem;
+}
+
+.document-page-region.region-spacious {
+  min-height: 5rem;
+  padding-block: 1.25rem;
+}
+
+.document-header-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.document-header-logo {
+  display: grid;
+  width: 4.25rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+}
+
+.document-header-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.document-page-region.layout-text .document-header-logo {
+  display: none;
+}
+
+.document-page-region.layout-logo_text {
+  flex-wrap: wrap;
+  align-content: center;
+}
+
+.document-page-region.layout-logo_text .document-header-content {
+  flex-basis: 100%;
+}
+
+.document-page-region.layout-logo_text > strong {
+  color: #6c8285;
+  font-size: 0.52rem;
+}
+
+.document-page-region.layout-logo_text:has(.document-header-logo) > strong {
+  margin-left: 5rem;
+}
+
+.document-page-region textarea {
+  min-width: 0;
+  min-height: 1.7rem;
+  flex: 1;
+  overflow: hidden;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  resize: none;
+  text-transform: uppercase;
+}
+
+.document-page-footer textarea {
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  text-transform: none;
+}
+
+.document-page-region.align-center textarea {
+  text-align: center;
+}
+
+.document-page-region.align-right textarea {
+  text-align: right;
+}
+
+.document-region-settings {
+  position: absolute;
+  z-index: 4;
+  top: -1.7rem;
+  right: 0;
+  border: 1px solid #cfe0df;
+  border-radius: 0.3rem;
+  background: #fff;
+  padding: 0.25rem 0.45rem;
+  color: #176f68;
+  font-size: 0.52rem;
+  font-weight: 750;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgb(23 55 58 / 12%);
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.document-page-region:hover .document-region-settings,
+.document-page-region:focus-within .document-region-settings {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-region-hidden {
+  width: 100%;
+  border: 1px dashed #c8d6d7;
+  border-radius: 0.35rem;
+  background: #f8fbfb;
+  padding: 0.55rem;
+  color: #698084;
+  font-size: 0.58rem;
+  cursor: pointer;
+}
+
+.document-region-hidden.footer-hidden {
+  margin-top: auto;
+}
+
+.document-region-inspector .document-inspector-grid,
+.document-inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.document-logo-control {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  border: 1px solid #dce6e6;
+  border-radius: 0.45rem;
+  background: #f8fafa;
+  padding: 0.5rem;
+}
+
+.document-logo-control > img,
+.document-logo-control > span {
+  display: grid;
+  width: 3.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 0.25rem;
+  background: #e8efef;
+  object-fit: contain;
+  color: #799093;
+  font-size: 0.55rem;
+  font-weight: 850;
+}
+
+.document-logo-control > button {
+  border: 0;
+  background: transparent;
+  color: #9d3a3a;
+  font-size: 0.6rem;
+  cursor: pointer;
+}
+
+.document-studio-shell .document-page .columns-editor {
+  align-items: start;
+  gap: 1rem;
+}
+
+.document-studio-shell .document-page .document-column-cell {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.55rem;
+}
+
+.document-column-head {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.document-column-head > span {
+  color: #779093;
+  font-size: 0.5rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.document-column-head > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
+.document-column-head button,
+.document-column-item > header button {
+  border: 1px solid #d5e2e2;
+  border-radius: 0.22rem;
+  background: #fff;
+  min-height: 1.7rem;
+  padding: 0.25rem 0.38rem;
+  color: #456166;
+  font-size: 0.54rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.document-column-head button:hover,
+.document-column-item > header button:hover {
+  border-color: #86cfc7;
+  color: #08796e;
+}
+
+.document-column-items {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.document-column-item {
+  position: relative;
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid #dce6e6;
+  border-radius: 0.35rem;
+  background: rgb(249 252 252 / 86%);
+  padding: 0.45rem;
+}
+
+.document-column-item > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.document-column-item > header strong {
+  color: #688084;
+  font-size: 0.48rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.document-column-item > header div {
+  display: flex;
+  gap: 0.15rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.document-column-item:hover > header div,
+.document-column-item:focus-within > header div {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.document-column-empty {
+  min-height: 4rem;
+  border: 1px dashed #c7d9d8;
+  border-radius: 0.35rem;
+  background: #fbfdfd;
+  color: #72908d;
+  font-size: 0.56rem;
+  cursor: pointer;
+}
+
+.legacy-column-cell {
+  border-left: 2px solid #dce7e7;
+  padding-left: 0.7rem;
+}
+
+.legacy-column-cell > span {
+  color: #789093;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legacy-column-cell > p {
+  margin: 0;
+  color: #233b40;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.column-text-editor,
+.column-variable-editor,
+.column-image-editor {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.column-text-editor textarea {
+  min-height: 4.5rem;
+}
+
+.column-text-editor select,
+.column-variable-editor select,
+.column-variable-editor input,
+.column-image-editor input,
+.column-image-editor select,
+.column-divider-editor,
+.image-presentation-controls select {
+  width: 100%;
+  border: 1px solid #d9e4e4;
+  border-radius: 0.28rem;
+  background: #fff;
+  padding: 0.35rem;
+  color: #294348;
+  font-size: 0.56rem;
+}
+
+.column-image-preview {
+  position: relative;
+  display: grid;
+  min-height: 6rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.28rem;
+  background: linear-gradient(135deg, #edf4f3, #f8fbfb);
+  color: #79908e;
+  font-size: 0.55rem;
+  font-weight: 850;
+}
+
+.column-image-frame {
+  width: 100%;
+}
+
+.column-image-preview img {
+  width: 100%;
+  height: 8rem;
+  object-fit: cover;
+}
+
+.column-image-editor.image-hidden .column-image-preview {
+  opacity: 0.42;
+  filter: grayscale(1);
+}
+
+.column-image-editor.image-hidden .column-image-preview::after {
+  content: "Oculta en el documento";
+  position: absolute;
+  inset: auto 0 0;
+  padding: 0.3rem 0.45rem;
+  color: #f4f7f8;
+  background: rgb(8 25 29 / 78%);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.document-image-caption {
+  display: block;
+  color: #63777b;
+  font-size: 0.56rem;
+  font-style: italic;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.image-fit-contain .column-image-preview img,
+.image-fit-contain.image-slot-editor img {
+  object-fit: contain;
+}
+
+.image-presentation-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.document-column-cell .image-presentation-controls {
+  grid-template-columns: 1fr;
+}
+
+.document-file-button:has(input:focus-visible) {
+  outline: 2px solid #13a89c;
+  outline-offset: 2px;
+}
+
+.image-presentation-controls label,
+.column-image-editor > label:not(.document-file-button) {
+  display: grid;
+  gap: 0.2rem;
+  color: #718589;
+  font-size: 0.5rem;
+}
+
+.image-width-wide .column-image-frame,
+.image-width-wide.image-slot-editor > div:first-child {
+  width: 80%;
+}
+
+.image-width-medium .column-image-frame,
+.image-width-medium.image-slot-editor > div:first-child {
+  width: 62%;
+}
+
+.image-width-small .column-image-frame,
+.image-width-small.image-slot-editor > div:first-child {
+  width: 42%;
+}
+
+.image-align-center .column-image-frame,
+.image-align-center.image-slot-editor > div:first-child {
+  margin-inline: auto;
+}
+
+.image-align-right .column-image-frame,
+.image-align-right.image-slot-editor > div:first-child {
+  margin-left: auto;
+}
+
+.document-column-item.item-divider {
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .document-column-head > div {
+    gap: 0.12rem;
+  }
+
+  .document-column-head button {
+    padding-inline: 0.24rem;
+  }
+}

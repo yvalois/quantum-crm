@@ -158,4 +158,78 @@ describe("document contracts", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("persists composed column cells with secure images", () => {
+    const parsed = ColumnsDocumentBlockSchema.parse({
+      id: "019db9c7-1268-7d24-bf99-96ea38ebf109",
+      type: "COLUMNS",
+      locked: false,
+      layout: "EQUAL_2",
+      columns: ["Presentacion", ""],
+      cells: [
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf110",
+          items: [
+            {
+              id: "019db9c7-1268-7d24-bf99-96ea38ebf111",
+              type: "IMAGE",
+              locked: false,
+              label: "Vehiculo",
+              alt: "Vehiculo disponible",
+              caption: "",
+              fileId: "019db9c7-1268-7d24-bf99-96ea38ebf112",
+              checksum: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              replaceable: true,
+              visible: true,
+              width: "FULL",
+              align: "CENTER",
+              fit: "COVER",
+            },
+          ],
+        },
+        {
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf113",
+          items: [],
+        },
+      ],
+    });
+    expect(parsed.cells?.[0]?.items[0]).toMatchObject({ type: "IMAGE", label: "Vehiculo" });
+
+    expect(
+      ColumnsDocumentBlockSchema.safeParse({
+        ...parsed,
+        cells: parsed.cells?.slice(0, 1),
+      }).success,
+    ).toBe(false);
+
+    expect(
+      ColumnsDocumentBlockSchema.safeParse({
+        ...parsed,
+        columns: ["Contenido distinto", ""],
+      }).success,
+    ).toBe(false);
+
+    const firstCell = parsed.cells?.[0];
+    expect(firstCell).toBeTruthy();
+    if (!firstCell) return;
+    expect(
+      ColumnsDocumentBlockSchema.safeParse({
+        ...parsed,
+        cells: [firstCell, { id: firstCell.id, items: [] }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("adds compatible header and footer defaults to legacy designs", () => {
+    expect(DocumentDesignSchema.parse(design)).toMatchObject({
+      headerEnabled: true,
+      headerLayout: "SPLIT",
+      headerAlign: "LEFT",
+      headerSpacing: "NORMAL",
+      showDocumentKind: true,
+      footerEnabled: true,
+      footerAlign: "LEFT",
+      footerSpacing: "NORMAL",
+    });
+  });
 });

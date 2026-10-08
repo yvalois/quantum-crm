@@ -5,6 +5,7 @@ import type {
   CommercialDocumentKind,
   Contact,
   DocumentBlock,
+  DocumentColumnItem,
   DocumentTemplate,
   Opportunity,
 } from "@quantum-crm/contracts";
@@ -18,13 +19,20 @@ import {
 } from "react";
 
 import {
+  addColumnItem,
   canMoveBlock,
   changeColumnsLayout,
+  createColumnItem,
   createColumnsBlock,
   documentColumnLayouts,
+  moveColumnItem,
+  moveColumnItemToCell,
   moveDocumentBlock,
   moveDocumentBlockTo,
+  normalizeDocumentBlocks,
+  removeColumnItem,
   splitTextBlock,
+  updateColumnItem,
 } from "./document-editor-model";
 
 interface SessionPayload {
@@ -57,6 +65,21 @@ interface FileMetadataResponse {
 
 interface FileDownloadAuthorizationResponse {
   readonly data: { readonly url: string; readonly expiresAt: string; readonly method: "GET" };
+}
+
+type DocumentFileTarget =
+  | { readonly kind: "BLOCK"; readonly blockId: string }
+  | { readonly kind: "COLUMN_ITEM"; readonly blockId: string; readonly itemId: string }
+  | { readonly kind: "LOGO" };
+
+function uploadTargetId(target: DocumentFileTarget): string {
+  if (target.kind === "LOGO") return "design:logo";
+  if (target.kind === "COLUMN_ITEM") return `column:${target.blockId}:${target.itemId}`;
+  return `block:${target.blockId}`;
+}
+
+function normalizeDocumentForEditor(document: CommercialDocument): CommercialDocument {
+  return { ...document, blocks: normalizeDocumentBlocks(document.blocks) };
 }
 
 const blockLabels: Record<DocumentBlock["type"], string> = {
@@ -100,6 +123,9 @@ function newBlock(type: DocumentBlock["type"]): DocumentBlock {
         checksum: null,
         replaceable: false,
         visible: true,
+        width: "FULL",
+        align: "CENTER",
+        fit: "COVER",
       };
     case "TABLE":
       return {
@@ -209,7 +235,7 @@ export default function DocumentsPage(): React.JSX.Element {
   const [notice, setNotice] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
-  const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
+  const [uploadingTargetId, setUploadingTargetId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<"" | CommercialDocumentKind>("");
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -261,7 +287,7 @@ export default function DocumentsPage(): React.JSX.Element {
       const current =
         nextDocuments.find((item) => item.id === selectedId) ?? nextDocuments[0] ?? null;
       setSelectedId(current?.id ?? null);
-      setDraft(current ? structuredClone(current) : null);
+      setDraft(current ? normalizeDocumentForEditor(structuredClone(current)) : null);
       setDirty(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cargar Documentos.");
@@ -286,9 +312,13 @@ export default function DocumentsPage(): React.JSX.Element {
   }, []);
 
   function selectDocument(document: CommercialDocument): void {
+    if (uploadingTargetId) {
+      setNotice("Espera a que termine la validacion del archivo antes de cambiar de documento.");
+      return;
+    }
     if (dirty && !window.confirm("Hay cambios sin guardar. ¿Quieres descartarlos?")) return;
     setSelectedId(document.id);
-    setDraft(structuredClone(document));
+    setDraft(normalizeDocumentForEditor(structuredClone(document)));
     setDirty(false);
     setSelectedBlockId(null);
     setLibraryOpen(false);
@@ -299,6 +329,13 @@ export default function DocumentsPage(): React.JSX.Element {
   function patchDraft(patch: Partial<CommercialDocument>): void {
     setDraft((current) => (current ? { ...current, ...patch } : current));
     setDirty(true);
+  }
+
+  function openInspectorSection(sectionId: "document-header-settings" | "document-footer-settings"): void {
+    setInspectorOpen(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function updateBlock(id: string, updater: (block: DocumentBlock) => DocumentBlock): void {
@@ -375,7 +412,7 @@ export default function DocumentsPage(): React.JSX.Element {
       const created = ((await response.json()) as { data: CommercialDocument }).data;
       setDocuments((current) => [created, ...current]);
       setSelectedId(created.id);
-      setDraft(created);
+      setDraft(normalizeDocumentForEditor(created));
       setDirty(false);
       setShowCreate(false);
       setNotice("Borrador creado y listo para editar.");
@@ -403,7 +440,7 @@ export default function DocumentsPage(): React.JSX.Element {
         { method: "PATCH", version: draft.version },
       );
       const updated = ((await response.json()) as { data: CommercialDocument }).data;
-      setDraft(updated);
+      setDraft(normalizeDocumentForEditor(updated));
       setDocuments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setDirty(false);
       setNotice(`Guardado · revisión ${updated.revision}`);
@@ -423,7 +460,7 @@ export default function DocumentsPage(): React.JSX.Element {
       const copy = ((await response.json()) as { data: CommercialDocument }).data;
       setDocuments((current) => [copy, ...current]);
       setSelectedId(copy.id);
-      setDraft(copy);
+      setDraft(normalizeDocumentForEditor(copy));
       setDirty(false);
       setNotice("Copia independiente creada.");
     } catch (cause) {
@@ -455,9 +492,10 @@ export default function DocumentsPage(): React.JSX.Element {
     }
   }
 
-  async function uploadDocumentFile(blockId: string, file: File): Promise<void> {
-    if (!draft) return;
-    setUploadingBlockId(blockId);
+  async function uploadDocumentFile(target: DocumentFileTarget, file: File): Promise<void> {
+    if (!draft || uploadingTargetId) return;
+    const uploadDocumentId = draft.id;
+    setUploadingTargetId(uploadTargetId(target));
     setError(null);
     setNotice("Reservando carga segura...");
     try {
@@ -515,11 +553,31 @@ export default function DocumentsPage(): React.JSX.Element {
       if (!available) throw new Error("La validación continúa. Intenta nuevamente en un momento.");
       const verifiedChecksum = documentChecksum(available.sha256);
       setDraft((current) =>
-        current
+        current && current.id === uploadDocumentId
           ? {
               ...current,
+              design:
+                target.kind === "LOGO"
+                  ? {
+                      ...current.design,
+                      logoFileId: available.id,
+                      logoChecksum: verifiedChecksum,
+                      headerEnabled: true,
+                      headerLayout:
+                        current.design.headerLayout === "TEXT"
+                          ? "LOGO_TEXT"
+                          : current.design.headerLayout,
+                    }
+                  : current.design,
               blocks: current.blocks.map((block) => {
-                if (block.id !== blockId) return block;
+                if (target.kind === "LOGO" || block.id !== target.blockId) return block;
+                if (target.kind === "COLUMN_ITEM" && block.type === "COLUMNS") {
+                  return updateColumnItem(block, target.itemId, (item) =>
+                    item.type === "IMAGE"
+                      ? { ...item, fileId: available.id, checksum: verifiedChecksum }
+                      : item,
+                  );
+                }
                 if (block.type === "IMAGE")
                   return { ...block, fileId: available.id, checksum: verifiedChecksum };
                 if (block.type === "ATTACHMENT")
@@ -536,12 +594,12 @@ export default function DocumentsPage(): React.JSX.Element {
           : current,
       );
       setDirty(true);
-      setNotice("Imagen verificada y vinculada. Guarda el documento para conservarla.");
+      setNotice("Archivo verificado y vinculado. Guarda el documento para conservarlo.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cargar el archivo.");
       setNotice(null);
     } finally {
-      setUploadingBlockId(null);
+      setUploadingTargetId(null);
     }
   }
 
@@ -859,19 +917,57 @@ export default function DocumentsPage(): React.JSX.Element {
                     }`}
                     style={{ color: draft.design.textColor }}
                   >
-                    <header style={{ borderColor: draft.design.accentColor }}>
-                      <input
-                        aria-label="Texto del encabezado"
-                        value={draft.design.headerText}
-                        placeholder="Nombre de la empresa"
-                        onChange={(event) =>
+                    {draft.design.headerEnabled ? (
+                      <header
+                        className={`document-page-region document-page-header region-${draft.design.headerSpacing.toLowerCase()} layout-${draft.design.headerLayout.toLowerCase()} align-${draft.design.headerAlign.toLowerCase()}`}
+                        style={{ borderColor: draft.design.accentColor }}
+                      >
+                        <div className="document-header-content">
+                          {draft.design.logoFileId && csrf ? (
+                            <span className="document-header-logo">
+                              <AuthorizedFileImage
+                                fileId={draft.design.logoFileId}
+                                alt="Logotipo de la empresa"
+                                csrf={csrf}
+                              />
+                            </span>
+                          ) : null}
+                          <textarea
+                            aria-label="Texto del encabezado"
+                            value={draft.design.headerText}
+                            rows={2}
+                            placeholder="Nombre de la empresa"
+                            onChange={(event) =>
+                              patchDraft({
+                                design: { ...draft.design, headerText: event.target.value },
+                              })
+                            }
+                          />
+                        </div>
+                        {draft.design.showDocumentKind ? (
+                          <strong>{draft.kind === "QUOTE" ? "COTIZACION" : "FACTURA"}</strong>
+                        ) : null}
+                        <button
+                          className="document-region-settings"
+                          type="button"
+                          onClick={() => openInspectorSection("document-header-settings")}
+                        >
+                          Configurar encabezado
+                        </button>
+                      </header>
+                    ) : (
+                      <button
+                        className="document-region-hidden"
+                        type="button"
+                        onClick={() =>
                           patchDraft({
-                            design: { ...draft.design, headerText: event.target.value },
+                            design: { ...draft.design, headerEnabled: true },
                           })
                         }
-                      />
-                      <strong>{draft.kind === "QUOTE" ? "COTIZACION" : "FACTURA"}</strong>
-                    </header>
+                      >
+                        + Agregar encabezado
+                      </button>
+                    )}
                     <section className="document-page-title">
                       <p>PREPARADO PARA</p>
                       <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
@@ -988,26 +1084,63 @@ export default function DocumentsPage(): React.JSX.Element {
                           <BlockEditor
                             block={block}
                             onChange={(next) => updateBlock(block.id, () => next)}
-                            uploading={uploadingBlockId === block.id}
-                            onFileSelected={(file) => void uploadDocumentFile(block.id, file)}
+                            uploading={uploadingTargetId === `block:${block.id}`}
+                            uploadingItemId={
+                              uploadingTargetId?.startsWith(`column:${block.id}:`)
+                                ? (uploadingTargetId.split(":")[2] ?? null)
+                                : null
+                            }
+                            onFileSelected={(file, itemId) =>
+                              void uploadDocumentFile(
+                                itemId
+                                  ? { kind: "COLUMN_ITEM", blockId: block.id, itemId }
+                                  : { kind: "BLOCK", blockId: block.id },
+                                file,
+                              )
+                            }
                             csrf={csrf}
                           />
                         </article>
                       ))}
                     </div>
-                    <footer style={{ borderColor: draft.design.accentColor }}>
-                      <input
-                        aria-label="Texto del pie de pagina"
-                        value={draft.design.footerText}
-                        placeholder="Pie de pagina"
-                        onChange={(event) =>
+                    {draft.design.footerEnabled ? (
+                      <footer
+                        className={`document-page-region document-page-footer region-${draft.design.footerSpacing.toLowerCase()} align-${draft.design.footerAlign.toLowerCase()}`}
+                        style={{ borderColor: draft.design.accentColor }}
+                      >
+                        <textarea
+                          aria-label="Texto del pie de pagina"
+                          value={draft.design.footerText}
+                          rows={2}
+                          placeholder="Pie de pagina"
+                          onChange={(event) =>
+                            patchDraft({
+                              design: { ...draft.design, footerText: event.target.value },
+                            })
+                          }
+                        />
+                        {draft.design.showPageNumbers ? <small>01 / 01</small> : null}
+                        <button
+                          className="document-region-settings"
+                          type="button"
+                          onClick={() => openInspectorSection("document-footer-settings")}
+                        >
+                          Configurar pie
+                        </button>
+                      </footer>
+                    ) : (
+                      <button
+                        className="document-region-hidden footer-hidden"
+                        type="button"
+                        onClick={() =>
                           patchDraft({
-                            design: { ...draft.design, footerText: event.target.value },
+                            design: { ...draft.design, footerEnabled: true },
                           })
                         }
-                      />
-                      {draft.design.showPageNumbers ? <small>01 / 01</small> : null}
-                    </footer>
+                      >
+                        + Agregar pie de pagina
+                      </button>
+                    )}
                   </article>
                 </div>
               </div>
@@ -1075,6 +1208,210 @@ export default function DocumentsPage(): React.JSX.Element {
                   </select>
                 </label>
               </section>
+              <section className="document-region-inspector" id="document-header-settings">
+                <h2>Encabezado</h2>
+                <label className="document-toggle-field">
+                  <input
+                    type="checkbox"
+                    checked={draft.design.headerEnabled}
+                    onChange={(event) =>
+                      patchDraft({
+                        design: { ...draft.design, headerEnabled: event.target.checked },
+                      })
+                    }
+                  />
+                  Mostrar encabezado
+                </label>
+                <div className="document-inspector-grid">
+                  <label>
+                    Distribucion
+                    <select
+                      value={draft.design.headerLayout}
+                      disabled={!draft.design.headerEnabled}
+                      onChange={(event) =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            headerLayout: event.target
+                              .value as CommercialDocument["design"]["headerLayout"],
+                          },
+                        })
+                      }
+                    >
+                      <option value="TEXT">Texto y tipo, sin logo</option>
+                      <option value="LOGO_TEXT">Logo y texto, tipo debajo</option>
+                      <option value="SPLIT">Logo y texto, tipo separado</option>
+                    </select>
+                  </label>
+                  <label>
+                    Alineacion del texto
+                    <select
+                      value={draft.design.headerAlign}
+                      disabled={!draft.design.headerEnabled}
+                      onChange={(event) =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            headerAlign: event.target
+                              .value as CommercialDocument["design"]["headerAlign"],
+                          },
+                        })
+                      }
+                    >
+                      <option value="LEFT">Izquierda</option>
+                      <option value="CENTER">Centro</option>
+                      <option value="RIGHT">Derecha</option>
+                    </select>
+                  </label>
+                  <label>
+                    Espacio
+                    <select
+                      value={draft.design.headerSpacing}
+                      disabled={!draft.design.headerEnabled}
+                      onChange={(event) =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            headerSpacing: event.target
+                              .value as CommercialDocument["design"]["headerSpacing"],
+                          },
+                        })
+                      }
+                    >
+                      <option value="COMPACT">Compacto</option>
+                      <option value="NORMAL">Normal</option>
+                      <option value="SPACIOUS">Amplio</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="document-toggle-field">
+                  <input
+                    type="checkbox"
+                    checked={draft.design.showDocumentKind}
+                    disabled={!draft.design.headerEnabled}
+                    onChange={(event) =>
+                      patchDraft({
+                        design: { ...draft.design, showDocumentKind: event.target.checked },
+                      })
+                    }
+                  />
+                  Mostrar Cotizacion o Factura
+                </label>
+                <div className="document-logo-control">
+                  {draft.design.logoFileId && csrf ? (
+                    <AuthorizedFileImage
+                      fileId={draft.design.logoFileId}
+                      alt="Logotipo del encabezado"
+                      csrf={csrf}
+                    />
+                  ) : (
+                    <span>LOGO</span>
+                  )}
+                  <label className="document-file-button">
+                    {uploadingTargetId === "design:logo"
+                      ? "Validando logo..."
+                      : draft.design.logoFileId
+                        ? "Sustituir logo"
+                        : "Cargar logo"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={uploadingTargetId === "design:logo"}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void uploadDocumentFile({ kind: "LOGO" }, file);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                  {draft.design.logoFileId ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            logoFileId: null,
+                            logoChecksum: null,
+                          },
+                        })
+                      }
+                    >
+                      Quitar
+                    </button>
+                  ) : null}
+                </div>
+              </section>
+              <section className="document-region-inspector" id="document-footer-settings">
+                <h2>Pie de pagina</h2>
+                <label className="document-toggle-field">
+                  <input
+                    type="checkbox"
+                    checked={draft.design.footerEnabled}
+                    onChange={(event) =>
+                      patchDraft({
+                        design: { ...draft.design, footerEnabled: event.target.checked },
+                      })
+                    }
+                  />
+                  Mostrar pie de pagina
+                </label>
+                <div className="document-inspector-grid">
+                  <label>
+                    Alineacion del texto
+                    <select
+                      value={draft.design.footerAlign}
+                      disabled={!draft.design.footerEnabled}
+                      onChange={(event) =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            footerAlign: event.target
+                              .value as CommercialDocument["design"]["footerAlign"],
+                          },
+                        })
+                      }
+                    >
+                      <option value="LEFT">Izquierda</option>
+                      <option value="CENTER">Centro</option>
+                      <option value="RIGHT">Derecha</option>
+                    </select>
+                  </label>
+                  <label>
+                    Espacio
+                    <select
+                      value={draft.design.footerSpacing}
+                      disabled={!draft.design.footerEnabled}
+                      onChange={(event) =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            footerSpacing: event.target
+                              .value as CommercialDocument["design"]["footerSpacing"],
+                          },
+                        })
+                      }
+                    >
+                      <option value="COMPACT">Compacto</option>
+                      <option value="NORMAL">Normal</option>
+                      <option value="SPACIOUS">Amplio</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="document-toggle-field">
+                  <input
+                    type="checkbox"
+                    checked={draft.design.showPageNumbers}
+                    disabled={!draft.design.footerEnabled}
+                    onChange={(event) =>
+                      patchDraft({
+                        design: { ...draft.design, showPageNumbers: event.target.checked },
+                      })
+                    }
+                  />
+                  Mostrar numero de pagina
+                </label>
+              </section>
               <section>
                 <h2>Apariencia</h2>
                 <div className="document-color-field">
@@ -1117,18 +1454,6 @@ export default function DocumentsPage(): React.JSX.Element {
                     <option value="SERIF">Editorial Serif</option>
                     <option value="MONO">IBM Plex Mono</option>
                   </select>
-                </label>
-                <label className="document-toggle-field">
-                  <input
-                    type="checkbox"
-                    checked={draft.design.showPageNumbers}
-                    onChange={(event) =>
-                      patchDraft({
-                        design: { ...draft.design, showPageNumbers: event.target.checked },
-                      })
-                    }
-                  />
-                  Mostrar numero de pagina
                 </label>
               </section>
               <section className="document-inspector-summary">
@@ -1292,13 +1617,15 @@ function BlockEditor({
   block,
   onChange,
   uploading,
+  uploadingItemId,
   onFileSelected,
   csrf,
 }: {
   readonly block: DocumentBlock;
   readonly onChange: (block: DocumentBlock) => void;
   readonly uploading: boolean;
-  readonly onFileSelected: (file: File) => void;
+  readonly uploadingItemId: string | null;
+  readonly onFileSelected: (file: File, itemId?: string) => void;
   readonly csrf: string | null;
 }): React.JSX.Element {
   if (block.type === "TEXT")
@@ -1339,7 +1666,9 @@ function BlockEditor({
     );
   if (block.type === "IMAGE")
     return (
-      <div className="image-slot-editor">
+      <div
+        className={`image-slot-editor image-width-${block.width.toLowerCase()} image-align-${block.align.toLowerCase()} image-fit-${block.fit.toLowerCase()}`}
+      >
         <div>
           {block.fileId && csrf ? (
             <AuthorizedFileImage fileId={block.fileId} alt={block.alt || block.label} csrf={csrf} />
@@ -1350,6 +1679,7 @@ function BlockEditor({
               <small>JPEG, PNG o WebP. Quantum la valida antes de mostrarla.</small>
             </>
           )}
+          {block.caption ? <small className="document-image-caption">{block.caption}</small> : null}
           <label className="document-file-button">
             {uploading
               ? "Validando archivo..."
@@ -1384,11 +1714,63 @@ function BlockEditor({
             onChange={(event) => onChange({ ...block, alt: event.target.value })}
           />
         </label>
+        <label>
+          Pie de imagen
+          <input
+            value={block.caption}
+            disabled={block.locked}
+            onChange={(event) => onChange({ ...block, caption: event.target.value })}
+          />
+        </label>
+        <div className="image-presentation-controls">
+          <label>
+            Ancho
+            <select
+              value={block.width}
+              disabled={block.locked}
+              onChange={(event) =>
+                onChange({ ...block, width: event.target.value as typeof block.width })
+              }
+            >
+              <option value="FULL">Completo</option>
+              <option value="WIDE">Amplio</option>
+              <option value="MEDIUM">Mediano</option>
+              <option value="SMALL">Pequeño</option>
+            </select>
+          </label>
+          <label>
+            Alineacion
+            <select
+              value={block.align}
+              disabled={block.locked}
+              onChange={(event) =>
+                onChange({ ...block, align: event.target.value as typeof block.align })
+              }
+            >
+              <option value="LEFT">Izquierda</option>
+              <option value="CENTER">Centro</option>
+              <option value="RIGHT">Derecha</option>
+            </select>
+          </label>
+          <label>
+            Ajuste
+            <select
+              value={block.fit}
+              disabled={block.locked}
+              onChange={(event) =>
+                onChange({ ...block, fit: event.target.value as typeof block.fit })
+              }
+            >
+              <option value="COVER">Recortar</option>
+              <option value="CONTAIN">Contener</option>
+            </select>
+          </label>
+        </div>
         <label className="instance-editability">
           <input
             type="checkbox"
             checked={block.replaceable}
-            disabled={!block.locked}
+            disabled={block.locked}
             onChange={(event) => onChange({ ...block, replaceable: event.target.checked })}
           />
           Permitir cambiar esta imagen al usar la plantilla
@@ -1478,25 +1860,145 @@ function BlockEditor({
             } as CSSProperties
           }
         >
-          {block.columns.map((column, index) => (
-            <label className="document-column-cell" key={index}>
-              <span>Columna {index + 1}</span>
-              <textarea
-                value={column}
-                aria-label={`Contenido de la columna ${index + 1}`}
-                placeholder="Escribe o inserta una variable…"
-                disabled={block.locked}
-                onChange={(event) =>
-                  onChange({
-                    ...block,
-                    columns: block.columns.map((value, columnIndex) =>
-                      columnIndex === index ? event.target.value : value,
-                    ),
-                  })
-                }
-              />
-            </label>
-          ))}
+          {!block.cells
+            ? block.columns.map((content, columnIndex) => (
+                <section className="document-column-cell legacy-column-cell" key={columnIndex}>
+                  <span>Columna {columnIndex + 1}</span>
+                  <p>{content || "Columna vacia"}</p>
+                </section>
+              ))
+            : block.cells.map((cell, columnIndex) => (
+            <section className="document-column-cell" key={cell.id}>
+              <header className="document-column-head">
+                <span>Columna {columnIndex + 1}</span>
+                <div aria-label={`Agregar contenido a la columna ${columnIndex + 1}`}>
+                  <button
+                    type="button"
+                    disabled={block.locked}
+                    onClick={() => onChange(addColumnItem(block, cell.id, createColumnItem("TEXT")))}
+                  >
+                    + Texto
+                  </button>
+                  <button
+                    type="button"
+                    disabled={block.locked}
+                    onClick={() =>
+                      onChange(addColumnItem(block, cell.id, createColumnItem("IMAGE")))
+                    }
+                  >
+                    + Imagen
+                  </button>
+                  <button
+                    type="button"
+                    disabled={block.locked}
+                    onClick={() =>
+                      onChange(addColumnItem(block, cell.id, createColumnItem("VARIABLE")))
+                    }
+                  >
+                    + Variable
+                  </button>
+                  <button
+                    type="button"
+                    disabled={block.locked}
+                    onClick={() =>
+                      onChange(addColumnItem(block, cell.id, createColumnItem("DIVIDER")))
+                    }
+                  >
+                    + Linea
+                  </button>
+                </div>
+              </header>
+              <div className="document-column-items">
+                {cell.items.length === 0 ? (
+                  <button
+                    type="button"
+                    className="document-column-empty"
+                    disabled={block.locked}
+                    onClick={() => onChange(addColumnItem(block, cell.id, createColumnItem("TEXT")))}
+                  >
+                    + Agregar contenido
+                  </button>
+                ) : null}
+                {cell.items.map((item, itemIndex) => (
+                  <article className={`document-column-item item-${item.type.toLowerCase()}`} key={item.id}>
+                    <header>
+                      <strong>
+                        {item.type === "TEXT"
+                          ? "Texto"
+                          : item.type === "IMAGE"
+                            ? "Imagen"
+                            : item.type === "VARIABLE"
+                              ? "Variable"
+                              : "Separador"}
+                      </strong>
+                      <div>
+                        <button
+                          type="button"
+                          disabled={block.locked || columnIndex === 0}
+                          aria-label="Mover elemento a la columna anterior"
+                          onClick={() => {
+                            const target = block.cells?.[columnIndex - 1];
+                            if (target) onChange(moveColumnItemToCell(block, item.id, target.id));
+                          }}
+                        >
+                          ←
+                        </button>
+                        <button
+                          type="button"
+                          disabled={block.locked || columnIndex === (block.cells?.length ?? 0) - 1}
+                          aria-label="Mover elemento a la columna siguiente"
+                          onClick={() => {
+                            const target = block.cells?.[columnIndex + 1];
+                            if (target) onChange(moveColumnItemToCell(block, item.id, target.id));
+                          }}
+                        >
+                          →
+                        </button>
+                        <button
+                          type="button"
+                          disabled={block.locked || itemIndex === 0}
+                          aria-label="Mover elemento arriba"
+                          onClick={() =>
+                            onChange(moveColumnItem(block, cell.id, itemIndex, -1))
+                          }
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={block.locked || itemIndex === cell.items.length - 1}
+                          aria-label="Mover elemento abajo"
+                          onClick={() =>
+                            onChange(moveColumnItem(block, cell.id, itemIndex, 1))
+                          }
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          disabled={block.locked}
+                          aria-label="Eliminar elemento de columna"
+                          onClick={() => onChange(removeColumnItem(block, item.id))}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </header>
+                    <ColumnItemEditor
+                      item={item}
+                      locked={block.locked}
+                      uploading={uploadingItemId === item.id}
+                      csrf={csrf}
+                      onChange={(next) =>
+                        onChange(updateColumnItem(block, item.id, () => next))
+                      }
+                      onFileSelected={(file) => onFileSelected(file, item.id)}
+                    />
+                  </article>
+                ))}
+              </div>
+            </section>
+              ))}
         </div>
       </div>
     );
@@ -1656,6 +2158,214 @@ function BlockEditor({
       </label>
     );
   return <div />;
+}
+
+function ColumnItemEditor({
+  item,
+  locked,
+  uploading,
+  csrf,
+  onChange,
+  onFileSelected,
+}: {
+  readonly item: DocumentColumnItem;
+  readonly locked: boolean;
+  readonly uploading: boolean;
+  readonly csrf: string | null;
+  readonly onChange: (item: DocumentColumnItem) => void;
+  readonly onFileSelected: (file: File) => void;
+}): React.JSX.Element {
+  if (item.type === "TEXT") {
+    return (
+      <div className="column-text-editor">
+        <textarea
+          value={item.content}
+          disabled={locked}
+          placeholder="Escribe en esta columna..."
+          onChange={(event) => onChange({ ...item, content: event.target.value })}
+        />
+        <select
+          value={item.align}
+          disabled={locked}
+          aria-label="Alineacion del texto"
+          onChange={(event) =>
+            onChange({ ...item, align: event.target.value as typeof item.align })
+          }
+        >
+          <option value="LEFT">Izquierda</option>
+          <option value="CENTER">Centro</option>
+          <option value="RIGHT">Derecha</option>
+        </select>
+      </div>
+    );
+  }
+  if (item.type === "IMAGE") {
+    return (
+      <div
+        className={`column-image-editor image-width-${item.width.toLowerCase()} image-align-${item.align.toLowerCase()} image-fit-${item.fit.toLowerCase()} ${item.visible ? "" : "image-hidden"}`}
+      >
+        <div className="column-image-frame">
+          <div className="column-image-preview">
+            {item.fileId && csrf ? (
+              <AuthorizedFileImage fileId={item.fileId} alt={item.alt || item.label} csrf={csrf} />
+            ) : (
+              <span>IMAGEN</span>
+            )}
+          </div>
+          {item.caption ? <small className="document-image-caption">{item.caption}</small> : null}
+        </div>
+        <label className="document-file-button">
+          {uploading ? "Validando imagen..." : item.fileId ? "Sustituir imagen" : "Cargar imagen"}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            disabled={(locked && !item.replaceable) || uploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onFileSelected(file);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+        <label>
+          Etiqueta
+          <input
+            value={item.label}
+            disabled={locked}
+            onChange={(event) => onChange({ ...item, label: event.target.value })}
+          />
+        </label>
+        <label>
+          Texto alternativo
+          <input
+            value={item.alt}
+            disabled={locked}
+            onChange={(event) => onChange({ ...item, alt: event.target.value })}
+          />
+        </label>
+        <label>
+          Pie de imagen
+          <input
+            value={item.caption}
+            disabled={locked}
+            onChange={(event) => onChange({ ...item, caption: event.target.value })}
+          />
+        </label>
+        <div className="image-presentation-controls">
+          <label>
+            Ancho
+            <select
+              value={item.width}
+              disabled={locked}
+              onChange={(event) =>
+                onChange({ ...item, width: event.target.value as typeof item.width })
+              }
+            >
+              <option value="FULL">Completo</option>
+              <option value="WIDE">Amplio</option>
+              <option value="MEDIUM">Mediano</option>
+              <option value="SMALL">Pequeño</option>
+            </select>
+          </label>
+          <label>
+            Alineacion
+            <select
+              value={item.align}
+              disabled={locked}
+              onChange={(event) =>
+                onChange({ ...item, align: event.target.value as typeof item.align })
+              }
+            >
+              <option value="LEFT">Izquierda</option>
+              <option value="CENTER">Centro</option>
+              <option value="RIGHT">Derecha</option>
+            </select>
+          </label>
+          <label>
+            Ajuste
+            <select
+              value={item.fit}
+              disabled={locked}
+              onChange={(event) =>
+                onChange({ ...item, fit: event.target.value as typeof item.fit })
+              }
+            >
+              <option value="COVER">Recortar</option>
+              <option value="CONTAIN">Contener</option>
+            </select>
+          </label>
+        </div>
+        <label className="instance-editability">
+          <input
+            type="checkbox"
+            checked={item.visible}
+            disabled={locked && !item.replaceable}
+            onChange={(event) => onChange({ ...item, visible: event.target.checked })}
+          />
+          Mostrar esta imagen en el documento
+        </label>
+        <label className="instance-editability">
+          <input
+            type="checkbox"
+            checked={item.replaceable}
+            disabled={locked}
+            onChange={(event) => onChange({ ...item, replaceable: event.target.checked })}
+          />
+          Permitir cambiar u ocultar esta imagen al usar la plantilla
+        </label>
+      </div>
+    );
+  }
+  if (item.type === "VARIABLE") {
+    return (
+      <div className="column-variable-editor">
+        <select
+          value={item.key}
+          disabled={locked}
+          aria-label="Dato automatico de la columna"
+          onChange={(event) =>
+            onChange({
+              ...item,
+              key: event.target.value,
+              label: event.target.selectedOptions[0]?.text ?? item.label,
+            })
+          }
+        >
+          <option value="contact.name">Nombre del contacto</option>
+          <option value="contact.email">Correo del contacto</option>
+          <option value="contact.phone">Telefono del contacto</option>
+          <option value="advisor.name">Nombre del asesor</option>
+          <option value="advisor.email">Correo del asesor</option>
+          <option value="company.name">Nombre de la empresa</option>
+          <option value="opportunity.title">Nombre de la oportunidad</option>
+          <option value="opportunity.amount">Valor de la oportunidad</option>
+          <option value="document.title">Titulo del documento</option>
+        </select>
+        <input
+          value={item.fallback}
+          disabled={locked}
+          aria-label="Valor alternativo"
+          placeholder="Valor alternativo"
+          onChange={(event) => onChange({ ...item, fallback: event.target.value })}
+        />
+      </div>
+    );
+  }
+  return (
+    <select
+      className="column-divider-editor"
+      value={item.style}
+      disabled={locked}
+      aria-label="Estilo del separador"
+      onChange={(event) =>
+        onChange({ ...item, style: event.target.value as typeof item.style })
+      }
+    >
+      <option value="SOLID">Linea solida</option>
+      <option value="DASHED">Guiones</option>
+      <option value="DOTTED">Puntos</option>
+    </select>
+  );
 }
 
 function AuthorizedFileImage({
