@@ -178,8 +178,7 @@ function beginImageResize(
     );
     onPatch({
       ...resized,
-      widthPercent:
-        handle === "N" || handle === "S" ? originWidthPercent : resized.widthPercent,
+      widthPercent: handle === "N" || handle === "S" ? originWidthPercent : resized.widthPercent,
       aspectRatio: "FREE",
     });
   };
@@ -2798,9 +2797,7 @@ function ImageDirectManipulationControls({
                 ? "Arrastra para cambiar solo el alto"
                 : "Arrastra para cambiar solo el ancho"
           }
-          onPointerDown={(event) =>
-            beginImageResize(event, handle, currentWidthPercent, onPatch)
-          }
+          onPointerDown={(event) => beginImageResize(event, handle, currentWidthPercent, onPatch)}
           onKeyDown={(event) => {
             const handlesHorizontal = handle.includes("E") || handle.includes("W");
             const handlesVertical = handle.includes("N") || handle.includes("S");
