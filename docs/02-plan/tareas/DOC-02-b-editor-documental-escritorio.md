@@ -76,8 +76,8 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Permitir imagenes y elementos ordenados dentro de cada columna sin perder contenido previo.
 - [x] Convertir encabezado y pie en regiones configurables y comprobar su persistencia.
 - [x] Sustituir el constructor visible por edicion directa y comprobar que formato, columnas y regiones se conservan al guardar y recargar.
-- [ ] Corregir la carga real de imagenes desde el origen HTTPS del CRM hasta el almacenamiento privado.
-- [ ] Completar tipografia, formato de texto, cuadricula editable, movimiento de imagenes, margenes y paginacion automatica.
+- [x] Corregir la carga real de imagenes desde el origen HTTPS del CRM hasta el almacenamiento privado.
+- [x] Completar tipografia, formato de texto, cuadricula editable, movimiento de imagenes, margenes y paginacion automatica.
 
 ## Criterios de aceptacion
 
@@ -90,10 +90,10 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Una columna admite texto, imagen, variable y separador, permite reordenarlos y guarda sus archivos mediante el pipeline seguro.
 - [x] Encabezado y pie se pueden mostrar u ocultar, alinear, espaciar y configurar con logo, tipo documental y numero de pagina.
 - [x] La hoja no expone tarjetas ni formularios tecnicos de manera permanente; al seleccionar texto se puede aplicar y persistir estilo, enfasis y alineacion desde la cinta.
-- [ ] Cargar una imagen no produce errores de red y la imagen queda disponible tras validacion.
-- [ ] El usuario ajusta filas, columnas y anchos de una tabla sin reconstruirla.
-- [ ] Encabezado, pie y margenes se reconocen y editan directamente sobre la hoja.
-- [ ] El contenido que excede una pagina continua visualmente en hojas adicionales sin perderse.
+- [x] Cargar una imagen no produce errores de red y la imagen queda disponible tras validacion.
+- [x] El usuario ajusta filas, columnas y anchos de una tabla sin reconstruirla.
+- [x] Encabezado, pie y margenes se reconocen y editan directamente sobre la hoja.
+- [x] El contenido que excede una pagina continua visualmente en hojas adicionales sin perderse.
 
 ## Plan de verificacion
 
@@ -115,6 +115,10 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - El candidato `1bbb1d6` aprobo en el VPS Prettier y ESLint focalizados, 29 pruebas documentales, typecheck de `contracts`, `domain`, `api` y `crm-web`, y builds de produccion de API y CRM web. Las imagenes desplegadas son `qcrm-candidate/api:7113472` (`sha256:be78c68e7513d16e41c6c87b56c15891cf5885839aacfe5407594913f2e59bd4`) y `qcrm-candidate/crm-web:7113472` (`sha256:2c4ae7936c01a8066a79cc7cd33d59b5a08c3d3f8b3380d228539a9de80d0d43`); ambos contenedores quedaron saludables.
 - El recorrido autenticado aplico titulo y negrita a un parrafo, guardo la revision 3, recargo y comprobo ambos atributos persistidos; despues restauro el contenido de prueba y guardo la revision 4. Tambien inserto una imagen dentro de la primera columna, verifico sus controles de archivo, ancho, alineacion, ajuste y reemplazo, y descarto esa prueba sin alterar la revision guardada. El doble clic en el encabezado abrio la configuracion completa de encabezado y pie.
 - La carga segura de imagenes recupero su dependencia operativa: ClamAV estaba vivo pero sin `clamd` por OOM con el limite anterior de 1536 MiB. `platform-foundation.yaml` fija ahora 3072 MiB para el host de 32 GiB; el contenedor se reinicio con ese limite y quedo `healthy`, `OOMKilled=false` y con socket de `clamd` disponible.
+- El candidato final `a09a1e51` aprobo en el VPS Prettier y ESLint focalizados; 37 pruebas de contratos, dominio, modelo del editor y proxy; 20 pruebas finales de las fronteras HTTP de autenticacion, CSP y carga; typecheck de `contracts`, `domain`, `api` y `crm-web`; y builds de produccion afectados. No se ejecuto codigo del proyecto en el equipo local.
+- La carga de imagen usa un BFF autenticado con sesion, origen y CSRF, valida el origen exacto del almacenamiento del perfil y no expone credenciales. El recorrido real en `https://interamerican.2-25-172-119.nip.io/documents` recibio `Archivo verificado y vinculado`, mostro la imagen y elimino el anterior `Failed to fetch`.
+- En el mismo recorrido se agrego una fila y una columna a una tabla, se ajusto el primer ancho a 45 y se comprobo la redistribucion del resto; se aplicaron fuente Serif, tamano y negrita; el margen superior cambio de 20 a 25 mm; y las regiones de encabezado y pie quedaron visibles desde la cinta Diseno.
+- Al insertar contenido adicional el lienzo paso de `A4 · 1 PAGINA` a `A4 · 2 PAGINAS` y la numeracion visible cambio a `01 / 02`. La pagina se recargo sin guardar al finalizar, por lo que el documento de prueba permanecio en la revision 4. API `qcrm-candidate/api:20909c1` y CRM web `qcrm-candidate/crm-web:a09a1e5` quedaron `healthy`.
 
 ## Pendientes de estabilizacion posterior
 
