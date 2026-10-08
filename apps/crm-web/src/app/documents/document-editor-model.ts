@@ -138,7 +138,7 @@ export function rotateImageFromPointer(
   const originAngle = Math.atan2(originPointerY - centerY, originPointerX - centerX);
   const pointerAngle = Math.atan2(pointerY - centerY, pointerX - centerX);
   const degrees = originRotation + ((pointerAngle - originAngle) * 180) / Math.PI;
-  return Math.round((((degrees + 180) % 360) + 360) % 360 - 180);
+  return Math.round(((((degrees + 180) % 360) + 360) % 360) - 180);
 }
 
 function createCell(content: string, id = newId(), itemId = newId()): DocumentColumnCell {

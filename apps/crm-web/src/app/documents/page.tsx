@@ -144,14 +144,7 @@ function beginImageResize(
   const originWidth = imageFrameWidth(image);
 
   const move = (pointerEvent: PointerEvent): void => {
-    onWidth(
-      resizeImageFrame(
-        originWidth,
-        pointerEvent.clientX - originX,
-        availableWidth,
-        corner,
-      ),
-    );
+    onWidth(resizeImageFrame(originWidth, pointerEvent.clientX - originX, availableWidth, corner));
   };
   const finish = (): void => {
     window.removeEventListener("pointermove", move);
@@ -2392,205 +2385,205 @@ function ImagePresentationControls({
       <details className="image-composer-advanced">
         <summary>Ajustes precisos</summary>
 
-      <div className="image-composer-section image-size-section">
-        <span className="image-composer-section-title">Tamano</span>
-        <div className="image-width-presets" role="group" aria-label="Anchos predefinidos">
-          {[
-            [100, "Completo"],
-            [80, "Amplio"],
-            [60, "Medio"],
-            [40, "Compacto"],
-          ].map(([preset, label]) => (
-            <button
-              type="button"
-              key={preset}
+        <div className="image-composer-section image-size-section">
+          <span className="image-composer-section-title">Tamano</span>
+          <div className="image-width-presets" role="group" aria-label="Anchos predefinidos">
+            {[
+              [100, "Completo"],
+              [80, "Amplio"],
+              [60, "Medio"],
+              [40, "Compacto"],
+            ].map(([preset, label]) => (
+              <button
+                type="button"
+                key={preset}
+                disabled={locked}
+                className={width === preset ? "is-active" : ""}
+                aria-pressed={width === preset}
+                title={`${label} (${preset}%)`}
+                onClick={() => onPatch({ widthPercent: Number(preset) })}
+              >
+                {preset}%
+              </button>
+            ))}
+          </div>
+          <label className="image-range-control">
+            <span>Ancho exacto</span>
+            <input
+              type="range"
+              min={10}
+              max={100}
+              value={width}
               disabled={locked}
-              className={width === preset ? "is-active" : ""}
-              aria-pressed={width === preset}
-              title={`${label} (${preset}%)`}
-              onClick={() => onPatch({ widthPercent: Number(preset) })}
-            >
-              {preset}%
-            </button>
-          ))}
+              onChange={(event) => onPatch({ widthPercent: Number(event.target.value) })}
+            />
+            <output>{width}%</output>
+          </label>
         </div>
-        <label className="image-range-control">
-          <span>Ancho exacto</span>
-          <input
-            type="range"
-            min={10}
-            max={100}
-            value={width}
-            disabled={locked}
-            onChange={(event) => onPatch({ widthPercent: Number(event.target.value) })}
-          />
-          <output>{width}%</output>
-        </label>
-      </div>
 
-      <div className="image-composer-section image-layout-section">
-        <span className="image-composer-section-title">Marco y disposicion</span>
-        <div className="image-composer-grid">
-          <label>
-            Proporcion
-            <select
-              value={aspectRatio}
-              disabled={locked}
-              onChange={(event) =>
-                onPatch({
-                  aspectRatio: event.target.value as NonNullable<
-                    EditableDocumentImage["aspectRatio"]
-                  >,
-                })
-              }
-            >
-              <option value="AUTO">Original</option>
-              <option value="SQUARE">Cuadrada 1:1</option>
-              <option value="LANDSCAPE_4_3">Horizontal 4:3</option>
-              <option value="WIDE_16_9">Panoramica 16:9</option>
-              <option value="PORTRAIT_3_4">Vertical 3:4</option>
-              <option value="CIRCLE">Circular</option>
-            </select>
-          </label>
-          <label>
-            Ajuste
-            <select
-              value={image.fit}
-              disabled={locked}
-              onChange={(event) =>
-                onPatch({ fit: event.target.value as EditableDocumentImage["fit"] })
-              }
-            >
-              <option value="COVER">Rellenar y recortar</option>
-              <option value="CONTAIN">Mostrar completa</option>
-            </select>
-          </label>
-          <label>
-            Alineacion
-            <select
-              value={image.align}
-              disabled={locked}
-              onChange={(event) =>
-                onPatch({ align: event.target.value as EditableDocumentImage["align"] })
-              }
-            >
-              <option value="LEFT">Izquierda</option>
-              <option value="CENTER">Centro</option>
-              <option value="RIGHT">Derecha</option>
-            </select>
-          </label>
-          {allowFlow ? (
+        <div className="image-composer-section image-layout-section">
+          <span className="image-composer-section-title">Marco y disposicion</span>
+          <div className="image-composer-grid">
             <label>
-              Texto alrededor
+              Proporcion
               <select
-                value={image.flow ?? "INLINE"}
+                value={aspectRatio}
                 disabled={locked}
                 onChange={(event) =>
                   onPatch({
-                    flow: event.target.value as NonNullable<EditableDocumentImage["flow"]>,
+                    aspectRatio: event.target.value as NonNullable<
+                      EditableDocumentImage["aspectRatio"]
+                    >,
                   })
                 }
               >
-                <option value="INLINE">En su propio renglon</option>
-                <option value="FLOAT_LEFT">Rodear por la derecha</option>
-                <option value="FLOAT_RIGHT">Rodear por la izquierda</option>
+                <option value="AUTO">Original</option>
+                <option value="SQUARE">Cuadrada 1:1</option>
+                <option value="LANDSCAPE_4_3">Horizontal 4:3</option>
+                <option value="WIDE_16_9">Panoramica 16:9</option>
+                <option value="PORTRAIT_3_4">Vertical 3:4</option>
+                <option value="CIRCLE">Circular</option>
               </select>
             </label>
-          ) : null}
-        </div>
-      </div>
-
-      {image.fit === "COVER" && aspectRatio !== "AUTO" ? (
-        <div className="image-composer-section image-focal-section">
-          <span className="image-composer-section-title">Punto focal</span>
-          <div className="image-focal-controls">
-            <div className="image-focal-grid" role="group" aria-label="Punto focal rapido">
-              {[0, 50, 100].flatMap((y) =>
-                [0, 50, 100].map((x) => (
-                  <button
-                    type="button"
-                    key={`${x}-${y}`}
-                    disabled={locked}
-                    className={
-                      Math.abs(focalX - x) < 18 && Math.abs(focalY - y) < 18 ? "is-active" : ""
-                    }
-                    aria-label={`Punto focal ${x} por ${y}`}
-                    onClick={() => onPatch({ focalX: x, focalY: y })}
-                  />
-                )),
-              )}
-            </div>
-            <div className="image-focal-ranges">
+            <label>
+              Ajuste
+              <select
+                value={image.fit}
+                disabled={locked}
+                onChange={(event) =>
+                  onPatch({ fit: event.target.value as EditableDocumentImage["fit"] })
+                }
+              >
+                <option value="COVER">Rellenar y recortar</option>
+                <option value="CONTAIN">Mostrar completa</option>
+              </select>
+            </label>
+            <label>
+              Alineacion
+              <select
+                value={image.align}
+                disabled={locked}
+                onChange={(event) =>
+                  onPatch({ align: event.target.value as EditableDocumentImage["align"] })
+                }
+              >
+                <option value="LEFT">Izquierda</option>
+                <option value="CENTER">Centro</option>
+                <option value="RIGHT">Derecha</option>
+              </select>
+            </label>
+            {allowFlow ? (
               <label>
-                <span>Horizontal</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={focalX}
+                Texto alrededor
+                <select
+                  value={image.flow ?? "INLINE"}
                   disabled={locked}
-                  onChange={(event) => onPatch({ focalX: Number(event.target.value) })}
-                />
-                <output>{focalX}</output>
+                  onChange={(event) =>
+                    onPatch({
+                      flow: event.target.value as NonNullable<EditableDocumentImage["flow"]>,
+                    })
+                  }
+                >
+                  <option value="INLINE">En su propio renglon</option>
+                  <option value="FLOAT_LEFT">Rodear por la derecha</option>
+                  <option value="FLOAT_RIGHT">Rodear por la izquierda</option>
+                </select>
               </label>
-              <label>
-                <span>Vertical</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={focalY}
-                  disabled={locked}
-                  onChange={(event) => onPatch({ focalY: Number(event.target.value) })}
-                />
-                <output>{focalY}</output>
-              </label>
-            </div>
+            ) : null}
           </div>
         </div>
-      ) : null}
 
-      <div className="image-composer-section image-finish-section">
-        <span className="image-composer-section-title">Acabado</span>
-        <div className="image-finish-controls">
-          <label className="image-range-control">
-            <span>Giro</span>
-            <input
-              type="range"
-              min={-15}
-              max={15}
-              value={clamp(rotation, -15, 15)}
-              disabled={locked}
-              onChange={(event) => onPatch({ rotation: Number(event.target.value) })}
-            />
-            <output>{rotation}deg</output>
-          </label>
-          <label className="image-range-control">
-            <span>Opacidad</span>
-            <input
-              type="range"
-              min={20}
-              max={100}
-              value={opacity}
-              disabled={locked}
-              onChange={(event) => onPatch({ opacity: Number(event.target.value) })}
-            />
-            <output>{opacity}%</output>
-          </label>
-          <label className="image-range-control">
-            <span>Esquinas</span>
-            <input
-              type="range"
-              min={0}
-              max={48}
-              value={cornerRadius}
-              disabled={locked || aspectRatio === "CIRCLE"}
-              onChange={(event) => onPatch({ cornerRadius: Number(event.target.value) })}
-            />
-            <output>{aspectRatio === "CIRCLE" ? "Circulo" : `${cornerRadius}px`}</output>
-          </label>
+        {image.fit === "COVER" && aspectRatio !== "AUTO" ? (
+          <div className="image-composer-section image-focal-section">
+            <span className="image-composer-section-title">Punto focal</span>
+            <div className="image-focal-controls">
+              <div className="image-focal-grid" role="group" aria-label="Punto focal rapido">
+                {[0, 50, 100].flatMap((y) =>
+                  [0, 50, 100].map((x) => (
+                    <button
+                      type="button"
+                      key={`${x}-${y}`}
+                      disabled={locked}
+                      className={
+                        Math.abs(focalX - x) < 18 && Math.abs(focalY - y) < 18 ? "is-active" : ""
+                      }
+                      aria-label={`Punto focal ${x} por ${y}`}
+                      onClick={() => onPatch({ focalX: x, focalY: y })}
+                    />
+                  )),
+                )}
+              </div>
+              <div className="image-focal-ranges">
+                <label>
+                  <span>Horizontal</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={focalX}
+                    disabled={locked}
+                    onChange={(event) => onPatch({ focalX: Number(event.target.value) })}
+                  />
+                  <output>{focalX}</output>
+                </label>
+                <label>
+                  <span>Vertical</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={focalY}
+                    disabled={locked}
+                    onChange={(event) => onPatch({ focalY: Number(event.target.value) })}
+                  />
+                  <output>{focalY}</output>
+                </label>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="image-composer-section image-finish-section">
+          <span className="image-composer-section-title">Acabado</span>
+          <div className="image-finish-controls">
+            <label className="image-range-control">
+              <span>Giro</span>
+              <input
+                type="range"
+                min={-15}
+                max={15}
+                value={clamp(rotation, -15, 15)}
+                disabled={locked}
+                onChange={(event) => onPatch({ rotation: Number(event.target.value) })}
+              />
+              <output>{rotation}deg</output>
+            </label>
+            <label className="image-range-control">
+              <span>Opacidad</span>
+              <input
+                type="range"
+                min={20}
+                max={100}
+                value={opacity}
+                disabled={locked}
+                onChange={(event) => onPatch({ opacity: Number(event.target.value) })}
+              />
+              <output>{opacity}%</output>
+            </label>
+            <label className="image-range-control">
+              <span>Esquinas</span>
+              <input
+                type="range"
+                min={0}
+                max={48}
+                value={cornerRadius}
+                disabled={locked || aspectRatio === "CIRCLE"}
+                onChange={(event) => onPatch({ cornerRadius: Number(event.target.value) })}
+              />
+              <output>{aspectRatio === "CIRCLE" ? "Circulo" : `${cornerRadius}px`}</output>
+            </label>
+          </div>
         </div>
-      </div>
       </details>
     </section>
   );
@@ -2639,9 +2632,7 @@ function ImageDirectManipulationControls({
           aria-label={`Redimensionar desde la esquina ${corner}`}
           title="Arrastra para cambiar el tamano"
           onPointerDown={(event) =>
-            beginImageResize(event, image, corner, (widthPercent) =>
-              onPatch({ widthPercent }),
-            )
+            beginImageResize(event, image, corner, (widthPercent) => onPatch({ widthPercent }))
           }
           onKeyDown={(event) => {
             if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -2713,9 +2704,7 @@ function BlockEditor({
         className={`image-slot-editor document-image-composer image-width-${block.width.toLowerCase()} image-align-${block.align.toLowerCase()} image-fit-${block.fit.toLowerCase()} image-aspect-${(block.aspectRatio ?? "AUTO").toLowerCase()} image-flow-${(block.flow ?? "INLINE").toLowerCase()}`}
         style={imageComposerStyle(block)}
       >
-        <div
-          className="document-image-card"
-        >
+        <div className="document-image-card">
           <div
             className={`document-image-media ${selected && block.fileId && block.fit === "COVER" && (block.aspectRatio ?? "AUTO") !== "AUTO" && !block.locked ? "is-direct-crop" : ""}`}
             onPointerDown={(event) => {
