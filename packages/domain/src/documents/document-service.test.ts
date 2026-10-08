@@ -210,7 +210,7 @@ describe("DocumentService", () => {
       { value: "COP 1250.50", editable: false },
       {
         layout: "LEFT_WIDE",
-        columns: ["Cliente: Andrea Cliente", "Asesora: SofÃ­a Asesora"],
+        columns: ["Cliente: Andrea Cliente", "Asesora: Sofía Asesora"],
       },
     ]);
   });
