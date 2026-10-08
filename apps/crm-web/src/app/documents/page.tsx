@@ -91,6 +91,8 @@ function closeImagePropertiesOutside(target: EventTarget | null) {
     });
 }
 
+const defaultHeaderImagePlacement = { leftPercent: 2, topPx: 4, widthPercent: 18, heightPx: 54 };
+
 interface FileUploadIntent {
   readonly data: {
     readonly file: { readonly id: string; readonly status: string; readonly sha256: string };
@@ -603,6 +605,7 @@ export default function DocumentsPage(): React.JSX.Element {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [showColumnLayouts, setShowColumnLayouts] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [headerImageSelected, setHeaderImageSelected] = useState(false);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(90);
   const [ribbonTab, setRibbonTab] = useState<"HOME" | "INSERT" | "LAYOUT">("HOME");
@@ -777,6 +780,65 @@ export default function DocumentsPage(): React.JSX.Element {
   function patchDraft(patch: Partial<CommercialDocument>): void {
     setDraft((current) => (current ? { ...current, ...patch } : current));
     setDirty(true);
+  }
+
+  function patchHeaderImagePlacement(
+    patch: Partial<NonNullable<CommercialDocument["design"]["headerImagePlacement"]>>,
+  ): void {
+    if (!draft) return;
+    patchDraft({
+      design: {
+        ...draft.design,
+        headerImagePlacement: { ...(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement), ...patch },
+      },
+    });
+  }
+
+  function beginHeaderImageMove(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (!draft || !draft.design.logoFileId || (event.target as HTMLElement).closest("button, label")) return;
+    event.preventDefault();
+    const header = event.currentTarget.closest<HTMLElement>(".document-page-header");
+    if (!header) return;
+    const start = draft.design.headerImagePlacement ?? defaultHeaderImagePlacement;
+    const originX = event.clientX;
+    const originY = event.clientY;
+    const bounds = header.getBoundingClientRect();
+    const move = (pointerEvent: PointerEvent): void => {
+      patchHeaderImagePlacement({
+        leftPercent: clamp(start.leftPercent + ((pointerEvent.clientX - originX) / bounds.width) * 100, 0, 100 - start.widthPercent),
+        topPx: Math.max(0, start.topPx + pointerEvent.clientY - originY),
+      });
+    };
+    const stop = (): void => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
+  }
+
+  function beginHeaderImageResize(event: ReactPointerEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!draft) return;
+    const header = event.currentTarget.closest<HTMLElement>(".document-page-header");
+    const start = draft.design.headerImagePlacement ?? defaultHeaderImagePlacement;
+    if (!header) return;
+    const originX = event.clientX;
+    const originY = event.clientY;
+    const bounds = header.getBoundingClientRect();
+    const move = (pointerEvent: PointerEvent): void => {
+      patchHeaderImagePlacement({
+        widthPercent: clamp(start.widthPercent + ((pointerEvent.clientX - originX) / bounds.width) * 100, 4, 100 - start.leftPercent),
+        heightPx: Math.max(24, start.heightPx + pointerEvent.clientY - originY),
+      });
+    };
+    const stop = (): void => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
   }
 
   function openInspectorSection(
@@ -1829,51 +1891,21 @@ export default function DocumentsPage(): React.JSX.Element {
                           <header
                             data-document-header={pageIndex === 0 ? "true" : undefined}
                             className={`document-page-region document-page-header region-${draft.design.headerSpacing.toLowerCase()} layout-${draft.design.headerLayout.toLowerCase()} align-${draft.design.headerAlign.toLowerCase()}`}
-                            style={{ borderColor: draft.design.accentColor }}
+                            style={
+                              {
+                                borderColor: draft.design.accentColor,
+                                "--header-canvas-height": `${
+                                  (draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).topPx +
+                                  (draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).heightPx +
+                                  12
+                                }px`,
+                              } as CSSProperties
+                            }
                             title="Doble clic para configurar el encabezado"
                             onDoubleClick={() => openInspectorSection("document-header-settings")}
                           >
                             <span className="document-region-label">ENCABEZADO</span>
                             <div className="document-header-content">
-                              {draft.design.headerLayout !== "TEXT" ? (
-                                <label
-                                  className={`document-header-logo ${draft.design.logoFileId ? "" : "is-empty"}`}
-                                  title={
-                                    draft.design.logoFileId
-                                      ? "Haz clic para sustituir el logotipo"
-                                      : "Haz clic para cargar el logotipo"
-                                  }
-                                >
-                                  {draft.design.logoFileId && csrf ? (
-                                    <AuthorizedFileImage
-                                      fileId={draft.design.logoFileId}
-                                      alt="Logotipo de la empresa"
-                                      csrf={csrf}
-                                    />
-                                  ) : (
-                                    <span>
-                                      {uploadingTargetId === "design:logo"
-                                        ? "Cargando..."
-                                        : "Agregar logo"}
-                                    </span>
-                                  )}
-                                  <input
-                                    aria-label={
-                                      draft.design.logoFileId
-                                        ? "Sustituir logotipo del encabezado"
-                                        : "Cargar logotipo en el encabezado"
-                                    }
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    disabled={uploadingTargetId === "design:logo"}
-                                    onChange={(event) => {
-                                      const file = event.target.files?.[0];
-                                      if (file) void uploadDocumentFile({ kind: "LOGO" }, file);
-                                      event.currentTarget.value = "";
-                                    }}
-                                  />
-                                </label>
-                              ) : null}
                               <textarea
                                 aria-label="Texto del encabezado"
                                 value={headerSegments.left}
@@ -1906,6 +1938,85 @@ export default function DocumentsPage(): React.JSX.Element {
                                 }
                               />
                             ) : null}
+                            {draft.design.logoFileId && csrf ? (
+                              <div
+                                className={`document-header-free-image ${headerImageSelected ? "is-selected" : ""}`}
+                                style={
+                                  {
+                                    "--header-image-left": `${(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).leftPercent}%`,
+                                    "--header-image-top": `${(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).topPx}px`,
+                                    "--header-image-width": `${(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).widthPercent}%`,
+                                    "--header-image-height": `${(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).heightPx}px`,
+                                  } as CSSProperties
+                                }
+                                onPointerDown={(event) => {
+                                  setHeaderImageSelected(true);
+                                  beginHeaderImageMove(event);
+                                }}
+                                title="Arrastra la imagen para moverla"
+                              >
+                                <AuthorizedFileImage
+                                  fileId={draft.design.logoFileId}
+                                  alt="Imagen del encabezado"
+                                  csrf={csrf}
+                                />
+                                {headerImageSelected ? (
+                                  <>
+                                    <label className="document-header-image-change">
+                                      Cambiar imagen
+                                      <input
+                                        aria-label="Sustituir imagen del encabezado"
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        disabled={uploadingTargetId === "design:logo"}
+                                        onChange={(event) => {
+                                          const file = event.target.files?.[0];
+                                          if (file) void uploadDocumentFile({ kind: "LOGO" }, file);
+                                          event.currentTarget.value = "";
+                                        }}
+                                      />
+                                    </label>
+                                    <button
+                                      className="document-header-image-delete"
+                                      type="button"
+                                      onClick={() => {
+                                        patchDraft({
+                                          design: {
+                                            ...draft.design,
+                                            logoFileId: null,
+                                            logoChecksum: null,
+                                          },
+                                        });
+                                        setHeaderImageSelected(false);
+                                      }}
+                                    >
+                                      Eliminar
+                                    </button>
+                                    <button
+                                      className="document-header-image-resize"
+                                      type="button"
+                                      aria-label="Redimensionar imagen del encabezado"
+                                      onPointerDown={beginHeaderImageResize}
+                                    />
+                                  </>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <label className="document-header-add-image">
+                                {uploadingTargetId === "design:logo" ? "Cargando imagen..." : "+ Imagen"}
+                                <input
+                                  aria-label="Agregar imagen al encabezado"
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  disabled={uploadingTargetId === "design:logo"}
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (file) void uploadDocumentFile({ kind: "LOGO" }, file);
+                                    event.currentTarget.value = "";
+                                  }}
+                                />
+                              </label>
+                            )}
                             {draft.design.showDocumentKind ? (
                               <strong>{draft.kind === "QUOTE" ? "COTIZACION" : "FACTURA"}</strong>
                             ) : null}
@@ -2289,9 +2400,9 @@ export default function DocumentsPage(): React.JSX.Element {
                         })
                       }
                     >
-                      <option value="TEXT">Texto y tipo, sin logo</option>
-                      <option value="LOGO_TEXT">Logo y texto, tipo debajo</option>
-                      <option value="SPLIT">Logo y texto, tipo separado</option>
+                      <option value="TEXT">Texto y tipo</option>
+                      <option value="LOGO_TEXT">Imagen y texto, tipo debajo</option>
+                      <option value="SPLIT">Imagen y texto, tipo separado</option>
                     </select>
                   </label>
                   <label>

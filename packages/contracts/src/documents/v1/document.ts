@@ -494,6 +494,16 @@ export const DocumentDesignSchema = z
     headerLayout: z.enum(["TEXT", "LOGO_TEXT", "SPLIT"]).default("SPLIT"),
     headerAlign: z.enum(["LEFT", "CENTER", "RIGHT"]).default("LEFT"),
     headerSpacing: z.enum(["COMPACT", "NORMAL", "SPACIOUS"]).default("NORMAL"),
+    /** Placement of the generic image on the editable header canvas. */
+    headerImagePlacement: z
+      .object({
+        leftPercent: z.number().finite().min(0).max(100),
+        topPx: z.number().finite().min(0),
+        widthPercent: z.number().finite().positive().max(100),
+        heightPx: z.number().finite().positive(),
+      })
+      .strict()
+      .optional(),
     showDocumentKind: z.boolean().default(true),
     /** Legacy documents show this fixed identity region; new blank documents can omit it. */
     identityEnabled: z.boolean().optional(),

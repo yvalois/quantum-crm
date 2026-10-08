@@ -218,6 +218,7 @@ const design: DocumentDesign = {
   headerLayout: "SPLIT",
   headerAlign: "LEFT",
   headerSpacing: "COMPACT",
+  headerImagePlacement: { leftPercent: 2, topPx: 4, widthPercent: 18, heightPx: 54 },
   showDocumentKind: false,
   identityEnabled: false,
   footerEnabled: true,

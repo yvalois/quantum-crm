@@ -57,6 +57,7 @@ export function defaultDocumentDesign(): DocumentDesign {
     headerLayout: "SPLIT",
     headerAlign: "LEFT",
     headerSpacing: "NORMAL",
+    headerImagePlacement: { leftPercent: 2, topPx: 4, widthPercent: 18, heightPx: 54 },
     showDocumentKind: false,
     identityEnabled: false,
     footerEnabled: false,
