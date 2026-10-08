@@ -2793,9 +2793,7 @@ function ImageDirectManipulationControls({
             const handlesVertical = handle.includes("N") || handle.includes("S");
             const horizontalKey = event.key === "ArrowLeft" || event.key === "ArrowRight";
             const verticalKey = event.key === "ArrowUp" || event.key === "ArrowDown";
-            if (
-              !((handlesHorizontal && horizontalKey) || (handlesVertical && verticalKey))
-            ) {
+            if (!((handlesHorizontal && horizontalKey) || (handlesVertical && verticalKey))) {
               return;
             }
             event.preventDefault();
