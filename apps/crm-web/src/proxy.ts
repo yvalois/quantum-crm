@@ -2,7 +2,11 @@ import { type NextRequest, NextResponse } from "next/server";
 
 function storageOrigin(request: NextRequest): string | null {
   if (request.nextUrl.protocol !== "https:") return null;
-  const labels = request.nextUrl.hostname.split(".");
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost ?? request.headers.get("host") ?? request.nextUrl.hostname;
+  if (!/^[a-z0-9.-]+(?::[0-9]{1,5})?$/iu.test(host)) return null;
+  const hostname = host.replace(/:[0-9]{1,5}$/u, "");
+  const labels = hostname.split(".");
   if (labels.length < 3 || labels.some((label) => !/^[a-z0-9-]+$/iu.test(label))) return null;
   return `https://storage.${labels.slice(1).join(".")}`;
 }
