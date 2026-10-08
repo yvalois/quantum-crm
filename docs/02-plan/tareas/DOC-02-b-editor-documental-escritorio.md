@@ -62,20 +62,20 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 
 ## Plan de implementacion
 
-- [ ] Separar el estudio documental del sidebar global y hacer dominante el lienzo.
-- [ ] Convertir biblioteca y propiedades en paneles temporales que no reduzcan el papel.
-- [ ] Implementar disposiciones de columnas y conversion de un renglon conservando su contenido.
-- [ ] Integrar la edicion de bloques dentro del lienzo visible.
-- [ ] Validar tipos, build y recorrido autenticado en el VPS.
+- [x] Separar el estudio documental del sidebar global y hacer dominante el lienzo.
+- [x] Convertir biblioteca y propiedades en paneles temporales que no reduzcan el papel.
+- [x] Implementar disposiciones de columnas y conversion de un renglon conservando su contenido.
+- [x] Integrar la edicion de bloques dentro del lienzo visible.
+- [x] Validar tipos, build y recorrido autenticado en el VPS.
 
 ## Criterios de aceptacion
 
-- [ ] El lienzo ocupa el area principal y conserva proporcion de pagina legible sin el sidebar del CRM.
-- [ ] Crear, seleccionar, editar, reordenar y guardar no exige abandonar el lienzo.
-- [ ] Biblioteca y propiedades se abren temporalmente sin redimensionar el papel.
-- [ ] Un bloque de texto puede convertirse en dos o tres columnas y cambiar de proporcion conservando su contenido.
-- [ ] Las funciones documentales existentes permanecen operativas.
-- [ ] La experiencia es utilizable en escritorio y adaptable en pantallas menores.
+- [x] El lienzo ocupa el area principal y conserva proporcion de pagina legible sin el sidebar del CRM.
+- [x] Crear, seleccionar, editar, reordenar y guardar no exige abandonar el lienzo.
+- [x] Biblioteca y propiedades se abren temporalmente sin redimensionar el papel.
+- [x] Un bloque de texto puede convertirse en dos o tres columnas y cambiar de proporcion conservando su contenido.
+- [x] Las funciones documentales existentes permanecen operativas.
+- [x] La experiencia es utilizable en escritorio y adaptable en pantallas menores.
 
 ## Plan de verificacion
 
@@ -85,11 +85,17 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 
 ## Recuperacion
 
-- Sin migraciones ni cambios de contrato.
-- El rollback consiste en desplegar la imagen anterior de `crm-web`; los documentos permanecen compatibles.
+- No existe migracion de datos. `COLUMNS.layout` es una extension compatible del contrato y los documentos anteriores reciben `EQUAL_2` por defecto.
+- El rollback coordinado consiste en desplegar las imagenes anteriores de `api` y `crm-web`; los documentos permanecen legibles, aunque la interfaz anterior no conserva al volver a guardar una proporcion de columnas nueva.
 
 ## Evidencia de cierre
 
-- El candidato `0c7d347` aprobo en el VPS Prettier, ESLint focalizado, typecheck, auditoria sin hallazgos altos y builds de produccion de `crm-web`, `admin-web` y `portal-web` con Next.js `16.3.8`.
-- La imagen `qcrm-candidate/crm-web:0c7d347` esta desplegada y saludable en InterAmerican; `/documents` conserva redireccion protegida al login cuando no existe sesion.
-- Pendiente: recorrido visual autenticado para editar, insertar, guardar, recargar y revisar los breakpoints antes del cierre.
+- El candidato `32fea33` aprobo una sola vez en el VPS Prettier, ESLint focalizado, 18 pruebas de modelo/contrato/dominio, typecheck de `contracts`, `domain`, `api` y `crm-web`, y builds de produccion de API y CRM web con Next.js `16.3.8`. No se ejecuto codigo del proyecto en el equipo local.
+- Estan desplegadas y saludables en InterAmerican `qcrm-candidate/api:32fea33` (`sha256:15220709306f22c6825207f0f1d444e6353f58058a76c9a27d4c83fa81afcaf2`) y `qcrm-candidate/crm-web:32fea33` (`sha256:cea714f6e0006f13ab66846e1a74326c3c5d47d81cef63dcbcffd19174253679`). Readiness publico respondio `200` y `/documents` sin sesion conservo la redireccion OIDC `307`.
+- El recorrido autenticado abrio el estudio sin sidebar, comprobo biblioteca e inspector como paneles superpuestos, inserto un renglon de tres columnas, escribio contenido diferente en sus tres celdas, guardo la revision 2 y confirmo los mismos valores despues de recargar. La consola del navegador no registro errores.
+- La vista estrecha de `900 x 900` conservo el papel, las herramientas y las tres columnas utilizables; el navegador quedo restaurado a su tamano normal y `/documents` abierto para el propietario.
+
+## Pendientes de estabilizacion posterior
+
+- Permitir bloques arbitrarios anidados dentro de cada columna; este cierre conserva celdas textuales y variables, como declara el alcance.
+- Ampliar la prueba automatizada de arrastrar y soltar en navegador. El reordenamiento seguro ya esta cubierto por el modelo puro y por controles de teclado/botones visibles.
