@@ -50,15 +50,15 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 
 ## Impacto tecnico
 
-| Area                       | Impacto previsto            |
-| -------------------------- | --------------------------- |
-| Aplicaciones y modulos     | `crm-web`                   |
+| Area                       | Impacto previsto                                              |
+| -------------------------- | ------------------------------------------------------------- |
+| Aplicaciones y modulos     | `crm-web`                                                     |
 | Contratos y eventos        | Extension compatible de `COLUMNS` si la auditoria la requiere |
-| Datos y migraciones        | Sin cambios                 |
-| Permisos y aislamiento     | Se conservan los existentes |
-| Configuracion y secretos   | Sin cambios                 |
-| Observabilidad y operacion | Sin cambios                 |
-| Documentacion              | Estado y esta ficha         |
+| Datos y migraciones        | Sin cambios                                                   |
+| Permisos y aislamiento     | Se conservan los existentes                                   |
+| Configuracion y secretos   | Sin cambios                                                   |
+| Observabilidad y operacion | Sin cambios                                                   |
+| Documentacion              | Estado y esta ficha                                           |
 
 ## Plan de implementacion
 

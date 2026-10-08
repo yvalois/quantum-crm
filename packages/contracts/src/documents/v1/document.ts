@@ -157,10 +157,7 @@ export const DocumentBlockSchema = z
         });
       }
     }
-    if (
-      value.type === "COLUMNS" &&
-      value.columns.length !== (value.layout === "EQUAL_3" ? 3 : 2)
-    ) {
+    if (value.type === "COLUMNS" && value.columns.length !== (value.layout === "EQUAL_3" ? 3 : 2)) {
       context.addIssue({
         code: "custom",
         message: "Column count must match the selected layout",

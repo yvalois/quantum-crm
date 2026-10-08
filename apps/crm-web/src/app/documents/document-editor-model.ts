@@ -24,10 +24,7 @@ export function createColumnsBlock(
     type: "COLUMNS",
     locked: false,
     layout,
-    columns:
-      layout === "EQUAL_3"
-        ? [firstContent, "", ""]
-        : [firstContent, ""],
+    columns: layout === "EQUAL_3" ? [firstContent, "", ""] : [firstContent, ""],
   };
 }
 

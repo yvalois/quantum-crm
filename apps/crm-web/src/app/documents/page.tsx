@@ -618,14 +618,14 @@ export default function DocumentsPage(): React.JSX.Element {
                 {documentBlockTypes
                   .filter((type) => type !== "COLUMNS")
                   .map((type) => (
-                  <button
-                    type="button"
-                    key={type}
-                    onClick={() => insertBlock(newBlock(type))}
-                    title={`Insertar ${blockLabels[type].toLocaleLowerCase("es")}`}
-                  >
-                    {blockLabels[type]}
-                  </button>
+                    <button
+                      type="button"
+                      key={type}
+                      onClick={() => insertBlock(newBlock(type))}
+                      title={`Insertar ${blockLabels[type].toLocaleLowerCase("es")}`}
+                    >
+                      {blockLabels[type]}
+                    </button>
                   ))}
                 <div className="document-layout-trigger">
                   <button
@@ -659,7 +659,9 @@ export default function DocumentsPage(): React.JSX.Element {
                               aria-hidden="true"
                             >
                               {Array.from({ length: layout.id === "EQUAL_3" ? 3 : 2 }).map(
-                                (_, index) => <b key={index} />,
+                                (_, index) => (
+                                  <b key={index} />
+                                ),
                               )}
                             </i>
                             <small>{layout.label}</small>
@@ -903,9 +905,7 @@ export default function DocumentsPage(): React.JSX.Element {
                             const sourceIndex = draft.blocks.findIndex(
                               (item) => item.id === draggedBlockId,
                             );
-                            if (
-                              moveDocumentBlockTo(draft.blocks, sourceIndex, index) !== null
-                            ) {
+                            if (moveDocumentBlockTo(draft.blocks, sourceIndex, index) !== null) {
                               event.preventDefault();
                             }
                           }}
