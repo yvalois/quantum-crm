@@ -9,7 +9,7 @@ import type {
   FormTheme,
   SubmittedFormResponse,
 } from "@quantum-crm/contracts";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
 
@@ -150,6 +150,7 @@ export default function FormsPage(): React.JSX.Element {
   const [tab, setTab] = useState<"build" | "responses">("build");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -509,7 +510,14 @@ export default function FormsPage(): React.JSX.Element {
                             />
                           </header>
                           {section.fields.map((field, index) => (
-                            <div className="form-field-editor" key={field.id}>
+                            <Fragment key={field.id}>
+                            <div
+                              className={`form-field-editor ${selectedFieldId === field.id ? "is-selected" : ""}`}
+                              onClick={() => {
+                                setActiveSectionId(section.id);
+                                setSelectedFieldId(field.id);
+                              }}
+                            >
                               <div className="form-field-head">
                                 <span className="drag-handle">⋮⋮</span>
                                 <input
@@ -708,6 +716,17 @@ export default function FormsPage(): React.JSX.Element {
                                 </div>
                               </footer>
                             </div>
+                            <button
+                              className="form-insert-between"
+                              type="button"
+                              onClick={() => {
+                                setActiveSectionId(section.id);
+                                setSelectedFieldId(null);
+                              }}
+                            >
+                              + Añadir desde biblioteca
+                            </button>
+                            </Fragment>
                           ))}
                           <button
                             className="form-add-question"

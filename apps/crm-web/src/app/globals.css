@@ -181,16 +181,27 @@
 }
 .forms-builder-grid {
   display: grid;
-  grid-template-columns: minmax(200px, 0.3fr) minmax(420px, 1fr) minmax(310px, 0.7fr);
+  grid-template-columns: 210px minmax(480px, 760px) minmax(240px, 320px);
+  grid-template-areas: "tools canvas preview";
   gap: 20px;
   padding: 24px;
   align-items: start;
+  justify-content: center;
+  background: #eaf0f1;
 }
 .forms-builder {
+  grid-area: canvas;
   display: grid;
   gap: 16px;
+  min-height: 640px;
+  padding: 24px;
+  background: #f8fbfb;
+  border: 1px solid #d5e0e0;
+  border-radius: 12px;
+  box-shadow: 0 18px 42px rgba(14, 35, 37, .08);
 }
 .forms-canvas-tools {
+  grid-area: tools;
   position: sticky;
   top: 18px;
   display: grid;
@@ -248,10 +259,20 @@
   padding: 16px;
   display: grid;
   gap: 11px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--line);
+  background: #fff;
+  border: 1px solid #d4e0df;
   border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .14s ease, box-shadow .14s ease;
 }
+.form-field-editor:hover,
+.form-field-editor.is-selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(93,225,212,.18); }
+.form-field-editor:not(.is-selected) > .form-field-description,
+.form-field-editor:not(.is-selected) > label,
+.form-field-editor:not(.is-selected) > .form-field-limits,
+.form-field-editor:not(.is-selected) > details,
+.form-field-editor:not(.is-selected) > footer { display: none; }
+.form-field-editor:not(.is-selected)::after { content: "Haz clic para configurar"; color: var(--muted); font-size: .67rem; }
 .form-field-head {
   display: grid;
   grid-template-columns: auto 1fr 160px;
@@ -344,12 +365,16 @@
   border-style: dashed;
   color: var(--accent);
 }
+.form-insert-between { position: relative; justify-self: center; margin: -5px 0; padding: 5px 10px; color: #176f68; background: #f8fbfb; border: 1px dashed #87bbb6; border-radius: 999px; font-size: .66rem; cursor: pointer; opacity: 0; transition: opacity .14s ease; }
+.form-section-editor:hover .form-insert-between,
+.form-insert-between:focus { opacity: 1; }
 .form-add-section {
   width: 100%;
   border-style: dashed;
   color: var(--accent);
 }
 .forms-preview {
+  grid-area: preview;
   position: sticky;
   top: 18px;
   padding: 15px;
@@ -591,6 +616,7 @@
 @media (max-width: 1050px) {
   .forms-builder-grid {
     grid-template-columns: 1fr;
+    grid-template-areas: "tools" "canvas" "preview";
   }
   .forms-preview,
   .forms-canvas-tools {
