@@ -39,8 +39,20 @@ const ImageDocumentBlockBaseSchema = BlockBaseSchema.extend({
   /** A replaceable slot can be intentionally omitted from one document instance. */
   visible: z.boolean().default(true),
   width: z.enum(["FULL", "WIDE", "MEDIUM", "SMALL"]).default("FULL"),
+  /** Exact frame width used by the visual composer. Legacy presets remain supported. */
+  widthPercent: z.number().int().min(10).max(100).optional(),
   align: z.enum(["LEFT", "CENTER", "RIGHT"]).default("CENTER"),
   fit: z.enum(["CONTAIN", "COVER"]).default("COVER"),
+  aspectRatio: z
+    .enum(["AUTO", "SQUARE", "LANDSCAPE_4_3", "WIDE_16_9", "PORTRAIT_3_4", "CIRCLE"])
+    .optional(),
+  focalX: z.number().int().min(0).max(100).optional(),
+  focalY: z.number().int().min(0).max(100).optional(),
+  rotation: z.number().int().min(-180).max(180).optional(),
+  opacity: z.number().int().min(20).max(100).optional(),
+  cornerRadius: z.number().int().min(0).max(48).optional(),
+  /** Top-level images may participate in document flow; nested images stay inline. */
+  flow: z.enum(["INLINE", "FLOAT_LEFT", "FLOAT_RIGHT"]).optional(),
 }).strict();
 export const ImageDocumentBlockSchema = ImageDocumentBlockBaseSchema.refine(
   (value) => (value.fileId === null) === (value.checksum === null),

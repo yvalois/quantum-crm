@@ -45,6 +45,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - Margenes configurables y paginacion visual automatica cuando el contenido supera el alto util de la hoja.
 - Tablas con filas y columnas agregables o eliminables y anchos ajustables desde la cuadricula.
 - Movimiento directo de imagenes entre el flujo principal y las celdas compatibles mediante arrastrar y soltar.
+- Compositor de imagen basado en marco: tamano continuo, proporcion, recorte y punto focal, rotacion, opacidad, radio, alineacion y modos de flujo; sustituir el archivo conserva la composicion.
 - Reordenamiento, proteccion, eliminacion, variables, archivos, estilos, duplicacion y plantillas existentes.
 - Edicion editorial sin tarjetas tecnicas permanentes: cinta Inicio/Insertar/Diseno, acciones contextuales y formato persistente de parrafo (titulo, subtitulo, cuerpo o nota; negrita, cursiva, subrayado y alineacion).
 - Estados responsive, foco visible y navegacion accesible.
@@ -78,6 +79,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Sustituir el constructor visible por edicion directa y comprobar que formato, columnas y regiones se conservan al guardar y recargar.
 - [x] Corregir la carga real de imagenes desde el origen HTTPS del CRM hasta el almacenamiento privado.
 - [x] Completar tipografia, formato de texto, cuadricula editable, movimiento de imagenes, margenes y paginacion automatica.
+- [ ] Convertir las imagenes en marcos visuales manipulables y persistentes, tanto en la pagina como dentro de columnas.
 
 ## Criterios de aceptacion
 
@@ -94,6 +96,8 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] El usuario ajusta filas, columnas y anchos de una tabla sin reconstruirla.
 - [x] Encabezado, pie y margenes se reconocen y editan directamente sobre la hoja.
 - [x] El contenido que excede una pagina continua visualmente en hojas adicionales sin perderse.
+- [ ] Una imagen se redimensiona, recorta, reenfoca, gira y alinea sin perder el archivo ni romper la pagina.
+- [ ] Arrastrar una imagen entre pagina y columnas conserva todos sus atributos visuales; sustituirla conserva el marco.
 
 ## Plan de verificacion
 

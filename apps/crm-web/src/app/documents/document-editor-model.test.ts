@@ -8,6 +8,7 @@ import {
   changeColumnsLayout,
   createColumnItem,
   createColumnsBlock,
+  imageFrameWidth,
   moveColumnItem,
   moveColumnItemToCell,
   moveDocumentBlock,
@@ -28,6 +29,13 @@ const firstId = "019db9c7-1268-7d24-bf99-96ea38ebf201";
 const secondId = "019db9c7-1268-7d24-bf99-96ea38ebf202";
 
 describe("document editor model", () => {
+  it("keeps legacy image widths compatible with continuous resizing", () => {
+    expect(imageFrameWidth({ width: "FULL" })).toBe(100);
+    expect(imageFrameWidth({ width: "WIDE" })).toBe(80);
+    expect(imageFrameWidth({ width: "MEDIUM" })).toBe(62);
+    expect(imageFrameWidth({ width: "SMALL", widthPercent: 37 })).toBe(37);
+  });
+
   it.each([
     ["EQUAL_2", 2],
     ["LEFT_WIDE", 2],
@@ -143,8 +151,16 @@ describe("document editor model", () => {
       replaceable: true,
       visible: true,
       width: "MEDIUM" as const,
+      widthPercent: 57,
       align: "RIGHT" as const,
       fit: "CONTAIN" as const,
+      aspectRatio: "LANDSCAPE_4_3" as const,
+      focalX: 72,
+      focalY: 35,
+      rotation: -4,
+      opacity: 88,
+      cornerRadius: 16,
+      flow: "FLOAT_RIGHT" as const,
     };
     const withImage = addColumnItem(initial, firstCellId, image);
     const moved = moveColumnItemToCell(withImage, secondId, thirdCellId);

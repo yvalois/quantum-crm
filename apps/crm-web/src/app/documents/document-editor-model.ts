@@ -54,8 +54,16 @@ export function createColumnItem(
       replaceable: false,
       visible: true,
       width: "FULL",
+      widthPercent: 100,
       align: "CENTER",
       fit: "COVER",
+      aspectRatio: "AUTO",
+      focalX: 50,
+      focalY: 50,
+      rotation: 0,
+      opacity: 100,
+      cornerRadius: 0,
+      flow: "INLINE",
     };
   }
   if (type === "VARIABLE") {
@@ -71,6 +79,13 @@ export function createColumnItem(
     };
   }
   return { id, type: "DIVIDER", locked: false, style: "SOLID" };
+}
+
+export function imageFrameWidth(
+  image: Pick<Extract<DocumentBlock, { readonly type: "IMAGE" }>, "width" | "widthPercent">,
+): number {
+  if (image.widthPercent !== undefined) return image.widthPercent;
+  return { FULL: 100, WIDE: 80, MEDIUM: 62, SMALL: 42 }[image.width];
 }
 
 function createCell(content: string, id = newId(), itemId = newId()): DocumentColumnCell {
