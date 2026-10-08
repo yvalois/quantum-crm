@@ -52,6 +52,9 @@ describe("S3 object storage", () => {
     expect(url).toContain(
       "https://files.example.test/qcrm-profile-a-objects/objects/019b/file-01?",
     );
+    expect(new URL(url).search.slice(1)).toMatch(
+      /^X-Amz-Algorithm=.*&X-Amz-Credential=.*&X-Amz-Date=.*&X-Amz-Expires=.*&X-Amz-SignedHeaders=.*&response-content-type=.*&versionId=.*&X-Amz-Signature=.*$/u,
+    );
     expect(url).toContain("versionId=version-1");
     expect(url).toContain("X-Amz-Expires=60");
     expect(url).toContain("X-Amz-Signature=");
