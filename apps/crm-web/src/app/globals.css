@@ -7964,7 +7964,10 @@ body {
   color: #9d332d;
 }
 
-.document-studio-shell .document-page .document-block-gutter .document-block-delete:hover:not(:disabled) {
+.document-studio-shell
+  .document-page
+  .document-block-gutter
+  .document-block-delete:hover:not(:disabled) {
   background: #fff0ee;
   color: #b32018;
 }
