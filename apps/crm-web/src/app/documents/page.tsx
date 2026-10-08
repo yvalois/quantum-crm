@@ -11,15 +11,19 @@ import type {
 } from "@quantum-crm/contracts";
 import {
   type CSSProperties,
+  type DragEvent,
   type FormEvent,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import {
   addColumnItem,
+  addTableColumn,
+  addTableRow,
   canMoveBlock,
   changeColumnsLayout,
   createColumnItem,
@@ -31,7 +35,11 @@ import {
   moveDocumentBlockTo,
   normalizeDocumentBlocks,
   removeColumnItem,
+  removeTableColumn,
+  removeTableRow,
+  setTableColumnWidth,
   splitTextBlock,
+  tableColumnWidths,
   updateColumnItem,
 } from "./document-editor-model";
 
@@ -72,6 +80,55 @@ type DocumentFileTarget =
   | { readonly kind: "COLUMN_ITEM"; readonly blockId: string; readonly itemId: string }
   | { readonly kind: "LOGO" };
 
+type DocumentImageDragSource =
+  | { readonly kind: "BLOCK"; readonly blockId: string }
+  | { readonly kind: "COLUMN_ITEM"; readonly blockId: string; readonly itemId: string };
+
+const documentImageDragType = "application/x-quantum-document-image";
+
+function textPresentationStyle(
+  text: Pick<Extract<DocumentBlock, { readonly type: "TEXT" }>, "fontFamily" | "fontSize">,
+): CSSProperties {
+  const fontFamily =
+    text.fontFamily === "SERIF"
+      ? 'Georgia, "Times New Roman", serif'
+      : text.fontFamily === "MONO"
+        ? '"IBM Plex Mono", "SFMono-Regular", Consolas, monospace'
+        : text.fontFamily === "SANS"
+          ? '"Instrument Sans", Inter, sans-serif'
+          : undefined;
+  return {
+    ...(text.fontSize ? { fontSize: `${text.fontSize}pt` } : {}),
+    ...(fontFamily ? { fontFamily } : {}),
+  };
+}
+
+function setImageDragData(event: DragEvent<HTMLElement>, source: DocumentImageDragSource): void {
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData(documentImageDragType, JSON.stringify(source));
+}
+
+function imageDragData(event: DragEvent<HTMLElement>): DocumentImageDragSource | null {
+  const serialized = event.dataTransfer.getData(documentImageDragType);
+  if (!serialized) return null;
+  try {
+    const source = JSON.parse(serialized) as Partial<DocumentImageDragSource>;
+    if (source.kind === "BLOCK" && typeof source.blockId === "string") {
+      return { kind: "BLOCK", blockId: source.blockId };
+    }
+    if (
+      source.kind === "COLUMN_ITEM" &&
+      typeof source.blockId === "string" &&
+      typeof source.itemId === "string"
+    ) {
+      return { kind: "COLUMN_ITEM", blockId: source.blockId, itemId: source.itemId };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function uploadTargetId(target: DocumentFileTarget): string {
   if (target.kind === "LOGO") return "design:logo";
   if (target.kind === "COLUMN_ITEM") return `column:${target.blockId}:${target.itemId}`;
@@ -79,7 +136,14 @@ function uploadTargetId(target: DocumentFileTarget): string {
 }
 
 function normalizeDocumentForEditor(document: CommercialDocument): CommercialDocument {
-  return { ...document, blocks: normalizeDocumentBlocks(document.blocks) };
+  return {
+    ...document,
+    design: {
+      ...document.design,
+      margins: document.design.margins ?? { top: 20, right: 18, bottom: 20, left: 18 },
+    },
+    blocks: normalizeDocumentBlocks(document.blocks),
+  };
 }
 
 const blockLabels: Record<DocumentBlock["type"], string> = {
@@ -120,6 +184,8 @@ function newBlock(type: DocumentBlock["type"]): DocumentBlock {
         bold: false,
         italic: false,
         underline: false,
+        fontFamily: "INHERIT",
+        fontSize: 12,
       };
     case "IMAGE":
       return {
@@ -255,6 +321,8 @@ export default function DocumentsPage(): React.JSX.Element {
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(90);
   const [ribbonTab, setRibbonTab] = useState<"HOME" | "INSERT" | "LAYOUT">("HOME");
+  const [pageCount, setPageCount] = useState(1);
+  const pageRef = useRef<HTMLElement | null>(null);
 
   const selectedContact = useMemo(
     () => contacts.find((contact) => contact.id === draft?.contactId) ?? null,
@@ -314,6 +382,29 @@ export default function DocumentsPage(): React.JSX.Element {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page || !draft) {
+      setPageCount(1);
+      return;
+    }
+    const updatePageCount = (): void => {
+      const rootFontSize = Number.parseFloat(
+        window.getComputedStyle(document.documentElement).fontSize,
+      );
+      const pageHeightRem = draft.design.pageSize === "LETTER" ? 64.7 : 70.7;
+      const pageHeight = pageHeightRem * (Number.isFinite(rootFontSize) ? rootFontSize : 16);
+      setPageCount(Math.max(1, Math.ceil(page.scrollHeight / pageHeight)));
+    };
+    const frame = window.requestAnimationFrame(updatePageCount);
+    const observer = new ResizeObserver(updatePageCount);
+    observer.observe(page);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [draft, zoom]);
 
   useEffect(() => {
     function closeTemporaryPanels(event: KeyboardEvent): void {
@@ -387,6 +478,80 @@ export default function DocumentsPage(): React.JSX.Element {
     const next = moveDocumentBlockTo(draft.blocks, sourceIndex, targetIndex);
     if (next) patchDraft({ blocks: next });
     setDraggedBlockId(null);
+  }
+
+  function moveImageToColumn(
+    source: DocumentImageDragSource,
+    targetBlockId: string,
+    targetCellId: string,
+  ): void {
+    if (!draft) return;
+    let image: Extract<DocumentColumnItem, { readonly type: "IMAGE" }> | null = null;
+    const withoutSource = draft.blocks.flatMap((block) => {
+      if (source.kind === "BLOCK" && block.id === source.blockId && block.type === "IMAGE") {
+        if (block.locked) return [block];
+        image = { ...block, locked: false };
+        return [];
+      }
+      if (
+        source.kind === "COLUMN_ITEM" &&
+        block.id === source.blockId &&
+        block.type === "COLUMNS"
+      ) {
+        if (block.locked) return [block];
+        const candidate = block.cells
+          ?.flatMap((cell) => cell.items)
+          .find((item) => item.id === source.itemId);
+        if (candidate?.type !== "IMAGE") return [block];
+        image = { ...candidate, locked: false };
+        return [removeColumnItem(block, source.itemId)];
+      }
+      return [block];
+    });
+    if (!image) return;
+    const next = withoutSource.map((block) =>
+      block.id === targetBlockId && block.type === "COLUMNS" && !block.locked
+        ? addColumnItem(block, targetCellId, image as DocumentColumnItem)
+        : block,
+    );
+    const inserted = next.some(
+      (block) =>
+        block.id === targetBlockId &&
+        block.type === "COLUMNS" &&
+        block.cells?.some((cell) => cell.items.some((item) => item.id === image?.id)),
+    );
+    if (!inserted) return;
+    patchDraft({ blocks: next });
+    setSelectedBlockId(targetBlockId);
+  }
+
+  function moveImageToPage(source: DocumentImageDragSource, targetIndex: number): void {
+    if (!draft || source.kind !== "COLUMN_ITEM") return;
+    const sourceBlock = draft.blocks.find(
+      (block) => block.id === source.blockId && block.type === "COLUMNS",
+    );
+    if (!sourceBlock || sourceBlock.type !== "COLUMNS" || sourceBlock.locked) return;
+    const candidate = sourceBlock.cells
+      ?.flatMap((cell) => cell.items)
+      .find((item) => item.id === source.itemId);
+    if (candidate?.type !== "IMAGE") return;
+    const image: Extract<DocumentBlock, { readonly type: "IMAGE" }> = {
+      ...candidate,
+      locked: false,
+    };
+    const withoutSource = draft.blocks.map((block) =>
+      block.id === sourceBlock.id && block.type === "COLUMNS"
+        ? removeColumnItem(block, source.itemId)
+        : block,
+    );
+    const insertionIndex = Math.max(0, Math.min(targetIndex, withoutSource.length));
+    const next = [
+      ...withoutSource.slice(0, insertionIndex),
+      image,
+      ...withoutSource.slice(insertionIndex),
+    ];
+    patchDraft({ blocks: next });
+    setSelectedBlockId(image.id);
   }
 
   async function mutate(
@@ -510,7 +675,8 @@ export default function DocumentsPage(): React.JSX.Element {
   }
 
   async function uploadDocumentFile(target: DocumentFileTarget, file: File): Promise<void> {
-    if (!draft || uploadingTargetId) return;
+    const csrfToken = csrf;
+    if (!draft || !csrfToken || uploadingTargetId) return;
     const uploadDocumentId = draft.id;
     setUploadingTargetId(uploadTargetId(target));
     setError(null);
@@ -535,10 +701,13 @@ export default function DocumentsPage(): React.JSX.Element {
       for (const [name, value] of Object.entries(intent.data.upload.fields)) {
         uploadBody.append(name, value);
       }
+      uploadBody.append("qcrm-upload-url", intent.data.upload.url);
       uploadBody.append("file", file, file.name);
-      const uploadResponse = await fetch(intent.data.upload.url, {
-        method: intent.data.upload.method,
+      const uploadResponse = await fetch("/api/files/upload", {
+        method: "POST",
         body: uploadBody,
+        credentials: "same-origin",
+        headers: { "x-csrf-token": csrfToken },
       });
       const uploadResponseBody = await uploadResponse.text();
       if (!uploadResponse.ok) throw new Error("El almacenamiento rechazó la carga.");
@@ -743,6 +912,52 @@ export default function DocumentsPage(): React.JSX.Element {
                         <option value="SUBTITLE">Subtitulo</option>
                         <option value="CAPTION">Nota</option>
                       </select>
+                      <select
+                        aria-label="Familia tipografica"
+                        value={selectedBlock.fontFamily ?? "INHERIT"}
+                        disabled={selectedBlock.locked}
+                        onChange={(event) =>
+                          updateBlock(selectedBlock.id, (block) =>
+                            block.type === "TEXT"
+                              ? {
+                                  ...block,
+                                  fontFamily: event.target.value as NonNullable<
+                                    typeof block.fontFamily
+                                  >,
+                                }
+                              : block,
+                          )
+                        }
+                      >
+                        <option value="INHERIT">Fuente del documento</option>
+                        <option value="SANS">Sans serif</option>
+                        <option value="SERIF">Serif</option>
+                        <option value="MONO">Monoespaciada</option>
+                      </select>
+                      <label className="document-font-size-control">
+                        <span className="sr-only">Tamaño del texto</span>
+                        <input
+                          type="number"
+                          min={8}
+                          max={96}
+                          value={selectedBlock.fontSize ?? 12}
+                          disabled={selectedBlock.locked}
+                          onChange={(event) =>
+                            updateBlock(selectedBlock.id, (block) =>
+                              block.type === "TEXT"
+                                ? {
+                                    ...block,
+                                    fontSize: Math.min(
+                                      96,
+                                      Math.max(8, Number(event.target.value) || 12),
+                                    ),
+                                  }
+                                : block,
+                            )
+                          }
+                        />
+                        pt
+                      </label>
                       {(
                         [
                           ["bold", "Negrita", "B"],
@@ -974,6 +1189,42 @@ export default function DocumentsPage(): React.JSX.Element {
                       </button>
                     ))}
                   </div>
+                  <div className="document-toolbar-group document-margin-controls">
+                    <span>Margenes (mm)</span>
+                    {(
+                      [
+                        ["top", "Superior"],
+                        ["right", "Derecho"],
+                        ["bottom", "Inferior"],
+                        ["left", "Izquierdo"],
+                      ] as const
+                    ).map(([side, label]) => (
+                      <label key={side} title={`Margen ${label.toLocaleLowerCase("es")}`}>
+                        <span>{label.slice(0, 3)}</span>
+                        <input
+                          type="number"
+                          min={8}
+                          max={60}
+                          value={draft.design.margins[side]}
+                          aria-label={`Margen ${label.toLocaleLowerCase("es")} en milimetros`}
+                          onChange={(event) =>
+                            patchDraft({
+                              design: {
+                                ...draft.design,
+                                margins: {
+                                  ...draft.design.margins,
+                                  [side]: Math.min(
+                                    60,
+                                    Math.max(8, Number(event.target.value) || 8),
+                                  ),
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
                   <div className="document-toolbar-group">
                     <span>Regiones</span>
                     <button
@@ -1153,12 +1404,14 @@ export default function DocumentsPage(): React.JSX.Element {
           {draft ? (
             <section className="document-canvas" aria-label="Editor de documento">
               <div className="document-canvas-meta">
-                <span>{draft.design.pageSize} · Pagina 1</span>
+                <span>
+                  {draft.design.pageSize} · {pageCount === 1 ? "1 pagina" : `${pageCount} paginas`}
+                </span>
                 <span>{draft.blocks.length} bloques</span>
               </div>
               <div className="document-canvas-scroll">
                 <div
-                  className="document-zoom-layer"
+                  className="document-zoom-layer document-pages"
                   style={
                     {
                       "--document-zoom": zoom / 100,
@@ -1168,15 +1421,39 @@ export default function DocumentsPage(): React.JSX.Element {
                   }
                 >
                   <article
-                    className={`document-page ${
+                    ref={pageRef}
+                    className={`document-page document-page-sheet ${
                       draft.design.fontFamily === "SERIF"
                         ? "preview-serif"
                         : draft.design.fontFamily === "MONO"
                           ? "preview-mono"
                           : ""
                     }`}
-                    style={{ color: draft.design.textColor }}
+                    style={
+                      {
+                        color: draft.design.textColor,
+                        "--document-margin-top": `${draft.design.margins.top}mm`,
+                        "--document-margin-right": `${draft.design.margins.right}mm`,
+                        "--document-margin-bottom": `${draft.design.margins.bottom}mm`,
+                        "--document-margin-left": `${draft.design.margins.left}mm`,
+                      } as CSSProperties
+                    }
                   >
+                    {pageCount > 1 ? (
+                      <div className="document-page-breaks" aria-hidden="true">
+                        {Array.from({ length: pageCount - 1 }, (_, pageIndex) => (
+                          <span
+                            className="document-page-break"
+                            style={{
+                              top: `calc(var(--document-page-height) * ${pageIndex + 1})`,
+                            }}
+                            key={pageIndex}
+                          >
+                            Pagina {pageIndex + 1} / {pageCount}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     {draft.design.headerEnabled ? (
                       <header
                         className={`document-page-region document-page-header region-${draft.design.headerSpacing.toLowerCase()} layout-${draft.design.headerLayout.toLowerCase()} align-${draft.design.headerAlign.toLowerCase()}`}
@@ -1184,6 +1461,7 @@ export default function DocumentsPage(): React.JSX.Element {
                         title="Doble clic para configurar el encabezado"
                         onDoubleClick={() => openInspectorSection("document-header-settings")}
                       >
+                        <span className="document-region-label">ENCABEZADO</span>
                         <div className="document-header-content">
                           {draft.design.logoFileId && csrf ? (
                             <span className="document-header-logo">
@@ -1214,7 +1492,7 @@ export default function DocumentsPage(): React.JSX.Element {
                           type="button"
                           onClick={() => openInspectorSection("document-header-settings")}
                         >
-                          Configurar encabezado
+                          Opciones de encabezado
                         </button>
                       </header>
                     ) : (
@@ -1261,6 +1539,11 @@ export default function DocumentsPage(): React.JSX.Element {
                           onClick={() => setSelectedBlockId(block.id)}
                           onFocus={() => setSelectedBlockId(block.id)}
                           onDragOver={(event) => {
+                            if (event.dataTransfer.types.includes(documentImageDragType)) {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              return;
+                            }
                             const sourceIndex = draft.blocks.findIndex(
                               (item) => item.id === draggedBlockId,
                             );
@@ -1270,6 +1553,11 @@ export default function DocumentsPage(): React.JSX.Element {
                           }}
                           onDrop={(event) => {
                             event.preventDefault();
+                            const imageSource = imageDragData(event);
+                            if (imageSource?.kind === "COLUMN_ITEM") {
+                              moveImageToPage(imageSource, index);
+                              return;
+                            }
                             dropBlock(index);
                           }}
                         >
@@ -1280,6 +1568,9 @@ export default function DocumentsPage(): React.JSX.Element {
                               onDragStart={(event) => {
                                 event.dataTransfer.effectAllowed = "move";
                                 event.dataTransfer.setData("text/plain", block.id);
+                                if (block.type === "IMAGE") {
+                                  setImageDragData(event, { kind: "BLOCK", blockId: block.id });
+                                }
                                 setDraggedBlockId(block.id);
                               }}
                               onDragEnd={() => setDraggedBlockId(null)}
@@ -1309,6 +1600,9 @@ export default function DocumentsPage(): React.JSX.Element {
                                 file,
                               )
                             }
+                            onImageDropToColumn={(source, cellId) =>
+                              moveImageToColumn(source, block.id, cellId)
+                            }
                             csrf={csrf}
                           />
                         </article>
@@ -1321,6 +1615,7 @@ export default function DocumentsPage(): React.JSX.Element {
                         title="Doble clic para configurar el pie de pagina"
                         onDoubleClick={() => openInspectorSection("document-footer-settings")}
                       >
+                        <span className="document-region-label">PIE DE PAGINA</span>
                         <textarea
                           aria-label="Texto del pie de pagina"
                           value={draft.design.footerText}
@@ -1332,13 +1627,15 @@ export default function DocumentsPage(): React.JSX.Element {
                             })
                           }
                         />
-                        {draft.design.showPageNumbers ? <small>01 / 01</small> : null}
+                        {draft.design.showPageNumbers ? (
+                          <small>01 / {String(pageCount).padStart(2, "0")}</small>
+                        ) : null}
                         <button
                           className="document-region-settings"
                           type="button"
                           onClick={() => openInspectorSection("document-footer-settings")}
                         >
-                          Configurar pie
+                          Opciones de pie
                         </button>
                       </footer>
                     ) : (
@@ -1833,6 +2130,7 @@ function BlockEditor({
   uploading,
   uploadingItemId,
   onFileSelected,
+  onImageDropToColumn,
   csrf,
 }: {
   readonly block: DocumentBlock;
@@ -1841,13 +2139,15 @@ function BlockEditor({
   readonly uploading: boolean;
   readonly uploadingItemId: string | null;
   readonly onFileSelected: (file: File, itemId?: string) => void;
+  readonly onImageDropToColumn: (source: DocumentImageDragSource, cellId: string) => void;
   readonly csrf: string | null;
 }): React.JSX.Element {
   if (block.type === "TEXT")
     return (
       <div className="document-prose-editor">
         <textarea
-          className={`document-prose-input align-${block.align.toLowerCase()} text-style-${(block.style ?? "BODY").toLowerCase()} ${block.bold ? "is-bold" : ""} ${block.italic ? "is-italic" : ""} ${block.underline ? "is-underlined" : ""}`}
+          className={`document-prose-input align-${block.align.toLowerCase()} text-style-${(block.style ?? "BODY").toLowerCase()} text-font-${(block.fontFamily ?? "INHERIT").toLowerCase()} ${block.bold ? "is-bold" : ""} ${block.italic ? "is-italic" : ""} ${block.underline ? "is-underlined" : ""}`}
+          style={textPresentationStyle(block)}
           aria-label="Texto del documento"
           value={block.content}
           disabled={block.locked}
@@ -1879,7 +2179,14 @@ function BlockEditor({
       <div
         className={`image-slot-editor image-width-${block.width.toLowerCase()} image-align-${block.align.toLowerCase()} image-fit-${block.fit.toLowerCase()}`}
       >
-        <div>
+        <div
+          className="document-image-handle"
+          draggable={!block.locked}
+          onDragStart={(event) => {
+            if (!block.locked) setImageDragData(event, { kind: "BLOCK", blockId: block.id });
+          }}
+          title={block.locked ? undefined : "Arrastra la imagen dentro de una columna"}
+        >
           {block.fileId && csrf ? (
             <AuthorizedFileImage fileId={block.fileId} alt={block.alt || block.label} csrf={csrf} />
           ) : (
@@ -2088,7 +2395,34 @@ function BlockEditor({
                 </section>
               ))
             : block.cells.map((cell, columnIndex) => (
-                <section className="document-column-cell" key={cell.id}>
+                <section
+                  className="document-column-cell document-drop-zone"
+                  key={cell.id}
+                  onDragOver={(event) => {
+                    if (!event.dataTransfer.types.includes(documentImageDragType)) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDragEnter={(event) => {
+                    if (event.dataTransfer.types.includes(documentImageDragType)) {
+                      event.currentTarget.classList.add("is-drag-over");
+                    }
+                  }}
+                  onDragLeave={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                      event.currentTarget.classList.remove("is-drag-over");
+                    }
+                  }}
+                  onDrop={(event) => {
+                    const source = imageDragData(event);
+                    if (!source) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.currentTarget.classList.remove("is-drag-over");
+                    onImageDropToColumn(source, cell.id);
+                  }}
+                >
                   <header className="document-column-head document-column-insert">
                     <span>Agregar en columna {columnIndex + 1}</span>
                     <div aria-label={`Agregar contenido a la columna ${columnIndex + 1}`}>
@@ -2147,6 +2481,16 @@ function BlockEditor({
                       <article
                         className={`document-column-item item-${item.type.toLowerCase()}`}
                         key={item.id}
+                        draggable={item.type === "IMAGE" && !block.locked}
+                        onDragStart={(event) => {
+                          if (item.type !== "IMAGE" || block.locked) return;
+                          event.stopPropagation();
+                          setImageDragData(event, {
+                            kind: "COLUMN_ITEM",
+                            blockId: block.id,
+                            itemId: item.id,
+                          });
+                        }}
                       >
                         <header className="document-inline-controls">
                           <strong>
@@ -2158,6 +2502,11 @@ function BlockEditor({
                                   ? "Variable"
                                   : "Separador"}
                           </strong>
+                          {item.type === "IMAGE" && !block.locked ? (
+                            <span className="document-image-handle" aria-hidden="true">
+                              Arrastrar
+                            </span>
+                          ) : null}
                           <div>
                             <button
                               type="button"
@@ -2232,30 +2581,71 @@ function BlockEditor({
         </div>
       </div>
     );
-  if (block.type === "TABLE")
+  if (block.type === "TABLE") {
+    const widths = tableColumnWidths(block);
+    const rowTemplate = `${widths.map((width) => `${width}fr`).join(" ")} ${selected ? "2.25rem" : "0"}`;
     return (
-      <div className="table-editor">
+      <div className="table-editor document-table-composer">
         <div className="document-table-grid">
-          <div className="document-table-row document-table-head">
+          <div
+            className="document-table-row document-table-head"
+            style={{ gridTemplateColumns: rowTemplate }}
+          >
             {block.columns.map((column, columnIndex) => (
-              <input
-                key={columnIndex}
-                value={column}
-                disabled={block.locked}
-                aria-label={`Encabezado ${columnIndex + 1}`}
-                onChange={(event) =>
-                  onChange({
-                    ...block,
-                    columns: block.columns.map((value, index) =>
-                      index === columnIndex ? event.target.value : value,
-                    ),
-                  })
-                }
-              />
+              <div className="document-table-heading-cell" key={columnIndex}>
+                <input
+                  className="document-table-column-control"
+                  value={column}
+                  disabled={block.locked}
+                  aria-label={`Encabezado ${columnIndex + 1}`}
+                  onChange={(event) =>
+                    onChange({
+                      ...block,
+                      columns: block.columns.map((value, index) =>
+                        index === columnIndex ? event.target.value : value,
+                      ),
+                    })
+                  }
+                />
+                {selected ? (
+                  <div className="document-table-column-tools document-inline-controls">
+                    <label>
+                      <span className="sr-only">Ancho de {column}</span>
+                      <input
+                        className="document-table-resizer"
+                        type="range"
+                        min={5}
+                        max={100 - 5 * (block.columns.length - 1)}
+                        value={widths[columnIndex] ?? 5}
+                        disabled={block.locked || block.columns.length === 1}
+                        onChange={(event) =>
+                          onChange(
+                            setTableColumnWidth(block, columnIndex, Number(event.target.value)),
+                          )
+                        }
+                      />
+                    </label>
+                    <output>{widths[columnIndex]}%</output>
+                    <button
+                      type="button"
+                      disabled={block.locked || block.columns.length === 1}
+                      onClick={() => onChange(removeTableColumn(block, columnIndex))}
+                      aria-label={`Eliminar columna ${columnIndex + 1}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ))}
+            {selected ? <span aria-hidden="true" /> : null}
           </div>
           {block.rows.map((row, rowIndex) => (
-            <div className="document-table-row" key={rowIndex}>
+            <div
+              className="document-table-row"
+              style={{ gridTemplateColumns: rowTemplate }}
+              key={rowIndex}
+            >
               {block.columns.map((_, columnIndex) => (
                 <input
                   key={columnIndex}
@@ -2276,32 +2666,41 @@ function BlockEditor({
                   }
                 />
               ))}
-              <button
-                type="button"
-                disabled={block.locked || block.rows.length === 1}
-                onClick={() =>
-                  onChange({
-                    ...block,
-                    rows: block.rows.filter((_, currentRowIndex) => currentRowIndex !== rowIndex),
-                  })
-                }
-                aria-label={`Eliminar fila ${rowIndex + 1}`}
-              >
-                ×
-              </button>
+              {selected ? (
+                <button
+                  type="button"
+                  disabled={block.locked}
+                  onClick={() => onChange(removeTableRow(block, rowIndex))}
+                  aria-label={`Eliminar fila ${rowIndex + 1}`}
+                >
+                  ×
+                </button>
+              ) : null}
             </div>
           ))}
         </div>
-        <button
-          className="document-add-row"
-          type="button"
-          disabled={block.locked || block.rows.length >= 100}
-          onClick={() => onChange({ ...block, rows: [...block.rows, block.columns.map(() => "")] })}
-        >
-          + Agregar fila
-        </button>
+        {selected ? (
+          <div className="document-table-actions document-table-toolbar document-inline-controls">
+            <button
+              className="document-add-row"
+              type="button"
+              disabled={block.locked || block.rows.length >= 100}
+              onClick={() => onChange(addTableRow(block))}
+            >
+              + Fila
+            </button>
+            <button
+              type="button"
+              disabled={block.locked || block.columns.length >= 8}
+              onClick={() => onChange(addTableColumn(block))}
+            >
+              + Columna
+            </button>
+          </div>
+        ) : null}
       </div>
     );
+  }
   if (block.type === "VARIABLE")
     return (
       <div className="document-variable-editor">
@@ -2423,7 +2822,8 @@ function ColumnItemEditor({
     return (
       <div className="column-text-editor">
         <textarea
-          className={`document-prose-input align-${item.align.toLowerCase()} text-style-${(item.style ?? "BODY").toLowerCase()} ${item.bold ? "is-bold" : ""} ${item.italic ? "is-italic" : ""} ${item.underline ? "is-underlined" : ""}`}
+          className={`document-prose-input align-${item.align.toLowerCase()} text-style-${(item.style ?? "BODY").toLowerCase()} text-font-${(item.fontFamily ?? "INHERIT").toLowerCase()} ${item.bold ? "is-bold" : ""} ${item.italic ? "is-italic" : ""} ${item.underline ? "is-underlined" : ""}`}
+          style={textPresentationStyle(item)}
           value={item.content}
           disabled={locked}
           placeholder="Escribe en esta columna..."
@@ -2447,6 +2847,39 @@ function ColumnItemEditor({
               <option value="SUBTITLE">Subtitulo</option>
               <option value="CAPTION">Nota</option>
             </select>
+            <select
+              value={item.fontFamily ?? "INHERIT"}
+              disabled={locked}
+              aria-label="Familia tipografica"
+              onChange={(event) =>
+                onChange({
+                  ...item,
+                  fontFamily: event.target.value as NonNullable<typeof item.fontFamily>,
+                })
+              }
+            >
+              <option value="INHERIT">Fuente del documento</option>
+              <option value="SANS">Sans serif</option>
+              <option value="SERIF">Serif</option>
+              <option value="MONO">Monoespaciada</option>
+            </select>
+            <label className="document-font-size-control">
+              <span className="sr-only">Tamaño del texto</span>
+              <input
+                type="number"
+                min={8}
+                max={96}
+                value={item.fontSize ?? 12}
+                disabled={locked}
+                onChange={(event) =>
+                  onChange({
+                    ...item,
+                    fontSize: Math.min(96, Math.max(8, Number(event.target.value) || 12)),
+                  })
+                }
+              />
+              pt
+            </label>
             {(
               [
                 ["bold", "Negrita", "B"],

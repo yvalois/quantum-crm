@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   addColumnItem,
+  addTableColumn,
+  addTableRow,
   canMoveBlock,
   changeColumnsLayout,
   createColumnItem,
@@ -12,8 +14,13 @@ import {
   moveDocumentBlockTo,
   normalizeColumnsBlock,
   normalizeDocumentBlocks,
+  normalizeTableBlock,
   removeColumnItem,
+  removeTableColumn,
+  removeTableRow,
+  setTableColumnWidth,
   splitTextBlock,
+  tableColumnWidths,
   updateColumnItem,
 } from "./document-editor-model.js";
 
@@ -60,6 +67,8 @@ describe("document editor model", () => {
       bold: true,
       italic: true,
       underline: true,
+      fontFamily: "SERIF",
+      fontSize: 28,
     });
 
     expect(split).toMatchObject({
@@ -74,6 +83,8 @@ describe("document editor model", () => {
       bold: true,
       italic: true,
       underline: true,
+      fontFamily: "SERIF",
+      fontSize: 28,
     });
   });
 
@@ -178,6 +189,7 @@ describe("document editor model", () => {
               bold: false,
               italic: false,
               underline: false,
+              fontFamily: "INHERIT",
             },
           ],
         },
@@ -191,11 +203,79 @@ describe("document editor model", () => {
               bold: false,
               italic: false,
               underline: false,
+              fontFamily: "INHERIT",
             },
           ],
         },
       ],
     });
+  });
+
+  it("edits table structure without mutating the source and persists balanced widths", () => {
+    const source = {
+      id: firstId,
+      type: "TABLE" as const,
+      locked: false,
+      columns: ["Servicio", "Valor"],
+      rows: [["Consultoria", "$ 100"]],
+    };
+
+    const normalized = normalizeTableBlock(source);
+    const withRow = addTableRow(normalized, ["Soporte", "$ 50"]);
+    const withColumn = addTableColumn(withRow, "Cantidad");
+    const resized = setTableColumnWidth(withColumn, 0, 70);
+    const withoutMiddleColumn = removeTableColumn(resized, 1);
+    const withoutFirstRow = removeTableRow(withoutMiddleColumn, 0);
+
+    expect(source).not.toHaveProperty("columnWidths");
+    expect(normalized.columnWidths).toEqual([50, 50]);
+    expect(withRow.rows).toEqual([
+      ["Consultoria", "$ 100"],
+      ["Soporte", "$ 50"],
+    ]);
+    expect(withColumn.columns).toEqual(["Servicio", "Valor", "Cantidad"]);
+    expect(withColumn.rows).toEqual([
+      ["Consultoria", "$ 100", ""],
+      ["Soporte", "$ 50", ""],
+    ]);
+    expect(resized.columnWidths?.[0]).toBe(70);
+    expect(resized.columnWidths?.reduce((total, width) => total + width, 0)).toBe(100);
+    expect(resized.columnWidths?.slice(1).every((width) => width >= 5)).toBe(true);
+    expect(withoutMiddleColumn.columns).toEqual(["Servicio", "Cantidad"]);
+    expect(withoutMiddleColumn.rows).toEqual([
+      ["Consultoria", ""],
+      ["Soporte", ""],
+    ]);
+    expect(withoutMiddleColumn.columnWidths?.reduce((total, width) => total + width, 0)).toBe(100);
+    expect(withoutFirstRow.rows).toEqual([["Soporte", ""]]);
+  });
+
+  it("keeps table operations within contract limits and protects locked tables", () => {
+    const locked = {
+      id: firstId,
+      type: "TABLE" as const,
+      locked: true,
+      columns: ["Unica"],
+      rows: [["Dato"]],
+    };
+    const full = {
+      ...locked,
+      locked: false,
+      columns: Array.from({ length: 8 }, (_, index) => `C${index + 1}`),
+      rows: [Array.from({ length: 8 }, () => "")],
+      columnWidths: [13, 13, 13, 13, 12, 12, 12, 12],
+    };
+
+    expect(addTableRow(locked)).toBe(locked);
+    expect(addTableColumn(locked)).toBe(locked);
+    expect(removeTableColumn(locked, 0)).toBe(locked);
+    expect(setTableColumnWidth(locked, 0, 25)).toBe(locked);
+    expect(removeTableColumn({ ...locked, locked: false }, 0)).toEqual({
+      ...locked,
+      locked: false,
+    });
+    expect(addTableColumn(full)).toBe(full);
+    expect(tableColumnWidths(full)).toEqual(full.columnWidths);
   });
 
   it("does not move a block across a protected neighbour", () => {

@@ -23,6 +23,8 @@ export const TextDocumentBlockSchema = BlockBaseSchema.extend({
   bold: z.boolean().optional(),
   italic: z.boolean().optional(),
   underline: z.boolean().optional(),
+  fontFamily: z.enum(["INHERIT", "SANS", "SERIF", "MONO"]).optional(),
+  fontSize: z.number().int().min(8).max(96).optional(),
 }).strict();
 
 const ImageDocumentBlockBaseSchema = BlockBaseSchema.extend({
@@ -76,11 +78,24 @@ const TableDocumentBlockBaseSchema = BlockBaseSchema.extend({
   type: z.literal("TABLE"),
   columns: z.array(z.string().trim().min(1).max(120)).min(1).max(8),
   rows: z.array(z.array(z.string().max(2_000)).min(1).max(8)).max(100),
+  /** Percentage widths. Legacy tables without widths are normalized by the editor. */
+  columnWidths: z.array(z.number().int().min(5).max(100)).min(1).max(8).optional(),
 }).strict();
-export const TableDocumentBlockSchema = TableDocumentBlockBaseSchema.refine(
-  (value) => value.rows.every((row) => row.length === value.columns.length),
-  {
-    message: "Every row must match the table columns",
+export const TableDocumentBlockSchema = TableDocumentBlockBaseSchema.superRefine(
+  (value, context) => {
+    if (value.rows.some((row) => row.length !== value.columns.length)) {
+      context.addIssue({ code: "custom", message: "Every row must match the table columns" });
+    }
+    if (
+      value.columnWidths !== undefined &&
+      (value.columnWidths.length !== value.columns.length ||
+        value.columnWidths.reduce((total, width) => total + width, 0) !== 100)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Column widths must match the table columns and total 100",
+      });
+    }
   },
 );
 
@@ -276,6 +291,17 @@ export const DocumentBlockSchema = z
     if (value.type === "TABLE" && value.rows.some((row) => row.length !== value.columns.length)) {
       context.addIssue({ code: "custom", message: "Every row must match the table columns" });
     }
+    if (
+      value.type === "TABLE" &&
+      value.columnWidths !== undefined &&
+      (value.columnWidths.length !== value.columns.length ||
+        value.columnWidths.reduce((total, width) => total + width, 0) !== 100)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Column widths must match the table columns and total 100",
+      });
+    }
   });
 
 export const DocumentDesignSchema = z
@@ -284,6 +310,15 @@ export const DocumentDesignSchema = z
     textColor: ColorSchema,
     fontFamily: z.enum(["INSTRUMENT_SANS", "SERIF", "MONO"]),
     pageSize: z.enum(["A4", "LETTER"]),
+    margins: z
+      .object({
+        top: z.number().int().min(8).max(60),
+        right: z.number().int().min(8).max(60),
+        bottom: z.number().int().min(8).max(60),
+        left: z.number().int().min(8).max(60),
+      })
+      .strict()
+      .default({ top: 20, right: 18, bottom: 20, left: 18 }),
     headerText: z.string().max(500),
     footerText: z.string().max(500),
     showPageNumbers: z.boolean(),

@@ -1,13 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-function contentSecurityPolicy(nonce: string): string {
+import { siblingStorageOrigin } from "./server/storage-origin";
+
+function contentSecurityPolicy(nonce: string, filesOrigin: string | null): string {
+  const filesSource = filesOrigin ? ` ${filesOrigin}` : "";
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     `style-src 'self' 'nonce-${nonce}'`,
-    "img-src 'self' blob: data:",
+    `img-src 'self' blob: data:${filesSource}`,
     "font-src 'self'",
-    "connect-src 'self'",
+    `connect-src 'self'${filesSource}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -18,7 +21,7 @@ function contentSecurityPolicy(nonce: string): string {
 
 export function proxy(request: NextRequest): NextResponse {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const csp = contentSecurityPolicy(nonce);
+  const csp = contentSecurityPolicy(nonce, siblingStorageOrigin(request.url, request.headers));
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);

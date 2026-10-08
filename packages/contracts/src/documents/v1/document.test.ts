@@ -7,6 +7,7 @@ import {
   DocumentBlockSchema,
   DocumentDesignSchema,
   ImageDocumentBlockSchema,
+  TableDocumentBlockSchema,
 } from "./document.js";
 
 const design = {
@@ -40,6 +41,8 @@ describe("document contracts", () => {
           bold: true,
           italic: false,
           underline: true,
+          fontFamily: "SERIF",
+          fontSize: 30,
         },
       ],
     });
@@ -51,6 +54,8 @@ describe("document contracts", () => {
       bold: true,
       italic: false,
       underline: true,
+      fontFamily: "SERIF",
+      fontSize: 30,
     });
   });
 
@@ -85,6 +90,8 @@ describe("document contracts", () => {
               bold: true,
               italic: true,
               underline: false,
+              fontFamily: "MONO",
+              fontSize: 14,
             },
           ],
         },
@@ -101,7 +108,57 @@ describe("document contracts", () => {
       bold: true,
       italic: true,
       underline: false,
+      fontFamily: "MONO",
+      fontSize: 14,
     });
+
+    expect(
+      DocumentBlockSchema.safeParse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf153",
+        type: "TEXT",
+        locked: false,
+        content: "Tamano invalido",
+        align: "LEFT",
+        fontFamily: "SANS",
+        fontSize: 120,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps legacy tables compatible and validates persistent column widths", () => {
+    expect(
+      TableDocumentBlockSchema.parse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf150",
+        type: "TABLE",
+        locked: false,
+        columns: ["Servicio", "Valor"],
+        rows: [["Consultoria", "$ 100"]],
+      }),
+    ).toMatchObject({ columns: ["Servicio", "Valor"] });
+
+    expect(
+      TableDocumentBlockSchema.parse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf151",
+        type: "TABLE",
+        locked: false,
+        columns: ["Servicio", "Valor"],
+        rows: [["Consultoria", "$ 100"]],
+        columnWidths: [65, 35],
+      }).columnWidths,
+    ).toEqual([65, 35]);
+
+    for (const columnWidths of [[65], [65, 30], [96, 4]]) {
+      expect(
+        DocumentBlockSchema.safeParse({
+          id: "019db9c7-1268-7d24-bf99-96ea38ebf152",
+          type: "TABLE",
+          locked: false,
+          columns: ["Servicio", "Valor"],
+          rows: [["Consultoria", "$ 100"]],
+          columnWidths,
+        }).success,
+      ).toBe(false);
+    }
   });
 
   it("requires an immutable file identity for a selected image", () => {
@@ -283,6 +340,7 @@ describe("document contracts", () => {
 
   it("adds compatible header and footer defaults to legacy designs", () => {
     expect(DocumentDesignSchema.parse(design)).toMatchObject({
+      margins: { top: 20, right: 18, bottom: 20, left: 18 },
       headerEnabled: true,
       headerLayout: "SPLIT",
       headerAlign: "LEFT",
@@ -292,6 +350,13 @@ describe("document contracts", () => {
       footerAlign: "LEFT",
       footerSpacing: "NORMAL",
     });
+    expect(
+      DocumentDesignSchema.safeParse({
+        ...design,
+        margins: { top: 7, right: 18, bottom: 20, left: 18 },
+      }).success,
+    ).toBe(false);
+    expect(DocumentDesignSchema.safeParse({ ...design, pages: [] }).success).toBe(false);
   });
 
   it("persists explicit page regions used by the visual editor", () => {
@@ -306,6 +371,7 @@ describe("document contracts", () => {
         footerEnabled: true,
         footerAlign: "CENTER",
         footerSpacing: "COMPACT",
+        margins: { top: 12, right: 14, bottom: 16, left: 18 },
       }),
     ).toMatchObject({
       headerText: "Quantum Demo",
@@ -318,6 +384,7 @@ describe("document contracts", () => {
       footerEnabled: true,
       footerAlign: "CENTER",
       footerSpacing: "COMPACT",
+      margins: { top: 12, right: 14, bottom: 16, left: 18 },
       showPageNumbers: true,
     });
   });

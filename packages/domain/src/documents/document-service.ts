@@ -28,7 +28,11 @@ function cloneBlocks(blocks: readonly DocumentBlock[]): readonly DocumentBlock[]
 }
 
 function cloneDesign(design: DocumentDesign): DocumentDesign {
-  return Object.freeze(structuredClone(design));
+  const cloned = structuredClone(design);
+  return Object.freeze({
+    ...cloned,
+    margins: cloned.margins ?? { top: 20, right: 18, bottom: 20, left: 18 },
+  });
 }
 
 function requireTitle(value: string, maximum: number): string {
@@ -43,6 +47,7 @@ export function defaultDocumentDesign(): DocumentDesign {
     textColor: "#102125",
     fontFamily: "INSTRUMENT_SANS",
     pageSize: "A4",
+    margins: { top: 20, right: 18, bottom: 20, left: 18 },
     headerText: "",
     footerText: "Documento generado con Quantum",
     showPageNumbers: true,
@@ -73,6 +78,7 @@ export function starterDocumentBlocks(): readonly DocumentBlock[] {
       bold: false,
       italic: false,
       underline: false,
+      fontFamily: "INHERIT" as const,
     }),
     Object.freeze({
       id: randomUUID(),
