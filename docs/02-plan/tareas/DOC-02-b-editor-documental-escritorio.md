@@ -80,7 +80,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] Corregir la carga real de imagenes desde el origen HTTPS del CRM hasta el almacenamiento privado.
 - [x] Completar tipografia, formato de texto, cuadricula editable, movimiento de imagenes, margenes y paginacion automatica.
 - [x] Convertir las imagenes en marcos visuales manipulables y persistentes, tanto en la pagina como dentro de columnas.
-- [ ] Hacer que tamano, giro y reencuadre se manipulen directamente sobre la imagen, separando el asa de movimiento de la superficie de edicion.
+- [x] Hacer que tamano, giro y reencuadre se manipulen directamente sobre la imagen, separando el asa de movimiento de la superficie de edicion.
 
 ## Criterios de aceptacion
 
@@ -99,7 +99,7 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - [x] El contenido que excede una pagina continua visualmente en hojas adicionales sin perderse.
 - [x] Una imagen se redimensiona, recorta, reenfoca, gira y alinea sin perder el archivo ni romper la pagina.
 - [x] Arrastrar una imagen entre pagina y columnas conserva todos sus atributos visuales; sustituirla conserva el marco.
-- [ ] Al seleccionar una imagen aparecen tiradores convencionales; el usuario redimensiona desde cualquier esquina, gira desde el control superior y reencuadra arrastrando el contenido sin abrir un panel.
+- [x] Al seleccionar una imagen aparecen tiradores convencionales; el usuario redimensiona desde cualquier esquina, gira desde el control superior y reencuadra arrastrando el contenido sin abrir un panel.
 
 ## Plan de verificacion
 
@@ -131,6 +131,8 @@ Documentos funciona como un estudio de edicion dedicado, sin el sidebar global d
 - El candidato documental `91b4ff2` aprobo en el VPS Prettier y ESLint focalizados, 26 pruebas de contrato y modelo del editor, typecheck de `contracts` y `crm-web`, y builds de produccion de API y CRM web. InterAmerican ejecuta `qcrm-candidate/api:7defcc3` y `qcrm-candidate/crm-web:91b4ff2`, ambos saludables; el readiness publico respondio `200`.
 - En el recorrido autenticado se cargo una imagen PNG de `640 x 360` y se guardo la revision 5 con ancho `60 %`, marco `16:9`, ajuste `cover`, punto focal `100/0`, giro `3 grados`, opacidad `92 %`, radio `14 px` y flujo izquierdo. Tras recargar, el DOM calculado conservo todos los valores y la imagen natural; un parrafo temporal quedo lateral al marco (`textInputLeft=833`, `imageRight=819`) y luego se descarto sin alterar la revision guardada.
 - La imagen dentro de columnas expone el mismo compositor, asa de redimensionado, proporcion, ajuste, punto focal y acabado; omite deliberadamente el flujo externo porque su contenedor ya es la propia columna. Las pruebas del modelo acreditan que moverla entre celdas o reducir la disposicion conserva la configuracion completa.
+- El candidato `c5d0fa7` con manipulacion directa aprobo en el VPS formato, lint focalizado, 18 pruebas del modelo, typecheck de `crm-web` y build de produccion con Next.js `16.3.8`. La imagen `qcrm-candidate/crm-web:c5d0fa7` (`sha256:b97a6c23b202c7e2f1458964f86888fee52ce7249f6a3da757f11bfd4d7cab0a`) quedo desplegada y saludable en InterAmerican; readiness publico respondio `200`.
+- El recorrido autenticado selecciono la imagen de la revision 5, encontro cuatro tiradores de esquina, un control de giro y la superficie directa de reencuadre. El teclado sobre los mismos controles cambio el ancho de `60 %` a `65 %` y el giro de `3` a `4` grados sin abrir los ajustes precisos; la prueba no se guardo y la revision 5 permanecio intacta. La comprobacion visual detecto y corrigio antes del cierre dos reglas heredadas que tapaban y recortaban el control superior.
 
 ## Pendientes de estabilizacion posterior
 
