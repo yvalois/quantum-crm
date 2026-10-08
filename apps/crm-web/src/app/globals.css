@@ -8469,7 +8469,8 @@ body {
   .image-height-custom.image-fit-contain.image-slot-editor
   .document-image-media
   img {
-  position: static;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   max-width: none;
@@ -9929,8 +9930,8 @@ body {
   :is(.image-slot-editor, .column-image-editor).image-fit-contain:not(.image-height-custom)
   .document-image-media.has-image
   img {
-  position: static;
-  inset: auto;
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: auto;
