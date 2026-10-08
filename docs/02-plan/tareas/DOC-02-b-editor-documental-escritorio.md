@@ -15,7 +15,7 @@
 
 ## Resultado esperado
 
-Documentos usa toda el area disponible del CRM como una aplicacion de escritorio simplificada: barra superior, herramientas de insercion, lienzo paginado central editable y paneles plegables. El usuario edita viendo el resultado final, sin alternar entre un formulario tecnico y una previsualizacion pequena.
+Documentos funciona como un estudio de edicion dedicado, sin el sidebar global del CRM durante la composicion: barra superior, herramientas de insercion, lienzo paginado central editable y paneles temporales. El usuario edita viendo el resultado final, puede dividir un renglon en columnas y no pierde el ancho de pagina por navegacion o propiedades permanentes.
 
 ## Lectura obligatoria aplicada
 
@@ -28,30 +28,32 @@ Documentos usa toda el area disponible del CRM como una aplicacion de escritorio
 ## Auditoria del trabajo existente
 
 - La ruta `/documents` ya persiste documentos y plantillas, controla versiones y permite bloques, variables, imagenes y adjuntos.
-- La interfaz actual mantiene tres columnas permanentes y separa edicion de previsualizacion; reduce demasiado el papel y expone el modelo tecnico de bloques.
-- Se conserva toda la integracion real y se reemplaza la composicion de la interfaz y la interaccion con los bloques.
+- El candidato anterior elimino la previsualizacion separada, pero mantuvo el sidebar global y reservo columnas permanentes para biblioteca e inspector; el recorrido visual demostro que el papel sigue reducido.
+- `COLUMNS` persiste contenido real, pero no expone disposiciones, proporciones ni la conversion de un renglon existente.
+- Se conserva la integracion real y se reemplaza la composicion de la interfaz y la interaccion de estructura.
 
 ## Alcance
 
 ### Incluido
 
-- Editor de altura completa dentro del shell del CRM.
+- Estudio documental de altura y ancho completos, con retorno explicito al CRM.
 - Lienzo central tipo Word con edicion directa por bloques.
-- Barra de herramientas simplificada y paneles plegables de biblioteca y propiedades.
+- Barra de herramientas simplificada y paneles superpuestos de biblioteca y propiedades.
+- Selector visual de disposiciones de dos y tres columnas, cambio de proporcion y conversion de texto a renglon dividido sin perder contenido.
 - Reordenamiento, proteccion, eliminacion, variables, archivos, estilos, duplicacion y plantillas existentes.
 - Estados responsive, foco visible y navegacion accesible.
 
 ### No incluido
 
 - PDF, envio, firma, pagos o calculos comerciales nuevos.
-- Cambio de contratos, persistencia o permisos.
+- Bloques anidados arbitrarios dentro de una columna; esta iteracion mantiene celdas de texto sin romper documentos existentes.
 
 ## Impacto tecnico
 
 | Area                       | Impacto previsto            |
 | -------------------------- | --------------------------- |
 | Aplicaciones y modulos     | `crm-web`                   |
-| Contratos y eventos        | Sin cambios                 |
+| Contratos y eventos        | Extension compatible de `COLUMNS` si la auditoria la requiere |
 | Datos y migraciones        | Sin cambios                 |
 | Permisos y aislamiento     | Se conservan los existentes |
 | Configuracion y secretos   | Sin cambios                 |
@@ -60,16 +62,18 @@ Documentos usa toda el area disponible del CRM como una aplicacion de escritorio
 
 ## Plan de implementacion
 
-- [x] Reorganizar la pantalla como editor de escritorio de altura completa.
-- [x] Integrar la edicion de bloques dentro del lienzo visible.
-- [x] Hacer plegables biblioteca y propiedades sin perder contexto.
+- [ ] Separar el estudio documental del sidebar global y hacer dominante el lienzo.
+- [ ] Convertir biblioteca y propiedades en paneles temporales que no reduzcan el papel.
+- [ ] Implementar disposiciones de columnas y conversion de un renglon conservando su contenido.
+- [ ] Integrar la edicion de bloques dentro del lienzo visible.
 - [ ] Validar tipos, build y recorrido autenticado en el VPS.
 
 ## Criterios de aceptacion
 
-- [x] El lienzo ocupa el area principal y conserva proporcion de pagina legible.
-- [x] Crear, seleccionar, editar, reordenar y guardar no exige abandonar el lienzo.
-- [x] Biblioteca y propiedades pueden mostrarse u ocultarse.
+- [ ] El lienzo ocupa el area principal y conserva proporcion de pagina legible sin el sidebar del CRM.
+- [ ] Crear, seleccionar, editar, reordenar y guardar no exige abandonar el lienzo.
+- [ ] Biblioteca y propiedades se abren temporalmente sin redimensionar el papel.
+- [ ] Un bloque de texto puede convertirse en dos o tres columnas y cambiar de proporcion conservando su contenido.
 - [ ] Las funciones documentales existentes permanecen operativas.
 - [ ] La experiencia es utilizable en escritorio y adaptable en pantallas menores.
 

@@ -165,6 +165,13 @@ describe("DocumentService", () => {
         value: null,
         editable: false,
       },
+      {
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf126",
+        type: "COLUMNS",
+        locked: true,
+        layout: "LEFT_WIDE",
+        columns: ["Cliente: {{contact.name}}", "Asesora: {{advisor.name}}"],
+      },
     ]);
     const memory = memoryRepository(seededTemplate);
     const service = new DocumentService(memory.repository, {
@@ -201,6 +208,10 @@ describe("DocumentService", () => {
       { content: "Propuesta para Andrea Cliente preparada por Sofía Asesora" },
       { value: "andrea@example.test", editable: true },
       { value: "COP 1250.50", editable: false },
+      {
+        layout: "LEFT_WIDE",
+        columns: ["Cliente: Andrea Cliente", "Asesora: SofÃ­a Asesora"],
+      },
     ]);
   });
 

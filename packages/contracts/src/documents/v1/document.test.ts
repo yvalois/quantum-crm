@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   AttachmentDocumentBlockSchema,
+  ColumnsDocumentBlockSchema,
   CreateDocumentSchema,
+  DocumentBlockSchema,
   DocumentDesignSchema,
   ImageDocumentBlockSchema,
 } from "./document.js";
@@ -114,6 +116,45 @@ describe("document contracts", () => {
         checksum: null,
         mimeType: "application/pdf",
         originalName: "ficha.pdf",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps legacy columns compatible and persists explicit layouts", () => {
+    expect(
+      ColumnsDocumentBlockSchema.parse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf106",
+        type: "COLUMNS",
+        locked: false,
+        columns: ["Izquierda", "Derecha"],
+      }).layout,
+    ).toBe("EQUAL_2");
+    expect(
+      DocumentBlockSchema.parse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf106",
+        type: "COLUMNS",
+        locked: false,
+        columns: ["Izquierda", "Derecha"],
+      }),
+    ).toMatchObject({ layout: "EQUAL_2" });
+
+    expect(
+      ColumnsDocumentBlockSchema.parse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf107",
+        type: "COLUMNS",
+        locked: false,
+        layout: "LEFT_WIDE",
+        columns: ["Contenido principal", "Apoyo"],
+      }),
+    ).toMatchObject({ layout: "LEFT_WIDE", columns: ["Contenido principal", "Apoyo"] });
+
+    expect(
+      ColumnsDocumentBlockSchema.safeParse({
+        id: "019db9c7-1268-7d24-bf99-96ea38ebf108",
+        type: "COLUMNS",
+        locked: false,
+        layout: "EQUAL_3",
+        columns: ["Uno", "Dos"],
       }).success,
     ).toBe(false);
   });

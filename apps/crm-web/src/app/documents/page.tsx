@@ -17,7 +17,15 @@ import {
   useState,
 } from "react";
 
-import { CrmShell } from "../crm-shell";
+import {
+  canMoveBlock,
+  changeColumnsLayout,
+  createColumnsBlock,
+  documentColumnLayouts,
+  moveDocumentBlock,
+  moveDocumentBlockTo,
+  splitTextBlock,
+} from "./document-editor-model";
 
 interface SessionPayload {
   readonly authenticated: boolean;
@@ -102,7 +110,7 @@ function newBlock(type: DocumentBlock["type"]): DocumentBlock {
         rows: [["Servicio", "1", "$ 0"]],
       };
     case "COLUMNS":
-      return { id, type, locked: false, columns: ["Columna izquierda", "Columna derecha"] };
+      return createColumnsBlock("EQUAL_2", "Columna izquierda", id);
     case "DIVIDER":
       return { id, type, locked: false, style: "SOLID" };
     case "TERMS":
@@ -204,8 +212,11 @@ export default function DocumentsPage(): React.JSX.Element {
   const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<"" | CommercialDocumentKind>("");
-  const [libraryOpen, setLibraryOpen] = useState(true);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [showColumnLayouts, setShowColumnLayouts] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(90);
 
   const selectedContact = useMemo(
@@ -263,11 +274,24 @@ export default function DocumentsPage(): React.JSX.Element {
     void load();
   }, []);
 
+  useEffect(() => {
+    function closeTemporaryPanels(event: KeyboardEvent): void {
+      if (event.key !== "Escape") return;
+      setLibraryOpen(false);
+      setInspectorOpen(false);
+      setShowColumnLayouts(false);
+    }
+    window.addEventListener("keydown", closeTemporaryPanels);
+    return () => window.removeEventListener("keydown", closeTemporaryPanels);
+  }, []);
+
   function selectDocument(document: CommercialDocument): void {
     if (dirty && !window.confirm("Hay cambios sin guardar. ¿Quieres descartarlos?")) return;
     setSelectedId(document.id);
     setDraft(structuredClone(document));
     setDirty(false);
+    setSelectedBlockId(null);
+    setLibraryOpen(false);
     setError(null);
     setNotice(null);
   }
@@ -284,11 +308,31 @@ export default function DocumentsPage(): React.JSX.Element {
 
   function moveBlock(index: number, offset: -1 | 1): void {
     if (!draft) return;
-    const target = index + offset;
-    if (target < 0 || target >= draft.blocks.length || draft.blocks[index]?.locked) return;
-    const next = [...draft.blocks];
-    [next[index], next[target]] = [next[target]!, next[index]!];
-    patchDraft({ blocks: next });
+    const next = moveDocumentBlock(draft.blocks, index, offset);
+    if (next) patchDraft({ blocks: next });
+  }
+
+  function insertBlock(block: DocumentBlock): void {
+    if (!draft) return;
+    const selectedIndex = draft.blocks.findIndex((item) => item.id === selectedBlockId);
+    const insertionIndex = selectedIndex < 0 ? draft.blocks.length : selectedIndex + 1;
+    patchDraft({
+      blocks: [
+        ...draft.blocks.slice(0, insertionIndex),
+        block,
+        ...draft.blocks.slice(insertionIndex),
+      ],
+    });
+    setSelectedBlockId(block.id);
+    setShowColumnLayouts(false);
+  }
+
+  function dropBlock(targetIndex: number): void {
+    if (!draft || !draggedBlockId) return;
+    const sourceIndex = draft.blocks.findIndex((block) => block.id === draggedBlockId);
+    const next = moveDocumentBlockTo(draft.blocks, sourceIndex, targetIndex);
+    if (next) patchDraft({ blocks: next });
+    setDraggedBlockId(null);
   }
 
   async function mutate(
@@ -502,10 +546,14 @@ export default function DocumentsPage(): React.JSX.Element {
   }
 
   return (
-    <CrmShell className="documents-shell">
+    <main className="documents-shell document-studio-shell">
       <section className="documents-page">
         <header className="document-commandbar">
           <div className="document-command-title">
+            <a className="document-back-link" href="/" aria-label="Volver al CRM">
+              <span aria-hidden="true">←</span>
+              CRM
+            </a>
             <span className="document-app-mark" aria-hidden="true">
               QD
             </span>
@@ -545,13 +593,18 @@ export default function DocumentsPage(): React.JSX.Element {
           </div>
         </header>
 
-        <div className="document-toolbar" role="toolbar" aria-label="Herramientas del documento">
+        <div className="document-toolbar" role="group" aria-label="Herramientas del documento">
           <div className="document-toolbar-group">
             <button
               type="button"
               className={libraryOpen ? "is-active" : ""}
-              onClick={() => setLibraryOpen((open) => !open)}
+              onClick={() => {
+                setLibraryOpen((open) => !open);
+                setInspectorOpen(false);
+                setShowColumnLayouts(false);
+              }}
               aria-expanded={libraryOpen}
+              aria-controls="document-library-panel"
               aria-label="Mostrar u ocultar biblioteca"
             >
               <span aria-hidden="true">☰</span>
@@ -562,16 +615,60 @@ export default function DocumentsPage(): React.JSX.Element {
             <>
               <div className="document-toolbar-group document-insert-tools">
                 <span>Insertar</span>
-                {documentBlockTypes.map((type) => (
+                {documentBlockTypes
+                  .filter((type) => type !== "COLUMNS")
+                  .map((type) => (
                   <button
                     type="button"
                     key={type}
-                    onClick={() => patchDraft({ blocks: [...draft.blocks, newBlock(type)] })}
+                    onClick={() => insertBlock(newBlock(type))}
                     title={`Insertar ${blockLabels[type].toLocaleLowerCase("es")}`}
                   >
                     {blockLabels[type]}
                   </button>
-                ))}
+                  ))}
+                <div className="document-layout-trigger">
+                  <button
+                    type="button"
+                    className={showColumnLayouts ? "is-active" : ""}
+                    onClick={() => setShowColumnLayouts((open) => !open)}
+                    aria-expanded={showColumnLayouts}
+                    aria-controls="column-layout-picker"
+                  >
+                    Columnas
+                  </button>
+                  {showColumnLayouts ? (
+                    <div
+                      className="column-layout-picker"
+                      id="column-layout-picker"
+                      role="dialog"
+                      aria-label="Elegir disposición de columnas"
+                    >
+                      <strong>Dividir nuevo renglón</strong>
+                      <span>Se insertará después del bloque seleccionado.</span>
+                      <div>
+                        {documentColumnLayouts.map((layout) => (
+                          <button
+                            type="button"
+                            key={layout.id}
+                            onClick={() => insertBlock(createColumnsBlock(layout.id))}
+                            aria-label={layout.label}
+                          >
+                            <i
+                              className={`column-layout-icon layout-${layout.id.toLowerCase()}`}
+                              aria-hidden="true"
+                            >
+                              {Array.from({ length: layout.id === "EQUAL_3" ? 3 : 2 }).map(
+                                (_, index) => <b key={index} />,
+                              )}
+                            </i>
+                            <small>{layout.label}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="document-toolbar-group document-view-tools">
                 <button
@@ -594,8 +691,13 @@ export default function DocumentsPage(): React.JSX.Element {
                 <button
                   type="button"
                   className={inspectorOpen ? "is-active" : ""}
-                  onClick={() => setInspectorOpen((open) => !open)}
+                  onClick={() => {
+                    setInspectorOpen((open) => !open);
+                    setLibraryOpen(false);
+                    setShowColumnLayouts(false);
+                  }}
                   aria-expanded={inspectorOpen}
+                  aria-controls="document-inspector-panel"
                 >
                   Propiedades
                 </button>
@@ -615,23 +717,36 @@ export default function DocumentsPage(): React.JSX.Element {
           </div>
         ) : null}
 
-        <div
-          className={`document-workbench ${libraryOpen ? "has-library" : ""} ${draft && inspectorOpen ? "has-inspector" : ""}`}
-        >
+        <div className="document-workbench">
           {libraryOpen ? (
-            <aside className="document-library" aria-label="Biblioteca de documentos">
+            <aside
+              className="document-library"
+              id="document-library-panel"
+              role="dialog"
+              aria-modal="false"
+              aria-label="Biblioteca de documentos"
+            >
               <div className="library-heading">
                 <div>
                   <span>Biblioteca</span>
                   <strong>{documents.length}</strong>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(true)}
-                  aria-label="Crear documento"
-                >
-                  +
-                </button>
+                <div className="library-heading-actions">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreate(true)}
+                    aria-label="Crear documento"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLibraryOpen(false)}
+                    aria-label="Cerrar biblioteca"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
               <label className="document-search">
                 <span className="sr-only">Buscar documentos</span>
@@ -716,7 +831,7 @@ export default function DocumentsPage(): React.JSX.Element {
           ) : null}
 
           {draft ? (
-            <main className="document-canvas" aria-label="Editor de documento">
+            <section className="document-canvas" aria-label="Editor de documento">
               <div className="document-canvas-meta">
                 <span>{draft.design.pageSize} · Pagina 1</span>
                 <span>{draft.blocks.length} bloques</span>
@@ -724,7 +839,13 @@ export default function DocumentsPage(): React.JSX.Element {
               <div className="document-canvas-scroll">
                 <div
                   className="document-zoom-layer"
-                  style={{ "--document-zoom": zoom / 100 } as CSSProperties}
+                  style={
+                    {
+                      "--document-zoom": zoom / 100,
+                      "--document-page-height":
+                        draft.design.pageSize === "LETTER" ? "64.7rem" : "70.7rem",
+                    } as CSSProperties
+                  }
                 >
                   <article
                     className={`document-page ${
@@ -774,16 +895,55 @@ export default function DocumentsPage(): React.JSX.Element {
                       ) : null}
                       {draft.blocks.map((block, index) => (
                         <article
-                          className={`document-block ${block.locked ? "locked" : ""}`}
+                          className={`document-block ${block.locked ? "locked" : ""} ${selectedBlockId === block.id ? "selected" : ""} ${draggedBlockId === block.id ? "dragging" : ""}`}
                           key={block.id}
+                          onClick={() => setSelectedBlockId(block.id)}
+                          onFocus={() => setSelectedBlockId(block.id)}
+                          onDragOver={(event) => {
+                            const sourceIndex = draft.blocks.findIndex(
+                              (item) => item.id === draggedBlockId,
+                            );
+                            if (
+                              moveDocumentBlockTo(draft.blocks, sourceIndex, index) !== null
+                            ) {
+                              event.preventDefault();
+                            }
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            dropBlock(index);
+                          }}
                         >
                           <header className="document-block-tools">
-                            <span className="block-handle" aria-hidden="true">
+                            <span
+                              className="block-handle"
+                              draggable={!block.locked}
+                              onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed = "move";
+                                event.dataTransfer.setData("text/plain", block.id);
+                                setDraggedBlockId(block.id);
+                              }}
+                              onDragEnd={() => setDraggedBlockId(null)}
+                              title={block.locked ? "Bloque protegido" : "Arrastrar para reordenar"}
+                              aria-hidden="true"
+                            >
                               ⋮⋮
                             </span>
                             <strong>{blockLabels[block.type]}</strong>
                             {block.locked ? <small>Protegido</small> : null}
                             <div>
+                              {block.type === "TEXT" && !block.locked ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateBlock(block.id, (current) =>
+                                      current.type === "TEXT" ? splitTextBlock(current) : current,
+                                    )
+                                  }
+                                >
+                                  Dividir
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={() =>
@@ -798,7 +958,7 @@ export default function DocumentsPage(): React.JSX.Element {
                               <button
                                 type="button"
                                 onClick={() => moveBlock(index, -1)}
-                                disabled={index === 0 || block.locked}
+                                disabled={!canMoveBlock(draft.blocks, index, -1)}
                                 aria-label="Mover bloque arriba"
                               >
                                 ↑
@@ -806,7 +966,7 @@ export default function DocumentsPage(): React.JSX.Element {
                               <button
                                 type="button"
                                 onClick={() => moveBlock(index, 1)}
-                                disabled={index === draft.blocks.length - 1 || block.locked}
+                                disabled={!canMoveBlock(draft.blocks, index, 1)}
                                 aria-label="Mover bloque abajo"
                               >
                                 ↓
@@ -851,7 +1011,7 @@ export default function DocumentsPage(): React.JSX.Element {
                   </article>
                 </div>
               </div>
-            </main>
+            </section>
           ) : (
             <section className="document-welcome">
               <span>DOC</span>
@@ -864,7 +1024,13 @@ export default function DocumentsPage(): React.JSX.Element {
           )}
 
           {draft && inspectorOpen ? (
-            <aside className="document-inspector" aria-label="Propiedades del documento">
+            <aside
+              className="document-inspector"
+              id="document-inspector-panel"
+              role="dialog"
+              aria-modal="false"
+              aria-label="Propiedades del documento"
+            >
               <header>
                 <div>
                   <span>PROPIEDADES</span>
@@ -1118,7 +1284,7 @@ export default function DocumentsPage(): React.JSX.Element {
           </form>
         </div>
       ) : null}
-    </CrmShell>
+    </main>
   );
 }
 
@@ -1277,22 +1443,61 @@ function BlockEditor({
     );
   if (block.type === "COLUMNS")
     return (
-      <div className="columns-editor">
-        {block.columns.map((column, index) => (
-          <textarea
-            key={index}
-            value={column}
-            disabled={block.locked}
-            onChange={(event) =>
-              onChange({
-                ...block,
-                columns: block.columns.map((value, columnIndex) =>
-                  columnIndex === index ? event.target.value : value,
-                ),
-              })
-            }
-          />
-        ))}
+      <div className="columns-block-editor">
+        <div className="column-layout-controls" role="group" aria-label="Disposición del renglón">
+          <span>Distribución</span>
+          {documentColumnLayouts.map((layout) => (
+            <button
+              type="button"
+              key={layout.id}
+              className={block.layout === layout.id ? "active" : ""}
+              disabled={block.locked}
+              onClick={() => onChange(changeColumnsLayout(block, layout.id))}
+              aria-label={layout.label}
+              aria-pressed={block.layout === layout.id}
+              title={layout.label}
+            >
+              <i
+                className={`column-layout-icon layout-${layout.id.toLowerCase()}`}
+                aria-hidden="true"
+              >
+                {Array.from({ length: layout.id === "EQUAL_3" ? 3 : 2 }).map((_, index) => (
+                  <b key={index} />
+                ))}
+              </i>
+            </button>
+          ))}
+        </div>
+        <div
+          className="columns-editor"
+          style={
+            {
+              "--document-columns":
+                documentColumnLayouts.find((layout) => layout.id === block.layout)?.template ??
+                "1fr 1fr",
+            } as CSSProperties
+          }
+        >
+          {block.columns.map((column, index) => (
+            <label className="document-column-cell" key={index}>
+              <span>Columna {index + 1}</span>
+              <textarea
+                value={column}
+                aria-label={`Contenido de la columna ${index + 1}`}
+                placeholder="Escribe o inserta una variable…"
+                disabled={block.locked}
+                onChange={(event) =>
+                  onChange({
+                    ...block,
+                    columns: block.columns.map((value, columnIndex) =>
+                      columnIndex === index ? event.target.value : value,
+                    ),
+                  })
+                }
+              />
+            </label>
+          ))}
+        </div>
       </div>
     );
   if (block.type === "TABLE")

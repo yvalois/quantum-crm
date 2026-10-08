@@ -76,10 +76,15 @@ export const TableDocumentBlockSchema = TableDocumentBlockBaseSchema.refine(
   },
 );
 
-export const ColumnsDocumentBlockSchema = BlockBaseSchema.extend({
+const ColumnsDocumentBlockBaseSchema = BlockBaseSchema.extend({
   type: z.literal("COLUMNS"),
   columns: z.array(z.string().max(10_000)).min(2).max(3),
+  layout: z.enum(["EQUAL_2", "LEFT_WIDE", "RIGHT_WIDE", "EQUAL_3"]).default("EQUAL_2"),
 }).strict();
+export const ColumnsDocumentBlockSchema = ColumnsDocumentBlockBaseSchema.refine(
+  (value) => value.columns.length === (value.layout === "EQUAL_3" ? 3 : 2),
+  { message: "Column count must match the selected layout" },
+);
 
 export const DividerDocumentBlockSchema = BlockBaseSchema.extend({
   type: z.literal("DIVIDER"),
@@ -122,7 +127,7 @@ export const DocumentBlockSchema = z
     ImageDocumentBlockBaseSchema,
     AttachmentDocumentBlockBaseSchema,
     TableDocumentBlockBaseSchema,
-    ColumnsDocumentBlockSchema,
+    ColumnsDocumentBlockBaseSchema,
     DividerDocumentBlockSchema,
     TermsDocumentBlockSchema,
     VariableDocumentBlockSchema,
@@ -151,6 +156,15 @@ export const DocumentBlockSchema = z
           message: "Attached files require mimeType and originalName",
         });
       }
+    }
+    if (
+      value.type === "COLUMNS" &&
+      value.columns.length !== (value.layout === "EQUAL_3" ? 3 : 2)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Column count must match the selected layout",
+      });
     }
     if (value.type === "TABLE" && value.rows.some((row) => row.length !== value.columns.length)) {
       context.addIssue({ code: "custom", message: "Every row must match the table columns" });
