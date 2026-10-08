@@ -3292,7 +3292,7 @@ button:disabled {
   display: grid;
   min-height: 7rem;
   place-items: center;
-  overflow: hidden;
+  overflow: visible;
   border: 1px dashed #b9cbcc;
   border-radius: var(--image-corner-radius);
   background:
@@ -3377,6 +3377,22 @@ button:disabled {
 }
 
 .document-studio-shell .image-fit-contain .document-image-media img {
+  object-fit: contain;
+}
+
+/* A complete image is the frame itself: no invisible crop box or letterboxing. */
+.document-studio-shell .image-fit-contain .document-image-media.has-image {
+  height: auto;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.document-studio-shell .image-fit-contain .document-image-media.has-image img {
+  position: static;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
   object-fit: contain;
 }
 
@@ -3798,6 +3814,18 @@ button:disabled {
 .document-studio-shell .image-focal-ranges input {
   min-height: 0;
   accent-color: #0b8c82;
+}
+
+.document-studio-shell .image-range-control input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d3dfe0;
+  border-radius: 0.28rem;
+  background: #fff;
+  color: #24474a;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  padding: 0.3rem 0.4rem;
 }
 
 .document-studio-shell .image-range-control output,
@@ -8413,10 +8441,10 @@ body {
 
 .document-studio-shell .image-fit-contain .column-image-preview img,
 .document-studio-shell .image-fit-contain.image-slot-editor > div:first-child img {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
   object-fit: contain;
 }
 
@@ -8426,10 +8454,40 @@ body {
   .image-aspect-auto.image-fit-contain.image-slot-editor
   > div:first-child
   img {
-  width: auto;
+  width: 100%;
   height: auto;
-  max-width: 100%;
+  max-width: none;
   max-height: 24rem;
+}
+
+.document-studio-shell
+  .image-height-custom.image-fit-contain
+  .column-image-preview.document-image-media,
+.document-studio-shell
+  .document-page
+  .image-height-custom.image-fit-contain.image-slot-editor
+  .document-image-media {
+  height: var(--image-frame-height);
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.document-studio-shell
+  .image-height-custom.image-fit-contain
+  .column-image-preview.document-image-media
+  img,
+.document-studio-shell
+  .document-page
+  .image-height-custom.image-fit-contain.image-slot-editor
+  .document-image-media
+  img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
 }
 
 .document-studio-shell .column-image-editor .document-file-button,
@@ -9851,4 +9909,75 @@ body {
   .document-studio-shell .document-inline-controls .image-presentation-controls {
     grid-template-columns: 1fr;
   }
+}
+
+/* DOC-02: direct manipulation targets the rendered image, not an outer crop box. */
+.document-studio-shell .document-page .image-slot-editor > .document-image-card,
+.document-studio-shell
+  .document-page
+  .column-image-editor
+  > .column-image-frame.document-image-card {
+  width: var(--image-frame-width);
+  min-height: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.document-studio-shell .document-page .document-image-media {
+  width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.document-studio-shell
+  .document-page
+  :is(.image-slot-editor, .column-image-editor).image-fit-contain:not(.image-height-custom)
+  .document-image-media.has-image {
+  height: auto;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.document-studio-shell
+  .document-page
+  :is(.image-slot-editor, .column-image-editor).image-fit-contain:not(.image-height-custom)
+  .document-image-media.has-image
+  img {
+  position: static;
+  inset: auto;
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+}
+
+.document-studio-shell
+  .document-page
+  :is(.image-slot-editor, .column-image-editor).image-fit-contain.image-height-custom
+  .document-image-media.has-image {
+  height: var(--image-frame-height);
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.document-studio-shell
+  .document-page
+  :is(.image-slot-editor, .column-image-editor).image-fit-contain.image-height-custom
+  .document-image-media.has-image
+  img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
+}
+
+.document-studio-shell .document-page .image-slot-editor > .document-image-card::after {
+  display: none;
 }

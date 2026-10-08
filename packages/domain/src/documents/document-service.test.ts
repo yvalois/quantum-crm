@@ -125,6 +125,7 @@ describe("DocumentService", () => {
       identityEnabled: false,
       footerEnabled: false,
       showPageNumbers: false,
+      showDocumentKind: false,
     });
   });
 

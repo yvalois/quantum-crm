@@ -20,8 +20,10 @@ import {
   removeColumnItem,
   removeTableColumn,
   removeTableRow,
+  resizeContainedImageFrame,
   resizeImageFrame,
   resizeImageFrameHeight,
+  resizeImageObjectFrame,
   rotateImageFromPointer,
   setTableColumnWidth,
   splitTextBlock,
@@ -48,18 +50,61 @@ describe("document editor model", () => {
     });
   });
 
-  it("resizes from each visual corner and clamps the frame to usable limits", () => {
+  it("resizes horizontally without imposing an artificial canvas limit", () => {
     expect(resizeImageFrame(60, 80, 400, "SE")).toBe(80);
     expect(resizeImageFrame(60, -80, 400, "SW")).toBe(80);
-    expect(resizeImageFrame(95, 200, 400, "NE")).toBe(100);
-    expect(resizeImageFrame(15, 200, 400, "NW")).toBe(10);
+    expect(resizeImageFrame(95, 200, 400, "NE")).toBe(145);
+    expect(resizeImageFrame(15, 200, 400, "NW")).toBe(0.25);
   });
 
-  it("resizes image height from the direct vertical handles and keeps it bounded", () => {
+  it("resizes image height without imposing an artificial maximum", () => {
     expect(resizeImageFrameHeight(220, 60, "S")).toBe(280);
     expect(resizeImageFrameHeight(220, -60, "N")).toBe(280);
-    expect(resizeImageFrameHeight(90, 40, "N")).toBe(80);
-    expect(resizeImageFrameHeight(1180, 100, "SE")).toBe(1200);
+    expect(resizeImageFrameHeight(90, 40, "N")).toBe(50);
+    expect(resizeImageFrameHeight(1180, 100, "SE")).toBe(1280);
+  });
+
+  it("scales a complete image proportionally from its corner handles", () => {
+    expect(resizeContainedImageFrame(300, 150, 20, 40, 600, "SE")).toBe(63.33);
+  });
+
+  it("allows proportional image scaling beyond the canvas and down to one pixel", () => {
+    expect(resizeContainedImageFrame(570, 285, 200, 0, 600, "NE")).toBe(128.33);
+    expect(resizeContainedImageFrame(300, 150, -500, 0, 600, "SE")).toBe(0.17);
+  });
+
+  it("changes only width or height from the middle handles", () => {
+    expect(resizeImageObjectFrame(300, 150, -60, 0, 600, "E")).toEqual({
+      widthPercent: 40,
+      heightPx: 150,
+    });
+    expect(resizeImageObjectFrame(300, 150, 60, 0, 600, "W")).toEqual({
+      widthPercent: 40,
+      heightPx: 150,
+    });
+    expect(resizeImageObjectFrame(300, 150, 0, 60, 600, "S")).toEqual({
+      widthPercent: 50,
+      heightPx: 210,
+    });
+    expect(resizeImageObjectFrame(300, 150, 0, 40, 600, "N")).toEqual({
+      widthPercent: 50,
+      heightPx: 110,
+    });
+    expect(resizeImageObjectFrame(600, 150, 300, 0, 600, "E")).toEqual({
+      widthPercent: 150,
+      heightPx: 150,
+    });
+    expect(resizeImageObjectFrame(600, 150, 0, 2000, 600, "S")).toEqual({
+      widthPercent: 100,
+      heightPx: 2150,
+    });
+  });
+
+  it("changes both dimensions proportionally from a corner", () => {
+    expect(resizeImageObjectFrame(300, 150, 20, 40, 600, "SE")).toEqual({
+      widthPercent: 63.33,
+      heightPx: 190,
+    });
   });
 
   it("moves the crop with the dragged image while keeping its focal point bounded", () => {

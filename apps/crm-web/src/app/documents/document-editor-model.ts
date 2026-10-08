@@ -8,6 +8,13 @@ export type ImageResizeCorner = "NW" | "NE" | "SW" | "SE";
 export type ImageResizeHandle = ImageResizeCorner | "N" | "E" | "S" | "W";
 
 const minimumTableColumnWidth = 5;
+const minimumImageDimensionPx = 1;
+
+function imageWidthPercent(widthPx: number, availableWidth: number): number {
+  const safeAvailableWidth = Math.max(availableWidth, minimumImageDimensionPx);
+  const safeWidth = Math.max(widthPx, minimumImageDimensionPx);
+  return Math.round((safeWidth / safeAvailableWidth) * 10_000) / 100;
+}
 
 export const documentColumnLayouts = [
   { id: "EQUAL_2", label: "Dos iguales", template: "1fr 1fr" },
@@ -98,12 +105,9 @@ export function resizeImageFrame(
 ): number {
   const safeAvailableWidth = Math.max(availableWidth, 1);
   const direction = handle.endsWith("E") ? 1 : -1;
-  return Math.min(
-    100,
-    Math.max(
-      10,
-      Math.round(originWidth + (horizontalDelta / safeAvailableWidth) * 100 * direction),
-    ),
+  return imageWidthPercent(
+    (originWidth / 100) * safeAvailableWidth + horizontalDelta * direction,
+    safeAvailableWidth,
   );
 }
 
@@ -113,7 +117,100 @@ export function resizeImageFrameHeight(
   handle: ImageResizeHandle,
 ): number {
   const direction = handle.startsWith("N") ? -1 : 1;
-  return Math.min(1200, Math.max(80, Math.round(originHeight + verticalDelta * direction)));
+  return Math.max(minimumImageDimensionPx, Math.round(originHeight + verticalDelta * direction));
+}
+
+/**
+ * Scales a complete image from a corner while preserving the current aspect
+ * ratio, so the selection always matches the visible pixels.
+ */
+export function resizeContainedImageFrame(
+  originWidthPx: number,
+  originHeightPx: number,
+  horizontalDelta: number,
+  verticalDelta: number,
+  availableWidth: number,
+  handle: ImageResizeHandle,
+): number {
+  const safeAvailableWidth = Math.max(availableWidth, 1);
+  const safeOriginWidth = Math.max(originWidthPx, 1);
+  const safeOriginHeight = Math.max(originHeightPx, 1);
+  const aspectRatio = safeOriginWidth / safeOriginHeight;
+
+  const horizontalWidth = handle.includes("E")
+    ? safeOriginWidth + horizontalDelta
+    : safeOriginWidth - horizontalDelta;
+  const verticalHeight = handle.includes("S")
+    ? safeOriginHeight + verticalDelta
+    : safeOriginHeight - verticalDelta;
+  const verticalWidth = verticalHeight * aspectRatio;
+
+  const hasHorizontalAxis = handle.includes("E") || handle.includes("W");
+  const hasVerticalAxis = handle.includes("N") || handle.includes("S");
+  let nextWidth = safeOriginWidth;
+  if (hasHorizontalAxis && hasVerticalAxis) {
+    const horizontalScaleDelta = Math.abs(horizontalWidth - safeOriginWidth) / safeOriginWidth;
+    const verticalScaleDelta = Math.abs(verticalWidth - safeOriginWidth) / safeOriginWidth;
+    nextWidth = horizontalScaleDelta >= verticalScaleDelta ? horizontalWidth : verticalWidth;
+  } else if (hasHorizontalAxis) {
+    nextWidth = horizontalWidth;
+  } else if (hasVerticalAxis) {
+    nextWidth = verticalWidth;
+  }
+
+  return imageWidthPercent(nextWidth, safeAvailableWidth);
+}
+
+export function resizeImageObjectFrame(
+  originWidthPx: number,
+  originHeightPx: number,
+  horizontalDelta: number,
+  verticalDelta: number,
+  availableWidth: number,
+  handle: ImageResizeHandle,
+): { readonly widthPercent: number; readonly heightPx: number } {
+  const safeAvailableWidth = Math.max(availableWidth, 1);
+  const safeOriginWidth = Math.max(originWidthPx, 1);
+  const safeOriginHeight = Math.max(originHeightPx, 1);
+  const originWidthPercent = imageWidthPercent(safeOriginWidth, safeAvailableWidth);
+  const isCorner = handle.length === 2;
+
+  if (isCorner) {
+    const widthPercent = resizeContainedImageFrame(
+      safeOriginWidth,
+      safeOriginHeight,
+      horizontalDelta,
+      verticalDelta,
+      safeAvailableWidth,
+      handle,
+    );
+    return {
+      widthPercent,
+      heightPx: Math.max(
+        minimumImageDimensionPx,
+        Math.round(
+          ((safeAvailableWidth * widthPercent) / 100 / safeOriginWidth) * safeOriginHeight,
+        ),
+      ),
+    };
+  }
+
+  if (handle === "E" || handle === "W") {
+    return {
+      widthPercent: resizeImageFrame(
+        originWidthPercent,
+        horizontalDelta,
+        safeAvailableWidth,
+        handle,
+      ),
+      heightPx: Math.round(safeOriginHeight),
+    };
+  }
+
+  return {
+    widthPercent: originWidthPercent,
+    heightPx: resizeImageFrameHeight(safeOriginHeight, verticalDelta, handle),
+  };
 }
 
 export function moveImageFocalPoint(
