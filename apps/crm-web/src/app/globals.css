@@ -189,6 +189,11 @@
   justify-content: center;
   background: #eaf0f1;
 }
+.forms-studio-host { grid-template-columns: 1fr !important; }
+.forms-studio-host .crm-sidebar { display: none; }
+.forms-studio-host .crm-content.forms-page { width: 100%; max-width: none; padding: 0; }
+.forms-studio-host .forms-topbar { margin: 0; padding: 18px 28px; background: #fff; border-bottom: 1px solid #d7e1e1; }
+.forms-studio-host .forms-workspace { border: 0; min-height: calc(100dvh - 116px); }
 .forms-builder {
   grid-area: canvas;
   display: grid;
@@ -267,12 +272,20 @@
 }
 .form-field-editor:hover,
 .form-field-editor.is-selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(93,225,212,.18); }
+.form-field-editor.is-selected .form-canvas-field { display: none; }
+.form-field-editor:not(.is-selected) > .form-field-head { display: none; }
 .form-field-editor:not(.is-selected) > .form-field-description,
 .form-field-editor:not(.is-selected) > label,
 .form-field-editor:not(.is-selected) > .form-field-limits,
 .form-field-editor:not(.is-selected) > details,
 .form-field-editor:not(.is-selected) > footer { display: none; }
 .form-field-editor:not(.is-selected)::after { content: "Haz clic para configurar"; color: var(--muted); font-size: .67rem; }
+.form-canvas-field { width: 100%; display: grid; gap: 8px; padding: 5px; text-align: left; color: var(--text); background: transparent; border: 0; cursor: pointer; }
+.form-canvas-field-type { color: #16877f; font-size: .62rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.form-canvas-field strong { font-size: 1rem; }
+.form-canvas-field small { color: var(--muted); }
+.form-canvas-field-preview { pointer-events: none; opacity: .85; }
+.form-canvas-field-preview input,.form-canvas-field-preview textarea,.form-canvas-field-preview select { width: 100%; background: #f5f8f8; }
 .form-field-head {
   display: grid;
   grid-template-columns: auto 1fr 160px;

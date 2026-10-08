@@ -151,6 +151,7 @@ export default function FormsPage(): React.JSX.Element {
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  const [draggedField, setDraggedField] = useState<{ sectionId: string; fieldId: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -340,6 +341,16 @@ export default function FormsPage(): React.JSX.Element {
       return { ...section, fields };
     });
   }
+  function moveFieldTo(sectionId: string, fieldId: string, targetIndex: number): void {
+    updateSection(sectionId, (section) => {
+      const sourceIndex = section.fields.findIndex((field) => field.id === fieldId);
+      if (sourceIndex < 0 || sourceIndex === targetIndex) return section;
+      const fields = [...section.fields];
+      const [field] = fields.splice(sourceIndex, 1);
+      fields.splice(sourceIndex < targetIndex ? targetIndex - 1 : targetIndex, 0, field!);
+      return { ...section, fields };
+    });
+  }
   function addField(sectionId: string, type: FormFieldType): void {
     updateSection(sectionId, (section) => ({ ...section, fields: [...section.fields, newField(type)] }));
     setActiveSectionId(sectionId);
@@ -366,7 +377,7 @@ export default function FormsPage(): React.JSX.Element {
   }
 
   return (
-    <CrmShell>
+    <CrmShell className="forms-studio-host">
       <section className="crm-content forms-page">
         <header className="forms-topbar">
           <div>
@@ -513,11 +524,26 @@ export default function FormsPage(): React.JSX.Element {
                             <Fragment key={field.id}>
                             <div
                               className={`form-field-editor ${selectedFieldId === field.id ? "is-selected" : ""}`}
+                              draggable
+                              onDragStart={() => setDraggedField({ sectionId: section.id, fieldId: field.id })}
+                              onDragEnd={() => setDraggedField(null)}
+                              onDragOver={(event) => event.preventDefault()}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                if (draggedField?.sectionId === section.id) moveFieldTo(section.id, draggedField.fieldId, index);
+                                setDraggedField(null);
+                              }}
                               onClick={() => {
                                 setActiveSectionId(section.id);
                                 setSelectedFieldId(field.id);
                               }}
                             >
+                              <button className="form-canvas-field" type="button">
+                                <span className="form-canvas-field-type">{fieldLabels[field.type]}</span>
+                                <strong>{field.label || "Pregunta sin titulo"}{field.required ? " *" : ""}</strong>
+                                {field.description ? <small>{field.description}</small> : null}
+                                <div className="form-canvas-field-preview">{renderPreviewField(field)}</div>
+                              </button>
                               <div className="form-field-head">
                                 <span className="drag-handle">⋮⋮</span>
                                 <input
