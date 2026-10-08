@@ -7026,9 +7026,7 @@ body {
 
 .document-studio-shell .document-canvas {
   grid-template-rows: 1.85rem minmax(0, 1fr);
-  background:
-    linear-gradient(rgb(255 255 255 / 15%), rgb(255 255 255 / 15%)),
-    #dfe3e6;
+  background: linear-gradient(rgb(255 255 255 / 15%), rgb(255 255 255 / 15%)), #dfe3e6;
 }
 
 .document-studio-shell .document-canvas-meta {
@@ -7344,7 +7342,11 @@ body {
 
 .document-studio-shell .document-page .document-block.selected .block-editor-grid select,
 .document-studio-shell .document-page .block-editor-grid:focus-within select,
-.document-studio-shell .document-page .document-column-item:focus-within .column-text-editor select {
+.document-studio-shell
+  .document-page
+  .document-column-item:focus-within
+  .column-text-editor
+  select {
   opacity: 1;
   pointer-events: auto;
 }
@@ -7402,8 +7404,16 @@ body {
   padding-left: 0;
 }
 
-.document-studio-shell .document-page .document-block.selected .document-column-cell + .document-column-cell::before,
-.document-studio-shell .document-page .columns-block-editor:focus-within .document-column-cell + .document-column-cell::before {
+.document-studio-shell
+  .document-page
+  .document-block.selected
+  .document-column-cell
+  + .document-column-cell::before,
+.document-studio-shell
+  .document-page
+  .columns-block-editor:focus-within
+  .document-column-cell
+  + .document-column-cell::before {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -7660,11 +7670,29 @@ body {
   display: none;
 }
 
-.document-studio-shell .document-page .document-block.selected .image-slot-editor > label:not(.instance-editability),
-.document-studio-shell .document-page .document-block.selected .image-slot-editor > .image-presentation-controls,
-.document-studio-shell .document-page .document-block.selected .image-slot-editor > .instance-editability,
-.document-studio-shell .document-page .image-slot-editor:focus-within > label:not(.instance-editability),
-.document-studio-shell .document-page .image-slot-editor:focus-within > .image-presentation-controls,
+.document-studio-shell
+  .document-page
+  .document-block.selected
+  .image-slot-editor
+  > label:not(.instance-editability),
+.document-studio-shell
+  .document-page
+  .document-block.selected
+  .image-slot-editor
+  > .image-presentation-controls,
+.document-studio-shell
+  .document-page
+  .document-block.selected
+  .image-slot-editor
+  > .instance-editability,
+.document-studio-shell
+  .document-page
+  .image-slot-editor:focus-within
+  > label:not(.instance-editability),
+.document-studio-shell
+  .document-page
+  .image-slot-editor:focus-within
+  > .image-presentation-controls,
 .document-studio-shell .document-page .image-slot-editor:focus-within > .instance-editability {
   display: grid;
 }
