@@ -155,16 +155,18 @@ function beginImageResize(
   const media = event.currentTarget.closest<HTMLElement>(".document-image-media");
   const container = media?.closest<HTMLElement>(".image-slot-editor, .column-image-editor");
   if (!container || !media) return;
-  const availableWidth = Math.max(container.getBoundingClientRect().width, 1);
   const mediaBounds = media.getBoundingClientRect();
-  const originWidthPx = Math.max(mediaBounds.width, 1);
-  const originHeight = Math.max(mediaBounds.height, 1);
+  const availableWidth = Math.max(container.clientWidth, 1);
+  const originWidthPx = Math.max(media.offsetWidth, 1);
+  const originHeight = Math.max(media.offsetHeight, 1);
+  const horizontalScale = mediaBounds.width / originWidthPx || 1;
+  const verticalScale = mediaBounds.height / originHeight || 1;
   const originX = event.clientX;
   const originY = event.clientY;
 
   const move = (pointerEvent: PointerEvent): void => {
-    const horizontalDelta = pointerEvent.clientX - originX;
-    const verticalDelta = pointerEvent.clientY - originY;
+    const horizontalDelta = (pointerEvent.clientX - originX) / horizontalScale;
+    const verticalDelta = (pointerEvent.clientY - originY) / verticalScale;
     onPatch({
       ...resizeImageObjectFrame(
         originWidthPx,
@@ -2802,15 +2804,14 @@ function ImageDirectManipulationControls({
               ".image-slot-editor, .column-image-editor",
             );
             if (!media || !container) return;
-            const bounds = media.getBoundingClientRect();
             const step = event.shiftKey ? 20 : 4;
             onPatch({
               ...resizeImageObjectFrame(
-                bounds.width,
-                bounds.height,
+                media.offsetWidth,
+                media.offsetHeight,
                 event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0,
                 event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : 0,
-                container.getBoundingClientRect().width,
+                container.clientWidth,
                 handle,
               ),
               aspectRatio: "FREE",
