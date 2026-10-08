@@ -675,7 +675,8 @@ export default function DocumentsPage(): React.JSX.Element {
   }
 
   async function uploadDocumentFile(target: DocumentFileTarget, file: File): Promise<void> {
-    if (!draft || uploadingTargetId) return;
+    const csrfToken = csrf;
+    if (!draft || !csrfToken || uploadingTargetId) return;
     const uploadDocumentId = draft.id;
     setUploadingTargetId(uploadTargetId(target));
     setError(null);
@@ -706,7 +707,7 @@ export default function DocumentsPage(): React.JSX.Element {
         method: "POST",
         body: uploadBody,
         credentials: "same-origin",
-        headers: { "x-csrf-token": csrf },
+        headers: { "x-csrf-token": csrfToken },
       });
       const uploadResponseBody = await uploadResponse.text();
       if (!uploadResponse.ok) throw new Error("El almacenamiento rechazó la carga.");
