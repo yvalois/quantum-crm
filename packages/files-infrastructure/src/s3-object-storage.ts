@@ -148,9 +148,11 @@ function assertVersion(value: string): void {
 function canonicalQuery(values: readonly (readonly [string, string])[]): string {
   return values
     .map(([key, value]) => [awsEncode(key), awsEncode(value)] as const)
-    .sort(([leftKey, leftValue], [rightKey, rightValue]) =>
-      leftKey === rightKey ? leftValue.localeCompare(rightValue) : leftKey.localeCompare(rightKey),
-    )
+    .sort(([leftKey, leftValue], [rightKey, rightValue]) => {
+      const left = leftKey === rightKey ? leftValue : leftKey;
+      const right = leftKey === rightKey ? rightValue : rightKey;
+      return left < right ? -1 : left > right ? 1 : 0;
+    })
     .map(([key, value]) => `${key}=${value}`)
     .join("&");
 }
