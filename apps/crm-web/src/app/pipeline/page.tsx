@@ -334,7 +334,8 @@ export default function PipelinePage(): React.JSX.Element {
       ].filter((element) => !element.hasAttribute("hidden"));
       if (focusable.length === 0) return;
       const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -621,7 +622,7 @@ export default function PipelinePage(): React.JSX.Element {
   const filterCount = activeFilterCount(filters);
 
   return (
-    <CrmShell className={styles.pipelineShell}>
+    <CrmShell className={styles.pipelineShell ?? ""}>
       <section className={styles.workspace} aria-busy={workspaceLoading || boardLoading}>
         <header className={styles.topbar}>
           <div className={styles.headingGroup}>

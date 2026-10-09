@@ -97,10 +97,10 @@ const historyLabel: Record<ConversationHistoryEntry["eventType"], string> = {
   NOTE_ADDED: "Nota interna registrada",
 };
 const statusClass: Record<Conversation["status"], string> = {
-  OPEN: styles.statusOPEN,
-  PENDING: styles.statusPENDING,
-  ESCALATED: styles.statusESCALATED,
-  CLOSED: styles.statusCLOSED,
+  OPEN: styles.statusOPEN ?? "",
+  PENDING: styles.statusPENDING ?? "",
+  ESCALATED: styles.statusESCALATED ?? "",
+  CLOSED: styles.statusCLOSED ?? "",
 };
 
 function cx(...names: Array<string | false | null | undefined>): string {
@@ -399,7 +399,8 @@ export default function InboxPage(): React.JSX.Element {
       ].filter((element) => !element.hasAttribute("hidden"));
       if (focusable.length === 0) return;
       const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -649,7 +650,7 @@ export default function InboxPage(): React.JSX.Element {
   }
 
   return (
-    <CrmShell className={styles.shell}>
+    <CrmShell className={styles.shell ?? ""}>
       <main className={styles.workspace} aria-busy={loading}>
         <header className={styles.topbar}>
           <div className={styles.titleGroup}>
