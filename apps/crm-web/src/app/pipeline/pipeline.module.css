@@ -15,10 +15,13 @@
 }
 .workspace {
   display: flex;
+  width: 100%;
+  max-width: none;
   min-width: 0;
   min-height: 100vh;
   flex-direction: column;
   gap: 1rem;
+  margin: 0;
   padding: clamp(1rem, 2.5vw, 2.3rem);
 }
 .topbar {
@@ -413,7 +416,8 @@
 }
 .filterForm label,
 .smallForm label,
-.drawerForm label {
+.drawerForm label,
+.pipelineCreatorForm label {
   display: grid;
   gap: 0.38rem;
   color: #596a6e;
@@ -427,6 +431,8 @@
 .drawerForm input,
 .drawerForm select,
 .drawerForm textarea,
+.pipelineCreatorForm input,
+.pipelineCreatorForm textarea,
 .detailMoveBar select,
 .tableMove {
   width: 100%;
@@ -447,13 +453,16 @@
 .drawerForm input:focus,
 .drawerForm select:focus,
 .drawerForm textarea:focus,
+.pipelineCreatorForm input:focus,
+.pipelineCreatorForm textarea:focus,
 .detailMoveBar select:focus,
 .tableMove:focus {
   border-color: #34a993;
   box-shadow: 0 0 0 0.2rem #34a99321;
 }
 .smallForm textarea,
-.drawerForm textarea {
+.drawerForm textarea,
+.pipelineCreatorForm textarea {
   min-height: 5.2rem;
   resize: vertical;
 }
@@ -501,6 +510,71 @@
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 1.45;
+}
+.stageInventory {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  border: 1px solid #d9e8e4;
+  border-radius: 0.7rem;
+  background: linear-gradient(145deg, #f4faf8, #fff);
+  padding: 1rem;
+}
+.stageInventory h3 {
+  margin: 0.22rem 0 0;
+  color: #20363a;
+  font-size: 0.95rem;
+}
+.stageInventoryList {
+  display: grid;
+  gap: 0.52rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stageInventoryList li {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  border: 1px solid #dce9e6;
+  border-radius: 0.58rem;
+  background: #fff;
+  padding: 0.62rem;
+}
+.stageInventoryList li > span {
+  display: grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  place-items: center;
+  border-radius: 0.42rem;
+  background: #e5f4ef;
+  color: var(--mint-deep);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+.stageInventoryList strong,
+.stageInventoryList p {
+  display: block;
+}
+.stageInventoryList strong {
+  color: #294449;
+  font-size: 0.76rem;
+}
+.stageInventoryList p,
+.stageInventoryEmpty {
+  margin: 0.18rem 0 0;
+  color: #718386;
+  font-size: 0.69rem;
+  line-height: 1.4;
+}
+.stageInventoryEmpty {
+  margin: 0;
+  border: 1px dashed #b7d9d1;
+  border-radius: 0.58rem;
+  background: #fff;
+  padding: 0.75rem;
 }
 .summaryStrip {
   display: grid;
@@ -1064,6 +1138,9 @@
 .detailDrawer {
   width: min(74rem, 100vw);
 }
+.pipelineCreatorDrawer {
+  width: min(58rem, 100vw);
+}
 .drawerIntro {
   margin: 1.25rem 0;
   border-left: 3px solid #7fc9b9;
@@ -1076,9 +1153,162 @@
   display: grid;
   gap: 0.85rem;
 }
+.pipelineCreatorForm {
+  display: grid;
+  gap: 1rem;
+}
+.drawerError {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid #efc2ba;
+  border-radius: 0.62rem;
+  background: #fff3f0;
+  color: #913a2c;
+  font-size: 0.75rem;
+  line-height: 1.42;
+  padding: 0.75rem 0.85rem;
+}
+.drawerError strong {
+  font-size: 0.77rem;
+}
 .drawerForm em {
   color: var(--coral);
   font-style: normal;
+}
+.pipelineCreatorForm em {
+  color: var(--coral);
+  font-style: normal;
+}
+.pipelineIdentityFields,
+.pipelineStageBuilder {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid #d9e8e4;
+  border-radius: 0.8rem;
+  background: #fff;
+  padding: 1rem;
+}
+.pipelineIdentityFields {
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+}
+.pipelineIdentityFields .setupSectionHeading {
+  grid-column: 1 / -1;
+}
+.setupSectionHeading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.68rem;
+  border-bottom: 1px solid #e4eeeb;
+  padding-bottom: 0.82rem;
+}
+.setupSectionHeading > span {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.5rem;
+  background: #e5f4ef;
+  color: var(--mint-deep);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.67rem;
+  font-weight: 850;
+}
+.setupSectionHeading h3 {
+  margin: 0.05rem 0 0;
+  color: #1d393d;
+  font-size: 0.94rem;
+}
+.setupSectionHeading p {
+  margin: 0.22rem 0 0;
+  color: #6b7d80;
+  font-size: 0.72rem;
+  line-height: 1.42;
+}
+.setupSectionHeading .textButton {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.pipelineDraftList {
+  display: grid;
+  gap: 0.62rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pipelineDraftList li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: start;
+  border: 1px solid #dce9e6;
+  border-radius: 0.65rem;
+  background: #fbfefd;
+  padding: 0.68rem;
+}
+.pipelineDraftNumber {
+  display: grid;
+  width: 1.72rem;
+  height: 1.72rem;
+  place-items: center;
+  border-radius: 0.46rem;
+  background: #e7f5f1;
+  color: var(--mint-deep);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+.pipelineDraftFields {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.6fr) minmax(14rem, 1.4fr);
+  gap: 0.65rem;
+}
+.pipelineDraftFields label {
+  display: grid;
+  gap: 0.32rem;
+  color: #637578;
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+.pipelineDraftFields label > span {
+  color: #77898b;
+}
+.pipelineDraftActions {
+  display: flex;
+  gap: 0.22rem;
+}
+.pipelineDraftActions button {
+  display: grid;
+  width: 1.78rem;
+  height: 1.78rem;
+  place-items: center;
+  border: 1px solid #d6e4e1;
+  border-radius: 0.42rem;
+  background: #fff;
+  color: #537174;
+  cursor: pointer;
+}
+.pipelineDraftActions button:hover:not(:disabled) {
+  border-color: #9ccdc2;
+  background: #eaf7f3;
+  color: var(--mint-deep);
+}
+.pipelineDraftActions button:last-child:hover:not(:disabled) {
+  border-color: #e7b9ad;
+  background: #fff0ed;
+  color: #a44937;
+}
+.pipelineDraftActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.pipelineSetupHint {
+  margin: 0;
+  border-left: 3px solid #e4b857;
+  color: #687a7d;
+  font-size: 0.71rem;
+  line-height: 1.45;
+  padding-left: 0.65rem;
 }
 .drawerPair {
   display: grid;
@@ -1501,6 +1731,27 @@
   }
   .drawerPair {
     grid-template-columns: 1fr;
+  }
+  .pipelineCreatorDrawer {
+    width: 100vw;
+  }
+  .pipelineIdentityFields {
+    grid-template-columns: 1fr;
+  }
+  .pipelineDraftList li {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+  .pipelineDraftFields {
+    grid-template-columns: 1fr;
+  }
+  .pipelineDraftActions {
+    grid-column: 2;
+  }
+  .setupSectionHeading {
+    flex-wrap: wrap;
+  }
+  .setupSectionHeading .textButton {
+    margin-left: 2.48rem;
   }
   .detailIdentity {
     align-items: flex-start;

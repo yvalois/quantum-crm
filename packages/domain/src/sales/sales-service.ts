@@ -38,15 +38,41 @@ export class SalesService {
     readonly permissions: readonly IamPermission[];
     readonly name: string;
     readonly description: string;
+    readonly stages?:
+      | readonly {
+          readonly name: string;
+          readonly description: string;
+        }[]
+      | undefined;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
   }) {
     allow(input.permissions, "crm:sales:configure");
+    if (input.stages && (input.stages.length < 1 || input.stages.length > 25))
+      throw new SalesValidationError();
+    const pipelineId = randomUUID();
+    const stageNames = new Set<string>();
+    const stages = Object.freeze(
+      (input.stages ?? []).map((stage, position) => {
+        const name = stage.name.trim();
+        const description = stage.description.trim();
+        const normalizedName = name.normalize("NFKC").toLowerCase();
+        if (!name || !description || stageNames.has(normalizedName)) throw new SalesValidationError();
+        stageNames.add(normalizedName);
+        return Object.freeze({
+          id: randomUUID(),
+          pipelineId,
+          name,
+          description,
+          position,
+        });
+      }),
+    );
     const pipeline: Pipeline = Object.freeze({
-      id: randomUUID(),
+      id: pipelineId,
       name: input.name.trim(),
       description: input.description.trim(),
-      stages: [],
+      stages,
       createdAt: this.clock(),
     });
     return this.repository.createPipeline({

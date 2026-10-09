@@ -39,6 +39,12 @@ type BoardView = "kanban" | "table";
 type SortMode = "recent" | "amount" | "name";
 type Panel = "filters" | "manage" | null;
 
+interface PipelineStageDraft {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+}
+
 const emptyFilters: BoardFilters = {
   ownerMemberId: "",
   status: "OPEN",
@@ -46,6 +52,33 @@ const emptyFilters: BoardFilters = {
   createdFrom: "",
   createdTo: "",
 };
+
+const suggestedPipelineStages: readonly PipelineStageDraft[] = [
+  {
+    id: "new-lead",
+    name: "Nuevo lead",
+    description: "El contacto llegó y espera la primera revisión comercial.",
+  },
+  {
+    id: "qualified",
+    name: "Calificación",
+    description: "Se confirmó necesidad, presupuesto y siguiente paso.",
+  },
+  {
+    id: "proposal",
+    name: "Propuesta enviada",
+    description: "La propuesta está en manos del cliente para revisión.",
+  },
+  {
+    id: "negotiation",
+    name: "Negociación",
+    description: "Se están resolviendo condiciones antes de cerrar.",
+  },
+];
+
+function freshSuggestedStages(): PipelineStageDraft[] {
+  return suggestedPipelineStages.map((stage) => ({ ...stage, id: crypto.randomUUID() }));
+}
 
 const statusLabels: Record<OpportunityStatus, string> = {
   OPEN: "Abierta",
@@ -70,6 +103,8 @@ function Icon({
 }): React.JSX.Element {
   const paths: Record<string, React.JSX.Element> = {
     add: <path d="M12 5v14M5 12h14" />,
+    arrowDown: <path d="M12 5v14m0 0-5-5m5 5 5-5" />,
+    arrowUp: <path d="M12 19V5m0 0-5 5m5-5 5 5" />,
     check: <path d="m5 12 4 4L19 6" />,
     chevron: <path d="m8 10 4 4 4-4" />,
     close: <path d="m6 6 12 12M18 6 6 18" />,
@@ -86,6 +121,7 @@ function Icon({
       <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4ZM19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14.2 3h-4.4l-.3 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2l.3 2.6h4.4l.3-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z" />
     ),
     table: <path d="M4 5h16v14H4zM4 10h16M4 15h16M9 5v14" />,
+    trash: <path d="M5 7h14M10 11v5M14 11v5M9 7l1-2h4l1 2m-8 0 1 13h8l1-13" />,
   };
   return (
     <svg
@@ -198,6 +234,10 @@ export default function PipelinePage(): React.JSX.Element {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showPipelineCreator, setShowPipelineCreator] = useState(false);
+  const [pipelineStageDrafts, setPipelineStageDrafts] = useState<PipelineStageDraft[]>(
+    freshSuggestedStages,
+  );
   const [showCreate, setShowCreate] = useState(false);
   const [editor, setEditor] = useState<Opportunity | null>(null);
   const [history, setHistory] = useState<OpportunityHistoryEntry[]>([]);
@@ -209,6 +249,9 @@ export default function PipelinePage(): React.JSX.Element {
   const opportunityRequest = useRef(0);
   const historyRequest = useRef(0);
   const didLoad = useRef(false);
+  const pipelineCreationAttempt = useRef<{ readonly key: string; readonly payload: string } | null>(
+    null,
+  );
   const drawerRef = useRef<HTMLElement | null>(null);
   const lastDrawerFocusRef = useRef<HTMLElement | null>(null);
 
@@ -313,10 +356,11 @@ export default function PipelinePage(): React.JSX.Element {
   }, [loadWorkspace]);
 
   useEffect(() => {
-    if (!showCreate && !editor) return;
+    if (!showPipelineCreator && !showCreate && !editor) return;
     lastDrawerFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const closeDrawer = (): void => {
+      setShowPipelineCreator(false);
       setShowCreate(false);
       setEditor(null);
     };
@@ -357,17 +401,21 @@ export default function PipelinePage(): React.JSX.Element {
       window.removeEventListener("keydown", onKeyDown);
       lastDrawerFocusRef.current?.focus();
     };
-  }, [editor, saving, showCreate]);
+  }, [editor, saving, showCreate, showPipelineCreator]);
 
   async function mutate<T>(
     url: string,
     body: unknown,
-    options: { readonly method?: "POST" | "PATCH"; readonly version?: string } = {},
+    options: {
+      readonly idempotencyKey?: string;
+      readonly method?: "POST" | "PATCH";
+      readonly version?: string;
+    } = {},
   ): Promise<T | null> {
     if (!csrf) throw new Error("La sesión todavía no está lista. Intenta de nuevo.");
     const headers: Record<string, string> = {
       "content-type": "application/json",
-      "idempotency-key": crypto.randomUUID(),
+      "idempotency-key": options.idempotencyKey ?? crypto.randomUUID(),
       "x-csrf-token": csrf,
     };
     if (options.version) headers["if-match"] = `"${options.version}"`;
@@ -427,19 +475,102 @@ export default function PipelinePage(): React.JSX.Element {
     }
   }
 
+  function openPipelineCreator(): void {
+    pipelineCreationAttempt.current = null;
+    setError(null);
+    setPipelineStageDrafts(freshSuggestedStages());
+    setShowPipelineCreator(true);
+  }
+
+  function updatePipelineStageDraft(
+    id: string,
+    field: "description" | "name",
+    value: string,
+  ): void {
+    setPipelineStageDrafts((current) =>
+      current.map((stage) => (stage.id === id ? { ...stage, [field]: value } : stage)),
+    );
+  }
+
+  function addPipelineStageDraft(): void {
+    setPipelineStageDrafts((current) =>
+      current.length >= 25
+        ? current
+        : [...current, { id: crypto.randomUUID(), name: "", description: "" }],
+    );
+  }
+
+  function removePipelineStageDraft(id: string): void {
+    setPipelineStageDrafts((current) =>
+      current.length === 1 ? current : current.filter((stage) => stage.id !== id),
+    );
+  }
+
+  function movePipelineStageDraft(id: string, direction: -1 | 1): void {
+    setPipelineStageDrafts((current) => {
+      const index = current.findIndex((stage) => stage.id === id);
+      const destination = index + direction;
+      if (index < 0 || destination < 0 || destination >= current.length) return current;
+      const next = [...current];
+      const moving = next[index];
+      const target = next[destination];
+      if (!moving || !target) return current;
+      next[index] = target;
+      next[destination] = moving;
+      return next;
+    });
+  }
+
   async function createPipeline(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const stages = pipelineStageDrafts.map((stage) => ({
+      description: stage.description.trim(),
+      name: stage.name.trim(),
+    }));
+    const duplicateStage = stages.some(
+      (stage, index) =>
+        stages.findIndex(
+          (candidate) =>
+            candidate.name.normalize("NFKC").toLocaleLowerCase() ===
+            stage.name.normalize("NFKC").toLocaleLowerCase(),
+        ) !== index,
+    );
+    if (
+      stages.length === 0 ||
+      stages.some((stage) => !stage.name || !stage.description) ||
+      duplicateStage
+    ) {
+      setError(
+        duplicateStage
+          ? "Cada etapa debe tener un nombre diferente."
+          : "Define al menos una etapa con nombre y criterio de entrada.",
+      );
+      return;
+    }
+    const payload = {
+      description: String(form.get("description") ?? "").trim(),
+      name: String(form.get("name") ?? "").trim(),
+      stages,
+    };
+    const serializedPayload = JSON.stringify(payload);
+    const idempotencyKey =
+      pipelineCreationAttempt.current?.payload === serializedPayload
+        ? pipelineCreationAttempt.current.key
+        : crypto.randomUUID();
+    pipelineCreationAttempt.current = { key: idempotencyKey, payload: serializedPayload };
     setSaving(true);
     setError(null);
     try {
-      const created = await mutate<Pipeline>("/api/pipeline", {
-        description: form.get("description"),
-        name: form.get("name"),
-      });
-      event.currentTarget.reset();
-      setNotice("Pipeline creado. Ahora puedes definir sus etapas.");
-      await loadWorkspace(created?.id);
+      const created = await mutate<Pipeline>("/api/pipeline", payload, { idempotencyKey });
+      if (!created) throw new Error("El servidor no confirmó el pipeline creado.");
+      pipelineCreationAttempt.current = null;
+      setShowPipelineCreator(false);
+      setOpenPanel(null);
+      setNotice(
+        `Pipeline creado con ${created.stages.length} ${created.stages.length === 1 ? "etapa" : "etapas"}.`,
+      );
+      await loadWorkspace(created.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible crear el pipeline.");
     } finally {
@@ -457,7 +588,7 @@ export default function PipelinePage(): React.JSX.Element {
       await mutate<PipelineStage>(`/api/pipeline/${selectedPipeline.id}/stages`, {
         description: form.get("description"),
         name: form.get("name"),
-        position: Number(form.get("position")),
+        position: selectedPipeline.stages.length,
       });
       event.currentTarget.reset();
       setNotice("Etapa añadida al pipeline.");
@@ -656,19 +787,31 @@ export default function PipelinePage(): React.JSX.Element {
               type="button"
               onClick={() => setOpenPanel((current) => (current === "manage" ? null : "manage"))}
               aria-expanded={openPanel === "manage"}
+              disabled={!selectedPipeline}
             >
               <Icon name="settings" size={16} />
-              Gestionar
+              Configurar etapas
             </button>
             <button
-              className={styles.primaryButton}
+              className={styles.secondaryButton}
               type="button"
-              onClick={() => setShowCreate(true)}
-              disabled={!selectedPipeline?.stages.length || contacts.length === 0}
+              onClick={openPipelineCreator}
+              disabled={workspaceLoading}
             >
               <Icon name="add" size={17} />
-              Nueva oportunidad
+              Crear pipeline
             </button>
+            {selectedPipeline?.stages.length ? (
+              <button
+                className={styles.primaryButton}
+                type="button"
+                onClick={() => setShowCreate(true)}
+                disabled={contacts.length === 0}
+              >
+                <Icon name="add" size={17} />
+                Nueva oportunidad
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -691,7 +834,8 @@ export default function PipelinePage(): React.JSX.Element {
           </div>
         ) : null}
 
-        <section className={styles.controlDeck} aria-label="Controles del pipeline">
+        {pipelines.length > 0 ? (
+          <section className={styles.controlDeck} aria-label="Controles del pipeline">
           <div className={styles.pipelineSelectWrap}>
             <span className={styles.controlLabel}>Pipeline</span>
             <select
@@ -784,7 +928,8 @@ export default function PipelinePage(): React.JSX.Element {
               <Icon name="table" size={17} />
             </button>
           </div>
-        </section>
+          </section>
+        ) : null}
 
         {openPanel === "filters" ? (
           <section className={styles.utilityPanel} aria-label="Filtros avanzados">
@@ -874,48 +1019,50 @@ export default function PipelinePage(): React.JSX.Element {
           </section>
         ) : null}
 
-        {openPanel === "manage" ? (
-          <section className={styles.utilityPanel} aria-label="Gestionar pipeline">
+        {openPanel === "manage" && selectedPipeline ? (
+          <section className={styles.utilityPanel} aria-label={`Configurar etapas de ${selectedPipeline.name}`}>
             <div className={styles.utilityPanelHeader}>
               <div>
-                <span>Configuración comercial</span>
-                <h2>Pipeline y etapas</h2>
+                <span>Configuración del proceso</span>
+                <h2>Etapas de {selectedPipeline.name}</h2>
               </div>
               <button type="button" onClick={() => setOpenPanel(null)} aria-label="Cerrar gestión">
                 <Icon name="close" size={16} />
               </button>
             </div>
             <div className={styles.manageGrid}>
-              <form className={styles.smallForm} onSubmit={(event) => void createPipeline(event)}>
-                <h3>Crear pipeline</h3>
-                <p>Úsalo cuando el proceso comercial tenga etapas distintas.</p>
-                <label>
-                  Nombre
-                  <input name="name" maxLength={160} required placeholder="Ej. Renovaciones" />
-                </label>
-                <label>
-                  Descripción
-                  <textarea
-                    name="description"
-                    maxLength={2000}
-                    required
-                    placeholder="Qué representa este proceso"
-                  />
-                </label>
-                <button className={styles.secondaryButton} disabled={saving} type="submit">
-                  Crear pipeline
-                </button>
-              </form>
+              <section className={styles.stageInventory} aria-label="Etapas actuales">
+                <div>
+                  <span className={styles.sectionKicker}>Etapas actuales</span>
+                  <h3>{selectedPipeline.stages.length} configuradas</h3>
+                </div>
+                {selectedPipeline.stages.length > 0 ? (
+                  <ol className={styles.stageInventoryList}>
+                    {selectedPipeline.stages.map((stage, index) => (
+                      <li key={stage.id}>
+                        <span>{String(index + 1).padStart(2, "0")}</span>
+                        <div>
+                          <strong>{stage.name}</strong>
+                          <p>{stage.description}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className={styles.stageInventoryEmpty}>
+                    Aún no hay etapas. Agrega la primera para habilitar oportunidades en este proceso.
+                  </p>
+                )}
+              </section>
               <form className={styles.smallForm} onSubmit={(event) => void createStage(event)}>
-                <h3>Añadir etapa</h3>
-                <p>Las etapas se muestran de izquierda a derecha en el tablero activo.</p>
+                <h3>Añadir una etapa</h3>
+                <p>Se agrega al final del recorrido; no necesitas calcular su posición.</p>
                 <label>
                   Nombre
                   <input
                     name="name"
                     maxLength={160}
                     required
-                    disabled={!selectedPipeline}
                     placeholder="Ej. Propuesta enviada"
                   />
                 </label>
@@ -925,26 +1072,10 @@ export default function PipelinePage(): React.JSX.Element {
                     name="description"
                     maxLength={2000}
                     required
-                    disabled={!selectedPipeline}
                     placeholder="Cuándo debe estar una oportunidad aquí"
                   />
                 </label>
-                <label>
-                  Posición
-                  <input
-                    name="position"
-                    type="number"
-                    min="0"
-                    defaultValue={selectedPipeline?.stages.length ?? 0}
-                    required
-                    disabled={!selectedPipeline}
-                  />
-                </label>
-                <button
-                  className={styles.secondaryButton}
-                  disabled={saving || !selectedPipeline}
-                  type="submit"
-                >
+                <button className={styles.secondaryButton} disabled={saving} type="submit">
                   Añadir etapa
                 </button>
               </form>
@@ -952,31 +1083,33 @@ export default function PipelinePage(): React.JSX.Element {
           </section>
         ) : null}
 
-        <section className={styles.summaryStrip} aria-label="Resumen del pipeline mostrado">
-          <div className={styles.summaryContext}>
-            <span>{selectedPipeline?.name ?? "Sin pipeline activo"}</span>
-            <small>
-              {selectedPipeline?.description ?? "Crea un proceso comercial para empezar."}
-            </small>
-          </div>
-          <div className={styles.summaryMetric}>
-            <span>En tablero</span>
-            <strong>{visibleOpportunities.length}</strong>
-          </div>
-          <div className={styles.summaryMetric}>
-            <span>Valor mostrado</span>
-            <strong>{totalValue}</strong>
-          </div>
-          <div className={`${styles.summaryMetric} ${styles.summaryMetricAccent}`}>
-            <span>Abiertas</span>
-            <strong>{openOpportunities.length}</strong>
-            <small>{openValue}</small>
-          </div>
-          <div className={styles.summaryMetric}>
-            <span>Ganadas</span>
-            <strong>{wonOpportunities.length}</strong>
-          </div>
-        </section>
+        {pipelines.length > 0 ? (
+          <section className={styles.summaryStrip} aria-label="Resumen del pipeline mostrado">
+            <div className={styles.summaryContext}>
+              <span>{selectedPipeline?.name ?? "Sin pipeline activo"}</span>
+              <small>
+                {selectedPipeline?.description ?? "Crea un proceso comercial para empezar."}
+              </small>
+            </div>
+            <div className={styles.summaryMetric}>
+              <span>En tablero</span>
+              <strong>{visibleOpportunities.length}</strong>
+            </div>
+            <div className={styles.summaryMetric}>
+              <span>Valor mostrado</span>
+              <strong>{totalValue}</strong>
+            </div>
+            <div className={`${styles.summaryMetric} ${styles.summaryMetricAccent}`}>
+              <span>Abiertas</span>
+              <strong>{openOpportunities.length}</strong>
+              <small>{openValue}</small>
+            </div>
+            <div className={styles.summaryMetric}>
+              <span>Ganadas</span>
+              <strong>{wonOpportunities.length}</strong>
+            </div>
+          </section>
+        ) : null}
 
         {workspaceLoading ? (
           <section className={styles.loadingState} role="status">
@@ -998,9 +1131,9 @@ export default function PipelinePage(): React.JSX.Element {
             <button
               className={styles.primaryButton}
               type="button"
-              onClick={() => setOpenPanel("manage")}
+              onClick={openPipelineCreator}
             >
-              <Icon name="add" size={17} /> Crear pipeline
+              <Icon name="add" size={17} /> Crear mi primer pipeline
             </button>
           </section>
         ) : null}
@@ -1339,6 +1472,178 @@ export default function PipelinePage(): React.JSX.Element {
           </section>
         ) : null}
       </section>
+
+      {showPipelineCreator ? (
+        <div
+          className={styles.drawerBackdrop}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target && !saving) setShowPipelineCreator(false);
+          }}
+        >
+          <aside
+            ref={drawerRef}
+            className={`${styles.drawer} ${styles.pipelineCreatorDrawer}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-pipeline-title"
+          >
+            <header className={styles.drawerHeader}>
+              <div>
+                <span>Nuevo proceso comercial</span>
+                <h2 id="new-pipeline-title">Crear pipeline</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPipelineCreator(false)}
+                disabled={saving}
+                aria-label="Cerrar"
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </header>
+            <p className={styles.drawerIntro}>
+              Un pipeline es el recorrido comercial. Define sus etapas ahora y el tablero quedará
+              listo para recibir oportunidades al guardar.
+            </p>
+            <form className={styles.pipelineCreatorForm} onSubmit={(event) => void createPipeline(event)}>
+              {error ? (
+                <div className={styles.drawerError} role="alert">
+                  <strong>No se pudo crear el pipeline.</strong>
+                  <span>{error}</span>
+                </div>
+              ) : null}
+              <section className={styles.pipelineIdentityFields} aria-labelledby="pipeline-identity-title">
+                <div className={styles.setupSectionHeading}>
+                  <span>01</span>
+                  <div>
+                    <h3 id="pipeline-identity-title">Identifica el proceso</h3>
+                    <p>Usa un nombre que el equipo reconozca sin explicación adicional.</p>
+                  </div>
+                </div>
+                <label>
+                  Nombre del pipeline <em>*</em>
+                  <input
+                    name="name"
+                    required
+                    maxLength={160}
+                    autoComplete="off"
+                    placeholder="Ej. Ventas corporativas"
+                  />
+                </label>
+                <label>
+                  Descripción <em>*</em>
+                  <textarea
+                    name="description"
+                    required
+                    maxLength={2000}
+                    placeholder="Qué proceso representa y cuándo se usa"
+                  />
+                </label>
+              </section>
+
+              <section className={styles.pipelineStageBuilder} aria-labelledby="pipeline-stages-title">
+                <div className={styles.setupSectionHeading}>
+                  <span>02</span>
+                  <div>
+                    <h3 id="pipeline-stages-title">Define las etapas iniciales</h3>
+                    <p>El orden de esta lista será el orden de las columnas en el tablero.</p>
+                  </div>
+                  <button
+                    className={styles.textButton}
+                    type="button"
+                    onClick={addPipelineStageDraft}
+                    disabled={pipelineStageDrafts.length >= 25 || saving}
+                  >
+                    <Icon name="add" size={15} /> Añadir etapa
+                  </button>
+                </div>
+                <ol className={styles.pipelineDraftList}>
+                  {pipelineStageDrafts.map((stage, index) => (
+                    <li key={stage.id}>
+                      <span className={styles.pipelineDraftNumber}>
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <div className={styles.pipelineDraftFields}>
+                        <label>
+                          <span>Nombre de la etapa</span>
+                          <input
+                            value={stage.name}
+                            required
+                            maxLength={160}
+                            onChange={(event) =>
+                              updatePipelineStageDraft(stage.id, "name", event.target.value)
+                            }
+                            placeholder="Ej. Calificación"
+                          />
+                        </label>
+                        <label>
+                          <span>Criterio de entrada</span>
+                          <input
+                            value={stage.description}
+                            required
+                            maxLength={2000}
+                            onChange={(event) =>
+                              updatePipelineStageDraft(stage.id, "description", event.target.value)
+                            }
+                            placeholder="Qué debe ocurrir para mover una oportunidad aquí"
+                          />
+                        </label>
+                      </div>
+                      <div className={styles.pipelineDraftActions} aria-label={`Acciones para ${stage.name || `etapa ${index + 1}`}`}>
+                        <button
+                          type="button"
+                          onClick={() => movePipelineStageDraft(stage.id, -1)}
+                          disabled={index === 0 || saving}
+                          aria-label={`Subir ${stage.name || `etapa ${index + 1}`}`}
+                          title="Subir etapa"
+                        >
+                          <Icon name="arrowUp" size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => movePipelineStageDraft(stage.id, 1)}
+                          disabled={index === pipelineStageDrafts.length - 1 || saving}
+                          aria-label={`Bajar ${stage.name || `etapa ${index + 1}`}`}
+                          title="Bajar etapa"
+                        >
+                          <Icon name="arrowDown" size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removePipelineStageDraft(stage.id)}
+                          disabled={pipelineStageDrafts.length === 1 || saving}
+                          aria-label={`Quitar ${stage.name || `etapa ${index + 1}`}`}
+                          title="Quitar etapa"
+                        >
+                          <Icon name="trash" size={15} />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <p className={styles.pipelineSetupHint}>
+                  Ganada, perdida o abandonada son estados de la oportunidad; no necesitas crear
+                  columnas separadas para esos cierres.
+                </p>
+              </section>
+              <div className={styles.drawerActions}>
+                <button
+                  className={styles.textButton}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setShowPipelineCreator(false)}
+                >
+                  Cancelar
+                </button>
+                <button className={styles.primaryButton} type="submit" disabled={saving}>
+                  {saving ? "Creando proceso…" : "Crear pipeline y etapas"}
+                </button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      ) : null}
 
       {showCreate && selectedPipeline ? (
         <div

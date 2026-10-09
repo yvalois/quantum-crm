@@ -1,4 +1,4 @@
-import type { CommercialActor, TaskRecord } from "@quantum-crm/domain";
+import type { CommercialActor, Pipeline, TaskRecord } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 import { describe, expect, it, vi } from "vitest";
 
@@ -311,5 +311,151 @@ describe("commercial PostgreSQL task repository", () => {
       expect(statement as string).toContain("task.assignee_member_id = $2::uuid");
       expect(values).toEqual([taskRow.id, actor.memberId]);
     }
+  });
+});
+
+describe("commercial PostgreSQL sales repository", () => {
+  const pipelineId = "019b0000-0000-7000-8000-000000000101";
+  const pipelineRow = Object.freeze({
+    id: pipelineId,
+    name: "Ventas corporativas",
+    description: "Proceso B2B",
+    created_at: now,
+  });
+  const stageRows = Object.freeze([
+    Object.freeze({
+      id: "019b0000-0000-7000-8000-000000000102",
+      pipeline_id: pipelineId,
+      name: "Descubrimiento",
+      description: "Necesidad validada",
+      position: 0,
+    }),
+    Object.freeze({
+      id: "019b0000-0000-7000-8000-000000000103",
+      pipeline_id: pipelineId,
+      name: "Propuesta",
+      description: "Oferta enviada",
+      position: 1,
+    }),
+  ]);
+  const pipeline: Pipeline = Object.freeze({
+    id: pipelineId,
+    name: pipelineRow.name,
+    description: pipelineRow.description,
+    stages: Object.freeze(
+      stageRows.map((stage) =>
+        Object.freeze({
+          id: stage.id,
+          pipelineId: stage.pipeline_id,
+          name: stage.name,
+          description: stage.description,
+          position: stage.position,
+        }),
+      ),
+    ),
+    createdAt: now,
+  });
+  const command = Object.freeze({
+    actor,
+    pipeline,
+    idempotencyKey: "pipeline-create-0001",
+    payloadHash: "f".repeat(64),
+  });
+
+  it("creates pipeline and initial stages once in one transaction and replays the stages", async () => {
+    let persisted = false;
+    let insertedStages = 0;
+    const query = vi.fn(async (text: string, _values?: unknown[]) => {
+      if (text.includes("FROM sales.command_idempotency")) {
+        return persisted
+          ? { rows: [{ payload_hash: command.payloadHash, response: pipelineRow }] }
+          : { rows: [] };
+      }
+      if (text.includes("INSERT INTO sales.pipelines")) return { rows: [pipelineRow] };
+      if (text.includes("INSERT INTO sales.pipeline_stages")) {
+        const row = stageRows[insertedStages];
+        insertedStages += 1;
+        return { rows: row ? [row] : [] };
+      }
+      if (text.includes("INSERT INTO sales.command_idempotency")) persisted = true;
+      return { rows: [] };
+    });
+    const client = { query, release: vi.fn() } as unknown as PoolClient;
+    const poolQuery = vi.fn(async (text: string) => {
+      if (text.includes("FROM sales.pipeline_stages")) return { rows: stageRows };
+      return { rows: [] };
+    });
+    const pool = {
+      connect: vi.fn(async () => client),
+      query: poolQuery,
+      end: vi.fn(async () => undefined),
+      on: vi.fn(),
+    } as unknown as PostgresPool;
+    const repository = createCommercialPostgresRepositories(pool).sales;
+
+    await expect(repository.createPipeline(command)).resolves.toMatchObject({
+      id: pipelineId,
+      stages: [
+        { name: "Descubrimiento", position: 0 },
+        { name: "Propuesta", position: 1 },
+      ],
+    });
+    await expect(repository.createPipeline(command)).resolves.toMatchObject({
+      id: pipelineId,
+      stages: [
+        { name: "Descubrimiento", position: 0 },
+        { name: "Propuesta", position: 1 },
+      ],
+    });
+
+    const statements = query.mock.calls.map(([text]) => text as string);
+    expect(statements.filter((text) => text === "BEGIN")).toHaveLength(2);
+    expect(statements.filter((text) => text === "COMMIT")).toHaveLength(2);
+    expect(
+      statements.filter((text) => text.includes("pg_advisory_xact_lock")),
+    ).toHaveLength(2);
+    expect(statements.filter((text) => text.includes("INSERT INTO sales.pipelines"))).toHaveLength(
+      1,
+    );
+    expect(
+      statements.filter((text) => text.includes("INSERT INTO sales.pipeline_stages")),
+    ).toHaveLength(2);
+    expect(
+      statements.filter((text) => text.includes("INSERT INTO sales.command_idempotency")),
+    ).toHaveLength(1);
+    expect(poolQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it("rolls back the pipeline when an initial-stage write fails", async () => {
+    let stageWrites = 0;
+    const query = vi.fn(async (text: string, _values?: unknown[]) => {
+      if (text.includes("FROM sales.command_idempotency")) return { rows: [] };
+      if (text.includes("INSERT INTO sales.pipelines")) return { rows: [pipelineRow] };
+      if (text.includes("INSERT INTO sales.pipeline_stages")) {
+        stageWrites += 1;
+        if (stageWrites === 2) throw new Error("stage write failed");
+        return { rows: [stageRows[0]] };
+      }
+      return { rows: [] };
+    });
+    const { pool } = poolWithClientQuery(query);
+    const repository = createCommercialPostgresRepositories(pool).sales;
+
+    await expect(repository.createPipeline(command)).rejects.toThrow();
+
+    const statements = query.mock.calls.map(([text]) => text as string);
+    expect(
+      statements.filter((text) => text.includes("pg_advisory_xact_lock")),
+    ).toHaveLength(1);
+    expect(statements.filter((text) => text.includes("INSERT INTO sales.pipelines"))).toHaveLength(
+      1,
+    );
+    expect(
+      statements.filter((text) => text.includes("INSERT INTO sales.pipeline_stages")),
+    ).toHaveLength(2);
+    expect(
+      statements.filter((text) => text.includes("INSERT INTO sales.command_idempotency")),
+    ).toHaveLength(0);
+    expect(statements.at(-1)).toBe("ROLLBACK");
   });
 });

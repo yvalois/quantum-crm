@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { OpportunityListQuerySchema, OpportunitySchema, UpdateOpportunitySchema } from "./sales.js";
+import {
+  CreatePipelineSchema,
+  OpportunityListQuerySchema,
+  OpportunitySchema,
+  UpdateOpportunitySchema,
+} from "./sales.js";
 
 describe("sales contracts", () => {
   it("accepts a complete opportunity and bounded board filters", () => {
@@ -38,6 +43,59 @@ describe("sales contracts", () => {
       OpportunityListQuerySchema.safeParse({
         createdFrom: "2026-10-01T00:00:00.000Z",
         createdTo: "2026-09-01T00:00:00.000Z",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts initial stages while preserving empty-pipeline compatibility", () => {
+    expect(
+      CreatePipelineSchema.parse({
+        name: "Ventas corporativas",
+        description: "Proceso comercial B2B",
+        stages: [
+          { name: "Descubrimiento", description: "Necesidad inicial validada" },
+          { name: "Propuesta", description: "Propuesta enviada" },
+        ],
+      }).stages,
+    ).toHaveLength(2);
+    expect(
+      CreatePipelineSchema.parse({
+        name: "Compatibilidad",
+        description: "Sin etapas iniciales",
+      }).stages,
+    ).toBeUndefined();
+    expect(
+      CreatePipelineSchema.safeParse({
+        name: "Duplicados",
+        description: "No deben crearse",
+        stages: [
+          { name: "Calificación", description: "Primera etapa" },
+          { name: " calificación ", description: "No permitida" },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      CreatePipelineSchema.safeParse({
+        name: "Sin etapas",
+        description: "Una colección explícita debe contener una etapa",
+        stages: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      CreatePipelineSchema.safeParse({
+        name: "Etapa vacía",
+        description: "No debe aceptarse",
+        stages: [{ name: " ", description: "Sin nombre" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      CreatePipelineSchema.safeParse({
+        name: "Demasiadas etapas",
+        description: "Debe respetar el límite del flujo guiado",
+        stages: Array.from({ length: 26 }, (_, index) => ({
+          name: `Etapa ${index + 1}`,
+          description: "Etapa inicial",
+        })),
       }).success,
     ).toBe(false);
   });
