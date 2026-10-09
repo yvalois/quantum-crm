@@ -866,13 +866,7 @@ export function createCommercialPostgresRepositories(
         for (const stage of input.pipeline.stages) {
           const stageResult = await client.query<StageRow>(
             `INSERT INTO sales.pipeline_stages (id, pipeline_id, name, description, position) VALUES ($1::uuid, $2::uuid, $3, $4, $5) RETURNING id::text, pipeline_id::text, name, description, position`,
-            [
-              stage.id,
-              stage.pipelineId,
-              stage.name,
-              stage.description,
-              stage.position,
-            ],
+            [stage.id, stage.pipelineId, stage.name, stage.description, stage.position],
           );
           if (!stageResult.rows[0]) throw new DatabaseUnavailableError();
         }

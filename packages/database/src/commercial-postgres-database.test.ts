@@ -411,9 +411,7 @@ describe("commercial PostgreSQL sales repository", () => {
     const statements = query.mock.calls.map(([text]) => text as string);
     expect(statements.filter((text) => text === "BEGIN")).toHaveLength(2);
     expect(statements.filter((text) => text === "COMMIT")).toHaveLength(2);
-    expect(
-      statements.filter((text) => text.includes("pg_advisory_xact_lock")),
-    ).toHaveLength(2);
+    expect(statements.filter((text) => text.includes("pg_advisory_xact_lock"))).toHaveLength(2);
     expect(statements.filter((text) => text.includes("INSERT INTO sales.pipelines"))).toHaveLength(
       1,
     );
@@ -444,9 +442,7 @@ describe("commercial PostgreSQL sales repository", () => {
     await expect(repository.createPipeline(command)).rejects.toThrow();
 
     const statements = query.mock.calls.map(([text]) => text as string);
-    expect(
-      statements.filter((text) => text.includes("pg_advisory_xact_lock")),
-    ).toHaveLength(1);
+    expect(statements.filter((text) => text.includes("pg_advisory_xact_lock"))).toHaveLength(1);
     expect(statements.filter((text) => text.includes("INSERT INTO sales.pipelines"))).toHaveLength(
       1,
     );

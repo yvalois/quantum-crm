@@ -57,7 +57,8 @@ export class SalesService {
         const name = stage.name.trim();
         const description = stage.description.trim();
         const normalizedName = name.normalize("NFKC").toLowerCase();
-        if (!name || !description || stageNames.has(normalizedName)) throw new SalesValidationError();
+        if (!name || !description || stageNames.has(normalizedName))
+          throw new SalesValidationError();
         stageNames.add(normalizedName);
         return Object.freeze({
           id: randomUUID(),

@@ -235,9 +235,8 @@ export default function PipelinePage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showPipelineCreator, setShowPipelineCreator] = useState(false);
-  const [pipelineStageDrafts, setPipelineStageDrafts] = useState<PipelineStageDraft[]>(
-    freshSuggestedStages,
-  );
+  const [pipelineStageDrafts, setPipelineStageDrafts] =
+    useState<PipelineStageDraft[]>(freshSuggestedStages);
   const [showCreate, setShowCreate] = useState(false);
   const [editor, setEditor] = useState<Opportunity | null>(null);
   const [history, setHistory] = useState<OpportunityHistoryEntry[]>([]);
@@ -836,98 +835,98 @@ export default function PipelinePage(): React.JSX.Element {
 
         {pipelines.length > 0 ? (
           <section className={styles.controlDeck} aria-label="Controles del pipeline">
-          <div className={styles.pipelineSelectWrap}>
-            <span className={styles.controlLabel}>Pipeline</span>
-            <select
-              value={selectedPipelineId}
-              onChange={(event) => void selectPipeline(event.target.value)}
-              aria-label="Seleccionar pipeline"
-              disabled={workspaceLoading || pipelines.length === 0}
-            >
-              {pipelines.length === 0 ? <option value="">Sin pipelines</option> : null}
-              {pipelines.map((pipeline) => (
-                <option key={pipeline.id} value={pipeline.id}>
-                  {pipeline.name}
-                </option>
-              ))}
-            </select>
-            <Icon name="chevron" size={15} />
-          </div>
-          <label className={styles.searchBox}>
-            <Icon name="search" size={17} />
-            <span className={styles.visuallyHidden}>Buscar oportunidad</span>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por oportunidad, contacto o responsable"
-              type="search"
-            />
-            {search ? (
-              <button type="button" onClick={() => setSearch("")} aria-label="Limpiar búsqueda">
-                <Icon name="close" size={14} />
-              </button>
-            ) : null}
-          </label>
-          <div className={styles.quickFilters} role="group" aria-label="Filtro rápido por estado">
-            {(
-              [
-                ["OPEN", "Abiertas"],
-                ["", "Todas"],
-                ["WON", "Ganadas"],
-              ] as const
-            ).map(([status, label]) => (
-              <button
-                className={filters.status === status ? styles.quickFilterActive : undefined}
-                key={label}
-                type="button"
-                onClick={() => void applyQuickStatus(status)}
-                aria-pressed={filters.status === status}
+            <div className={styles.pipelineSelectWrap}>
+              <span className={styles.controlLabel}>Pipeline</span>
+              <select
+                value={selectedPipelineId}
+                onChange={(event) => void selectPipeline(event.target.value)}
+                aria-label="Seleccionar pipeline"
+                disabled={workspaceLoading || pipelines.length === 0}
               >
-                {label}
+                {pipelines.length === 0 ? <option value="">Sin pipelines</option> : null}
+                {pipelines.map((pipeline) => (
+                  <option key={pipeline.id} value={pipeline.id}>
+                    {pipeline.name}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevron" size={15} />
+            </div>
+            <label className={styles.searchBox}>
+              <Icon name="search" size={17} />
+              <span className={styles.visuallyHidden}>Buscar oportunidad</span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por oportunidad, contacto o responsable"
+                type="search"
+              />
+              {search ? (
+                <button type="button" onClick={() => setSearch("")} aria-label="Limpiar búsqueda">
+                  <Icon name="close" size={14} />
+                </button>
+              ) : null}
+            </label>
+            <div className={styles.quickFilters} role="group" aria-label="Filtro rápido por estado">
+              {(
+                [
+                  ["OPEN", "Abiertas"],
+                  ["", "Todas"],
+                  ["WON", "Ganadas"],
+                ] as const
+              ).map(([status, label]) => (
+                <button
+                  className={filters.status === status ? styles.quickFilterActive : undefined}
+                  key={label}
+                  type="button"
+                  onClick={() => void applyQuickStatus(status)}
+                  aria-pressed={filters.status === status}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              className={`${styles.filterButton} ${filterCount > 0 ? styles.filterButtonActive : ""}`}
+              type="button"
+              onClick={() => setOpenPanel((current) => (current === "filters" ? null : "filters"))}
+              aria-expanded={openPanel === "filters"}
+            >
+              <Icon name="filter" size={16} />
+              Filtros{filterCount > 0 ? <span>{filterCount}</span> : null}
+            </button>
+            <label className={styles.sortSelect}>
+              <span className={styles.visuallyHidden}>Ordenar oportunidades</span>
+              <select
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value as SortMode)}
+              >
+                <option value="recent">Más recientes</option>
+                <option value="amount">Mayor valor</option>
+                <option value="name">Nombre A–Z</option>
+              </select>
+              <Icon name="chevron" size={14} />
+            </label>
+            <div className={styles.viewToggle} role="group" aria-label="Vista de oportunidades">
+              <button
+                type="button"
+                aria-label="Vista Kanban"
+                aria-pressed={boardView === "kanban"}
+                onClick={() => setBoardView("kanban")}
+                title="Vista Kanban"
+              >
+                <Icon name="columns" size={17} />
               </button>
-            ))}
-          </div>
-          <button
-            className={`${styles.filterButton} ${filterCount > 0 ? styles.filterButtonActive : ""}`}
-            type="button"
-            onClick={() => setOpenPanel((current) => (current === "filters" ? null : "filters"))}
-            aria-expanded={openPanel === "filters"}
-          >
-            <Icon name="filter" size={16} />
-            Filtros{filterCount > 0 ? <span>{filterCount}</span> : null}
-          </button>
-          <label className={styles.sortSelect}>
-            <span className={styles.visuallyHidden}>Ordenar oportunidades</span>
-            <select
-              value={sortMode}
-              onChange={(event) => setSortMode(event.target.value as SortMode)}
-            >
-              <option value="recent">Más recientes</option>
-              <option value="amount">Mayor valor</option>
-              <option value="name">Nombre A–Z</option>
-            </select>
-            <Icon name="chevron" size={14} />
-          </label>
-          <div className={styles.viewToggle} role="group" aria-label="Vista de oportunidades">
-            <button
-              type="button"
-              aria-label="Vista Kanban"
-              aria-pressed={boardView === "kanban"}
-              onClick={() => setBoardView("kanban")}
-              title="Vista Kanban"
-            >
-              <Icon name="columns" size={17} />
-            </button>
-            <button
-              type="button"
-              aria-label="Vista de tabla"
-              aria-pressed={boardView === "table"}
-              onClick={() => setBoardView("table")}
-              title="Vista de tabla"
-            >
-              <Icon name="table" size={17} />
-            </button>
-          </div>
+              <button
+                type="button"
+                aria-label="Vista de tabla"
+                aria-pressed={boardView === "table"}
+                onClick={() => setBoardView("table")}
+                title="Vista de tabla"
+              >
+                <Icon name="table" size={17} />
+              </button>
+            </div>
           </section>
         ) : null}
 
@@ -1020,7 +1019,10 @@ export default function PipelinePage(): React.JSX.Element {
         ) : null}
 
         {openPanel === "manage" && selectedPipeline ? (
-          <section className={styles.utilityPanel} aria-label={`Configurar etapas de ${selectedPipeline.name}`}>
+          <section
+            className={styles.utilityPanel}
+            aria-label={`Configurar etapas de ${selectedPipeline.name}`}
+          >
             <div className={styles.utilityPanelHeader}>
               <div>
                 <span>Configuración del proceso</span>
@@ -1050,7 +1052,8 @@ export default function PipelinePage(): React.JSX.Element {
                   </ol>
                 ) : (
                   <p className={styles.stageInventoryEmpty}>
-                    Aún no hay etapas. Agrega la primera para habilitar oportunidades en este proceso.
+                    Aún no hay etapas. Agrega la primera para habilitar oportunidades en este
+                    proceso.
                   </p>
                 )}
               </section>
@@ -1059,12 +1062,7 @@ export default function PipelinePage(): React.JSX.Element {
                 <p>Se agrega al final del recorrido; no necesitas calcular su posición.</p>
                 <label>
                   Nombre
-                  <input
-                    name="name"
-                    maxLength={160}
-                    required
-                    placeholder="Ej. Propuesta enviada"
-                  />
+                  <input name="name" maxLength={160} required placeholder="Ej. Propuesta enviada" />
                 </label>
                 <label>
                   Criterio de entrada
@@ -1128,11 +1126,7 @@ export default function PipelinePage(): React.JSX.Element {
             <p className={styles.emptyEyebrow}>Proceso comercial</p>
             <h2>Crea el primer pipeline de este perfil</h2>
             <p>Define el proceso y sus etapas para comenzar a registrar oportunidades reales.</p>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={openPipelineCreator}
-            >
+            <button className={styles.primaryButton} type="button" onClick={openPipelineCreator}>
               <Icon name="add" size={17} /> Crear mi primer pipeline
             </button>
           </section>
@@ -1506,14 +1500,20 @@ export default function PipelinePage(): React.JSX.Element {
               Un pipeline es el recorrido comercial. Define sus etapas ahora y el tablero quedará
               listo para recibir oportunidades al guardar.
             </p>
-            <form className={styles.pipelineCreatorForm} onSubmit={(event) => void createPipeline(event)}>
+            <form
+              className={styles.pipelineCreatorForm}
+              onSubmit={(event) => void createPipeline(event)}
+            >
               {error ? (
                 <div className={styles.drawerError} role="alert">
                   <strong>No se pudo crear el pipeline.</strong>
                   <span>{error}</span>
                 </div>
               ) : null}
-              <section className={styles.pipelineIdentityFields} aria-labelledby="pipeline-identity-title">
+              <section
+                className={styles.pipelineIdentityFields}
+                aria-labelledby="pipeline-identity-title"
+              >
                 <div className={styles.setupSectionHeading}>
                   <span>01</span>
                   <div>
@@ -1542,7 +1542,10 @@ export default function PipelinePage(): React.JSX.Element {
                 </label>
               </section>
 
-              <section className={styles.pipelineStageBuilder} aria-labelledby="pipeline-stages-title">
+              <section
+                className={styles.pipelineStageBuilder}
+                aria-labelledby="pipeline-stages-title"
+              >
                 <div className={styles.setupSectionHeading}>
                   <span>02</span>
                   <div>
@@ -1590,7 +1593,10 @@ export default function PipelinePage(): React.JSX.Element {
                           />
                         </label>
                       </div>
-                      <div className={styles.pipelineDraftActions} aria-label={`Acciones para ${stage.name || `etapa ${index + 1}`}`}>
+                      <div
+                        className={styles.pipelineDraftActions}
+                        aria-label={`Acciones para ${stage.name || `etapa ${index + 1}`}`}
+                      >
                         <button
                           type="button"
                           onClick={() => movePipelineStageDraft(stage.id, -1)}
