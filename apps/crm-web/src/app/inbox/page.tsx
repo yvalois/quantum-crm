@@ -107,7 +107,13 @@ function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
 }
 
-function Icon({ name, size = 18 }: { readonly name: IconName; readonly size?: number }): React.JSX.Element {
+function Icon({
+  name,
+  size = 18,
+}: {
+  readonly name: IconName;
+  readonly size?: number;
+}): React.JSX.Element {
   const common = {
     fill: "none",
     stroke: "currentColor",
@@ -153,7 +159,9 @@ function Icon({ name, size = 18 }: { readonly name: IconName; readonly size?: nu
       </>
     ),
     send: <path {...common} d="m4 4 16 8-16 8 3-8zM7 12h13" />,
-    spark: <path {...common} d="m12 3 1.55 5.45L19 10l-5.45 1.55L12 17l-1.55-5.45L5 10l5.45-1.55z" />,
+    spark: (
+      <path {...common} d="m12 3 1.55 5.45L19 10l-5.45 1.55L12 17l-1.55-5.45L5 10l5.45-1.55z" />
+    ),
     user: (
       <>
         <circle {...common} cx="12" cy="8" r="3.25" />
@@ -334,7 +342,8 @@ export default function InboxPage(): React.JSX.Element {
           return;
         }
         const session = (await sessionResponse.json()) as SessionPayload;
-        if (!session.authenticated || !session.csrfToken) throw new Error("La sesión no es válida.");
+        if (!session.authenticated || !session.csrfToken)
+          throw new Error("La sesión no es válida.");
         setCsrf(session.csrfToken);
         const [contactResponse, assigneeResponse, replyResponse] = await Promise.all([
           fetch("/api/contacts", { cache: "no-store", credentials: "same-origin" }),
@@ -362,7 +371,8 @@ export default function InboxPage(): React.JSX.Element {
   useEffect(() => {
     if (!showCreate && !showQuickReply && !showDocumentComposer) return;
 
-    lastModalFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    lastModalFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusModal = (): void => {
       const focusable = modalRef.current?.querySelector<HTMLElement>(
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -382,9 +392,11 @@ export default function InboxPage(): React.JSX.Element {
         return;
       }
       if (event.key !== "Tab" || !modalRef.current) return;
-      const focusable = [...modalRef.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      )].filter((element) => !element.hasAttribute("hidden"));
+      const focusable = [
+        ...modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((element) => !element.hasAttribute("hidden"));
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
@@ -484,11 +496,15 @@ export default function InboxPage(): React.JSX.Element {
         body: String(form.get("body")),
       });
       const created = (await response.json()) as { data: QuickReply };
-      setQuickReplies((current) => [...current, created.data].sort((a, b) => a.title.localeCompare(b.title)));
+      setQuickReplies((current) =>
+        [...current, created.data].sort((a, b) => a.title.localeCompare(b.title)),
+      );
       setShowQuickReply(false);
       setDraft(created.data.body);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No fue posible guardar la respuesta rápida.");
+      setError(
+        cause instanceof Error ? cause.message : "No fue posible guardar la respuesta rápida.",
+      );
     } finally {
       setSaving(false);
     }
@@ -606,7 +622,9 @@ export default function InboxPage(): React.JSX.Element {
       });
       await loadList(selected.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No fue posible actualizar la conversación.");
+      setError(
+        cause instanceof Error ? cause.message : "No fue posible actualizar la conversación.",
+      );
     } finally {
       setSaving(false);
     }
@@ -645,7 +663,11 @@ export default function InboxPage(): React.JSX.Element {
             <span className={styles.liveSignal}>
               <span aria-hidden="true" /> Datos sincronizados al abrir
             </span>
-            <button className={styles.primaryButton} type="button" onClick={() => setShowCreate(true)}>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={() => setShowCreate(true)}
+            >
               <Icon name="add" size={17} />
               Nueva conversación
             </button>
@@ -681,7 +703,8 @@ export default function InboxPage(): React.JSX.Element {
                   item === "ALL"
                     ? items.length
                     : item === "UNASSIGNED"
-                      ? items.filter((conversation) => conversation.assigneeMemberId === null).length
+                      ? items.filter((conversation) => conversation.assigneeMemberId === null)
+                          .length
                       : items.filter((conversation) => conversation.status === item).length;
                 return (
                   <button
@@ -828,11 +851,15 @@ export default function InboxPage(): React.JSX.Element {
                             {item.lastMessagePreview ?? item.subject ?? "Sin mensajes"}
                           </span>
                           <span className={styles.cardMeta}>
-                            <span className={styles.channelTag}>{channelShortLabel[item.channel]}</span>
+                            <span className={styles.channelTag}>
+                              {channelShortLabel[item.channel]}
+                            </span>
                             <span className={cx(styles.statusTag, statusClass[item.status])}>
                               {statusLabel[item.status]}
                             </span>
-                            {assignee ? <span className={styles.assigneeTag}>{assignee.displayName}</span> : null}
+                            {assignee ? (
+                              <span className={styles.assigneeTag}>{assignee.displayName}</span>
+                            ) : null}
                             {item.unreadCount > 0 ? (
                               <span className={styles.unreadBadge}>{item.unreadCount}</span>
                             ) : null}
@@ -917,7 +944,9 @@ export default function InboxPage(): React.JSX.Element {
                                 </span>
                                 <div>
                                   <strong>{item.documentSnapshot.title}</strong>
-                                  <small>Documento preparado · revisión {item.documentSnapshot.revision}</small>
+                                  <small>
+                                    Documento preparado · revisión {item.documentSnapshot.revision}
+                                  </small>
                                 </div>
                               </div>
                             ) : null}
@@ -955,12 +984,17 @@ export default function InboxPage(): React.JSX.Element {
                         <Icon name="note" size={15} /> Nota interna
                       </button>
                     </div>
-                    {mode === "note" ? <span className={styles.noteHint}>Solo la ve el equipo</span> : null}
+                    {mode === "note" ? (
+                      <span className={styles.noteHint}>Solo la ve el equipo</span>
+                    ) : null}
                   </div>
 
                   {composerBlocked ? (
                     <div className={styles.composerBlocked}>
-                      <Icon name={selected.attentionMode === "AGENT" ? "agent" : "inbox"} size={18} />
+                      <Icon
+                        name={selected.attentionMode === "AGENT" ? "agent" : "inbox"}
+                        size={18}
+                      />
                       <span>{composerBlocked}</span>
                       {selected.attentionMode === "AGENT" ? (
                         <button
@@ -971,7 +1005,11 @@ export default function InboxPage(): React.JSX.Element {
                           Tomar conversación
                         </button>
                       ) : (
-                        <button type="button" onClick={() => void update({ status: "OPEN" })} disabled={saving}>
+                        <button
+                          type="button"
+                          onClick={() => void update({ status: "OPEN" })}
+                          disabled={saving}
+                        >
                           Reabrir
                         </button>
                       )}
@@ -1004,7 +1042,9 @@ export default function InboxPage(): React.JSX.Element {
                               aria-label="Insertar respuesta rápida"
                               defaultValue=""
                               onChange={(event) => {
-                                const reply = quickReplies.find((item) => item.id === event.target.value);
+                                const reply = quickReplies.find(
+                                  (item) => item.id === event.target.value,
+                                );
                                 if (reply) setDraft(reply.body);
                                 event.target.value = "";
                               }}
@@ -1064,7 +1104,9 @@ export default function InboxPage(): React.JSX.Element {
                   </span>
                   <div>
                     <h2>{selectedContact?.displayName ?? "Contacto"}</h2>
-                    <p>{selectedContact?.email ?? selectedContact?.phone ?? "Sin canal registrado"}</p>
+                    <p>
+                      {selectedContact?.email ?? selectedContact?.phone ?? "Sin canal registrado"}
+                    </p>
                   </div>
                 </section>
 
@@ -1074,7 +1116,9 @@ export default function InboxPage(): React.JSX.Element {
                     <select
                       value={selected.assigneeMemberId ?? ""}
                       disabled={saving}
-                      onChange={(event) => void update({ assigneeMemberId: event.target.value || null })}
+                      onChange={(event) =>
+                        void update({ assigneeMemberId: event.target.value || null })
+                      }
                     >
                       <option value="">Sin asignar</option>
                       {assignees.map((member) => (
@@ -1102,7 +1146,10 @@ export default function InboxPage(): React.JSX.Element {
                 <section className={styles.attentionCard}>
                   <div>
                     <span className={styles.attentionIcon}>
-                      <Icon name={selected.attentionMode === "HUMAN" ? "user" : "agent"} size={17} />
+                      <Icon
+                        name={selected.attentionMode === "HUMAN" ? "user" : "agent"}
+                        size={17}
+                      />
                     </span>
                     <div>
                       <span>Atención actual</span>
@@ -1124,7 +1171,9 @@ export default function InboxPage(): React.JSX.Element {
                       })
                     }
                   >
-                    {selected.attentionMode === "HUMAN" ? "Entregar al agente" : "Tomar conversación"}
+                    {selected.attentionMode === "HUMAN"
+                      ? "Entregar al agente"
+                      : "Tomar conversación"}
                     <Icon name="arrow" size={15} />
                   </button>
                 </section>
@@ -1151,20 +1200,23 @@ export default function InboxPage(): React.JSX.Element {
                   </div>
                   {history.length ? (
                     <ol className={styles.activityList}>
-                      {history.slice(-6).reverse().map((entry) => (
-                        <li key={entry.id}>
-                          <span />
-                          <div>
-                            <strong>{historyLabel[entry.eventType]}</strong>
-                            <p>
-                              {entry.previousValue && entry.nextValue
-                                ? `${entry.previousValue} → ${entry.nextValue}`
-                                : entry.nextValue ?? entry.previousValue ?? "Registrado"}
-                            </p>
-                            <time>{when(entry.createdAt)}</time>
-                          </div>
-                        </li>
-                      ))}
+                      {history
+                        .slice(-6)
+                        .reverse()
+                        .map((entry) => (
+                          <li key={entry.id}>
+                            <span />
+                            <div>
+                              <strong>{historyLabel[entry.eventType]}</strong>
+                              <p>
+                                {entry.previousValue && entry.nextValue
+                                  ? `${entry.previousValue} → ${entry.nextValue}`
+                                  : (entry.nextValue ?? entry.previousValue ?? "Registrado")}
+                              </p>
+                              <time>{when(entry.createdAt)}</time>
+                            </div>
+                          </li>
+                        ))}
                     </ol>
                   ) : (
                     <p className={styles.activityEmpty}>Aún no hay actividad adicional.</p>
@@ -1211,7 +1263,12 @@ export default function InboxPage(): React.JSX.Element {
                   configurar su proveedor.
                 </p>
               </div>
-              <button className={styles.iconButton} type="button" aria-label="Cerrar" onClick={() => setShowCreate(false)}>
+              <button
+                className={styles.iconButton}
+                type="button"
+                aria-label="Cerrar"
+                onClick={() => setShowCreate(false)}
+              >
                 <Icon name="close" size={18} />
               </button>
             </header>
@@ -1240,14 +1297,27 @@ export default function InboxPage(): React.JSX.Element {
               </label>
               <label className={styles.modalWide}>
                 Asunto
-                <input name="subject" maxLength={240} placeholder="Ej. Consulta sobre disponibilidad" />
+                <input
+                  name="subject"
+                  maxLength={240}
+                  placeholder="Ej. Consulta sobre disponibilidad"
+                />
               </label>
               <label className={styles.modalWide}>
                 Mensaje
-                <textarea name="initialMessage" required maxLength={16000} placeholder="Escribe el primer mensaje…" />
+                <textarea
+                  name="initialMessage"
+                  required
+                  maxLength={16000}
+                  placeholder="Escribe el primer mensaje…"
+                />
               </label>
               <footer>
-                <button className={styles.outlineButton} type="button" onClick={() => setShowCreate(false)}>
+                <button
+                  className={styles.outlineButton}
+                  type="button"
+                  onClick={() => setShowCreate(false)}
+                >
                   Cancelar
                 </button>
                 <button className={styles.primaryButton} type="submit" disabled={saving}>
@@ -1280,21 +1350,41 @@ export default function InboxPage(): React.JSX.Element {
                 <h2 id="quick-reply-title">Guardar para el equipo</h2>
                 <p>Quedará disponible al redactar respuestas en esta bandeja.</p>
               </div>
-              <button className={styles.iconButton} type="button" aria-label="Cerrar" onClick={() => setShowQuickReply(false)}>
+              <button
+                className={styles.iconButton}
+                type="button"
+                aria-label="Cerrar"
+                onClick={() => setShowQuickReply(false)}
+              >
                 <Icon name="close" size={18} />
               </button>
             </header>
             <form className={styles.modalForm} onSubmit={(event) => void createQuickReply(event)}>
               <label>
                 Nombre de la respuesta
-                <input name="title" required maxLength={120} placeholder="Ej. Solicitar documentos" />
+                <input
+                  name="title"
+                  required
+                  maxLength={120}
+                  placeholder="Ej. Solicitar documentos"
+                />
               </label>
               <label className={styles.modalWide}>
                 Contenido
-                <textarea name="body" required maxLength={16000} defaultValue={draft} placeholder="Texto que insertará el equipo…" />
+                <textarea
+                  name="body"
+                  required
+                  maxLength={16000}
+                  defaultValue={draft}
+                  placeholder="Texto que insertará el equipo…"
+                />
               </label>
               <footer>
-                <button className={styles.outlineButton} type="button" onClick={() => setShowQuickReply(false)}>
+                <button
+                  className={styles.outlineButton}
+                  type="button"
+                  onClick={() => setShowQuickReply(false)}
+                >
                   Cancelar
                 </button>
                 <button className={styles.primaryButton} type="submit" disabled={saving}>
@@ -1326,7 +1416,9 @@ export default function InboxPage(): React.JSX.Element {
           >
             <header>
               <div>
-                <span className={styles.productEyebrow}>Documento para {selectedContact?.displayName ?? "el contacto"}</span>
+                <span className={styles.productEyebrow}>
+                  Documento para {selectedContact?.displayName ?? "el contacto"}
+                </span>
                 <h2 id="document-composer-title">
                   {preparedDocument ? "Revisa lo que se enviará" : "Elegir una plantilla"}
                 </h2>
@@ -1347,7 +1439,8 @@ export default function InboxPage(): React.JSX.Element {
             {preparedDocument ? (
               <>
                 <p className={styles.documentIntro}>
-                  Los valores e imágenes autorizados por la plantilla pueden ajustarse antes de dejar el documento en cola.
+                  Los valores e imágenes autorizados por la plantilla pueden ajustarse antes de
+                  dejar el documento en cola.
                 </p>
                 <div className={styles.documentFields}>
                   {preparedDocument.blocks.map((block) => {
@@ -1404,16 +1497,29 @@ export default function InboxPage(): React.JSX.Element {
                   })}
                 </div>
                 <footer className={styles.documentFooter}>
-                  <button className={styles.outlineButton} type="button" disabled={saving} onClick={() => void updatePreparedBlocks(preparedDocument.blocks)}>
+                  <button
+                    className={styles.outlineButton}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void updatePreparedBlocks(preparedDocument.blocks)}
+                  >
                     Guardar ajustes
                   </button>
-                  <button className={styles.primaryButton} type="button" disabled={saving} onClick={() => void queuePreparedDocument()}>
+                  <button
+                    className={styles.primaryButton}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void queuePreparedDocument()}
+                  >
                     Encolar documento <Icon name="arrow" size={16} />
                   </button>
                 </footer>
               </>
             ) : documentTemplates.length ? (
-              <form className={styles.modalForm} onSubmit={(event) => void createDocumentForConversation(event)}>
+              <form
+                className={styles.modalForm}
+                onSubmit={(event) => void createDocumentForConversation(event)}
+              >
                 <label className={styles.modalWide}>
                   Plantilla
                   <select name="templateId" required defaultValue="">
@@ -1433,7 +1539,11 @@ export default function InboxPage(): React.JSX.Element {
                 </label>
                 <input name="kind" type="hidden" value="QUOTE" />
                 <footer>
-                  <button className={styles.outlineButton} type="button" onClick={() => setShowDocumentComposer(false)}>
+                  <button
+                    className={styles.outlineButton}
+                    type="button"
+                    onClick={() => setShowDocumentComposer(false)}
+                  >
                     Cancelar
                   </button>
                   <button className={styles.primaryButton} type="submit" disabled={saving}>
