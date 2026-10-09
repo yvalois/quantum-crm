@@ -606,13 +606,10 @@ export default function FormsPage(): React.JSX.Element {
                                 <div className="form-choice-options" aria-label="Opciones de respuesta">
                                   {field.options.map((option, optionIndex) => (
                                     <div key={`${field.id}-${optionIndex}`}>
-                                      <span aria-hidden="true">
-                                        {field.type === "SINGLE_CHOICE"
-                                          ? "○"
-                                          : field.type === "MULTIPLE_CHOICE"
-                                            ? "□"
-                                            : "⌄"}
-                                      </span>
+                                      <span
+                                        aria-hidden="true"
+                                        className={`form-option-marker form-option-marker-${field.type.toLowerCase()}`}
+                                      />
                                       <input
                                         value={option}
                                         aria-label={`Opcion ${optionIndex + 1}`}
@@ -634,7 +631,7 @@ export default function FormsPage(): React.JSX.Element {
                                           })
                                         }
                                       >
-                                        ×
+                                        Quitar
                                       </button>
                                     </div>
                                   ))}
@@ -858,7 +855,9 @@ export default function FormsPage(): React.JSX.Element {
                           })
                         }
                       >
-                        ▤
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M5 5h14M5 10h14M5 15h9M5 20h9" />
+                        </svg>
                       </button>
                     </aside>
                     <aside

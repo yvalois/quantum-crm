@@ -641,10 +641,22 @@
   align-items: center;
   gap: 8px;
 }
-.form-choice-options > div > span {
-  color: #728080;
-  font-size: 1.1rem;
-  text-align: center;
+.form-option-marker {
+  display: block;
+  width: .95rem;
+  height: .95rem;
+  justify-self: center;
+  border: 1.5px solid #70807f;
+}
+.form-option-marker-single_choice { border-radius: 50%; }
+.form-option-marker-multiple_choice { border-radius: 2px; }
+.form-option-marker-dropdown {
+  width: 0;
+  height: 0;
+  border: 0;
+  border-top: .48rem solid #70807f;
+  border-right: .35rem solid transparent;
+  border-left: .35rem solid transparent;
 }
 .form-choice-options > div input {
   min-width: 0;
@@ -657,13 +669,14 @@
   border-radius: 0;
 }
 .form-choice-options > div button {
-  min-width: 2rem;
+  min-width: auto;
   min-height: 2rem;
   padding: 0;
   color: #82918f;
   background: transparent;
   border: 0;
-  font-size: 1.2rem;
+  font-size: .72rem;
+  font-weight: 700;
   cursor: pointer;
 }
 .form-choice-options > div button:disabled { opacity: .32; cursor: not-allowed; }
@@ -694,6 +707,7 @@
   box-shadow: 0 2px 7px rgb(20 42 45 / 10%);
 }
 .form-tool-primary { color: #fff; background: #16877f; border-color: #16877f; }
+.form-tool-button svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .forms-responses {
   padding: 24px;
 }
