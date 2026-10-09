@@ -140,10 +140,10 @@ export default function FormsPage(): React.JSX.Element {
   const [responses, setResponses] = useState<SubmittedFormResponse[]>([]);
   const [tab, setTab] = useState<"build" | "responses">("build");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [showFormList, setShowFormList] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [draggedField, setDraggedField] = useState<{ sectionId: string; fieldId: string } | null>(null);
-  const [insertFieldType, setInsertFieldType] = useState<FormFieldType>("SHORT_TEXT");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -393,7 +393,7 @@ export default function FormsPage(): React.JSX.Element {
           </p>
         ) : null}
         {notice ? <p className="form-notice">{notice}</p> : null}
-        <div className="forms-workspace">
+        <div className={`forms-workspace ${draft && !showFormList ? "forms-workspace-editing" : ""}`}>
           <aside className="forms-list">
             <h2>Tus formularios</h2>
             {loading ? <p>Cargando...</p> : null}
@@ -404,6 +404,7 @@ export default function FormsPage(): React.JSX.Element {
                 onClick={() => {
                   setSelectedId(form.id);
                   setTab("build");
+                  setShowFormList(false);
                 }}
               >
                 <strong>{form.title}</strong>
@@ -442,6 +443,9 @@ export default function FormsPage(): React.JSX.Element {
                 <>
                   <section className="forms-editor-toolbar">
                     <div>
+                      <button type="button" onClick={() => setShowFormList(true)}>
+                        Formularios
+                      </button>
                       <button onClick={() => void save()} disabled={saving}>
                         Guardar
                       </button>
@@ -496,7 +500,14 @@ export default function FormsPage(): React.JSX.Element {
                         />
                       </section>
                       {draft.definition.sections.map((section, sectionIndex) => (
-                        <article className="form-section-editor" key={section.id}>
+                        <article
+                          className={`form-section-editor ${
+                            sectionIndex === 0 && draft.definition.sections.length === 1
+                              ? "form-section-editor-default"
+                              : ""
+                          }`}
+                          key={section.id}
+                        >
                           <header>
                             <span>SECCION {sectionIndex + 1}</span>
                             <input
@@ -745,7 +756,7 @@ export default function FormsPage(): React.JSX.Element {
                               className="form-insert-between"
                               type="button"
                               onClick={() => {
-                                addField(section.id, insertFieldType, index + 1);
+                                addField(section.id, "SHORT_TEXT", index + 1);
                               }}
                             >
                               + Añadir desde biblioteca
@@ -788,22 +799,11 @@ export default function FormsPage(): React.JSX.Element {
                         type="button"
                         title="Agregar pregunta"
                         onClick={() =>
-                          addField(activeSectionId ?? draft.definition.sections[0]!.id, insertFieldType)
+                          addField(activeSectionId ?? draft.definition.sections[0]!.id, "SHORT_TEXT")
                         }
                       >
                         +
                       </button>
-                      <label className="form-tool-select" title="Tipo de pregunta">
-                        <span>Tipo</span>
-                        <select
-                          value={insertFieldType}
-                          onChange={(event) => setInsertFieldType(event.target.value as FormFieldType)}
-                        >
-                          {Object.entries(fieldLabels).map(([type, label]) => (
-                            <option key={type} value={type}>{label}</option>
-                          ))}
-                        </select>
-                      </label>
                       <button
                         className="form-tool-button"
                         type="button"
