@@ -181,24 +181,23 @@
 }
 .forms-builder-grid {
   display: grid;
-  grid-template-columns: 210px minmax(480px, 760px) minmax(240px, 320px);
-  grid-template-areas: "tools canvas preview";
-  gap: 20px;
-  padding: 24px;
+  grid-template-columns: minmax(0, 760px) 210px;
+  grid-template-areas: "canvas tools";
+  gap: 14px;
+  padding: 34px 20px 90px;
   align-items: start;
   justify-content: center;
-  background: #eaf0f1;
+  background: #f0f3f3;
 }
 .forms-builder {
   grid-area: canvas;
   display: grid;
   gap: 16px;
-  min-height: 640px;
-  padding: 24px;
-  background: #f8fbfb;
-  border: 1px solid #d5e0e0;
-  border-radius: 12px;
-  box-shadow: 0 18px 42px rgba(14, 35, 37, .08);
+  min-height: 680px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 .forms-canvas-tools {
   grid-area: tools;
@@ -206,10 +205,10 @@
   top: 18px;
   display: grid;
   gap: 18px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--panel) 94%, #042e2a);
+  padding: 12px;
+  border: 1px solid #d5e0e0;
+  border-radius: 8px;
+  background: #fff;
 }
 .forms-canvas-tools h2,
 .forms-canvas-tools p { margin: 4px 0; }
@@ -226,16 +225,16 @@
 .form-field-palette b { font-size: .74rem; }
 .form-field-palette small { color: var(--muted); font-size: .62rem; }
 .form-section-editor {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel-strong);
+  border: 1px solid #d5e0e0;
+  border-radius: 8px;
+  background: #fff;
   overflow: hidden;
 }
 .form-section-editor > header {
   display: grid;
   gap: 7px;
   padding: 18px;
-  border-left: 3px solid var(--accent);
+  border-left: 7px solid var(--accent);
   border-bottom: 1px solid var(--line);
 }
 .form-section-editor > header span {
