@@ -1020,16 +1020,7 @@ export default function FormsPage(): React.JSX.Element {
                 </section>
               )}
             </main>
-          ) : (
-            <main className="forms-empty">
-              <span>Q</span>
-              <h2>Crea tu primer formulario</h2>
-              <p>Configura preguntas, publicalo y recibe respuestas sin salir de Quantum.</p>
-              <button className="primary-action" onClick={() => void createForm()}>
-                Crear formulario
-              </button>
-            </main>
-          )}
+          ) : null}
         </div>
       </section>
     </CrmShell>
