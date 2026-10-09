@@ -329,25 +329,31 @@ export default function PublicFormPage(): React.JSX.Element {
         </section>
       </main>
     );
+
+  const presentationTheme =
+    form.theme.backgroundColor === "#07110f" && form.theme.accentColor === "#5de1d4"
+      ? { ...form.theme, accentColor: "#5b43e8", backgroundColor: "#f3f0ff" }
+      : form.theme;
+
   if (done)
     return (
-      <main className="public-form-page" style={{ background: form.theme.backgroundColor }}>
+      <main className="public-form-page" style={{ background: presentationTheme.backgroundColor }}>
         <section className="public-form-message">
-          <span style={{ background: form.theme.accentColor }}>Q</span>
+          <span style={{ background: presentationTheme.accentColor }}>Q</span>
           <h1>Respuesta enviada</h1>
           <p>{form.theme.completionMessage}</p>
         </section>
       </main>
     );
   return (
-    <main className="public-form-page" style={{ background: form.theme.backgroundColor }}>
+    <main className="public-form-page" style={{ background: presentationTheme.backgroundColor }}>
       <form
         className="public-form-card"
         onSubmit={(event) => void submit(event)}
-        style={{ borderTopColor: form.theme.accentColor }}
+        style={{ borderTopColor: presentationTheme.accentColor }}
       >
         <header>
-          <span style={{ background: form.theme.accentColor }}>Q</span>
+          <span style={{ background: presentationTheme.accentColor }}>Q</span>
           <p>FORMULARIO QUANTUM</p>
           {form.theme.heroImageUrl ? <img className="public-form-hero" src={form.theme.heroImageUrl} alt="Imagen de portada" /> : null}
           <h1>{form.title}</h1>
@@ -382,7 +388,7 @@ export default function PublicFormPage(): React.JSX.Element {
         ) : null}
         <button
           className="public-form-submit"
-          style={{ background: form.theme.accentColor }}
+          style={{ background: presentationTheme.accentColor }}
           disabled={saving}
         >
           {saving ? "Enviando..." : "Enviar respuesta"}

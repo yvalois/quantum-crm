@@ -42,8 +42,8 @@ const fieldLabels: Record<FormFieldType, string> = {
 };
 
 const defaultTheme: FormTheme = {
-  accentColor: "#5de1d4",
-  backgroundColor: "#07110f",
+  accentColor: "#5b43e8",
+  backgroundColor: "#f3f0ff",
   logoFileId: null,
   heroImageUrl: null,
   headerVideoUrl: null,

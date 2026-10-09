@@ -774,15 +774,15 @@
   padding: 48px 18px;
   display: grid;
   place-items: start center;
-  color: #eff9f7;
+  color: #242033;
 }
 .public-form-card {
   width: min(720px, 100%);
-  background: #101917;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid #dedbea;
   border-top: 7px solid;
   border-radius: 12px;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 24px 60px rgb(56 44 120 / 16%);
 }
 .public-form-card > header,
 .public-form-card > section,
@@ -808,7 +808,7 @@
   margin: 18px 0 8px;
   font-size: 0.68rem;
   letter-spacing: 0.15em;
-  color: #93a8a3;
+  color: #6d5bd0;
 }
 .public-form-video { color: inherit; text-decoration-color: currentColor; }
 .public-form-card h1 {
@@ -818,14 +818,14 @@
 }
 .public-form-card > section {
   padding: 24px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-top: 1px solid #e8e5f0;
 }
 .public-form-section-title h2,
 .public-form-section-title p {
   margin: 4px 0;
 }
 .public-form-section-title small {
-  color: #7e9690;
+  color: #746d8c;
   letter-spacing: 0.12em;
 }
 .public-form-field {
@@ -834,24 +834,24 @@
   margin-top: 22px;
 }
 .public-form-field > strong em {
-  color: #ff8c99;
+  color: #c23355;
   font-style: normal;
 }
 .public-form-field > small {
-  color: #91a49f;
+  color: #625d70;
 }
 .public-form-upload {
   display: grid;
   gap: 7px;
 }
 .public-form-upload input[type="file"] {
-  border: 1px dashed #7e9690;
+  border: 1px dashed #a69fbd;
   border-radius: 8px;
   padding: 10px;
-  background: #fff;
+  background: #faf9ff;
 }
 .public-form-upload em {
-  color: #5de1d4;
+  color: #5642d5;
   font-style: normal;
   font-weight: 700;
 }
@@ -860,10 +860,14 @@
 .public-form-field select {
   width: 100%;
   padding: 12px;
-  color: inherit;
-  background: #07110f;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #242033;
+  background: #faf9ff;
+  border: 1px solid #d9d4e7;
   border-radius: 7px;
+}
+.public-form-field input[type="radio"],
+.public-form-field input[type="checkbox"] {
+  accent-color: #5b43e8;
 }
 .public-form-options {
   display: grid;
@@ -888,7 +892,7 @@
   padding: 13px 22px;
   border: 0;
   border-radius: 7px;
-  color: #02110e;
+  color: #fff;
   font-weight: 800;
   cursor: pointer;
 }
@@ -897,8 +901,8 @@
   margin-top: 15vh;
   padding: 36px;
   text-align: center;
-  background: #101917;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  border: 1px solid #dedbea;
   border-radius: 12px;
 }
 .public-form-message > span {
