@@ -1348,6 +1348,7 @@ export default function PipelinePage(): React.JSX.Element {
           }}
         >
           <aside
+            ref={drawerRef}
             className={styles.drawer}
             role="dialog"
             aria-modal="true"
@@ -1464,6 +1465,7 @@ export default function PipelinePage(): React.JSX.Element {
           }}
         >
           <aside
+            ref={drawerRef}
             className={`${styles.drawer} ${styles.detailDrawer}`}
             role="dialog"
             aria-modal="true"
@@ -1587,7 +1589,7 @@ export default function PipelinePage(): React.JSX.Element {
                     placeholder="Añade contexto cuando la oportunidad no continúe."
                   />
                   {closeReasonError ? (
-                    <small className={styles.fieldError} id="close-reason-error" role="alert">
+                    <small className={styles.historyError} id="close-reason-error" role="alert">
                       {closeReasonError}
                     </small>
                   ) : null}
