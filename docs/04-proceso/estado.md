@@ -238,6 +238,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 > **FORM-05 (2026-10-08): EN_CURSO.** Se incorpora la carga real de imagenes en respuestas de formularios publicos: reserva segura, analisis previo a disponibilidad y referencia por respuesta. Tambien se prepara un formulario de prueba con fecha y tipos de entrada representativos.
 
+> **FORM-05 (2026-10-08): VALIDADO EN VPS.** El candidato `ba49e4b8` construyo `api` y `crm-web` en el VPS; ambos contenedores quedaron `healthy`. En el perfil InterAmerican se creo y publico el formulario de prueba con texto obligatorio, fecha obligatoria, lista de vehiculo e imagen. Su pagina publica muestra los cuatro campos y la carga de imagen restringida a PNG, JPG o WebP (20 MiB por archivo); la carga pasa por reserva, analisis y referencia del modulo `files` antes de quedar disponible. Falta una prueba con una imagen real elegida por el propietario.
+
 ## Corrección de retorno del acceso administrativo (ADM-01)
 
 - Fecha: 2026-09-28; entorno: VPS autorizado de staging, sin ejecución técnica local.
