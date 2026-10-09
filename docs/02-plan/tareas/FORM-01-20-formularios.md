@@ -49,6 +49,10 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 - Mutacion automatica de contactos, oportunidades o cotizaciones, consumidores de automatizacion y tool MCP; se conectaran desde sus modulos propietarios sin cambiar el contrato de respuestas.
 - Carga publica de archivos y contenido multimedia nuevo; se integrara con el modulo `files` sin acceso directo a S3.
 
+### Extension solicitada — FORM-05 (2026-10-08)
+
+La carga de imagenes pasa a este bloque por solicitud directa del propietario. Debe crear una reserva durable en `files`, mantener los bytes fuera de las respuestas hasta que el analisis los marque `AVAILABLE` y conservar solo `fileId` como respuesta. No se permite una carga ficticia ni acceso directo del formulario a S3.
+
 ## Impacto tecnico
 
 | Area | Impacto previsto |

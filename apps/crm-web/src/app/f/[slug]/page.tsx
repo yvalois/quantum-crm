@@ -15,6 +15,24 @@ type PublicForm = Pick<
   | "closesAt"
 >;
 
+interface UploadIntent {
+  readonly data: {
+    readonly file: { readonly id: string };
+    readonly upload: { readonly url: string; readonly fields: Readonly<Record<string, string>> };
+  };
+}
+
+async function sha256Base64(file: File): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()));
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function uploadVersionId(response: Response, body: string): string | null {
+  return response.headers.get("x-amz-version-id") ?? body.match(/<VersionId>([^<]+)<\/VersionId>/u)?.[1] ?? null;
+}
+
 async function responseTitle(response: Response): Promise<string> {
   const body: unknown = await response.json().catch(() => null);
   return body && typeof body === "object" && "title" in body && typeof body.title === "string"
@@ -46,6 +64,7 @@ export default function PublicFormPage(): React.JSX.Element {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [images, setImages] = useState<Record<string, File[]>>({});
   const key = useRef(crypto.randomUUID());
 
   useEffect(() => {
@@ -69,6 +88,24 @@ export default function PublicFormPage(): React.JSX.Element {
   function field(field: FormField): React.JSX.Element {
     const set = (value: FormAnswerValue) =>
       setAnswers((current) => ({ ...current, [field.id]: value }));
+    if (field.type === "IMAGE_UPLOAD")
+      return (
+        <div className="public-form-upload">
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            multiple
+            required={field.required}
+            onChange={(event) =>
+              setImages((current) => ({ ...current, [field.id]: Array.from(event.target.files ?? []) }))
+            }
+          />
+          <small>PNG, JPG o WebP; hasta 20 MB por imagen. Se valida antes de guardarse.</small>
+          {(images[field.id] ?? []).length ? (
+            <em>{(images[field.id] ?? []).length} imagen(es) lista(s) para cargar.</em>
+          ) : null}
+        </div>
+      );
     if (["LONG_TEXT", "ADDRESS"].includes(field.type))
       return (
         <textarea
@@ -199,13 +236,75 @@ export default function PublicFormPage(): React.JSX.Element {
     setSaving(true);
     setError(null);
     try {
+      const pendingImageFieldIds = Object.entries(images)
+        .filter(([, files]) => files.length > 0)
+        .map(([fieldId]) => fieldId);
       const response = await fetch(`/api/public-forms/${encodeURIComponent(slug)}`, {
         method: "POST",
         headers: { "content-type": "application/json", "idempotency-key": key.current },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, pendingImageFieldIds }),
         cache: "no-store",
       });
       if (!response.ok) throw new Error(await responseTitle(response));
+      const submitted = (await response.json()) as { data: { id: string } };
+      for (const [fieldId, files] of Object.entries(images)) {
+        for (const image of files) {
+          const checksum = await sha256Base64(image);
+          const intentResponse = await fetch(
+            `/api/public-forms/${encodeURIComponent(slug)}/responses/${submitted.data.id}/image-upload-intents`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
+              body: JSON.stringify({
+                fieldId,
+                originalName: image.name,
+                declaredMime: image.type || "image/jpeg",
+                declaredSize: image.size,
+                expectedSha256: checksum,
+              }),
+            },
+          );
+          if (!intentResponse.ok) throw new Error(await responseTitle(intentResponse));
+          const intent = (await intentResponse.json()) as UploadIntent;
+          const uploadBody = new FormData();
+          for (const [name, value] of Object.entries(intent.data.upload.fields)) uploadBody.append(name, value);
+          uploadBody.append("qcrm-upload-url", intent.data.upload.url);
+          uploadBody.append("file", image, image.name);
+          const storage = await fetch("/api/public-forms/upload", { method: "POST", body: uploadBody });
+          const storageBody = await storage.text();
+          if (!storage.ok) throw new Error("El almacenamiento rechazo la imagen.");
+          const versionId = uploadVersionId(storage, storageBody);
+          const receipt = storage.headers.get("etag");
+          const complete = await fetch(
+            `/api/public-forms/${encodeURIComponent(slug)}/responses/${submitted.data.id}/files/${intent.data.file.id}/complete`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
+              body: JSON.stringify({ checksum, ...(versionId ? { versionId } : {}), ...(receipt ? { receipt } : {}) }),
+            },
+          );
+          if (!complete.ok) throw new Error(await responseTitle(complete));
+          let available = false;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+            const status = await fetch(
+              `/api/public-forms/${encodeURIComponent(slug)}/responses/${submitted.data.id}/files/${intent.data.file.id}`,
+              { cache: "no-store" },
+            );
+            if (!status.ok) throw new Error(await responseTitle(status));
+            const metadata = (await status.json()) as { data: { status: string } };
+            if (metadata.data.status === "AVAILABLE") { available = true; break; }
+            if (["REJECTED", "FAILED", "DELETED"].includes(metadata.data.status))
+              throw new Error("La imagen no supero la validacion de seguridad.");
+          }
+          if (!available) throw new Error("La imagen sigue en validacion. Intenta nuevamente en un momento.");
+          const attach = await fetch(
+            `/api/public-forms/${encodeURIComponent(slug)}/responses/${submitted.data.id}/image-fields/${fieldId}/files/${intent.data.file.id}`,
+            { method: "POST", headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() }, body: "{}" },
+          );
+          if (!attach.ok) throw new Error(await responseTitle(attach));
+        }
+      }
       setDone(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible enviar la respuesta.");

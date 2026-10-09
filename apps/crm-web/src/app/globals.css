@@ -840,6 +840,21 @@
 .public-form-field > small {
   color: #91a49f;
 }
+.public-form-upload {
+  display: grid;
+  gap: 7px;
+}
+.public-form-upload input[type="file"] {
+  border: 1px dashed #7e9690;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+.public-form-upload em {
+  color: #5de1d4;
+  font-style: normal;
+  font-weight: 700;
+}
 .public-form-field input:not([type="radio"]):not([type="checkbox"]),
 .public-form-field textarea,
 .public-form-field select {

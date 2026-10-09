@@ -303,6 +303,7 @@ export {
   FormStatusSchema,
   FormThemeSchema,
   PublicFormResponseSchema,
+  PublicFormImageUploadIntentSchema,
   PublicFormSchema,
   PublishFormSchema,
   SubmitFormResponseSchema,
@@ -316,6 +317,7 @@ export {
   type FormField,
   type FormFieldType,
   type FormTheme,
+  type PublicFormImageUploadIntent,
   type SubmittedFormResponse,
 } from "./forms/v1/form.js";
 export {

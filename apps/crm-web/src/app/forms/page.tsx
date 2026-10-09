@@ -38,6 +38,7 @@ const fieldLabels: Record<FormFieldType, string> = {
   CHECKBOX: "Casilla",
   SCALE: "Escala",
   RATING: "Calificacion",
+  IMAGE_UPLOAD: "Subir imagen",
 };
 
 const defaultTheme: FormTheme = {
@@ -85,6 +86,8 @@ async function responseTitle(response: Response): Promise<string> {
 }
 
 function renderPreviewField(field: FormField): React.JSX.Element {
+  if (field.type === "IMAGE_UPLOAD")
+    return <input type="file" accept="image/png,image/jpeg,image/webp" disabled />;
   if (["LONG_TEXT", "ADDRESS"].includes(field.type)) return <textarea rows={3} disabled placeholder="Respuesta" />;
   if (["SINGLE_CHOICE", "MULTIPLE_CHOICE"].includes(field.type)) {
     return (
@@ -129,7 +132,10 @@ function renderPreviewField(field: FormField): React.JSX.Element {
 }
 
 function answerText(value: FormAnswerValue | undefined, empty = ""): string {
-  return Array.isArray(value) ? value.join(" | ") : String(value ?? empty);
+  if (Array.isArray(value)) return value.join(" | ");
+  if (typeof value === "object" && value !== null && "fileIds" in value)
+    return `${value.fileIds.length} imagen(es)`;
+  return String(value ?? empty);
 }
 
 export default function FormsPage(): React.JSX.Element {

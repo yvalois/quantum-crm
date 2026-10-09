@@ -208,7 +208,12 @@ export class AppModule {
               database.commercial.files,
               {
                 canUseOwner: async (actor, owner) => {
-                  if (owner.kind !== "existing" || owner.module !== "documents") return false;
+                  if (owner.kind !== "existing") return false;
+                  if (owner.module === "forms" && owner.type === "form_response") {
+                    const upload = await database.commercial.forms.findResponseForOwner(owner.id, new Date());
+                    return upload !== null && actor.memberId === owner.id;
+                  }
+                  if (owner.module !== "documents") return false;
                   if (owner.type === "commercial_document") {
                     return (await database.commercial.documents.find(actor, owner.id)) !== null;
                   }

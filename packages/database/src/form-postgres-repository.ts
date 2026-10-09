@@ -479,5 +479,69 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
         return fail(error);
       }
     },
+    findPublicResponseUpload: async (slug, responseId, now) => {
+      try {
+        const result = (await pool.query(
+          `SELECT response.id::text, response.form_id::text, response.form_revision,
+                  response.contact_id::text, response.answers, response.submitted_at,
+                  version.definition AS published_definition
+             FROM forms.responses AS response
+             JOIN forms.forms AS form ON form.id = response.form_id
+             JOIN forms.versions AS version
+               ON version.form_id = response.form_id AND version.revision = response.form_revision
+            WHERE form.slug = $1
+              AND response.id = $2::uuid
+              AND response.submitted_at >= $3 - INTERVAL '15 minutes'`,
+          [slug, responseId, now],
+        )) as { readonly rows: readonly (ResponseRow & { readonly published_definition: unknown })[] };
+        const row = result.rows[0];
+        return row
+          ? Object.freeze({
+              response: submission(row),
+              definition: row.published_definition as PublishedFormRecord["definition"],
+            })
+          : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    appendResponseImage: async (input) => {
+      try {
+        const result = (await pool.query(
+          `UPDATE forms.responses
+              SET answers = jsonb_set(
+                answers,
+                ARRAY[$2::text],
+                jsonb_build_object(
+                  'fileIds',
+                  CASE
+                    WHEN COALESCE(answers -> $2::text -> 'fileIds', '[]'::jsonb) @> jsonb_build_array($3::text)
+                      THEN COALESCE(answers -> $2::text -> 'fileIds', '[]'::jsonb)
+                    ELSE COALESCE(answers -> $2::text -> 'fileIds', '[]'::jsonb) || jsonb_build_array($3::text)
+                  END
+                ),
+                true
+              )
+            WHERE id = $1::uuid
+          RETURNING ${responseSelection}`,
+          [input.responseId, input.fieldId, input.fileId],
+        )) as { readonly rows: readonly ResponseRow[] };
+        return result.rows[0] ? submission(result.rows[0]) : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    findResponseForOwner: async (responseId, now) => {
+      try {
+        const result = (await pool.query(
+          `SELECT ${responseSelection} FROM forms.responses
+            WHERE id = $1::uuid AND submitted_at >= $2 - INTERVAL '15 minutes'`,
+          [responseId, now],
+        )) as { readonly rows: readonly ResponseRow[] };
+        return result.rows[0] ? submission(result.rows[0]) : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
   });
 }

@@ -9,6 +9,7 @@ import {
   Get,
   GoneException,
   Headers,
+  HttpCode,
   HttpException,
   HttpStatus,
   Inject,
@@ -22,11 +23,16 @@ import {
 } from "@nestjs/common";
 import {
   CloseFormSchema,
+  CompleteFileUploadSchema,
   CreateFormSchema,
+  FileOperationResponseSchema,
+  FileResponseSchema,
+  FileUploadIntentResponseSchema,
   FormListResponseSchema,
   FormResponseListQuerySchema,
   FormResponseSchema,
   PublicFormResponseSchema,
+  PublicFormImageUploadIntentSchema,
   PublishFormSchema,
   SubmitFormResponseSchema,
   SubmittedFormResponseListSchema,
@@ -40,6 +46,8 @@ import {
   FormService,
   FormValidationError,
   FormVersionConflictError,
+  FileService,
+  FileStateConflictError,
   IamAuthorizationError,
   type IamPermission,
   type SubmittedFormRecord,
@@ -47,6 +55,7 @@ import {
 import { CommercialIdempotencyConflictError } from "@quantum-crm/database";
 
 import { CrmPublicRoute, crmAuthContext, RequireCrmPermission } from "./crm-security.js";
+import { FILE_SERVICE } from "./files.controller.js";
 
 export const FORM_SERVICE = Symbol("FORM_SERVICE");
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -85,19 +94,53 @@ function output(record: FormRecord) {
 function response(record: SubmittedFormRecord) {
   return { ...record, submittedAt: record.submittedAt.toISOString() };
 }
+function publicFile(record: Awaited<ReturnType<FileService["get"]>>) {
+  return {
+    id: record.id,
+    status: record.status,
+    fileClass: record.fileClass,
+    name: record.originalName,
+    mimeType: record.observedMime ?? record.declaredMime,
+    size: record.observedSize ?? record.declaredSize,
+    sha256: record.observedSha256 ?? record.expectedSha256,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+  };
+}
+const publicFilePermissions: readonly IamPermission[] = [
+  "crm:files:read",
+  "crm:files:upload",
+  "crm:files:reference",
+];
+function publicFileActor(responseId: string) {
+  return { memberId: responseId, scope: "PROFILE" as const };
+}
 function map(error: unknown): never {
   if (error instanceof IamAuthorizationError) throw new ForbiddenException();
   if (error instanceof FormNotFoundError) throw new NotFoundException();
   if (error instanceof FormClosedError) throw new GoneException();
   if (error instanceof FormValidationError) throw new BadRequestException(error.message);
   if (error instanceof FormVersionConflictError) throw new PreconditionFailedException();
+  if (error instanceof FileStateConflictError) throw new ConflictException();
   if (error instanceof CommercialIdempotencyConflictError) throw new ConflictException();
   throw error;
 }
 
 @Controller("api/v1/forms")
 export class FormsController {
-  public constructor(@Inject(FORM_SERVICE) private readonly service: FormService) {}
+  public constructor(
+    @Inject(FORM_SERVICE) private readonly service: FormService,
+    @Inject(FILE_SERVICE) private readonly files: FileService,
+  ) {}
+
+  private async imageUpload(slug: string, responseId: string, fieldId: string) {
+    const upload = await this.service.publicResponseUpload(slug, responseId);
+    const field = upload.definition.sections
+      .flatMap((section) => section.fields)
+      .find((candidate) => candidate.id === fieldId);
+    if (!field || field.type !== "IMAGE_UPLOAD") throw new FormValidationError("Invalid image field");
+    return upload;
+  }
 
   @Get()
   @RequireCrmPermission("crm:forms:read")
@@ -314,9 +357,136 @@ export class FormsController {
           await this.service.submit({
             slug,
             answers: parsed.data.answers,
+            pendingImageFieldIds: parsed.data.pendingImageFieldIds,
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash(parsed.data),
           }),
+        ),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Post("public/:slug/responses/:responseId/image-upload-intents")
+  @CrmPublicRoute()
+  public async reservePublicImage(
+    @Param("slug") slug: string,
+    @Param("responseId") responseId: string,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!slugPattern.test(slug) || !uuidPattern.test(responseId)) throw new BadRequestException();
+    try {
+      const parsed = PublicFormImageUploadIntentSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      await this.imageUpload(slug, responseId, parsed.data.fieldId);
+      const reserved = await this.files.reserveUpload({
+        actor: publicFileActor(responseId),
+        permissions: publicFilePermissions,
+        owner: { kind: "existing", module: "forms", type: "form_response", id: responseId },
+        fileClass: "IMAGE",
+        ...parsed.data,
+        idempotencyKey: key(idempotencyKey),
+        payloadHash: hash(parsed.data),
+      });
+      return FileUploadIntentResponseSchema.parse({
+        data: {
+          file: publicFile(reserved.file),
+          upload: { ...reserved.upload, expiresAt: reserved.upload.expiresAt.toISOString() },
+        },
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Post("public/:slug/responses/:responseId/files/:fileId/complete")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @CrmPublicRoute()
+  public async completePublicImage(
+    @Param("slug") slug: string,
+    @Param("responseId") responseId: string,
+    @Param("fileId") fileId: string,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!slugPattern.test(slug) || !uuidPattern.test(responseId) || !uuidPattern.test(fileId))
+      throw new BadRequestException();
+    try {
+      const parsed = CompleteFileUploadSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      await this.service.publicResponseUpload(slug, responseId);
+      const completed = await this.files.completeUpload({
+        actor: publicFileActor(responseId),
+        permissions: publicFilePermissions,
+        fileId,
+        checksum: parsed.data.checksum,
+        ...(parsed.data.versionId ? { versionId: parsed.data.versionId } : {}),
+        ...(parsed.data.receipt ? { receipt: parsed.data.receipt } : {}),
+        idempotencyKey: key(idempotencyKey),
+        payloadHash: hash({ fileId, ...parsed.data }),
+      });
+      return FileOperationResponseSchema.parse({
+        data: {
+          ...completed.operation,
+          createdAt: completed.operation.createdAt.toISOString(),
+          updatedAt: completed.operation.updatedAt.toISOString(),
+        },
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Get("public/:slug/responses/:responseId/files/:fileId")
+  @CrmPublicRoute()
+  public async publicImageStatus(
+    @Param("slug") slug: string,
+    @Param("responseId") responseId: string,
+    @Param("fileId") fileId: string,
+  ) {
+    if (!slugPattern.test(slug) || !uuidPattern.test(responseId) || !uuidPattern.test(fileId))
+      throw new BadRequestException();
+    try {
+      await this.service.publicResponseUpload(slug, responseId);
+      return FileResponseSchema.parse({
+        data: publicFile(await this.files.get(publicFileActor(responseId), publicFilePermissions, fileId)),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Post("public/:slug/responses/:responseId/image-fields/:fieldId/files/:fileId")
+  @CrmPublicRoute()
+  public async attachPublicImage(
+    @Param("slug") slug: string,
+    @Param("responseId") responseId: string,
+    @Param("fieldId") fieldId: string,
+    @Param("fileId") fileId: string,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+  ) {
+    if (![responseId, fieldId, fileId].every((value) => uuidPattern.test(value)) || !slugPattern.test(slug))
+      throw new BadRequestException();
+    try {
+      await this.imageUpload(slug, responseId, fieldId);
+      const actor = publicFileActor(responseId);
+      const file = await this.files.get(actor, publicFilePermissions, fileId);
+      if (file.status !== "AVAILABLE") throw new FileStateConflictError();
+      const operationKey = hash({ responseId, fieldId, fileId, idempotencyKey: key(idempotencyKey) });
+      await this.files.attachReference({
+        actor,
+        permissions: publicFilePermissions,
+        fileId,
+        owner: { kind: "existing", module: "forms", type: "form_response", id: responseId },
+        kind: "ATTACHMENT",
+        idempotencyKey: operationKey,
+        payloadHash: operationKey,
+      });
+      return SubmittedFormResponseResponseSchema.parse({
+        data: response(
+          await this.service.appendPublicResponseImage({ slug, responseId, fieldId, fileId }),
         ),
       });
     } catch (error) {

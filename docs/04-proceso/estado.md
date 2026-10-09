@@ -236,6 +236,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## Regla de mantenimiento
 
+> **FORM-05 (2026-10-08): EN_CURSO.** Se incorpora la carga real de imagenes en respuestas de formularios publicos: reserva segura, analisis previo a disponibilidad y referencia por respuesta. Tambien se prepara un formulario de prueba con fecha y tipos de entrada representativos.
+
 ## Corrección de retorno del acceso administrativo (ADM-01)
 
 - Fecha: 2026-09-28; entorno: VPS autorizado de staging, sin ejecución técnica local.

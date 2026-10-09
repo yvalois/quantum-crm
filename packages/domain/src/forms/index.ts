@@ -82,6 +82,18 @@ export interface FormRepository {
     formId: string,
     filters: { readonly from?: Date; readonly to?: Date; readonly limit: number },
   ) => Promise<readonly SubmittedFormRecord[]>;
+  /** Short-lived capability lookup for a response that was just submitted publicly. */
+  readonly findPublicResponseUpload: (
+    slug: string,
+    responseId: string,
+    now: Date,
+  ) => Promise<{ readonly response: SubmittedFormRecord; readonly definition: FormDefinition } | null>;
+  readonly appendResponseImage: (input: {
+    readonly responseId: string;
+    readonly fieldId: string;
+    readonly fileId: string;
+  }) => Promise<SubmittedFormRecord | null>;
+  readonly findResponseForOwner: (responseId: string, now: Date) => Promise<SubmittedFormRecord | null>;
 }
 
 export class FormNotFoundError extends Error {

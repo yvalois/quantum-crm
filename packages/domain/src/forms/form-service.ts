@@ -48,6 +48,16 @@ export function isFormFieldVisible(
 }
 
 function validFor(field: FormField, value: FormAnswerValue): boolean {
+  if (field.type === "IMAGE_UPLOAD") {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      !Array.isArray(value) &&
+      "fileIds" in value &&
+      Array.isArray(value.fileIds) &&
+      value.fileIds.length > 0
+    );
+  }
   if (["SHORT_TEXT", "LONG_TEXT", "EMAIL", "PHONE", "URL", "ADDRESS", "DATE", "TIME"].includes(field.type)) {
     if (typeof value !== "string") return false;
     if (field.type === "EMAIL" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value)) return false;
@@ -83,6 +93,7 @@ function validFor(field: FormField, value: FormAnswerValue): boolean {
 export function validateFormAnswers(
   definition: FormDefinition,
   answers: Readonly<Record<string, FormAnswerValue>>,
+  pendingImageFieldIds: readonly string[] = [],
 ): Readonly<Record<string, FormAnswerValue>> {
   const accepted: Record<string, FormAnswerValue> = {};
   const fields = definition.sections.flatMap((section) => section.fields);
@@ -95,6 +106,9 @@ export function validateFormAnswers(
     const empty =
       value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
     if (empty) {
+      if (field.type === "IMAGE_UPLOAD" && field.required && pendingImageFieldIds.includes(field.id)) {
+        continue;
+      }
       if (field.required) throw new FormValidationError(`Required field: ${field.label}`);
       continue;
     }
@@ -230,12 +244,17 @@ export class FormService {
   public async submit(input: {
     readonly slug: string;
     readonly answers: Readonly<Record<string, FormAnswerValue>>;
+    readonly pendingImageFieldIds?: readonly string[];
     readonly idempotencyKey: string;
     readonly payloadHash: string;
   }) {
     const published = await this.publicForm(input.slug);
     const submittedAt = this.clock();
-    const answers = validateFormAnswers(published.definition, input.answers);
+    const answers = validateFormAnswers(
+      published.definition,
+      input.answers,
+      input.pendingImageFieldIds ?? [],
+    );
     return this.repository.submit({
       submission: Object.freeze({
         id: randomUUID(),
@@ -262,5 +281,27 @@ export class FormService {
     allow(input.permissions, "crm:forms:responses");
     if (!(await this.repository.find(input.formId))) throw new FormNotFoundError();
     return this.repository.responses(input.formId, input);
+  }
+
+  public async publicResponseUpload(slugValue: string, responseId: string) {
+    const upload = await this.repository.findPublicResponseUpload(slugValue, responseId, this.clock());
+    if (!upload) throw new FormNotFoundError();
+    return upload;
+  }
+
+  public async appendPublicResponseImage(input: {
+    readonly slug: string;
+    readonly responseId: string;
+    readonly fieldId: string;
+    readonly fileId: string;
+  }) {
+    const upload = await this.publicResponseUpload(input.slug, input.responseId);
+    const field = upload.definition.sections
+      .flatMap((section) => section.fields)
+      .find((candidate) => candidate.id === input.fieldId);
+    if (!field || field.type !== "IMAGE_UPLOAD") throw new FormValidationError("Invalid image field");
+    const updated = await this.repository.appendResponseImage(input);
+    if (!updated) throw new FormNotFoundError();
+    return updated;
   }
 }
