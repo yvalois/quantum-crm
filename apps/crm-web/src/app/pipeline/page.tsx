@@ -538,9 +538,7 @@ export default function PipelinePage(): React.JSX.Element {
       if (createdContact) {
         const contact = createdContact;
         setContacts((current) =>
-          current.some((item) => item.id === contact.id)
-            ? current
-            : [contact, ...current],
+          current.some((item) => item.id === contact.id) ? current : [contact, ...current],
         );
       }
       setOpportunities((current) => [created, ...current.filter((item) => item.id !== created.id)]);
@@ -976,8 +974,8 @@ export default function PipelinePage(): React.JSX.Element {
             <h2>No hay un pipeline operativo</h2>
             <p>
               La configuración comercial vive en <strong>Pipelines</strong>, dentro de
-              Administración en el menú lateral. Cuando haya etapas, este tablero quedará listo
-              para registrar oportunidades.
+              Administración en el menú lateral. Cuando haya etapas, este tablero quedará listo para
+              registrar oportunidades.
             </p>
           </section>
         ) : null}
@@ -989,8 +987,8 @@ export default function PipelinePage(): React.JSX.Element {
             <p className={styles.emptyEyebrow}>{selectedPipeline.name}</p>
             <h2>Este pipeline aún no tiene etapas</h2>
             <p>
-              Añade las etapas desde <strong>Pipelines</strong>, dentro de Administración en el
-              menú lateral. Aquí solo trabajas las oportunidades del proceso.
+              Añade las etapas desde <strong>Pipelines</strong>, dentro de Administración en el menú
+              lateral. Aquí solo trabajas las oportunidades del proceso.
             </p>
           </section>
         ) : null}
@@ -1358,7 +1356,11 @@ export default function PipelinePage(): React.JSX.Element {
                   Contacto <em>*</em>
                 </legend>
                 <p>Elige uno existente o crea un contacto real sin salir de esta oportunidad.</p>
-                <div className={styles.contactSourceOptions} role="radiogroup" aria-label="Origen del contacto">
+                <div
+                  className={styles.contactSourceOptions}
+                  role="radiogroup"
+                  aria-label="Origen del contacto"
+                >
                   {contacts.length > 0 ? (
                     <label>
                       <input
@@ -1485,11 +1487,7 @@ export default function PipelinePage(): React.JSX.Element {
                 >
                   Cancelar
                 </button>
-                <button
-                  className={styles.primaryButton}
-                  type="submit"
-                  disabled={saving}
-                >
+                <button className={styles.primaryButton} type="submit" disabled={saving}>
                   {saving ? "Creando…" : "Crear oportunidad"}
                 </button>
               </div>

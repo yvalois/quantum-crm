@@ -57,7 +57,13 @@ function freshInitialStages(): PipelineStageDraft[] {
   return initialStages.map((stage) => ({ ...stage }));
 }
 
-function Icon({ name, size = 18 }: { readonly name: string; readonly size?: number }): React.JSX.Element {
+function Icon({
+  name,
+  size = 18,
+}: {
+  readonly name: string;
+  readonly size?: number;
+}): React.JSX.Element {
   const paths: Record<string, React.JSX.Element> = {
     add: <path d="M12 5v14M5 12h14" />,
     arrowDown: <path d="M12 5v14m0 0-5-5m5 5 5-5" />,
@@ -132,7 +138,10 @@ export default function PipelinesPage(): React.JSX.Element {
       const session = (await sessionResponse.json()) as SessionPayload;
       if (!session.authenticated || !session.csrfToken) throw new Error("La sesión no es válida.");
       setCsrf(session.csrfToken);
-      const response = await fetch("/api/pipeline", { cache: "no-store", credentials: "same-origin" });
+      const response = await fetch("/api/pipeline", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (!response.ok) throw new Error(await responseTitle(response));
       const nextPipelines = ((await response.json()) as List<Pipeline>).data;
       setPipelines(nextPipelines);
@@ -268,7 +277,10 @@ export default function PipelinesPage(): React.JSX.Element {
     try {
       const created = await mutate<Pipeline>("/api/pipeline", payload, idempotencyKey);
       creationAttempt.current = null;
-      setPipelines((current) => [created, ...current.filter((pipeline) => pipeline.id !== created.id)]);
+      setPipelines((current) => [
+        created,
+        ...current.filter((pipeline) => pipeline.id !== created.id),
+      ]);
       setSelectedPipelineId(created.id);
       setShowCreator(false);
       setNotice(
@@ -316,9 +328,10 @@ export default function PipelinesPage(): React.JSX.Element {
           pipeline.id === selectedPipeline.id
             ? {
                 ...pipeline,
-                stages: [...pipeline.stages.filter((stage) => stage.id !== created.id), created].sort(
-                  (left, right) => left.position - right.position,
-                ),
+                stages: [
+                  ...pipeline.stages.filter((stage) => stage.id !== created.id),
+                  created,
+                ].sort((left, right) => left.position - right.position),
               }
             : pipeline,
         ),
@@ -345,7 +358,9 @@ export default function PipelinesPage(): React.JSX.Element {
               <h1>Pipelines</h1>
               <span className={styles.pipelinePill}>{pipelines.length} activos</span>
             </div>
-            <p>Configura los recorridos que usa el equipo antes de llevar oportunidades al tablero.</p>
+            <p>
+              Configura los recorridos que usa el equipo antes de llevar oportunidades al tablero.
+            </p>
           </div>
           <div className={styles.topActions}>
             <button
@@ -358,7 +373,12 @@ export default function PipelinesPage(): React.JSX.Element {
             >
               <Icon name="refresh" />
             </button>
-            <button className={styles.primaryButton} type="button" onClick={openCreator} disabled={loading}>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              onClick={openCreator}
+              disabled={loading}
+            >
               <Icon name="add" size={17} /> Crear pipeline
             </button>
           </div>
@@ -400,7 +420,9 @@ export default function PipelinesPage(): React.JSX.Element {
             </span>
             <p className={styles.emptyEyebrow}>Configuración comercial</p>
             <h2>Crea el primer pipeline de este perfil</h2>
-            <p>Define las etapas aquí. Después, el equipo podrá crear oportunidades en el tablero.</p>
+            <p>
+              Define las etapas aquí. Después, el equipo podrá crear oportunidades en el tablero.
+            </p>
             <button className={styles.primaryButton} type="button" onClick={openCreator}>
               <Icon name="add" size={17} /> Crear mi primer pipeline
             </button>
@@ -418,7 +440,9 @@ export default function PipelinesPage(): React.JSX.Element {
                 {pipelines.map((pipeline) => (
                   <button
                     className={
-                      selectedPipeline?.id === pipeline.id ? styles.pipelineDirectoryActive : undefined
+                      selectedPipeline?.id === pipeline.id
+                        ? styles.pipelineDirectoryActive
+                        : undefined
                     }
                     key={pipeline.id}
                     type="button"
@@ -436,7 +460,10 @@ export default function PipelinesPage(): React.JSX.Element {
             </aside>
 
             {selectedPipeline ? (
-              <section className={styles.pipelineSettingsDetail} aria-labelledby="pipeline-settings-title">
+              <section
+                className={styles.pipelineSettingsDetail}
+                aria-labelledby="pipeline-settings-title"
+              >
                 <header className={styles.pipelineSettingsDetailHeader}>
                   <div>
                     <span>Proceso seleccionado</span>
@@ -470,7 +497,8 @@ export default function PipelinesPage(): React.JSX.Element {
                       </ol>
                     ) : (
                       <p className={styles.stageInventoryEmpty}>
-                        Aún no hay etapas. Agrega la primera para habilitar oportunidades en este proceso.
+                        Aún no hay etapas. Agrega la primera para habilitar oportunidades en este
+                        proceso.
                       </p>
                     )}
                   </section>
@@ -479,7 +507,12 @@ export default function PipelinesPage(): React.JSX.Element {
                     <p>Se agrega al final del recorrido; no necesitas calcular su posición.</p>
                     <label>
                       Nombre
-                      <input name="name" maxLength={160} required placeholder="Ej. Propuesta enviada" />
+                      <input
+                        name="name"
+                        maxLength={160}
+                        required
+                        placeholder="Ej. Propuesta enviada"
+                      />
                     </label>
                     <label>
                       Criterio de entrada
@@ -521,7 +554,12 @@ export default function PipelinesPage(): React.JSX.Element {
                 <span>Nuevo proceso comercial</span>
                 <h2 id="pipeline-create-title">Crear pipeline</h2>
               </div>
-              <button type="button" disabled={saving} onClick={() => setShowCreator(false)} aria-label="Cerrar">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setShowCreator(false)}
+                aria-label="Cerrar"
+              >
                 <Icon name="close" size={18} />
               </button>
             </header>
@@ -529,14 +567,20 @@ export default function PipelinesPage(): React.JSX.Element {
               Define el proceso completo una sola vez. Al guardarlo, el tablero quedará listo para
               recibir oportunidades.
             </p>
-            <form className={styles.pipelineCreatorForm} onSubmit={(event) => void createPipeline(event)}>
+            <form
+              className={styles.pipelineCreatorForm}
+              onSubmit={(event) => void createPipeline(event)}
+            >
               {error ? (
                 <div className={styles.drawerError} role="alert">
                   <strong>No se pudo crear el pipeline.</strong>
                   <span>{error}</span>
                 </div>
               ) : null}
-              <section className={styles.pipelineIdentityFields} aria-labelledby="pipeline-identity-title">
+              <section
+                className={styles.pipelineIdentityFields}
+                aria-labelledby="pipeline-identity-title"
+              >
                 <div className={styles.setupSectionHeading}>
                   <span>01</span>
                   <div>
@@ -546,7 +590,13 @@ export default function PipelinesPage(): React.JSX.Element {
                 </div>
                 <label>
                   Nombre del pipeline <em>*</em>
-                  <input name="name" required maxLength={160} autoComplete="off" placeholder="Ej. Ventas corporativas" />
+                  <input
+                    name="name"
+                    required
+                    maxLength={160}
+                    autoComplete="off"
+                    placeholder="Ej. Ventas corporativas"
+                  />
                 </label>
                 <label>
                   Descripción <em>*</em>
@@ -558,7 +608,10 @@ export default function PipelinesPage(): React.JSX.Element {
                   />
                 </label>
               </section>
-              <section className={styles.pipelineStageBuilder} aria-labelledby="pipeline-stages-title">
+              <section
+                className={styles.pipelineStageBuilder}
+                aria-labelledby="pipeline-stages-title"
+              >
                 <div className={styles.setupSectionHeading}>
                   <span>02</span>
                   <div>
@@ -577,7 +630,9 @@ export default function PipelinesPage(): React.JSX.Element {
                 <ol className={styles.pipelineDraftList}>
                   {stageDrafts.map((stage, index) => (
                     <li key={stage.id}>
-                      <span className={styles.pipelineDraftNumber}>{String(index + 1).padStart(2, "0")}</span>
+                      <span className={styles.pipelineDraftNumber}>
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
                       <div className={styles.pipelineDraftFields}>
                         <label>
                           <span>Nombre de la etapa</span>
@@ -595,12 +650,17 @@ export default function PipelinesPage(): React.JSX.Element {
                             value={stage.description}
                             required
                             maxLength={2000}
-                            onChange={(event) => updateDraft(stage.id, "description", event.target.value)}
+                            onChange={(event) =>
+                              updateDraft(stage.id, "description", event.target.value)
+                            }
                             placeholder="Qué debe ocurrir para mover una oportunidad aquí"
                           />
                         </label>
                       </div>
-                      <div className={styles.pipelineDraftActions} aria-label={`Acciones para ${stage.name || `etapa ${index + 1}`}`}>
+                      <div
+                        className={styles.pipelineDraftActions}
+                        aria-label={`Acciones para ${stage.name || `etapa ${index + 1}`}`}
+                      >
                         <button
                           type="button"
                           disabled={saving || index === 0}
@@ -638,7 +698,12 @@ export default function PipelinesPage(): React.JSX.Element {
                 </p>
               </section>
               <div className={styles.drawerActions}>
-                <button className={styles.textButton} type="button" disabled={saving} onClick={() => setShowCreator(false)}>
+                <button
+                  className={styles.textButton}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setShowCreator(false)}
+                >
                   Cancelar
                 </button>
                 <button className={styles.primaryButton} type="submit" disabled={saving}>
