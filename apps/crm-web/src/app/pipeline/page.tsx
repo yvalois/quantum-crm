@@ -7,8 +7,8 @@ import type {
   OpportunityHistoryEntry,
   OpportunityStatus,
   Pipeline,
-  PipelineStage,
 } from "@quantum-crm/contracts";
+import { useSearchParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
@@ -37,12 +37,15 @@ interface BoardFilters {
 
 type BoardView = "kanban" | "table";
 type SortMode = "recent" | "amount" | "name";
-type Panel = "filters" | "manage" | null;
+type Panel = "filters" | null;
+type OpportunityContactMode = "existing" | "new";
 
-interface PipelineStageDraft {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
+interface OpportunityCreationAttempt {
+  readonly contactKey: string;
+  readonly contactPayload: string;
+  readonly contactId?: string;
+  readonly opportunityKey: string;
+  readonly opportunityPayload: string;
 }
 
 const emptyFilters: BoardFilters = {
@@ -52,33 +55,6 @@ const emptyFilters: BoardFilters = {
   createdFrom: "",
   createdTo: "",
 };
-
-const suggestedPipelineStages: readonly PipelineStageDraft[] = [
-  {
-    id: "new-lead",
-    name: "Nuevo lead",
-    description: "El contacto llegó y espera la primera revisión comercial.",
-  },
-  {
-    id: "qualified",
-    name: "Calificación",
-    description: "Se confirmó necesidad, presupuesto y siguiente paso.",
-  },
-  {
-    id: "proposal",
-    name: "Propuesta enviada",
-    description: "La propuesta está en manos del cliente para revisión.",
-  },
-  {
-    id: "negotiation",
-    name: "Negociación",
-    description: "Se están resolviendo condiciones antes de cerrar.",
-  },
-];
-
-function freshSuggestedStages(): PipelineStageDraft[] {
-  return suggestedPipelineStages.map((stage) => ({ ...stage, id: crypto.randomUUID() }));
-}
 
 const statusLabels: Record<OpportunityStatus, string> = {
   OPEN: "Abierta",
@@ -218,6 +194,8 @@ function activeFilterCount(filters: BoardFilters): number {
 }
 
 export default function PipelinePage(): React.JSX.Element {
+  const searchParams = useSearchParams();
+  const requestedPipelineId = searchParams.get("pipeline") ?? "";
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -234,10 +212,9 @@ export default function PipelinePage(): React.JSX.Element {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [showPipelineCreator, setShowPipelineCreator] = useState(false);
-  const [pipelineStageDrafts, setPipelineStageDrafts] =
-    useState<PipelineStageDraft[]>(freshSuggestedStages);
   const [showCreate, setShowCreate] = useState(false);
+  const [opportunityContactMode, setOpportunityContactMode] =
+    useState<OpportunityContactMode>("existing");
   const [editor, setEditor] = useState<Opportunity | null>(null);
   const [history, setHistory] = useState<OpportunityHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -248,9 +225,7 @@ export default function PipelinePage(): React.JSX.Element {
   const opportunityRequest = useRef(0);
   const historyRequest = useRef(0);
   const didLoad = useRef(false);
-  const pipelineCreationAttempt = useRef<{ readonly key: string; readonly payload: string } | null>(
-    null,
-  );
+  const opportunityCreationAttempt = useRef<OpportunityCreationAttempt | null>(null);
   const drawerRef = useRef<HTMLElement | null>(null);
   const lastDrawerFocusRef = useRef<HTMLElement | null>(null);
 
@@ -351,15 +326,14 @@ export default function PipelinePage(): React.JSX.Element {
   useEffect(() => {
     if (didLoad.current) return;
     didLoad.current = true;
-    void loadWorkspace();
-  }, [loadWorkspace]);
+    void loadWorkspace(requestedPipelineId);
+  }, [loadWorkspace, requestedPipelineId]);
 
   useEffect(() => {
-    if (!showPipelineCreator && !showCreate && !editor) return;
+    if (!showCreate && !editor) return;
     lastDrawerFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const closeDrawer = (): void => {
-      setShowPipelineCreator(false);
       setShowCreate(false);
       setEditor(null);
     };
@@ -400,7 +374,7 @@ export default function PipelinePage(): React.JSX.Element {
       window.removeEventListener("keydown", onKeyDown);
       lastDrawerFocusRef.current?.focus();
     };
-  }, [editor, saving, showCreate, showPipelineCreator]);
+  }, [editor, saving, showCreate]);
 
   async function mutate<T>(
     url: string,
@@ -474,157 +448,109 @@ export default function PipelinePage(): React.JSX.Element {
     }
   }
 
-  function openPipelineCreator(): void {
-    pipelineCreationAttempt.current = null;
+  function openOpportunityCreator(): void {
+    opportunityCreationAttempt.current = null;
     setError(null);
-    setPipelineStageDrafts(freshSuggestedStages());
-    setShowPipelineCreator(true);
-  }
-
-  function updatePipelineStageDraft(
-    id: string,
-    field: "description" | "name",
-    value: string,
-  ): void {
-    setPipelineStageDrafts((current) =>
-      current.map((stage) => (stage.id === id ? { ...stage, [field]: value } : stage)),
-    );
-  }
-
-  function addPipelineStageDraft(): void {
-    setPipelineStageDrafts((current) =>
-      current.length >= 25
-        ? current
-        : [...current, { id: crypto.randomUUID(), name: "", description: "" }],
-    );
-  }
-
-  function removePipelineStageDraft(id: string): void {
-    setPipelineStageDrafts((current) =>
-      current.length === 1 ? current : current.filter((stage) => stage.id !== id),
-    );
-  }
-
-  function movePipelineStageDraft(id: string, direction: -1 | 1): void {
-    setPipelineStageDrafts((current) => {
-      const index = current.findIndex((stage) => stage.id === id);
-      const destination = index + direction;
-      if (index < 0 || destination < 0 || destination >= current.length) return current;
-      const next = [...current];
-      const moving = next[index];
-      const target = next[destination];
-      if (!moving || !target) return current;
-      next[index] = target;
-      next[destination] = moving;
-      return next;
-    });
-  }
-
-  async function createPipeline(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const stages = pipelineStageDrafts.map((stage) => ({
-      description: stage.description.trim(),
-      name: stage.name.trim(),
-    }));
-    const duplicateStage = stages.some(
-      (stage, index) =>
-        stages.findIndex(
-          (candidate) =>
-            candidate.name.normalize("NFKC").toLocaleLowerCase() ===
-            stage.name.normalize("NFKC").toLocaleLowerCase(),
-        ) !== index,
-    );
-    if (
-      stages.length === 0 ||
-      stages.some((stage) => !stage.name || !stage.description) ||
-      duplicateStage
-    ) {
-      setError(
-        duplicateStage
-          ? "Cada etapa debe tener un nombre diferente."
-          : "Define al menos una etapa con nombre y criterio de entrada.",
-      );
-      return;
-    }
-    const payload = {
-      description: String(form.get("description") ?? "").trim(),
-      name: String(form.get("name") ?? "").trim(),
-      stages,
-    };
-    const serializedPayload = JSON.stringify(payload);
-    const idempotencyKey =
-      pipelineCreationAttempt.current?.payload === serializedPayload
-        ? pipelineCreationAttempt.current.key
-        : crypto.randomUUID();
-    pipelineCreationAttempt.current = { key: idempotencyKey, payload: serializedPayload };
-    setSaving(true);
-    setError(null);
-    try {
-      const created = await mutate<Pipeline>("/api/pipeline", payload, { idempotencyKey });
-      if (!created) throw new Error("El servidor no confirmó el pipeline creado.");
-      pipelineCreationAttempt.current = null;
-      setShowPipelineCreator(false);
-      setOpenPanel(null);
-      setNotice(
-        `Pipeline creado con ${created.stages.length} ${created.stages.length === 1 ? "etapa" : "etapas"}.`,
-      );
-      await loadWorkspace(created.id);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No fue posible crear el pipeline.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function createStage(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (!selectedPipeline) return;
-    const form = new FormData(event.currentTarget);
-    const position = Math.max(-1, ...selectedPipeline.stages.map((stage) => stage.position)) + 1;
-    if (position > 1000) {
-      setError("Este pipeline ya alcanzó el máximo de etapas configurables.");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      await mutate<PipelineStage>(`/api/pipeline/${selectedPipeline.id}/stages`, {
-        description: form.get("description"),
-        name: form.get("name"),
-        position,
-      });
-      event.currentTarget.reset();
-      setNotice("Etapa añadida al pipeline.");
-      await loadWorkspace(selectedPipeline.id);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No fue posible crear la etapa.");
-    } finally {
-      setSaving(false);
-    }
+    setOpportunityContactMode(contacts.length > 0 ? "existing" : "new");
+    setShowCreate(true);
   }
 
   async function createOpportunity(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!selectedPipeline) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const ownerMemberId = String(form.get("ownerMemberId") ?? "").trim();
+    const existingContactId = String(form.get("contactId") ?? "").trim();
+    const displayName = String(form.get("contactDisplayName") ?? "").trim();
+    const email = String(form.get("contactEmail") ?? "").trim();
+    const phone = String(form.get("contactPhone") ?? "").trim();
+    if (opportunityContactMode === "existing" && !existingContactId) {
+      setError("Selecciona un contacto o crea uno nuevo antes de guardar la oportunidad.");
+      return;
+    }
+    if (opportunityContactMode === "new" && !displayName) {
+      setError("Indica el nombre del contacto nuevo.");
+      return;
+    }
+    const opportunityPayload = {
+      amountMinor: String(Math.round(Number(form.get("amount")) * 100)),
+      currency: String(form.get("currency") ?? "").toUpperCase(),
+      ownerMemberId: ownerMemberId || undefined,
+      pipelineId: selectedPipeline.id,
+      stageId: String(form.get("stageId") ?? ""),
+      title: String(form.get("title") ?? "").trim(),
+    };
+    const contactPayload = JSON.stringify(
+      opportunityContactMode === "existing"
+        ? { id: existingContactId, mode: "existing" }
+        : { displayName, email, mode: "new", phone },
+    );
+    const serializedOpportunityPayload = JSON.stringify(opportunityPayload);
+    const matchingContactAttempt =
+      opportunityCreationAttempt.current?.contactPayload === contactPayload
+        ? opportunityCreationAttempt.current
+        : null;
+    const matchingOpportunityAttempt =
+      matchingContactAttempt?.opportunityPayload === serializedOpportunityPayload
+        ? matchingContactAttempt
+        : null;
+    let attempt: OpportunityCreationAttempt = {
+      contactKey: matchingContactAttempt?.contactKey ?? crypto.randomUUID(),
+      contactPayload,
+      ...(matchingContactAttempt?.contactId
+        ? { contactId: matchingContactAttempt.contactId }
+        : opportunityContactMode === "existing"
+          ? { contactId: existingContactId }
+          : {}),
+      opportunityKey: matchingOpportunityAttempt?.opportunityKey ?? crypto.randomUUID(),
+      opportunityPayload: serializedOpportunityPayload,
+    };
+    opportunityCreationAttempt.current = attempt;
     setSaving(true);
     setError(null);
     try {
-      await mutate<Opportunity>("/api/opportunities", {
-        amountMinor: String(Math.round(Number(form.get("amount")) * 100)),
-        contactId: form.get("contactId"),
-        currency: String(form.get("currency")).toUpperCase(),
-        ownerMemberId: ownerMemberId || undefined,
-        pipelineId: selectedPipeline.id,
-        stageId: form.get("stageId"),
-        title: form.get("title"),
-      });
-      event.currentTarget.reset();
+      let contactId = attempt.contactId;
+      let createdContact: Contact | null = null;
+      if (!contactId && opportunityContactMode === "new") {
+        createdContact = await mutate<Contact>(
+          "/api/contacts",
+          {
+            displayName,
+            ...(email ? { email } : {}),
+            ...(phone ? { phone } : {}),
+          },
+          { idempotencyKey: attempt.contactKey },
+        );
+        contactId = createdContact?.id;
+      }
+      if (!contactId) throw new Error("El servidor no confirmó el contacto creado.");
+      if (attempt.contactId !== contactId) {
+        attempt = { ...attempt, contactId };
+        opportunityCreationAttempt.current = attempt;
+      }
+      const created = await mutate<Opportunity>(
+        "/api/opportunities",
+        { ...opportunityPayload, contactId },
+        { idempotencyKey: attempt.opportunityKey },
+      );
+      if (!created) throw new Error("El servidor no confirmó la oportunidad creada.");
+      if (createdContact) {
+        const contact = createdContact;
+        setContacts((current) =>
+          current.some((item) => item.id === contact.id)
+            ? current
+            : [contact, ...current],
+        );
+      }
+      setOpportunities((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      opportunityCreationAttempt.current = null;
+      formElement.reset();
       setShowCreate(false);
       setNotice("Oportunidad creada y añadida al tablero.");
-      await loadOpportunities(selectedPipeline.id, filters);
+      void loadOpportunities(selectedPipeline.id, filters).catch(() => {
+        setNotice("La oportunidad se creó. Actualiza el tablero para sincronizar los filtros.");
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible crear la oportunidad.");
     } finally {
@@ -786,31 +712,12 @@ export default function PipelinePage(): React.JSX.Element {
             >
               <Icon name="refresh" />
             </button>
-            <button
-              className={styles.ghostButton}
-              type="button"
-              onClick={() => setOpenPanel((current) => (current === "manage" ? null : "manage"))}
-              aria-expanded={openPanel === "manage"}
-              disabled={!selectedPipeline}
-            >
-              <Icon name="settings" size={16} />
-              Configurar etapas
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={openPipelineCreator}
-              disabled={workspaceLoading}
-            >
-              <Icon name="add" size={17} />
-              Crear pipeline
-            </button>
             {selectedPipeline?.stages.length ? (
               <button
                 className={styles.primaryButton}
                 type="button"
-                onClick={() => setShowCreate(true)}
-                disabled={contacts.length === 0}
+                onClick={openOpportunityCreator}
+                disabled={workspaceLoading || saving}
               >
                 <Icon name="add" size={17} />
                 Nueva oportunidad
@@ -1023,69 +930,6 @@ export default function PipelinePage(): React.JSX.Element {
           </section>
         ) : null}
 
-        {openPanel === "manage" && selectedPipeline ? (
-          <section
-            className={styles.utilityPanel}
-            aria-label={`Configurar etapas de ${selectedPipeline.name}`}
-          >
-            <div className={styles.utilityPanelHeader}>
-              <div>
-                <span>Configuración del proceso</span>
-                <h2>Etapas de {selectedPipeline.name}</h2>
-              </div>
-              <button type="button" onClick={() => setOpenPanel(null)} aria-label="Cerrar gestión">
-                <Icon name="close" size={16} />
-              </button>
-            </div>
-            <div className={styles.manageGrid}>
-              <section className={styles.stageInventory} aria-label="Etapas actuales">
-                <div>
-                  <span className={styles.sectionKicker}>Etapas actuales</span>
-                  <h3>{selectedPipeline.stages.length} configuradas</h3>
-                </div>
-                {selectedPipeline.stages.length > 0 ? (
-                  <ol className={styles.stageInventoryList}>
-                    {selectedPipeline.stages.map((stage, index) => (
-                      <li key={stage.id}>
-                        <span>{String(index + 1).padStart(2, "0")}</span>
-                        <div>
-                          <strong>{stage.name}</strong>
-                          <p>{stage.description}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className={styles.stageInventoryEmpty}>
-                    Aún no hay etapas. Agrega la primera para habilitar oportunidades en este
-                    proceso.
-                  </p>
-                )}
-              </section>
-              <form className={styles.smallForm} onSubmit={(event) => void createStage(event)}>
-                <h3>Añadir una etapa</h3>
-                <p>Se agrega al final del recorrido; no necesitas calcular su posición.</p>
-                <label>
-                  Nombre
-                  <input name="name" maxLength={160} required placeholder="Ej. Propuesta enviada" />
-                </label>
-                <label>
-                  Criterio de entrada
-                  <textarea
-                    name="description"
-                    maxLength={2000}
-                    required
-                    placeholder="Cuándo debe estar una oportunidad aquí"
-                  />
-                </label>
-                <button className={styles.secondaryButton} disabled={saving} type="submit">
-                  Añadir etapa
-                </button>
-              </form>
-            </div>
-          </section>
-        ) : null}
-
         {pipelines.length > 0 ? (
           <section className={styles.summaryStrip} aria-label="Resumen del pipeline mostrado">
             <div className={styles.summaryContext}>
@@ -1129,11 +973,12 @@ export default function PipelinePage(): React.JSX.Element {
               ◇
             </span>
             <p className={styles.emptyEyebrow}>Proceso comercial</p>
-            <h2>Crea el primer pipeline de este perfil</h2>
-            <p>Define el proceso y sus etapas para comenzar a registrar oportunidades reales.</p>
-            <button className={styles.primaryButton} type="button" onClick={openPipelineCreator}>
-              <Icon name="add" size={17} /> Crear mi primer pipeline
-            </button>
+            <h2>No hay un pipeline operativo</h2>
+            <p>
+              La configuración comercial vive en <strong>Pipelines</strong>, dentro de
+              Administración en el menú lateral. Cuando haya etapas, este tablero quedará listo
+              para registrar oportunidades.
+            </p>
           </section>
         ) : null}
         {!workspaceLoading && selectedPipeline && selectedPipeline.stages.length === 0 ? (
@@ -1143,14 +988,10 @@ export default function PipelinePage(): React.JSX.Element {
             </span>
             <p className={styles.emptyEyebrow}>{selectedPipeline.name}</p>
             <h2>Este pipeline aún no tiene etapas</h2>
-            <p>Añade la primera etapa para poder crear y mover oportunidades.</p>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={() => setOpenPanel("manage")}
-            >
-              <Icon name="add" size={17} /> Añadir etapa
-            </button>
+            <p>
+              Añade las etapas desde <strong>Pipelines</strong>, dentro de Administración en el
+              menú lateral. Aquí solo trabajas las oportunidades del proceso.
+            </p>
           </section>
         ) : null}
 
@@ -1472,190 +1313,6 @@ export default function PipelinePage(): React.JSX.Element {
         ) : null}
       </section>
 
-      {showPipelineCreator ? (
-        <div
-          className={styles.drawerBackdrop}
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target && !saving) setShowPipelineCreator(false);
-          }}
-        >
-          <aside
-            ref={drawerRef}
-            className={`${styles.drawer} ${styles.pipelineCreatorDrawer}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-pipeline-title"
-          >
-            <header className={styles.drawerHeader}>
-              <div>
-                <span>Nuevo proceso comercial</span>
-                <h2 id="new-pipeline-title">Crear pipeline</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowPipelineCreator(false)}
-                disabled={saving}
-                aria-label="Cerrar"
-              >
-                <Icon name="close" size={18} />
-              </button>
-            </header>
-            <p className={styles.drawerIntro}>
-              Un pipeline es el recorrido comercial. Define sus etapas ahora y el tablero quedará
-              listo para recibir oportunidades al guardar.
-            </p>
-            <form
-              className={styles.pipelineCreatorForm}
-              onSubmit={(event) => void createPipeline(event)}
-            >
-              {error ? (
-                <div className={styles.drawerError} role="alert">
-                  <strong>No se pudo crear el pipeline.</strong>
-                  <span>{error}</span>
-                </div>
-              ) : null}
-              <section
-                className={styles.pipelineIdentityFields}
-                aria-labelledby="pipeline-identity-title"
-              >
-                <div className={styles.setupSectionHeading}>
-                  <span>01</span>
-                  <div>
-                    <h3 id="pipeline-identity-title">Identifica el proceso</h3>
-                    <p>Usa un nombre que el equipo reconozca sin explicación adicional.</p>
-                  </div>
-                </div>
-                <label>
-                  Nombre del pipeline <em>*</em>
-                  <input
-                    name="name"
-                    required
-                    maxLength={160}
-                    autoComplete="off"
-                    placeholder="Ej. Ventas corporativas"
-                  />
-                </label>
-                <label>
-                  Descripción <em>*</em>
-                  <textarea
-                    name="description"
-                    required
-                    maxLength={2000}
-                    placeholder="Qué proceso representa y cuándo se usa"
-                  />
-                </label>
-              </section>
-
-              <section
-                className={styles.pipelineStageBuilder}
-                aria-labelledby="pipeline-stages-title"
-              >
-                <div className={styles.setupSectionHeading}>
-                  <span>02</span>
-                  <div>
-                    <h3 id="pipeline-stages-title">Define las etapas iniciales</h3>
-                    <p>El orden de esta lista será el orden de las columnas en el tablero.</p>
-                  </div>
-                  <button
-                    className={styles.textButton}
-                    type="button"
-                    onClick={addPipelineStageDraft}
-                    disabled={pipelineStageDrafts.length >= 25 || saving}
-                  >
-                    <Icon name="add" size={15} /> Añadir etapa
-                  </button>
-                </div>
-                <ol className={styles.pipelineDraftList}>
-                  {pipelineStageDrafts.map((stage, index) => (
-                    <li key={stage.id}>
-                      <span className={styles.pipelineDraftNumber}>
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <div className={styles.pipelineDraftFields}>
-                        <label>
-                          <span>Nombre de la etapa</span>
-                          <input
-                            value={stage.name}
-                            required
-                            maxLength={160}
-                            onChange={(event) =>
-                              updatePipelineStageDraft(stage.id, "name", event.target.value)
-                            }
-                            placeholder="Ej. Calificación"
-                          />
-                        </label>
-                        <label>
-                          <span>Criterio de entrada</span>
-                          <input
-                            value={stage.description}
-                            required
-                            maxLength={2000}
-                            onChange={(event) =>
-                              updatePipelineStageDraft(stage.id, "description", event.target.value)
-                            }
-                            placeholder="Qué debe ocurrir para mover una oportunidad aquí"
-                          />
-                        </label>
-                      </div>
-                      <div
-                        className={styles.pipelineDraftActions}
-                        aria-label={`Acciones para ${stage.name || `etapa ${index + 1}`}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => movePipelineStageDraft(stage.id, -1)}
-                          disabled={index === 0 || saving}
-                          aria-label={`Subir ${stage.name || `etapa ${index + 1}`}`}
-                          title="Subir etapa"
-                        >
-                          <Icon name="arrowUp" size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => movePipelineStageDraft(stage.id, 1)}
-                          disabled={index === pipelineStageDrafts.length - 1 || saving}
-                          aria-label={`Bajar ${stage.name || `etapa ${index + 1}`}`}
-                          title="Bajar etapa"
-                        >
-                          <Icon name="arrowDown" size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removePipelineStageDraft(stage.id)}
-                          disabled={pipelineStageDrafts.length === 1 || saving}
-                          aria-label={`Quitar ${stage.name || `etapa ${index + 1}`}`}
-                          title="Quitar etapa"
-                        >
-                          <Icon name="trash" size={15} />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-                <p className={styles.pipelineSetupHint}>
-                  Ganada, perdida o abandonada son estados de la oportunidad; no necesitas crear
-                  columnas separadas para esos cierres.
-                </p>
-              </section>
-              <div className={styles.drawerActions}>
-                <button
-                  className={styles.textButton}
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setShowPipelineCreator(false)}
-                >
-                  Cancelar
-                </button>
-                <button className={styles.primaryButton} type="submit" disabled={saving}>
-                  {saving ? "Creando proceso…" : "Crear pipeline y etapas"}
-                </button>
-              </div>
-            </form>
-          </aside>
-        </div>
-      ) : null}
-
       {showCreate && selectedPipeline ? (
         <div
           className={styles.drawerBackdrop}
@@ -1690,19 +1347,87 @@ export default function PipelinePage(): React.JSX.Element {
               inmediato en el tablero.
             </p>
             <form className={styles.drawerForm} onSubmit={(event) => void createOpportunity(event)}>
-              <label>
-                Contacto <em>*</em>
-                <select name="contactId" required defaultValue="">
-                  <option value="" disabled>
-                    Selecciona un contacto
-                  </option>
-                  {contacts.map((contact) => (
-                    <option key={contact.id} value={contact.id}>
-                      {contact.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {error ? (
+                <div className={styles.drawerError} role="alert">
+                  <strong>No se pudo crear la oportunidad.</strong>
+                  <span>{error}</span>
+                </div>
+              ) : null}
+              <fieldset className={styles.contactSource}>
+                <legend>
+                  Contacto <em>*</em>
+                </legend>
+                <p>Elige uno existente o crea un contacto real sin salir de esta oportunidad.</p>
+                <div className={styles.contactSourceOptions} role="radiogroup" aria-label="Origen del contacto">
+                  {contacts.length > 0 ? (
+                    <label>
+                      <input
+                        checked={opportunityContactMode === "existing"}
+                        name="contactMode"
+                        onChange={() => setOpportunityContactMode("existing")}
+                        type="radio"
+                        value="existing"
+                      />
+                      <span>Elegir contacto existente</span>
+                    </label>
+                  ) : null}
+                  <label>
+                    <input
+                      checked={opportunityContactMode === "new"}
+                      name="contactMode"
+                      onChange={() => setOpportunityContactMode("new")}
+                      type="radio"
+                      value="new"
+                    />
+                    <span>Crear contacto nuevo</span>
+                  </label>
+                </div>
+                {opportunityContactMode === "existing" ? (
+                  <label>
+                    Contacto existente
+                    <select name="contactId" required defaultValue="">
+                      <option value="" disabled>
+                        Selecciona un contacto
+                      </option>
+                      {contacts.map((contact) => (
+                        <option key={contact.id} value={contact.id}>
+                          {contact.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div className={styles.quickContactFields}>
+                    <label>
+                      Nombre del contacto <em>*</em>
+                      <input
+                        name="contactDisplayName"
+                        required
+                        maxLength={160}
+                        placeholder="Ej. Ana Pérez"
+                      />
+                    </label>
+                    <label>
+                      Correo
+                      <input
+                        name="contactEmail"
+                        type="email"
+                        maxLength={320}
+                        placeholder="ana@empresa.com"
+                      />
+                    </label>
+                    <label>
+                      Teléfono
+                      <input
+                        name="contactPhone"
+                        maxLength={40}
+                        minLength={3}
+                        placeholder="+57 300 000 0000"
+                      />
+                    </label>
+                  </div>
+                )}
+              </fieldset>
               <label>
                 Nombre de la oportunidad <em>*</em>
                 <input
@@ -1763,7 +1488,7 @@ export default function PipelinePage(): React.JSX.Element {
                 <button
                   className={styles.primaryButton}
                   type="submit"
-                  disabled={saving || contacts.length === 0}
+                  disabled={saving}
                 >
                   {saving ? "Creando…" : "Crear oportunidad"}
                 </button>

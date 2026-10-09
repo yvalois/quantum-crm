@@ -28,6 +28,15 @@ describe("crm-web proxy", () => {
     );
   });
 
+  it("mantiene protegida la configuración de pipelines", () => {
+    const response = proxy(new NextRequest("https://crm.example.test/pipelines"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://crm.example.test/api/auth/login?returnTo=%2Fpipelines",
+    );
+  });
+
   it("autoriza solo el origen HTTPS exacto del almacenamiento hermano", () => {
     const request = new NextRequest("https://interamerican.2-25-172-119.nip.io/documents");
     request.cookies.set("qcrm_crm_session", "opaque-session");

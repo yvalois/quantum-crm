@@ -491,6 +491,149 @@
   gap: 1rem;
   margin-top: 1.1rem;
 }
+.pipelineSettingsGrid {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.42fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+.pipelineDirectory,
+.pipelineSettingsDetail {
+  border: 1px solid #d4e4e0;
+  border-radius: 0.95rem;
+  background: #fffffff0;
+  box-shadow: 0 0.7rem 1.7rem #17342f0a;
+}
+.pipelineDirectory {
+  position: sticky;
+  top: 1rem;
+  overflow: hidden;
+}
+.pipelineDirectoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  border-bottom: 1px solid #e0ece9;
+  color: #587276;
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.9rem 1rem;
+}
+.pipelineDirectoryHeader strong,
+.pipelineDirectoryList em {
+  display: grid;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  place-items: center;
+  border-radius: 999rem;
+  background: #e7f5f1;
+  color: var(--mint-deep);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.61rem;
+  font-style: normal;
+}
+.pipelineDirectoryList {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.45rem;
+}
+.pipelineDirectoryList button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: #385356;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 0.72rem;
+}
+.pipelineDirectoryList button:hover,
+.pipelineDirectoryList button:focus-visible {
+  border-color: #b7ddd4;
+  background: #f0faf7;
+  outline: none;
+}
+.pipelineDirectoryList button > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.19rem;
+}
+.pipelineDirectoryList strong {
+  overflow: hidden;
+  color: #244044;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pipelineDirectoryList small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #77898b;
+  font-size: 0.67rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.pipelineDirectoryList .pipelineDirectoryActive {
+  border-color: #86cbbc;
+  background: #e2f5ef;
+}
+.pipelineDirectoryList .pipelineDirectoryActive strong {
+  color: #075b51;
+}
+.pipelineDirectoryList .pipelineDirectoryActive em {
+  background: var(--mint);
+  color: #fff;
+}
+.pipelineSettingsDetail {
+  min-width: 0;
+  padding: clamp(1rem, 2vw, 1.45rem);
+}
+.pipelineSettingsDetailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e0ece9;
+  padding-bottom: 1rem;
+}
+.pipelineSettingsDetailHeader > div {
+  min-width: 0;
+}
+.pipelineSettingsDetailHeader span {
+  color: var(--mint);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pipelineSettingsDetailHeader h2 {
+  margin: 0.35rem 0 0;
+  color: #1f3b3e;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  letter-spacing: -0.035em;
+}
+.pipelineSettingsDetailHeader p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.pipelineSettingsDetailHeader .secondaryButton {
+  flex: 0 0 auto;
+  text-decoration: none;
+}
 .smallForm {
   display: grid;
   align-content: start;
@@ -1153,6 +1296,71 @@
   display: grid;
   gap: 0.85rem;
 }
+.contactSource {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #cfe3de;
+  border-radius: 0.72rem;
+  background: #f7fcfa;
+  padding: 0.85rem;
+}
+.contactSource legend {
+  color: #365457;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0 0.25rem;
+}
+.contactSource legend em {
+  color: var(--coral);
+  font-style: normal;
+}
+.contactSource > p {
+  margin: -0.12rem 0 0;
+  color: #6a7d7f;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+.contactSourceOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.contactSourceOptions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  border: 1px solid #d1e3df;
+  border-radius: 0.52rem;
+  background: #fff;
+  color: #456064;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 760;
+  padding: 0.45rem 0.52rem;
+}
+.contactSourceOptions label:has(input:checked) {
+  border-color: #76bdad;
+  background: #e5f6f0;
+  color: var(--mint-deep);
+}
+.contactSourceOptions input {
+  width: 0.9rem;
+  min-width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  accent-color: var(--mint);
+  padding: 0;
+}
+.quickContactFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+.quickContactFields label:first-child {
+  grid-column: 1 / -1;
+}
 .pipelineCreatorForm {
   display: grid;
   gap: 1rem;
@@ -1657,8 +1865,12 @@
     grid-column: 1/-1;
   }
   .manageGrid,
-  .drawerBodyGrid {
+  .drawerBodyGrid,
+  .pipelineSettingsGrid {
     grid-template-columns: 1fr;
+  }
+  .pipelineDirectory {
+    position: static;
   }
   .detailDrawer {
     width: min(42rem, 100vw);
@@ -1731,6 +1943,15 @@
   }
   .drawerPair {
     grid-template-columns: 1fr;
+  }
+  .quickContactFields {
+    grid-template-columns: 1fr;
+  }
+  .quickContactFields label:first-child {
+    grid-column: auto;
+  }
+  .pipelineSettingsDetailHeader {
+    flex-direction: column;
   }
   .pipelineCreatorDrawer {
     width: 100vw;
