@@ -364,11 +364,12 @@ describe("commercial PostgreSQL sales repository", () => {
 
   it("creates pipeline and initial stages once in one transaction and replays the stages", async () => {
     let persisted = false;
+    let persistedResponse: unknown;
     let insertedStages = 0;
     const query = vi.fn(async (text: string, _values?: unknown[]) => {
       if (text.includes("FROM sales.command_idempotency")) {
         return persisted
-          ? { rows: [{ payload_hash: command.payloadHash, response: pipelineRow }] }
+          ? { rows: [{ payload_hash: command.payloadHash, response: persistedResponse }] }
           : { rows: [] };
       }
       if (text.includes("INSERT INTO sales.pipelines")) return { rows: [pipelineRow] };
@@ -377,13 +378,15 @@ describe("commercial PostgreSQL sales repository", () => {
         insertedStages += 1;
         return { rows: row ? [row] : [] };
       }
-      if (text.includes("INSERT INTO sales.command_idempotency")) persisted = true;
+      if (text.includes("INSERT INTO sales.command_idempotency")) {
+        persistedResponse = JSON.parse(String(_values?.[3]));
+        persisted = true;
+      }
       return { rows: [] };
     });
     const client = { query, release: vi.fn() } as unknown as PoolClient;
-    const poolQuery = vi.fn(async (text: string) => {
-      if (text.includes("FROM sales.pipeline_stages")) return { rows: stageRows };
-      return { rows: [] };
+    const poolQuery = vi.fn(async () => {
+      throw new Error("A replay must use its original response snapshot");
     });
     const pool = {
       connect: vi.fn(async () => client),
@@ -421,7 +424,7 @@ describe("commercial PostgreSQL sales repository", () => {
     expect(
       statements.filter((text) => text.includes("INSERT INTO sales.command_idempotency")),
     ).toHaveLength(1);
-    expect(poolQuery).toHaveBeenCalledTimes(1);
+    expect(poolQuery).not.toHaveBeenCalled();
   });
 
   it("rolls back the pipeline when an initial-stage write fails", async () => {

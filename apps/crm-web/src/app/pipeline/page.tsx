@@ -581,13 +581,18 @@ export default function PipelinePage(): React.JSX.Element {
     event.preventDefault();
     if (!selectedPipeline) return;
     const form = new FormData(event.currentTarget);
+    const position = Math.max(-1, ...selectedPipeline.stages.map((stage) => stage.position)) + 1;
+    if (position > 1000) {
+      setError("Este pipeline ya alcanzó el máximo de etapas configurables.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await mutate<PipelineStage>(`/api/pipeline/${selectedPipeline.id}/stages`, {
         description: form.get("description"),
         name: form.get("name"),
-        position: selectedPipeline.stages.length,
+        position,
       });
       event.currentTarget.reset();
       setNotice("Etapa añadida al pipeline.");
