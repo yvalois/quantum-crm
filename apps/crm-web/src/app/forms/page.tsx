@@ -40,15 +40,6 @@ const fieldLabels: Record<FormFieldType, string> = {
   RATING: "Calificacion",
 };
 
-const fieldGroups: readonly {
-  readonly title: string;
-  readonly types: readonly FormFieldType[];
-}[] = [
-  { title: "Datos", types: ["SHORT_TEXT", "LONG_TEXT", "NUMBER", "EMAIL", "PHONE", "URL", "ADDRESS", "DATE", "TIME"] },
-  { title: "Eleccion", types: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "DROPDOWN", "CHECKBOX"] },
-  { title: "Medicion", types: ["SCALE", "RATING"] },
-];
-
 const defaultTheme: FormTheme = {
   accentColor: "#5de1d4",
   backgroundColor: "#07110f",
@@ -152,6 +143,7 @@ export default function FormsPage(): React.JSX.Element {
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [draggedField, setDraggedField] = useState<{ sectionId: string; fieldId: string } | null>(null);
+  const [insertFieldType, setInsertFieldType] = useState<FormFieldType>("SHORT_TEXT");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -351,9 +343,15 @@ export default function FormsPage(): React.JSX.Element {
       return { ...section, fields };
     });
   }
-  function addField(sectionId: string, type: FormFieldType): void {
-    updateSection(sectionId, (section) => ({ ...section, fields: [...section.fields, newField(type)] }));
+  function addField(sectionId: string, type: FormFieldType, position?: number): void {
+    const field = newField(type);
+    updateSection(sectionId, (section) => {
+      const fields = [...section.fields];
+      fields.splice(position ?? fields.length, 0, field);
+      return { ...section, fields };
+    });
     setActiveSectionId(sectionId);
+    setSelectedFieldId(field.id);
   }
   function exportCsv(): void {
     if (!draft) return;
@@ -444,20 +442,6 @@ export default function FormsPage(): React.JSX.Element {
                 <>
                   <section className="forms-editor-toolbar">
                     <div>
-                      <input
-                        className="forms-title-input"
-                        value={draft.title}
-                        onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-                      />
-                      <textarea
-                        value={draft.description}
-                        placeholder="Describe el objetivo del formulario"
-                        onChange={(event) =>
-                          setDraft({ ...draft, description: event.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
                       <button onClick={() => void save()} disabled={saving}>
                         Guardar
                       </button>
@@ -496,6 +480,21 @@ export default function FormsPage(): React.JSX.Element {
                   ) : null}
                   <div className="forms-builder-grid">
                     <section className="forms-builder">
+                      <section className="form-cover-editor">
+                        <span>FORMULARIO</span>
+                        <input
+                          className="forms-title-input"
+                          value={draft.title}
+                          aria-label="Titulo del formulario"
+                          onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+                        />
+                        <textarea
+                          value={draft.description}
+                          aria-label="Descripcion del formulario"
+                          placeholder="Descripcion del formulario"
+                          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                        />
+                      </section>
                       {draft.definition.sections.map((section, sectionIndex) => (
                         <article className="form-section-editor" key={section.id}>
                           <header>
@@ -746,8 +745,7 @@ export default function FormsPage(): React.JSX.Element {
                               className="form-insert-between"
                               type="button"
                               onClick={() => {
-                                setActiveSectionId(section.id);
-                                setSelectedFieldId(null);
+                                addField(section.id, insertFieldType, index + 1);
                               }}
                             >
                               + Añadir desde biblioteca
@@ -784,42 +782,51 @@ export default function FormsPage(): React.JSX.Element {
                         + Agregar seccion
                       </button>
                     </section>
-                    <aside className="forms-canvas-tools" aria-label="Biblioteca de campos">
-                      <div>
-                        <span className="form-canvas-kicker">INSERTAR</span>
-                        <h2>Campos</h2>
-                        <p>Elige una seccion y agrega el tipo de respuesta que necesites.</p>
-                      </div>
-                      <label className="form-canvas-section-picker">
-                        Seccion activa
+                    <aside className="forms-canvas-tools" aria-label="Herramientas del formulario">
+                      <button
+                        className="form-tool-button form-tool-primary"
+                        type="button"
+                        title="Agregar pregunta"
+                        onClick={() =>
+                          addField(activeSectionId ?? draft.definition.sections[0]!.id, insertFieldType)
+                        }
+                      >
+                        +
+                      </button>
+                      <label className="form-tool-select" title="Tipo de pregunta">
+                        <span>Tipo</span>
                         <select
-                          value={activeSectionId ?? draft.definition.sections[0]?.id ?? ""}
-                          onChange={(event) => setActiveSectionId(event.target.value)}
+                          value={insertFieldType}
+                          onChange={(event) => setInsertFieldType(event.target.value as FormFieldType)}
                         >
-                          {draft.definition.sections.map((section, index) => (
-                            <option key={section.id} value={section.id}>
-                              {index + 1}. {section.title || "Sin titulo"}
-                            </option>
+                          {Object.entries(fieldLabels).map(([type, label]) => (
+                            <option key={type} value={type}>{label}</option>
                           ))}
                         </select>
                       </label>
-                      {fieldGroups.map((group) => (
-                        <section key={group.title}>
-                          <span>{group.title}</span>
-                          <div className="form-field-palette">
-                            {group.types.map((type) => (
-                              <button
-                                key={type}
-                                type="button"
-                                onClick={() => addField(activeSectionId ?? draft.definition.sections[0]!.id, type)}
-                              >
-                                <b>{fieldLabels[type]}</b>
-                                <small>{type === "RATING" ? "Estrellas" : type === "ADDRESS" ? "Varias lineas" : type === "SCALE" ? "Escala numerica" : "Agregar"}</small>
-                              </button>
-                            ))}
-                          </div>
-                        </section>
-                      ))}
+                      <button
+                        className="form-tool-button"
+                        type="button"
+                        title="Agregar seccion"
+                        onClick={() =>
+                          setDraft({
+                            ...draft,
+                            definition: {
+                              sections: [
+                                ...draft.definition.sections,
+                                {
+                                  id: crypto.randomUUID(),
+                                  title: `Seccion ${draft.definition.sections.length + 1}`,
+                                  description: "",
+                                  fields: [newField()],
+                                },
+                              ],
+                            },
+                          })
+                        }
+                      >
+                        =
+                      </button>
                     </aside>
                     <aside
                       className={`forms-preview forms-preview-${previewDevice}`}
