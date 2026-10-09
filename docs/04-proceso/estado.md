@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Actualizado: 2026-10-08
+Actualizado: 2026-10-09
 
 Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No sustituye el checklist.
 
@@ -17,6 +17,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 > **FORM-01 a FORM-09 (2026-10-09): PAUSADO POR EL PROPIETARIO.** El constructor queda congelado en el estado funcional validado del candidato `38f6bb98`; no se modifica durante el siguiente bloque salvo una regresion que impida abrirlo o guardar.
 
 > **PIPE-01 a PIPE-15 / CHAT-01 a CHAT-21 (2026-10-09): EN_CURSO.** Se rehacen las rutas autenticadas `/pipeline` y `/inbox` como espacios operativos inspirados en los patrones de uso de GHL, sin reutilizar su marca ni activos: tablero comercial real con control de vista, filtros y acciones persistentes; bandeja de tres paneles con filtros, hilo, composer, asignacion, estados y control humano/agente. Se reutilizan los contratos y datos comerciales existentes; no se presentan vistas simuladas como producto terminado.
+
+> **PIPE-01 a PIPE-15 / CHAT-01 a CHAT-21 (2026-10-09): DESPLEGADO Y VALIDADO TECNICAMENTE EN VPS.** El candidato `6e7c6898` reemplazo solamente `crm-web` de InterAmerican con la imagen `qcrm-candidate/crm-web:6e7c6898`, que quedo `healthy`. El build de produccion, `@quantum-crm/crm-web typecheck` y Prettier de las cuatro piezas modificadas aprobaron en el VPS. `/pipeline` y `/inbox` responden desde el release con la redireccion OIDC esperada para una ruta autenticada. El tablero conserva datos, control de concurrencia y transiciones reales; ahora suma por moneda sin ocultar importes, valida motivo al cerrar/perder y ofrece tablero, tabla, filtros, busqueda, edicion e historial. La bandeja conserva conversaciones, mensajes, notas, respuestas rapidas, asignacion, estado y control humano/agente reales; las notas siguen disponibles aunque el canal externo este cerrado. Los adaptadores de envio externo permanecen explicitamente fuera de alcance y los mensajes se muestran como en cola hasta configurarlos. Pendiente de estabilizacion posterior: recorrido visual autenticado con una sesion de negocio y adaptadores de canal.
 
 > **DOC-05 (2026-10-08): EN_CURSO.** La imagen del encabezado ya no es una zona fija de logotipo: se inserta como objeto directo, se mueve, redimensiona, sustituye y elimina sobre el encabezado. Su posicion y dimensiones se guardan en el diseno y el encabezado crece con su alto para no invadir el contenido. El candidato `869853e3` aprobo los builds de produccion de API y CRM web en el VPS; `qcrm-candidate/api:869853e3` y `qcrm-candidate/crm-web:869853e3` estan saludables y el readiness publico devuelve `200`. Pendiente: recorrido visual autenticado de la interaccion directa.
 
