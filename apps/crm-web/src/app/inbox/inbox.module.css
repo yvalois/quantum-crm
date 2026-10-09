@@ -23,6 +23,9 @@
 
 .workspace {
   display: grid;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-width: 0;
   height: 100vh;
   grid-template-rows: auto minmax(0, 1fr);

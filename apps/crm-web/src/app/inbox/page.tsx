@@ -651,7 +651,7 @@ export default function InboxPage(): React.JSX.Element {
 
   return (
     <CrmShell className={styles.shell ?? ""}>
-      <main className={styles.workspace} aria-busy={loading}>
+      <section className={styles.workspace} aria-busy={loading}>
         <header className={styles.topbar}>
           <div className={styles.titleGroup}>
             <span className={styles.productEyebrow}>Centro de atención</span>
@@ -1238,7 +1238,7 @@ export default function InboxPage(): React.JSX.Element {
             )}
           </aside>
         </section>
-      </main>
+      </section>
 
       {showCreate ? (
         <div
