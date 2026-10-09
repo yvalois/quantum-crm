@@ -603,20 +603,53 @@ export default function FormsPage(): React.JSX.Element {
                               {["SINGLE_CHOICE", "MULTIPLE_CHOICE", "DROPDOWN"].includes(
                                 field.type,
                               ) ? (
-                                <label>
-                                  Opciones separadas por coma
-                                  <input
-                                    value={field.options.join(", ")}
-                                    onChange={(event) =>
+                                <div className="form-choice-options" aria-label="Opciones de respuesta">
+                                  {field.options.map((option, optionIndex) => (
+                                    <div key={`${field.id}-${optionIndex}`}>
+                                      <span aria-hidden="true">
+                                        {field.type === "SINGLE_CHOICE"
+                                          ? "○"
+                                          : field.type === "MULTIPLE_CHOICE"
+                                            ? "□"
+                                            : "⌄"}
+                                      </span>
+                                      <input
+                                        value={option}
+                                        aria-label={`Opcion ${optionIndex + 1}`}
+                                        onChange={(event) => {
+                                          const options = [...field.options];
+                                          options[optionIndex] = event.target.value;
+                                          updateField(section.id, field.id, { options });
+                                        }}
+                                      />
+                                      <button
+                                        type="button"
+                                        title="Eliminar opcion"
+                                        disabled={field.options.length === 1}
+                                        onClick={() =>
+                                          updateField(section.id, field.id, {
+                                            options: field.options.filter(
+                                              (_, currentIndex) => currentIndex !== optionIndex,
+                                            ),
+                                          })
+                                        }
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    className="form-add-option"
+                                    onClick={() =>
                                       updateField(section.id, field.id, {
-                                        options: event.target.value
-                                          .split(",")
-                                          .map((value) => value.trim())
-                                          .filter(Boolean),
+                                        options: [...field.options, `Opcion ${field.options.length + 1}`],
                                       })
                                     }
-                                  />
-                                </label>
+                                  >
+                                    + Agregar opcion
+                                  </button>
+                                </div>
                               ) : null}
                               {["SCALE", "RATING"].includes(field.type) ? (
                                 <div className="form-field-limits">
@@ -825,7 +858,7 @@ export default function FormsPage(): React.JSX.Element {
                           })
                         }
                       >
-                        =
+                        ▤
                       </button>
                     </aside>
                     <aside
