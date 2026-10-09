@@ -333,7 +333,7 @@ export default function PipelinesPage(): React.JSX.Element {
   }
 
   return (
-    <CrmShell className={styles.pipelineShell}>
+    <CrmShell className={styles.pipelineShell ?? ""}>
       <section className={styles.workspace} aria-busy={loading || saving}>
         <header className={styles.topbar}>
           <div className={styles.headingGroup}>
