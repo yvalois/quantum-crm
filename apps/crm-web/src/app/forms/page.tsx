@@ -93,9 +93,10 @@ function renderPreviewField(field: FormField): React.JSX.Element {
     return (
       <div className="form-preview-options">
         {field.options.map((option) => (
-          <label key={option}>
-            <input type={field.type === "SINGLE_CHOICE" ? "radio" : "checkbox"} disabled /> {option}
-          </label>
+          <div className="form-preview-option" key={option}>
+            <input type={field.type === "SINGLE_CHOICE" ? "radio" : "checkbox"} disabled />
+            <span>{option}</span>
+          </div>
         ))}
       </div>
     );
@@ -111,9 +112,10 @@ function renderPreviewField(field: FormField): React.JSX.Element {
     );
   if (field.type === "CHECKBOX")
     return (
-      <label>
-        <input type="checkbox" disabled /> Confirmar
-      </label>
+      <div className="form-preview-option">
+        <input type="checkbox" disabled />
+        <span>Confirmar</span>
+      </div>
     );
   if (["SCALE", "RATING"].includes(field.type))
     return (
@@ -146,7 +148,7 @@ export default function FormsPage(): React.JSX.Element {
   const [responses, setResponses] = useState<SubmittedFormResponse[]>([]);
   const [tab, setTab] = useState<"build" | "responses">("build");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
-  const [showFormList, setShowFormList] = useState(false);
+  const [showFormList, setShowFormList] = useState(true);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [draggedField, setDraggedField] = useState<{ sectionId: string; fieldId: string } | null>(null);
@@ -180,9 +182,7 @@ export default function FormsPage(): React.JSX.Element {
       if (!response.ok) throw new Error(await responseTitle(response));
       const list = ((await response.json()) as List<FormContract>).data;
       setForms(list);
-      const id = selectedId ?? list[0]?.id ?? null;
-      setSelectedId(id);
-      setDraft(list.find((entry) => entry.id === id) ?? null);
+      setDraft(selectedId ? list.find((entry) => entry.id === selectedId) ?? null : null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cargar Formularios.");
     } finally {
@@ -432,7 +432,15 @@ export default function FormsPage(): React.JSX.Element {
               <p>Aun no hay formularios. Crea el primero.</p>
             ) : null}
           </aside>
-          {draft ? (
+          {!draft || showFormList ? (
+            <section className="forms-library-panel" aria-live="polite">
+              <span>Biblioteca de formularios</span>
+              <h2>Elige un formulario para editar</h2>
+              <p>Selecciona uno de la lista. Tus cambios se editan solo cuando abres ese formulario.</p>
+              <small>{forms.length} {forms.length === 1 ? "formulario disponible" : "formularios disponibles"}</small>
+            </section>
+          ) : null}
+          {draft && !showFormList ? (
             <main className="forms-editor">
               <nav className="forms-tabs">
                 <button className={tab === "build" ? "active" : ""} onClick={() => setTab("build")}>

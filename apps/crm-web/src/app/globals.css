@@ -279,7 +279,19 @@
 .form-canvas-field strong { font-size: 1rem; }
 .form-canvas-field small { color: var(--muted); }
 .form-canvas-field-preview { pointer-events: none; opacity: .85; }
-.form-canvas-field-preview input,.form-canvas-field-preview textarea,.form-canvas-field-preview select { width: 100%; background: #f5f8f8; }
+.form-canvas-field-preview input:not([type="radio"]):not([type="checkbox"]),
+.form-canvas-field-preview textarea,
+.form-canvas-field-preview select { width: 100%; background: #f5f8f8; }
+.form-canvas-field-preview input[type="radio"],
+.form-canvas-field-preview input[type="checkbox"] {
+  width: 1.05rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  min-height: 1.05rem;
+  margin: 0;
+  padding: 0;
+  accent-color: #16877f;
+}
 .form-field-head {
   display: grid;
   grid-template-columns: auto 1fr 160px;
@@ -426,7 +438,15 @@
 }
 .form-preview-options {
   display: grid;
-  gap: 6px;
+  gap: 9px;
+}
+.form-preview-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 1.25rem;
+  color: #334342;
+  font-size: .88rem;
 }
 .form-scale {
   display: flex;
@@ -503,7 +523,7 @@
 .form-field-editor:hover,
 .form-field-editor.is-selected { border-color: #24aa9e; box-shadow: 0 0 0 1px #24aa9e; }
 .form-field-editor:not(.is-selected)::after { display: none; }
-.form-canvas-field-preview input,
+.form-canvas-field-preview input:not([type="radio"]):not([type="checkbox"]),
 .form-canvas-field-preview textarea,
 .form-canvas-field-preview select { border: 0; border-bottom: 1px solid #8f9d9d; border-radius: 0; background: transparent; }
 .form-insert-between { margin: -3px auto; }
@@ -553,6 +573,26 @@
   border: 1px solid #d8e1e0;
   background: #fff;
 }
+.forms-library-panel {
+  display: grid;
+  place-content: center;
+  align-content: center;
+  min-height: 32rem;
+  padding: 3rem;
+  text-align: center;
+  background: #f4f7f7;
+}
+.forms-library-panel > span {
+  margin-bottom: .65rem;
+  color: #16877f;
+  font-size: .68rem;
+  font-weight: 850;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.forms-library-panel h2 { margin: 0; color: #152323; font-size: clamp(1.5rem, 3vw, 2.2rem); letter-spacing: -.04em; }
+.forms-library-panel p { max-width: 28rem; margin: .75rem auto 1rem; color: #647274; line-height: 1.55; }
+.forms-library-panel small { color: #82918f; font-weight: 700; }
 .forms-workspace-editing .forms-tabs {
   justify-content: center;
   padding-inline: 1rem;
