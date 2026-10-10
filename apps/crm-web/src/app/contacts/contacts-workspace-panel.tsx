@@ -1805,35 +1805,35 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                         {visibleColumns.has("labels") ? (
                           <td>
                             <span className="contact-workspace-tags">
-                            {contact.labels.length ? (
-                              contact.labels.slice(0, 2).map((label) => (
-                                <span className="contact-workspace-tag" key={label.id}>
-                                  {label.name}
+                              {contact.labels.length ? (
+                                contact.labels.slice(0, 2).map((label) => (
+                                  <span className="contact-workspace-tag" key={label.id}>
+                                    {label.name}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="contact-workspace-muted">—</span>
+                              )}
+                              {contact.labels.length > 2 ? (
+                                <span className="contact-workspace-more-tags">
+                                  +{contact.labels.length - 2}
                                 </span>
-                              ))
-                            ) : (
-                              <span className="contact-workspace-muted">—</span>
-                            )}
-                            {contact.labels.length > 2 ? (
-                              <span className="contact-workspace-more-tags">
-                                +{contact.labels.length - 2}
-                              </span>
-                            ) : null}
+                              ) : null}
                             </span>
                           </td>
                         ) : null}
                         {visibleColumns.has("source") ? (
                           <td>
                             <span className="contact-workspace-source">
-                            {sourceLabel(contact.source)}
+                              {sourceLabel(contact.source)}
                             </span>
                           </td>
                         ) : null}
                         {visibleColumns.has("updated") ? (
                           <td>
                             <span className="contact-workspace-activity-time">
-                            {relativeDate(contact.updatedAt)}
-                            <small>{dateText(contact.updatedAt)}</small>
+                              {relativeDate(contact.updatedAt)}
+                              <small>{dateText(contact.updatedAt)}</small>
                             </span>
                           </td>
                         ) : null}
@@ -1876,133 +1876,133 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
             </footer>
           </main>
 
-        {selectedContact ? (
-          <aside
-            className="contact-workspace-drawer"
-            aria-label={`Ficha de ${selectedContact.displayName}`}
-          >
-            <header>
-              <button
-                type="button"
-                className="contact-workspace-close-drawer"
-                onClick={closeContact}
-                aria-label="Cerrar ficha"
-              >
-                <Icon name="close" size={19} />
-              </button>
-              <span className="contact-workspace-profile-avatar">
-                {initials(selectedContact.displayName)}
-              </span>
-              <div className="contact-workspace-profile-summary">
-                <h2>{selectedContact.displayName}</h2>
-                <span>{drawerOwner?.displayName ?? "Sin responsable"}</span>
-              </div>
-              <button
-                type="button"
-                className="contact-workspace-drawer-edit"
-                onClick={() => setComposer({ mode: "edit", contact: selectedContact })}
-              >
-                Editar
-              </button>
-            </header>
-            <section className="contact-workspace-contact-methods">
-              <a
-                href={selectedContact.email ? `mailto:${selectedContact.email}` : undefined}
-                aria-disabled={!selectedContact.email}
-              >
-                <Icon name="mail" size={16} />
-                <span>{selectedContact.email ?? "Sin correo"}</span>
-              </a>
-              <a
-                href={selectedContact.phone ? `tel:${selectedContact.phone}` : undefined}
-                aria-disabled={!selectedContact.phone}
-              >
-                <Icon name="phone" size={16} />
-                <span>{selectedContact.phone ?? "Sin teléfono"}</span>
-              </a>
-            </section>
-            <div className="contact-workspace-drawer-meta">
-              <span>
-                Origen: <strong>{sourceLabel(selectedContact.source)}</strong>
-              </span>
-              <span>
-                Creado: <strong>{dateText(selectedContact.createdAt)}</strong>
-              </span>
-            </div>
-            <nav className="contact-workspace-tabs" aria-label="Información relacionada">
-              {tabs.map((tab) => (
+          {selectedContact ? (
+            <aside
+              className="contact-workspace-drawer"
+              aria-label={`Ficha de ${selectedContact.displayName}`}
+            >
+              <header>
                 <button
                   type="button"
-                  key={tab.id}
-                  className={activeTab === tab.id ? "is-active" : ""}
-                  onClick={() => setActiveTab(tab.id)}
+                  className="contact-workspace-close-drawer"
+                  onClick={closeContact}
+                  aria-label="Cerrar ficha"
                 >
-                  <Icon name={tab.icon} size={15} />
-                  <span>{tab.label}</span>
+                  <Icon name="close" size={19} />
                 </button>
-              ))}
-            </nav>
-            <section className="contact-workspace-drawer-body">
-              {relationsLoading ? (
-                <div className="contact-workspace-drawer-loading">
-                  <span />
-                  <p>Cargando relación del contacto…</p>
+                <span className="contact-workspace-profile-avatar">
+                  {initials(selectedContact.displayName)}
+                </span>
+                <div className="contact-workspace-profile-summary">
+                  <h2>{selectedContact.displayName}</h2>
+                  <span>{drawerOwner?.displayName ?? "Sin responsable"}</span>
                 </div>
-              ) : null}
-              {relationsError ? (
-                <div className="contact-workspace-detail-error">
-                  <p>{relationsError}</p>
-                  <button type="button" onClick={() => void loadRelations(selectedContact)}>
-                    Reintentar
+                <button
+                  type="button"
+                  className="contact-workspace-drawer-edit"
+                  onClick={() => setComposer({ mode: "edit", contact: selectedContact })}
+                >
+                  Editar
+                </button>
+              </header>
+              <section className="contact-workspace-contact-methods">
+                <a
+                  href={selectedContact.email ? `mailto:${selectedContact.email}` : undefined}
+                  aria-disabled={!selectedContact.email}
+                >
+                  <Icon name="mail" size={16} />
+                  <span>{selectedContact.email ?? "Sin correo"}</span>
+                </a>
+                <a
+                  href={selectedContact.phone ? `tel:${selectedContact.phone}` : undefined}
+                  aria-disabled={!selectedContact.phone}
+                >
+                  <Icon name="phone" size={16} />
+                  <span>{selectedContact.phone ?? "Sin teléfono"}</span>
+                </a>
+              </section>
+              <div className="contact-workspace-drawer-meta">
+                <span>
+                  Origen: <strong>{sourceLabel(selectedContact.source)}</strong>
+                </span>
+                <span>
+                  Creado: <strong>{dateText(selectedContact.createdAt)}</strong>
+                </span>
+              </div>
+              <nav className="contact-workspace-tabs" aria-label="Información relacionada">
+                {tabs.map((tab) => (
+                  <button
+                    type="button"
+                    key={tab.id}
+                    className={activeTab === tab.id ? "is-active" : ""}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    <Icon name={tab.icon} size={15} />
+                    <span>{tab.label}</span>
                   </button>
-                </div>
-              ) : null}
-              {!relationsLoading &&
-              !relationsError &&
-              activeTab !== "activity" &&
-              unavailableRelationTabs.has(activeTab) ? (
-                <div className="contact-workspace-empty-relation">
-                  <span>
-                    <Icon
-                      name={tabs.find((tab) => tab.id === activeTab)?.icon ?? "bolt"}
-                      size={19}
-                    />
-                  </span>
-                  <p>No tienes acceso a esta relación para el contacto.</p>
-                </div>
-              ) : null}
-              {!relationsLoading &&
-              !relationsError &&
-              (activeTab === "activity" || !unavailableRelationTabs.has(activeTab)) ? (
-                <RelationList
-                  items={currentRelations}
-                  icon={tabs.find((tab) => tab.id === activeTab)?.icon ?? "bolt"}
-                  empty={
-                    activeTab === "activity"
-                      ? "Todavía no hay actividad registrada para este contacto."
-                      : `No hay ${tabs.find((tab) => tab.id === activeTab)?.label.toLocaleLowerCase("es-CO") ?? "registros"} vinculados a este contacto.`
+                ))}
+              </nav>
+              <section className="contact-workspace-drawer-body">
+                {relationsLoading ? (
+                  <div className="contact-workspace-drawer-loading">
+                    <span />
+                    <p>Cargando relación del contacto…</p>
+                  </div>
+                ) : null}
+                {relationsError ? (
+                  <div className="contact-workspace-detail-error">
+                    <p>{relationsError}</p>
+                    <button type="button" onClick={() => void loadRelations(selectedContact)}>
+                      Reintentar
+                    </button>
+                  </div>
+                ) : null}
+                {!relationsLoading &&
+                !relationsError &&
+                activeTab !== "activity" &&
+                unavailableRelationTabs.has(activeTab) ? (
+                  <div className="contact-workspace-empty-relation">
+                    <span>
+                      <Icon
+                        name={tabs.find((tab) => tab.id === activeTab)?.icon ?? "bolt"}
+                        size={19}
+                      />
+                    </span>
+                    <p>No tienes acceso a esta relación para el contacto.</p>
+                  </div>
+                ) : null}
+                {!relationsLoading &&
+                !relationsError &&
+                (activeTab === "activity" || !unavailableRelationTabs.has(activeTab)) ? (
+                  <RelationList
+                    items={currentRelations}
+                    icon={tabs.find((tab) => tab.id === activeTab)?.icon ?? "bolt"}
+                    empty={
+                      activeTab === "activity"
+                        ? "Todavía no hay actividad registrada para este contacto."
+                        : `No hay ${tabs.find((tab) => tab.id === activeTab)?.label.toLocaleLowerCase("es-CO") ?? "registros"} vinculados a este contacto.`
+                    }
+                  />
+                ) : null}
+              </section>
+              <footer>
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  onClick={() =>
+                    void applyBulkAction(selectedContact.archivedAt ? "RESTORE" : "ARCHIVE", "", [
+                      selectedContact.id,
+                    ])
                   }
-                />
-              ) : null}
-            </section>
-            <footer>
-              <button
-                type="button"
-                disabled={bulkBusy}
-                onClick={() =>
-                  void applyBulkAction(selectedContact.archivedAt ? "RESTORE" : "ARCHIVE", "", [
-                    selectedContact.id,
-                  ])
-                }
-              >
-                {selectedContact.archivedAt ? "Restaurar contacto" : "Archivar contacto"}
-              </button>
-              <a href={`/contacts/${selectedContact.id}`}>
-                Abrir ficha completa <Icon name="arrow" size={15} />
-              </a>
-            </footer>
-          </aside>
-        ) : null}
+                >
+                  {selectedContact.archivedAt ? "Restaurar contacto" : "Archivar contacto"}
+                </button>
+                <a href={`/contacts/${selectedContact.id}`}>
+                  Abrir ficha completa <Icon name="arrow" size={15} />
+                </a>
+              </footer>
+            </aside>
+          ) : null}
         </div>
 
         {composer ? (
