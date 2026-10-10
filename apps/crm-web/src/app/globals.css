@@ -12366,6 +12366,7 @@ body {
 
 .contact-workspace-shell .crm-content.contact-workspace {
   display: flex;
+  flex-direction: column;
   width: 100%;
   min-height: 100vh;
   height: 100vh;
@@ -12718,6 +12719,11 @@ body {
   text-transform: none;
 }
 
+.contact-workspace-table th:nth-child(n),
+.contact-workspace-table td:nth-child(n) {
+  width: auto;
+}
+
 .contact-workspace-table th:nth-child(1),
 .contact-workspace-table td:nth-child(1) {
   width: 2.8rem;
@@ -12727,9 +12733,8 @@ body {
   width: 37%;
 }
 
-.contact-workspace-table th:nth-child(7),
-.contact-workspace-table td:nth-child(7) {
-  width: auto;
+.contact-workspace-table .contact-workspace-actions-cell {
+  width: 2.8rem;
 }
 
 .contact-workspace-table td {
@@ -12908,7 +12913,7 @@ body {
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .contact-workspace-grid,
   .contact-workspace-grid.has-detail {
     grid-template-columns: minmax(0, 1fr);

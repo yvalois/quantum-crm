@@ -1576,7 +1576,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                 aria-label="Ordenar contactos"
               >
                 <option value="UPDATED_DESC">Actividad reciente</option>
-                <option value="CREATED_DESC">Fecha de creaciÃ³n</option>
+                <option value="CREATED_DESC">Fecha de creación</option>
                 <option value="NAME_ASC">Nombre, A-Z</option>
               </select>
               <span className="contact-workspace-toolbar-count">
@@ -1721,7 +1721,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                     {visibleColumns.has("labels") ? <th>Etiquetas</th> : null}
                     {visibleColumns.has("source") ? <th>Origen</th> : null}
                     {visibleColumns.has("updated") ? <th>Actualizado</th> : null}
-                    <th aria-label="Acciones" />
+                    <th className="contact-workspace-actions-cell" aria-label="Acciones" />
                   </tr>
                 </thead>
                 <tbody>
@@ -1837,7 +1837,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                             </span>
                           </td>
                         ) : null}
-                        <td>
+                        <td className="contact-workspace-actions-cell">
                           <button
                             type="button"
                             className="contact-workspace-open-button"
