@@ -15,6 +15,7 @@ import {
 import { CrmShell } from "../crm-shell";
 
 type WorkspaceView = "all" | "unassigned" | "archived";
+type ContactColumn = "owner" | "labels" | "source" | "updated";
 type ContactTab =
   "activity" | "conversations" | "opportunities" | "tasks" | "appointments" | "documents";
 type BulkAction = "" | "ASSIGN" | "ADD_LABEL" | "REMOVE_LABEL" | "ARCHIVE" | "RESTORE";
@@ -26,6 +27,7 @@ type IconName =
   | "check"
   | "chevron"
   | "close"
+  | "columns"
   | "download"
   | "filter"
   | "mail"
@@ -205,6 +207,13 @@ const tabs: readonly {
   { id: "documents", label: "Documentos", icon: "archive" },
 ];
 
+const contactColumns: readonly { readonly id: ContactColumn; readonly label: string }[] = [
+  { id: "owner", label: "Responsable" },
+  { id: "labels", label: "Etiquetas" },
+  { id: "source", label: "Origen" },
+  { id: "updated", label: "Actualizado" },
+];
+
 const iconPaths: Readonly<Record<IconName, readonly string[]>> = {
   archive: ["M4 7h16v13H4z", "M3 4h18v3H3z", "M9 11h6"],
   arrow: ["M5 12h13", "m14 7 5 5-5 5"],
@@ -213,6 +222,7 @@ const iconPaths: Readonly<Record<IconName, readonly string[]>> = {
   check: ["M5 12.5 9.2 17 19 7"],
   chevron: ["m9 6 6 6-6 6"],
   close: ["m6 6 12 12", "m18 6-12 12"],
+  columns: ["M4 5h16v14H4z", "M10 5v14", "M4 10h16"],
   download: ["M12 3v12", "m7 10 5 5 5-5", "M5 20h14"],
   filter: ["M4 6h16", "M7 12h10", "M10 18h4"],
   mail: ["M4 5h16v14H4z", "m4 7 8 6 8-6"],
@@ -405,6 +415,9 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   const [draftFilters, setDraftFilters] = useState<ContactFilters>(emptyFilters);
   const [activeFilters, setActiveFilters] = useState<ContactFilters>(emptyFilters);
   const [activeView, setActiveView] = useState<WorkspaceView>("all");
+  const [visibleColumns, setVisibleColumns] = useState<ReadonlySet<ContactColumn>>(
+    () => new Set(contactColumns.map((column) => column.id)),
+  );
   const [page, setPage] = useState<PageInfo>({});
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -445,6 +458,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   const selectedCount = filterSelection?.total ?? selectedIds.size;
   const importErrors = importRows.filter((row) => row.status === "ERROR");
   const visibleIds = useMemo(() => contacts.map((contact) => contact.id), [contacts]);
+  const tableColumnCount = visibleColumns.size + 3;
   const activeAutomations = useMemo(
     () => automations.filter((item) => item.status === "ACTIVE"),
     [automations],
@@ -726,6 +740,15 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
     setActiveView("all");
     setError(null);
     void loadContacts(emptyFilters);
+  }
+
+  function toggleColumn(column: ContactColumn): void {
+    setVisibleColumns((current) => {
+      const next = new Set(current);
+      if (next.has(column)) next.delete(column);
+      else next.add(column);
+      return next;
+    });
   }
 
   function toggleContact(id: string): void {
@@ -1339,7 +1362,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
           </p>
         ) : null}
 
-        <div className="contact-workspace-grid">
+        <div className={`contact-workspace-grid${selectedContact ? " has-detail" : ""}`}>
           <aside className="contact-workspace-views" aria-label="Vistas de contactos">
             <div className="contact-workspace-views-heading">
               <span>Vistas</span>
@@ -1520,6 +1543,42 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                   </button>
                 </form>
               </details>
+              <details className="contact-workspace-columns-menu">
+                <summary>
+                  <Icon name="columns" size={16} /> Columnas
+                </summary>
+                <div>
+                  <strong>Mostrar en la lista</strong>
+                  {contactColumns.map((column) => (
+                    <label key={column.id}>
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns.has(column.id)}
+                        onChange={() => toggleColumn(column.id)}
+                      />
+                      <span>{column.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </details>
+              <select
+                className="contact-workspace-sort-select"
+                value={activeFilters.sort}
+                onChange={(event) => {
+                  const next = {
+                    ...activeFilters,
+                    sort: event.target.value as ContactFilters["sort"],
+                  };
+                  setDraftFilters(next);
+                  setActiveView("all");
+                  void loadContacts(next);
+                }}
+                aria-label="Ordenar contactos"
+              >
+                <option value="UPDATED_DESC">Actividad reciente</option>
+                <option value="CREATED_DESC">Fecha de creaciÃ³n</option>
+                <option value="NAME_ASC">Nombre, A-Z</option>
+              </select>
               <span className="contact-workspace-toolbar-count">
                 {loading ? "Actualizando…" : `${contacts.length} visibles`}
               </span>
@@ -1658,17 +1717,17 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                       />
                     </th>
                     <th>Contacto</th>
-                    <th>Responsable</th>
-                    <th>Etiquetas</th>
-                    <th>Origen</th>
-                    <th>Actualizado</th>
+                    {visibleColumns.has("owner") ? <th>Responsable</th> : null}
+                    {visibleColumns.has("labels") ? <th>Etiquetas</th> : null}
+                    {visibleColumns.has("source") ? <th>Origen</th> : null}
+                    {visibleColumns.has("updated") ? <th>Actualizado</th> : null}
                     <th aria-label="Acciones" />
                   </tr>
                 </thead>
                 <tbody>
                   {loading && contacts.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={tableColumnCount}>
                         <div className="contact-workspace-loading">
                           <span />
                           <p>Cargando contactos…</p>
@@ -1678,7 +1737,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                   ) : null}
                   {!loading && contacts.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={tableColumnCount}>
                         <div className="contact-workspace-empty">
                           <span>
                             <Icon name="user" size={24} />
@@ -1731,18 +1790,21 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                             </span>
                           </button>
                         </td>
-                        <td>
-                          {owner ? (
-                            <span className="contact-workspace-owner">
-                              <i>{initials(owner.displayName)}</i>
-                              {owner.displayName}
-                            </span>
-                          ) : (
-                            <span className="contact-workspace-unassigned">Sin asignar</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className="contact-workspace-tags">
+                        {visibleColumns.has("owner") ? (
+                          <td>
+                            {owner ? (
+                              <span className="contact-workspace-owner">
+                                <i>{initials(owner.displayName)}</i>
+                                {owner.displayName}
+                              </span>
+                            ) : (
+                              <span className="contact-workspace-unassigned">Sin asignar</span>
+                            )}
+                          </td>
+                        ) : null}
+                        {visibleColumns.has("labels") ? (
+                          <td>
+                            <span className="contact-workspace-tags">
                             {contact.labels.length ? (
                               contact.labels.slice(0, 2).map((label) => (
                                 <span className="contact-workspace-tag" key={label.id}>
@@ -1757,19 +1819,24 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                                 +{contact.labels.length - 2}
                               </span>
                             ) : null}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="contact-workspace-source">
+                            </span>
+                          </td>
+                        ) : null}
+                        {visibleColumns.has("source") ? (
+                          <td>
+                            <span className="contact-workspace-source">
                             {sourceLabel(contact.source)}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="contact-workspace-activity-time">
+                            </span>
+                          </td>
+                        ) : null}
+                        {visibleColumns.has("updated") ? (
+                          <td>
+                            <span className="contact-workspace-activity-time">
                             {relativeDate(contact.updatedAt)}
                             <small>{dateText(contact.updatedAt)}</small>
-                          </span>
-                        </td>
+                            </span>
+                          </td>
+                        ) : null}
                         <td>
                           <button
                             type="button"
@@ -1808,7 +1875,6 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
               </div>
             </footer>
           </main>
-        </div>
 
         {selectedContact ? (
           <aside
@@ -1937,6 +2003,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
             </footer>
           </aside>
         ) : null}
+        </div>
 
         {composer ? (
           <div

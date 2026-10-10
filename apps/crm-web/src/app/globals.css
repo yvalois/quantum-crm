@@ -12349,3 +12349,642 @@ body {
     grid-column: auto;
   }
 }
+
+/* CON-04: Contacts is an operator workspace, not a dashboard card. */
+.contact-workspace-shell {
+  --contact-ink: #172033;
+  --contact-muted: #6b7280;
+  --contact-line: #e5e7eb;
+  --contact-soft-line: #f1f3f5;
+  --contact-panel: #fff;
+  --contact-canvas: #f7f8fb;
+  --contact-teal: var(--quantum-primary);
+  --contact-teal-deep: var(--quantum-primary-dark);
+  --contact-teal-soft: #eef2ff;
+  --contact-amber: #f59e0b;
+}
+
+.contact-workspace-shell .crm-content.contact-workspace {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--contact-canvas);
+  color: var(--contact-ink);
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+}
+
+.contact-workspace-header {
+  flex: 0 0 4.5rem;
+  width: 100%;
+  max-width: none;
+  min-height: 4.5rem;
+  align-items: center;
+  margin: 0;
+  border-bottom: 1px solid var(--contact-line);
+  background: #fff;
+  padding: 0.75rem 1.5rem;
+}
+
+.contact-workspace-heading {
+  gap: 0.12rem;
+}
+
+.contact-workspace-kicker {
+  color: #8a94a6;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 0.66rem;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.contact-workspace-heading > div {
+  gap: 0.55rem;
+}
+
+.contact-workspace-heading h1 {
+  color: #111827;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 1.45rem;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.contact-workspace-count,
+.contact-workspace-toolbar-count {
+  color: #8b95a5;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 0.76rem;
+  letter-spacing: 0;
+}
+
+.contact-workspace-header-actions {
+  gap: 0.45rem;
+}
+
+.contact-workspace-icon-button,
+.contact-workspace-quiet-button,
+.contact-workspace-primary-button {
+  min-height: 2.25rem;
+  border-radius: 0.38rem;
+  box-shadow: none;
+  font-size: 0.76rem;
+  font-weight: 680;
+}
+
+.contact-workspace-icon-button {
+  width: 2.25rem;
+}
+
+.contact-workspace-quiet-button {
+  border-color: #d8dde6;
+  padding: 0.45rem 0.65rem;
+}
+
+.contact-workspace-primary-button {
+  border-color: var(--quantum-primary);
+  background: var(--quantum-primary);
+  padding: 0.45rem 0.78rem;
+}
+
+.contact-workspace-primary-button:hover:not(:disabled) {
+  background: var(--quantum-primary-dark);
+  box-shadow: none;
+  transform: none;
+}
+
+.contact-workspace-feedback {
+  position: fixed;
+  z-index: 90;
+  top: 5rem;
+  right: 1.25rem;
+  max-width: min(30rem, calc(100vw - 2.5rem));
+  margin: 0;
+  border-radius: 0.45rem;
+  box-shadow: 0 0.65rem 1.75rem rgb(15 23 42 / 14%);
+}
+
+.contact-workspace-grid {
+  display: grid;
+  grid-template-columns: 12.25rem minmax(0, 1fr);
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.contact-workspace-grid.has-detail {
+  grid-template-columns: 11.75rem minmax(28rem, 1fr) minmax(23rem, 28rem);
+}
+
+.contact-workspace-views {
+  border-right: 1px solid var(--contact-line);
+  background: #fbfcfe;
+  padding: 1rem 0.55rem;
+}
+
+.contact-workspace-views-heading {
+  margin: 0 0.55rem 0.65rem;
+  color: #9099a8;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 0.67rem;
+  font-weight: 720;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.contact-workspace-views-heading button {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.32rem;
+}
+
+.contact-workspace-views nav {
+  gap: 0.18rem;
+}
+
+.contact-workspace-views nav button {
+  min-height: 2.35rem;
+  border-radius: 0.35rem;
+  padding: 0.42rem 0.55rem;
+  color: #4b5563;
+  font-size: 0.75rem;
+  font-weight: 620;
+}
+
+.contact-workspace-views nav button:hover {
+  background: #f1f3f7;
+  color: #1f2937;
+}
+
+.contact-workspace-views nav button.is-active {
+  border-color: transparent;
+  background: #e8edff;
+  box-shadow: inset 0.18rem 0 var(--quantum-primary);
+  color: #3730a3;
+}
+
+.contact-workspace-views nav button em {
+  min-width: 1.35rem;
+  height: 1.35rem;
+  background: #edf0f5;
+  color: #778195;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 0.62rem;
+}
+
+.contact-workspace-views nav button.is-active em {
+  background: #cfd8ff;
+  color: #3730a3;
+}
+
+.contact-workspace-view-note {
+  display: none;
+}
+
+.contact-workspace-table-pane {
+  min-width: 0;
+  min-height: 0;
+  background: #fff;
+}
+
+.contact-workspace-toolbar {
+  min-height: 3.75rem;
+  gap: 0.45rem;
+  border-bottom-color: var(--contact-line);
+  background: #fff;
+  padding: 0.65rem 1rem;
+}
+
+.contact-workspace-search {
+  min-width: min(18rem, 100%);
+  max-width: 24rem;
+  flex: 1 1 17rem;
+  border-color: #d9dee8;
+  border-radius: 0.38rem;
+  padding: 0 0.6rem;
+}
+
+.contact-workspace-search:focus-within {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 13%);
+}
+
+.contact-workspace-search input {
+  padding: 0.52rem 0;
+  color: #1f2937;
+  font-size: 0.77rem;
+}
+
+.contact-workspace-filter-menu,
+.contact-workspace-columns-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.contact-workspace-filter-menu summary,
+.contact-workspace-columns-menu summary,
+.contact-workspace-sort-select {
+  display: inline-flex;
+  min-height: 2.2rem;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #d9dee8;
+  border-radius: 0.36rem;
+  background: #fff;
+  padding: 0.4rem 0.58rem;
+  color: #4b5563;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 650;
+  list-style: none;
+}
+
+.contact-workspace-filter-menu[open] summary,
+.contact-workspace-columns-menu[open] summary {
+  border-color: #a5b4fc;
+  background: #f5f6ff;
+  color: #4338ca;
+}
+
+.contact-workspace-columns-menu > div {
+  position: absolute;
+  z-index: 24;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  display: grid;
+  width: 12.5rem;
+  gap: 0.5rem;
+  border: 1px solid #dfe4ed;
+  border-radius: 0.48rem;
+  background: #fff;
+  padding: 0.75rem;
+  box-shadow: 0 0.8rem 2.2rem rgb(15 23 42 / 14%);
+}
+
+.contact-workspace-columns-menu > div > strong {
+  color: #7b8494;
+  font-size: 0.64rem;
+  font-weight: 720;
+}
+
+.contact-workspace-columns-menu label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.73rem;
+}
+
+.contact-workspace-columns-menu input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: var(--quantum-primary);
+}
+
+.contact-workspace-sort-select {
+  max-width: 10rem;
+  outline: 0;
+}
+
+.contact-workspace-filter-menu form {
+  border-color: #dfe4ed;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.9rem 2.4rem rgb(15 23 42 / 15%);
+}
+
+.contact-workspace-toolbar-count {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.contact-workspace-bulk-bar {
+  min-height: 3.4rem;
+  border-bottom-color: #c7d2fe;
+  background: #f5f7ff;
+  padding: 0.55rem 1rem;
+}
+
+.contact-workspace-bulk-bar strong,
+.contact-workspace-bulk-bar strong span {
+  color: #3730a3;
+}
+
+.contact-workspace-bulk-bar select,
+.contact-workspace-bulk-bar button {
+  min-height: 2rem;
+  border-color: #cfd6e3;
+  border-radius: 0.34rem;
+  color: #4b5563;
+}
+
+.contact-workspace-bulk-bar .contact-workspace-bulk-apply {
+  border-color: var(--quantum-primary);
+  background: var(--quantum-primary);
+  color: #fff;
+}
+
+.contact-workspace-table-wrap {
+  background: #fff;
+}
+
+.contact-workspace-table {
+  min-width: 44rem;
+  table-layout: auto;
+}
+
+.contact-workspace-table th {
+  height: 2.6rem;
+  border-bottom-color: #e9ecf1;
+  background: #fbfcfe;
+  padding: 0.55rem 0.7rem;
+  color: #8993a3;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  text-transform: none;
+}
+
+.contact-workspace-table th:nth-child(1),
+.contact-workspace-table td:nth-child(1) {
+  width: 2.8rem;
+}
+
+.contact-workspace-table th:nth-child(2) {
+  width: 37%;
+}
+
+.contact-workspace-table th:nth-child(7),
+.contact-workspace-table td:nth-child(7) {
+  width: auto;
+}
+
+.contact-workspace-table td {
+  border-bottom-color: #edf0f4;
+  padding: 0.65rem 0.7rem;
+  color: #4b5563;
+  font-size: 0.75rem;
+}
+
+.contact-workspace-table tbody tr {
+  cursor: default;
+}
+
+.contact-workspace-table tbody tr:hover,
+.contact-workspace-table tbody tr.is-focused {
+  background: #f7f8ff;
+}
+
+.contact-workspace-table tbody tr.is-focused td:first-child {
+  box-shadow: inset 0.18rem 0 var(--quantum-primary);
+}
+
+.contact-workspace-contact-cell strong {
+  color: #1f2937;
+  font-size: 0.79rem;
+  font-weight: 680;
+}
+
+.contact-workspace-contact-cell small {
+  color: #8892a2;
+  font-size: 0.68rem;
+}
+
+.contact-workspace-avatar,
+.contact-workspace-profile-avatar {
+  background: #e9edff;
+  color: #4f46e5;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+}
+
+.contact-workspace-tag {
+  border-color: #d9def8;
+  background: #f2f4ff;
+  color: #5145b6;
+  font-size: 0.61rem;
+}
+
+.contact-workspace-source {
+  border-color: #e2e7ee;
+  background: #fafbfc;
+  color: #778195;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 0.61rem;
+}
+
+.contact-workspace-pagination {
+  min-height: 3.4rem;
+  border-top-color: var(--contact-line);
+  background: #fff;
+  padding: 0.55rem 1rem;
+}
+
+.contact-workspace-pagination button {
+  border-color: #d9dee8;
+  border-radius: 0.34rem;
+  color: #4b5563;
+}
+
+.contact-workspace-grid .contact-workspace-drawer {
+  position: relative;
+  z-index: 1;
+  top: auto;
+  right: auto;
+  grid-column: 3;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  border-left: 1px solid var(--contact-line);
+  background: #fff;
+  box-shadow: none;
+  animation: none;
+}
+
+.contact-workspace-drawer > header {
+  grid-template-columns: auto 2.55rem minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  border-bottom-color: var(--contact-line);
+  padding: 0.85rem 0.9rem;
+}
+
+.contact-workspace-profile-avatar {
+  width: 2.55rem;
+  height: 2.55rem;
+  font-size: 0.73rem;
+}
+
+.contact-workspace-profile-summary h2 {
+  color: #1f2937;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 0.94rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.contact-workspace-drawer-edit {
+  border-color: #d8deea;
+  border-radius: 0.34rem;
+  color: #4f46e5;
+  font-size: 0.68rem;
+}
+
+.contact-workspace-contact-methods {
+  grid-template-columns: 1fr;
+  gap: 0.42rem;
+  border-bottom-color: #edf0f4;
+  padding: 0.75rem 0.95rem;
+}
+
+.contact-workspace-tabs {
+  padding: 0 0.55rem;
+}
+
+.contact-workspace-tabs button {
+  min-height: 2.65rem;
+  color: #7b8494;
+  font-size: 0.64rem;
+}
+
+.contact-workspace-tabs button.is-active {
+  border-bottom-color: var(--quantum-primary);
+  color: #4338ca;
+}
+
+.contact-workspace-drawer-body {
+  padding: 0.8rem 0.95rem;
+}
+
+.contact-workspace-relation-list li {
+  border-color: #e8ebf0;
+  border-radius: 0.38rem;
+  padding: 0.58rem;
+}
+
+.contact-workspace-drawer > footer {
+  border-top-color: var(--contact-line);
+  padding: 0.7rem 0.9rem;
+}
+
+.contact-workspace-modal-backdrop {
+  background: rgb(15 23 42 / 44%);
+  backdrop-filter: blur(2px);
+}
+
+.contact-workspace-modal {
+  border-color: #dfe4ed;
+  border-radius: 0.58rem;
+  box-shadow: 0 1.4rem 3.5rem rgb(15 23 42 / 24%);
+}
+
+.contact-workspace-modal h2 {
+  color: #172033;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 1.28rem;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+}
+
+@media (max-width: 1320px) {
+  .contact-workspace-grid.has-detail {
+    grid-template-columns: 10.5rem minmax(24rem, 1fr) minmax(20rem, 23rem);
+  }
+
+  .contact-workspace-header-actions .contact-workspace-quiet-button {
+    padding-inline: 0.55rem;
+  }
+}
+
+@media (max-width: 1080px) {
+  .contact-workspace-grid,
+  .contact-workspace-grid.has-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contact-workspace-views {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--contact-line);
+    padding: 0.55rem 0.75rem;
+  }
+
+  .contact-workspace-views-heading {
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .contact-workspace-views nav {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .contact-workspace-views nav button {
+    min-width: max-content;
+  }
+
+  .contact-workspace-grid .contact-workspace-drawer {
+    position: fixed;
+    z-index: 55;
+    top: 0;
+    right: 0;
+    width: min(28rem, calc(100vw - 1rem));
+    height: 100dvh;
+    border-left-color: #dfe4ed;
+    box-shadow: -0.8rem 0 2rem rgb(15 23 42 / 18%);
+  }
+}
+
+@media (max-width: 760px) {
+  .contact-workspace-shell .crm-content.contact-workspace {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .contact-workspace-header {
+    min-height: auto;
+    flex-basis: auto;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 0.9rem 1rem;
+  }
+
+  .contact-workspace-header-actions,
+  .contact-workspace-toolbar {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .contact-workspace-toolbar-count {
+    margin-left: 0;
+  }
+
+  .contact-workspace-search {
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .contact-workspace-grid {
+    min-height: calc(100vh - 11rem);
+  }
+
+  .contact-workspace-grid .contact-workspace-drawer {
+    width: 100vw;
+  }
+}
