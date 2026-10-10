@@ -71,6 +71,7 @@ export interface QuickReplyRecord {
 export interface ConversationListFilters {
   readonly cursor?: string;
   readonly limit: number;
+  readonly contactId?: string;
   readonly query?: string;
   readonly channel?: ConversationChannel;
   readonly status?: ConversationStatus;

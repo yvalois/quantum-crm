@@ -118,6 +118,7 @@ export class DocumentsController {
       const filters = {
         ...(parsed.data.kind === undefined ? {} : { kind: parsed.data.kind }),
         ...(parsed.data.status === undefined ? {} : { status: parsed.data.status }),
+        ...(parsed.data.contactId === undefined ? {} : { contactId: parsed.data.contactId }),
       };
       return DocumentListResponseSchema.parse({
         data: (await this.service.list(auth.actor, auth.permissions, filters)).map(document),

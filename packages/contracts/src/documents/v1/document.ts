@@ -560,6 +560,8 @@ export const DocumentListQuerySchema = z
   .object({
     kind: CommercialDocumentKindSchema.optional(),
     status: CommercialDocumentStatusSchema.optional(),
+    /** Limits the library to documents already linked to one visible contact. */
+    contactId: IdSchema.optional(),
   })
   .strict();
 

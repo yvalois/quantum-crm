@@ -20,6 +20,7 @@ export const CrmPermissionCatalog = [
   "crm:contacts:read",
   "crm:contacts:create",
   "crm:contacts:update",
+  "crm:contacts:assign",
   "crm:contacts:delete",
   "crm:contacts:export",
   "crm:sales:read",

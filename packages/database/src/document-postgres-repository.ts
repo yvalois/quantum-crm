@@ -440,6 +440,10 @@ export function createDocumentPostgresRepository(pool: PostgresPool): DocumentRe
           params.push(filters.status.toLowerCase());
           clauses.push(`document.status = $${params.length}`);
         }
+        if (filters.contactId) {
+          params.push(filters.contactId);
+          clauses.push(`document.contact_id = $${params.length}::uuid`);
+        }
         const visible = visibility(actor, params.length + 1);
         params.push(...visible.params);
         clauses.push(visible.sql);

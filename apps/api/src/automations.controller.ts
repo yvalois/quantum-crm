@@ -152,7 +152,7 @@ export class AutomationsController {
         automationId,
         ...payload,
         operationKey,
-        payloadHash: payloadHash(payload),
+        payloadHash: payloadHash({ automationId, ...payload }),
       });
       return AutomationActivationResponseSchema.parse({ data: result });
     } catch (error) {

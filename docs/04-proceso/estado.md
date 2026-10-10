@@ -14,6 +14,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## En curso
 
+> **CON-02 / CON-04 / CON-06 / CON-07 / CON-08 / CON-10 / CON-12 / CON-13 / CON-14 (2026-10-09): EN_CURSO.** Se reemplaza la pantalla apilada de Contactos por un espacio operativo completo: búsqueda y paginación server-side, vistas y filtros compactos, tabla seleccionable, asignación, etiquetas, archivo/restauración, origen, acciones masivas y ficha relacional con actividad. El bloque reutiliza los módulos comerciales propietarios y conserva autorización, alcance e idempotencia en servidor; no se presenta un rediseño visual sin operaciones persistentes. Ficha [`CON-04-b`](../02-plan/tareas/CON-04-b-espacio-operativo-contactos.md).
+
 > **FORM-01 a FORM-09 (2026-10-09): PAUSADO POR EL PROPIETARIO.** El constructor queda congelado en el estado funcional validado del candidato `38f6bb98`; no se modifica durante el siguiente bloque salvo una regresion que impida abrirlo o guardar.
 
 > **PIPE-01 a PIPE-15 / CHAT-01 a CHAT-21 (2026-10-09): EN_CURSO.** Se rehacen las rutas autenticadas `/pipeline` y `/inbox` como espacios operativos inspirados en los patrones de uso de GHL, sin reutilizar su marca ni activos: tablero comercial real con control de vista, filtros y acciones persistentes; bandeja de tres paneles con filtros, hilo, composer, asignacion, estados y control humano/agente. Se reutilizan los contratos y datos comerciales existentes; no se presentan vistas simuladas como producto terminado.

@@ -36,6 +36,7 @@ export interface DocumentTemplateRecord {
 export interface DocumentListFilters {
   readonly kind?: CommercialDocumentKind;
   readonly status?: "DRAFT";
+  readonly contactId?: string;
 }
 
 export interface DocumentRepository {

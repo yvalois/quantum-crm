@@ -21,15 +21,21 @@ import {
   Req,
 } from "@nestjs/common";
 import {
+  ContactBulkActionResponseSchema,
+  ContactBulkActionSchema,
   ContactIdSchema,
   ContactImportApplyResponseSchema,
   ContactImportFileSchema,
   ContactImportPreviewResponseSchema,
   ContactListQuerySchema,
   ContactListResponseSchema,
+  ContactLabelListResponseSchema,
+  ContactLabelResponseSchema,
   ContactResponseSchema,
+  CreateContactLabelSchema,
   CreateContactSchema,
   UpdateContactSchema,
+  type ContactBulkAction as ContactBulkActionPayload,
 } from "@quantum-crm/contracts";
 import {
   ContactNotFoundError,
@@ -37,6 +43,9 @@ import {
   ContactValidationError,
   ContactVersionConflictError,
   IamAuthorizationError,
+  type ContactBulkAction as DomainContactBulkAction,
+  type ContactBulkFilter,
+  type ContactBulkTarget,
   type CommercialActor,
   type ContactImportPreviewRow,
   type ContactListFilters,
@@ -71,9 +80,13 @@ function actor(request: Parameters<typeof crmAuthContext>[0]): {
 }
 function contactResponse(contact: {
   readonly id: string;
+  readonly ownerMemberId: string | null;
   readonly displayName: string;
   readonly email: string | null;
   readonly phone: string | null;
+  readonly labels: readonly { readonly id: string; readonly name: string }[];
+  readonly source: "MANUAL" | "IMPORT" | "FORM" | "CONVERSATION" | "API" | "MIGRATION" | "OTHER";
+  readonly archivedAt: Date | null;
   readonly version: bigint;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -81,9 +94,13 @@ function contactResponse(contact: {
   return ContactResponseSchema.parse({
     data: {
       id: contact.id,
+      ownerMemberId: contact.ownerMemberId,
       displayName: contact.displayName,
       email: contact.email,
       phone: contact.phone,
+      labels: contact.labels,
+      source: contact.source,
+      archivedAt: contact.archivedAt?.toISOString() ?? null,
       version: contact.version.toString(),
       createdAt: contact.createdAt.toISOString(),
       updatedAt: contact.updatedAt.toISOString(),
@@ -91,6 +108,7 @@ function contactResponse(contact: {
   });
 }
 function mapError(error: unknown): never {
+  if (error instanceof Error && error.name === "ZodError") throw new BadRequestException();
   if (error instanceof IamAuthorizationError) throw new ForbiddenException();
   if (error instanceof ContactNotFoundError) throw new NotFoundException();
   if (error instanceof ContactVersionConflictError) throw new PreconditionFailedException();
@@ -109,21 +127,188 @@ function importPreviewResponse(rows: readonly ContactImportPreviewRow[]) {
   });
 }
 
-function contactFilters(query: Record<string, unknown>): ContactListFilters {
+interface ContactCursorPayload {
+  readonly v: 1;
+  readonly fingerprint: string;
+  readonly direction: "NEXT" | "PREVIOUS";
+  readonly value: string;
+  readonly id: string;
+}
+
+function paginationScope(
+  filters: ContactListFilters,
+): Omit<ContactListFilters, "cursor" | "limit"> {
+  return Object.freeze({
+    ...(filters.q === undefined ? {} : { q: filters.q }),
+    ...(filters.label === undefined ? {} : { label: filters.label }),
+    ...(filters.pipelineId === undefined ? {} : { pipelineId: filters.pipelineId }),
+    ...(filters.ownerMemberId === undefined ? {} : { ownerMemberId: filters.ownerMemberId }),
+    ...(filters.channel === undefined ? {} : { channel: filters.channel }),
+    ...(filters.source === undefined ? {} : { source: filters.source }),
+    ...(filters.archived === undefined ? {} : { archived: filters.archived }),
+    ...(filters.assignment === undefined ? {} : { assignment: filters.assignment }),
+    ...(filters.createdFrom === undefined ? {} : { createdFrom: filters.createdFrom }),
+    ...(filters.createdTo === undefined ? {} : { createdTo: filters.createdTo }),
+    ...(filters.sort === undefined ? {} : { sort: filters.sort }),
+  });
+}
+
+function cursorFingerprint(
+  actor: CommercialActor,
+  filters: Omit<ContactListFilters, "cursor" | "limit">,
+): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        actorMemberId: actor.memberId,
+        scope: actor.scope,
+        filters: {
+          q: filters.q,
+          label: filters.label,
+          pipelineId: filters.pipelineId,
+          ownerMemberId: filters.ownerMemberId,
+          channel: filters.channel,
+          source: filters.source,
+          archived: filters.archived,
+          assignment: filters.assignment,
+          createdFrom: filters.createdFrom?.toISOString(),
+          createdTo: filters.createdTo?.toISOString(),
+          sort: filters.sort,
+        },
+      }),
+    )
+    .digest("base64url");
+}
+
+function decodeCursor(
+  value: string,
+  actor: CommercialActor,
+  filters: Omit<ContactListFilters, "cursor" | "limit">,
+): NonNullable<ContactListFilters["cursor"]> {
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as Partial<ContactCursorPayload>;
+    if (
+      parsed.v !== 1 ||
+      (parsed.direction !== "NEXT" && parsed.direction !== "PREVIOUS") ||
+      typeof parsed.value !== "string" ||
+      parsed.value.length < 1 ||
+      parsed.value.length > 160 ||
+      typeof parsed.id !== "string" ||
+      ContactIdSchema.safeParse(parsed.id).success === false ||
+      parsed.fingerprint !== cursorFingerprint(actor, filters)
+    ) {
+      throw new Error("invalid cursor");
+    }
+    if (
+      filters.sort !== "NAME_ASC" &&
+      (Number.isNaN(Date.parse(parsed.value)) ||
+        new Date(parsed.value).toISOString() !== parsed.value)
+    ) {
+      throw new Error("invalid cursor timestamp");
+    }
+    return Object.freeze({ direction: parsed.direction, value: parsed.value, id: parsed.id });
+  } catch {
+    throw new BadRequestException();
+  }
+}
+
+function encodeCursor(
+  actor: CommercialActor,
+  filters: Omit<ContactListFilters, "cursor" | "limit">,
+  direction: "NEXT" | "PREVIOUS",
+  contact: Parameters<typeof contactResponse>[0],
+): string {
+  const value =
+    filters.sort === "CREATED_DESC"
+      ? contact.createdAt.toISOString()
+      : filters.sort === "NAME_ASC"
+        ? contact.displayName.toLowerCase()
+        : contact.updatedAt.toISOString();
+  const payload: ContactCursorPayload = {
+    v: 1,
+    fingerprint: cursorFingerprint(actor, filters),
+    direction,
+    value,
+    id: contact.id,
+  };
+  return Buffer.from(JSON.stringify(payload)).toString("base64url");
+}
+
+function contactFilters(
+  query: Record<string, unknown>,
+  actor: CommercialActor,
+): ContactListFilters {
   const parsed = ContactListQuerySchema.safeParse(query);
   if (!parsed.success) throw new BadRequestException();
-  return {
+  const filters: Omit<ContactListFilters, "cursor"> = {
+    ...(parsed.data.q === undefined ? {} : { q: parsed.data.q }),
+    limit: parsed.data.limit,
+    sort: parsed.data.sort,
     ...(parsed.data.label === undefined ? {} : { label: parsed.data.label }),
     ...(parsed.data.pipelineId === undefined ? {} : { pipelineId: parsed.data.pipelineId }),
     ...(parsed.data.ownerMemberId === undefined
       ? {}
       : { ownerMemberId: parsed.data.ownerMemberId }),
     ...(parsed.data.channel === undefined ? {} : { channel: parsed.data.channel }),
+    ...(parsed.data.source === undefined ? {} : { source: parsed.data.source }),
+    archived: parsed.data.archived,
+    ...(parsed.data.assignment === undefined ? {} : { assignment: parsed.data.assignment }),
     ...(parsed.data.createdFrom === undefined
       ? {}
       : { createdFrom: new Date(parsed.data.createdFrom) }),
     ...(parsed.data.createdTo === undefined ? {} : { createdTo: new Date(parsed.data.createdTo) }),
   };
+  if (parsed.data.cursor === undefined) return Object.freeze(filters);
+  return Object.freeze({
+    ...filters,
+    cursor: decodeCursor(parsed.data.cursor, actor, paginationScope(filters)),
+  });
+}
+
+function bulkFilter(filter: NonNullable<ContactBulkActionPayload["filter"]>): ContactBulkFilter {
+  return Object.freeze({
+    ...(filter.q === undefined ? {} : { q: filter.q }),
+    ...(filter.label === undefined ? {} : { label: filter.label }),
+    ...(filter.pipelineId === undefined ? {} : { pipelineId: filter.pipelineId }),
+    ...(filter.ownerMemberId === undefined ? {} : { ownerMemberId: filter.ownerMemberId }),
+    ...(filter.channel === undefined ? {} : { channel: filter.channel }),
+    ...(filter.source === undefined ? {} : { source: filter.source }),
+    archived: filter.archived,
+    ...(filter.assignment === undefined ? {} : { assignment: filter.assignment }),
+    ...(filter.createdFrom === undefined ? {} : { createdFrom: new Date(filter.createdFrom) }),
+    ...(filter.createdTo === undefined ? {} : { createdTo: new Date(filter.createdTo) }),
+  });
+}
+
+function bulkTarget(payload: ContactBulkActionPayload): ContactBulkTarget {
+  if (payload.contactIds !== undefined) {
+    return Object.freeze({
+      kind: "IDS" as const,
+      contactIds: Object.freeze([...payload.contactIds]),
+    });
+  }
+  if (payload.filter === undefined) throw new BadRequestException();
+  return Object.freeze({ kind: "FILTER" as const, filter: bulkFilter(payload.filter) });
+}
+
+function domainBulkAction(payload: ContactBulkActionPayload): DomainContactBulkAction {
+  const target = bulkTarget(payload);
+  switch (payload.action) {
+    case "ASSIGN":
+      return Object.freeze({
+        action: payload.action,
+        target,
+        ownerMemberId: payload.ownerMemberId,
+      });
+    case "ADD_LABEL":
+    case "REMOVE_LABEL":
+      return Object.freeze({ action: payload.action, target, labelId: payload.labelId });
+    case "ARCHIVE":
+    case "RESTORE":
+      return Object.freeze({ action: payload.action, target });
+  }
 }
 
 function csvCell(value: string | null): string {
@@ -135,6 +320,69 @@ function csvCell(value: string | null): string {
 export class ContactsController {
   public constructor(@Inject(CONTACT_SERVICE) private readonly service: ContactService) {}
 
+  @Get("labels")
+  @RequireCrmPermission("crm:contacts:read")
+  public async listLabels(@Req() request: Parameters<typeof crmAuthContext>[0]) {
+    try {
+      const identity = actor(request);
+      return ContactLabelListResponseSchema.parse({
+        data: await this.service.listLabels(identity.actor, identity.permissions),
+      });
+    } catch (error) {
+      return mapError(error);
+    }
+  }
+
+  @Post("labels")
+  @RequireCrmPermission("crm:contacts:update")
+  public async createLabel(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+      throw new BadRequestException();
+    try {
+      const payload = CreateContactLabelSchema.parse(body);
+      const identity = actor(request);
+      return ContactLabelResponseSchema.parse({
+        data: await this.service.createLabel({
+          ...identity,
+          name: payload.name,
+          idempotencyKey,
+          payloadHash: payloadHash(payload),
+        }),
+      });
+    } catch (error) {
+      return mapError(error);
+    }
+  }
+
+  @Post("actions")
+  @RequireCrmPermission("crm:contacts:read")
+  public async bulk(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+      throw new BadRequestException();
+    try {
+      const payload = ContactBulkActionSchema.parse(body);
+      const identity = actor(request);
+      return ContactBulkActionResponseSchema.parse({
+        data: await this.service.bulk({
+          ...identity,
+          action: domainBulkAction(payload),
+          idempotencyKey,
+          payloadHash: payloadHash(payload),
+        }),
+      });
+    } catch (error) {
+      return mapError(error);
+    }
+  }
+
   @Get()
   @RequireCrmPermission("crm:contacts:read")
   public async list(
@@ -143,13 +391,36 @@ export class ContactsController {
   ) {
     try {
       const identity = actor(request);
-      const contacts = await this.service.list(
-        identity.actor,
-        identity.permissions,
-        contactFilters(query),
-      );
+      const filters = contactFilters(query, identity.actor);
+      const contacts = await this.service.listPage(identity.actor, identity.permissions, filters);
+      const first = contacts.records[0];
+      const last = contacts.records.at(-1);
+      const requestedDirection = filters.cursor?.direction ?? "NEXT";
+      const cursorFilters = paginationScope(filters);
       return ContactListResponseSchema.parse({
-        data: contacts.map((contact) => contactResponse(contact).data),
+        data: contacts.records.map((contact) => contactResponse(contact).data),
+        page: {
+          limit: filters.limit ?? 50,
+          nextCursor:
+            last === undefined
+              ? null
+              : requestedDirection === "NEXT"
+                ? contacts.hasMoreInRequestedDirection
+                  ? encodeCursor(identity.actor, cursorFilters, "NEXT", last)
+                  : null
+                : encodeCursor(identity.actor, cursorFilters, "NEXT", last),
+          previousCursor:
+            first === undefined
+              ? null
+              : requestedDirection === "PREVIOUS"
+                ? contacts.hasMoreInRequestedDirection
+                  ? encodeCursor(identity.actor, cursorFilters, "PREVIOUS", first)
+                  : null
+                : filters.cursor === undefined
+                  ? null
+                  : encodeCursor(identity.actor, cursorFilters, "PREVIOUS", first),
+          total: contacts.total,
+        },
       });
     } catch (error) {
       return mapError(error);
@@ -174,6 +445,9 @@ export class ContactsController {
           displayName: payload.displayName,
           ...(payload.email === undefined ? {} : { email: payload.email }),
           ...(payload.phone === undefined ? {} : { phone: payload.phone }),
+          ...(payload.ownerMemberId === undefined ? {} : { ownerMemberId: payload.ownerMemberId }),
+          ...(payload.source === undefined ? {} : { source: payload.source }),
+          ...(payload.labelIds === undefined ? {} : { labelIds: payload.labelIds }),
           idempotencyKey,
           payloadHash: payloadHash(payload),
         }),
@@ -239,11 +513,23 @@ export class ContactsController {
       const contacts = await this.service.exportRows(
         identity.actor,
         identity.permissions,
-        contactFilters(query),
+        contactFilters(query, identity.actor),
       );
-      const lines = ["displayName,email,phone"];
+      const lines = ["displayName,email,phone,ownerMemberId,labels,source,archivedAt"];
       for (const contact of contacts) {
-        lines.push([contact.displayName, contact.email, contact.phone].map(csvCell).join(","));
+        lines.push(
+          [
+            contact.displayName,
+            contact.email,
+            contact.phone,
+            contact.ownerMemberId,
+            contact.labels.map((label) => label.name).join("; "),
+            contact.source,
+            contact.archivedAt?.toISOString() ?? null,
+          ]
+            .map(csvCell)
+            .join(","),
+        );
       }
       return `${lines.join("\r\n")}\r\n`;
     } catch (error) {
@@ -289,6 +575,8 @@ export class ContactsController {
           ...(payload.displayName === undefined ? {} : { displayName: payload.displayName }),
           ...(payload.email === undefined ? {} : { email: payload.email }),
           ...(payload.phone === undefined ? {} : { phone: payload.phone }),
+          ...(payload.ownerMemberId === undefined ? {} : { ownerMemberId: payload.ownerMemberId }),
+          ...(payload.labelIds === undefined ? {} : { labelIds: payload.labelIds }),
           expectedVersion: expectedVersion(ifMatch),
         }),
       );
