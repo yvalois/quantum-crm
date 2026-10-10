@@ -1,4 +1,4 @@
-import type { CommercialActor, TaskRecord } from "@quantum-crm/domain";
+import type { CommercialActor, ContactRecord, TaskRecord } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 import { describe, expect, it, vi } from "vitest";
 
@@ -51,6 +51,34 @@ const taskRecord: TaskRecord = Object.freeze({
   createdAt: taskRow.created_at,
   updatedAt: taskRow.updated_at,
 });
+const contactRow = Object.freeze({
+  id: "019b0000-0000-7000-8000-000000000020",
+  owner_member_id: actor.memberId,
+  display_name: "Ada Lovelace",
+  email: "ada@example.test",
+  phone: null,
+  source: "manual",
+  archived_at: null,
+  labels: [{ id: "019b0000-0000-7000-8000-000000000021", name: "Existing" }],
+  version: "1",
+  created_at: new Date("2026-09-28T15:00:00.000Z"),
+  updated_at: new Date("2026-09-28T15:00:00.000Z"),
+});
+const contactRecord: ContactRecord = Object.freeze({
+  id: contactRow.id,
+  ownerMemberId: contactRow.owner_member_id,
+  displayName: contactRow.display_name,
+  email: contactRow.email,
+  phone: contactRow.phone,
+  labels: Object.freeze(
+    contactRow.labels.map((label) => Object.freeze({ id: label.id, name: label.name })),
+  ),
+  source: "MANUAL",
+  archivedAt: null,
+  version: 1n,
+  createdAt: contactRow.created_at,
+  updatedAt: contactRow.updated_at,
+});
 
 function poolWithClientQuery(query: ReturnType<typeof vi.fn>) {
   const client = { query, release: vi.fn() } as unknown as PoolClient;
@@ -65,7 +93,205 @@ function poolWithClientQuery(query: ReturnType<typeof vi.fn>) {
   };
 }
 
-describe("commercial PostgreSQL task repository", () => {
+describe("commercial PostgreSQL repositories", () => {
+  it("updates contact data and replaces labels inside one versioned transaction", async () => {
+    const ownerMemberId = "019b0000-0000-7000-8000-000000000022";
+    const labelId = "019b0000-0000-7000-8000-000000000023";
+    const hydratedRow = Object.freeze({
+      ...contactRow,
+      owner_member_id: ownerMemberId,
+      display_name: "Ada Byron",
+      labels: [{ id: labelId, name: "VIP" }],
+      version: "2",
+      updated_at: now,
+    });
+    const query = vi.fn(async (text: string, _values?: unknown[]) => {
+      if (text.includes("UPDATE contacts.contacts AS contact"))
+        return { rows: [{ id: contactRow.id }] };
+      if (text.includes("FROM contacts.labels") && text.includes("FOR KEY SHARE"))
+        return { rows: [{ id: labelId }] };
+      if (text.includes("FROM contacts.contacts AS contact") && text.includes("FOR UPDATE"))
+        return { rows: [hydratedRow] };
+      return { rows: [] };
+    });
+    const { pool, client } = poolWithClientQuery(query);
+
+    await expect(
+      createCommercialPostgresRepositories(pool).contacts.update({
+        actor,
+        contact: Object.freeze({
+          ...contactRecord,
+          ownerMemberId,
+          displayName: hydratedRow.display_name,
+          version: 2n,
+          updatedAt: now,
+        }),
+        expectedVersion: 1n,
+        labelIds: [labelId],
+      }),
+    ).resolves.toMatchObject({
+      ownerMemberId,
+      displayName: "Ada Byron",
+      labels: [{ id: labelId, name: "VIP" }],
+      version: 2n,
+    });
+
+    const statements = query.mock.calls.map(([text]) => text as string);
+    const update = statements.find((text) => text.includes("UPDATE contacts.contacts AS contact"));
+    expect(update).toContain("owner_member_id = $2::uuid");
+    expect(update).toContain("contact.version = $7::bigint");
+    expect(statements).toContain("BEGIN");
+    expect(statements.some((text) => text.includes("DELETE FROM contacts.contact_labels"))).toBe(
+      true,
+    );
+    expect(statements.some((text) => text.includes("INSERT INTO contacts.contact_labels"))).toBe(
+      true,
+    );
+    expect(statements).toContain("COMMIT");
+    expect(statements).not.toContain("ROLLBACK");
+    expect(client.release).toHaveBeenCalledOnce();
+  });
+
+  it("rolls back a contact edit before replacing labels when a label is invalid", async () => {
+    const labelId = "019b0000-0000-7000-8000-000000000023";
+    const query = vi.fn(async (text: string, _values?: unknown[]) => {
+      if (text.includes("UPDATE contacts.contacts AS contact"))
+        return { rows: [{ id: contactRow.id }] };
+      if (text.includes("FROM contacts.labels") && text.includes("FOR KEY SHARE"))
+        return { rows: [] };
+      return { rows: [] };
+    });
+    const { pool } = poolWithClientQuery(query);
+
+    await expect(
+      createCommercialPostgresRepositories(pool).contacts.update({
+        actor,
+        contact: Object.freeze({ ...contactRecord, version: 2n, updatedAt: now }),
+        expectedVersion: 1n,
+        labelIds: [labelId],
+      }),
+    ).rejects.toThrow("Invalid contact");
+
+    const statements = query.mock.calls.map(([text]) => text as string);
+    expect(statements).toContain("ROLLBACK");
+    expect(statements.some((text) => text.includes("DELETE FROM contacts.contact_labels"))).toBe(
+      false,
+    );
+  });
+
+  it("resolves a bulk filter under server-side visibility and replays its compact result", async () => {
+    const payloadHash = "b".repeat(64);
+    let persistedResponse: unknown;
+    const query = vi.fn(async (text: string, values?: readonly unknown[]) => {
+      if (text.includes("FROM contacts.command_idempotency")) {
+        return persistedResponse
+          ? { rows: [{ payload_hash: payloadHash, response: persistedResponse }] }
+          : { rows: [] };
+      }
+      if (text.includes("WITH target AS MATERIALIZED")) {
+        return { rows: [{ target_count: 1, changed_count: 1 }] };
+      }
+      if (text.includes("UPDATE contacts.contacts AS contact")) {
+        return { rows: [{ id: contactRow.id }] };
+      }
+      if (text.includes("INSERT INTO contacts.command_idempotency")) {
+        persistedResponse = JSON.parse(String(values?.[3]));
+      }
+      return { rows: [] };
+    });
+    const { pool } = poolWithClientQuery(query);
+    const repository = createCommercialPostgresRepositories(pool).contacts;
+    const command = {
+      actor,
+      action: {
+        action: "ARCHIVE" as const,
+        target: {
+          kind: "FILTER" as const,
+          filter: {
+            q: "Ada",
+            label: "VIP",
+            archived: false,
+            createdFrom: new Date("2026-09-01T00:00:00.000Z"),
+            createdTo: new Date("2026-09-30T23:59:59.999Z"),
+          },
+        },
+      },
+      idempotencyKey: "contact-filter-0001",
+      payloadHash,
+    } as const;
+
+    const first = await repository.bulk(command);
+    expect(first).toEqual({ results: [], updated: 1, unchanged: 0, notVisible: 0 });
+    await expect(repository.bulk(command)).resolves.toEqual(first);
+
+    const filterSelection = query.mock.calls.find(
+      ([text]) =>
+        (text as string).includes("FROM contacts.contacts AS contact") &&
+        (text as string).includes("lower(label.name)") &&
+        (text as string).includes("FOR UPDATE"),
+    );
+    expect(filterSelection).toBeDefined();
+    expect(filterSelection?.[0]).toContain("contact.owner_member_id = $1::uuid");
+    expect(filterSelection?.[0]).not.toContain("contact.id = ANY($1::uuid[])");
+    expect(filterSelection?.[1]).toEqual([
+      actor.memberId,
+      "Ada",
+      "VIP",
+      new Date("2026-09-01T00:00:00.000Z"),
+      new Date("2026-09-30T23:59:59.999Z"),
+    ]);
+    const statements = query.mock.calls.map(([text]) => text as string);
+    expect(
+      statements.filter((text) => text.includes("UPDATE contacts.contacts AS contact")),
+    ).toHaveLength(1);
+    expect(
+      statements.filter((text) => text.includes("INSERT INTO contacts.command_idempotency")),
+    ).toHaveLength(1);
+  });
+
+  it("keeps direct bulk selections compatible with per-contact visibility results", async () => {
+    const hiddenContactId = "019b0000-0000-7000-8000-000000000024";
+    const query = vi.fn(async (text: string, _values?: readonly unknown[]) => {
+      if (text.includes("FROM contacts.command_idempotency")) return { rows: [] };
+      if (text.includes("FROM contacts.contacts AS contact") && text.includes("FOR UPDATE")) {
+        return { rows: [{ id: contactRow.id }] };
+      }
+      if (text.includes("UPDATE contacts.contacts AS contact")) {
+        return { rows: [{ id: contactRow.id }] };
+      }
+      return { rows: [] };
+    });
+    const { pool } = poolWithClientQuery(query);
+
+    await expect(
+      createCommercialPostgresRepositories(pool).contacts.bulk({
+        actor,
+        action: {
+          action: "ARCHIVE",
+          target: { kind: "IDS", contactIds: [contactRow.id, hiddenContactId] },
+        },
+        idempotencyKey: "contact-ids-0001",
+        payloadHash: "c".repeat(64),
+      }),
+    ).resolves.toEqual({
+      results: [
+        { contactId: contactRow.id, status: "UPDATED" },
+        { contactId: hiddenContactId, status: "NOT_VISIBLE" },
+      ],
+      updated: 1,
+      unchanged: 0,
+      notVisible: 1,
+    });
+
+    const directSelection = query.mock.calls.find(
+      ([text]) =>
+        (text as string).includes("FROM contacts.contacts AS contact") &&
+        (text as string).includes("contact.id = ANY($1::uuid[])") &&
+        (text as string).includes("FOR UPDATE"),
+    );
+    expect(directSelection).toBeDefined();
+  });
+
   it("combines task filters with OWN visibility and a controlled expiry instant", async () => {
     const query = vi.fn(async (_text: string, _values?: unknown[]) => ({ rows: [taskRow] }));
     const pool = {
@@ -145,6 +371,91 @@ describe("commercial PostgreSQL task repository", () => {
     expect(statements.filter((text) => text.includes("INSERT INTO tasks.history"))).toHaveLength(1);
     expect(statements.filter((text) => text.includes("pg_advisory_xact_lock"))).toHaveLength(3);
     expect(statements.at(-1)).toBe("ROLLBACK");
+  });
+
+  it("serializes a repeated automation batch and replays it without another task", async () => {
+    const automationId = "019b0000-0000-7000-8000-000000000030";
+    const operationKey = "automation-run-0001";
+    const payloadHash = "f".repeat(64);
+    let persistedResponse: unknown;
+    const query = vi.fn(async (text: string, values?: readonly unknown[]) => {
+      if (text.includes("FROM automation.command_idempotency")) {
+        return persistedResponse
+          ? { rows: [{ payload_hash: payloadHash, response: persistedResponse }] }
+          : { rows: [] };
+      }
+      if (text.includes("FROM automation.definitions")) {
+        return {
+          rows: [
+            {
+              id: automationId,
+              name: "Seguimiento",
+              status: "active",
+              trigger_event: "CONTACT_MANUAL",
+              action_type: "CREATE_TASK",
+              action_config: {
+                type: "CREATE_TASK",
+                title: "Llamar al contacto",
+                description: "Confirmar la solicitud.",
+                priority: "MEDIUM",
+                dueHours: 24,
+              },
+              version: "1",
+              created_at: now,
+              updated_at: now,
+            },
+          ],
+        };
+      }
+      if (text.includes("FROM contacts.contacts AS contact")) {
+        return { rows: [{ id: contactRow.id, owner_member_id: actor.memberId }] };
+      }
+      if (text.includes("FROM iam.members")) return { rows: [{ status: "active" }] };
+      if (text.includes("INSERT INTO automation.command_idempotency")) {
+        persistedResponse = JSON.parse(String(values?.[3]));
+      }
+      return { rows: [] };
+    });
+    const { pool } = poolWithClientQuery(query);
+    const repository = createCommercialPostgresRepositories(pool).automation;
+    const command = {
+      actor,
+      automationId,
+      contactIds: [contactRow.id],
+      operationKey,
+      payloadHash,
+    } as const;
+
+    const first = await repository.activate(command);
+    expect(first).toMatchObject({
+      automationId,
+      operationKey,
+      succeeded: 1,
+      failed: 0,
+    });
+    await expect(repository.activate(command)).resolves.toEqual(first);
+    await expect(
+      repository.activate({ ...command, payloadHash: "a".repeat(64) }),
+    ).rejects.toBeInstanceOf(CommercialIdempotencyConflictError);
+
+    const statements = query.mock.calls.map(([text]) => text as string);
+    expect(statements.filter((text) => text.includes("INSERT INTO tasks.tasks"))).toHaveLength(1);
+    expect(statements.filter((text) => text.includes("FROM automation.definitions"))).toHaveLength(
+      1,
+    );
+    expect(statements.filter((text) => text.includes("pg_advisory_xact_lock"))).toHaveLength(3);
+    const commandLock = query.mock.calls.find(
+      ([text, values]) =>
+        (text as string).includes("pg_advisory_xact_lock") &&
+        (values as readonly unknown[] | undefined)?.[0] ===
+          `${actor.memberId}:automation.activate:${operationKey}`,
+    );
+    expect(commandLock).toBeDefined();
+    const lockIndex = query.mock.calls.indexOf(commandLock!);
+    const replayIndex = query.mock.calls.findIndex(([text]) =>
+      (text as string).includes("FROM automation.command_idempotency"),
+    );
+    expect(lockIndex).toBeLessThan(replayIndex);
   });
 
   it("records closure actor, timestamp and one status history row across a replay", async () => {

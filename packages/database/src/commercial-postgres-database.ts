@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   AutomationNotFoundError,
   AutomationValidationError,
+  ContactValidationError,
   type AutomationActivationResult,
   type AutomationDefinition,
   type AutomationExecutionResult,
@@ -10,9 +11,12 @@ import {
 } from "@quantum-crm/domain";
 import type {
   ContactRecord,
+  ContactBulkActionResponse,
+  ContactLabel,
   ContactImportResult,
   ContactImportResultRow,
   ContactListFilters,
+  ContactListSort,
   ContactRepository,
   ConversationRepository,
   CommercialActor,
@@ -93,10 +97,13 @@ export class CommercialIdempotencyConflictError extends Error {
 
 interface ContactRow {
   readonly id: string;
-  readonly owner_member_id: string;
+  readonly owner_member_id: string | null;
   readonly display_name: string;
   readonly email: string | null;
   readonly phone: string | null;
+  readonly source?: string;
+  readonly archived_at?: Date | null;
+  readonly labels?: unknown;
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
@@ -130,27 +137,88 @@ function automationFromRow(row: AutomationRow): AutomationDefinition {
     updatedAt: new Date(row.updated_at),
   });
 }
-const contactSelection = `id::text, owner_member_id::text, display_name, email::text, phone, version::text, created_at, updated_at`;
+interface ContactLabelRow {
+  readonly id: string;
+  readonly name: string;
+}
+
+function contactSelection(alias: string): string {
+  return `${alias}.id::text, ${alias}.owner_member_id::text, ${alias}.display_name, ${alias}.email::text, ${alias}.phone, ${alias}.source, ${alias}.archived_at,
+    COALESCE((
+      SELECT jsonb_agg(jsonb_build_object('id', label.id::text, 'name', label.name) ORDER BY lower(label.name), label.id)
+      FROM contacts.contact_labels AS contact_label
+      JOIN contacts.labels AS label ON label.id = contact_label.label_id
+      WHERE contact_label.contact_id = ${alias}.id
+    ), '[]'::jsonb) AS labels,
+    ${alias}.version::text, ${alias}.created_at, ${alias}.updated_at`;
+}
+
+function contactLabels(value: unknown): readonly ContactLabel[] {
+  if (!Array.isArray(value)) return Object.freeze([]);
+  const labels: ContactLabel[] = [];
+  for (const candidate of value) {
+    if (typeof candidate === "object" && candidate !== null) {
+      const record = candidate as Record<string, unknown>;
+      const { id, name } = record;
+      if (typeof id !== "string" || typeof name !== "string") continue;
+      labels.push(
+        Object.freeze({
+          id,
+          name,
+        }),
+      );
+    }
+  }
+  return Object.freeze(labels);
+}
+
 function contactFromRow(row: ContactRow): ContactRecord {
+  const source = (row.source ?? "manual").toUpperCase();
+  if (
+    !(["MANUAL", "IMPORT", "FORM", "CONVERSATION", "API", "MIGRATION", "OTHER"] as const).includes(
+      source as ContactRecord["source"],
+    )
+  ) {
+    throw new DatabaseUnavailableError();
+  }
   return Object.freeze({
     id: row.id,
     ownerMemberId: row.owner_member_id,
     displayName: row.display_name,
     email: row.email,
     phone: row.phone,
+    labels: contactLabels(row.labels),
+    source: source as ContactRecord["source"],
+    archivedAt: row.archived_at == null ? null : new Date(row.archived_at),
     version: BigInt(row.version),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   });
 }
+
+function labelFromRow(row: ContactLabelRow): ContactLabel {
+  return Object.freeze({ id: row.id, name: row.name });
+}
 function fail(error: unknown): never {
   if (
     error instanceof CommercialIdempotencyConflictError ||
     error instanceof AutomationNotFoundError ||
-    error instanceof AutomationValidationError
+    error instanceof AutomationValidationError ||
+    error instanceof ContactValidationError
   )
     throw error;
   throw new DatabaseUnavailableError();
+}
+
+async function lockContactCommand(
+  client: PoolClient,
+  actorMemberId: string,
+  command: string,
+  idempotencyKey: string,
+): Promise<void> {
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+    `${actorMemberId}:${command}:${idempotencyKey}`,
+  ]);
 }
 
 async function replayContact(
@@ -171,6 +239,177 @@ async function replayContact(
   if (!row) return null;
   if (row.payload_hash !== payloadHash) throw new CommercialIdempotencyConflictError();
   return contactFromRow(row.response);
+}
+
+async function replayContactBulk(
+  client: PoolClient,
+  actorMemberId: string,
+  idempotencyKey: string,
+  payloadHash: string,
+): Promise<ContactBulkActionResponse | null> {
+  const found = await client.query<{
+    readonly payload_hash: string;
+    readonly response: ContactBulkActionResponse;
+  }>(
+    `SELECT payload_hash, response
+       FROM contacts.command_idempotency
+      WHERE actor_member_id = $1::uuid
+        AND command = 'contacts.bulk'
+        AND idempotency_key = $2
+      FOR UPDATE`,
+    [actorMemberId, idempotencyKey],
+  );
+  const row = found.rows[0];
+  if (!row) return null;
+  if (row.payload_hash !== payloadHash) throw new CommercialIdempotencyConflictError();
+  return row.response;
+}
+
+async function replayContactLabel(
+  client: PoolClient,
+  actorMemberId: string,
+  idempotencyKey: string,
+  payloadHash: string,
+): Promise<ContactLabel | null> {
+  const found = await client.query<{
+    readonly payload_hash: string;
+    readonly response: ContactLabelRow;
+  }>(
+    `SELECT payload_hash, response
+       FROM contacts.command_idempotency
+      WHERE actor_member_id = $1::uuid
+        AND command = 'contacts.label.create'
+        AND idempotency_key = $2
+      FOR UPDATE`,
+    [actorMemberId, idempotencyKey],
+  );
+  const row = found.rows[0];
+  if (!row) return null;
+  if (row.payload_hash !== payloadHash) throw new CommercialIdempotencyConflictError();
+  if (typeof row.response?.id !== "string" || typeof row.response.name !== "string")
+    throw new DatabaseUnavailableError();
+  return labelFromRow(row.response);
+}
+
+interface ContactQueryParts {
+  readonly params: unknown[];
+  readonly conditions: string[];
+  readonly parameter: (value: unknown) => string;
+}
+
+function contactQueryParts(actor: CommercialActor, filters: ContactListFilters): ContactQueryParts {
+  const access = visibility(actor, 1, ["contact.owner_member_id"]);
+  const params: unknown[] = [...access.params];
+  const conditions = [access.sql];
+  const parameter = (value: unknown): string => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  if (filters.q !== undefined) {
+    const value = parameter(filters.q);
+    conditions.push(
+      `(contact.display_name ILIKE '%' || ${value} || '%'
+        OR contact.email::text ILIKE '%' || ${value} || '%'
+        OR contact.phone ILIKE '%' || ${value} || '%')`,
+    );
+  }
+  if (filters.label !== undefined) {
+    const label = parameter(filters.label);
+    conditions.push(
+      `EXISTS (
+        SELECT 1
+          FROM contacts.contact_labels AS contact_label
+          JOIN contacts.labels AS label ON label.id = contact_label.label_id
+         WHERE contact_label.contact_id = contact.id
+           AND lower(label.name) = lower(${label})
+      )`,
+    );
+  }
+  if (filters.pipelineId !== undefined) {
+    const pipeline = parameter(filters.pipelineId);
+    const opportunityAccess = visibility(actor, 1, ["opportunity.owner_member_id"]);
+    conditions.push(
+      `EXISTS (
+        SELECT 1
+          FROM sales.opportunities AS opportunity
+         WHERE opportunity.contact_id = contact.id
+           AND opportunity.pipeline_id = ${pipeline}::uuid
+           AND ${opportunityAccess.sql}
+      )`,
+    );
+  }
+  if (filters.ownerMemberId !== undefined) {
+    const owner = parameter(filters.ownerMemberId);
+    conditions.push(`contact.owner_member_id = ${owner}::uuid`);
+  }
+  if (filters.assignment === "UNASSIGNED") conditions.push("contact.owner_member_id IS NULL");
+  if (filters.channel === "EMAIL") conditions.push("contact.email IS NOT NULL");
+  if (filters.channel === "PHONE") conditions.push("contact.phone IS NOT NULL");
+  if (filters.channel === "NONE")
+    conditions.push("contact.email IS NULL AND contact.phone IS NULL");
+  if (filters.source !== undefined) {
+    const source = parameter(filters.source.toLowerCase());
+    conditions.push(`contact.source = ${source}`);
+  }
+  if (!filters.includeArchived) {
+    conditions.push(
+      filters.archived === true ? "contact.archived_at IS NOT NULL" : "contact.archived_at IS NULL",
+    );
+  }
+  if (filters.createdFrom !== undefined) {
+    const createdFrom = parameter(filters.createdFrom);
+    conditions.push(`contact.created_at >= ${createdFrom}::timestamptz`);
+  }
+  if (filters.createdTo !== undefined) {
+    const createdTo = parameter(filters.createdTo);
+    conditions.push(`contact.created_at <= ${createdTo}::timestamptz`);
+  }
+  return Object.freeze({ params, conditions, parameter });
+}
+
+function contactOrder(sort: ContactListSort, direction: "NEXT" | "PREVIOUS"): string {
+  const forward = direction === "NEXT";
+  switch (sort) {
+    case "CREATED_DESC":
+      return forward
+        ? "contact.created_at DESC, contact.id DESC"
+        : "contact.created_at ASC, contact.id ASC";
+    case "NAME_ASC":
+      return forward
+        ? "lower(contact.display_name) ASC, contact.id ASC"
+        : "lower(contact.display_name) DESC, contact.id DESC";
+    case "UPDATED_DESC":
+      return forward
+        ? "contact.updated_at DESC, contact.id DESC"
+        : "contact.updated_at ASC, contact.id ASC";
+  }
+}
+
+function addContactCursorCondition(
+  filters: ContactListFilters,
+  parameter: (value: unknown) => string,
+  conditions: string[],
+): "NEXT" | "PREVIOUS" {
+  const cursor = filters.cursor;
+  const direction = cursor?.direction ?? "NEXT";
+  if (!cursor) return direction;
+  const sort = filters.sort ?? "UPDATED_DESC";
+  const isNext = direction === "NEXT";
+  if (sort === "NAME_ASC") {
+    const value = parameter(cursor.value);
+    const id = parameter(cursor.id);
+    conditions.push(
+      `(lower(contact.display_name), contact.id) ${isNext ? ">" : "<"} (lower(${value}), ${id}::uuid)`,
+    );
+    return direction;
+  }
+  const value = parameter(cursor.value);
+  const id = parameter(cursor.id);
+  const column = sort === "CREATED_DESC" ? "contact.created_at" : "contact.updated_at";
+  conditions.push(
+    `(${column}, contact.id) ${isNext ? "<" : ">"} (${value}::timestamptz, ${id}::uuid)`,
+  );
+  return direction;
 }
 
 interface PipelineRow {
@@ -409,48 +648,51 @@ export function createCommercialPostgresRepositories(
   const contacts: ContactRepository = Object.freeze<ContactRepository>({
     list: async (actor, filters: ContactListFilters = {}) => {
       try {
-        const access = visibility(actor, 1, ["contact.owner_member_id"]);
-        const params: unknown[] = [...access.params];
-        const conditions = [access.sql];
-        const parameter = (value: unknown): string => {
-          params.push(value);
-          return `$${params.length}`;
-        };
-        if (filters.label !== undefined) {
-          const label = parameter(filters.label);
-          conditions.push(
-            `EXISTS (SELECT 1 FROM contacts.contact_labels AS contact_label JOIN contacts.labels AS label ON label.id = contact_label.label_id WHERE contact_label.contact_id = contact.id AND lower(label.name) = lower(${label}))`,
-          );
-        }
-        if (filters.pipelineId !== undefined) {
-          const pipeline = parameter(filters.pipelineId);
-          const opportunityAccess = visibility(actor, 1, ["opportunity.owner_member_id"]);
-          conditions.push(
-            `EXISTS (SELECT 1 FROM sales.opportunities AS opportunity WHERE opportunity.contact_id = contact.id AND opportunity.pipeline_id = ${pipeline}::uuid AND ${opportunityAccess.sql})`,
-          );
-        }
-        if (filters.ownerMemberId !== undefined) {
-          const owner = parameter(filters.ownerMemberId);
-          conditions.push(`contact.owner_member_id = ${owner}::uuid`);
-        }
-        if (filters.channel === "EMAIL") conditions.push("contact.email IS NOT NULL");
-        if (filters.channel === "PHONE") conditions.push("contact.phone IS NOT NULL");
-        if (filters.channel === "NONE") {
-          conditions.push("contact.email IS NULL AND contact.phone IS NULL");
-        }
-        if (filters.createdFrom !== undefined) {
-          const createdFrom = parameter(filters.createdFrom);
-          conditions.push(`contact.created_at >= ${createdFrom}::timestamptz`);
-        }
-        if (filters.createdTo !== undefined) {
-          const createdTo = parameter(filters.createdTo);
-          conditions.push(`contact.created_at <= ${createdTo}::timestamptz`);
-        }
+        const { params, conditions } = contactQueryParts(actor, filters);
         const result = (await pool.query(
-          `SELECT ${contactSelection} FROM contacts.contacts AS contact WHERE ${conditions.join(" AND ")} ORDER BY contact.created_at DESC, contact.id DESC`,
+          `SELECT ${contactSelection("contact")}
+             FROM contacts.contacts AS contact
+            WHERE ${conditions.join(" AND ")}
+            ORDER BY ${contactOrder(filters.sort ?? "UPDATED_DESC", "NEXT")}`,
           params,
         )) as { readonly rows: readonly ContactRow[] };
         return Object.freeze(result.rows.map(contactFromRow));
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    listPage: async (actor, filters) => {
+      try {
+        const limit = filters.limit ?? 50;
+        const { params, conditions, parameter } = contactQueryParts(actor, filters);
+        const cursorDirection = addContactCursorCondition(filters, parameter, conditions);
+        const pageLimit = parameter(limit + 1);
+        const rows = (await pool.query(
+          `SELECT ${contactSelection("contact")}
+             FROM contacts.contacts AS contact
+            WHERE ${conditions.join(" AND ")}
+            ORDER BY ${contactOrder(filters.sort ?? "UPDATED_DESC", cursorDirection)}
+            LIMIT ${pageLimit}::integer`,
+          params,
+        )) as { readonly rows: readonly ContactRow[] };
+        const hasMoreInRequestedDirection = rows.rows.length > limit;
+        const pageRows = rows.rows.slice(0, limit);
+        const orderedRows = cursorDirection === "PREVIOUS" ? [...pageRows].reverse() : pageRows;
+        const totalFilters = { ...filters };
+        delete totalFilters.cursor;
+        delete totalFilters.limit;
+        const totalParts = contactQueryParts(actor, totalFilters);
+        const total = (await pool.query(
+          `SELECT count(*)::text AS total
+             FROM contacts.contacts AS contact
+            WHERE ${totalParts.conditions.join(" AND ")}`,
+          totalParts.params,
+        )) as { readonly rows: readonly { readonly total: string }[] };
+        return Object.freeze({
+          records: Object.freeze(orderedRows.map(contactFromRow)),
+          total: Number(total.rows[0]?.total ?? "0"),
+          hasMoreInRequestedDirection,
+        });
       } catch (error) {
         return fail(error);
       }
@@ -459,11 +701,143 @@ export function createCommercialPostgresRepositories(
       try {
         const access = visibility(actor, 2, ["contact.owner_member_id"]);
         const result = (await pool.query(
-          `SELECT ${contactSelection} FROM contacts.contacts AS contact WHERE contact.id = $1::uuid AND ${access.sql}`,
+          `SELECT ${contactSelection("contact")}
+             FROM contacts.contacts AS contact
+            WHERE contact.id = $1::uuid AND ${access.sql}`,
           [id, ...access.params],
         )) as { readonly rows: readonly ContactRow[] };
         const row = result.rows[0];
         return row ? contactFromRow(row) : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    listLabels: async () => {
+      try {
+        const result = (await pool.query(
+          `SELECT id::text, name
+             FROM contacts.labels
+            ORDER BY lower(name) ASC, id ASC`,
+        )) as { readonly rows: readonly ContactLabelRow[] };
+        return Object.freeze(result.rows.map(labelFromRow));
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    createLabel: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await lockContactCommand(
+          client,
+          input.actor.memberId,
+          "contacts.label.create",
+          input.idempotencyKey,
+        );
+        const replay = await replayContactLabel(
+          client,
+          input.actor.memberId,
+          input.idempotencyKey,
+          input.payloadHash,
+        );
+        if (replay) {
+          await client.query("COMMIT");
+          return replay;
+        }
+        const name = input.name.trim();
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended(lower($1), 0))", [name]);
+        const existing = await client.query<ContactLabelRow>(
+          `SELECT id::text, name FROM contacts.labels WHERE lower(name) = lower($1) LIMIT 1 FOR UPDATE`,
+          [name],
+        );
+        const row =
+          existing.rows[0] ??
+          (
+            await client.query<ContactLabelRow>(
+              `INSERT INTO contacts.labels (id, name) VALUES (uuidv7(), $1) RETURNING id::text, name`,
+              [name],
+            )
+          ).rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        const label = labelFromRow(row);
+        await client.query(
+          `INSERT INTO contacts.command_idempotency
+            (actor_member_id, command, idempotency_key, payload_hash, response)
+           VALUES ($1::uuid, 'contacts.label.create', $2, $3, $4::jsonb)`,
+          [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(label)],
+        );
+        await client.query("COMMIT");
+        return label;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    canAssignOwner: async (actor, ownerMemberId) => {
+      try {
+        if (actor.scope === "PROFILE") {
+          const member = (await pool.query(
+            `SELECT 1
+               FROM iam.members AS target
+              WHERE target.id = $1::uuid
+                AND target.status = 'active'
+                AND EXISTS (
+                  SELECT 1
+                    FROM iam.member_roles AS member_role
+                    JOIN iam.role_permissions AS permission ON permission.role_id = member_role.role_id
+                   WHERE member_role.member_id = target.id
+                     AND permission.permission = 'crm:contacts:read'
+                )
+              LIMIT 1`,
+            [ownerMemberId],
+          )) as { readonly rowCount: number | null };
+          return member.rowCount === 1;
+        }
+        if (ownerMemberId === actor.memberId) {
+          const member = (await pool.query(
+            `SELECT 1
+               FROM iam.members AS target
+              WHERE target.id = $1::uuid
+                AND target.status = 'active'
+                AND EXISTS (
+                  SELECT 1
+                    FROM iam.member_roles AS member_role
+                    JOIN iam.role_permissions AS permission ON permission.role_id = member_role.role_id
+                   WHERE member_role.member_id = target.id
+                     AND permission.permission = 'crm:contacts:read'
+                )
+              LIMIT 1`,
+            [ownerMemberId],
+          )) as { readonly rowCount: number | null };
+          return member.rowCount === 1;
+        }
+        if (actor.scope !== "TEAM") return false;
+        const member = (await pool.query(
+          `SELECT 1
+             FROM iam.members AS target
+            WHERE target.id = $1::uuid
+              AND target.status = 'active'
+              AND EXISTS (
+                SELECT 1
+                  FROM iam.member_roles AS member_role
+                  JOIN iam.role_permissions AS permission ON permission.role_id = member_role.role_id
+                 WHERE member_role.member_id = target.id
+                   AND permission.permission = 'crm:contacts:read'
+              )
+              AND EXISTS (
+                SELECT 1
+                  FROM iam.team_members AS viewer_team
+                  JOIN iam.team_members AS target_team ON target_team.team_id = viewer_team.team_id
+                 WHERE viewer_team.member_id = $2::uuid
+                   AND target_team.member_id = target.id
+              )
+            LIMIT 1`,
+          [ownerMemberId, actor.memberId],
+        )) as { readonly rowCount: number | null };
+        return member.rowCount === 1;
       } catch (error) {
         return fail(error);
       }
@@ -473,6 +847,12 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
+        await lockContactCommand(
+          client,
+          input.actor.memberId,
+          "contacts.create",
+          input.idempotencyKey,
+        );
         const replay = await replayContact(
           client,
           input.actor.memberId,
@@ -484,20 +864,49 @@ export function createCommercialPostgresRepositories(
           await client.query("COMMIT");
           return replay;
         }
+        const labelIds = [...new Set(input.labelIds)];
+        if (labelIds.length > 0) {
+          const labels = await client.query<{ readonly id: string }>(
+            `SELECT id::text FROM contacts.labels WHERE id = ANY($1::uuid[])`,
+            [labelIds],
+          );
+          if (labels.rows.length !== labelIds.length) throw new ContactValidationError();
+        }
         const result = await client.query<ContactRow>(
-          `INSERT INTO contacts.contacts (id, owner_member_id, display_name, email, phone, version, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::bigint, $7, $8) RETURNING ${contactSelection}`,
+          `INSERT INTO contacts.contacts AS contact
+            (id, owner_member_id, display_name, email, phone, source, version, created_at, updated_at)
+           VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::bigint, $8, $9)
+           RETURNING ${contactSelection("contact")}`,
           [
             input.contact.id,
             input.contact.ownerMemberId,
             input.contact.displayName,
             input.contact.email,
             input.contact.phone,
+            input.contact.source.toLowerCase(),
             input.contact.version.toString(),
             input.contact.createdAt,
             input.contact.updatedAt,
           ],
         );
-        const created = result.rows[0];
+        const inserted = result.rows[0];
+        if (!inserted) throw new DatabaseUnavailableError();
+        if (labelIds.length > 0) {
+          await client.query(
+            `INSERT INTO contacts.contact_labels (contact_id, label_id)
+             SELECT $1::uuid, unnest($2::uuid[])
+             ON CONFLICT DO NOTHING`,
+            [inserted.id, labelIds],
+          );
+        }
+        const hydrated = await client.query<ContactRow>(
+          `SELECT ${contactSelection("contact")}
+             FROM contacts.contacts AS contact
+            WHERE contact.id = $1::uuid
+            FOR UPDATE`,
+          [inserted.id],
+        );
+        const created = hydrated.rows[0];
         if (!created) throw new DatabaseUnavailableError();
         await client.query(
           `INSERT INTO contacts.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'contacts.create', $2, $3, $4::jsonb)`,
@@ -513,12 +922,26 @@ export function createCommercialPostgresRepositories(
       }
     },
     update: async (input) => {
+      let client: PoolClient | undefined;
       try {
-        const access = visibility(input.actor, 7, ["contact.owner_member_id"]);
-        const result = (await pool.query(
-          `UPDATE contacts.contacts AS contact SET display_name = $2, email = $3, phone = $4, version = version + 1, updated_at = $5 WHERE contact.id = $1::uuid AND contact.version = $6::bigint AND ${access.sql} RETURNING ${contactSelection}`,
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const access = visibility(input.actor, 8, ["contact.owner_member_id"]);
+        const result = (await client.query<{ readonly id: string }>(
+          `UPDATE contacts.contacts AS contact
+              SET owner_member_id = $2::uuid,
+                  display_name = $3,
+                  email = $4,
+                  phone = $5,
+                  version = version + 1,
+                  updated_at = $6
+            WHERE contact.id = $1::uuid
+              AND contact.version = $7::bigint
+              AND ${access.sql}
+          RETURNING contact.id::text`,
           [
             input.contact.id,
+            input.contact.ownerMemberId,
             input.contact.displayName,
             input.contact.email,
             input.contact.phone,
@@ -526,11 +949,370 @@ export function createCommercialPostgresRepositories(
             input.expectedVersion.toString(),
             ...access.params,
           ],
-        )) as { readonly rows: readonly ContactRow[] };
-        const row = result.rows[0];
-        return row ? contactFromRow(row) : null;
+        )) as { readonly rows: readonly { readonly id: string }[] };
+        const updated = result.rows[0];
+        if (!updated) {
+          await client.query("COMMIT");
+          return null;
+        }
+        if (input.labelIds !== undefined) {
+          const labelIds = [...new Set(input.labelIds)];
+          if (labelIds.length > 0) {
+            const labels = await client.query<{ readonly id: string }>(
+              `SELECT id::text FROM contacts.labels WHERE id = ANY($1::uuid[]) FOR KEY SHARE`,
+              [labelIds],
+            );
+            if (labels.rows.length !== labelIds.length) throw new ContactValidationError();
+          }
+          await client.query(`DELETE FROM contacts.contact_labels WHERE contact_id = $1::uuid`, [
+            updated.id,
+          ]);
+          if (labelIds.length > 0) {
+            await client.query(
+              `INSERT INTO contacts.contact_labels (contact_id, label_id)
+               SELECT $1::uuid, unnest($2::uuid[])
+               ON CONFLICT DO NOTHING`,
+              [updated.id, labelIds],
+            );
+          }
+        }
+        const hydrated = await client.query<ContactRow>(
+          `SELECT ${contactSelection("contact")}
+             FROM contacts.contacts AS contact
+            WHERE contact.id = $1::uuid
+            FOR UPDATE`,
+          [updated.id],
+        );
+        const row = hydrated.rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        const contact = contactFromRow(row);
+        await client.query("COMMIT");
+        return contact;
       } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
         return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    bulk: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await lockContactCommand(
+          client,
+          input.actor.memberId,
+          "contacts.bulk",
+          input.idempotencyKey,
+        );
+        const replay = await replayContactBulk(
+          client,
+          input.actor.memberId,
+          input.idempotencyKey,
+          input.payloadHash,
+        );
+        if (replay) {
+          await client.query("COMMIT");
+          return replay;
+        }
+        const target = input.action.target;
+        if ("labelId" in input.action) {
+          const label = await client.query<{ readonly id: string }>(
+            `SELECT id::text FROM contacts.labels WHERE id = $1::uuid FOR KEY SHARE`,
+            [input.action.labelId],
+          );
+          if (label.rows.length !== 1) throw new ContactValidationError();
+        }
+        if (target.kind === "IDS") {
+          const contactIds = Object.freeze([...new Set(target.contactIds)]);
+          const access = visibility(input.actor, 2, ["contact.owner_member_id"]);
+          const visible = await client.query<{ readonly id: string }>(
+            `SELECT contact.id::text
+               FROM contacts.contacts AS contact
+              WHERE contact.id = ANY($1::uuid[])
+                AND ${access.sql}
+              FOR UPDATE`,
+            [contactIds, ...access.params],
+          );
+          const visibleIds = visible.rows.map((row) => row.id);
+          const visibleSet = new Set(visibleIds);
+          let changedIds: readonly string[] = [];
+          if (visibleIds.length > 0) {
+            switch (input.action.action) {
+              case "ASSIGN": {
+                const changed = await client.query<{ readonly id: string }>(
+                  `UPDATE contacts.contacts AS contact
+                      SET owner_member_id = $2::uuid,
+                          version = version + 1,
+                          updated_at = CURRENT_TIMESTAMP
+                    WHERE contact.id = ANY($1::uuid[])
+                      AND contact.owner_member_id IS DISTINCT FROM $2::uuid
+                  RETURNING contact.id::text`,
+                  [visibleIds, input.action.ownerMemberId],
+                );
+                changedIds = changed.rows.map((row) => row.id);
+                break;
+              }
+              case "ARCHIVE": {
+                const changed = await client.query<{ readonly id: string }>(
+                  `UPDATE contacts.contacts AS contact
+                      SET archived_at = CURRENT_TIMESTAMP,
+                          version = version + 1,
+                          updated_at = CURRENT_TIMESTAMP
+                    WHERE contact.id = ANY($1::uuid[])
+                      AND contact.archived_at IS NULL
+                  RETURNING contact.id::text`,
+                  [visibleIds],
+                );
+                changedIds = changed.rows.map((row) => row.id);
+                break;
+              }
+              case "RESTORE": {
+                const changed = await client.query<{ readonly id: string }>(
+                  `UPDATE contacts.contacts AS contact
+                      SET archived_at = NULL,
+                          version = version + 1,
+                          updated_at = CURRENT_TIMESTAMP
+                    WHERE contact.id = ANY($1::uuid[])
+                      AND contact.archived_at IS NOT NULL
+                  RETURNING contact.id::text`,
+                  [visibleIds],
+                );
+                changedIds = changed.rows.map((row) => row.id);
+                break;
+              }
+              case "ADD_LABEL": {
+                const changed = await client.query<{ readonly contact_id: string }>(
+                  `WITH attached AS (
+                     INSERT INTO contacts.contact_labels (contact_id, label_id)
+                     SELECT unnest($1::uuid[]), $2::uuid
+                     ON CONFLICT DO NOTHING
+                     RETURNING contact_id
+                   ), touched AS (
+                     UPDATE contacts.contacts AS contact
+                        SET version = version + 1,
+                            updated_at = CURRENT_TIMESTAMP
+                       FROM attached
+                      WHERE contact.id = attached.contact_id
+                     RETURNING contact.id::text AS contact_id
+                   )
+                   SELECT contact_id FROM touched`,
+                  [visibleIds, input.action.labelId],
+                );
+                changedIds = changed.rows.map((row) => row.contact_id);
+                break;
+              }
+              case "REMOVE_LABEL": {
+                const changed = await client.query<{ readonly contact_id: string }>(
+                  `WITH detached AS (
+                     DELETE FROM contacts.contact_labels
+                      WHERE contact_id = ANY($1::uuid[])
+                        AND label_id = $2::uuid
+                     RETURNING contact_id
+                   ), touched AS (
+                     UPDATE contacts.contacts AS contact
+                        SET version = version + 1,
+                            updated_at = CURRENT_TIMESTAMP
+                       FROM detached
+                      WHERE contact.id = detached.contact_id
+                     RETURNING contact.id::text AS contact_id
+                   )
+                   SELECT contact_id FROM touched`,
+                  [visibleIds, input.action.labelId],
+                );
+                changedIds = changed.rows.map((row) => row.contact_id);
+                break;
+              }
+            }
+          }
+          const changedSet = new Set(changedIds);
+          const results = Object.freeze(
+            contactIds.map((contactId) =>
+              Object.freeze({
+                contactId,
+                status: !visibleSet.has(contactId)
+                  ? ("NOT_VISIBLE" as const)
+                  : changedSet.has(contactId)
+                    ? ("UPDATED" as const)
+                    : ("UNCHANGED" as const),
+              }),
+            ),
+          );
+          const response: ContactBulkActionResponse = Object.freeze({
+            results,
+            updated: changedSet.size,
+            unchanged: results.filter((result) => result.status === "UNCHANGED").length,
+            notVisible: results.filter((result) => result.status === "NOT_VISIBLE").length,
+          });
+          await client.query(
+            `INSERT INTO contacts.command_idempotency
+              (actor_member_id, command, idempotency_key, payload_hash, response)
+             VALUES ($1::uuid, 'contacts.bulk', $2, $3, $4::jsonb)`,
+            [
+              input.actor.memberId,
+              input.idempotencyKey,
+              input.payloadHash,
+              JSON.stringify(response),
+            ],
+          );
+          await client.query("COMMIT");
+          return response;
+        }
+
+        const filter = contactQueryParts(input.actor, target.filter);
+        const filterTarget = `WITH target AS MATERIALIZED (
+          SELECT contact.id
+            FROM contacts.contacts AS contact
+           WHERE ${filter.conditions.join("\n             AND ")}
+           FOR UPDATE OF contact
+        )`;
+        type FilterBulkCount = {
+          readonly target_count: number;
+          readonly changed_count: number;
+        };
+        let counts: FilterBulkCount | undefined;
+        switch (input.action.action) {
+          case "ASSIGN": {
+            const ownerMemberId = filter.parameter(input.action.ownerMemberId);
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, changed AS (
+                 UPDATE contacts.contacts AS contact
+                    SET owner_member_id = ${ownerMemberId}::uuid,
+                        version = version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                   FROM target
+                  WHERE contact.id = target.id
+                    AND contact.owner_member_id IS DISTINCT FROM ${ownerMemberId}::uuid
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+          case "ARCHIVE": {
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, changed AS (
+                 UPDATE contacts.contacts AS contact
+                    SET archived_at = CURRENT_TIMESTAMP,
+                        version = version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                   FROM target
+                  WHERE contact.id = target.id
+                    AND contact.archived_at IS NULL
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+          case "RESTORE": {
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, changed AS (
+                 UPDATE contacts.contacts AS contact
+                    SET archived_at = NULL,
+                        version = version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                   FROM target
+                  WHERE contact.id = target.id
+                    AND contact.archived_at IS NOT NULL
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+          case "ADD_LABEL": {
+            const labelId = filter.parameter(input.action.labelId);
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, attached AS (
+                 INSERT INTO contacts.contact_labels (contact_id, label_id)
+                 SELECT target.id, ${labelId}::uuid
+                   FROM target
+                 ON CONFLICT DO NOTHING
+                 RETURNING contact_id
+               ), changed AS (
+                 UPDATE contacts.contacts AS contact
+                    SET version = version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                   FROM attached
+                  WHERE contact.id = attached.contact_id
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+          case "REMOVE_LABEL": {
+            const labelId = filter.parameter(input.action.labelId);
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, detached AS (
+                 DELETE FROM contacts.contact_labels AS contact_label
+                  USING target
+                  WHERE contact_label.contact_id = target.id
+                    AND contact_label.label_id = ${labelId}::uuid
+                 RETURNING contact_label.contact_id
+               ), changed AS (
+                 UPDATE contacts.contacts AS contact
+                    SET version = version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                   FROM detached
+                  WHERE contact.id = detached.contact_id
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+        }
+        if (
+          !counts ||
+          !Number.isSafeInteger(counts.target_count) ||
+          !Number.isSafeInteger(counts.changed_count) ||
+          counts.target_count < counts.changed_count ||
+          counts.changed_count < 0
+        ) {
+          throw new DatabaseUnavailableError();
+        }
+        const response: ContactBulkActionResponse = Object.freeze({
+          results: Object.freeze([]),
+          updated: counts.changed_count,
+          unchanged: counts.target_count - counts.changed_count,
+          notVisible: 0,
+        });
+        await client.query(
+          `INSERT INTO contacts.command_idempotency
+            (actor_member_id, command, idempotency_key, payload_hash, response)
+           VALUES ($1::uuid, 'contacts.bulk', $2, $3, $4::jsonb)`,
+          [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(response)],
+        );
+        await client.query("COMMIT");
+        return response;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
       }
     },
     importRows: async (input): Promise<ContactImportResult> => {
@@ -559,7 +1341,7 @@ export function createCommercialPostgresRepositories(
           const email = row.email?.trim().toLowerCase() || null;
           const phone = row.phone?.trim() || null;
           const found = await client.query<ContactRow>(
-            `SELECT ${contactSelection}
+            `SELECT ${contactSelection("contact")}
                FROM contacts.contacts AS contact
               WHERE ${visibility(input.actor, 1, ["contact.owner_member_id"]).sql}
                 AND (($2::citext IS NOT NULL AND contact.email = $2::citext)
@@ -573,11 +1355,11 @@ export function createCommercialPostgresRepositories(
           let result: ContactImportResultRow;
           if (match) {
             const changed = await client.query<ContactRow>(
-              `UPDATE contacts.contacts
+              `UPDATE contacts.contacts AS contact
                   SET display_name = $2, email = $3::citext, phone = $4, version = version + 1,
                       updated_at = CURRENT_TIMESTAMP
-                WHERE id = $1::uuid
-                RETURNING ${contactSelection}`,
+                WHERE contact.id = $1::uuid
+                RETURNING ${contactSelection("contact")}`,
               [match.id, row.displayName.trim(), email, phone],
             );
             const updatedRow = changed.rows[0];
@@ -593,9 +1375,10 @@ export function createCommercialPostgresRepositories(
             };
           } else {
             const inserted = await client.query<ContactRow>(
-              `INSERT INTO contacts.contacts (id, owner_member_id, display_name, email, phone, version, created_at, updated_at)
-               VALUES ($1::uuid, $2::uuid, $3, $4::citext, $5, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-               RETURNING ${contactSelection}`,
+              `INSERT INTO contacts.contacts AS contact
+                (id, owner_member_id, display_name, email, phone, source, version, created_at, updated_at)
+               VALUES ($1::uuid, $2::uuid, $3, $4::citext, $5, 'import', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+               RETURNING ${contactSelection("contact")}`,
               [randomUUID(), input.actor.memberId, row.displayName.trim(), email, phone],
             );
             const insertedRow = inserted.rows[0];
@@ -689,6 +1472,9 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `${input.actor.memberId}:automation.activate:${input.operationKey}`,
+        ]);
         const previous = await client.query<{
           readonly payload_hash: string;
           readonly response: AutomationActivationResult;

@@ -2,24 +2,107 @@ export type { CommercialActor, CommercialScope } from "../iam/index.js";
 import type { CommercialActor } from "../iam/index.js";
 
 export type ContactChannel = "EMAIL" | "PHONE" | "NONE";
+export type ContactSource =
+  "MANUAL" | "IMPORT" | "FORM" | "CONVERSATION" | "API" | "MIGRATION" | "OTHER";
+export type ContactListSort = "UPDATED_DESC" | "CREATED_DESC" | "NAME_ASC";
+export type ContactCursorDirection = "NEXT" | "PREVIOUS";
+
+export interface ContactLabel {
+  readonly id: string;
+  readonly name: string;
+}
+
+export interface ContactListCursor {
+  readonly direction: ContactCursorDirection;
+  readonly value: string;
+  readonly id: string;
+}
+
 export interface ContactListFilters {
+  readonly q?: string;
   readonly label?: string;
   readonly pipelineId?: string;
   readonly ownerMemberId?: string;
   readonly channel?: ContactChannel;
+  readonly source?: ContactSource;
+  /** Undefined retains the active-contact default. `true` includes only archived contacts. */
+  readonly archived?: boolean;
+  /** Internal callers such as import matching can include both lifecycle states. */
+  readonly includeArchived?: boolean;
+  readonly assignment?: "UNASSIGNED";
   readonly createdFrom?: Date;
   readonly createdTo?: Date;
+  readonly limit?: number;
+  readonly cursor?: ContactListCursor;
+  readonly sort?: ContactListSort;
 }
 
 export interface ContactRecord {
   readonly id: string;
-  readonly ownerMemberId: string;
+  readonly ownerMemberId: string | null;
   readonly displayName: string;
   readonly email: string | null;
   readonly phone: string | null;
+  readonly labels: readonly ContactLabel[];
+  readonly source: ContactSource;
+  readonly archivedAt: Date | null;
   readonly version: bigint;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+}
+
+export interface ContactPage {
+  readonly records: readonly ContactRecord[];
+  readonly total: number;
+  readonly hasMoreInRequestedDirection: boolean;
+}
+
+/**
+ * Public list filters that may define a mass-action target. Pagination,
+ * ordering and internal lifecycle overrides are deliberately excluded: the
+ * repository evaluates this snapshot once under the authenticated actor.
+ */
+export type ContactBulkFilter = Pick<
+  ContactListFilters,
+  | "q"
+  | "label"
+  | "pipelineId"
+  | "ownerMemberId"
+  | "channel"
+  | "source"
+  | "archived"
+  | "assignment"
+  | "createdFrom"
+  | "createdTo"
+>;
+
+export type ContactBulkTarget =
+  | { readonly kind: "IDS"; readonly contactIds: readonly string[] }
+  | { readonly kind: "FILTER"; readonly filter: ContactBulkFilter };
+
+export type ContactBulkAction =
+  | {
+      readonly action: "ASSIGN";
+      readonly target: ContactBulkTarget;
+      readonly ownerMemberId: string | null;
+    }
+  | {
+      readonly action: "ADD_LABEL" | "REMOVE_LABEL";
+      readonly target: ContactBulkTarget;
+      readonly labelId: string;
+    }
+  | { readonly action: "ARCHIVE" | "RESTORE"; readonly target: ContactBulkTarget };
+
+export interface ContactBulkActionResult {
+  readonly contactId: string;
+  readonly status: "UPDATED" | "UNCHANGED" | "NOT_VISIBLE";
+}
+
+export interface ContactBulkActionResponse {
+  readonly results: readonly ContactBulkActionResult[];
+  readonly updated: number;
+  readonly unchanged: number;
+  readonly notVisible: number;
 }
 
 export interface ContactRepository {
@@ -27,10 +110,20 @@ export interface ContactRepository {
     actor: CommercialActor,
     filters?: ContactListFilters,
   ) => Promise<readonly ContactRecord[]>;
+  readonly listPage: (actor: CommercialActor, filters: ContactListFilters) => Promise<ContactPage>;
   readonly find: (actor: CommercialActor, id: string) => Promise<ContactRecord | null>;
+  readonly listLabels: (actor: CommercialActor) => Promise<readonly ContactLabel[]>;
+  readonly createLabel: (input: {
+    readonly actor: CommercialActor;
+    readonly name: string;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) => Promise<ContactLabel>;
+  readonly canAssignOwner: (actor: CommercialActor, ownerMemberId: string) => Promise<boolean>;
   readonly create: (input: {
     readonly contact: ContactRecord;
     readonly actor: CommercialActor;
+    readonly labelIds: readonly string[];
     readonly idempotencyKey: string;
     readonly payloadHash: string;
   }) => Promise<ContactRecord>;
@@ -38,7 +131,15 @@ export interface ContactRepository {
     readonly contact: ContactRecord;
     readonly actor: CommercialActor;
     readonly expectedVersion: bigint;
+    /** Undefined retains labels; an empty list intentionally clears them. */
+    readonly labelIds?: readonly string[];
   }) => Promise<ContactRecord | null>;
+  readonly bulk: (input: {
+    readonly actor: CommercialActor;
+    readonly action: ContactBulkAction;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) => Promise<ContactBulkActionResponse>;
   readonly importRows: (input: {
     readonly actor: CommercialActor;
     readonly rows: readonly ContactImportRow[];
@@ -86,20 +187,23 @@ function text(value: string, max: number): string {
 
 export function createContact(input: {
   readonly id: string;
-  readonly ownerMemberId: string;
+  readonly ownerMemberId: string | null;
   readonly displayName: string;
   readonly email?: string;
   readonly phone?: string;
+  readonly source?: ContactSource;
   readonly now: Date;
 }): ContactRecord {
-  if (!input.id || !input.ownerMemberId || Number.isNaN(input.now.getTime()))
-    throw new ContactValidationError();
+  if (!input.id || Number.isNaN(input.now.getTime())) throw new ContactValidationError();
   return Object.freeze({
     id: input.id,
     ownerMemberId: input.ownerMemberId,
     displayName: text(input.displayName, 160),
     email: input.email ? text(input.email, 320).toLowerCase() : null,
     phone: input.phone ? text(input.phone, 40) : null,
+    labels: Object.freeze([]),
+    source: input.source ?? "MANUAL",
+    archivedAt: null,
     version: 1n,
     createdAt: input.now,
     updatedAt: input.now,
@@ -111,10 +215,17 @@ export function updateContact(input: {
   readonly displayName?: string;
   readonly email?: string | null;
   readonly phone?: string | null;
+  readonly ownerMemberId?: string | null;
+  /** Label names are hydrated by the repository after its atomic replacement. */
+  readonly labelIds?: readonly string[];
   readonly now: Date;
 }): ContactRecord {
   if (
-    (input.displayName === undefined && input.email === undefined && input.phone === undefined) ||
+    (input.displayName === undefined &&
+      input.email === undefined &&
+      input.phone === undefined &&
+      input.ownerMemberId === undefined &&
+      input.labelIds === undefined) ||
     Number.isNaN(input.now.getTime())
   )
     throw new ContactValidationError();
@@ -127,6 +238,7 @@ export function updateContact(input: {
     ...(input.phone === undefined
       ? {}
       : { phone: input.phone === null ? null : text(input.phone, 40) }),
+    ...(input.ownerMemberId === undefined ? {} : { ownerMemberId: input.ownerMemberId }),
     version: input.contact.version + 1n,
     updatedAt: input.now,
   });

@@ -6,6 +6,7 @@ import {
   CreateDocumentSchema,
   DocumentBlockSchema,
   DocumentDesignSchema,
+  DocumentListQuerySchema,
   ImageDocumentBlockSchema,
   TableDocumentBlockSchema,
 } from "./document.js";
@@ -25,6 +26,19 @@ const design = {
 } as const;
 
 describe("document contracts", () => {
+  it("accepts a contact-scoped document library query", () => {
+    expect(
+      DocumentListQuerySchema.parse({
+        contactId: "019db9c7-1268-7d24-bf99-96ea38ebf100",
+        kind: "QUOTE",
+      }),
+    ).toMatchObject({
+      contactId: "019db9c7-1268-7d24-bf99-96ea38ebf100",
+      kind: "QUOTE",
+    });
+    expect(DocumentListQuerySchema.safeParse({ contactId: "not-a-contact" }).success).toBe(false);
+  });
+
   it("shows an image completely when no crop mode was explicitly selected", () => {
     const parsed = ImageDocumentBlockSchema.parse({
       id: "019db9c7-1268-7d24-bf99-96ea38ebf099",

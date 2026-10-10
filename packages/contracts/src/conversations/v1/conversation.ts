@@ -103,6 +103,8 @@ export const ConversationListQuerySchema = z
   .object({
     cursor: z.string().min(1).max(512).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
+    /** Limits the inbox to conversations already linked to one visible contact. */
+    contactId: IdSchema.optional(),
     query: z.string().trim().min(1).max(160).optional(),
     channel: ConversationChannelSchema.optional(),
     status: ConversationStatusSchema.optional(),

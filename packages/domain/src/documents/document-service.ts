@@ -195,7 +195,11 @@ export class DocumentService {
   public async list(
     actor: CommercialActor,
     permissions: readonly IamPermission[],
-    filters: { readonly kind?: CommercialDocumentKind; readonly status?: "DRAFT" },
+    filters: {
+      readonly kind?: CommercialDocumentKind;
+      readonly status?: "DRAFT";
+      readonly contactId?: string;
+    },
   ): Promise<readonly CommercialDocumentRecord[]> {
     allow(permissions, "crm:documents:read");
     return this.repository.list(actor, filters);

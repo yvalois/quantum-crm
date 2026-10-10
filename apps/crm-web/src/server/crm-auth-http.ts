@@ -8,12 +8,17 @@ import { type CrmWebAuthConfig, SecretValue } from "@quantum-crm/config";
 import {
   CreateMemberInvitationSchema,
   ContactIdSchema,
+  ContactBulkActionResponseSchema,
+  ContactBulkActionSchema,
   ContactImportApplyResponseSchema,
   ContactImportFileSchema,
   ContactImportPreviewResponseSchema,
+  ContactLabelListResponseSchema,
+  ContactLabelResponseSchema,
   ContactListQuerySchema,
   ContactListResponseSchema,
   ContactResponseSchema,
+  CreateContactLabelSchema,
   CreateContactSchema,
   CreateOpportunitySchema,
   CreatePipelineSchema,
@@ -278,6 +283,96 @@ export async function handleCrmContactUpdate(
   }
 }
 
+export async function handleCrmContactLabelList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/contacts/labels", runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, ContactLabelListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmContactLabelCreate(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const payload = CreateContactLabelSchema.safeParse(await readBoundedRequestJson(request));
+    if (!payload.success) return crmProblem(400, "Invalid request");
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/contacts/labels", runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized, idempotencyKey),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return memberMutationResponse(upstream, ContactLabelResponseSchema);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+}
+
+export async function handleCrmContactBulkAction(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || !idempotencyKeyPattern.test(idempotencyKey))
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  let input: unknown;
+  try {
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = ContactBulkActionSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/contacts/actions", runtime.config.crmApiOrigin),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized, idempotencyKey),
+        body: JSON.stringify(payload.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    return memberMutationResponse(upstream, ContactBulkActionResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
 const maximumImportRequestBytes = 8_000_000;
 
 export async function handleCrmContactImportPreview(
@@ -419,9 +514,15 @@ export async function handleCrmAutomationCreate(
     return crmProblem(400, "Invalid request");
   const authorized = await authorizedMutation(request, runtime);
   if (isResponse(authorized)) return authorized;
+  let input: unknown;
   try {
-    const payload = CreateAutomationSchema.safeParse(await readBoundedRequestJson(request));
-    if (!payload.success) return crmProblem(400, "Invalid request");
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = CreateAutomationSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
     const upstream = await runtime.crmApiFetch(
       new URL("/api/v1/automations", runtime.config.crmApiOrigin),
       {
@@ -435,7 +536,7 @@ export async function handleCrmAutomationCreate(
     );
     return commercialResponse(upstream, AutomationResponseSchema);
   } catch {
-    return crmProblem(400, "Invalid request");
+    return crmProblem(503, "CRM service temporarily unavailable");
   }
 }
 
@@ -450,9 +551,15 @@ export async function handleCrmAutomationActivate(
     return crmProblem(400, "Invalid request");
   const authorized = await authorizedMutation(request, runtime);
   if (isResponse(authorized)) return authorized;
+  let input: unknown;
   try {
-    const payload = ActivateAutomationSchema.safeParse(await readBoundedRequestJson(request));
-    if (!payload.success) return crmProblem(400, "Invalid request");
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = ActivateAutomationSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
     const upstream = await runtime.crmApiFetch(
       new URL(`/api/v1/automations/${automationId}/activate`, runtime.config.crmApiOrigin),
       {
@@ -466,7 +573,7 @@ export async function handleCrmAutomationActivate(
     );
     return commercialResponse(upstream, AutomationActivationResponseSchema);
   } catch {
-    return crmProblem(400, "Invalid request");
+    return crmProblem(503, "CRM service temporarily unavailable");
   }
 }
 
@@ -1959,10 +2066,17 @@ function memberListQuery(request: Request): URLSearchParams | null {
 function contactListQuery(request: Request): URLSearchParams | null {
   const input = new URL(request.url).searchParams;
   const allowed = new Set([
+    "q",
+    "limit",
+    "cursor",
+    "sort",
     "label",
     "pipelineId",
     "ownerMemberId",
     "channel",
+    "source",
+    "archived",
+    "assignment",
     "createdFrom",
     "createdTo",
   ]);
@@ -1976,7 +2090,7 @@ function contactListQuery(request: Request): URLSearchParams | null {
   if (!parsed.success) return null;
   const output = new URLSearchParams();
   for (const [key, value] of Object.entries(parsed.data)) {
-    if (value !== undefined) output.set(key, value);
+    if (value !== undefined) output.set(key, String(value));
   }
   return output;
 }

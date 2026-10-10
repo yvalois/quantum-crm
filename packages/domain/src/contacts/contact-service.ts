@@ -4,11 +4,15 @@ import { IamAuthorizationError, type IamPermission } from "../iam/index.js";
 import {
   createContact,
   type CommercialActor,
+  type ContactBulkAction,
+  type ContactBulkActionResponse,
   type ContactRecord,
   type ContactImportPreviewRow,
   type ContactImportResult,
   type ContactImportRow,
   type ContactListFilters,
+  type ContactPage,
+  type ContactLabel,
   type ContactRepository,
   ContactValidationError,
   updateContact,
@@ -31,6 +35,15 @@ function allow(permissions: readonly IamPermission[], permission: IamPermission)
   if (!permissions.includes(permission)) throw new IamAuthorizationError();
 }
 
+function sameLabelIds(
+  current: readonly { readonly id: string }[],
+  requested: readonly string[],
+): boolean {
+  if (current.length !== requested.length) return false;
+  const currentIds = new Set(current.map((label) => label.id));
+  return requested.every((labelId) => currentIds.has(labelId));
+}
+
 export class ContactService {
   public constructor(
     private readonly repository: ContactRepository,
@@ -44,6 +57,14 @@ export class ContactService {
   ) {
     allow(permissions, "crm:contacts:read");
     return this.repository.list(actor, filters);
+  }
+  public listPage(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    filters: ContactListFilters,
+  ): Promise<ContactPage> {
+    allow(permissions, "crm:contacts:read");
+    return this.repository.listPage(actor, filters);
   }
   public get(
     actor: CommercialActor,
@@ -62,20 +83,94 @@ export class ContactService {
     readonly displayName: string;
     readonly email?: string;
     readonly phone?: string;
+    readonly ownerMemberId?: string | null;
+    readonly source?: ContactRecord["source"];
+    readonly labelIds?: readonly string[];
     readonly idempotencyKey: string;
     readonly payloadHash: string;
-  }) {
+  }): Promise<ContactRecord> {
     allow(input.permissions, "crm:contacts:create");
-    return this.repository.create({
-      contact: createContact({
-        id: randomUUID(),
-        ownerMemberId: input.actor.memberId,
-        displayName: input.displayName,
-        ...(input.email === undefined ? {} : { email: input.email }),
-        ...(input.phone === undefined ? {} : { phone: input.phone }),
-        now: this.clock(),
-      }),
+    const ownerMemberId =
+      input.ownerMemberId === undefined ? input.actor.memberId : input.ownerMemberId;
+    const create = () =>
+      this.repository.create({
+        contact: createContact({
+          id: randomUUID(),
+          ownerMemberId,
+          displayName: input.displayName,
+          ...(input.email === undefined ? {} : { email: input.email }),
+          ...(input.phone === undefined ? {} : { phone: input.phone }),
+          ...(input.source === undefined ? {} : { source: input.source }),
+          now: this.clock(),
+        }),
+        actor: input.actor,
+        labelIds: Object.freeze([...new Set(input.labelIds ?? [])]),
+        idempotencyKey: input.idempotencyKey,
+        payloadHash: input.payloadHash,
+      });
+    if (ownerMemberId === input.actor.memberId) return create();
+    allow(input.permissions, "crm:contacts:assign");
+    if (ownerMemberId === null) return create();
+    return this.repository.canAssignOwner(input.actor, ownerMemberId).then((allowed) => {
+      if (!allowed) throw new ContactValidationError();
+      return create();
+    });
+  }
+
+  public listLabels(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+  ): Promise<readonly ContactLabel[]> {
+    allow(permissions, "crm:contacts:read");
+    return this.repository.listLabels(actor);
+  }
+
+  public createLabel(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly name: string;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }): Promise<ContactLabel> {
+    allow(input.permissions, "crm:contacts:update");
+    return this.repository.createLabel({
       actor: input.actor,
+      name: input.name,
+      idempotencyKey: input.idempotencyKey,
+      payloadHash: input.payloadHash,
+    });
+  }
+
+  public async bulk(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly action: ContactBulkAction;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }): Promise<ContactBulkActionResponse> {
+    allow(input.permissions, "crm:contacts:read");
+    switch (input.action.action) {
+      case "ASSIGN":
+        allow(input.permissions, "crm:contacts:assign");
+        if (
+          input.action.ownerMemberId !== null &&
+          !(await this.repository.canAssignOwner(input.actor, input.action.ownerMemberId))
+        ) {
+          throw new ContactValidationError();
+        }
+        break;
+      case "ARCHIVE":
+      case "RESTORE":
+        allow(input.permissions, "crm:contacts:delete");
+        break;
+      case "ADD_LABEL":
+      case "REMOVE_LABEL":
+        allow(input.permissions, "crm:contacts:update");
+        break;
+    }
+    return this.repository.bulk({
+      actor: input.actor,
+      action: input.action,
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,
     });
@@ -87,22 +182,47 @@ export class ContactService {
     readonly displayName?: string;
     readonly email?: string | null;
     readonly phone?: string | null;
+    readonly ownerMemberId?: string | null;
+    readonly labelIds?: readonly string[];
     readonly expectedVersion: bigint;
   }): Promise<ContactRecord> {
     allow(input.permissions, "crm:contacts:update");
     const current = await this.repository.find(input.actor, input.id);
     if (!current) throw new ContactNotFoundError();
     if (current.version !== input.expectedVersion) throw new ContactVersionConflictError();
+    const labelIds =
+      input.labelIds === undefined ? undefined : Object.freeze([...new Set(input.labelIds)]);
+    const candidate = updateContact({
+      contact: current,
+      ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+      ...(input.email === undefined ? {} : { email: input.email }),
+      ...(input.phone === undefined ? {} : { phone: input.phone }),
+      ...(input.ownerMemberId === undefined ? {} : { ownerMemberId: input.ownerMemberId }),
+      ...(labelIds === undefined ? {} : { labelIds }),
+      now: this.clock(),
+    });
+    const ownerChanged = candidate.ownerMemberId !== current.ownerMemberId;
+    const contactChanged =
+      candidate.displayName !== current.displayName ||
+      candidate.email !== current.email ||
+      candidate.phone !== current.phone ||
+      ownerChanged;
+    const labelsChanged = labelIds !== undefined && !sameLabelIds(current.labels, labelIds);
+    if (!contactChanged && !labelsChanged) return current;
+    if (ownerChanged) {
+      allow(input.permissions, "crm:contacts:assign");
+      if (
+        candidate.ownerMemberId !== null &&
+        !(await this.repository.canAssignOwner(input.actor, candidate.ownerMemberId))
+      ) {
+        throw new ContactValidationError();
+      }
+    }
     const updated = await this.repository.update({
-      contact: updateContact({
-        contact: current,
-        ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
-        ...(input.email === undefined ? {} : { email: input.email }),
-        ...(input.phone === undefined ? {} : { phone: input.phone }),
-        now: this.clock(),
-      }),
+      contact: candidate,
       actor: input.actor,
       expectedVersion: input.expectedVersion,
+      ...(labelIds === undefined ? {} : { labelIds }),
     });
     if (!updated) throw new ContactVersionConflictError();
     return updated;
@@ -114,7 +234,7 @@ export class ContactService {
     rows: readonly ContactImportRow[],
   ): Promise<readonly ContactImportPreviewRow[]> {
     allow(permissions, "crm:contacts:read");
-    const contacts = await this.repository.list(actor);
+    const contacts = await this.repository.list(actor, { includeArchived: true });
     return Object.freeze(
       rows.map((row) => {
         const errors = validateImportRow(row);
