@@ -35,6 +35,7 @@ import {
   CreateContactLabelSchema,
   CreateContactSchema,
   UpdateContactSchema,
+  type ContactBulkAction as ContactBulkActionPayload,
 } from "@quantum-crm/contracts";
 import {
   ContactNotFoundError,
@@ -42,6 +43,9 @@ import {
   ContactValidationError,
   ContactVersionConflictError,
   IamAuthorizationError,
+  type ContactBulkAction as DomainContactBulkAction,
+  type ContactBulkFilter,
+  type ContactBulkTarget,
   type CommercialActor,
   type ContactImportPreviewRow,
   type ContactListFilters,
@@ -263,6 +267,50 @@ function contactFilters(
   });
 }
 
+function bulkFilter(filter: NonNullable<ContactBulkActionPayload["filter"]>): ContactBulkFilter {
+  return Object.freeze({
+    ...(filter.q === undefined ? {} : { q: filter.q }),
+    ...(filter.label === undefined ? {} : { label: filter.label }),
+    ...(filter.pipelineId === undefined ? {} : { pipelineId: filter.pipelineId }),
+    ...(filter.ownerMemberId === undefined ? {} : { ownerMemberId: filter.ownerMemberId }),
+    ...(filter.channel === undefined ? {} : { channel: filter.channel }),
+    ...(filter.source === undefined ? {} : { source: filter.source }),
+    archived: filter.archived,
+    ...(filter.assignment === undefined ? {} : { assignment: filter.assignment }),
+    ...(filter.createdFrom === undefined ? {} : { createdFrom: new Date(filter.createdFrom) }),
+    ...(filter.createdTo === undefined ? {} : { createdTo: new Date(filter.createdTo) }),
+  });
+}
+
+function bulkTarget(payload: ContactBulkActionPayload): ContactBulkTarget {
+  if (payload.contactIds !== undefined) {
+    return Object.freeze({
+      kind: "IDS" as const,
+      contactIds: Object.freeze([...payload.contactIds]),
+    });
+  }
+  if (payload.filter === undefined) throw new BadRequestException();
+  return Object.freeze({ kind: "FILTER" as const, filter: bulkFilter(payload.filter) });
+}
+
+function domainBulkAction(payload: ContactBulkActionPayload): DomainContactBulkAction {
+  const target = bulkTarget(payload);
+  switch (payload.action) {
+    case "ASSIGN":
+      return Object.freeze({
+        action: payload.action,
+        target,
+        ownerMemberId: payload.ownerMemberId,
+      });
+    case "ADD_LABEL":
+    case "REMOVE_LABEL":
+      return Object.freeze({ action: payload.action, target, labelId: payload.labelId });
+    case "ARCHIVE":
+    case "RESTORE":
+      return Object.freeze({ action: payload.action, target });
+  }
+}
+
 function csvCell(value: string | null): string {
   const text = value ?? "";
   return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
@@ -325,7 +373,7 @@ export class ContactsController {
       return ContactBulkActionResponseSchema.parse({
         data: await this.service.bulk({
           ...identity,
-          action: payload,
+          action: domainBulkAction(payload),
           idempotencyKey,
           payloadHash: payloadHash(payload),
         }),
@@ -527,6 +575,8 @@ export class ContactsController {
           ...(payload.displayName === undefined ? {} : { displayName: payload.displayName }),
           ...(payload.email === undefined ? {} : { email: payload.email }),
           ...(payload.phone === undefined ? {} : { phone: payload.phone }),
+          ...(payload.ownerMemberId === undefined ? {} : { ownerMemberId: payload.ownerMemberId }),
+          ...(payload.labelIds === undefined ? {} : { labelIds: payload.labelIds }),
           expectedVersion: expectedVersion(ifMatch),
         }),
       );

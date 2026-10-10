@@ -922,21 +922,26 @@ export function createCommercialPostgresRepositories(
       }
     },
     update: async (input) => {
+      let client: PoolClient | undefined;
       try {
-        const access = visibility(input.actor, 7, ["contact.owner_member_id"]);
-        const result = (await pool.query(
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const access = visibility(input.actor, 8, ["contact.owner_member_id"]);
+        const result = (await client.query<{ readonly id: string }>(
           `UPDATE contacts.contacts AS contact
-              SET display_name = $2,
-                  email = $3,
-                  phone = $4,
+              SET owner_member_id = $2::uuid,
+                  display_name = $3,
+                  email = $4,
+                  phone = $5,
                   version = version + 1,
-                  updated_at = $5
+                  updated_at = $6
             WHERE contact.id = $1::uuid
-              AND contact.version = $6::bigint
+              AND contact.version = $7::bigint
               AND ${access.sql}
-          RETURNING ${contactSelection("contact")}`,
+          RETURNING contact.id::text`,
           [
             input.contact.id,
+            input.contact.ownerMemberId,
             input.contact.displayName,
             input.contact.email,
             input.contact.phone,
@@ -944,11 +949,50 @@ export function createCommercialPostgresRepositories(
             input.expectedVersion.toString(),
             ...access.params,
           ],
-        )) as { readonly rows: readonly ContactRow[] };
-        const row = result.rows[0];
-        return row ? contactFromRow(row) : null;
+        )) as { readonly rows: readonly { readonly id: string }[] };
+        const updated = result.rows[0];
+        if (!updated) {
+          await client.query("COMMIT");
+          return null;
+        }
+        if (input.labelIds !== undefined) {
+          const labelIds = [...new Set(input.labelIds)];
+          if (labelIds.length > 0) {
+            const labels = await client.query<{ readonly id: string }>(
+              `SELECT id::text FROM contacts.labels WHERE id = ANY($1::uuid[]) FOR KEY SHARE`,
+              [labelIds],
+            );
+            if (labels.rows.length !== labelIds.length) throw new ContactValidationError();
+          }
+          await client.query(`DELETE FROM contacts.contact_labels WHERE contact_id = $1::uuid`, [
+            updated.id,
+          ]);
+          if (labelIds.length > 0) {
+            await client.query(
+              `INSERT INTO contacts.contact_labels (contact_id, label_id)
+               SELECT $1::uuid, unnest($2::uuid[])
+               ON CONFLICT DO NOTHING`,
+              [updated.id, labelIds],
+            );
+          }
+        }
+        const hydrated = await client.query<ContactRow>(
+          `SELECT ${contactSelection("contact")}
+             FROM contacts.contacts AS contact
+            WHERE contact.id = $1::uuid
+            FOR UPDATE`,
+          [updated.id],
+        );
+        const row = hydrated.rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        const contact = contactFromRow(row);
+        await client.query("COMMIT");
+        return contact;
       } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
         return fail(error);
+      } finally {
+        client?.release();
       }
     },
     bulk: async (input) => {
@@ -972,7 +1016,7 @@ export function createCommercialPostgresRepositories(
           await client.query("COMMIT");
           return replay;
         }
-        const contactIds = [...new Set(input.action.contactIds)];
+        const target = input.action.target;
         if ("labelId" in input.action) {
           const label = await client.query<{ readonly id: string }>(
             `SELECT id::text FROM contacts.labels WHERE id = $1::uuid FOR KEY SHARE`,
@@ -980,124 +1024,281 @@ export function createCommercialPostgresRepositories(
           );
           if (label.rows.length !== 1) throw new ContactValidationError();
         }
-        const access = visibility(input.actor, 2, ["contact.owner_member_id"]);
-        const visible = await client.query<{ readonly id: string }>(
-          `SELECT contact.id::text
-             FROM contacts.contacts AS contact
-            WHERE contact.id = ANY($1::uuid[])
-              AND ${access.sql}
-            FOR UPDATE`,
-          [contactIds, ...access.params],
-        );
-        const visibleIds = visible.rows.map((row) => row.id);
-        const visibleSet = new Set(visibleIds);
-        let changedIds: readonly string[] = [];
-        if (visibleIds.length > 0) {
-          switch (input.action.action) {
-            case "ASSIGN": {
-              const changed = await client.query<{ readonly id: string }>(
-                `UPDATE contacts.contacts AS contact
-                    SET owner_member_id = $2::uuid,
+        if (target.kind === "IDS") {
+          const contactIds = Object.freeze([...new Set(target.contactIds)]);
+          const access = visibility(input.actor, 2, ["contact.owner_member_id"]);
+          const visible = await client.query<{ readonly id: string }>(
+            `SELECT contact.id::text
+               FROM contacts.contacts AS contact
+              WHERE contact.id = ANY($1::uuid[])
+                AND ${access.sql}
+              FOR UPDATE`,
+            [contactIds, ...access.params],
+          );
+          const visibleIds = visible.rows.map((row) => row.id);
+          const visibleSet = new Set(visibleIds);
+          let changedIds: readonly string[] = [];
+          if (visibleIds.length > 0) {
+            switch (input.action.action) {
+              case "ASSIGN": {
+                const changed = await client.query<{ readonly id: string }>(
+                  `UPDATE contacts.contacts AS contact
+                      SET owner_member_id = $2::uuid,
+                          version = version + 1,
+                          updated_at = CURRENT_TIMESTAMP
+                    WHERE contact.id = ANY($1::uuid[])
+                      AND contact.owner_member_id IS DISTINCT FROM $2::uuid
+                  RETURNING contact.id::text`,
+                  [visibleIds, input.action.ownerMemberId],
+                );
+                changedIds = changed.rows.map((row) => row.id);
+                break;
+              }
+              case "ARCHIVE": {
+                const changed = await client.query<{ readonly id: string }>(
+                  `UPDATE contacts.contacts AS contact
+                      SET archived_at = CURRENT_TIMESTAMP,
+                          version = version + 1,
+                          updated_at = CURRENT_TIMESTAMP
+                    WHERE contact.id = ANY($1::uuid[])
+                      AND contact.archived_at IS NULL
+                  RETURNING contact.id::text`,
+                  [visibleIds],
+                );
+                changedIds = changed.rows.map((row) => row.id);
+                break;
+              }
+              case "RESTORE": {
+                const changed = await client.query<{ readonly id: string }>(
+                  `UPDATE contacts.contacts AS contact
+                      SET archived_at = NULL,
+                          version = version + 1,
+                          updated_at = CURRENT_TIMESTAMP
+                    WHERE contact.id = ANY($1::uuid[])
+                      AND contact.archived_at IS NOT NULL
+                  RETURNING contact.id::text`,
+                  [visibleIds],
+                );
+                changedIds = changed.rows.map((row) => row.id);
+                break;
+              }
+              case "ADD_LABEL": {
+                const changed = await client.query<{ readonly contact_id: string }>(
+                  `WITH attached AS (
+                     INSERT INTO contacts.contact_labels (contact_id, label_id)
+                     SELECT unnest($1::uuid[]), $2::uuid
+                     ON CONFLICT DO NOTHING
+                     RETURNING contact_id
+                   ), touched AS (
+                     UPDATE contacts.contacts AS contact
+                        SET version = version + 1,
+                            updated_at = CURRENT_TIMESTAMP
+                       FROM attached
+                      WHERE contact.id = attached.contact_id
+                     RETURNING contact.id::text AS contact_id
+                   )
+                   SELECT contact_id FROM touched`,
+                  [visibleIds, input.action.labelId],
+                );
+                changedIds = changed.rows.map((row) => row.contact_id);
+                break;
+              }
+              case "REMOVE_LABEL": {
+                const changed = await client.query<{ readonly contact_id: string }>(
+                  `WITH detached AS (
+                     DELETE FROM contacts.contact_labels
+                      WHERE contact_id = ANY($1::uuid[])
+                        AND label_id = $2::uuid
+                     RETURNING contact_id
+                   ), touched AS (
+                     UPDATE contacts.contacts AS contact
+                        SET version = version + 1,
+                            updated_at = CURRENT_TIMESTAMP
+                       FROM detached
+                      WHERE contact.id = detached.contact_id
+                     RETURNING contact.id::text AS contact_id
+                   )
+                   SELECT contact_id FROM touched`,
+                  [visibleIds, input.action.labelId],
+                );
+                changedIds = changed.rows.map((row) => row.contact_id);
+                break;
+              }
+            }
+          }
+          const changedSet = new Set(changedIds);
+          const results = Object.freeze(
+            contactIds.map((contactId) =>
+              Object.freeze({
+                contactId,
+                status: !visibleSet.has(contactId)
+                  ? ("NOT_VISIBLE" as const)
+                  : changedSet.has(contactId)
+                    ? ("UPDATED" as const)
+                    : ("UNCHANGED" as const),
+              }),
+            ),
+          );
+          const response: ContactBulkActionResponse = Object.freeze({
+            results,
+            updated: changedSet.size,
+            unchanged: results.filter((result) => result.status === "UNCHANGED").length,
+            notVisible: results.filter((result) => result.status === "NOT_VISIBLE").length,
+          });
+          await client.query(
+            `INSERT INTO contacts.command_idempotency
+              (actor_member_id, command, idempotency_key, payload_hash, response)
+             VALUES ($1::uuid, 'contacts.bulk', $2, $3, $4::jsonb)`,
+            [
+              input.actor.memberId,
+              input.idempotencyKey,
+              input.payloadHash,
+              JSON.stringify(response),
+            ],
+          );
+          await client.query("COMMIT");
+          return response;
+        }
+
+        const filter = contactQueryParts(input.actor, target.filter);
+        const filterTarget = `WITH target AS MATERIALIZED (
+          SELECT contact.id
+            FROM contacts.contacts AS contact
+           WHERE ${filter.conditions.join("\n             AND ")}
+           FOR UPDATE OF contact
+        )`;
+        type FilterBulkCount = {
+          readonly target_count: number;
+          readonly changed_count: number;
+        };
+        let counts: FilterBulkCount | undefined;
+        switch (input.action.action) {
+          case "ASSIGN": {
+            const ownerMemberId = filter.parameter(input.action.ownerMemberId);
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, changed AS (
+                 UPDATE contacts.contacts AS contact
+                    SET owner_member_id = ${ownerMemberId}::uuid,
                         version = version + 1,
                         updated_at = CURRENT_TIMESTAMP
-                  WHERE contact.id = ANY($1::uuid[])
-                    AND contact.owner_member_id IS DISTINCT FROM $2::uuid
-                RETURNING contact.id::text`,
-                [visibleIds, input.action.ownerMemberId],
-              );
-              changedIds = changed.rows.map((row) => row.id);
-              break;
-            }
-            case "ARCHIVE": {
-              const changed = await client.query<{ readonly id: string }>(
-                `UPDATE contacts.contacts AS contact
+                   FROM target
+                  WHERE contact.id = target.id
+                    AND contact.owner_member_id IS DISTINCT FROM ${ownerMemberId}::uuid
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+          case "ARCHIVE": {
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, changed AS (
+                 UPDATE contacts.contacts AS contact
                     SET archived_at = CURRENT_TIMESTAMP,
                         version = version + 1,
                         updated_at = CURRENT_TIMESTAMP
-                  WHERE contact.id = ANY($1::uuid[])
+                   FROM target
+                  WHERE contact.id = target.id
                     AND contact.archived_at IS NULL
-                RETURNING contact.id::text`,
-                [visibleIds],
-              );
-              changedIds = changed.rows.map((row) => row.id);
-              break;
-            }
-            case "RESTORE": {
-              const changed = await client.query<{ readonly id: string }>(
-                `UPDATE contacts.contacts AS contact
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+          case "RESTORE": {
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, changed AS (
+                 UPDATE contacts.contacts AS contact
                     SET archived_at = NULL,
                         version = version + 1,
                         updated_at = CURRENT_TIMESTAMP
-                  WHERE contact.id = ANY($1::uuid[])
+                   FROM target
+                  WHERE contact.id = target.id
                     AND contact.archived_at IS NOT NULL
-                RETURNING contact.id::text`,
-                [visibleIds],
-              );
-              changedIds = changed.rows.map((row) => row.id);
-              break;
-            }
-            case "ADD_LABEL": {
-              const changed = await client.query<{ readonly contact_id: string }>(
-                `WITH attached AS (
-                   INSERT INTO contacts.contact_labels (contact_id, label_id)
-                   SELECT unnest($1::uuid[]), $2::uuid
-                   ON CONFLICT DO NOTHING
-                   RETURNING contact_id
-                 ), touched AS (
-                   UPDATE contacts.contacts AS contact
-                      SET version = version + 1,
-                          updated_at = CURRENT_TIMESTAMP
-                     FROM attached
-                    WHERE contact.id = attached.contact_id
-                   RETURNING contact.id::text AS contact_id
-                 )
-                 SELECT contact_id FROM touched`,
-                [visibleIds, input.action.labelId],
-              );
-              changedIds = changed.rows.map((row) => row.contact_id);
-              break;
-            }
-            case "REMOVE_LABEL": {
-              const changed = await client.query<{ readonly contact_id: string }>(
-                `WITH detached AS (
-                   DELETE FROM contacts.contact_labels
-                    WHERE contact_id = ANY($1::uuid[])
-                      AND label_id = $2::uuid
-                   RETURNING contact_id
-                 ), touched AS (
-                   UPDATE contacts.contacts AS contact
-                      SET version = version + 1,
-                          updated_at = CURRENT_TIMESTAMP
-                     FROM detached
-                    WHERE contact.id = detached.contact_id
-                   RETURNING contact.id::text AS contact_id
-                 )
-                 SELECT contact_id FROM touched`,
-                [visibleIds, input.action.labelId],
-              );
-              changedIds = changed.rows.map((row) => row.contact_id);
-              break;
-            }
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+          case "ADD_LABEL": {
+            const labelId = filter.parameter(input.action.labelId);
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, attached AS (
+                 INSERT INTO contacts.contact_labels (contact_id, label_id)
+                 SELECT target.id, ${labelId}::uuid
+                   FROM target
+                 ON CONFLICT DO NOTHING
+                 RETURNING contact_id
+               ), changed AS (
+                 UPDATE contacts.contacts AS contact
+                    SET version = version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                   FROM attached
+                  WHERE contact.id = attached.contact_id
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
+          }
+          case "REMOVE_LABEL": {
+            const labelId = filter.parameter(input.action.labelId);
+            const changed = await client.query<FilterBulkCount>(
+              `${filterTarget}, detached AS (
+                 DELETE FROM contacts.contact_labels AS contact_label
+                  USING target
+                  WHERE contact_label.contact_id = target.id
+                    AND contact_label.label_id = ${labelId}::uuid
+                 RETURNING contact_label.contact_id
+               ), changed AS (
+                 UPDATE contacts.contacts AS contact
+                    SET version = version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                   FROM detached
+                  WHERE contact.id = detached.contact_id
+                 RETURNING contact.id
+               )
+               SELECT
+                 (SELECT count(*)::integer FROM target) AS target_count,
+                 (SELECT count(*)::integer FROM changed) AS changed_count`,
+              filter.params,
+            );
+            counts = changed.rows[0];
+            break;
           }
         }
-        const changedSet = new Set(changedIds);
-        const results = Object.freeze(
-          contactIds.map((contactId) =>
-            Object.freeze({
-              contactId,
-              status: !visibleSet.has(contactId)
-                ? ("NOT_VISIBLE" as const)
-                : changedSet.has(contactId)
-                  ? ("UPDATED" as const)
-                  : ("UNCHANGED" as const),
-            }),
-          ),
-        );
+        if (
+          !counts ||
+          !Number.isSafeInteger(counts.target_count) ||
+          !Number.isSafeInteger(counts.changed_count) ||
+          counts.target_count < counts.changed_count ||
+          counts.changed_count < 0
+        ) {
+          throw new DatabaseUnavailableError();
+        }
         const response: ContactBulkActionResponse = Object.freeze({
-          results,
-          updated: changedSet.size,
-          unchanged: results.filter((result) => result.status === "UNCHANGED").length,
-          notVisible: results.filter((result) => result.status === "NOT_VISIBLE").length,
+          results: Object.freeze([]),
+          updated: counts.changed_count,
+          unchanged: counts.target_count - counts.changed_count,
+          notVisible: 0,
         });
         await client.query(
           `INSERT INTO contacts.command_idempotency
@@ -1271,6 +1472,9 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `${input.actor.memberId}:automation.activate:${input.operationKey}`,
+        ]);
         const previous = await client.query<{
           readonly payload_hash: string;
           readonly response: AutomationActivationResult;

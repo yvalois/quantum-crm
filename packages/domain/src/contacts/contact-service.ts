@@ -35,6 +35,15 @@ function allow(permissions: readonly IamPermission[], permission: IamPermission)
   if (!permissions.includes(permission)) throw new IamAuthorizationError();
 }
 
+function sameLabelIds(
+  current: readonly { readonly id: string }[],
+  requested: readonly string[],
+): boolean {
+  if (current.length !== requested.length) return false;
+  const currentIds = new Set(current.map((label) => label.id));
+  return requested.every((labelId) => currentIds.has(labelId));
+}
+
 export class ContactService {
   public constructor(
     private readonly repository: ContactRepository,
@@ -173,22 +182,47 @@ export class ContactService {
     readonly displayName?: string;
     readonly email?: string | null;
     readonly phone?: string | null;
+    readonly ownerMemberId?: string | null;
+    readonly labelIds?: readonly string[];
     readonly expectedVersion: bigint;
   }): Promise<ContactRecord> {
     allow(input.permissions, "crm:contacts:update");
     const current = await this.repository.find(input.actor, input.id);
     if (!current) throw new ContactNotFoundError();
     if (current.version !== input.expectedVersion) throw new ContactVersionConflictError();
+    const labelIds =
+      input.labelIds === undefined ? undefined : Object.freeze([...new Set(input.labelIds)]);
+    const candidate = updateContact({
+      contact: current,
+      ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+      ...(input.email === undefined ? {} : { email: input.email }),
+      ...(input.phone === undefined ? {} : { phone: input.phone }),
+      ...(input.ownerMemberId === undefined ? {} : { ownerMemberId: input.ownerMemberId }),
+      ...(labelIds === undefined ? {} : { labelIds }),
+      now: this.clock(),
+    });
+    const ownerChanged = candidate.ownerMemberId !== current.ownerMemberId;
+    const contactChanged =
+      candidate.displayName !== current.displayName ||
+      candidate.email !== current.email ||
+      candidate.phone !== current.phone ||
+      ownerChanged;
+    const labelsChanged = labelIds !== undefined && !sameLabelIds(current.labels, labelIds);
+    if (!contactChanged && !labelsChanged) return current;
+    if (ownerChanged) {
+      allow(input.permissions, "crm:contacts:assign");
+      if (
+        candidate.ownerMemberId !== null &&
+        !(await this.repository.canAssignOwner(input.actor, candidate.ownerMemberId))
+      ) {
+        throw new ContactValidationError();
+      }
+    }
     const updated = await this.repository.update({
-      contact: updateContact({
-        contact: current,
-        ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
-        ...(input.email === undefined ? {} : { email: input.email }),
-        ...(input.phone === undefined ? {} : { phone: input.phone }),
-        now: this.clock(),
-      }),
+      contact: candidate,
       actor: input.actor,
       expectedVersion: input.expectedVersion,
+      ...(labelIds === undefined ? {} : { labelIds }),
     });
     if (!updated) throw new ContactVersionConflictError();
     return updated;

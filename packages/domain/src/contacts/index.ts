@@ -57,18 +57,41 @@ export interface ContactPage {
   readonly hasMoreInRequestedDirection: boolean;
 }
 
+/**
+ * Public list filters that may define a mass-action target. Pagination,
+ * ordering and internal lifecycle overrides are deliberately excluded: the
+ * repository evaluates this snapshot once under the authenticated actor.
+ */
+export type ContactBulkFilter = Pick<
+  ContactListFilters,
+  | "q"
+  | "label"
+  | "pipelineId"
+  | "ownerMemberId"
+  | "channel"
+  | "source"
+  | "archived"
+  | "assignment"
+  | "createdFrom"
+  | "createdTo"
+>;
+
+export type ContactBulkTarget =
+  | { readonly kind: "IDS"; readonly contactIds: readonly string[] }
+  | { readonly kind: "FILTER"; readonly filter: ContactBulkFilter };
+
 export type ContactBulkAction =
   | {
       readonly action: "ASSIGN";
-      readonly contactIds: readonly string[];
+      readonly target: ContactBulkTarget;
       readonly ownerMemberId: string | null;
     }
   | {
       readonly action: "ADD_LABEL" | "REMOVE_LABEL";
-      readonly contactIds: readonly string[];
+      readonly target: ContactBulkTarget;
       readonly labelId: string;
     }
-  | { readonly action: "ARCHIVE" | "RESTORE"; readonly contactIds: readonly string[] };
+  | { readonly action: "ARCHIVE" | "RESTORE"; readonly target: ContactBulkTarget };
 
 export interface ContactBulkActionResult {
   readonly contactId: string;
@@ -108,6 +131,8 @@ export interface ContactRepository {
     readonly contact: ContactRecord;
     readonly actor: CommercialActor;
     readonly expectedVersion: bigint;
+    /** Undefined retains labels; an empty list intentionally clears them. */
+    readonly labelIds?: readonly string[];
   }) => Promise<ContactRecord | null>;
   readonly bulk: (input: {
     readonly actor: CommercialActor;
@@ -190,10 +215,17 @@ export function updateContact(input: {
   readonly displayName?: string;
   readonly email?: string | null;
   readonly phone?: string | null;
+  readonly ownerMemberId?: string | null;
+  /** Label names are hydrated by the repository after its atomic replacement. */
+  readonly labelIds?: readonly string[];
   readonly now: Date;
 }): ContactRecord {
   if (
-    (input.displayName === undefined && input.email === undefined && input.phone === undefined) ||
+    (input.displayName === undefined &&
+      input.email === undefined &&
+      input.phone === undefined &&
+      input.ownerMemberId === undefined &&
+      input.labelIds === undefined) ||
     Number.isNaN(input.now.getTime())
   )
     throw new ContactValidationError();
@@ -206,6 +238,7 @@ export function updateContact(input: {
     ...(input.phone === undefined
       ? {}
       : { phone: input.phone === null ? null : text(input.phone, 40) }),
+    ...(input.ownerMemberId === undefined ? {} : { ownerMemberId: input.ownerMemberId }),
     version: input.contact.version + 1n,
     updatedAt: input.now,
   });

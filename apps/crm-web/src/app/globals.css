@@ -10470,6 +10470,7 @@ body {
 .contact-workspace-filter-menu input,
 .contact-workspace-modal input,
 .contact-workspace-modal select,
+.contact-workspace-modal textarea,
 .contact-workspace-automation-modal select {
   width: 100%;
   min-width: 0;
@@ -10486,6 +10487,7 @@ body {
 .contact-workspace-filter-menu input:focus,
 .contact-workspace-modal input:focus,
 .contact-workspace-modal select:focus,
+.contact-workspace-modal textarea:focus,
 .contact-workspace-automation-modal select:focus {
   border-color: #55ada5;
   box-shadow: 0 0 0 3px rgb(65 168 158 / 14%);
@@ -10568,6 +10570,18 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.34rem;
+}
+
+.contact-workspace-select-all-filtered {
+  border-style: dashed !important;
+  color: var(--contact-teal-deep) !important;
+}
+
+.contact-workspace-filter-selection-note {
+  max-width: 21rem;
+  color: #4f7373;
+  font-size: 0.66rem;
+  line-height: 1.35;
 }
 
 .contact-workspace-clear-selection {
@@ -11461,6 +11475,64 @@ body {
 .contact-workspace-import-summary span {
   color: #678487;
   font-size: 0.66rem;
+}
+
+.contact-workspace-import-rows {
+  max-height: 15rem;
+  overflow: auto;
+  border: 1px solid #d7e6e4;
+  border-radius: 0.45rem;
+}
+
+.contact-workspace-import-rows table {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+  background: #fff;
+  font-size: 0.67rem;
+}
+
+.contact-workspace-import-rows th,
+.contact-workspace-import-rows td {
+  padding: 0.52rem 0.58rem;
+  border-bottom: 1px solid #e4efed;
+  text-align: left;
+  vertical-align: top;
+}
+
+.contact-workspace-import-rows th {
+  position: sticky;
+  top: 0;
+  background: #f4f9f8;
+  color: #557579;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.contact-workspace-import-rows td > strong,
+.contact-workspace-import-rows td > span {
+  display: block;
+}
+
+.contact-workspace-import-rows td > span {
+  margin-top: 0.12rem;
+  color: #799396;
+}
+
+.contact-workspace-import-rows tr.is-error {
+  background: #fff3f3;
+  color: #a23642;
+}
+
+.contact-workspace-import-rows tr.is-match {
+  background: #fffaf0;
+}
+
+.contact-workspace-import-error-note {
+  margin: -0.25rem 0 0;
+  color: #ad3944 !important;
+  font-size: 0.68rem !important;
 }
 
 .contact-workspace-automation-modal > label {

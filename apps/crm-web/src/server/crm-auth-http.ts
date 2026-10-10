@@ -347,9 +347,15 @@ export async function handleCrmContactBulkAction(
     return crmProblem(400, "Invalid request");
   const authorized = await authorizedMutation(request, runtime);
   if (isResponse(authorized)) return authorized;
+  let input: unknown;
   try {
-    const payload = ContactBulkActionSchema.safeParse(await readBoundedRequestJson(request));
-    if (!payload.success) return crmProblem(400, "Invalid request");
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = ContactBulkActionSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
     const upstream = await runtime.crmApiFetch(
       new URL("/api/v1/contacts/actions", runtime.config.crmApiOrigin),
       {
@@ -363,7 +369,7 @@ export async function handleCrmContactBulkAction(
     );
     return memberMutationResponse(upstream, ContactBulkActionResponseSchema);
   } catch {
-    return crmProblem(400, "Invalid request");
+    return crmProblem(503, "CRM service temporarily unavailable");
   }
 }
 
@@ -508,9 +514,15 @@ export async function handleCrmAutomationCreate(
     return crmProblem(400, "Invalid request");
   const authorized = await authorizedMutation(request, runtime);
   if (isResponse(authorized)) return authorized;
+  let input: unknown;
   try {
-    const payload = CreateAutomationSchema.safeParse(await readBoundedRequestJson(request));
-    if (!payload.success) return crmProblem(400, "Invalid request");
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = CreateAutomationSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
     const upstream = await runtime.crmApiFetch(
       new URL("/api/v1/automations", runtime.config.crmApiOrigin),
       {
@@ -524,7 +536,7 @@ export async function handleCrmAutomationCreate(
     );
     return commercialResponse(upstream, AutomationResponseSchema);
   } catch {
-    return crmProblem(400, "Invalid request");
+    return crmProblem(503, "CRM service temporarily unavailable");
   }
 }
 
@@ -539,9 +551,15 @@ export async function handleCrmAutomationActivate(
     return crmProblem(400, "Invalid request");
   const authorized = await authorizedMutation(request, runtime);
   if (isResponse(authorized)) return authorized;
+  let input: unknown;
   try {
-    const payload = ActivateAutomationSchema.safeParse(await readBoundedRequestJson(request));
-    if (!payload.success) return crmProblem(400, "Invalid request");
+    input = await readBoundedRequestJson(request);
+  } catch {
+    return crmProblem(400, "Invalid request");
+  }
+  const payload = ActivateAutomationSchema.safeParse(input);
+  if (!payload.success) return crmProblem(400, "Invalid request");
+  try {
     const upstream = await runtime.crmApiFetch(
       new URL(`/api/v1/automations/${automationId}/activate`, runtime.config.crmApiOrigin),
       {
@@ -555,7 +573,7 @@ export async function handleCrmAutomationActivate(
     );
     return commercialResponse(upstream, AutomationActivationResponseSchema);
   } catch {
-    return crmProblem(400, "Invalid request");
+    return crmProblem(503, "CRM service temporarily unavailable");
   }
 }
 

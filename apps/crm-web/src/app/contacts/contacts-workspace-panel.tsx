@@ -121,6 +121,26 @@ interface ImportFile {
   readonly contentBase64: string;
 }
 
+interface AutomationRun {
+  readonly fingerprint: string;
+  readonly batchKeys: Map<number, string>;
+}
+
+interface AutomationCreateRun {
+  readonly fingerprint: string;
+  readonly operationKey: string;
+}
+
+interface FilterSelection {
+  readonly filters: ContactFilters;
+  readonly total: number;
+}
+
+interface BulkActionRun {
+  readonly fingerprint: string;
+  readonly operationKey: string;
+}
+
 const emptyFilters: ContactFilters = {
   q: "",
   label: "",
@@ -134,6 +154,43 @@ const emptyFilters: ContactFilters = {
   archived: "false",
   sort: "UPDATED_DESC",
 };
+
+function contactQuery(
+  filters: ContactFilters,
+  cursor: string | null = null,
+  limit = 50,
+): URLSearchParams {
+  const query = new URLSearchParams();
+  if (filters.q.trim()) query.set("q", filters.q.trim());
+  if (filters.label) query.set("label", filters.label);
+  if (filters.pipelineId) query.set("pipelineId", filters.pipelineId);
+  if (filters.ownerMemberId) query.set("ownerMemberId", filters.ownerMemberId);
+  if (filters.assignment) query.set("assignment", filters.assignment);
+  if (filters.channel) query.set("channel", filters.channel);
+  if (filters.source) query.set("source", filters.source);
+  if (filters.createdFrom) query.set("createdFrom", `${filters.createdFrom}T00:00:00.000Z`);
+  if (filters.createdTo) query.set("createdTo", `${filters.createdTo}T23:59:59.999Z`);
+  if (filters.archived) query.set("archived", filters.archived);
+  query.set("sort", filters.sort);
+  query.set("limit", String(limit));
+  if (cursor) query.set("cursor", cursor);
+  return query;
+}
+
+function bulkFilterPayload(filters: ContactFilters): Readonly<Record<string, string>> {
+  const filter: Record<string, string> = {};
+  if (filters.q.trim()) filter.q = filters.q.trim();
+  if (filters.label) filter.label = filters.label;
+  if (filters.pipelineId) filter.pipelineId = filters.pipelineId;
+  if (filters.ownerMemberId) filter.ownerMemberId = filters.ownerMemberId;
+  if (filters.assignment) filter.assignment = filters.assignment;
+  if (filters.channel) filter.channel = filters.channel;
+  if (filters.source) filter.source = filters.source;
+  if (filters.createdFrom) filter.createdFrom = `${filters.createdFrom}T00:00:00.000Z`;
+  if (filters.createdTo) filter.createdTo = `${filters.createdTo}T23:59:59.999Z`;
+  if (filters.archived) filter.archived = filters.archived;
+  return Object.freeze(filter);
+}
 
 const tabs: readonly {
   readonly id: ContactTab;
@@ -252,6 +309,17 @@ function sourceLabel(source: string | null | undefined): string {
   return source ? (names[source.toUpperCase()] ?? source) : "Manual";
 }
 
+function importErrorLabel(code: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    contact_channel_required: "Agrega correo o teléfono",
+    display_name_invalid: "El nombre no es válido",
+    email_invalid: "El correo no es válido",
+    phone_invalid: "El teléfono no es válido",
+    row_number_invalid: "La fila no es válida",
+  };
+  return labels[code] ?? code;
+}
+
 function toRelations(payload: unknown, href: string): readonly RelationItem[] {
   const values = isRecord(payload) && Array.isArray(payload.data) ? payload.data : [];
   return values.flatMap((value, index) => {
@@ -259,10 +327,20 @@ function toRelations(payload: unknown, href: string): readonly RelationItem[] {
     return [
       {
         id: text(value.id) ?? `${href}-${index}`,
-        title: text(value.title) ?? text(value.subject) ?? text(value.name) ?? "Sin título",
+        title:
+          text(value.title) ??
+          text(value.subject) ??
+          text(value.name) ??
+          text(value.lastMessagePreview) ??
+          "Sin título",
         subtitle:
-          text(value.description) ?? text(value.preview) ?? text(value.email) ?? text(value.phone),
+          text(value.lastMessagePreview) ??
+          text(value.description) ??
+          text(value.preview) ??
+          text(value.email) ??
+          text(value.phone),
         occurredAt:
+          text(value.lastMessageAt) ??
           text(value.updatedAt) ??
           text(value.createdAt) ??
           text(value.startsAt) ??
@@ -334,6 +412,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [filterSelection, setFilterSelection] = useState<FilterSelection | null>(null);
   const [bulkAction, setBulkAction] = useState<BulkAction>("");
   const [bulkTarget, setBulkTarget] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -352,17 +431,33 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   const [importRows, setImportRows] = useState<ContactImportPreviewRow[]>([]);
   const [importBusy, setImportBusy] = useState(false);
   const [selectedAutomationId, setSelectedAutomationId] = useState("");
+  const [automationCreateOpen, setAutomationCreateOpen] = useState(false);
+  const [automationCreateBusy, setAutomationCreateBusy] = useState(false);
   const [labelOpen, setLabelOpen] = useState(false);
   const [labelBusy, setLabelBusy] = useState(false);
   const requestNumber = useRef(0);
   const relationRequestNumber = useRef(0);
+  const selectedFilterKey = useRef<string | null>(null);
+  const automationRun = useRef<AutomationRun | null>(null);
+  const automationCreateRun = useRef<AutomationCreateRun | null>(null);
+  const bulkActionRun = useRef<BulkActionRun | null>(null);
 
-  const selectedCount = selectedIds.size;
+  const selectedCount = filterSelection?.total ?? selectedIds.size;
+  const importErrors = importRows.filter((row) => row.status === "ERROR");
   const visibleIds = useMemo(() => contacts.map((contact) => contact.id), [contacts]);
   const activeAutomations = useMemo(
     () => automations.filter((item) => item.status === "ACTIVE"),
     [automations],
   );
+  const unavailableComposerOwner = useMemo(() => {
+    const contact = composer?.mode === "edit" ? composer.contact : undefined;
+    if (!contact?.ownerMemberId || members.some((member) => member.id === contact.ownerMemberId))
+      return null;
+    return {
+      id: contact.ownerMemberId,
+      displayName: contact.owner?.displayName ?? "Responsable actual",
+    };
+  }, [composer, members]);
   const ownerFor = useCallback(
     (contact: WorkspaceContact): ContactOwner | null =>
       contact.owner ??
@@ -378,20 +473,8 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
       const requestId = requestNumber.current + 1;
       requestNumber.current = requestId;
       if (!silent) setLoading(true);
-      const query = new URLSearchParams();
-      if (filters.q.trim()) query.set("q", filters.q.trim());
-      if (filters.label) query.set("label", filters.label);
-      if (filters.pipelineId) query.set("pipelineId", filters.pipelineId);
-      if (filters.ownerMemberId) query.set("ownerMemberId", filters.ownerMemberId);
-      if (filters.assignment) query.set("assignment", filters.assignment);
-      if (filters.channel) query.set("channel", filters.channel);
-      if (filters.source) query.set("source", filters.source);
-      if (filters.createdFrom) query.set("createdFrom", `${filters.createdFrom}T00:00:00.000Z`);
-      if (filters.createdTo) query.set("createdTo", `${filters.createdTo}T23:59:59.999Z`);
-      if (filters.archived) query.set("archived", filters.archived);
-      query.set("sort", filters.sort);
-      query.set("limit", "50");
-      if (cursor) query.set("cursor", cursor);
+      const query = contactQuery(filters, cursor);
+      const filterKey = contactQuery(filters).toString();
       try {
         const response = await fetch(`/api/contacts?${query.toString()}`, {
           cache: "no-store",
@@ -410,10 +493,12 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
         setPage(payload.page ?? {});
         setCurrentCursor(cursor);
         setActiveFilters(filters);
-        setSelectedIds(
-          (current) =>
-            new Set([...current].filter((id) => data.some((contact) => contact.id === id))),
-        );
+        if (selectedFilterKey.current !== filterKey) {
+          setSelectedIds(new Set());
+          setFilterSelection(null);
+          bulkActionRun.current = null;
+        }
+        selectedFilterKey.current = filterKey;
       } catch (cause) {
         if (requestNumber.current === requestId)
           setError(cause instanceof Error ? cause.message : "No fue posible cargar los contactos.");
@@ -644,6 +729,12 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   }
 
   function toggleContact(id: string): void {
+    if (filterSelection) {
+      setFilterSelection(null);
+      bulkActionRun.current = null;
+      setSelectedIds(new Set([id]));
+      return;
+    }
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -653,11 +744,22 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   }
 
   function toggleAll(): void {
-    setSelectedIds((current) =>
-      visibleIds.length > 0 && visibleIds.every((id) => current.has(id))
-        ? new Set()
-        : new Set(visibleIds),
-    );
+    if (filterSelection) {
+      setFilterSelection(null);
+      bulkActionRun.current = null;
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      const allVisibleAreSelected =
+        visibleIds.length > 0 && visibleIds.every((id) => current.has(id));
+      for (const id of visibleIds) {
+        if (allVisibleAreSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
   }
 
   async function submitContact(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -703,6 +805,10 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                   displayName: details.displayName,
                   email: details.email,
                   phone: details.phone,
+                  ...(details.ownerMemberId === undefined
+                    ? {}
+                    : { ownerMemberId: details.ownerMemberId }),
+                  labelIds: details.labelIds,
                 }
               : {
                   displayName: details.displayName,
@@ -725,61 +831,13 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
           .json()
           .catch(() => null)) as { readonly data?: WorkspaceContact } | null
       )?.data;
-      if (editing) {
-        const changes: unknown[] = [];
-        if (details.ownerMemberId !== editing.ownerMemberId) {
-          changes.push({
-            action: "ASSIGN",
-            contactIds: [editing.id],
-            ownerMemberId: details.ownerMemberId ?? null,
-          });
-        }
-        const before = new Set(editing.labels.map((label) => label.id));
-        const after = new Set(details.labelIds);
-        for (const labelId of after) {
-          if (!before.has(labelId))
-            changes.push({ action: "ADD_LABEL", contactIds: [editing.id], labelId });
-        }
-        for (const labelId of before) {
-          if (!after.has(labelId))
-            changes.push({ action: "REMOVE_LABEL", contactIds: [editing.id], labelId });
-        }
-        for (const change of changes) {
-          const actionResponse = await fetch("/api/contacts/actions", {
-            method: "POST",
-            cache: "no-store",
-            credentials: "same-origin",
-            headers: {
-              "content-type": "application/json",
-              "x-csrf-token": csrfToken,
-              "idempotency-key": crypto.randomUUID(),
-            },
-            body: JSON.stringify(change),
-          });
-          if (!actionResponse.ok) {
-            throw new Error(
-              "Los datos básicos se guardaron, pero no se pudo actualizar responsable o etiquetas.",
-            );
-          }
-        }
-      }
       setComposer(null);
       setNotice(editing ? "Contacto actualizado." : "Contacto creado.");
       await loadContacts(activeFilters, currentCursor, true);
       const savedId = saved?.id ?? composer.contact?.id;
-      if (savedId && selectedContact?.id === savedId) {
-        const freshResponse = await fetch(`/api/contacts/${savedId}`, {
-          cache: "no-store",
-          credentials: "same-origin",
-        });
-        if (!freshResponse.ok) {
-          throw new Error("El contacto se guardó, pero no fue posible refrescar su ficha.");
-        }
-        const fresh = ((await freshResponse.json()) as { readonly data?: WorkspaceContact }).data;
-        if (fresh) {
-          setSelectedContact(fresh);
-          void loadRelations(fresh);
-        }
+      if (saved && savedId && selectedContact?.id === savedId) {
+        setSelectedContact(saved);
+        void loadRelations(saved);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible guardar el contacto.");
@@ -788,51 +846,110 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
     }
   }
 
+  function selectAllMatching(): void {
+    const total = page.total ?? contacts.length;
+    if (total === 0) return;
+    setFilterSelection(Object.freeze({ filters: Object.freeze({ ...activeFilters }), total }));
+    setSelectedIds(new Set());
+    bulkActionRun.current = null;
+    setNotice(
+      total === 1
+        ? "1 contacto seleccionado en todos los resultados del filtro."
+        : `${total} contactos seleccionados en todos los resultados del filtro.`,
+    );
+  }
+
   async function applyBulkAction(
     action: BulkAction = bulkAction,
     target = bulkTarget,
     contactIds: readonly string[] = [...selectedIds],
   ): Promise<void> {
-    if (!csrfToken || !action || contactIds.length === 0) return;
+    const selectedFilter = filterSelection;
+    if (!csrfToken || !action || (!selectedFilter && contactIds.length === 0)) return;
     if ((action === "ASSIGN" || action === "ADD_LABEL" || action === "REMOVE_LABEL") && !target) {
       setError("Selecciona el valor que se aplicará a los contactos.");
       return;
     }
     setBulkBusy(true);
     setError(null);
+    let completed = 0;
+    let updated = 0;
+    let unchanged = 0;
+    let notVisible = 0;
     try {
-      const response = await fetch("/api/contacts/actions", {
-        method: "POST",
-        cache: "no-store",
-        credentials: "same-origin",
-        headers: {
-          "content-type": "application/json",
-          "x-csrf-token": csrfToken,
-          "idempotency-key": crypto.randomUUID(),
-        },
-        body: JSON.stringify({
-          action,
-          contactIds,
-          ...(action === "ASSIGN"
-            ? { ownerMemberId: target === "__UNASSIGNED__" ? null : target }
-            : {}),
-          ...(action === "ADD_LABEL" || action === "REMOVE_LABEL" ? { labelId: target } : {}),
-        }),
+      const batches = selectedFilter
+        ? [null]
+        : Array.from({ length: Math.ceil(contactIds.length / 100) }, (_, index) =>
+            contactIds.slice(index * 100, index * 100 + 100),
+          );
+      const filter = selectedFilter ? bulkFilterPayload(selectedFilter.filters) : null;
+      const fingerprint = JSON.stringify({
+        action,
+        target,
+        contactIds: selectedFilter ? undefined : contactIds,
+        filter,
       });
-      if (!response.ok) throw new Error(await responseMessage(response));
+      const stableOperation =
+        selectedFilter && bulkActionRun.current?.fingerprint === fingerprint
+          ? bulkActionRun.current
+          : selectedFilter
+            ? { fingerprint, operationKey: crypto.randomUUID() }
+            : null;
+      if (stableOperation) bulkActionRun.current = stableOperation;
+      for (const batch of batches) {
+        const response = await fetch("/api/contacts/actions", {
+          method: "POST",
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+            "idempotency-key": stableOperation?.operationKey ?? crypto.randomUUID(),
+          },
+          body: JSON.stringify({
+            action,
+            ...(filter ? { filter } : { contactIds: batch }),
+            ...(action === "ASSIGN"
+              ? { ownerMemberId: target === "__UNASSIGNED__" ? null : target }
+              : {}),
+            ...(action === "ADD_LABEL" || action === "REMOVE_LABEL" ? { labelId: target } : {}),
+          }),
+        });
+        if (!response.ok) throw new Error(await responseMessage(response));
+        const data = (await response.json()) as {
+          readonly data?: {
+            readonly updated?: number;
+            readonly unchanged?: number;
+            readonly notVisible?: number;
+          };
+        };
+        updated += data.data?.updated ?? 0;
+        unchanged += data.data?.unchanged ?? 0;
+        notVisible += data.data?.notVisible ?? 0;
+        completed += batch?.length ?? selectedFilter?.total ?? 0;
+      }
       const messages: Readonly<Record<Exclude<BulkAction, "">, string>> = {
-        ASSIGN: "Asignación actualizada.",
-        ADD_LABEL: "Etiqueta aplicada.",
-        REMOVE_LABEL: "Etiqueta retirada.",
-        ARCHIVE: "Contactos archivados.",
-        RESTORE: "Contactos restaurados.",
+        ASSIGN: "Asignación actualizada",
+        ADD_LABEL: "Etiqueta aplicada",
+        REMOVE_LABEL: "Etiqueta retirada",
+        ARCHIVE: "Contactos archivados",
+        RESTORE: "Contactos restaurados",
       };
-      setNotice(messages[action]);
+      const details = [
+        `${updated} modificados`,
+        unchanged > 0 ? `${unchanged} sin cambios` : null,
+        notVisible > 0 ? `${notVisible} sin acceso` : null,
+      ]
+        .filter((value): value is string => value !== null)
+        .join(" · ");
+      setNotice(`${messages[action]}: ${details}.`);
       setSelectedIds(new Set());
+      setFilterSelection(null);
+      bulkActionRun.current = null;
       setBulkAction("");
       setBulkTarget("");
       await loadContacts(activeFilters, currentCursor, true);
-      if (selectedContact && contactIds.includes(selectedContact.id)) {
+      if (selectedContact && (selectedFilter !== null || contactIds.includes(selectedContact.id))) {
         const refreshedResponse = await fetch(`/api/contacts/${selectedContact.id}`, {
           cache: "no-store",
           credentials: "same-origin",
@@ -847,7 +964,11 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
         }
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No fue posible aplicar la acción masiva.");
+      const partial =
+        completed > 0 ? ` Se completaron ${completed} contactos antes del error.` : "";
+      setError(
+        `${cause instanceof Error ? cause.message : "No fue posible aplicar la acción masiva."}${partial}${selectedFilter ? " Puedes reintentar; se conservará la misma operación." : ""}`,
+      );
     } finally {
       setBulkBusy(false);
     }
@@ -894,6 +1015,12 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   async function selectImport(event: ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setImportFile(null);
+      setImportRows([]);
+      setError("El archivo supera el límite de 5 MB.");
+      return;
+    }
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       let binary = "";
@@ -935,6 +1062,10 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
 
   async function applyImport(): Promise<void> {
     if (!csrfToken || !importFile || importRows.length === 0) return;
+    if (importErrors.length > 0) {
+      setError("Corrige las filas marcadas antes de confirmar la importación.");
+      return;
+    }
     setImportBusy(true);
     setError(null);
     try {
@@ -995,30 +1126,142 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
     if (!csrfToken || !selectedAutomationId || selectedIds.size === 0) return;
     setBulkBusy(true);
     setError(null);
+    let completed = 0;
+    let succeeded = 0;
+    let failed = 0;
+    const ids = [...selectedIds].sort((left, right) => left.localeCompare(right));
+    const fingerprint = `${selectedAutomationId}:${ids.join(",")}`;
+    const activeRun =
+      automationRun.current?.fingerprint === fingerprint
+        ? automationRun.current
+        : { fingerprint, batchKeys: new Map<number, string>() };
+    automationRun.current = activeRun;
+    const failedContactIds = new Set<string>();
     try {
-      const response = await fetch(`/api/automations/${selectedAutomationId}/activate`, {
+      for (let start = 0; start < ids.length; start += 500) {
+        const contactIds = ids.slice(start, start + 500);
+        const operationKey = activeRun.batchKeys.get(start) ?? crypto.randomUUID();
+        activeRun.batchKeys.set(start, operationKey);
+        const response = await fetch(`/api/automations/${selectedAutomationId}/activate`, {
+          method: "POST",
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+            "idempotency-key": operationKey,
+          },
+          body: JSON.stringify({ contactIds }),
+        });
+        if (!response.ok) throw new Error(await responseMessage(response));
+        const data = (
+          (await response.json()) as {
+            readonly data?: {
+              readonly succeeded?: number;
+              readonly failed?: number;
+              readonly results?: readonly {
+                readonly contactId?: string;
+                readonly status?: "SUCCEEDED" | "FAILED";
+              }[];
+            };
+          }
+        ).data;
+        succeeded += data?.succeeded ?? 0;
+        failed += data?.failed ?? 0;
+        for (const result of data?.results ?? []) {
+          if (result.status === "FAILED" && result.contactId)
+            failedContactIds.add(result.contactId);
+        }
+        completed += contactIds.length;
+      }
+      setNotice(
+        `Automatización ejecutada: ${succeeded} completadas${failed ? ` · ${failed} con error` : ""}.`,
+      );
+      setAutomationOpen(false);
+      if (failedContactIds.size > 0) {
+        setSelectedIds(failedContactIds);
+        setNotice(
+          `Automatización ejecutada: ${succeeded} completadas · ${failedContactIds.size} con error. Quedaron seleccionados para revisarlos o reintentarlos.`,
+        );
+      } else {
+        setSelectedIds(new Set());
+      }
+      automationRun.current = null;
+    } catch (cause) {
+      setError(
+        `${cause instanceof Error ? cause.message : "No fue posible ejecutar la automatización."}${completed ? ` Se procesaron ${completed} contactos antes del error.` : ""} Puedes reintentar; esta selección conservará sus claves de operación.`,
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function createAutomation(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!csrfToken) return;
+    const form = new FormData(event.currentTarget);
+    const dueHours = Number(form.get("dueHours"));
+    if (!Number.isInteger(dueHours) || dueHours < 1 || dueHours > 8_760) {
+      setError("Indica un plazo entre 1 y 8.760 horas.");
+      return;
+    }
+    const payload = {
+      name: String(form.get("name") ?? "").trim(),
+      status: String(form.get("status") ?? "ACTIVE"),
+      action: {
+        type: "CREATE_TASK" as const,
+        title: String(form.get("taskTitle") ?? "").trim(),
+        description: String(form.get("taskDescription") ?? "").trim(),
+        priority: String(form.get("priority") ?? "MEDIUM"),
+        dueHours,
+      },
+    };
+    if (!payload.name || !payload.action.title || !payload.action.description) {
+      setError("Completa el nombre y los datos de la tarea automática.");
+      return;
+    }
+    setAutomationCreateBusy(true);
+    setError(null);
+    const fingerprint = JSON.stringify(payload);
+    const activeRun =
+      automationCreateRun.current?.fingerprint === fingerprint
+        ? automationCreateRun.current
+        : { fingerprint, operationKey: crypto.randomUUID() };
+    automationCreateRun.current = activeRun;
+    try {
+      const response = await fetch("/api/automations", {
         method: "POST",
         cache: "no-store",
         credentials: "same-origin",
         headers: {
           "content-type": "application/json",
           "x-csrf-token": csrfToken,
-          "idempotency-key": crypto.randomUUID(),
+          "idempotency-key": activeRun.operationKey,
         },
-        body: JSON.stringify({ contactIds: [...selectedIds] }),
+        body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error(await responseMessage(response));
-      const data = ((await response.json()) as { readonly data?: { readonly succeeded?: number } })
-        .data;
-      setNotice(`Automatización ejecutada: ${data?.succeeded ?? 0} contacto(s) procesado(s).`);
-      setAutomationOpen(false);
-      setSelectedIds(new Set());
+      if (!response.ok)
+        throw new Error(await responseMessage(response, "No fue posible crear la automatización."));
+      const created = ((await response.json()) as { readonly data?: Automation }).data;
+      if (!created) throw new Error("La automatización se creó sin una respuesta válida.");
+      automationCreateRun.current = null;
+      setAutomations((current) => [...current, created]);
+      setAutomationCreateOpen(false);
+      if (created.status === "ACTIVE") {
+        setSelectedAutomationId(created.id);
+        setAutomationOpen(true);
+        setNotice(
+          "Automatización activa creada. Ya puedes aplicarla a los contactos seleccionados.",
+        );
+      } else {
+        setSelectedAutomationId("");
+        setAutomationOpen(false);
+        setNotice("Automatización creada como borrador. Actívala antes de aplicarla a contactos.");
+      }
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "No fue posible ejecutar la automatización.",
-      );
+      setError(cause instanceof Error ? cause.message : "No fue posible crear la automatización.");
     } finally {
-      setBulkBusy(false);
+      setAutomationCreateBusy(false);
     }
   }
 
@@ -1288,8 +1531,29 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                 aria-label="Acciones para contactos seleccionados"
               >
                 <strong>
-                  <span>{selectedCount}</span> seleccionado{selectedCount === 1 ? "" : "s"}
+                  <span>{selectedCount}</span>{" "}
+                  {filterSelection
+                    ? "del filtro seleccionados"
+                    : `seleccionado${selectedCount === 1 ? "" : "s"}`}
                 </strong>
+                {!filterSelection &&
+                typeof page.total === "number" &&
+                page.total > selectedCount ? (
+                  <button
+                    type="button"
+                    className="contact-workspace-select-all-filtered"
+                    disabled={bulkBusy}
+                    onClick={() => void selectAllMatching()}
+                  >
+                    Seleccionar los {page.total} del filtro
+                  </button>
+                ) : null}
+                {filterSelection ? (
+                  <span className="contact-workspace-filter-selection-note">
+                    La acción se aplicará a quienes cumplan este filtro al confirmar. Las
+                    automatizaciones requieren una selección explícita de hasta 500 contactos.
+                  </span>
+                ) : null}
                 <select
                   value={bulkAction}
                   onChange={(event) => {
@@ -1302,8 +1566,11 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                   <option value="ASSIGN">Asignar responsable</option>
                   <option value="ADD_LABEL">Añadir etiqueta</option>
                   <option value="REMOVE_LABEL">Quitar etiqueta</option>
-                  <option value="ARCHIVE">Archivar</option>
-                  <option value="RESTORE">Restaurar</option>
+                  {activeFilters.archived === "true" ? (
+                    <option value="RESTORE">Restaurar</option>
+                  ) : (
+                    <option value="ARCHIVE">Archivar</option>
+                  )}
                 </select>
                 {bulkAction === "ASSIGN" ? (
                   <select
@@ -1346,13 +1613,25 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                   type="button"
                   className="contact-workspace-bulk-automation"
                   onClick={() => setAutomationOpen(true)}
+                  disabled={filterSelection !== null || selectedIds.size > 500 || bulkBusy}
+                  title={
+                    filterSelection
+                      ? "La automatización requiere una selección explícita de hasta 500 contactos."
+                      : selectedIds.size > 500
+                        ? "La automatización admite hasta 500 contactos por ejecución."
+                        : undefined
+                  }
                 >
                   <Icon name="bolt" size={15} /> Automatizar
                 </button>
                 <button
                   type="button"
                   className="contact-workspace-clear-selection"
-                  onClick={() => setSelectedIds(new Set())}
+                  onClick={() => {
+                    setSelectedIds(new Set());
+                    setFilterSelection(null);
+                    bulkActionRun.current = null;
+                  }}
                 >
                   Limpiar
                 </button>
@@ -1367,10 +1646,15 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                       <input
                         type="checkbox"
                         checked={
-                          visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+                          filterSelection !== null ||
+                          (visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id)))
                         }
                         onChange={toggleAll}
-                        aria-label="Seleccionar todos los contactos visibles"
+                        aria-label={
+                          filterSelection
+                            ? "Limpiar la selección de todos los resultados del filtro"
+                            : "Seleccionar todos los contactos visibles"
+                        }
                       />
                     </th>
                     <th>Contacto</th>
@@ -1420,9 +1704,14 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                         <td className="contact-workspace-checkbox-cell">
                           <input
                             type="checkbox"
-                            checked={selectedIds.has(contact.id)}
+                            checked={filterSelection !== null || selectedIds.has(contact.id)}
                             onChange={() => toggleContact(contact.id)}
-                            aria-label={`Seleccionar a ${contact.displayName}`}
+                            disabled={filterSelection !== null}
+                            aria-label={
+                              filterSelection
+                                ? `${contact.displayName} está incluido en todos los resultados seleccionados`
+                                : `Seleccionar a ${contact.displayName}`
+                            }
                           />
                         </td>
                         <td>
@@ -1727,8 +2016,15 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                         : (composer.contact?.ownerMemberId ?? "__UNASSIGNED__")
                     }
                   >
-                    <option value="">Asignarme automáticamente</option>
+                    {composer.mode === "create" ? (
+                      <option value="">Asignarme automáticamente</option>
+                    ) : null}
                     <option value="__UNASSIGNED__">Sin asignar</option>
+                    {unavailableComposerOwner ? (
+                      <option value={unavailableComposerOwner.id}>
+                        {unavailableComposerOwner.displayName} (responsable actual no disponible)
+                      </option>
+                    ) : null}
                     {members.map((member) => (
                       <option key={member.id} value={member.id}>
                         {member.displayName}
@@ -1906,16 +2202,63 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                 />
                 <Icon name="upload" size={23} />
                 <strong>{importFile ? importFile.fileName : "Seleccionar archivo"}</strong>
-                <span>CSV o XLSX · máximo 8 MB</span>
+                <span>CSV o XLSX · máximo 5 MB</span>
               </label>
               {importRows.length > 0 ? (
-                <div className="contact-workspace-import-summary">
-                  <strong>{importRows.length} filas revisadas</strong>
-                  <span>
-                    {importRows.filter((row) => row.status === "VALID").length} listas para crear ·{" "}
-                    {importRows.filter((row) => row.status === "MATCH").length} coincidencias
-                  </span>
-                </div>
+                <>
+                  <div className="contact-workspace-import-summary">
+                    <strong>{importRows.length} filas revisadas</strong>
+                    <span>
+                      {importRows.filter((row) => row.status === "VALID").length} listas para crear
+                      · {importRows.filter((row) => row.status === "MATCH").length} coincidencias ·{" "}
+                      {importErrors.length} con errores
+                    </span>
+                  </div>
+                  <div
+                    className="contact-workspace-import-rows"
+                    role="region"
+                    aria-label="Resultado de la revisión"
+                  >
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Fila</th>
+                          <th>Contacto</th>
+                          <th>Resultado</th>
+                          <th>Detalle</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importRows.map((row) => (
+                          <tr
+                            key={row.rowNumber}
+                            className={`is-${row.status.toLocaleLowerCase("en-US")}`}
+                          >
+                            <td>{row.rowNumber}</td>
+                            <td>
+                              <strong>{row.displayName || "Sin nombre"}</strong>
+                              <span>{row.email ?? row.phone ?? "Sin canal"}</span>
+                            </td>
+                            <td>
+                              {row.status === "MATCH" ? "Actualizar coincidencia" : row.status}
+                            </td>
+                            <td>
+                              {row.errors.length
+                                ? row.errors.map(importErrorLabel).join(", ")
+                                : (row.contactId ?? "Lista")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {importErrors.length > 0 ? (
+                    <p className="contact-workspace-import-error-note">
+                      Hay filas inválidas. Corrígelas en el archivo y vuelve a revisarlo antes de
+                      importar.
+                    </p>
+                  ) : null}
+                </>
               ) : null}
               <footer>
                 <button
@@ -1931,7 +2274,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                     type="button"
                     className="contact-workspace-primary-button"
                     onClick={() => void applyImport()}
-                    disabled={importBusy}
+                    disabled={importBusy || importErrors.length > 0}
                   >
                     {importBusy ? "Importando…" : "Confirmar importación"}
                   </button>
@@ -2002,6 +2345,17 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                 <button
                   type="button"
                   className="contact-workspace-cancel"
+                  onClick={() => {
+                    setAutomationOpen(false);
+                    setAutomationCreateOpen(true);
+                  }}
+                  disabled={bulkBusy}
+                >
+                  Crear automatización
+                </button>
+                <button
+                  type="button"
+                  className="contact-workspace-cancel"
                   onClick={() => setAutomationOpen(false)}
                   disabled={bulkBusy}
                 >
@@ -2017,6 +2371,117 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                 </button>
               </footer>
             </section>
+          </div>
+        ) : null}
+
+        {automationCreateOpen ? (
+          <div
+            className="contact-workspace-modal-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !automationCreateBusy)
+                setAutomationCreateOpen(false);
+            }}
+          >
+            <form
+              className="contact-workspace-modal contact-workspace-automation-create-modal"
+              onSubmit={(event) => void createAutomation(event)}
+              aria-modal="true"
+              role="dialog"
+              aria-labelledby="contact-automation-create-title"
+            >
+              <header>
+                <div>
+                  <span className="contact-workspace-kicker">Automatización</span>
+                  <h2 id="contact-automation-create-title">Crear seguimiento automático</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAutomationCreateOpen(false)}
+                  disabled={automationCreateBusy}
+                  aria-label="Cerrar"
+                >
+                  <Icon name="close" size={20} />
+                </button>
+              </header>
+              <p>
+                Esta automatización creará una tarea cuando la ejecutes sobre los contactos
+                seleccionados.
+              </p>
+              <div className="contact-workspace-form-grid">
+                <label className="is-wide">
+                  Nombre de la automatización
+                  <input
+                    name="name"
+                    maxLength={160}
+                    required
+                    autoFocus
+                    placeholder="Seguimiento comercial"
+                  />
+                </label>
+                <label>
+                  Estado inicial
+                  <select name="status" defaultValue="ACTIVE">
+                    <option value="ACTIVE">Activa y lista para usar</option>
+                    <option value="DRAFT">Borrador</option>
+                  </select>
+                </label>
+                <label>
+                  Plazo de la tarea (horas)
+                  <input
+                    name="dueHours"
+                    type="number"
+                    min={1}
+                    max={8760}
+                    defaultValue={24}
+                    required
+                  />
+                </label>
+                <label className="is-wide">
+                  Título de la tarea
+                  <input
+                    name="taskTitle"
+                    maxLength={200}
+                    required
+                    placeholder="Contactar y dar seguimiento"
+                  />
+                </label>
+                <label className="is-wide">
+                  Instrucción para el equipo
+                  <textarea
+                    name="taskDescription"
+                    maxLength={4000}
+                    required
+                    placeholder="Revisa el contexto del contacto y registra el siguiente paso."
+                  />
+                </label>
+                <label>
+                  Prioridad
+                  <select name="priority" defaultValue="MEDIUM">
+                    <option value="LOW">Baja</option>
+                    <option value="MEDIUM">Media</option>
+                    <option value="HIGH">Alta</option>
+                  </select>
+                </label>
+              </div>
+              <footer>
+                <button
+                  type="button"
+                  className="contact-workspace-cancel"
+                  onClick={() => setAutomationCreateOpen(false)}
+                  disabled={automationCreateBusy}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="contact-workspace-primary-button"
+                  disabled={automationCreateBusy}
+                >
+                  {automationCreateBusy ? "Creando…" : "Crear automatización"}
+                </button>
+              </footer>
+            </form>
           </div>
         ) : null}
       </section>

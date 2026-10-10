@@ -34,6 +34,30 @@ const BooleanQuerySchema = z
   .union([z.literal("true"), z.literal("false"), z.boolean()])
   .transform((value) => value === true || value === "true");
 
+const ContactFilterShape = {
+  q: z.string().trim().min(1).max(160).optional(),
+  label: z.string().trim().min(1).max(80).optional(),
+  pipelineId: ContactIdSchema.optional(),
+  ownerMemberId: ContactIdSchema.optional(),
+  channel: ContactChannelSchema.optional(),
+  source: ContactSourceSchema.optional(),
+  archived: BooleanQuerySchema.default(false),
+  assignment: ContactAssignmentSchema.optional(),
+  createdFrom: ContactFilterDateSchema.optional(),
+  createdTo: ContactFilterDateSchema.optional(),
+};
+
+function contactDateRangeIsValid(value: {
+  readonly createdFrom?: string | undefined;
+  readonly createdTo?: string | undefined;
+}): boolean {
+  return (
+    value.createdFrom === undefined ||
+    value.createdTo === undefined ||
+    Date.parse(value.createdFrom) <= Date.parse(value.createdTo)
+  );
+}
+
 export const ContactLabelSchema = z.object({
   id: ContactIdSchema,
   name: LabelTextSchema,
@@ -63,30 +87,30 @@ export const ContactListResponseSchema = z.object({
   data: z.array(ContactSchema),
   page: ContactListPageSchema,
 });
+/**
+ * The immutable public filter snapshot accepted by a mass action. It is
+ * intentionally narrower than a list query: pagination and sorting cannot
+ * change which contacts a server-side action targets.
+ */
+export const ContactBulkFilterSchema = z
+  .object(ContactFilterShape)
+  .strict()
+  .refine(contactDateRangeIsValid, {
+    message: "createdFrom must be before createdTo",
+    path: ["createdFrom"],
+  });
 export const ContactListQuerySchema = z
   .object({
-    q: z.string().trim().min(1).max(160).optional(),
+    ...ContactFilterShape,
     limit: z.coerce.number().int().min(1).max(100).default(50),
     cursor: z.string().trim().min(1).max(2_048).optional(),
     sort: ContactSortSchema.default("UPDATED_DESC"),
-    label: z.string().trim().min(1).max(80).optional(),
-    pipelineId: ContactIdSchema.optional(),
-    ownerMemberId: ContactIdSchema.optional(),
-    channel: ContactChannelSchema.optional(),
-    source: ContactSourceSchema.optional(),
-    archived: BooleanQuerySchema.default(false),
-    assignment: ContactAssignmentSchema.optional(),
-    createdFrom: ContactFilterDateSchema.optional(),
-    createdTo: ContactFilterDateSchema.optional(),
   })
   .strict()
-  .refine(
-    (value) =>
-      value.createdFrom === undefined ||
-      value.createdTo === undefined ||
-      Date.parse(value.createdFrom) <= Date.parse(value.createdTo),
-    { message: "createdFrom must be before createdTo", path: ["createdFrom"] },
-  );
+  .refine(contactDateRangeIsValid, {
+    message: "createdFrom must be before createdTo",
+    path: ["createdFrom"],
+  });
 export const CreateContactSchema = z
   .object({
     displayName: TextSchema,
@@ -107,9 +131,13 @@ export const UpdateContactSchema = z
     displayName: TextSchema.optional(),
     email: EmailSchema.nullable().optional(),
     phone: PhoneSchema.nullable().optional(),
+    /** `null` intentionally removes the current owner. */
+    ownerMemberId: ContactIdSchema.nullable().optional(),
+    /** An empty list intentionally clears every label on the contact. */
+    labelIds: z.array(ContactIdSchema).max(40).optional(),
   })
   .strict()
-  .refine((value) => Object.keys(value).length > 0, "At least one contact field is required");
+  .refine((value) => Object.keys(value).length > 0, "At least one contact change is required");
 
 export const CreateContactLabelSchema = z.object({ name: LabelTextSchema }).strict();
 export const ContactLabelResponseSchema = z.object({ data: ContactLabelSchema });
@@ -120,31 +148,52 @@ const ContactIdsSchema = z
   .min(1)
   .max(100)
   .transform((ids) => [...new Set(ids)]);
-export const ContactBulkActionSchema = z.discriminatedUnion("action", [
-  z
-    .object({
-      action: z.literal("ASSIGN"),
-      contactIds: ContactIdsSchema,
-      ownerMemberId: ContactIdSchema.nullable(),
-    })
-    .strict(),
-  z
-    .object({
-      action: z.literal("ADD_LABEL"),
-      contactIds: ContactIdsSchema,
-      labelId: ContactIdSchema,
-    })
-    .strict(),
-  z
-    .object({
-      action: z.literal("REMOVE_LABEL"),
-      contactIds: ContactIdsSchema,
-      labelId: ContactIdSchema,
-    })
-    .strict(),
-  z.object({ action: z.literal("ARCHIVE"), contactIds: ContactIdsSchema }).strict(),
-  z.object({ action: z.literal("RESTORE"), contactIds: ContactIdsSchema }).strict(),
-]);
+const ContactBulkTargetShape = {
+  /** Existing direct-selection payload; retained for drawer and row actions. */
+  contactIds: ContactIdsSchema.optional(),
+  /**
+   * A frozen public filter snapshot. The server resolves it under the
+   * authenticated actor's commercial scope; no IDs are supplied by the UI.
+   */
+  filter: ContactBulkFilterSchema.optional(),
+};
+
+export const ContactBulkActionSchema = z
+  .discriminatedUnion("action", [
+    z
+      .object({
+        ...ContactBulkTargetShape,
+        action: z.literal("ASSIGN"),
+        ownerMemberId: ContactIdSchema.nullable(),
+      })
+      .strict(),
+    z
+      .object({
+        ...ContactBulkTargetShape,
+        action: z.literal("ADD_LABEL"),
+        labelId: ContactIdSchema,
+      })
+      .strict(),
+    z
+      .object({
+        ...ContactBulkTargetShape,
+        action: z.literal("REMOVE_LABEL"),
+        labelId: ContactIdSchema,
+      })
+      .strict(),
+    z.object({ ...ContactBulkTargetShape, action: z.literal("ARCHIVE") }).strict(),
+    z.object({ ...ContactBulkTargetShape, action: z.literal("RESTORE") }).strict(),
+  ])
+  .superRefine((value, context) => {
+    const hasIds = value.contactIds !== undefined;
+    const hasFilter = value.filter !== undefined;
+    if (hasIds !== hasFilter) return;
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Exactly one of contactIds or filter is required",
+      path: ["contactIds"],
+    });
+  });
 export const ContactBulkActionResultSchema = z.object({
   contactId: ContactIdSchema,
   status: z.enum(["UPDATED", "UNCHANGED", "NOT_VISIBLE"]),
@@ -195,6 +244,7 @@ export type ContactSource = z.infer<typeof ContactSourceSchema>;
 export type ContactSort = z.infer<typeof ContactSortSchema>;
 export type ContactLabel = z.infer<typeof ContactLabelSchema>;
 export type ContactListQuery = z.infer<typeof ContactListQuerySchema>;
+export type ContactBulkFilter = z.infer<typeof ContactBulkFilterSchema>;
 export type CreateContact = z.infer<typeof CreateContactSchema>;
 export type UpdateContact = z.infer<typeof UpdateContactSchema>;
 export type CreateContactLabel = z.infer<typeof CreateContactLabelSchema>;

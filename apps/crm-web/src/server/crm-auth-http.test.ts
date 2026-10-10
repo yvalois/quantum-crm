@@ -15,6 +15,8 @@ import {
   handleCrmContactLabelList,
   handleCrmContactList,
   handleCrmContactUpdate,
+  handleCrmAutomationActivate,
+  handleCrmAutomationCreate,
   handleCrmFileUploadTransport,
   handleCrmOpportunityList,
   handleCrmOpportunityUpdate,
@@ -218,9 +220,17 @@ describe("CRM web authentication HTTP boundary", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(upstream.mock.calls[0]?.[0].toString()).toBe(
-      "http://api:3001/api/v1/contacts?limit=50&sort=UPDATED_DESC&label=VIP&channel=EMAIL&archived=false&createdFrom=2026-09-01",
-    );
+    const [target] = upstream.mock.calls[0]!;
+    const endpoint = new URL(target.toString());
+    expect(`${endpoint.origin}${endpoint.pathname}`).toBe("http://api:3001/api/v1/contacts");
+    expect(Object.fromEntries(endpoint.searchParams)).toEqual({
+      label: "VIP",
+      channel: "EMAIL",
+      archived: "false",
+      createdFrom: "2026-09-01",
+      limit: "50",
+      sort: "UPDATED_DESC",
+    });
   });
 
   it("forwards a CSRF-protected bulk contact action with its idempotency key", async () => {
@@ -255,9 +265,161 @@ describe("CRM web authentication HTTP boundary", () => {
     const [target, init] = upstream.mock.calls[0]!;
     expect(target.toString()).toBe("http://api:3001/api/v1/contacts/actions");
     expect(new Headers(init?.headers).get("idempotency-key")).toBe("contacts-label-0001");
-    expect(init?.body).toBe(
-      JSON.stringify({ action: "ADD_LABEL", contactIds: [contactId], labelId }),
+    expect(JSON.parse(String(init?.body))).toEqual({
+      action: "ADD_LABEL",
+      contactIds: [contactId],
+      labelId,
+    });
+  });
+
+  it("forwards a validated bulk filter snapshot without a browser contact list", async () => {
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        data: { results: [], updated: 3, unchanged: 0, notVisible: 0 },
+      }),
     );
+    const response = await handleCrmContactBulkAction(
+      new Request("https://crm.example.test/api/contacts/actions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "idempotency-key": "contacts-filter-0001",
+        },
+        body: JSON.stringify({
+          action: "ARCHIVE",
+          filter: { q: " Ada ", archived: "false" },
+        }),
+      }),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(200);
+    const [, init] = upstream.mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toEqual({
+      action: "ARCHIVE",
+      filter: { q: "Ada", archived: false },
+    });
+  });
+
+  it("reports a bulk contact action transport timeout as retryable", async () => {
+    const contactId = "01995f7e-7b52-7000-8000-000000000103";
+    const operationKey = "contacts-archive-0001";
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      throw new Error("upstream timeout");
+    });
+    const response = await handleCrmContactBulkAction(
+      new Request("https://crm.example.test/api/contacts/actions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "idempotency-key": operationKey,
+        },
+        body: JSON.stringify({ action: "ARCHIVE", contactIds: [contactId] }),
+      }),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(503);
+    expect(upstream).toHaveBeenCalledOnce();
+    expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("idempotency-key")).toBe(
+      operationKey,
+    );
+  });
+
+  it("reports an automation activation transport timeout as retryable", async () => {
+    const automationId = "01995f7e-7b52-7000-8000-000000000105";
+    const contactId = "01995f7e-7b52-7000-8000-000000000106";
+    const operationKey = "automation-run-0001";
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      throw new Error("upstream timeout");
+    });
+    const response = await handleCrmAutomationActivate(
+      new Request(`https://crm.example.test/api/automations/${automationId}/activate`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "idempotency-key": operationKey,
+        },
+        body: JSON.stringify({ contactIds: [contactId] }),
+      }),
+      runtime(upstream as typeof fetch),
+      automationId,
+    );
+
+    expect(response.status).toBe(503);
+    expect(upstream).toHaveBeenCalledOnce();
+    expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("idempotency-key")).toBe(
+      operationKey,
+    );
+  });
+
+  it("reports an automation creation transport timeout as retryable", async () => {
+    const operationKey = "automation-create-0001";
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      throw new Error("upstream timeout");
+    });
+    const response = await handleCrmAutomationCreate(
+      new Request("https://crm.example.test/api/automations", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "idempotency-key": operationKey,
+        },
+        body: JSON.stringify({
+          name: "Seguimiento",
+          status: "ACTIVE",
+          action: {
+            type: "CREATE_TASK",
+            title: "Llamar al contacto",
+            description: "Confirmar la solicitud.",
+            priority: "MEDIUM",
+            dueHours: 24,
+          },
+        }),
+      }),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(503);
+    expect(upstream).toHaveBeenCalledOnce();
+    expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("idempotency-key")).toBe(
+      operationKey,
+    );
+  });
+
+  it("rejects an invalid automation activation before calling the CRM API", async () => {
+    const automationId = "01995f7e-7b52-7000-8000-000000000105";
+    const upstream = vi.fn(fetch);
+    const response = await handleCrmAutomationActivate(
+      new Request(`https://crm.example.test/api/automations/${automationId}/activate`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "idempotency-key": "automation-run-0001",
+        },
+        body: "not-json",
+      }),
+      runtime(upstream),
+      automationId,
+    );
+
+    expect(response.status).toBe(400);
+    expect(upstream).not.toHaveBeenCalled();
   });
 
   it("lists and creates labels through the authenticated contact boundary", async () => {
@@ -443,7 +605,7 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
-  it("forwards an intentional contact-channel clear without converting it to an invalid value", async () => {
+  it("preserves intentional contact clears, unassignment and label replacement through the BFF", async () => {
     const contact = {
       id: "01995f7e-7b52-7000-8000-000000000103",
       ownerMemberId: null,
@@ -470,7 +632,7 @@ describe("CRM web authentication HTTP boundary", () => {
           "x-csrf-token": csrfToken,
           "if-match": '"1"',
         },
-        body: JSON.stringify({ email: null, phone: null }),
+        body: JSON.stringify({ email: null, phone: null, ownerMemberId: null, labelIds: [] }),
       }),
       runtime(upstream as typeof fetch),
       contact.id,
@@ -480,7 +642,9 @@ describe("CRM web authentication HTTP boundary", () => {
     const [target, init] = upstream.mock.calls[0]!;
     expect(target.toString()).toBe(`http://api:3001/api/v1/contacts/${contact.id}`);
     expect(new Headers(init?.headers).get("if-match")).toBe('"1"');
-    expect(init?.body).toBe(JSON.stringify({ email: null, phone: null }));
+    expect(init?.body).toBe(
+      JSON.stringify({ email: null, phone: null, ownerMemberId: null, labelIds: [] }),
+    );
   });
 
   it("validates member IDs before forwarding a deactivation", async () => {
