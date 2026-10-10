@@ -9981,3 +9981,1581 @@ body {
 .document-studio-shell .document-page .image-slot-editor > .document-image-card::after {
   display: none;
 }
+
+/* CON-04: contactos como mesa de trabajo, no como formulario apilado. */
+.contact-workspace-shell {
+  --contact-ink: #102a32;
+  --contact-muted: #65777b;
+  --contact-line: #dbe5e5;
+  --contact-soft-line: #edf2f1;
+  --contact-panel: #fff;
+  --contact-canvas: #f4f8f7;
+  --contact-teal: #087d78;
+  --contact-teal-deep: #075b5a;
+  --contact-teal-soft: #e1f5f2;
+  --contact-amber: #e9a72b;
+}
+
+.contact-workspace-shell .crm-content.contact-workspace {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: clamp(1.1rem, 2.5vw, 2rem) clamp(1rem, 2.8vw, 2.8rem) 2.5rem;
+  background:
+    radial-gradient(circle at 93% -8%, rgb(27 171 153 / 10%), transparent 19rem),
+    linear-gradient(180deg, #f9fbfb 0, var(--contact-canvas) 23rem);
+  color: var(--contact-ink);
+}
+
+.contact-workspace *,
+.contact-workspace *::before,
+.contact-workspace *::after {
+  box-sizing: border-box;
+}
+
+.contact-workspace button,
+.contact-workspace input,
+.contact-workspace select {
+  font: inherit;
+}
+
+.contact-workspace button {
+  cursor: pointer;
+}
+
+.contact-workspace button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.contact-workspace button:focus-visible,
+.contact-workspace input:focus-visible,
+.contact-workspace select:focus-visible,
+.contact-workspace summary:focus-visible,
+.contact-workspace tr:focus-visible {
+  outline: 3px solid rgb(8 125 120 / 28%);
+  outline-offset: 2px;
+}
+
+.contact-workspace-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin: 0 auto 1.2rem;
+  max-width: 106rem;
+}
+
+.contact-workspace-heading {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.contact-workspace-kicker {
+  color: var(--contact-teal);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.contact-workspace-heading > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.contact-workspace-heading h1 {
+  margin: 0;
+  color: #123239;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+}
+
+.contact-workspace-count,
+.contact-workspace-toolbar-count {
+  color: var(--contact-muted);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.03em;
+}
+
+.contact-workspace-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.contact-workspace-icon-button,
+.contact-workspace-quiet-button,
+.contact-workspace-primary-button {
+  display: inline-flex;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  border: 1px solid var(--contact-line);
+  border-radius: 0.48rem;
+  background: #fff;
+  color: #26464b;
+  font-size: 0.76rem;
+  font-weight: 760;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.contact-workspace-icon-button {
+  width: 2.45rem;
+  padding: 0;
+}
+
+.contact-workspace-quiet-button {
+  padding: 0.5rem 0.72rem;
+}
+
+.contact-workspace-primary-button {
+  border-color: var(--contact-teal-deep);
+  background: var(--contact-teal-deep);
+  padding: 0.5rem 0.9rem;
+  color: #fff;
+  box-shadow: 0 0.42rem 1.1rem rgb(7 91 90 / 20%);
+}
+
+.contact-workspace-icon-button:hover,
+.contact-workspace-quiet-button:hover {
+  border-color: #a8c6c3;
+  background: #f2f8f7;
+  color: var(--contact-teal-deep);
+}
+
+.contact-workspace-primary-button:hover:not(:disabled) {
+  background: #064746;
+  box-shadow: 0 0.55rem 1.3rem rgb(7 91 90 / 28%);
+  transform: translateY(-1px);
+}
+
+.contact-workspace-feedback {
+  display: flex;
+  max-width: 106rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 auto 0.8rem;
+  border: 1px solid;
+  border-radius: 0.45rem;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.contact-workspace-feedback.is-error {
+  border-color: #f7cbd0;
+  background: #fff4f5;
+  color: #a51f37;
+}
+
+.contact-workspace-feedback.is-success {
+  border-color: #b8e3d8;
+  background: #effaf6;
+  color: #126a54;
+}
+
+.contact-workspace-feedback button {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+}
+
+.contact-workspace-grid {
+  display: grid;
+  grid-template-columns: 14.5rem minmax(0, 1fr);
+  max-width: 106rem;
+  min-height: min(42rem, calc(100vh - 9.5rem));
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--contact-line);
+  border-radius: 0.8rem;
+  background: var(--contact-panel);
+  box-shadow: 0 1.1rem 3.4rem rgb(20 50 48 / 7%);
+}
+
+.contact-workspace-views {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--contact-line);
+  background: linear-gradient(180deg, rgb(232 247 245 / 80%), rgb(255 255 255 / 100%) 9rem), #fff;
+  padding: 1rem 0.65rem 0.75rem;
+}
+
+.contact-workspace-views-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0.7rem 0.72rem;
+  color: #668083;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.59rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.contact-workspace-views-heading button {
+  display: grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: #6f888b;
+}
+
+.contact-workspace-views-heading button:hover {
+  background: #def1ef;
+  color: var(--contact-teal);
+}
+
+.contact-workspace-views nav {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.contact-workspace-views nav button {
+  display: flex;
+  min-height: 2.6rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  background: transparent;
+  padding: 0.45rem 0.55rem;
+  color: #466267;
+  font-size: 0.73rem;
+  font-weight: 690;
+  text-align: left;
+}
+
+.contact-workspace-views nav button > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.48rem;
+}
+
+.contact-workspace-views nav button svg {
+  flex: 0 0 auto;
+}
+
+.contact-workspace-views nav button em {
+  display: grid;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: #e7eeee;
+  color: #5b7577;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.59rem;
+  font-style: normal;
+}
+
+.contact-workspace-views nav button:hover {
+  background: #f1f8f7;
+  color: var(--contact-teal-deep);
+}
+
+.contact-workspace-views nav button.is-active {
+  border-color: #b6e2db;
+  background: var(--contact-teal-soft);
+  color: #056b67;
+  box-shadow: inset 3px 0 var(--contact-teal);
+}
+
+.contact-workspace-views nav button.is-active em {
+  background: var(--contact-teal);
+  color: #fff;
+}
+
+.contact-workspace-view-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.44rem;
+  margin: auto 0.45rem 0;
+  border-top: 1px solid #deecea;
+  padding: 0.8rem 0.2rem 0.05rem;
+}
+
+.contact-workspace-view-note > span {
+  width: 0.38rem;
+  height: 0.38rem;
+  flex: 0 0 auto;
+  margin-top: 0.27rem;
+  border-radius: 999px;
+  background: var(--contact-amber);
+}
+
+.contact-workspace-view-note p {
+  margin: 0;
+  color: #789092;
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.contact-workspace-table-pane {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.contact-workspace-toolbar {
+  display: flex;
+  min-height: 4.4rem;
+  align-items: center;
+  gap: 0.65rem;
+  border-bottom: 1px solid var(--contact-line);
+  padding: 0.85rem 1rem;
+}
+
+.contact-workspace-search {
+  display: flex;
+  min-width: min(21rem, 100%);
+  flex: 1;
+  align-items: center;
+  gap: 0.48rem;
+  border: 1px solid #cadcda;
+  border-radius: 0.48rem;
+  background: #fff;
+  padding: 0 0.55rem;
+  color: #739092;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.contact-workspace-search:focus-within {
+  border-color: #68bcb4;
+  box-shadow: 0 0 0 3px rgb(73 174 164 / 13%);
+}
+
+.contact-workspace-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0.62rem 0;
+  color: #224246;
+  font-size: 0.77rem;
+}
+
+.contact-workspace-search input::placeholder {
+  color: #93a7aa;
+}
+
+.contact-workspace-search button {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #6f888a;
+}
+
+.contact-workspace-search button:hover {
+  background: #edf5f4;
+  color: var(--contact-teal);
+}
+
+.contact-workspace-filter-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.contact-workspace-filter-menu summary {
+  display: inline-flex;
+  min-height: 2.3rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #cededc;
+  border-radius: 0.46rem;
+  background: #fff;
+  padding: 0.45rem 0.66rem;
+  color: #426367;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 730;
+  list-style: none;
+}
+
+.contact-workspace-filter-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.contact-workspace-filter-menu[open] summary {
+  border-color: #73bfb7;
+  background: #eff9f7;
+  color: var(--contact-teal-deep);
+}
+
+.contact-workspace-filter-menu form {
+  position: absolute;
+  z-index: 22;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  display: grid;
+  width: min(22rem, calc(100vw - 2rem));
+  gap: 0.72rem;
+  border: 1px solid #cbdedb;
+  border-radius: 0.6rem;
+  background: #fff;
+  padding: 0.85rem;
+  color: #3a595d;
+  box-shadow: 0 1.2rem 3rem rgb(17 58 58 / 17%);
+}
+
+.contact-workspace-filter-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid #e6eeee;
+}
+
+.contact-workspace-filter-title strong {
+  color: #173f43;
+  font-size: 0.83rem;
+}
+
+.contact-workspace-filter-title button {
+  border: 0;
+  background: transparent;
+  color: var(--contact-teal);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.contact-workspace-filter-menu label,
+.contact-workspace-modal label,
+.contact-workspace-automation-modal > label {
+  display: grid;
+  gap: 0.34rem;
+  color: #557075;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.contact-workspace-filter-menu select,
+.contact-workspace-filter-menu input,
+.contact-workspace-modal input,
+.contact-workspace-modal select,
+.contact-workspace-automation-modal select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cddedc;
+  border-radius: 0.38rem;
+  outline: 0;
+  background: #fff;
+  padding: 0.53rem 0.58rem;
+  color: #24494c;
+  font-size: 0.75rem;
+}
+
+.contact-workspace-filter-menu select:focus,
+.contact-workspace-filter-menu input:focus,
+.contact-workspace-modal input:focus,
+.contact-workspace-modal select:focus,
+.contact-workspace-automation-modal select:focus {
+  border-color: #55ada5;
+  box-shadow: 0 0 0 3px rgb(65 168 158 / 14%);
+}
+
+.contact-workspace-date-row,
+.contact-workspace-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.68rem;
+}
+
+.contact-workspace-apply-filter {
+  min-height: 2.25rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: var(--contact-teal-deep);
+  color: #fff;
+  font-size: 0.73rem;
+  font-weight: 780;
+}
+
+.contact-workspace-toolbar-count {
+  min-width: max-content;
+  color: #758b8e;
+}
+
+.contact-workspace-bulk-bar {
+  display: flex;
+  min-height: 3.75rem;
+  align-items: center;
+  gap: 0.55rem;
+  border-bottom: 1px solid #9bd2cb;
+  background: #e8f7f4;
+  padding: 0.62rem 1rem;
+}
+
+.contact-workspace-bulk-bar strong {
+  min-width: max-content;
+  margin-right: 0.16rem;
+  color: #245a5b;
+  font-size: 0.72rem;
+}
+
+.contact-workspace-bulk-bar strong span {
+  color: var(--contact-teal);
+  font-size: 1.02rem;
+}
+
+.contact-workspace-bulk-bar select {
+  min-height: 2.15rem;
+  min-width: 9.2rem;
+  max-width: 14rem;
+  border: 1px solid #b9dcd7;
+  border-radius: 0.36rem;
+  background: #fff;
+  padding: 0.35rem 0.45rem;
+  color: #365d60;
+  font-size: 0.7rem;
+}
+
+.contact-workspace-bulk-bar button {
+  min-height: 2.15rem;
+  border: 1px solid #9fcfc8;
+  border-radius: 0.36rem;
+  background: #fff;
+  padding: 0.35rem 0.58rem;
+  color: #176560;
+  font-size: 0.69rem;
+  font-weight: 750;
+}
+
+.contact-workspace-bulk-bar .contact-workspace-bulk-apply {
+  border-color: var(--contact-teal-deep);
+  background: var(--contact-teal-deep);
+  color: #fff;
+}
+
+.contact-workspace-bulk-automation {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+}
+
+.contact-workspace-clear-selection {
+  margin-left: auto;
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #5a7778 !important;
+}
+
+.contact-workspace-table-wrap {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.contact-workspace-table {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.contact-workspace-table th {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  border-bottom: 1px solid #dce8e6;
+  background: #fbfcfc;
+  padding: 0.72rem 0.6rem;
+  color: #789094;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.57rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.contact-workspace-table th:nth-child(1),
+.contact-workspace-table td:nth-child(1) {
+  width: 2.9rem;
+}
+.contact-workspace-table th:nth-child(2) {
+  width: 30%;
+}
+.contact-workspace-table th:nth-child(3) {
+  width: 16%;
+}
+.contact-workspace-table th:nth-child(4) {
+  width: 18%;
+}
+.contact-workspace-table th:nth-child(5) {
+  width: 10%;
+}
+.contact-workspace-table th:nth-child(6) {
+  width: 14%;
+}
+.contact-workspace-table th:nth-child(7),
+.contact-workspace-table td:nth-child(7) {
+  width: 2.7rem;
+}
+
+.contact-workspace-table td {
+  border-bottom: 1px solid var(--contact-soft-line);
+  padding: 0.64rem 0.6rem;
+  color: #47666a;
+  font-size: 0.72rem;
+  vertical-align: middle;
+}
+
+.contact-workspace-table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.contact-workspace-table tbody tr:hover,
+.contact-workspace-table tbody tr.is-focused {
+  background: #f4faf9;
+}
+
+.contact-workspace-table tbody tr.is-focused td:first-child {
+  box-shadow: inset 3px 0 var(--contact-teal);
+}
+
+.contact-workspace-checkbox-cell {
+  text-align: center;
+}
+
+.contact-workspace-checkbox-cell input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: var(--contact-teal);
+}
+
+.contact-workspace-contact-cell {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.62rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.contact-workspace-contact-cell > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.13rem;
+}
+
+.contact-workspace-contact-cell strong {
+  overflow: hidden;
+  color: #1d454a;
+  font-size: 0.78rem;
+  font-weight: 770;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-workspace-contact-cell small {
+  overflow: hidden;
+  color: #73898c;
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-workspace-avatar,
+.contact-workspace-profile-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d2f1ed, #bce3de);
+  color: #076b68;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: -0.03em;
+}
+
+.contact-workspace-avatar {
+  width: 2rem;
+  height: 2rem;
+}
+
+.contact-workspace-owner {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.35rem;
+  overflow: hidden;
+  color: #416266;
+  font-size: 0.68rem;
+  font-weight: 660;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-workspace-owner i {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef3f3;
+  color: #598084;
+  font-size: 0.44rem;
+  font-style: normal;
+}
+
+.contact-workspace-unassigned,
+.contact-workspace-muted {
+  color: #a0afb1;
+  font-size: 0.68rem;
+  font-style: italic;
+}
+
+.contact-workspace-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.24rem;
+}
+
+.contact-workspace-tag,
+.contact-workspace-more-tags,
+.contact-workspace-source {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-workspace-tag {
+  border: 1px solid #bce3de;
+  background: #effaf8;
+  padding: 0.2rem 0.42rem;
+  color: #19736e;
+  font-size: 0.57rem;
+  font-weight: 760;
+}
+
+.contact-workspace-more-tags {
+  background: #eef3f2;
+  padding: 0.2rem 0.34rem;
+  color: #698082;
+  font-size: 0.58rem;
+  font-weight: 760;
+}
+
+.contact-workspace-source {
+  border: 1px solid #e2e8e8;
+  background: #f8faf9;
+  padding: 0.2rem 0.4rem;
+  color: #72878a;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.54rem;
+  font-weight: 720;
+}
+
+.contact-workspace-activity-time {
+  display: grid;
+  gap: 0.1rem;
+  color: #4c6b6e;
+  font-size: 0.68rem;
+  font-weight: 680;
+}
+
+.contact-workspace-activity-time small {
+  color: #98a9ab;
+  font-size: 0.57rem;
+}
+
+.contact-workspace-open-button {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.34rem;
+  background: transparent;
+  color: #6b8689;
+}
+
+.contact-workspace-open-button:hover {
+  background: #dff2ef;
+  color: var(--contact-teal);
+}
+
+.contact-workspace-loading,
+.contact-workspace-empty {
+  display: grid;
+  min-height: 18rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.contact-workspace-loading > span,
+.contact-workspace-drawer-loading > span {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid #cbe7e2;
+  border-top-color: var(--contact-teal);
+  border-radius: 50%;
+  animation: contact-workspace-spin 700ms linear infinite;
+}
+
+@keyframes contact-workspace-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.contact-workspace-loading p,
+.contact-workspace-empty p {
+  margin: 0;
+  color: #779093;
+  font-size: 0.76rem;
+}
+
+.contact-workspace-empty > span {
+  display: grid;
+  width: 3.2rem;
+  height: 3.2rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #e6f6f3;
+  color: var(--contact-teal);
+}
+
+.contact-workspace-empty h2 {
+  margin: 0;
+  color: #285055;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 1.22rem;
+}
+
+.contact-workspace-empty button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  border-radius: 0.38rem;
+  background: var(--contact-teal-deep);
+  padding: 0.55rem 0.72rem;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.contact-workspace-pagination {
+  display: flex;
+  min-height: 3.6rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid var(--contact-line);
+  padding: 0.6rem 1rem;
+  color: #7e9497;
+  font-size: 0.66rem;
+}
+
+.contact-workspace-pagination > div {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.contact-workspace-pagination button {
+  min-height: 2rem;
+  border: 1px solid #d1e0de;
+  border-radius: 0.35rem;
+  background: #fff;
+  padding: 0.3rem 0.56rem;
+  color: #537275;
+  font-size: 0.66rem;
+  font-weight: 740;
+}
+
+.contact-workspace-pagination button:not(:disabled):hover {
+  border-color: #9ecdc6;
+  background: #f0f8f7;
+  color: var(--contact-teal-deep);
+}
+
+.contact-workspace-drawer {
+  position: fixed;
+  z-index: 42;
+  top: 0;
+  right: 0;
+  display: flex;
+  width: min(30.5rem, calc(100vw - 1rem));
+  height: 100dvh;
+  flex-direction: column;
+  border-left: 1px solid #cfe1df;
+  background: #fff;
+  box-shadow: -1.4rem 0 3.5rem rgb(15 52 51 / 17%);
+  animation: contact-drawer-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes contact-drawer-enter {
+  from {
+    transform: translateX(2rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.contact-workspace-drawer > header {
+  display: grid;
+  grid-template-columns: auto 3rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  border-bottom: 1px solid #e3eceb;
+  padding: 1rem 1.1rem 0.9rem;
+}
+
+.contact-workspace-close-drawer,
+.contact-workspace-drawer-edit {
+  border: 0;
+  background: transparent;
+}
+
+.contact-workspace-close-drawer {
+  display: grid;
+  width: 1.85rem;
+  height: 1.85rem;
+  place-items: center;
+  border-radius: 0.35rem;
+  color: #668084;
+}
+
+.contact-workspace-close-drawer:hover {
+  background: #edf5f4;
+  color: var(--contact-teal);
+}
+
+.contact-workspace-profile-avatar {
+  width: 3rem;
+  height: 3rem;
+  font-size: 0.85rem;
+}
+
+.contact-workspace-profile-summary {
+  display: grid;
+  min-width: 0;
+  gap: 0.16rem;
+}
+
+.contact-workspace-profile-summary h2 {
+  overflow: hidden;
+  margin: 0;
+  color: #173d42;
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-workspace-profile-summary span {
+  color: #71898c;
+  font-size: 0.66rem;
+}
+
+.contact-workspace-drawer-edit {
+  border: 1px solid #c4ddda;
+  border-radius: 0.36rem;
+  padding: 0.42rem 0.55rem;
+  color: var(--contact-teal);
+  font-size: 0.67rem;
+  font-weight: 780;
+}
+
+.contact-workspace-drawer-edit:hover {
+  background: #eaf7f5;
+}
+
+.contact-workspace-contact-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  border-bottom: 1px solid #edf2f1;
+  padding: 0.8rem 1.15rem;
+}
+
+.contact-workspace-contact-methods a {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.42rem;
+  overflow: hidden;
+  color: #527075;
+  font-size: 0.66rem;
+  text-decoration: none;
+}
+
+.contact-workspace-contact-methods a:not([aria-disabled="true"]):hover {
+  color: var(--contact-teal);
+  text-decoration: underline;
+}
+
+.contact-workspace-contact-methods a[aria-disabled="true"] {
+  color: #a0afb0;
+  cursor: default;
+}
+
+.contact-workspace-contact-methods span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-workspace-drawer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  border-bottom: 1px solid #e6efee;
+  padding: 0.65rem 1.15rem;
+  color: #82989a;
+  font-size: 0.61rem;
+}
+
+.contact-workspace-drawer-meta strong {
+  color: #507075;
+  font-weight: 750;
+}
+
+.contact-workspace-tabs {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid #dce8e6;
+  padding: 0 0.65rem;
+}
+
+.contact-workspace-tabs button {
+  display: inline-flex;
+  min-height: 2.8rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.32rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0.45rem 0.5rem;
+  color: #799194;
+  font-size: 0.63rem;
+  font-weight: 700;
+}
+
+.contact-workspace-tabs button:hover {
+  color: #307774;
+}
+
+.contact-workspace-tabs button.is-active {
+  border-bottom-color: var(--contact-teal);
+  color: var(--contact-teal-deep);
+}
+
+.contact-workspace-drawer-body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 0.8rem 1.15rem;
+}
+
+.contact-workspace-drawer-loading,
+.contact-workspace-empty-relation {
+  display: grid;
+  min-height: 15rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.6rem;
+  color: #778f92;
+  text-align: center;
+}
+
+.contact-workspace-drawer-loading p,
+.contact-workspace-empty-relation p {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.contact-workspace-empty-relation > span {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #edf7f5;
+  color: #32928c;
+}
+
+.contact-workspace-relation-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contact-workspace-relation-list li {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.58rem;
+  border: 1px solid #e2ebea;
+  border-radius: 0.45rem;
+  background: #fff;
+  padding: 0.62rem;
+}
+
+.contact-workspace-relation-mark {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 0.38rem;
+  background: #e8f6f3;
+  color: var(--contact-teal);
+}
+
+.contact-workspace-relation-list li > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.contact-workspace-relation-list strong,
+.contact-workspace-relation-list span,
+.contact-workspace-relation-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-workspace-relation-list strong {
+  color: #2c5357;
+  font-size: 0.72rem;
+}
+
+.contact-workspace-relation-list span,
+.contact-workspace-relation-list small {
+  color: #819598;
+  font-size: 0.61rem;
+}
+
+.contact-workspace-relation-list em {
+  grid-column: 3;
+  border-radius: 999px;
+  background: #eef4f3;
+  padding: 0.18rem 0.33rem;
+  color: #658084;
+  font-size: 0.53rem;
+  font-style: normal;
+  font-weight: 780;
+}
+
+.contact-workspace-relation-list a {
+  grid-column: 3;
+  color: var(--contact-teal);
+  font-size: 0.61rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.contact-workspace-relation-list a:hover {
+  text-decoration: underline;
+}
+
+.contact-workspace-detail-error {
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid #f1c8ce;
+  border-radius: 0.48rem;
+  background: #fff6f6;
+  padding: 0.8rem;
+  color: #a3263c;
+}
+
+.contact-workspace-detail-error p {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.contact-workspace-detail-error button {
+  justify-self: start;
+  border: 1px solid #e8b9c1;
+  border-radius: 0.35rem;
+  background: #fff;
+  padding: 0.36rem 0.55rem;
+  color: #9c1d34;
+  font-size: 0.67rem;
+  font-weight: 760;
+}
+
+.contact-workspace-drawer > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-top: 1px solid #deebea;
+  padding: 0.75rem 1.1rem;
+}
+
+.contact-workspace-drawer > footer button {
+  border: 0;
+  background: transparent;
+  color: #a3414d;
+  font-size: 0.66rem;
+  font-weight: 730;
+}
+
+.contact-workspace-drawer > footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--contact-teal);
+  font-size: 0.66rem;
+  font-weight: 770;
+  text-decoration: none;
+}
+
+.contact-workspace-modal-backdrop {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: rgb(10 29 33 / 54%);
+  padding: 1.25rem;
+  backdrop-filter: blur(3px);
+}
+
+.contact-workspace-modal {
+  display: grid;
+  width: min(35rem, 100%);
+  gap: 0.95rem;
+  border: 1px solid #c9dcda;
+  border-radius: 0.72rem;
+  background: #fff;
+  padding: 1.15rem;
+  color: #38595d;
+  box-shadow: 0 1.6rem 5rem rgb(5 28 30 / 34%);
+}
+
+.contact-workspace-modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.contact-workspace-modal h2 {
+  margin: 0.18rem 0 0;
+  color: #193f44;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: 1.55rem;
+  letter-spacing: -0.045em;
+}
+
+.contact-workspace-modal > header > button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #789093;
+}
+
+.contact-workspace-modal > header > button:hover {
+  background: #edf5f4;
+  color: var(--contact-teal);
+}
+
+.contact-workspace-modal > p {
+  margin: -0.25rem 0 0;
+  color: #71898c;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.contact-workspace-form-grid .is-wide {
+  grid-column: 1 / -1;
+}
+
+.contact-workspace-modal select[multiple] {
+  min-height: 5.8rem;
+}
+
+.contact-workspace-modal label small,
+.contact-workspace-readonly-field small {
+  color: #92a5a7;
+  font-size: 0.58rem;
+  font-weight: 500;
+}
+
+.contact-workspace-label-help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.contact-workspace-label-help button {
+  display: inline-flex;
+  min-height: 1.7rem;
+  align-items: center;
+  gap: 0.26rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--contact-teal);
+  font-size: 0.62rem;
+  font-weight: 780;
+}
+
+.contact-workspace-label-help button:hover {
+  color: var(--contact-teal-deep);
+  text-decoration: underline;
+}
+
+.contact-workspace-label-modal {
+  width: min(27rem, 100%);
+}
+
+.contact-workspace-readonly-field {
+  display: grid;
+  align-content: start;
+  gap: 0.34rem;
+  border: 1px solid #dbe7e5;
+  border-radius: 0.38rem;
+  background: #f8fbfb;
+  padding: 0.53rem 0.58rem;
+}
+
+.contact-workspace-readonly-field > span {
+  color: #557075;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.contact-workspace-readonly-field strong {
+  color: #466569;
+  font-size: 0.75rem;
+}
+
+.contact-workspace-modal > footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  border-top: 1px solid #e4edec;
+  padding-top: 0.9rem;
+}
+
+.contact-workspace-cancel {
+  min-height: 2.35rem;
+  border: 1px solid #d3e1df;
+  border-radius: 0.42rem;
+  background: #fff;
+  padding: 0.45rem 0.72rem;
+  color: #597579;
+  font-size: 0.72rem;
+  font-weight: 740;
+}
+
+.contact-workspace-upload-zone {
+  display: grid !important;
+  min-height: 9.5rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.4rem !important;
+  border: 1px dashed #8fc8c1;
+  border-radius: 0.55rem;
+  background: #f1faf8;
+  color: #367673 !important;
+  cursor: pointer;
+  text-align: center;
+}
+
+.contact-workspace-upload-zone:hover {
+  border-color: var(--contact-teal);
+  background: #e7f7f4;
+}
+
+.contact-workspace-upload-zone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.contact-workspace-upload-zone strong {
+  color: #226662;
+  font-size: 0.79rem;
+}
+
+.contact-workspace-upload-zone span {
+  color: #7b999a;
+  font-size: 0.64rem;
+  font-weight: 600;
+}
+
+.contact-workspace-import-summary {
+  display: grid;
+  gap: 0.12rem;
+  border: 1px solid #c4e5df;
+  border-radius: 0.45rem;
+  background: #f1faf7;
+  padding: 0.7rem;
+}
+
+.contact-workspace-import-summary strong {
+  color: #246d68;
+  font-size: 0.74rem;
+}
+
+.contact-workspace-import-summary span {
+  color: #678487;
+  font-size: 0.66rem;
+}
+
+.contact-workspace-automation-modal > label {
+  margin-top: 0.1rem;
+}
+
+@media (max-width: 1050px) {
+  .contact-workspace-grid {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+  .contact-workspace-views {
+    padding-inline: 0.45rem;
+  }
+  .contact-workspace-views nav button {
+    font-size: 0.68rem;
+  }
+  .contact-workspace-toolbar-count {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .contact-workspace-shell .crm-content.contact-workspace {
+    padding: 1rem;
+  }
+  .contact-workspace-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .contact-workspace-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .contact-workspace-grid {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+  .contact-workspace-views {
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--contact-line);
+    padding: 0.68rem;
+  }
+  .contact-workspace-views nav {
+    display: flex;
+    overflow-x: auto;
+  }
+  .contact-workspace-views nav button {
+    min-width: max-content;
+  }
+  .contact-workspace-view-note {
+    display: none;
+  }
+  .contact-workspace-toolbar {
+    flex-wrap: wrap;
+  }
+  .contact-workspace-search {
+    min-width: 100%;
+    flex-basis: 100%;
+  }
+  .contact-workspace-bulk-bar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .contact-workspace-clear-selection {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .contact-workspace-header-actions .contact-workspace-quiet-button {
+    display: none;
+  }
+  .contact-workspace-header-actions .contact-workspace-primary-button {
+    margin-left: auto;
+  }
+  .contact-workspace-drawer {
+    width: 100vw;
+  }
+  .contact-workspace-contact-methods {
+    grid-template-columns: 1fr;
+  }
+  .contact-workspace-modal-backdrop {
+    padding: 0.5rem;
+  }
+  .contact-workspace-modal {
+    border-radius: 0.55rem;
+    padding: 0.9rem;
+  }
+  .contact-workspace-form-grid,
+  .contact-workspace-date-row {
+    grid-template-columns: 1fr;
+  }
+  .contact-workspace-form-grid .is-wide {
+    grid-column: auto;
+  }
+}

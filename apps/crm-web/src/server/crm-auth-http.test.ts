@@ -10,6 +10,9 @@ import {
   handleCrmLogin,
   handleCrmMemberList,
   handleCrmMemberUpdate,
+  handleCrmContactBulkAction,
+  handleCrmContactLabelCreate,
+  handleCrmContactLabelList,
   handleCrmContactList,
   handleCrmContactUpdate,
   handleCrmFileUploadTransport,
@@ -200,7 +203,12 @@ describe("CRM web authentication HTTP boundary", () => {
   });
 
   it("forwards only validated contact filters to the CRM API", async () => {
-    const upstream = vi.fn(async (_input: RequestInfo | URL) => Response.json({ data: [] }));
+    const upstream = vi.fn(async (_input: RequestInfo | URL) =>
+      Response.json({
+        data: [],
+        page: { limit: 50, nextCursor: null, previousCursor: null, total: 0 },
+      }),
+    );
     const response = await handleCrmContactList(
       new Request(
         "https://crm.example.test/api/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01",
@@ -211,7 +219,83 @@ describe("CRM web authentication HTTP boundary", () => {
 
     expect(response.status).toBe(200);
     expect(upstream.mock.calls[0]?.[0].toString()).toBe(
-      "http://api:3001/api/v1/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01",
+      "http://api:3001/api/v1/contacts?limit=50&sort=UPDATED_DESC&label=VIP&channel=EMAIL&archived=false&createdFrom=2026-09-01",
+    );
+  });
+
+  it("forwards a CSRF-protected bulk contact action with its idempotency key", async () => {
+    const contactId = "01995f7e-7b52-7000-8000-000000000103";
+    const labelId = "01995f7e-7b52-7000-8000-000000000104";
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        data: {
+          results: [{ contactId, status: "UPDATED" }],
+          updated: 1,
+          unchanged: 0,
+          notVisible: 0,
+        },
+      }),
+    );
+    const response = await handleCrmContactBulkAction(
+      new Request("https://crm.example.test/api/contacts/actions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "idempotency-key": "contacts-label-0001",
+        },
+        body: JSON.stringify({ action: "ADD_LABEL", contactIds: [contactId], labelId }),
+      }),
+      runtime(upstream as typeof fetch),
+    );
+
+    expect(response.status).toBe(200);
+    const [target, init] = upstream.mock.calls[0]!;
+    expect(target.toString()).toBe("http://api:3001/api/v1/contacts/actions");
+    expect(new Headers(init?.headers).get("idempotency-key")).toBe("contacts-label-0001");
+    expect(init?.body).toBe(
+      JSON.stringify({ action: "ADD_LABEL", contactIds: [contactId], labelId }),
+    );
+  });
+
+  it("lists and creates labels through the authenticated contact boundary", async () => {
+    const label = { id: "01995f7e-7b52-7000-8000-000000000104", name: "VIP" };
+    const listUpstream = vi.fn(async (_input: RequestInfo | URL) =>
+      Response.json({ data: [label] }),
+    );
+    const listResponse = await handleCrmContactLabelList(
+      new Request("https://crm.example.test/api/contacts/labels", {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(listUpstream as typeof fetch),
+    );
+    expect(listResponse.status).toBe(200);
+    expect(listUpstream.mock.calls[0]?.[0].toString()).toBe(
+      "http://api:3001/api/v1/contacts/labels",
+    );
+
+    const createUpstream = vi.fn(async (_input: RequestInfo | URL) =>
+      Response.json({ data: label }),
+    );
+    const createResponse = await handleCrmContactLabelCreate(
+      new Request("https://crm.example.test/api/contacts/labels", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "x-csrf-token": csrfToken,
+          "idempotency-key": "contacts-label-create-0001",
+        },
+        body: JSON.stringify({ name: "VIP" }),
+      }),
+      runtime(createUpstream as typeof fetch),
+    );
+    expect(createResponse.status).toBe(200);
+    expect(createUpstream.mock.calls[0]?.[0].toString()).toBe(
+      "http://api:3001/api/v1/contacts/labels",
     );
   });
 
@@ -362,9 +446,13 @@ describe("CRM web authentication HTTP boundary", () => {
   it("forwards an intentional contact-channel clear without converting it to an invalid value", async () => {
     const contact = {
       id: "01995f7e-7b52-7000-8000-000000000103",
+      ownerMemberId: null,
       displayName: "Ada Lovelace",
       email: null,
       phone: null,
+      labels: [],
+      source: "MANUAL",
+      archivedAt: null,
       version: "2",
       createdAt: "2026-09-20T15:00:00.000Z",
       updatedAt: "2026-09-20T15:01:00.000Z",

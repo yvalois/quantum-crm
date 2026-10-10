@@ -4,11 +4,15 @@ import { IamAuthorizationError, type IamPermission } from "../iam/index.js";
 import {
   createContact,
   type CommercialActor,
+  type ContactBulkAction,
+  type ContactBulkActionResponse,
   type ContactRecord,
   type ContactImportPreviewRow,
   type ContactImportResult,
   type ContactImportRow,
   type ContactListFilters,
+  type ContactPage,
+  type ContactLabel,
   type ContactRepository,
   ContactValidationError,
   updateContact,
@@ -45,6 +49,14 @@ export class ContactService {
     allow(permissions, "crm:contacts:read");
     return this.repository.list(actor, filters);
   }
+  public listPage(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    filters: ContactListFilters,
+  ): Promise<ContactPage> {
+    allow(permissions, "crm:contacts:read");
+    return this.repository.listPage(actor, filters);
+  }
   public get(
     actor: CommercialActor,
     permissions: readonly IamPermission[],
@@ -62,20 +74,94 @@ export class ContactService {
     readonly displayName: string;
     readonly email?: string;
     readonly phone?: string;
+    readonly ownerMemberId?: string | null;
+    readonly source?: ContactRecord["source"];
+    readonly labelIds?: readonly string[];
     readonly idempotencyKey: string;
     readonly payloadHash: string;
-  }) {
+  }): Promise<ContactRecord> {
     allow(input.permissions, "crm:contacts:create");
-    return this.repository.create({
-      contact: createContact({
-        id: randomUUID(),
-        ownerMemberId: input.actor.memberId,
-        displayName: input.displayName,
-        ...(input.email === undefined ? {} : { email: input.email }),
-        ...(input.phone === undefined ? {} : { phone: input.phone }),
-        now: this.clock(),
-      }),
+    const ownerMemberId =
+      input.ownerMemberId === undefined ? input.actor.memberId : input.ownerMemberId;
+    const create = () =>
+      this.repository.create({
+        contact: createContact({
+          id: randomUUID(),
+          ownerMemberId,
+          displayName: input.displayName,
+          ...(input.email === undefined ? {} : { email: input.email }),
+          ...(input.phone === undefined ? {} : { phone: input.phone }),
+          ...(input.source === undefined ? {} : { source: input.source }),
+          now: this.clock(),
+        }),
+        actor: input.actor,
+        labelIds: Object.freeze([...new Set(input.labelIds ?? [])]),
+        idempotencyKey: input.idempotencyKey,
+        payloadHash: input.payloadHash,
+      });
+    if (ownerMemberId === input.actor.memberId) return create();
+    allow(input.permissions, "crm:contacts:assign");
+    if (ownerMemberId === null) return create();
+    return this.repository.canAssignOwner(input.actor, ownerMemberId).then((allowed) => {
+      if (!allowed) throw new ContactValidationError();
+      return create();
+    });
+  }
+
+  public listLabels(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+  ): Promise<readonly ContactLabel[]> {
+    allow(permissions, "crm:contacts:read");
+    return this.repository.listLabels(actor);
+  }
+
+  public createLabel(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly name: string;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }): Promise<ContactLabel> {
+    allow(input.permissions, "crm:contacts:update");
+    return this.repository.createLabel({
       actor: input.actor,
+      name: input.name,
+      idempotencyKey: input.idempotencyKey,
+      payloadHash: input.payloadHash,
+    });
+  }
+
+  public async bulk(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly action: ContactBulkAction;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }): Promise<ContactBulkActionResponse> {
+    allow(input.permissions, "crm:contacts:read");
+    switch (input.action.action) {
+      case "ASSIGN":
+        allow(input.permissions, "crm:contacts:assign");
+        if (
+          input.action.ownerMemberId !== null &&
+          !(await this.repository.canAssignOwner(input.actor, input.action.ownerMemberId))
+        ) {
+          throw new ContactValidationError();
+        }
+        break;
+      case "ARCHIVE":
+      case "RESTORE":
+        allow(input.permissions, "crm:contacts:delete");
+        break;
+      case "ADD_LABEL":
+      case "REMOVE_LABEL":
+        allow(input.permissions, "crm:contacts:update");
+        break;
+    }
+    return this.repository.bulk({
+      actor: input.actor,
+      action: input.action,
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,
     });
@@ -114,7 +200,7 @@ export class ContactService {
     rows: readonly ContactImportRow[],
   ): Promise<readonly ContactImportPreviewRow[]> {
     allow(permissions, "crm:contacts:read");
-    const contacts = await this.repository.list(actor);
+    const contacts = await this.repository.list(actor, { includeArchived: true });
     return Object.freeze(
       rows.map((row) => {
         const errors = validateImportRow(row);

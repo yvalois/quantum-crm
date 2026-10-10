@@ -129,6 +129,7 @@ export class ConversationsController {
       const actor = identity(request);
       const {
         cursor,
+        contactId,
         query: search,
         channel,
         status,
@@ -139,6 +140,7 @@ export class ConversationsController {
       const result = await this.service.list(actor.actor, actor.permissions, {
         limit: parsed.data.limit,
         ...(cursor === undefined ? {} : { cursor }),
+        ...(contactId === undefined ? {} : { contactId }),
         ...(search === undefined ? {} : { query: search }),
         ...(channel === undefined ? {} : { channel }),
         ...(status === undefined ? {} : { status }),

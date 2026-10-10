@@ -236,6 +236,8 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
           params.push(value);
           return `$${params.length}`;
         };
+        if (filters.contactId)
+          conditions.push(`conversation.contact_id = ${parameter(filters.contactId)}::uuid`);
         if (filters.query) {
           const query = parameter(`%${filters.query}%`);
           conditions.push(

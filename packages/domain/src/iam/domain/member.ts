@@ -62,6 +62,7 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:contacts:read",
         "crm:contacts:create",
         "crm:contacts:update",
+        "crm:contacts:assign",
         "crm:sales:read",
         "crm:sales:create",
         "crm:sales:update",
