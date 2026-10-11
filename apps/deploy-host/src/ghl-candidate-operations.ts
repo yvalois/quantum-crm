@@ -36,7 +36,12 @@ export interface ContainerInspection {
   readonly Id: string;
   readonly Name: string;
   readonly Image: string;
-  readonly Mounts?: readonly { readonly Type: string; readonly Name?: string; readonly Destination: string; readonly RW: boolean }[];
+  readonly Mounts?: readonly {
+    readonly Type: string;
+    readonly Name?: string;
+    readonly Destination: string;
+    readonly RW: boolean;
+  }[];
   readonly Config: {
     readonly Image: string;
     readonly Env: readonly string[];
@@ -326,7 +331,11 @@ export async function runRegisteredGhlImport(
     : runner.run(typedRequest);
 }
 
-export async function tuneRegisteredGhlAttachmentStorage(tenantId: string, exportId: string, temporary = false) {
+export async function tuneRegisteredGhlAttachmentStorage(
+  tenantId: string,
+  exportId: string,
+  temporary = false,
+) {
   const request = await registeredGhlRequest(tenantId, exportId, "ATTACHMENTS", 1);
   const registryPath = join(
     configurationRoot,
@@ -339,7 +348,9 @@ export async function tuneRegisteredGhlAttachmentStorage(tenantId: string, expor
   const options = await hostOptions();
   if (options.platformStorageNetwork !== "qcrm-staging-platform-storage")
     throw new HostAdapterError("IDENTITY_MISMATCH");
-  return withAttachmentStorageTuningLock(() => temporary ? tuneAttachmentStorageTemporary(dockerApi) : tuneAttachmentStorageResources(dockerApi));
+  return temporary
+    ? withAttachmentStorageTuningLock(() => tuneAttachmentStorageTemporary(dockerApi))
+    : withAttachmentStorageTuningLock(() => tuneAttachmentStorageResources(dockerApi));
 }
 
 export function candidateContainerBody(previous: ContainerInspection, imageId: string) {

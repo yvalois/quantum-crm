@@ -11,7 +11,11 @@ import {
   writeFile,
 } from "node:fs/promises";
 
-import { candidateContainerBody, type CandidateDockerApi, type ContainerInspection } from "./ghl-candidate-operations.js";
+import {
+  candidateContainerBody,
+  type CandidateDockerApi,
+  type ContainerInspection,
+} from "./ghl-candidate-operations.js";
 import { HostAdapterError } from "./host-adapter.js";
 
 const storageName = "quantum-platform-foundation-platform-storage-1";
@@ -26,7 +30,12 @@ const lockPath = "/opt/quantum/config/staging/ghl-attachment-storage-tune.lock";
 
 interface TuningFiles {
   readonly read: (path: string) => Promise<string>;
-  readonly replace: (path: string, previous: string, next: string, kind?: "memory" | "temp" | "temp-rollback") => Promise<void>;
+  readonly replace: (
+    path: string,
+    previous: string,
+    next: string,
+    kind?: "memory" | "temp" | "temp-rollback",
+  ) => Promise<void>;
   readonly availableMemory: () => Promise<number>;
   readonly recordPredecessor?: (receipt: Readonly<Record<string, unknown>>) => Promise<void>;
 }
@@ -104,7 +113,7 @@ const tuningFiles: TuningFiles = {
     } catch (error) {
       if ((error as { code?: string }).code !== "EEXIST") throw error;
       await checkedFile(path);
-      if (await readFile(path, "utf8") !== content) throw new HostAdapterError("TARGET_CONFLICT");
+      if ((await readFile(path, "utf8")) !== content) throw new HostAdapterError("TARGET_CONFLICT");
     }
   },
 };
@@ -249,32 +258,56 @@ export async function tuneAttachmentStorageResources(
 }
 
 /** Replace only the registered storage tmpfs; preserve the master address and all durable mounts. */
-export async function tuneAttachmentStorageTemporary(api: CandidateDockerApi, files: TuningFiles = tuningFiles) {
+export async function tuneAttachmentStorageTemporary(
+  api: CandidateDockerApi,
+  files: TuningFiles = tuningFiles,
+) {
   const inspectPath = `/containers/${storageName}/json`;
-  const before = await api("GET", inspectPath) as ContainerInspection;
-  const network = await api("GET", `/networks/${storageNetwork}`) as Record<string, unknown>;
+  const before = (await api("GET", inspectPath)) as ContainerInspection;
+  const network = (await api("GET", `/networks/${storageNetwork}`)) as Record<string, unknown>;
   const composePath = validateStorage(before, network);
   attachmentStorageCompose(await files.read(composePath));
   const original = await files.read(overridePath);
   const next = attachmentStorageTempOverride(original);
   const tmpfs = before.HostConfig.Tmpfs as Record<string, string> | undefined;
   const address = before.NetworkSettings.Networks[storageNetwork]?.IPAddress;
-  if (before.HostConfig.Memory !== targetMemory || !tmpfs || Object.keys(tmpfs).length !== 1 ||
-      !["rw,noexec,nosuid,size=64m", "rw,noexec,nosuid,size=512m"].includes(tmpfs["/tmp"] ?? "") ||
-      !address || !/^172\.23\.0\.[1-9][0-9]{0,2}$/u.test(address) || Number(address.split(".")[3]) > 254 ||
-      before.Mounts?.filter((mount) => mount.Type === "volume" && mount.Name === "qcrm-staging-platform-storage" && mount.Destination === "/data" && mount.RW).length !== 1)
+  if (
+    before.HostConfig.Memory !== targetMemory ||
+    !tmpfs ||
+    Object.keys(tmpfs).length !== 1 ||
+    !["rw,noexec,nosuid,size=64m", "rw,noexec,nosuid,size=512m"].includes(tmpfs["/tmp"] ?? "") ||
+    !address ||
+    !/^172\.23\.0\.[1-9][0-9]{0,2}$/u.test(address) ||
+    Number(address.split(".")[3]) > 254 ||
+    before.Mounts?.filter(
+      (mount) =>
+        mount.Type === "volume" &&
+        mount.Name === "qcrm-staging-platform-storage" &&
+        mount.Destination === "/data" &&
+        mount.RW,
+    ).length !== 1
+  )
     throw new HostAdapterError("IDENTITY_MISMATCH");
-  const filters = encodeURIComponent(JSON.stringify({ label: ["com.quantum.ghl-import-mode=ATTACHMENTS"] }));
-  const active = await api("GET", `/containers/json?all=false&filters=${filters}`) as unknown;
+  const filters = encodeURIComponent(
+    JSON.stringify({ label: ["com.quantum.ghl-import-mode=ATTACHMENTS"] }),
+  );
+  const active = (await api("GET", `/containers/json?all=false&filters=${filters}`)) as unknown;
   if (!Array.isArray(active) || active.length !== 0) throw new HostAdapterError("TARGET_CONFLICT");
   if (tmpfs["/tmp"] === "rw,noexec,nosuid,size=512m" && before.State.Health?.Status === "healthy") {
     if (next !== original) await files.replace(overridePath, original, next, "temp");
     return { state: "APPLIED", tmpfsBytes: 512 * 1024 ** 2, reused: true } as const;
   }
-  if (tmpfs["/tmp"] !== "rw,noexec,nosuid,size=64m" || before.State.Health?.Status !== "healthy" || await files.availableMemory() < 2 * 1024 ** 3)
+  if (
+    tmpfs["/tmp"] !== "rw,noexec,nosuid,size=64m" ||
+    before.State.Health?.Status !== "healthy" ||
+    (await files.availableMemory()) < 2 * 1024 ** 3
+  )
     throw new HostAdapterError("UNAVAILABLE");
   const body = candidateContainerBody(before, before.Image);
-  const endpoint = { ...body.NetworkingConfig.EndpointsConfig[storageNetwork], IPAMConfig: { IPv4Address: address } };
+  const endpoint = {
+    ...body.NetworkingConfig.EndpointsConfig[storageNetwork],
+    IPAMConfig: { IPv4Address: address },
+  };
   const replacement = {
     ...body,
     Image: before.Config.Image,
@@ -284,76 +317,132 @@ export async function tuneAttachmentStorageTemporary(api: CandidateDockerApi, fi
   };
   const backupName = `${storageName}-before-ghl-temp512`;
   let candidateId: string | undefined;
-  await files.recordPredecessor?.({ schemaVersion: 1, containerId: before.Id, imageId: before.Image, backupName, networkId: network.Id, endpoint });
+  await files.recordPredecessor?.({
+    schemaVersion: 1,
+    containerId: before.Id,
+    imageId: before.Image,
+    backupName,
+    networkId: network.Id,
+    endpoint,
+  });
   if (next !== original) await files.replace(overridePath, original, next, "temp");
   try {
     await api("POST", `/containers/${before.Id}/stop?t=30`);
     await api("POST", `/containers/${before.Id}/rename?name=${encodeURIComponent(backupName)}`);
-    await api("POST", `/networks/${network.Id as string}/disconnect`, { Container: before.Id, Force: false });
-    const created = await api("POST", `/containers/create?name=${encodeURIComponent(storageName)}`, replacement) as { Id?: string };
-    if (!created.Id || !/^[0-9a-f]{64}$/u.test(created.Id)) throw new HostAdapterError("UNAVAILABLE");
+    await api("POST", `/networks/${network.Id as string}/disconnect`, {
+      Container: before.Id,
+      Force: false,
+    });
+    const created = (await api(
+      "POST",
+      `/containers/create?name=${encodeURIComponent(storageName)}`,
+      replacement,
+    )) as { Id?: string };
+    if (!created.Id || !/^[0-9a-f]{64}$/u.test(created.Id))
+      throw new HostAdapterError("UNAVAILABLE");
     candidateId = created.Id;
     await api("POST", `/containers/${candidateId}/start`);
     const deadline = Date.now() + 120_000;
     while (Date.now() < deadline) {
-      const observed = await api("GET", inspectPath) as ContainerInspection;
+      const observed = (await api("GET", inspectPath)) as ContainerInspection;
       validateStorage(observed, network);
-      if (observed.Id !== candidateId || observed.Image !== before.Image || observed.HostConfig.Memory !== targetMemory ||
-          (observed.HostConfig.Tmpfs as Record<string, string> | undefined)?.["/tmp"] !== "rw,noexec,nosuid,size=512m" ||
-          observed.NetworkSettings.Networks[storageNetwork]?.IPAddress !== address ||
-          JSON.stringify(observed.HostConfig.Binds) !== JSON.stringify(before.HostConfig.Binds))
+      if (
+        observed.Id !== candidateId ||
+        observed.Image !== before.Image ||
+        observed.HostConfig.Memory !== targetMemory ||
+        (observed.HostConfig.Tmpfs as Record<string, string> | undefined)?.["/tmp"] !==
+          "rw,noexec,nosuid,size=512m" ||
+        observed.NetworkSettings.Networks[storageNetwork]?.IPAddress !== address ||
+        JSON.stringify(observed.HostConfig.Binds) !== JSON.stringify(before.HostConfig.Binds)
+      )
         throw new HostAdapterError("IDENTITY_MISMATCH");
       if (observed.State.Health?.Status === "healthy")
-        return { state: "APPLIED", tmpfsBytes: 512 * 1024 ** 2, previousContainer: backupName, reused: false } as const;
-      if (!observed.State.Running || observed.State.Health?.Status === "unhealthy") throw new HostAdapterError("UNAVAILABLE");
+        return {
+          state: "APPLIED",
+          tmpfsBytes: 512 * 1024 ** 2,
+          previousContainer: backupName,
+          reused: false,
+        } as const;
+      if (!observed.State.Running || observed.State.Health?.Status === "unhealthy")
+        throw new HostAdapterError("UNAVAILABLE");
       await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     }
     throw new HostAdapterError("UNAVAILABLE");
   } catch (error) {
     // Docker may have applied a request whose response was lost: reconcile identity and state.
-    const named = await api("GET", `/containers/json?all=true&filters=${encodeURIComponent(JSON.stringify({ name: [`^/${storageName}$`] }))}`) as { Id?: string; Names?: string[] }[];
+    const named = (await api(
+      "GET",
+      `/containers/json?all=true&filters=${encodeURIComponent(JSON.stringify({ name: [`^/${storageName}$`] }))}`,
+    )) as { Id?: string; Names?: string[] }[];
     if (!Array.isArray(named) || named.length > 1) throw new HostAdapterError("TARGET_CONFLICT");
     const found = named[0];
     if (found && found.Id !== before.Id) {
-      if (!found.Id || !/^[0-9a-f]{64}$/u.test(found.Id) || !found.Names?.includes(`/${storageName}`))
+      if (
+        !found.Id ||
+        !/^[0-9a-f]{64}$/u.test(found.Id) ||
+        !found.Names?.includes(`/${storageName}`)
+      )
         throw new HostAdapterError("TARGET_CONFLICT");
-      const candidate = await api("GET", `/containers/${found.Id}/json`) as ContainerInspection;
-      if (candidate.Id !== found.Id || candidate.Image !== before.Image ||
-          candidate.Config.Labels["com.quantum.ghl-storage-predecessor"] !== before.Id ||
-          JSON.stringify(candidate.HostConfig.Binds) !== JSON.stringify(before.HostConfig.Binds))
+      const candidate = (await api("GET", `/containers/${found.Id}/json`)) as ContainerInspection;
+      if (
+        candidate.Id !== found.Id ||
+        candidate.Image !== before.Image ||
+        candidate.Config.Labels["com.quantum.ghl-storage-predecessor"] !== before.Id ||
+        JSON.stringify(candidate.HostConfig.Binds) !== JSON.stringify(before.HostConfig.Binds)
+      )
         throw new HostAdapterError("IDENTITY_MISMATCH");
       await api("DELETE", `/containers/${found.Id}?force=true&v=false`).catch(() => undefined);
-      const remaining = await api("GET", `/containers/json?all=true&filters=${encodeURIComponent(JSON.stringify({ id: [found.Id] }))}`) as unknown;
+      const remaining = (await api(
+        "GET",
+        `/containers/json?all=true&filters=${encodeURIComponent(JSON.stringify({ id: [found.Id] }))}`,
+      )) as unknown;
       if (!Array.isArray(remaining) || remaining.length !== 0)
         throw new HostAdapterError("TARGET_CONFLICT"); // Never start two writers for the same volume.
     }
     const inspectPredecessor = async () => {
-      const observed = await api("GET", `/containers/${before.Id}/json`) as ContainerInspection;
-      if (observed.Id !== before.Id || observed.Image !== before.Image ||
-          ![`/${storageName}`, `/${backupName}`].includes(observed.Name) ||
-          JSON.stringify(observed.Config) !== JSON.stringify(before.Config) ||
-          JSON.stringify(observed.HostConfig.Binds) !== JSON.stringify(before.HostConfig.Binds))
+      const observed = (await api("GET", `/containers/${before.Id}/json`)) as ContainerInspection;
+      if (
+        observed.Id !== before.Id ||
+        observed.Image !== before.Image ||
+        ![`/${storageName}`, `/${backupName}`].includes(observed.Name) ||
+        JSON.stringify(observed.Config) !== JSON.stringify(before.Config) ||
+        JSON.stringify(observed.HostConfig.Binds) !== JSON.stringify(before.HostConfig.Binds)
+      )
         throw new HostAdapterError("IDENTITY_MISMATCH");
       return observed;
     };
     let predecessor = await inspectPredecessor();
     if (!predecessor.NetworkSettings.Networks[storageNetwork]) {
-      await api("POST", `/networks/${network.Id as string}/connect`, { Container: before.Id, EndpointConfig: endpoint }).catch(() => undefined);
+      await api("POST", `/networks/${network.Id as string}/connect`, {
+        Container: before.Id,
+        EndpointConfig: endpoint,
+      }).catch(() => undefined);
       predecessor = await inspectPredecessor();
-      if (!predecessor.NetworkSettings.Networks[storageNetwork]) throw new HostAdapterError("TARGET_CONFLICT");
+      if (!predecessor.NetworkSettings.Networks[storageNetwork])
+        throw new HostAdapterError("TARGET_CONFLICT");
     }
     if (predecessor.Name !== `/${storageName}`) {
-      await api("POST", `/containers/${before.Id}/rename?name=${encodeURIComponent(storageName)}`).catch(() => undefined);
+      await api(
+        "POST",
+        `/containers/${before.Id}/rename?name=${encodeURIComponent(storageName)}`,
+      ).catch(() => undefined);
       predecessor = await inspectPredecessor();
       if (predecessor.Name !== `/${storageName}`) throw new HostAdapterError("TARGET_CONFLICT");
     }
-    if (!predecessor.State.Running) await api("POST", `/containers/${before.Id}/start`).catch(() => undefined);
+    if (!predecessor.State.Running)
+      await api("POST", `/containers/${before.Id}/start`).catch(() => undefined);
     const recoveryDeadline = Date.now() + 120_000;
     let recovered = false;
     while (Date.now() < recoveryDeadline) {
       predecessor = await inspectPredecessor();
       if (!predecessor.State.Running || predecessor.State.Health?.Status === "unhealthy") break;
-      if (predecessor.State.Health?.Status === "healthy" && predecessor.NetworkSettings.Networks[storageNetwork]?.IPAddress === address) { recovered = true; break; }
+      if (
+        predecessor.State.Health?.Status === "healthy" &&
+        predecessor.NetworkSettings.Networks[storageNetwork]?.IPAddress === address
+      ) {
+        recovered = true;
+        break;
+      }
       await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     }
     if (!recovered) throw new HostAdapterError("TARGET_CONFLICT");
