@@ -80,7 +80,11 @@ describe("GHL isolated laboratory address", () => {
     (address) => {
       expect(() =>
         ghlTestPostgresAddress(
-          { NetworkSettings: { Networks: { [network]: { NetworkID: networkId, IPAddress: address } } } },
+          {
+            NetworkSettings: {
+              Networks: { [network]: { NetworkID: networkId, IPAddress: address } },
+            },
+          },
           network,
           networkId,
         ),

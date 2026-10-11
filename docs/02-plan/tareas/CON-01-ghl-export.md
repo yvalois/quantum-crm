@@ -4,7 +4,7 @@ Estado: EN_CURSO. Fases 4 y 5. Requisitos relacionados: CON-05/06/07, PIPE-01/03
 
 ## Alcance y evidencia previa
 
-Script reutilizable solicitado para comprobar cuanto se puede extraer: contactos, etiquetas, campos personalizados, pipelines/etapas, oportunidades, conversaciones y mensajes de una ubicacion autorizada. No necesita Company ID. No modifica GHL ni Quantum, no crea usuarios y no cambia identidad ni despliegues del CRM.
+Script reutilizable para extraer y cargar contactos, etiquetas, campos personalizados, pipelines/etapas, oportunidades, conversaciones y mensajes de una ubicacion autorizada. No necesita Company ID. El exportador no modifica GHL ni Quantum; el importador escribe exclusivamente en el perfil aprobado. No crea usuarios ni cambia identidad.
 
 Se revisaron funcionalidades, fases, subtareas, estado, codigo existente y reglas de aislamiento, contratos, persistencia, secretos y ejecucion exclusiva en VPS. El importador CON-01 existente conserva solamente nombre/correo/telefono; los comandos actuales de conversaciones producen outbox. No se usan para importar historia porque podrian perder datos o enviar mensajes.
 
@@ -48,6 +48,22 @@ El directorio de exportacion debe existir con permisos 0700; archivos secretos 0
 
 Scopes requeridos: contacts.readonly, locations/tags.readonly, locations/customFields.readonly, opportunities.readonly, conversations.readonly, conversations/message.readonly.
 
+### Carga al CRM
+
+El host conserva un registro protegido `tenant/<tenantId>/ghl-imports/<exportId>.json`, fuera de Git, que vincula perfil, servidor, release, operacion, exportacion, SHA256 del artefacto, imagenes inmutables de worker/migrador, moneda y excepcion de respaldo limitada a desarrollo. No se aceptan rutas, SQL ni comandos libres desde la solicitud.
+
+Con ese registro aprobado, el mismo CLI de deploy-host ejecuta las operaciones reutilizables:
+
+```text
+node apps/deploy-host/dist/ghl-candidate-cli.js MIGRATE <tenantId> <exportId>
+node apps/deploy-host/dist/ghl-candidate-cli.js APPLY <tenantId> <exportId>
+node apps/deploy-host/dist/ghl-candidate-cli.js VERIFY <tenantId> <exportId>
+```
+
+Repetir el comando observa el trabajo existente y devuelve un recibo agregado; no lo vuelve a ejecutar. Tras una interrupcion confirmada se puede indicar un nuevo numero de intento como cuarto argumento: las correspondencias durables impiden duplicados y conservan ediciones locales. `VERIFY` concilia registros, relaciones, checkpoints y ausencia de mensajes en outbox. El proceso nunca contacta proveedores de mensajeria.
+
+Los contactos y oportunidades quedan en sus modulos habituales; los campos personalizados aparecen en la ficha del contacto. `/inbox` ofrece el historial GHL paginado, separado de los mensajes activos para impedir reenvios accidentales. Los adjuntos no disponibles se indican expresamente.
+
 ## Validacion
 
 VPS autorizado, Node 24.21.0, 2026-10-11:
@@ -58,11 +74,14 @@ VPS autorizado, Node 24.21.0, 2026-10-11:
 - Auditoria en memoria: relaciones contacto/pipeline/etapa de oportunidades y contacto de conversaciones presentes; parte del historial de mensajes referencia IDs ausentes en las listas actuales de contactos/conversaciones. Se conservan integramente y requieren conciliacion antes del apply; no se descartan ni se inventan entidades.
 - Se reutiliza evidencia de codigo identico por contenido entre la rama exploratoria y el candidato enfocado; se verifico de nuevo la compilacion del candidato enfocado por el cambio de composicion. Solo se repitieron pruebas al corregir tipos, una expectativa de fixture y el manejo real del cursor opaco.
 - No se guardan conteos comerciales, IDs de cliente, credenciales ni datos del artefacto en Git. El cambio se limita al script/configuracion y no publica las APIs administrativas experimentales.
+- Importacion: candidato de aplicaciones `59a9289f` construido en el VPS (worker, API, CRM y migrador). Prevalidacion autenticada de la fuente aprobada antes de cualquier escritura. Los limites de nombres/claves de campos se ampliaron coherentemente a 1.000 caracteres para conservar datos sin truncar. Typechecks de los doce proyectos afectados y pruebas enfocadas aprobados; verificaciones de contenido no modificado reutilizadas. El helper de laboratorio usa la IP privada de su red interna verificada, sin publicar PostgreSQL.
+- Integracion real en PostgreSQL aislado: cuatro pruebas aprobadas sobre las migraciones completas del candidato `59a9289f`, usando dos roles runtime independientes. Verifican persistencia sin truncar, reintento/concurrencia, conservacion de cambios locales, aislamiento, historial sin outbox y reanudacion durable. Helper `99512d3b`: trece pruebas enfocadas, build y ESLint aprobados; no cambia ni reconstruye las imagenes de aplicaciones ya verificadas.
 
 ## Pendientes de estabilizacion posterior
 
-- Apply al CRM: definiciones/valores de custom fields, mapeos externos idempotentes, puerto de mensajes historicos sin outbox, tipos/canales originales, moneda y conflictos de contacto. No se presenta la extraccion como migracion aplicada.
+- Ejecucion y conciliacion de la carga real: EN_CURSO; no se presenta la extraccion como migracion aplicada.
 - Adjuntos: se conservan referencias; copiar bytes requiere Files/ClamAV. No se publican URLs ni se marcan archivos AVAILABLE.
 - GHL excluye Group Chat y SMS Review Request del exportador; su API no ofrece snapshot transaccional del conjunto.
-- Este artefacto en el VPS no sustituye un respaldo cifrado externo y una restauracion verificada antes del apply de datos reales.
+- Este artefacto en el VPS no sustituye un respaldo cifrado externo ni una restauracion verificada. El propietario difirio ese requisito exclusivamente para esta carga en desarrollo; produccion sigue bloqueada por configuracion.
+- Paginas historicas excepcionalmente grandes: evaluar presupuesto por bytes antes de migrar otras fuentes; la fuente actual fue medida y cabe en el limite del BFF sin recortar mensajes.
 - Orquestacion administrativa durable: preparada en rama experimental separada, fuera de esta entrega. Esta prueba no necesita migraciones de plataforma ni nuevas APIs del Admin.
