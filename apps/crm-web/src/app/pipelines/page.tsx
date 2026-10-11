@@ -350,16 +350,12 @@ export default function PipelinesPage(): React.JSX.Element {
       <section className={styles.workspace} aria-busy={loading || saving}>
         <header className={styles.topbar}>
           <div className={styles.headingGroup}>
-            <div className={styles.eyebrowRow}>
-              <span className={styles.liveDot} aria-hidden="true" />
-              Administración comercial
-            </div>
             <div className={styles.titleRow}>
               <h1>Pipelines</h1>
               <span className={styles.pipelinePill}>{pipelines.length} activos</span>
             </div>
             <p>
-              Configura los recorridos que usa el equipo antes de llevar oportunidades al tablero.
+              Abre un tablero para trabajar sus oportunidades o configura sus etapas.
             </p>
           </div>
           <div className={styles.topActions}>
@@ -438,23 +434,21 @@ export default function PipelinesPage(): React.JSX.Element {
               </div>
               <div className={styles.pipelineDirectoryList}>
                 {pipelines.map((pipeline) => (
-                  <button
-                    className={
+                  <div
+                    className={`${styles.pipelineDirectoryRow} ${
                       selectedPipeline?.id === pipeline.id
                         ? styles.pipelineDirectoryActive
-                        : undefined
-                    }
+                        : ""
+                    }`}
                     key={pipeline.id}
-                    type="button"
-                    onClick={() => setSelectedPipelineId(pipeline.id)}
-                    aria-pressed={selectedPipeline?.id === pipeline.id}
                   >
-                    <span>
+                    <a href={`/pipeline?pipeline=${encodeURIComponent(pipeline.id)}`}>
                       <strong>{pipeline.name}</strong>
                       <small>{pipeline.description}</small>
-                    </span>
-                    <em>{pipeline.stages.length}</em>
-                  </button>
+                      <span>{pipeline.stages.length} etapas · Ver oportunidades →</span>
+                    </a>
+                    <button className={styles.pipelineConfigureButton} type="button" onClick={() => setSelectedPipelineId(pipeline.id)} aria-label={`Configurar etapas de ${pipeline.name}`} aria-pressed={selectedPipeline?.id === pipeline.id}>Configurar etapas</button>
+                  </div>
                 ))}
               </div>
             </aside>
@@ -466,7 +460,7 @@ export default function PipelinesPage(): React.JSX.Element {
               >
                 <header className={styles.pipelineSettingsDetailHeader}>
                   <div>
-                    <span>Proceso seleccionado</span>
+                    <span>Configuración de etapas</span>
                     <h2 id="pipeline-settings-title">{selectedPipeline.name}</h2>
                     <p>{selectedPipeline.description}</p>
                   </div>

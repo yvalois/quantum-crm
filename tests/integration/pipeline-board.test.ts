@@ -64,7 +64,10 @@ function command(value: string) {
 function service(database: CrmPostgresDatabase) {
   return new SalesService(
     database.commercial.sales,
-    { existsFor: async (viewer, id) => (await database.commercial.contacts.find(viewer, id)) !== null },
+    {
+      existsFor: async (viewer, id) =>
+        (await database.commercial.contacts.find(viewer, id)) !== null,
+    },
     { isActive: async (id) => (await database.members.findById(id))?.status === "ACTIVE" },
     clock,
   );
@@ -123,7 +126,11 @@ beforeAll(async () => {
     await profile.pool.query(
       `INSERT INTO iam.members(id, oidc_subject, display_name, email, status, commercial_scope)
        VALUES ($1::uuid, $2, 'Synthetic pipeline operator', $3, 'active', 'profile')`,
-      [actor.memberId, `pipeline-fixture-${actor.memberId}`, `pipeline-${actor.memberId}@example.test`],
+      [
+        actor.memberId,
+        `pipeline-fixture-${actor.memberId}`,
+        `pipeline-${actor.memberId}@example.test`,
+      ],
     );
     await profile.database.connect();
   }
@@ -173,11 +180,17 @@ describe("PIPE-07 practical board against isolated PostgreSQL", () => {
     ]);
     expect(concurrent).toEqual(first);
     expect(await salesA.moveOpportunity(request)).toEqual(first);
-    expect(await salesA.getOpportunity({ actor, permissions, opportunityId: opportunity.id })).toMatchObject({
+    expect(
+      await salesA.getOpportunity({ actor, permissions, opportunityId: opportunity.id }),
+    ).toMatchObject({
       stageId: nextStage.id,
       version: 2n,
     });
-    const history = await salesA.listOpportunityHistory({ actor, permissions, opportunityId: opportunity.id });
+    const history = await salesA.listOpportunityHistory({
+      actor,
+      permissions,
+      opportunityId: opportunity.id,
+    });
     expect(history.filter((entry) => entry.eventType === "STAGE_CHANGED")).toEqual([
       expect.objectContaining({
         actorMemberId: actor.memberId,
@@ -186,14 +199,26 @@ describe("PIPE-07 practical board against isolated PostgreSQL", () => {
       }),
     ]);
     await expect(
-      salesA.moveOpportunity({ ...request, ...command("stale distinct move"), stageId: firstStage.id }),
+      salesA.moveOpportunity({
+        ...request,
+        ...command("stale distinct move"),
+        stageId: firstStage.id,
+      }),
     ).rejects.toBeInstanceOf(SalesVersionConflictError);
     await expect(
       salesA.moveOpportunity({ ...request, payloadHash: "b".repeat(64), stageId: firstStage.id }),
     ).rejects.toBeInstanceOf(CommercialIdempotencyConflictError);
-    expect((await salesA.listOpportunityHistory({ actor, permissions, opportunityId: opportunity.id })).length).toBe(2);
-    await profileA.pool.query("UPDATE sales.opportunities SET owner_member_id = $2::uuid WHERE id = $1::uuid", [opportunity.id, randomUUID()]);
-    await expect(salesA.moveOpportunity({ ...request, actor: { ...actor, scope: "OWN" } })).rejects.toBeInstanceOf(SalesNotFoundError);
+    expect(
+      (await salesA.listOpportunityHistory({ actor, permissions, opportunityId: opportunity.id }))
+        .length,
+    ).toBe(2);
+    await profileA.pool.query(
+      "UPDATE sales.opportunities SET owner_member_id = $2::uuid WHERE id = $1::uuid",
+      [opportunity.id, randomUUID()],
+    );
+    await expect(
+      salesA.moveOpportunity({ ...request, actor: { ...actor, scope: "OWN" } }),
+    ).rejects.toBeInstanceOf(SalesNotFoundError);
   });
 
   it("replays a saved amount change while rejecting stale independent changes", async () => {
@@ -213,8 +238,14 @@ describe("PIPE-07 practical board against isolated PostgreSQL", () => {
     expect(concurrent).toEqual(result);
     expect(result).toMatchObject({ amountMinor: 7654300n, version: 2n });
     expect(await salesA.updateOpportunity(request)).toEqual(result);
-    await expect(salesA.updateOpportunity({ ...request, ...command("stale update") })).rejects.toBeInstanceOf(SalesVersionConflictError);
-    const history = await salesA.listOpportunityHistory({ actor, permissions, opportunityId: opportunity.id });
+    await expect(
+      salesA.updateOpportunity({ ...request, ...command("stale update") }),
+    ).rejects.toBeInstanceOf(SalesVersionConflictError);
+    const history = await salesA.listOpportunityHistory({
+      actor,
+      permissions,
+      opportunityId: opportunity.id,
+    });
     expect(history.filter((entry) => entry.eventType === "UPDATED")).toEqual([
       expect.objectContaining({ previousAmountMinor: 1234500n, nextAmountMinor: 7654300n }),
     ]);
@@ -231,29 +262,59 @@ describe("PIPE-07 practical board against isolated PostgreSQL", () => {
       expectedVersion: opportunity.version,
       ...command("denied move"),
     };
-    await expect(salesA.moveOpportunity({ ...request, permissions: [] })).rejects.toBeInstanceOf(IamAuthorizationError);
-    await expect(salesA.moveOpportunity({ ...request, stageId: other.nextStage.id })).rejects.toBeInstanceOf(SalesValidationError);
+    await expect(salesA.moveOpportunity({ ...request, permissions: [] })).rejects.toBeInstanceOf(
+      IamAuthorizationError,
+    );
+    await expect(
+      salesA.moveOpportunity({ ...request, stageId: other.nextStage.id }),
+    ).rejects.toBeInstanceOf(SalesValidationError);
     const otherActor: CommercialActor = { memberId: randomUUID(), scope: "OWN" };
-    await expect(salesA.moveOpportunity({ ...request, actor: otherActor })).rejects.toBeInstanceOf(SalesNotFoundError);
-    await expect(salesA.getOpportunity({ actor: otherActor, permissions, opportunityId: opportunity.id })).rejects.toBeInstanceOf(SalesNotFoundError);
-    expect(await salesA.listOpportunities(otherActor, permissions, { pipelineId: opportunity.pipelineId })).toEqual([]);
-    expect(await salesA.listOpportunityHistory({ actor: otherActor, permissions, opportunityId: opportunity.id })).toEqual([]);
-    expect(await salesA.getOpportunity({ actor, permissions, opportunityId: opportunity.id })).toMatchObject({ stageId: opportunity.stageId, version: 1n });
+    await expect(salesA.moveOpportunity({ ...request, actor: otherActor })).rejects.toBeInstanceOf(
+      SalesNotFoundError,
+    );
+    await expect(
+      salesA.getOpportunity({ actor: otherActor, permissions, opportunityId: opportunity.id }),
+    ).rejects.toBeInstanceOf(SalesNotFoundError);
+    expect(
+      await salesA.listOpportunities(otherActor, permissions, {
+        pipelineId: opportunity.pipelineId,
+      }),
+    ).toEqual([]);
+    expect(
+      await salesA.listOpportunityHistory({
+        actor: otherActor,
+        permissions,
+        opportunityId: opportunity.id,
+      }),
+    ).toEqual([]);
+    expect(
+      await salesA.getOpportunity({ actor, permissions, opportunityId: opportunity.id }),
+    ).toMatchObject({ stageId: opportunity.stageId, version: 1n });
   });
 
   it("keeps a known opportunity ID unreadable and unmovable from the other profile", async () => {
     const { opportunity, nextStage } = await fixture();
-    await expect(salesB.getOpportunity({ actor, permissions, opportunityId: opportunity.id })).rejects.toBeInstanceOf(SalesNotFoundError);
-    await expect(salesB.moveOpportunity({
-      actor,
-      permissions,
-      opportunityId: opportunity.id,
-      stageId: nextStage.id,
-      expectedVersion: opportunity.version,
-      ...command("cross-profile move"),
-    })).rejects.toBeInstanceOf(SalesNotFoundError);
-    expect(await salesB.listOpportunities(actor, permissions, { pipelineId: opportunity.pipelineId })).toEqual([]);
-    expect(await salesB.listOpportunityHistory({ actor, permissions, opportunityId: opportunity.id })).toEqual([]);
-    expect(await salesA.getOpportunity({ actor, permissions, opportunityId: opportunity.id })).toMatchObject({ stageId: opportunity.stageId, version: 1n });
+    await expect(
+      salesB.getOpportunity({ actor, permissions, opportunityId: opportunity.id }),
+    ).rejects.toBeInstanceOf(SalesNotFoundError);
+    await expect(
+      salesB.moveOpportunity({
+        actor,
+        permissions,
+        opportunityId: opportunity.id,
+        stageId: nextStage.id,
+        expectedVersion: opportunity.version,
+        ...command("cross-profile move"),
+      }),
+    ).rejects.toBeInstanceOf(SalesNotFoundError);
+    expect(
+      await salesB.listOpportunities(actor, permissions, { pipelineId: opportunity.pipelineId }),
+    ).toEqual([]);
+    expect(
+      await salesB.listOpportunityHistory({ actor, permissions, opportunityId: opportunity.id }),
+    ).toEqual([]);
+    expect(
+      await salesA.getOpportunity({ actor, permissions, opportunityId: opportunity.id }),
+    ).toMatchObject({ stageId: opportunity.stageId, version: 1n });
   });
 });

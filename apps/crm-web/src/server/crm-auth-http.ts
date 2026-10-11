@@ -724,8 +724,7 @@ export async function handleCrmOpportunityDetail(
     );
     const response = await commercialResponse(upstream, OpportunityResponseSchema);
     const etag = upstream.headers.get("etag");
-    if (response.ok && etag && /^"[1-9][0-9]*"$/u.test(etag))
-      response.headers.set("etag", etag);
+    if (response.ok && etag && /^"[1-9][0-9]*"$/u.test(etag)) response.headers.set("etag", etag);
     return response;
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");

@@ -550,9 +550,7 @@ describe("CRM web authentication HTTP boundary", () => {
     const [target, init] = upstream.mock.calls[0]!;
     expect(target.toString()).toBe(`http://api:3001/api/v1/sales/opportunities/${opportunityId}`);
     expect(init?.cache).toBe("no-store");
-    expect(new Headers(init?.headers).get("authorization")).toBe(
-      "Bearer server-only-access-token",
-    );
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer server-only-access-token");
   });
 
   it.each([403, 404])("preserves denied opportunity detail responses (%s)", async (status) => {
