@@ -70,6 +70,8 @@ Los contactos y oportunidades quedan en sus modulos habituales; los campos perso
 
 ## Validacion
 
+Adjuntos, candidato funcional `900fcbe3`: nueve proyectos afectados aprobaron typecheck; 116 pruebas enfocadas y cuatro de arquitectura aprobadas en el VPS. Se reutiliza evidencia por contenido entre commits de formato y pruebas. Las seis pruebas PostgreSQL reales cubren dos perfiles, permisos por hilo, referencias inmutables, reintento, auditoria y exclusion de cargas concurrentes; detectaron y corrigieron el alias SQL del enlace idempotente de Files. La migracion aditiva fue aplicada una sola vez en ambos perfiles sinteticos del laboratorio. Transferencia real y despliegue pendientes de los checks del candidato; no se presentan como realizados. El primer push aun no genero ejecucion de Actions pese a estar el workflow activo; se registra esta evidencia antes de reintentar la sincronizacion documental, sin repetir comprobaciones aprobadas.
+
 VPS autorizado, Node 24.21.0, 2026-10-11:
 
 - 27 pruebas enfocadas aprobadas: exportador, transporte, cifrado y configuracion. Cuatro pruebas de limites de arquitectura aprobadas.
