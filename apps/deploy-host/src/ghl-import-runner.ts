@@ -84,7 +84,10 @@ export async function protectedFile(
   }
 }
 
-export function parseApprovedJob(value: unknown, request: HostAdapterGhlImportRequest): ApprovedGhlImport {
+export function parseApprovedJob(
+  value: unknown,
+  request: HostAdapterGhlImportRequest,
+): ApprovedGhlImport {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new HostAdapterError("IDENTITY_MISMATCH");
   }

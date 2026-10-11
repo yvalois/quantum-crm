@@ -6,8 +6,15 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { createCommandRunner, type TenantComposeRunnerOptions } from "./compose-runner.js";
-import { createTenantGhlImportRunner, parseApprovedJob, protectedFile } from "./ghl-import-runner.js";
-import { tuneAttachmentStorageResources, withAttachmentStorageTuningLock } from "./ghl-attachment-storage-tuning.js";
+import {
+  createTenantGhlImportRunner,
+  parseApprovedJob,
+  protectedFile,
+} from "./ghl-import-runner.js";
+import {
+  tuneAttachmentStorageResources,
+  withAttachmentStorageTuningLock,
+} from "./ghl-attachment-storage-tuning.js";
 import { HostAdapterError, type HostAdapterGhlImportRequest } from "./host-adapter.js";
 
 const execFileAsync = promisify(execFile);
@@ -316,7 +323,13 @@ export async function runRegisteredGhlImport(
 
 export async function tuneRegisteredGhlAttachmentStorage(tenantId: string, exportId: string) {
   const request = await registeredGhlRequest(tenantId, exportId, "ATTACHMENTS", 1);
-  const registryPath = join(configurationRoot, "tenant", tenantId, "ghl-imports", `${exportId}.json`);
+  const registryPath = join(
+    configurationRoot,
+    "tenant",
+    tenantId,
+    "ghl-imports",
+    `${exportId}.json`,
+  );
   parseApprovedJob(JSON.parse(await readFile(registryPath, "utf8")) as unknown, request);
   const options = await hostOptions();
   if (options.platformStorageNetwork !== "qcrm-staging-platform-storage")
