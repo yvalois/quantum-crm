@@ -518,7 +518,7 @@ export function createFilePostgresRepository(pool: PostgresPool): FileProcessing
              created_by_member_id, created_at)
            VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6, 0, $7::uuid, $8)
            ON CONFLICT (file_id, module, resource_type, resource_id, purpose)
-           DO UPDATE SET position = files.references.position
+           DO UPDATE SET position = reference.position
            RETURNING ${referenceSelection}`,
           [
             input.reference.id,
