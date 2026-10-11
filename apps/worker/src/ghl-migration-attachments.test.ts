@@ -224,8 +224,7 @@ function harness(
 }
 
 beforeEach(() => {
-  vi
-    .mocked(uploadReservedFile)
+  vi.mocked(uploadReservedFile)
     .mockReset()
     .mockResolvedValue({ versionId: "incoming-version", receipt: "receipt" });
 });
