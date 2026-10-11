@@ -111,10 +111,12 @@ async function bootstrap(): Promise<void> {
         config.iamBootstrapClientId!,
         activationIssuer,
         fileStorageAuthorization,
+        config.ycloudBinding,
       ),
       {
         abortOnError: true,
         bufferLogs: true,
+        rawBody: true,
       },
     );
     application.enableShutdownHooks();

@@ -21,6 +21,8 @@ import type {
   ContactListFilters,
   ContactListSort,
   ContactRepository,
+  ExternalContactDirectory,
+  ExternalConversationReceiver,
   ConversationRepository,
   HistoricalConversationRepository,
   CommercialActor,
@@ -43,7 +45,7 @@ import type {
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
-import { createConversationPostgresRepository } from "./conversation-postgres-repository.js";
+import { createConversationPostgresRepository, createExternalConversationReceiver } from "./conversation-postgres-repository.js";
 import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 import { createFormPostgresRepository } from "./form-postgres-repository.js";
@@ -684,7 +686,9 @@ function isPipelineSnapshotRow(row: PipelineRow | PipelineSnapshotRow): row is P
 
 export interface CommercialPostgresRepositories {
   readonly contacts: ContactRepository;
+  readonly externalContacts: ExternalContactDirectory;
   readonly conversations: ConversationRepository;
+  readonly externalConversations: ExternalConversationReceiver;
   readonly historicalConversations: HistoricalConversationRepository;
   readonly sales: SalesRepository;
   readonly tasks: TaskRepository;
@@ -698,6 +702,42 @@ export interface CommercialPostgresRepositories {
 export function createCommercialPostgresRepositories(
   pool: PostgresPool,
 ): CommercialPostgresRepositories {
+  const externalContacts: ExternalContactDirectory = Object.freeze({
+    resolvePhone: async (phone: string, displayName: string) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `external-contact:${phone}`,
+        ]);
+        const existing = await client.query<{ id: string; display_name: string }>(
+          `SELECT id::text, display_name FROM contacts.contacts
+           WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $1
+           ORDER BY created_at, id LIMIT 1`,
+          [phone],
+        );
+        if (existing.rows[0]) {
+          await client.query("COMMIT");
+          return { id: existing.rows[0].id, displayName: existing.rows[0].display_name };
+        }
+        const created = await client.query<{ id: string }>(
+          `INSERT INTO contacts.contacts
+           (id, owner_member_id, display_name, phone, source, version, created_at, updated_at)
+           VALUES ($1::uuid, NULL, $2, $3, 'conversation', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           RETURNING id::text`,
+          [randomUUID(), displayName, `+${phone}`],
+        );
+        await client.query("COMMIT");
+        return { id: created.rows[0]!.id, displayName };
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+  });
   const contacts: ContactRepository = Object.freeze<ContactRepository>({
     list: async (actor, filters: ContactListFilters = {}) => {
       try {
@@ -2556,6 +2596,8 @@ export function createCommercialPostgresRepositories(
   return Object.freeze({
     contacts,
     conversations: createConversationPostgresRepository(pool),
+    externalContacts,
+    externalConversations: createExternalConversationReceiver(pool),
     historicalConversations: createHistoricalConversationPostgresRepository(pool),
     sales,
     tasks,

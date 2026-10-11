@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { randomUUID } from "node:crypto";
 
 import type {
   CommercialActor,
@@ -6,11 +7,89 @@ import type {
   ConversationMessageRecord,
   ConversationRecord,
   ConversationRepository,
+  ExternalConversationReceiver,
+  ExternalConversationMessage,
   QuickReplyRecord,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
+
+export function createExternalConversationReceiver(pool: PostgresPool): ExternalConversationReceiver {
+  return Object.freeze({
+    receive: async (message: ExternalConversationMessage) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `external-thread:${message.externalThreadId}`,
+        ]);
+        const existing = await client.query<{ id: string }>(
+          `SELECT id::text FROM conversations.conversations
+           WHERE channel = 'whatsapp' AND external_thread_id = $1 FOR UPDATE`,
+          [message.externalThreadId],
+        );
+        let conversationId = existing.rows[0]?.id;
+        if (!conversationId) {
+          conversationId = randomUUID();
+          await client.query(
+            `INSERT INTO conversations.conversations
+             (id, contact_id, channel, external_thread_id, assignee_member_id, status,
+              attention_mode, subject, last_message_preview, last_message_at, unread_count,
+              version, created_at, updated_at)
+             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, NULL, 'open', 'human', $5,
+                     NULL, NULL, 0, 1, $4, $4)`,
+            [conversationId, message.contactId, message.externalThreadId, message.occurredAt, message.contactDisplayName.slice(0, 240)],
+          );
+        }
+        const duplicate = await client.query<{ id: string }>(
+          `SELECT id::text FROM conversations.messages
+           WHERE conversation_id = $1::uuid AND external_message_id = $2`,
+          [conversationId, message.externalMessageId],
+        );
+        if (duplicate.rows[0]) {
+          await client.query("COMMIT");
+          return "DUPLICATE" as const;
+        }
+        const sequence = await client.query<{ sequence: string }>(
+          `SELECT COALESCE(MAX(sequence), 0) + 1 AS sequence
+           FROM conversations.messages WHERE conversation_id = $1::uuid`,
+          [conversationId],
+        );
+        await client.query(
+          `INSERT INTO conversations.messages
+           (id, conversation_id, sequence, direction, kind, author_member_id, body,
+            external_message_id, delivery_status, failure_code, created_at, updated_at)
+           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, NULL, $6, $7, $8, NULL, $9, $9)`,
+          [
+            randomUUID(), conversationId, sequence.rows[0]!.sequence,
+            message.direction.toLowerCase(), message.kind.toLowerCase(), message.body,
+            message.externalMessageId,
+            message.direction === "INBOUND" ? "received" : "sent", message.occurredAt,
+          ],
+        );
+        await client.query(
+          `UPDATE conversations.conversations SET
+             last_message_preview = CASE WHEN last_message_at IS NULL OR $2 >= last_message_at
+               THEN left($3, 280) ELSE last_message_preview END,
+             last_message_at = GREATEST(COALESCE(last_message_at, $2), $2),
+             unread_count = unread_count + CASE WHEN $4 = 'inbound' AND NOT $5 THEN 1 ELSE 0 END,
+             version = version + 1, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1::uuid`,
+          [conversationId, message.occurredAt, message.body, message.direction.toLowerCase(), message.historical],
+        );
+        await client.query("COMMIT");
+        return "CREATED" as const;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+  });
+}
 
 export class ConversationIdempotencyConflictError extends Error {
   public constructor() {
