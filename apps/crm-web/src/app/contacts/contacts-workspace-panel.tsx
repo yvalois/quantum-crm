@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { CrmShell } from "../crm-shell";
+import styles from "./contacts-workspace.module.css";
 
 type WorkspaceView = "all" | "unassigned" | "archived";
 type ContactColumn = "owner" | "labels" | "source" | "updated";
@@ -1307,11 +1308,10 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   const drawerOwner = selectedContact ? ownerFor(selectedContact) : null;
 
   return (
-    <CrmShell className="contact-workspace-shell">
+    <CrmShell className={`contact-workspace-shell ${styles.shell ?? ""}`}>
       <section className="crm-content contact-workspace" aria-busy={loading || saving || bulkBusy}>
         <header className="contact-workspace-header">
           <div className="contact-workspace-heading">
-            <span className="contact-workspace-kicker">Centro de contactos</span>
             <div>
               <h1>Contactos</h1>
               <span className="contact-workspace-count">
@@ -1372,15 +1372,15 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
         <div className={`contact-workspace-grid${selectedContact ? " has-detail" : ""}`}>
           <aside className="contact-workspace-views" aria-label="Vistas de contactos">
             <div className="contact-workspace-views-heading">
-              <span>Vistas</span>
               <button type="button" title="Restablecer vista" onClick={resetFilters}>
                 <Icon name="refresh" size={14} />
               </button>
             </div>
-            <nav>
+            <nav aria-label="Listas de contactos">
               <button
                 type="button"
                 className={activeView === "all" ? "is-active" : ""}
+                aria-pressed={activeView === "all"}
                 onClick={() => chooseView("all")}
               >
                 <span>
@@ -1391,6 +1391,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
               <button
                 type="button"
                 className={activeView === "unassigned" ? "is-active" : ""}
+                aria-pressed={activeView === "unassigned"}
                 onClick={() => chooseView("unassigned")}
               >
                 <span>
@@ -1400,6 +1401,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
               <button
                 type="button"
                 className={activeView === "archived" ? "is-active" : ""}
+                aria-pressed={activeView === "archived"}
                 onClick={() => chooseView("archived")}
               >
                 <span>
@@ -1413,7 +1415,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
             </div>
           </aside>
 
-          <main className="contact-workspace-table-pane">
+          <section className="contact-workspace-table-pane" aria-label="Listado de contactos">
             <div className="contact-workspace-toolbar">
               <form className="contact-workspace-search" onSubmit={submitSearch} role="search">
                 <Icon name="search" size={18} />
@@ -1705,7 +1707,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
             ) : null}
 
             <div className="contact-workspace-table-wrap">
-              <table className="contact-workspace-table">
+              <table className="contact-workspace-table" aria-label="Lista de contactos">
                 <thead>
                   <tr>
                     <th className="contact-workspace-checkbox-cell">
@@ -1881,7 +1883,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                 </button>
               </div>
             </footer>
-          </main>
+          </section>
 
           {selectedContact ? (
             <aside
