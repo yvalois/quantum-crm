@@ -119,7 +119,8 @@ export function createHistoricalConversationPostgresRepository(pool: PostgresPoo
           (SELECT count(*)::int FROM threads item WHERE item.message_count <>
             (SELECT count(*) FROM conversations.historical_messages message WHERE message.thread_id = item.id)) AS "inconsistentMessageCount",
           (SELECT count(*)::int FROM messages item LEFT JOIN conversations.historical_threads parent ON parent.id = item.thread_id
-            WHERE parent.id IS NULL OR parent.source_system <> item.source_system OR parent.source_location_id <> item.source_location_id) AS "invalidParentCount"`, [locationId]) as { rows: HistoricalConversationImportVerification[] };
+            WHERE parent.id IS NULL OR parent.source_system <> item.source_system OR parent.source_location_id <> item.source_location_id) AS "invalidParentCount",
+          (SELECT count(*)::int FROM conversations.outbox effect JOIN messages item ON item.id = effect.message_id) AS "outboxCount"`, [locationId]) as { rows: HistoricalConversationImportVerification[] };
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
         return Object.freeze(row);

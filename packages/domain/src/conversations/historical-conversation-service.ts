@@ -78,6 +78,7 @@ export interface HistoricalConversationImportVerification {
   readonly unresolvedContactThreadCount: number;
   readonly inconsistentMessageCount: number;
   readonly invalidParentCount: number;
+  readonly outboxCount: number;
 }
 export interface HistoricalConversationRepository {
   readonly importThread: (input: ImportHistoricalThreadInput) => Promise<HistoricalImportResult>;

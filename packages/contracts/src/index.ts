@@ -1,4 +1,5 @@
 export * from "./conversations/v1/historical-conversation.js";
+export { ContactCustomFieldSchema, type ContactCustomFieldValue } from "./contacts/v1/contact.js";
 export {
   CompleteFileUploadSchema,
   CreateFileDownloadAuthorizationSchema,

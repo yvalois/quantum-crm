@@ -39,7 +39,7 @@ async function main(): Promise<void> {
         settings.existingFields === settings.mappedFields && sales.existingPipelines === sales.mappedPipelines &&
         sales.existingStages === sales.mappedStages && sales.existingOpportunities === sales.mappedOpportunities && sales.validOpportunityStages === sales.existingOpportunities &&
         conversations.threadCount === conversations.mappedThreadCount && conversations.messageCount === conversations.mappedMessageCount &&
-        conversations.inconsistentMessageCount === 0 && conversations.invalidParentCount === 0 &&
+        conversations.inconsistentMessageCount === 0 && conversations.invalidParentCount === 0 && conversations.outboxCount === 0 &&
         contacts.existingContacts >= expected("CONTACTS") && settings.existingFields >= expected("CUSTOM_FIELDS") &&
         sales.existingPipelines >= expected("PIPELINES") && sales.existingOpportunities >= expected("OPPORTUNITIES") &&
         conversations.threadCount >= expected("CONVERSATIONS") && conversations.messageCount >= expected("MESSAGES");

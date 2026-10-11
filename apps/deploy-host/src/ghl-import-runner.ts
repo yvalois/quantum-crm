@@ -17,7 +17,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const jobKeys = new Set([
   "schemaVersion", "operationId", "tenantProfileId", "serverId", "releaseId",
   "configurationRevision", "exportId", "workerImageId", "artifactSha256", "locationId",
-  "currency", "developmentBackupException", "migratorImageId",
+  "currency", "developmentBackupException", "migratorImageId", "candidateCommit",
 ]);
 
 interface ApprovedGhlImport {
@@ -34,7 +34,7 @@ export interface TenantGhlImportRunnerOptions extends TenantComposeRunnerOptions
   readonly exportKeyFile?: string;
 }
 
-async function protectedFile(root: string, path: string, maximumBytes: number): Promise<void> {
+export async function protectedFile(root: string, path: string, maximumBytes: number): Promise<void> {
   const rootPath = resolve(root);
   const target = resolve(path);
   if (/[\0\r\n,]/u.test(rootPath) || /[\0\r\n,]/u.test(target)) {
@@ -71,6 +71,7 @@ function parseApprovedJob(value: unknown, request: HostAdapterGhlImportRequest):
     job.serverId !== request.serverId || job.releaseId !== request.releaseId ||
     job.configurationRevision !== request.configurationRevision.toString() ||
     job.exportId !== request.exportId || job.developmentBackupException !== true ||
+    (job.candidateCommit !== undefined && (typeof job.candidateCommit !== "string" || !/^[0-9a-f]{40}$/u.test(job.candidateCommit))) ||
     typeof job.workerImageId !== "string" || !digestPattern.test(job.workerImageId) ||
     (job.migratorImageId !== undefined && (typeof job.migratorImageId !== "string" || !digestPattern.test(job.migratorImageId))) ||
     (request.mode === "MIGRATE" && typeof job.migratorImageId !== "string") ||

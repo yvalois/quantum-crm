@@ -27,7 +27,7 @@ function setup(contactExists = true) {
     importThread: vi.fn(async () => result), importMessage: vi.fn(async () => result),
     list: vi.fn(async () => ({ items: [], nextCursor: null })),
     find: vi.fn(async () => null), messages: vi.fn(async () => null),
-    verifyImports: vi.fn(async () => ({ threadCount: 0, messageCount: 0, mappedThreadCount: 0, mappedMessageCount: 0, unresolvedThreadCount: 0, unresolvedContactThreadCount: 0, inconsistentMessageCount: 0, invalidParentCount: 0 })),
+    verifyImports: vi.fn(async () => ({ threadCount: 0, messageCount: 0, mappedThreadCount: 0, mappedMessageCount: 0, unresolvedThreadCount: 0, unresolvedContactThreadCount: 0, inconsistentMessageCount: 0, invalidParentCount: 0, outboxCount: 0 })),
   };
   const references = { contactExistsFor: vi.fn(async () => contactExists), isActiveMember: vi.fn(async () => true) };
   return { repository, references, service: new HistoricalConversationService(repository, references) };

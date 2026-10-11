@@ -21,6 +21,7 @@ const request: HostAdapterGhlImportRequest = {
   projectName: "qcrm-t-01995f7e-7b52-7000-8000-000000000201", mode: "APPLY",
 };
 const imageId = `sha256:${"a".repeat(64)}`;
+const migratorImageId = `sha256:${"f".repeat(64)}`;
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))); });
 
@@ -45,13 +46,14 @@ async function fixture() {
   await writeFile(join(configurationRoot, request.manifestRef), JSON.stringify(manifest), { mode: 0o600 });
   const databaseFile = join(databaseSecretRoot, request.tenantProfileId, "runtime-url");
   await writeFile(databaseFile, "synthetic-runtime-secret", { mode: 0o400 });
+  await writeFile(join(databaseSecretRoot, request.tenantProfileId, "migrator-url"), "synthetic-migrator-secret", { mode: 0o400 });
   const exportKeyFile = join(databaseSecretRoot, "export-key");
   await writeFile(exportKeyFile, "synthetic-key", { mode: 0o400 });
   const artifactFile = join(exportRoot, request.exportId, "records.qcrm");
   await writeFile(artifactFile, "encrypted-synthetic-artifact", { mode: 0o600 });
   const approved = { schemaVersion: 1, operationId: request.operationId, tenantProfileId: request.tenantProfileId,
     serverId: request.serverId, releaseId: request.releaseId, configurationRevision: "1", exportId: request.exportId,
-    workerImageId: imageId, artifactSha256: createHash("sha256").update("encrypted-synthetic-artifact").digest("hex"),
+    workerImageId: imageId, migratorImageId, artifactSha256: createHash("sha256").update("encrypted-synthetic-artifact").digest("hex"),
     locationId: "synthetic-location", currency: "USD", developmentBackupException: true };
   const jobFile = join(jobDirectory, `${request.exportId}.json`);
   const registered = JSON.stringify(approved);
@@ -59,10 +61,11 @@ async function fixture() {
   let started = false;
   let exited = false;
   let internal = true;
-  const container = () => JSON.stringify([{ Name: `/qcrm-ghl-${request.operationId}-${request.mode.toLowerCase()}-${request.attempt}`,
-    Image: imageId, Config: { Labels: { "com.quantum.operation-id": request.operationId,
+  let currentMode = request.mode;
+  const container = () => JSON.stringify([{ Name: `/qcrm-ghl-${request.operationId}-${currentMode.toLowerCase()}-${request.attempt}`,
+    Image: currentMode === "MIGRATE" ? migratorImageId : imageId, Config: { Labels: { "com.quantum.operation-id": request.operationId,
       "com.quantum.tenant-id": request.tenantProfileId, "com.quantum.ghl-export-id": request.exportId,
-      "com.quantum.ghl-job-sha256": createHash("sha256").update(registered).digest("hex"), "com.quantum.ghl-import-mode": request.mode } },
+      "com.quantum.ghl-job-sha256": createHash("sha256").update(registered).digest("hex"), "com.quantum.ghl-import-mode": currentMode } },
     State: { Status: exited ? "exited" : "running", Running: !exited, ExitCode: 0 } }]);
   const run = vi.fn(async (args: readonly string[]) => {
     if (args[0] === "container") return started ? { exitCode: 0, stdout: container(), stderr: "" } : { exitCode: 1, stdout: "[]", stderr: "Error: No such container" };
@@ -77,7 +80,7 @@ async function fixture() {
     platformSessionNetwork: "qcrm-platform-session", platformOidcNetwork: "qcrm-platform-oidc",
     storagePublicEndpoint: "https://files.example.test", commandRunner: { run } };
   return { options, run, approved, jobFile, artifactFile, databaseFile, root,
-    finish: () => { exited = true; }, externalNetwork: () => { internal = false; } };
+    finish: () => { exited = true; }, externalNetwork: () => { internal = false; }, migrationMode: () => { currentMode = "MIGRATE"; } };
 }
 
 describe("registered GHL import host job", () => {
@@ -102,6 +105,19 @@ describe("registered GHL import host job", () => {
     f.finish();
     await expect(subject.run(request)).resolves.toEqual({ state: "SUCCEEDED", exitCode: 0, reconciled: true });
     expect(f.run.mock.calls.filter(([args]) => args[0] === "run")).toHaveLength(1);
+  });
+
+  it("runs the registered candidate migrator with only the target migration credential", async () => {
+    const f = await fixture();
+    f.migrationMode();
+    await expect(createTenantGhlImportRunner(f.options).run({ ...request, mode: "MIGRATE" })).resolves.toMatchObject({ state: "RUNNING" });
+    const args = f.run.mock.calls.find(([args]) => args[0] === "run")?.[0] ?? [];
+    expect(args.at(-1)).toBe(migratorImageId);
+    expect(args).toContain("QCRM_MIGRATION_DATABASE_URL_FILE=/run/secrets/qcrm_migration_database_url");
+    expect(args.join(" ")).toContain("migrator-url");
+    expect(args.join(" ")).not.toContain("runtime-url");
+    expect(args.join(" ")).not.toContain("ghl_export_key");
+    expect(args.join(" ")).not.toContain("ghl-migration-import-cli");
   });
 
   it("rejects corruption before any Docker command", async () => {

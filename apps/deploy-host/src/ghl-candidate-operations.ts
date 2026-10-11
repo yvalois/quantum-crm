@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { createCommandRunner, type TenantComposeRunnerOptions } from "./compose-runner.js";
-import { createTenantGhlImportRunner } from "./ghl-import-runner.js";
+import { createTenantGhlImportRunner, protectedFile } from "./ghl-import-runner.js";
 import { HostAdapterError, type HostAdapterGhlImportRequest } from "./host-adapter.js";
 
 const execFileAsync = promisify(execFile);
@@ -61,9 +61,9 @@ async function candidateRoot(commit: string): Promise<string> {
   if (!commitPattern.test(commit)) throw new HostAdapterError("IDENTITY_MISMATCH");
   const root = `/opt/quantum/builds/${commit}`;
   if (await realpath(root) !== root) throw new HostAdapterError("IDENTITY_MISMATCH");
-  const observed = await execFileAsync("/usr/bin/git", ["-C", root, "rev-parse", "HEAD"], { timeout: 10_000 });
+  const observed = await execFileAsync("/usr/bin/git", ["-c", `safe.directory=${root}`, "-C", root, "rev-parse", "HEAD"], { timeout: 10_000 });
   if (observed.stdout.trim() !== commit) throw new HostAdapterError("IDENTITY_MISMATCH");
-  const status = await execFileAsync("/usr/bin/git", ["-C", root, "status", "--porcelain", "--untracked-files=normal"], { timeout: 10_000 });
+  const status = await execFileAsync("/usr/bin/git", ["-c", `safe.directory=${root}`, "-C", root, "status", "--porcelain", "--untracked-files=normal"], { timeout: 10_000 });
   if (status.stdout.trim()) throw new HostAdapterError("IDENTITY_MISMATCH");
   return root;
 }
@@ -139,7 +139,9 @@ export async function registeredGhlRequest(tenantId: string, exportId: string,
   if (!uuidPattern.test(tenantId) || !uuidPattern.test(exportId) || !Number.isSafeInteger(attempt) || attempt < 1) {
     throw new HostAdapterError("IDENTITY_MISMATCH");
   }
-  const job = JSON.parse(await readFile(join(configurationRoot, "tenant", tenantId, "ghl-imports", `${exportId}.json`), "utf8")) as Record<string, unknown>;
+  const jobFile = join(configurationRoot, "tenant", tenantId, "ghl-imports", `${exportId}.json`);
+  await protectedFile(configurationRoot, jobFile, 16_384);
+  const job = JSON.parse(await readFile(jobFile, "utf8")) as Record<string, unknown>;
   if (job.tenantProfileId !== tenantId || job.exportId !== exportId || typeof job.operationId !== "string" ||
     !uuidPattern.test(job.operationId) || typeof job.serverId !== "string" || !uuidPattern.test(job.serverId) ||
     typeof job.releaseId !== "string" || !uuidPattern.test(job.releaseId) ||
@@ -209,6 +211,12 @@ export async function replaceGhlCandidateComponent(tenantId: string, app: "api" 
 export async function deployGhlCandidate(commit: string, tenantId: string, exportId: string) {
   await candidateRoot(commit);
   await registeredGhlRequest(tenantId, exportId, "VERIFY", 1);
+  const registered = JSON.parse(await readFile(join(configurationRoot, "tenant", tenantId, "ghl-imports", `${exportId}.json`), "utf8")) as Record<string, unknown>;
+  if (registered.candidateCommit !== commit || registered.developmentBackupException !== true ||
+    registered.workerImageId !== await candidateImage(commit, "worker") ||
+    registered.migratorImageId !== await candidateImage(commit, "crm-migrator")) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
   const apiImage = await candidateImage(commit, "api");
   const webImage = await candidateImage(commit, "crm-web");
   if (!apiImage || !webImage) throw new HostAdapterError("UNAVAILABLE");
@@ -240,6 +248,9 @@ export async function setupGhlIntegrationTest(commit: string) {
   await mkdir(join(testRoot, "init"), { recursive: true, mode: 0o700 });
   await fixedSyntheticFile(join(testRoot, "postgres-password"), "test-only-ghl-postgres");
   await fixedSyntheticFile(join(testRoot, "init", "10-ghl.sql"), await readFile(join(root, "tests/integration/fixtures/ghl-postgres-bootstrap.sql"), "utf8"));
+  await chown(join(testRoot, "init"), 999, 999);
+  await chown(join(testRoot, "init", "10-ghl.sql"), 999, 999);
+  await chown(join(testRoot, "postgres-password"), 999, 999);
   const observedNetwork = await docker.run(["network", "inspect", network], {}, 15_000);
   if (observedNetwork.exitCode !== 0) {
     const created = await docker.run(["network", "create", "--internal", "--label", `com.quantum.ghl-test=${commit}`, network], {}, 15_000);
@@ -263,7 +274,7 @@ export async function setupGhlIntegrationTest(commit: string) {
   if (postgres.Config.Labels["com.quantum.ghl-test"] !== commit || postgres.Image !== postgresImage) throw new HostAdapterError("IDENTITY_MISMATCH");
   let ready = false;
   for (let attempt = 0; attempt < 60; attempt++) {
-    const probe = await docker.run(["exec", name, "pg_isready", "-U", "postgres", "-d", "postgres"], {}, 5_000);
+    const probe = await docker.run(["exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"], {}, 5_000);
     if (probe.exitCode === 0) { ready = true; break; }
     await new Promise<void>((resolve) => setTimeout(resolve, 1_000));
   }
