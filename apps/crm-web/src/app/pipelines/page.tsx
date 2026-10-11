@@ -354,9 +354,7 @@ export default function PipelinesPage(): React.JSX.Element {
               <h1>Pipelines</h1>
               <span className={styles.pipelinePill}>{pipelines.length} activos</span>
             </div>
-            <p>
-              Abre un tablero para trabajar sus oportunidades o configura sus etapas.
-            </p>
+            <p>Abre un tablero para trabajar sus oportunidades o configura sus etapas.</p>
           </div>
           <div className={styles.topActions}>
             <button
@@ -436,9 +434,7 @@ export default function PipelinesPage(): React.JSX.Element {
                 {pipelines.map((pipeline) => (
                   <div
                     className={`${styles.pipelineDirectoryRow} ${
-                      selectedPipeline?.id === pipeline.id
-                        ? styles.pipelineDirectoryActive
-                        : ""
+                      selectedPipeline?.id === pipeline.id ? styles.pipelineDirectoryActive : ""
                     }`}
                     key={pipeline.id}
                   >
@@ -447,7 +443,15 @@ export default function PipelinesPage(): React.JSX.Element {
                       <small>{pipeline.description}</small>
                       <span>{pipeline.stages.length} etapas · Ver oportunidades →</span>
                     </a>
-                    <button className={styles.pipelineConfigureButton} type="button" onClick={() => setSelectedPipelineId(pipeline.id)} aria-label={`Configurar etapas de ${pipeline.name}`} aria-pressed={selectedPipeline?.id === pipeline.id}>Configurar etapas</button>
+                    <button
+                      className={styles.pipelineConfigureButton}
+                      type="button"
+                      onClick={() => setSelectedPipelineId(pipeline.id)}
+                      aria-label={`Configurar etapas de ${pipeline.name}`}
+                      aria-pressed={selectedPipeline?.id === pipeline.id}
+                    >
+                      Configurar etapas
+                    </button>
                   </div>
                 ))}
               </div>

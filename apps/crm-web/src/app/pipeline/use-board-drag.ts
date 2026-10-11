@@ -62,16 +62,30 @@ export function useBoardDrag({
       const board = boardRef.current;
       if (current?.active && board) {
         const bounds = board.getBoundingClientRect();
-        const horizontal = current.x < bounds.left + 64 ? -16 : current.x > bounds.right - 64 ? 16 : 0;
-        const column = document.elementFromPoint(current.x, current.y)?.closest<HTMLElement>("[data-stage-id]");
+        const horizontal =
+          current.x < bounds.left + 64 ? -16 : current.x > bounds.right - 64 ? 16 : 0;
+        const column = document
+          .elementFromPoint(current.x, current.y)
+          ?.closest<HTMLElement>("[data-stage-id]");
         const stack = column?.querySelector<HTMLElement>("[data-card-stack]");
         const stackBounds = stack?.getBoundingClientRect();
-        const vertical = stackBounds ? current.y < stackBounds.top + 48 ? -12 : current.y > stackBounds.bottom - 48 ? 12 : 0 : 0;
+        const vertical = stackBounds
+          ? current.y < stackBounds.top + 48
+            ? -12
+            : current.y > stackBounds.bottom - 48
+              ? 12
+              : 0
+          : 0;
         if (horizontal || vertical) {
           board.scrollBy(horizontal, 0);
           stack?.scrollBy(0, vertical);
-          const targetColumn = document.elementFromPoint(current.x, current.y)?.closest<HTMLElement>("[data-stage-id]");
-          const stageId = targetColumn && board.contains(targetColumn) ? (targetColumn.dataset.stageId ?? null) : null;
+          const targetColumn = document
+            .elementFromPoint(current.x, current.y)
+            ?.closest<HTMLElement>("[data-stage-id]");
+          const stageId =
+            targetColumn && board.contains(targetColumn)
+              ? (targetColumn.dataset.stageId ?? null)
+              : null;
           if (stageId !== target.current) {
             target.current = stageId;
             setTargetStageId(stageId);
@@ -102,7 +116,12 @@ export function useBoardDrag({
     const element = event.target instanceof Element ? event.target : null;
     const handle = element?.closest("[data-drag-handle]");
     if (event.pointerType !== "mouse" && !handle) return;
-    if (element?.closest("a, input, select, textarea, button:not([data-card-open]):not([data-drag-handle])")) return;
+    if (
+      element?.closest(
+        "a, input, select, textarea, button:not([data-card-open]):not([data-drag-handle])",
+      )
+    )
+      return;
     pointer.current = {
       opportunity,
       pointerId: event.pointerId,
@@ -119,7 +138,8 @@ export function useBoardDrag({
     if (!current || current.pointerId !== event.pointerId) return;
     current.x = event.clientX;
     current.y = event.clientY;
-    if (!current.active && Math.hypot(current.x - current.startX, current.y - current.startY) < 7) return;
+    if (!current.active && Math.hypot(current.x - current.startX, current.y - current.startY) < 7)
+      return;
     if (!current.active) {
       current.active = true;
       suppressedClick.current = true;
@@ -136,11 +156,16 @@ export function useBoardDrag({
     if (!current || current.pointerId !== event.pointerId) return;
     const stageId = current.active ? targetAt(event.clientX, event.clientY) : null;
     cancel();
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    if (stageId && stageId !== current.opportunity.stageId) void onMove(current.opportunity, stageId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    if (stageId && stageId !== current.opportunity.stageId)
+      void onMove(current.opportunity, stageId);
   }
 
-  function onHandleKeyDown(event: KeyboardEvent<HTMLButtonElement>, opportunity: Opportunity): void {
+  function onHandleKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    opportunity: Opportunity,
+  ): void {
     if (disabled || opportunity.status !== "OPEN") return;
     if (event.key === " " || event.key === "Enter") {
       event.preventDefault();
@@ -152,18 +177,26 @@ export function useBoardDrag({
         keyboardOpportunity.current = opportunity;
         setOpportunityId(opportunity.id);
         updateTarget(opportunity.stageId);
-        setAnnouncement(`Moviendo ${opportunity.title}. Usa las flechas para elegir etapa y Enter para confirmar.`);
+        setAnnouncement(
+          `Moviendo ${opportunity.title}. Usa las flechas para elegir etapa y Enter para confirmar.`,
+        );
       }
       return;
     }
-    if (!keyboardOpportunity.current || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    if (
+      !keyboardOpportunity.current ||
+      !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
+    )
+      return;
     event.preventDefault();
     const direction = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
     const index = stages.findIndex((stage) => stage.id === target.current);
     const stage = stages[Math.max(0, Math.min(stages.length - 1, index + direction))];
     if (!stage) return;
     updateTarget(stage.id);
-    boardRef.current?.querySelector<HTMLElement>(`[data-stage-id="${stage.id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    boardRef.current
+      ?.querySelector<HTMLElement>(`[data-stage-id="${stage.id}"]`)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
     setAnnouncement(`Destino: ${stage.name}. Enter para confirmar; Escape para cancelar.`);
   }
 

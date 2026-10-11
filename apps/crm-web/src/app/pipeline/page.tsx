@@ -133,7 +133,10 @@ function responseTitle(response: Response): Promise<string> {
 }
 
 class RequestError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
     super(message);
   }
 }
@@ -369,19 +372,30 @@ export default function PipelinePage(): React.JSX.Element {
       do {
         const query = new URLSearchParams({ pipelineId: selectedPipelineId, limit: "100" });
         if (cursor) query.set("cursor", cursor);
-        const response = await fetch(`/api/contacts?${query}`, { cache: "no-store", credentials: "same-origin", signal: controller.signal });
+        const response = await fetch(`/api/contacts?${query}`, {
+          cache: "no-store",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
         if (!response.ok) throw new Error(await responseTitle(response));
         const result = ContactListResponseSchema.parse(await response.json());
         if (controller.signal.aborted) return;
-        setContacts((current) => [...new Map([...current, ...result.data].map((contact) => [contact.id, contact])).values()]);
+        setContacts((current) => [
+          ...new Map([...current, ...result.data].map((contact) => [contact.id, contact])).values(),
+        ]);
         cursor = result.page.nextCursor;
       } while (cursor && !controller.signal.aborted);
     }
-    void loadPipelineContacts().catch((cause: unknown) => {
-      if (!controller.signal.aborted) setContactsError(cause instanceof Error ? cause.message : "No se pudieron cargar los contactos.");
-    }).finally(() => {
-      if (!controller.signal.aborted) setContactsLoading(false);
-    });
+    void loadPipelineContacts()
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setContactsError(
+            cause instanceof Error ? cause.message : "No se pudieron cargar los contactos.",
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setContactsLoading(false);
+      });
     return () => controller.abort();
   }, [selectedPipelineId]);
 
@@ -390,21 +404,33 @@ export default function PipelinePage(): React.JSX.Element {
     const controller = new AbortController();
     setContactSearchLoading(true);
     setContactSearchError(null);
-    const timer = window.setTimeout(() => {
-      async function searchContacts(): Promise<void> {
-        const query = new URLSearchParams({ limit: "100" });
-        if (contactSearch.trim()) query.set("q", contactSearch.trim());
-        const response = await fetch(`/api/contacts?${query}`, { cache: "no-store", credentials: "same-origin", signal: controller.signal });
-        if (!response.ok) throw new Error(await responseTitle(response));
-        const result = ContactListResponseSchema.parse(await response.json());
-        if (!controller.signal.aborted) setContactMatches(result.data);
-      }
-      void searchContacts().catch((cause: unknown) => {
-        if (!controller.signal.aborted) setContactSearchError(cause instanceof Error ? cause.message : "No se pudieron buscar contactos.");
-      }).finally(() => {
-        if (!controller.signal.aborted) setContactSearchLoading(false);
-      });
-    }, contactSearch ? 250 : 0);
+    const timer = window.setTimeout(
+      () => {
+        async function searchContacts(): Promise<void> {
+          const query = new URLSearchParams({ limit: "100" });
+          if (contactSearch.trim()) query.set("q", contactSearch.trim());
+          const response = await fetch(`/api/contacts?${query}`, {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error(await responseTitle(response));
+          const result = ContactListResponseSchema.parse(await response.json());
+          if (!controller.signal.aborted) setContactMatches(result.data);
+        }
+        void searchContacts()
+          .catch((cause: unknown) => {
+            if (!controller.signal.aborted)
+              setContactSearchError(
+                cause instanceof Error ? cause.message : "No se pudieron buscar contactos.",
+              );
+          })
+          .finally(() => {
+            if (!controller.signal.aborted) setContactSearchLoading(false);
+          });
+      },
+      contactSearch ? 250 : 0,
+    );
     return () => {
       window.clearTimeout(timer);
       controller.abort();
@@ -653,7 +679,13 @@ export default function PipelinePage(): React.JSX.Element {
   }
 
   async function moveOpportunity(opportunity: Opportunity, stageId: string): Promise<void> {
-    if (movingRef.current || saving || stageId === opportunity.stageId || opportunity.status !== "OPEN") return;
+    if (
+      movingRef.current ||
+      saving ||
+      stageId === opportunity.stageId ||
+      opportunity.status !== "OPEN"
+    )
+      return;
     if (!selectedPipeline?.stages.some((stage) => stage.id === stageId)) return;
     movingRef.current = true;
     setMovingOpportunityId(opportunity.id);
@@ -662,35 +694,65 @@ export default function PipelinePage(): React.JSX.Element {
     setNotice(null);
     const pipelineId = selectedPipelineId;
     const fingerprint = `${opportunity.id}:${opportunity.version}:${stageId}`;
-    const idempotencyKey = moveAttempt.current?.fingerprint === fingerprint ? moveAttempt.current.key : crypto.randomUUID();
+    const idempotencyKey =
+      moveAttempt.current?.fingerprint === fingerprint
+        ? moveAttempt.current.key
+        : crypto.randomUUID();
     moveAttempt.current = { fingerprint, key: idempotencyKey };
-    setOpportunities((current) => current.map((item) => item.id === opportunity.id ? { ...item, stageId } : item));
+    setOpportunities((current) =>
+      current.map((item) => (item.id === opportunity.id ? { ...item, stageId } : item)),
+    );
     try {
       const moved = await mutate<Opportunity>(
         `/api/opportunities/${opportunity.id}/move`,
         { stageId },
         { method: "PATCH", version: opportunity.version, idempotencyKey },
       );
-      if (!moved) throw new Error("El servidor no confirmó el movimiento. Actualiza antes de volver a intentarlo.");
+      if (!moved)
+        throw new Error(
+          "El servidor no confirmó el movimiento. Actualiza antes de volver a intentarlo.",
+        );
       moveAttempt.current = null;
       if (activePipelineRef.current === pipelineId) {
-        setOpportunities((current) => current.map((item) => item.id === moved.id ? moved : item).filter((item) => !filters.stageId || item.stageId === filters.stageId));
+        setOpportunities((current) =>
+          current
+            .map((item) => (item.id === moved.id ? moved : item))
+            .filter((item) => !filters.stageId || item.stageId === filters.stageId),
+        );
         setEditor((current) => (current?.id === moved.id ? moved : current));
-        setNotice(`Oportunidad movida a ${selectedPipeline.stages.find((stage) => stage.id === stageId)?.name ?? "la etapa seleccionada"}.`);
+        setNotice(
+          `Oportunidad movida a ${selectedPipeline.stages.find((stage) => stage.id === stageId)?.name ?? "la etapa seleccionada"}.`,
+        );
         if (editor?.id === moved.id) void loadHistory(moved.id);
       }
     } catch (cause) {
       if (activePipelineRef.current === pipelineId) {
-        setOpportunities((current) => current.map((item) => item.id === opportunity.id ? opportunity : item));
-        setError(cause instanceof RequestError && cause.status === 412
-          ? "Otra persona actualizó esta oportunidad. Cargamos la versión actual; revisa la etapa antes de volver a moverla."
-          : cause instanceof Error ? cause.message : "No fue posible mover la oportunidad.");
+        setOpportunities((current) =>
+          current.map((item) => (item.id === opportunity.id ? opportunity : item)),
+        );
+        setError(
+          cause instanceof RequestError && cause.status === 412
+            ? "Otra persona actualizó esta oportunidad. Cargamos la versión actual; revisa la etapa antes de volver a moverla."
+            : cause instanceof Error
+              ? cause.message
+              : "No fue posible mover la oportunidad.",
+        );
         try {
           const current = await fetchOpportunity(opportunity.id);
-          setOpportunities((items) => items.map((item) => item.id === current.id ? current : item).filter((item) => (!filters.status || item.status === filters.status) && (!filters.stageId || item.stageId === filters.stageId)));
-          setEditor((item) => item?.id === current.id ? current : item);
+          setOpportunities((items) =>
+            items
+              .map((item) => (item.id === current.id ? current : item))
+              .filter(
+                (item) =>
+                  (!filters.status || item.status === filters.status) &&
+                  (!filters.stageId || item.stageId === filters.stageId),
+              ),
+          );
+          setEditor((item) => (item?.id === current.id ? current : item));
         } catch {
-          setError("No pudimos confirmar el estado actual. El tablero conserva la última versión conocida; actualiza antes de volver a mover.");
+          setError(
+            "No pudimos confirmar el estado actual. El tablero conserva la última versión conocida; actualiza antes de volver a mover.",
+          );
         }
       }
     } finally {
@@ -702,7 +764,10 @@ export default function PipelinePage(): React.JSX.Element {
   }
 
   async function fetchOpportunity(id: string): Promise<Opportunity> {
-    const response = await fetch(`/api/opportunities/${id}`, { cache: "no-store", credentials: "same-origin" });
+    const response = await fetch(`/api/opportunities/${id}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
     if (!response.ok) throw new RequestError(await responseTitle(response), response.status);
     return ((await response.json()) as { readonly data: Opportunity }).data;
   }
@@ -747,17 +812,23 @@ export default function PipelinePage(): React.JSX.Element {
     try {
       const [detail, contactResponse] = await Promise.all([
         fetchOpportunity(opportunity.id),
-        fetch(`/api/contacts/${opportunity.contactId}`, { cache: "no-store", credentials: "same-origin" }).catch(() => null),
+        fetch(`/api/contacts/${opportunity.contactId}`, {
+          cache: "no-store",
+          credentials: "same-origin",
+        }).catch(() => null),
       ]);
       if (detailRequest.current !== requestId) return;
-      setEditor((current) => current?.id === detail.id ? detail : current);
-      setOpportunities((current) => current.map((item) => item.id === detail.id ? detail : item));
+      setEditor((current) => (current?.id === detail.id ? detail : current));
+      setOpportunities((current) => current.map((item) => (item.id === detail.id ? detail : item)));
       if (contactResponse?.ok) {
         const contact = ((await contactResponse.json()) as { readonly data: Contact }).data;
         setContacts((current) => [...current.filter((item) => item.id !== contact.id), contact]);
       }
     } catch (cause) {
-      if (detailRequest.current === requestId) setDetailError(cause instanceof Error ? cause.message : "No pudimos actualizar esta oportunidad.");
+      if (detailRequest.current === requestId)
+        setDetailError(
+          cause instanceof Error ? cause.message : "No pudimos actualizar esta oportunidad.",
+        );
     } finally {
       if (detailRequest.current === requestId) setDetailLoading(false);
     }
@@ -790,22 +861,40 @@ export default function PipelinePage(): React.JSX.Element {
         },
         { method: "PATCH", version: editor.version },
       );
-      if (!updated) throw new Error("El servidor no confirmó los cambios. Vuelve a abrir la oportunidad para comprobar su estado.");
-      setOpportunities((current) => current.map((item) => item.id === updated.id ? updated : item).filter((item) => (!filters.status || item.status === filters.status) && (!filters.ownerMemberId || item.ownerMemberId === filters.ownerMemberId)));
+      if (!updated)
+        throw new Error(
+          "El servidor no confirmó los cambios. Vuelve a abrir la oportunidad para comprobar su estado.",
+        );
+      setOpportunities((current) =>
+        current
+          .map((item) => (item.id === updated.id ? updated : item))
+          .filter(
+            (item) =>
+              (!filters.status || item.status === filters.status) &&
+              (!filters.ownerMemberId || item.ownerMemberId === filters.ownerMemberId),
+          ),
+      );
       setEditor(null);
       setNotice(status === "WON" ? "Oportunidad marcada como ganada." : "Oportunidad actualizada.");
     } catch (cause) {
       setError(
         cause instanceof RequestError && cause.status === 412
           ? "La oportunidad cambió mientras la editabas. Tus cambios siguen en el formulario. Cierra y vuelve a abrir para revisar la versión actual."
-          : cause instanceof Error ? cause.message : "No fue posible actualizar la oportunidad.",
+          : cause instanceof Error
+            ? cause.message
+            : "No fue posible actualizar la oportunidad.",
       );
     } finally {
       setSaving(false);
     }
   }
 
-  const drag = useBoardDrag({ boardRef, disabled: saving || boardLoading || workspaceLoading, onMove: moveOpportunity, stages: selectedPipeline?.stages ?? [] });
+  const drag = useBoardDrag({
+    boardRef,
+    disabled: saving || boardLoading || workspaceLoading,
+    onMove: moveOpportunity,
+    stages: selectedPipeline?.stages ?? [],
+  });
 
   const visibleOpportunities = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("es-CO");
@@ -813,7 +902,13 @@ export default function PipelinePage(): React.JSX.Element {
       if (!normalizedSearch) return true;
       const contact = contactById.get(opportunity.contactId);
       const owner = memberById.get(opportunity.ownerMemberId);
-      return [opportunity.title, contact?.displayName, contact?.email, contact?.phone, owner?.displayName].some(
+      return [
+        opportunity.title,
+        contact?.displayName,
+        contact?.email,
+        contact?.phone,
+        owner?.displayName,
+      ].some(
         (value) =>
           typeof value === "string" && value.toLocaleLowerCase("es-CO").includes(normalizedSearch),
       );
@@ -821,7 +916,8 @@ export default function PipelinePage(): React.JSX.Element {
     return [...visible].sort((first, second) => {
       if (sortMode === "name") return first.title.localeCompare(second.title, "es");
       if (sortMode === "amount") {
-        if (first.currency !== second.currency) return first.currency.localeCompare(second.currency);
+        if (first.currency !== second.currency)
+          return first.currency.localeCompare(second.currency);
         const firstAmount = BigInt(first.amountMinor);
         const secondAmount = BigInt(second.amountMinor);
         return firstAmount === secondAmount ? 0 : firstAmount > secondAmount ? -1 : 1;
@@ -835,7 +931,10 @@ export default function PipelinePage(): React.JSX.Element {
 
   return (
     <CrmShell className={styles.pipelineShell ?? ""}>
-      <section className={`${styles.workspace} ${styles.boardWorkspace}`} aria-busy={workspaceLoading || boardLoading}>
+      <section
+        className={`${styles.workspace} ${styles.boardWorkspace}`}
+        aria-busy={workspaceLoading || boardLoading}
+      >
         <header className={styles.topbar}>
           <div className={styles.headingGroup}>
             <div className={styles.titleRow}>
@@ -1004,9 +1103,18 @@ export default function PipelinePage(): React.JSX.Element {
             <form className={styles.filterForm} onSubmit={(event) => void applyFilters(event)}>
               <label>
                 Etapa
-                <select value={draftFilters.stageId} onChange={(event) => setDraftFilters({ ...draftFilters, stageId: event.target.value })}>
+                <select
+                  value={draftFilters.stageId}
+                  onChange={(event) =>
+                    setDraftFilters({ ...draftFilters, stageId: event.target.value })
+                  }
+                >
                   <option value="">Todas las etapas</option>
-                  {selectedPipeline?.stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
+                  {selectedPipeline?.stages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -1030,7 +1138,10 @@ export default function PipelinePage(): React.JSX.Element {
                 <select
                   value={draftFilters.status}
                   onChange={(event) =>
-                    setDraftFilters({ ...draftFilters, status: event.target.value as BoardFilters["status"] })
+                    setDraftFilters({
+                      ...draftFilters,
+                      status: event.target.value as BoardFilters["status"],
+                    })
                   }
                 >
                   <option value="">Todos los estados</option>
@@ -1045,7 +1156,9 @@ export default function PipelinePage(): React.JSX.Element {
                 Etiqueta
                 <input
                   value={draftFilters.label}
-                  onChange={(event) => setDraftFilters({ ...draftFilters, label: event.target.value })}
+                  onChange={(event) =>
+                    setDraftFilters({ ...draftFilters, label: event.target.value })
+                  }
                   maxLength={120}
                   placeholder="Ej. renovación"
                 />
@@ -1055,7 +1168,9 @@ export default function PipelinePage(): React.JSX.Element {
                 <input
                   type="date"
                   value={draftFilters.createdFrom}
-                  onChange={(event) => setDraftFilters({ ...draftFilters, createdFrom: event.target.value })}
+                  onChange={(event) =>
+                    setDraftFilters({ ...draftFilters, createdFrom: event.target.value })
+                  }
                 />
               </label>
               <label>
@@ -1063,11 +1178,17 @@ export default function PipelinePage(): React.JSX.Element {
                 <input
                   type="date"
                   value={draftFilters.createdTo}
-                  onChange={(event) => setDraftFilters({ ...draftFilters, createdTo: event.target.value })}
+                  onChange={(event) =>
+                    setDraftFilters({ ...draftFilters, createdTo: event.target.value })
+                  }
                 />
               </label>
               <div className={styles.filterActions}>
-                <button className={styles.primaryButton} type="submit" disabled={boardLoading || saving}>
+                <button
+                  className={styles.primaryButton}
+                  type="submit"
+                  disabled={boardLoading || saving}
+                >
                   Aplicar filtros
                 </button>
                 <button
@@ -1076,7 +1197,9 @@ export default function PipelinePage(): React.JSX.Element {
                   onClick={() => {
                     setFilters(emptyFilters);
                     setDraftFilters(emptyFilters);
-                    void loadOpportunities(selectedPipelineId, emptyFilters).catch(() => setError("No se pudo restablecer el tablero."));
+                    void loadOpportunities(selectedPipelineId, emptyFilters).catch(() =>
+                      setError("No se pudo restablecer el tablero."),
+                    );
                   }}
                 >
                   Restablecer
@@ -1088,11 +1211,40 @@ export default function PipelinePage(): React.JSX.Element {
 
         {pipelines.length > 0 ? (
           <section className={styles.boardSummary} aria-label="Resumen del pipeline mostrado">
-            <span><strong>{visibleOpportunities.length}</strong> oportunidades{search ? ` de ${opportunities.length} cargadas` : ""}</span>
-            <span>Valor de esta vista <strong>{totalValue}</strong></span>
+            <span>
+              <strong>{visibleOpportunities.length}</strong> oportunidades
+              {search ? ` de ${opportunities.length} cargadas` : ""}
+            </span>
+            <span>
+              Valor de esta vista <strong>{totalValue}</strong>
+            </span>
             {contactsLoading ? <small role="status">Cargando contactos…</small> : null}
-            {contactsError ? <small title={contactsError}>Algunos contactos no están disponibles.</small> : null}
-            {boardView === "kanban" ? <label className={styles.columnWidthControl}>Ancho de columnas<input aria-label="Ancho de columnas" type="range" min="250" max="390" step="10" value={columnWidth} onChange={(event) => setColumnWidth(Number(event.target.value))} /><button type="button" onClick={() => { setColumnWidth(288); setCollapsedStages(new Set()); }}>Restablecer</button></label> : null}
+            {contactsError ? (
+              <small title={contactsError}>Algunos contactos no están disponibles.</small>
+            ) : null}
+            {boardView === "kanban" ? (
+              <label className={styles.columnWidthControl}>
+                Ancho de columnas
+                <input
+                  aria-label="Ancho de columnas"
+                  type="range"
+                  min="250"
+                  max="390"
+                  step="10"
+                  value={columnWidth}
+                  onChange={(event) => setColumnWidth(Number(event.target.value))}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setColumnWidth(288);
+                    setCollapsedStages(new Set());
+                  }}
+                >
+                  Restablecer
+                </button>
+              </label>
+            ) : null}
           </section>
         ) : null}
 
@@ -1137,7 +1289,11 @@ export default function PipelinePage(): React.JSX.Element {
         selectedPipeline &&
         selectedPipeline.stages.length > 0 &&
         boardView === "kanban" ? (
-          <section ref={boardRef} className={styles.boardViewport} aria-label={`Tablero ${selectedPipeline.name}`}>
+          <section
+            ref={boardRef}
+            className={styles.boardViewport}
+            aria-label={`Tablero ${selectedPipeline.name}`}
+          >
             <div className={styles.kanbanBoard}>
               {selectedPipeline.stages.map((stage) => {
                 const stageItems = visibleOpportunities.filter((item) => item.stageId === stage.id);
@@ -1155,131 +1311,181 @@ export default function PipelinePage(): React.JSX.Element {
                     <header className={styles.stageHeader}>
                       <div className={styles.stageIdentity}>
                         <div>
-                          <h2 id={`stage-${stage.id}`} title={stage.description}>{stage.name} <span className={styles.stageCount}>{stageItems.length}</span></h2>
+                          <h2 id={`stage-${stage.id}`} title={stage.description}>
+                            {stage.name}{" "}
+                            <span className={styles.stageCount}>{stageItems.length}</span>
+                          </h2>
                           {!collapsed ? <p>{stageValue}</p> : null}
                         </div>
                       </div>
-                      <button className={styles.collapseStage} type="button" aria-label={`${collapsed ? "Expandir" : "Contraer"} etapa ${stage.name}`} aria-expanded={!collapsed} onClick={() => setCollapsedStages((current) => { const next = new Set(current); if (next.has(stage.id)) next.delete(stage.id); else next.add(stage.id); return next; })}><Icon name="chevron" size={14} /></button>
+                      <button
+                        className={styles.collapseStage}
+                        type="button"
+                        aria-label={`${collapsed ? "Expandir" : "Contraer"} etapa ${stage.name}`}
+                        aria-expanded={!collapsed}
+                        onClick={() =>
+                          setCollapsedStages((current) => {
+                            const next = new Set(current);
+                            if (next.has(stage.id)) next.delete(stage.id);
+                            else next.add(stage.id);
+                            return next;
+                          })
+                        }
+                      >
+                        <Icon name="chevron" size={14} />
+                      </button>
                     </header>
-                    {!collapsed ? <div className={styles.cardStack} data-card-stack="true">
-                      {stageItems.map((opportunity) => {
-                        const contact = contactById.get(opportunity.contactId);
-                        const owner = memberById.get(opportunity.ownerMemberId);
-                        const isDragging = opportunity.id === drag.opportunityId;
-                        return (
-                          <article
-                            className={`${styles.dealCard} ${isDragging ? styles.dealCardDragging : ""} ${movingOpportunityId === opportunity.id ? styles.dealCardSaving : ""}`}
-                            key={opportunity.id}
-                            aria-label={`Oportunidad ${opportunity.title}`}
-                            onPointerDown={(event) => drag.onPointerDown(event, opportunity)}
-                            onPointerMove={drag.onPointerMove}
-                            onPointerUp={drag.onPointerUp}
-                            onPointerCancel={drag.cancel}
-                            onClick={(event) => { if (!(event.target instanceof Element) || !event.target.closest("button, a, select")) void openEditor(opportunity, event.detail > 0); }}
-                          >
-                            <div className={styles.cardTopline}>
-                              <span
-                                className={`${styles.statusBadge} ${styles[`status${statusTone[opportunity.status]}`]}`}
-                              >
-                                {statusLabels[opportunity.status]}
-                              </span>
-                              {opportunity.status === "OPEN" ? <button className={styles.dragHandle} data-drag-handle="true" type="button" aria-label={`Arrastrar ${opportunity.title}`} aria-describedby="board-move-help" disabled={saving || boardLoading} onKeyDown={(event) => drag.onHandleKeyDown(event, opportunity)} onClick={(event) => event.stopPropagation()}><Icon name="grip" size={17} /></button> : null}
-                            </div>
-                            <button
-                              className={styles.dealTitle}
-                              data-card-open="true"
-                              type="button"
-                              aria-label={`Abrir oportunidad ${opportunity.title}`}
-                              onClick={(event) => void openEditor(opportunity, event.detail > 0)}
+                    {!collapsed ? (
+                      <div className={styles.cardStack} data-card-stack="true">
+                        {stageItems.map((opportunity) => {
+                          const contact = contactById.get(opportunity.contactId);
+                          const owner = memberById.get(opportunity.ownerMemberId);
+                          const isDragging = opportunity.id === drag.opportunityId;
+                          return (
+                            <article
+                              className={`${styles.dealCard} ${isDragging ? styles.dealCardDragging : ""} ${movingOpportunityId === opportunity.id ? styles.dealCardSaving : ""}`}
+                              key={opportunity.id}
+                              aria-label={`Oportunidad ${opportunity.title}`}
+                              onPointerDown={(event) => drag.onPointerDown(event, opportunity)}
+                              onPointerMove={drag.onPointerMove}
+                              onPointerUp={drag.onPointerUp}
+                              onPointerCancel={drag.cancel}
+                              onClick={(event) => {
+                                if (
+                                  !(event.target instanceof Element) ||
+                                  !event.target.closest("button, a, select")
+                                )
+                                  void openEditor(opportunity, event.detail > 0);
+                              }}
                             >
-                              {opportunity.title}
-                            </button>
-                            <span
-                              className={styles.contactLink}
-                            >
-                              <span className={styles.contactAvatar}>
-                                {initials(contact?.displayName ?? "C")}
-                              </span>
-                              <span>{contact?.displayName ?? (contactsLoading ? "Cargando contacto…" : "Ver contacto en el detalle")}</span>
-                            </span>
-                            <strong className={styles.dealValue}>
-                              {formatMoney(opportunity.amountMinor, opportunity.currency)} <small>{opportunity.currency}</small>
-                            </strong>
-                            <footer className={styles.cardFooter}>
-                              <span
-                                className={styles.ownerIdentity}
-                                title={owner?.displayName ?? "Responsable no disponible"}
-                              >
-                                <span className={styles.ownerAvatar}>
-                                  {initials(owner?.displayName ?? "Q")}
-                                </span>
-                                <span>{owner?.displayName ?? "Responsable no disponible"}</span>
-                              </span>
-                              <time
-                                dateTime={opportunity.updatedAt}
-                                title={`Actualizada ${fullDate(opportunity.updatedAt)}`}
-                              >
-                                {shortDate(opportunity.updatedAt)}
-                              </time>
-                            </footer>
-                            {opportunity.status === "OPEN" ? (
-                              <div className={styles.cardActionRow}>
-                                <button
-                                  className={styles.moveMenuButton}
-                                  type="button"
-                                  disabled={saving || boardLoading}
-                                  onClick={() =>
-                                    setMoveMenuOpportunityId((current) =>
-                                      current === opportunity.id ? null : opportunity.id,
-                                    )
-                                  }
-                                  aria-expanded={moveMenuOpportunityId === opportunity.id}
-                                  aria-controls={`move-${opportunity.id}`}
+                              <div className={styles.cardTopline}>
+                                <span
+                                  className={`${styles.statusBadge} ${styles[`status${statusTone[opportunity.status]}`]}`}
                                 >
-                                  <Icon name="move" size={14} />
-                                  Mover
-                                </button>
-                                {moveMenuOpportunityId === opportunity.id ? (
-                                  <div
-                                    className={styles.movePopover}
-                                    id={`move-${opportunity.id}`}
-                                    role="group"
-                                    aria-label={`Mover ${opportunity.title} a otra etapa`}
+                                  {statusLabels[opportunity.status]}
+                                </span>
+                                {opportunity.status === "OPEN" ? (
+                                  <button
+                                    className={styles.dragHandle}
+                                    data-drag-handle="true"
+                                    type="button"
+                                    aria-label={`Arrastrar ${opportunity.title}`}
+                                    aria-describedby="board-move-help"
+                                    disabled={saving || boardLoading}
+                                    onKeyDown={(event) => drag.onHandleKeyDown(event, opportunity)}
+                                    onClick={(event) => event.stopPropagation()}
                                   >
-                                    <span>Mover a…</span>
-                                    <div>
-                                      {selectedPipeline.stages
-                                        .filter((stage) => stage.id !== opportunity.stageId)
-                                        .map((stage) => (
-                                          <button
-                                            key={stage.id}
-                                            type="button"
-                                            disabled={saving}
-                                            onClick={() =>
-                                              void moveOpportunity(opportunity, stage.id)
-                                            }
-                                          >
-                                            {stage.name}
-                                          </button>
-                                        ))}
-                                    </div>
-                                  </div>
+                                    <Icon name="grip" size={17} />
+                                  </button>
                                 ) : null}
                               </div>
-                            ) : null}
-                          </article>
-                        );
-                      })}
-                      {stageItems.length === 0 ? (
-                        <div className={styles.columnEmpty}>
-                          <span aria-hidden="true">+</span>
-                          <p>
-                            {drag.opportunityId ? "Suelta aquí para mover" : "Sin oportunidades"}
-                          </p>
-                        </div>
-                      ) : null}
-                      <button className={styles.addInStage} type="button" disabled={saving || boardLoading} onClick={() => openOpportunityCreator(stage.id)}><Icon name="add" size={15} /> Añadir oportunidad</button>
-                    </div> : null}
+                              <button
+                                className={styles.dealTitle}
+                                data-card-open="true"
+                                type="button"
+                                aria-label={`Abrir oportunidad ${opportunity.title}`}
+                                onClick={(event) => void openEditor(opportunity, event.detail > 0)}
+                              >
+                                {opportunity.title}
+                              </button>
+                              <span className={styles.contactLink}>
+                                <span className={styles.contactAvatar}>
+                                  {initials(contact?.displayName ?? "C")}
+                                </span>
+                                <span>
+                                  {contact?.displayName ??
+                                    (contactsLoading
+                                      ? "Cargando contacto…"
+                                      : "Ver contacto en el detalle")}
+                                </span>
+                              </span>
+                              <strong className={styles.dealValue}>
+                                {formatMoney(opportunity.amountMinor, opportunity.currency)}{" "}
+                                <small>{opportunity.currency}</small>
+                              </strong>
+                              <footer className={styles.cardFooter}>
+                                <span
+                                  className={styles.ownerIdentity}
+                                  title={owner?.displayName ?? "Responsable no disponible"}
+                                >
+                                  <span className={styles.ownerAvatar}>
+                                    {initials(owner?.displayName ?? "Q")}
+                                  </span>
+                                  <span>{owner?.displayName ?? "Responsable no disponible"}</span>
+                                </span>
+                                <time
+                                  dateTime={opportunity.updatedAt}
+                                  title={`Actualizada ${fullDate(opportunity.updatedAt)}`}
+                                >
+                                  {shortDate(opportunity.updatedAt)}
+                                </time>
+                              </footer>
+                              {opportunity.status === "OPEN" ? (
+                                <div className={styles.cardActionRow}>
+                                  <button
+                                    className={styles.moveMenuButton}
+                                    type="button"
+                                    disabled={saving || boardLoading}
+                                    onClick={() =>
+                                      setMoveMenuOpportunityId((current) =>
+                                        current === opportunity.id ? null : opportunity.id,
+                                      )
+                                    }
+                                    aria-expanded={moveMenuOpportunityId === opportunity.id}
+                                    aria-controls={`move-${opportunity.id}`}
+                                  >
+                                    <Icon name="move" size={14} />
+                                    Mover
+                                  </button>
+                                  {moveMenuOpportunityId === opportunity.id ? (
+                                    <div
+                                      className={styles.movePopover}
+                                      id={`move-${opportunity.id}`}
+                                      role="group"
+                                      aria-label={`Mover ${opportunity.title} a otra etapa`}
+                                    >
+                                      <span>Mover a…</span>
+                                      <div>
+                                        {selectedPipeline.stages
+                                          .filter((stage) => stage.id !== opportunity.stageId)
+                                          .map((stage) => (
+                                            <button
+                                              key={stage.id}
+                                              type="button"
+                                              disabled={saving}
+                                              onClick={() =>
+                                                void moveOpportunity(opportunity, stage.id)
+                                              }
+                                            >
+                                              {stage.name}
+                                            </button>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </article>
+                          );
+                        })}
+                        {stageItems.length === 0 ? (
+                          <div className={styles.columnEmpty}>
+                            <span aria-hidden="true">+</span>
+                            <p>
+                              {drag.opportunityId ? "Suelta aquí para mover" : "Sin oportunidades"}
+                            </p>
+                          </div>
+                        ) : null}
+                        <button
+                          className={styles.addInStage}
+                          type="button"
+                          disabled={saving || boardLoading}
+                          onClick={() => openOpportunityCreator(stage.id)}
+                        >
+                          <Icon name="add" size={15} /> Añadir oportunidad
+                        </button>
+                      </div>
+                    ) : null}
                   </section>
                 );
               })}
@@ -1302,7 +1508,9 @@ export default function PipelinePage(): React.JSX.Element {
                       setSearch("");
                       setFilters(emptyFilters);
                       setDraftFilters(emptyFilters);
-                      void loadOpportunities(selectedPipelineId, emptyFilters).catch(() => setError("No se pudo restablecer el tablero."));
+                      void loadOpportunities(selectedPipelineId, emptyFilters).catch(() =>
+                        setError("No se pudo restablecer el tablero."),
+                      );
                     }}
                   >
                     Limpiar vista
@@ -1312,8 +1520,13 @@ export default function PipelinePage(): React.JSX.Element {
             ) : null}
           </section>
         ) : null}
-        <span className={styles.visuallyHidden} id="board-move-help">Arrastra a otra etapa. Con teclado, pulsa espacio, usa las flechas y confirma con Enter. Escape cancela.</span>
-        <span className={styles.visuallyHidden} role="status" aria-live="polite">{drag.announcement}</span>
+        <span className={styles.visuallyHidden} id="board-move-help">
+          Arrastra a otra etapa. Con teclado, pulsa espacio, usa las flechas y confirma con Enter.
+          Escape cancela.
+        </span>
+        <span className={styles.visuallyHidden} role="status" aria-live="polite">
+          {drag.announcement}
+        </span>
 
         {!workspaceLoading &&
         selectedPipeline &&
@@ -1482,16 +1695,16 @@ export default function PipelinePage(): React.JSX.Element {
                   role="radiogroup"
                   aria-label="Origen del contacto"
                 >
-                    <label>
-                      <input
-                        checked={opportunityContactMode === "existing"}
-                        name="contactMode"
-                        onChange={() => setOpportunityContactMode("existing")}
-                        type="radio"
-                        value="existing"
-                      />
-                      <span>Elegir contacto existente</span>
-                    </label>
+                  <label>
+                    <input
+                      checked={opportunityContactMode === "existing"}
+                      name="contactMode"
+                      onChange={() => setOpportunityContactMode("existing")}
+                      type="radio"
+                      value="existing"
+                    />
+                    <span>Elegir contacto existente</span>
+                  </label>
                   <label>
                     <input
                       checked={opportunityContactMode === "new"}
@@ -1505,24 +1718,52 @@ export default function PipelinePage(): React.JSX.Element {
                 </div>
                 {opportunityContactMode === "existing" ? (
                   <div className={styles.existingContactPicker}>
-                  <label>
-                    Buscar contacto
-                    <input type="search" value={contactSearch} maxLength={160} onChange={(event) => { setContactSearch(event.target.value); setCreationContactId(""); }} placeholder="Nombre, correo o teléfono" />
-                  </label>
-                  <label>
-                    Contacto existente
-                    <select name="contactId" required value={creationContactId} onChange={(event) => setCreationContactId(event.target.value)} disabled={contactSearchLoading}>
-                      <option value="" disabled>
-                        Selecciona un contacto
-                      </option>
-                      {contactMatches.map((contact) => (
-                        <option key={contact.id} value={contact.id}>
-                          {contact.displayName}{contact.email ? ` · ${contact.email}` : contact.phone ? ` · ${contact.phone}` : ""}
+                    <label>
+                      Buscar contacto
+                      <input
+                        type="search"
+                        value={contactSearch}
+                        maxLength={160}
+                        onChange={(event) => {
+                          setContactSearch(event.target.value);
+                          setCreationContactId("");
+                        }}
+                        placeholder="Nombre, correo o teléfono"
+                      />
+                    </label>
+                    <label>
+                      Contacto existente
+                      <select
+                        name="contactId"
+                        required
+                        value={creationContactId}
+                        onChange={(event) => setCreationContactId(event.target.value)}
+                        disabled={contactSearchLoading}
+                      >
+                        <option value="" disabled>
+                          Selecciona un contacto
                         </option>
-                      ))}
-                    </select>
-                  </label>
-                  {contactSearchLoading ? <small role="status">Buscando contactos…</small> : contactSearchError ? <small role="alert">{contactSearchError}</small> : <small>{contactMatches.length} resultados. Escribe para precisar la búsqueda.</small>}
+                        {contactMatches.map((contact) => (
+                          <option key={contact.id} value={contact.id}>
+                            {contact.displayName}
+                            {contact.email
+                              ? ` · ${contact.email}`
+                              : contact.phone
+                                ? ` · ${contact.phone}`
+                                : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {contactSearchLoading ? (
+                      <small role="status">Buscando contactos…</small>
+                    ) : contactSearchError ? (
+                      <small role="alert">{contactSearchError}</small>
+                    ) : (
+                      <small>
+                        {contactMatches.length} resultados. Escribe para precisar la búsqueda.
+                      </small>
+                    )}
                   </div>
                 ) : (
                   <div className={styles.quickContactFields}>
@@ -1651,9 +1892,28 @@ export default function PipelinePage(): React.JSX.Element {
                 <Icon name="close" size={18} />
               </button>
             </header>
-            {detailLoading ? <p className={styles.detailLoadNotice} role="status">Actualizando información de la oportunidad…</p> : null}
-            {detailError ? <div className={styles.drawerError} role="alert"><span>{detailError}</span><button className={styles.textButton} type="button" onClick={() => void openEditor(editor)}>Volver a cargar</button></div> : null}
-            {error ? <div className={styles.drawerError} role="alert"><span>{error}</span></div> : null}
+            {detailLoading ? (
+              <p className={styles.detailLoadNotice} role="status">
+                Actualizando información de la oportunidad…
+              </p>
+            ) : null}
+            {detailError ? (
+              <div className={styles.drawerError} role="alert">
+                <span>{detailError}</span>
+                <button
+                  className={styles.textButton}
+                  type="button"
+                  onClick={() => void openEditor(editor)}
+                >
+                  Volver a cargar
+                </button>
+              </div>
+            ) : null}
+            {error ? (
+              <div className={styles.drawerError} role="alert">
+                <span>{error}</span>
+              </div>
+            ) : null}
             <div className={styles.detailIdentity}>
               <a href={`/contacts/${editor.contactId}`}>
                 <span>{initials(contactById.get(editor.contactId)?.displayName ?? "C")}</span>
@@ -1661,8 +1921,12 @@ export default function PipelinePage(): React.JSX.Element {
                   <strong>
                     {contactById.get(editor.contactId)?.displayName ?? "Contacto asociado"}
                   </strong>
-                  <small>{contactById.get(editor.contactId)?.email ?? "Sin correo registrado"}</small>
-                  <small>{contactById.get(editor.contactId)?.phone ?? "Sin teléfono registrado"}</small>
+                  <small>
+                    {contactById.get(editor.contactId)?.email ?? "Sin correo registrado"}
+                  </small>
+                  <small>
+                    {contactById.get(editor.contactId)?.phone ?? "Sin teléfono registrado"}
+                  </small>
                 </div>
               </a>
               <span
@@ -1671,14 +1935,22 @@ export default function PipelinePage(): React.JSX.Element {
                 {statusLabels[editor.status]}
               </span>
             </div>
-            {contactById.get(editor.contactId)?.labels.length ? <div className={styles.contactLabels}>{contactById.get(editor.contactId)?.labels.map((label) => <span key={label.id}>{label.name}</span>)}</div> : null}
+            {contactById.get(editor.contactId)?.labels.length ? (
+              <div className={styles.contactLabels}>
+                {contactById.get(editor.contactId)?.labels.map((label) => (
+                  <span key={label.id}>{label.name}</span>
+                ))}
+              </div>
+            ) : null}
             <div className={styles.detailMoveBar}>
               <span>
                 <Icon name="move" size={15} /> {selectedPipeline.name}
               </span>
               <select
                 value={editor.stageId}
-                disabled={saving || detailLoading || Boolean(detailError) || editor.status !== "OPEN"}
+                disabled={
+                  saving || detailLoading || Boolean(detailError) || editor.status !== "OPEN"
+                }
                 onChange={(event) => void moveOpportunity(editor, event.target.value)}
                 aria-label="Mover oportunidad a etapa"
               >
@@ -1695,74 +1967,81 @@ export default function PipelinePage(): React.JSX.Element {
                 key={`${editor.id}:${detailLoading ? "loading" : "ready"}`}
                 onSubmit={(event) => void updateOpportunity(event)}
               >
-                <fieldset className={styles.detailFields} disabled={saving || detailLoading || Boolean(detailError)}>
-                <div className={styles.sectionKicker}>
-                  <Icon name="settings" size={15} /> Detalles comerciales
-                </div>
-                <label>
-                  Nombre <em>*</em>
-                  <input name="title" required maxLength={160} defaultValue={editor.title} />
-                </label>
-                <div className={styles.drawerPair}>
+                <fieldset
+                  className={styles.detailFields}
+                  disabled={saving || detailLoading || Boolean(detailError)}
+                >
+                  <div className={styles.sectionKicker}>
+                    <Icon name="settings" size={15} /> Detalles comerciales
+                  </div>
                   <label>
-                    Valor <em>*</em>
-                    <input
-                      name="amount"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      required
-                      defaultValue={Number(editor.amountMinor) / 100}
-                    />
+                    Nombre <em>*</em>
+                    <input name="title" required maxLength={160} defaultValue={editor.title} />
+                  </label>
+                  <div className={styles.drawerPair}>
+                    <label>
+                      Valor <em>*</em>
+                      <input
+                        name="amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        required
+                        defaultValue={Number(editor.amountMinor) / 100}
+                      />
+                    </label>
+                    <label>
+                      Moneda <em>*</em>
+                      <input
+                        name="currency"
+                        minLength={3}
+                        maxLength={3}
+                        required
+                        defaultValue={editor.currency}
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Responsable
+                    <select name="ownerMemberId" defaultValue={editor.ownerMemberId}>
+                      {!memberById.has(editor.ownerMemberId) ? (
+                        <option value={editor.ownerMemberId}>
+                          Responsable actual (no disponible en el directorio)
+                        </option>
+                      ) : null}
+                      {members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.displayName}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label>
-                    Moneda <em>*</em>
-                    <input
-                      name="currency"
-                      minLength={3}
-                      maxLength={3}
-                      required
-                      defaultValue={editor.currency}
-                    />
+                    Estado comercial
+                    <select name="status" defaultValue={editor.status}>
+                      {Object.entries(statusLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
-                </div>
-                <label>
-                  Responsable
-                  <select name="ownerMemberId" defaultValue={editor.ownerMemberId}>
-                    {!memberById.has(editor.ownerMemberId) ? <option value={editor.ownerMemberId}>Responsable actual (no disponible en el directorio)</option> : null}
-                    {members.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Estado comercial
-                  <select name="status" defaultValue={editor.status}>
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Motivo de pérdida o abandono
-                  <textarea
-                    name="closeReason"
-                    maxLength={2000}
-                    defaultValue={editor.closeReason ?? ""}
-                    aria-describedby={closeReasonError ? "close-reason-error" : undefined}
-                    onChange={() => setCloseReasonError(null)}
-                    placeholder="Añade contexto cuando la oportunidad no continúe."
-                  />
-                  {closeReasonError ? (
-                    <small className={styles.historyError} id="close-reason-error" role="alert">
-                      {closeReasonError}
-                    </small>
-                  ) : null}
-                </label>
+                  <label>
+                    Motivo de pérdida o abandono
+                    <textarea
+                      name="closeReason"
+                      maxLength={2000}
+                      defaultValue={editor.closeReason ?? ""}
+                      aria-describedby={closeReasonError ? "close-reason-error" : undefined}
+                      onChange={() => setCloseReasonError(null)}
+                      placeholder="Añade contexto cuando la oportunidad no continúe."
+                    />
+                    {closeReasonError ? (
+                      <small className={styles.historyError} id="close-reason-error" role="alert">
+                        {closeReasonError}
+                      </small>
+                    ) : null}
+                  </label>
                 </fieldset>
                 <div className={styles.drawerActions}>
                   <button
@@ -1773,7 +2052,11 @@ export default function PipelinePage(): React.JSX.Element {
                   >
                     Cancelar
                   </button>
-                  <button className={styles.primaryButton} type="submit" disabled={saving || detailLoading || Boolean(detailError)}>
+                  <button
+                    className={styles.primaryButton}
+                    type="submit"
+                    disabled={saving || detailLoading || Boolean(detailError)}
+                  >
                     {saving ? "Guardando…" : "Guardar cambios"}
                   </button>
                 </div>
@@ -1804,12 +2087,44 @@ export default function PipelinePage(): React.JSX.Element {
                         <span aria-hidden="true" />
                         <div>
                           <strong>{historyLabel(entry)}</strong>
-                          <span className={styles.historyActor}>{memberById.get(entry.actorMemberId)?.displayName ?? "Miembro del equipo"}</span>
+                          <span className={styles.historyActor}>
+                            {memberById.get(entry.actorMemberId)?.displayName ??
+                              "Miembro del equipo"}
+                          </span>
                           <time dateTime={entry.createdAt}>{fullDate(entry.createdAt)}</time>
-                          {entry.previousStageId && entry.nextStageId ? <p>{selectedPipeline.stages.find((stage) => stage.id === entry.previousStageId)?.name ?? "Etapa anterior"} → {selectedPipeline.stages.find((stage) => stage.id === entry.nextStageId)?.name ?? "Etapa actual"}</p> : null}
-                          {entry.previousStatus && entry.nextStatus ? <p>{statusLabels[entry.previousStatus]} → {statusLabels[entry.nextStatus]}</p> : null}
-                          {entry.previousOwnerMemberId && entry.nextOwnerMemberId ? <p>{memberById.get(entry.previousOwnerMemberId)?.displayName ?? "Responsable anterior"} → {memberById.get(entry.nextOwnerMemberId)?.displayName ?? "Responsable actual"}</p> : null}
-                          {entry.previousAmountMinor !== null && entry.nextAmountMinor !== null ? <p>Valor: {(Number(entry.previousAmountMinor) / 100).toLocaleString("es-CO")} → {(Number(entry.nextAmountMinor) / 100).toLocaleString("es-CO")}</p> : null}
+                          {entry.previousStageId && entry.nextStageId ? (
+                            <p>
+                              {selectedPipeline.stages.find(
+                                (stage) => stage.id === entry.previousStageId,
+                              )?.name ?? "Etapa anterior"}{" "}
+                              →{" "}
+                              {selectedPipeline.stages.find(
+                                (stage) => stage.id === entry.nextStageId,
+                              )?.name ?? "Etapa actual"}
+                            </p>
+                          ) : null}
+                          {entry.previousStatus && entry.nextStatus ? (
+                            <p>
+                              {statusLabels[entry.previousStatus]} →{" "}
+                              {statusLabels[entry.nextStatus]}
+                            </p>
+                          ) : null}
+                          {entry.previousOwnerMemberId && entry.nextOwnerMemberId ? (
+                            <p>
+                              {memberById.get(entry.previousOwnerMemberId)?.displayName ??
+                                "Responsable anterior"}{" "}
+                              →{" "}
+                              {memberById.get(entry.nextOwnerMemberId)?.displayName ??
+                                "Responsable actual"}
+                            </p>
+                          ) : null}
+                          {entry.previousAmountMinor !== null && entry.nextAmountMinor !== null ? (
+                            <p>
+                              Valor:{" "}
+                              {(Number(entry.previousAmountMinor) / 100).toLocaleString("es-CO")} →{" "}
+                              {(Number(entry.nextAmountMinor) / 100).toLocaleString("es-CO")}
+                            </p>
+                          ) : null}
                           {entry.note ? <p>{entry.note}</p> : null}
                         </div>
                       </li>
