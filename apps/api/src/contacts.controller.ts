@@ -48,6 +48,7 @@ import {
   type ContactBulkTarget,
   type CommercialActor,
   type ContactImportPreviewRow,
+  type HistoricalContactField,
   type ContactListFilters,
   type IamPermission,
 } from "@quantum-crm/domain";
@@ -85,6 +86,7 @@ function contactResponse(contact: {
   readonly email: string | null;
   readonly phone: string | null;
   readonly labels: readonly { readonly id: string; readonly name: string }[];
+  readonly customFields?: readonly HistoricalContactField[];
   readonly source: "MANUAL" | "IMPORT" | "FORM" | "CONVERSATION" | "API" | "MIGRATION" | "OTHER";
   readonly archivedAt: Date | null;
   readonly version: bigint;
@@ -99,6 +101,7 @@ function contactResponse(contact: {
       email: contact.email,
       phone: contact.phone,
       labels: contact.labels,
+      customFields: contact.customFields ?? [],
       source: contact.source,
       archivedAt: contact.archivedAt?.toISOString() ?? null,
       version: contact.version.toString(),

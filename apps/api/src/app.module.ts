@@ -9,6 +9,7 @@ import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/databa
 import {
   ContactService,
   ConversationService,
+  HistoricalConversationService,
   IamMemberService,
   IamRoleService,
   IamTeamService,
@@ -45,6 +46,10 @@ import { AcceptMemberInvitationController } from "./accept-member-invitation.con
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
 import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
+import {
+  HISTORICAL_CONVERSATION_SERVICE,
+  HistoricalConversationsController,
+} from "./historical-conversations.controller.js";
 import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
 import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js";
 import { FILE_SERVICE, FilesController } from "./files.controller.js";
@@ -76,6 +81,7 @@ export class AppModule {
         InternalAdministratorsController,
         AutomationsController,
         ConversationsController,
+        HistoricalConversationsController,
         CalendarController,
         DocumentsController,
         FilesController,
@@ -149,6 +155,16 @@ export class AppModule {
             }),
         },
         {
+          provide: HISTORICAL_CONVERSATION_SERVICE,
+          useFactory: () =>
+            new HistoricalConversationService(database.commercial.historicalConversations, {
+              contactExistsFor: async (actor, contactId) =>
+                (await database.commercial.contacts.find(actor, contactId)) !== null,
+              isActiveMember: async (memberId) =>
+                (await database.members.findById(memberId))?.status === "ACTIVE",
+            }),
+        },
+        {
           provide: CALENDAR_SERVICE,
           useFactory: () =>
             new CalendarService(database.commercial.calendar, {
@@ -204,11 +220,23 @@ export class AppModule {
             if (!fileStorageAuthorization) {
               throw new Error("File storage authorization is required");
             }
+            const history = new HistoricalConversationService(
+              database.commercial.historicalConversations,
+              {
+                contactExistsFor: async (actor, contactId) =>
+                  (await database.commercial.contacts.find(actor, contactId)) !== null,
+                isActiveMember: async (memberId) =>
+                  (await database.members.findById(memberId))?.status === "ACTIVE",
+              },
+            );
             return new FileService(
               database.commercial.files,
               {
                 canUseOwner: async (actor, owner) => {
                   if (owner.kind !== "existing") return false;
+                  if (owner.module === "conversations" && owner.type === "historical_attachment") {
+                    return history.canUseAttachmentOwner(actor, owner.id);
+                  }
                   if (owner.module === "forms" && owner.type === "form_response") {
                     const upload = await database.commercial.forms.findResponseForOwner(
                       owner.id,

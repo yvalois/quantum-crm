@@ -121,14 +121,14 @@ services:
     volumes:
       - platform-storage-data:/data
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
+      - /tmp:rw,noexec,nosuid,size=512m
     healthcheck:
       test: [CMD-SHELL, "curl --fail --silent http://127.0.0.1:9333/cluster/healthz >/dev/null"]
       interval: 15s
       timeout: 5s
       retries: 12
       start_period: 30s
-    mem_limit: 768m
+    mem_limit: 3072m
     cpus: 0.5
     networks: [platform-storage]
 

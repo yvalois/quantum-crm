@@ -4,6 +4,7 @@ import {
   AutomationNotFoundError,
   AutomationValidationError,
   ContactValidationError,
+  validateHistoricalJson,
   type AutomationActivationResult,
   type AutomationDefinition,
   type AutomationExecutionResult,
@@ -11,6 +12,8 @@ import {
 } from "@quantum-crm/domain";
 import type {
   ContactRecord,
+  HistoricalContactField,
+  HistoricalJsonValue,
   ContactBulkActionResponse,
   ContactLabel,
   ContactImportResult,
@@ -19,6 +22,7 @@ import type {
   ContactListSort,
   ContactRepository,
   ConversationRepository,
+  HistoricalConversationRepository,
   CommercialActor,
   Opportunity,
   OpportunityHistoryEntry,
@@ -40,6 +44,7 @@ import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
 import { createConversationPostgresRepository } from "./conversation-postgres-repository.js";
+import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 import { createFormPostgresRepository } from "./form-postgres-repository.js";
 import { createDocumentPostgresRepository } from "./document-postgres-repository.js";
@@ -104,6 +109,7 @@ interface ContactRow {
   readonly source?: string;
   readonly archived_at?: Date | null;
   readonly labels?: unknown;
+  readonly custom_fields?: unknown;
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
@@ -150,7 +156,37 @@ function contactSelection(alias: string): string {
       JOIN contacts.labels AS label ON label.id = contact_label.label_id
       WHERE contact_label.contact_id = ${alias}.id
     ), '[]'::jsonb) AS labels,
-    ${alias}.version::text, ${alias}.created_at, ${alias}.updated_at`;
+    ${alias}.custom_fields, ${alias}.version::text, ${alias}.created_at, ${alias}.updated_at`;
+}
+
+function contactCustomFields(value: unknown): readonly HistoricalContactField[] {
+  if (value === undefined) return Object.freeze([]);
+  if (!Array.isArray(value)) throw new DatabaseUnavailableError();
+  return Object.freeze(
+    value.map((candidate: unknown) => {
+      if (candidate === null || typeof candidate !== "object") throw new DatabaseUnavailableError();
+      const field = candidate as Record<string, unknown>;
+      if (
+        typeof field.fieldId !== "string" ||
+        typeof field.key !== "string" ||
+        typeof field.label !== "string" ||
+        typeof field.dataType !== "string"
+      )
+        throw new DatabaseUnavailableError();
+      const fieldValue = field.value as HistoricalJsonValue;
+      validateHistoricalJson(fieldValue);
+      return Object.freeze({
+        fieldId: field.fieldId,
+        key: field.key,
+        label: field.label,
+        dataType: field.dataType,
+        value:
+          field.dataType.toUpperCase() === "FILE_UPLOAD"
+            ? "Adjunto pendiente de transferencia y análisis"
+            : fieldValue,
+      });
+    }),
+  );
 }
 
 function contactLabels(value: unknown): readonly ContactLabel[] {
@@ -188,6 +224,7 @@ function contactFromRow(row: ContactRow): ContactRecord {
     email: row.email,
     phone: row.phone,
     labels: contactLabels(row.labels),
+    customFields: contactCustomFields(row.custom_fields),
     source: source as ContactRecord["source"],
     archivedAt: row.archived_at == null ? null : new Date(row.archived_at),
     version: BigInt(row.version),
@@ -648,6 +685,7 @@ function isPipelineSnapshotRow(row: PipelineRow | PipelineSnapshotRow): row is P
 export interface CommercialPostgresRepositories {
   readonly contacts: ContactRepository;
   readonly conversations: ConversationRepository;
+  readonly historicalConversations: HistoricalConversationRepository;
   readonly sales: SalesRepository;
   readonly tasks: TaskRepository;
   readonly calendar: CalendarRepository;
@@ -2518,6 +2556,7 @@ export function createCommercialPostgresRepositories(
   return Object.freeze({
     contacts,
     conversations: createConversationPostgresRepository(pool),
+    historicalConversations: createHistoricalConversationPostgresRepository(pool),
     sales,
     tasks,
     calendar: createCalendarPostgresRepository(pool),

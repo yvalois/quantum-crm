@@ -1,5 +1,6 @@
 export type { CommercialActor, CommercialScope } from "../iam/index.js";
 import type { CommercialActor } from "../iam/index.js";
+import type { HistoricalContactField } from "./historical-import.js";
 
 export type ContactChannel = "EMAIL" | "PHONE" | "NONE";
 export type ContactSource =
@@ -44,6 +45,7 @@ export interface ContactRecord {
   readonly email: string | null;
   readonly phone: string | null;
   readonly labels: readonly ContactLabel[];
+  readonly customFields?: readonly HistoricalContactField[];
   readonly source: ContactSource;
   readonly archivedAt: Date | null;
   readonly version: bigint;

@@ -247,7 +247,7 @@ function migrationComposeArgs(plan: TenantComposePlan): string[] {
   ];
 }
 
-async function planForTenant(
+export async function planForTenant(
   options: TenantComposeRunnerOptions,
   request: HostAdapterRequest,
 ): Promise<TenantComposePlan> {

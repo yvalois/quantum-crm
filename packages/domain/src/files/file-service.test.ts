@@ -129,4 +129,68 @@ describe("file service authorization", () => {
       service(pendingFile(), false).get(actor, ["crm:files:read"], pendingFile().id),
     ).rejects.toBeInstanceOf(FileNotFoundError);
   });
+
+  it("authorizes imported attachments through their scoped owner and conversation permission", async () => {
+    const file: FileRecord = {
+      ...pendingFile(),
+      status: "AVAILABLE",
+      owner: {
+        kind: "existing",
+        module: "conversations",
+        type: "historical_attachment",
+        id: "019b0000-0000-7000-8000-000000000914",
+      },
+      objectVersionId: "verified-version",
+    };
+    const viewer: CommercialActor = { ...actor, scope: "ASSIGNED" };
+    const permissions: readonly IamPermission[] = [
+      "crm:files:read",
+      "crm:files:download",
+      "crm:conversations:read",
+    ];
+    await expect(
+      service(file).authorizeDownload({ actor: viewer, permissions, fileId: file.id }),
+    ).resolves.toMatchObject({ objectVersionId: "verified-version" });
+    await expect(
+      service(file, false).authorizeDownload({ actor: viewer, permissions, fileId: file.id }),
+    ).rejects.toBeInstanceOf(FileNotFoundError);
+    await expect(
+      service({ ...file, status: "QUARANTINED" }).authorizeDownload({
+        actor: viewer,
+        permissions,
+        fileId: file.id,
+      }),
+    ).rejects.toBeInstanceOf(FileStateConflictError);
+    await expect(
+      service(file).authorizeDownload({
+        actor: viewer,
+        permissions: ["crm:files:read", "crm:files:download"],
+        fileId: file.id,
+      }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+    await expect(
+      service(file).list(viewer, ["crm:files:read"], { limit: 25 }),
+    ).resolves.toMatchObject({
+      items: [],
+    });
+    await expect(
+      service(file, false).list(viewer, permissions, { limit: 25 }),
+    ).resolves.toMatchObject({
+      items: [],
+    });
+    await expect(
+      service(file).reserveUpload({
+        actor: viewer,
+        permissions: ["crm:files:upload", "crm:conversations:read"],
+        owner: file.owner,
+        fileClass: file.fileClass,
+        originalName: file.originalName,
+        declaredMime: file.declaredMime,
+        declaredSize: file.declaredSize,
+        expectedSha256: file.expectedSha256,
+        idempotencyKey: "historical-upload",
+        payloadHash: "historical-payload",
+      }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+  });
 });

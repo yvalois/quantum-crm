@@ -127,6 +127,39 @@ export interface TenantCrmMigrationReconciler {
   }>;
 }
 
+export interface HostAdapterGhlImportRequest extends Omit<HostAdapterRequest, "action"> {
+  readonly action: "RUN_TENANT_GHL_IMPORT";
+  readonly exportId: string;
+  readonly mode: "APPLY" | "VERIFY" | "MIGRATE" | "ATTACHMENTS";
+}
+
+export interface HostAdapterGhlImportResult {
+  readonly state: "RUNNING" | "SUCCEEDED" | "FAILED";
+  readonly exitCode?: number;
+  readonly reconciled: boolean;
+  readonly receipt?: HostAdapterGhlImportReceipt;
+}
+
+export interface HostAdapterGhlImportReceipt {
+  readonly progress: readonly {
+    readonly resource: string;
+    readonly processed: number;
+    readonly created: number;
+    readonly replayed: number;
+    readonly conflicts: number;
+    readonly total: number;
+  }[];
+  readonly status?: "RUNNING" | "COMPLETE" | "CONFLICTS" | "FAILED";
+  readonly consistent?: boolean;
+  readonly artifactRecords?: number;
+  readonly counters?: Readonly<Record<string, number>>;
+  readonly errorCode?: "IMPORT_FAILED";
+}
+
+export interface TenantGhlImportRunner {
+  readonly run: (request: HostAdapterGhlImportRequest) => Promise<HostAdapterGhlImportResult>;
+}
+
 export interface HostAdapterFoundationReleaseRequest {
   readonly action: "RECONCILE_PLATFORM_FOUNDATION_RELEASE";
   readonly artifacts: readonly {
@@ -154,6 +187,7 @@ export interface HostAdapterServerOptions {
   readonly reconciler: TenantComposeReconciler;
   readonly httpsRouteReconciler?: TenantHttpsRouteReconciler;
   readonly migrationReconciler?: TenantCrmMigrationReconciler;
+  readonly ghlImportRunner?: TenantGhlImportRunner;
   readonly runtimeDecommissioner?: TenantRuntimeDecommissioner;
   readonly foundationReleaseDeployer?: PlatformFoundationReleaseDeployer;
   readonly requestTimeoutMilliseconds?: number;
@@ -239,6 +273,23 @@ function parseMigrationRequest(value: unknown): HostAdapterMigrationRequest {
   }
   const base = parseRequest({ ...input, action: "RECONCILE_TENANT_COMPOSE" });
   return Object.freeze({ ...base, action: "MIGRATE_TENANT_CRM_DATABASE" as const });
+}
+
+function parseGhlImportRequest(value: unknown): HostAdapterGhlImportRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const { exportId, mode = "VERIFY", ...input } = value as Record<string, unknown>;
+  if (
+    input.action !== "RUN_TENANT_GHL_IMPORT" ||
+    typeof exportId !== "string" ||
+    !uuidPattern.test(exportId) ||
+    (mode !== "APPLY" && mode !== "VERIFY" && mode !== "MIGRATE" && mode !== "ATTACHMENTS")
+  ) {
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  }
+  const base = parseRequest({ ...input, action: "RECONCILE_TENANT_COMPOSE" });
+  return Object.freeze({ ...base, action: "RUN_TENANT_GHL_IMPORT", exportId, mode });
 }
 
 function parseDecommissionRequest(value: unknown): HostAdapterDecommissionRequest {
@@ -476,6 +527,7 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
     const isContainerRequest = request.url === "/v1/tenant-containers/reconcile";
     const isHttpsRequest = request.url === "/v1/tenant-https/reconcile";
     const isMigrationRequest = request.url === "/v1/tenant-database/migrate";
+    const isGhlImportRequest = request.url === "/v1/ghl-migration/import";
     const isDecommissionRequest = request.url === "/v1/tenant-runtime/decommission";
     const isFoundationReleaseRequest = request.url === "/v1/platform-foundation/reconcile";
     if (
@@ -483,6 +535,7 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
       (!isContainerRequest &&
         !isHttpsRequest &&
         !isMigrationRequest &&
+        !isGhlImportRequest &&
         !isDecommissionRequest &&
         !isFoundationReleaseRequest)
     ) {
@@ -510,6 +563,19 @@ export function createHostAdapterServer(options: HostAdapterServerOptions) {
         const result = await options.migrationReconciler.migrate(validated);
         if (!result.migrated) throw new HostAdapterError("UNAVAILABLE");
         writeJson(response, 200, { migrated: true, reconciled: result.reconciled });
+        return;
+      }
+      if (isGhlImportRequest) {
+        if (!options.ghlImportRunner) throw new HostAdapterError("UNAVAILABLE");
+        const result = await options.ghlImportRunner.run(parseGhlImportRequest(parsed));
+        if (
+          !["RUNNING", "SUCCEEDED", "FAILED"].includes(result.state) ||
+          typeof result.reconciled !== "boolean" ||
+          (result.exitCode !== undefined && !Number.isSafeInteger(result.exitCode))
+        ) {
+          throw new HostAdapterError("IDENTITY_MISMATCH");
+        }
+        writeJson(response, 200, result);
         return;
       }
       if (isDecommissionRequest) {

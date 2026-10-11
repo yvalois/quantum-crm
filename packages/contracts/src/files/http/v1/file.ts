@@ -28,6 +28,7 @@ export const FileOwnerTypeSchema = z.enum([
   "document_template",
   "conversation",
   "message",
+  "historical_attachment",
   "form_response",
   "product",
   "variant",
@@ -45,7 +46,7 @@ const ExistingFileOwnerSchema = z
     const allowedTypes: Readonly<Record<z.infer<typeof FileOwnerModuleSchema>, readonly string[]>> =
       {
         documents: ["commercial_document", "document_template"],
-        conversations: ["conversation", "message"],
+        conversations: ["conversation", "message", "historical_attachment"],
         forms: ["form_response"],
         catalog: ["product", "variant"],
       };
