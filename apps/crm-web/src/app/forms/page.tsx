@@ -88,7 +88,8 @@ async function responseTitle(response: Response): Promise<string> {
 function renderPreviewField(field: FormField): React.JSX.Element {
   if (field.type === "IMAGE_UPLOAD")
     return <input type="file" accept="image/png,image/jpeg,image/webp" disabled />;
-  if (["LONG_TEXT", "ADDRESS"].includes(field.type)) return <textarea rows={3} disabled placeholder="Respuesta" />;
+  if (["LONG_TEXT", "ADDRESS"].includes(field.type))
+    return <textarea rows={3} disabled placeholder="Respuesta" />;
   if (["SINGLE_CHOICE", "MULTIPLE_CHOICE"].includes(field.type)) {
     return (
       <div className="form-preview-options">
@@ -129,7 +130,13 @@ function renderPreviewField(field: FormField): React.JSX.Element {
       </div>
     );
   const htmlType =
-    field.type === "EMAIL" ? "email" : field.type === "PHONE" ? "tel" : field.type === "URL" ? "url" : field.type.toLowerCase();
+    field.type === "EMAIL"
+      ? "email"
+      : field.type === "PHONE"
+        ? "tel"
+        : field.type === "URL"
+          ? "url"
+          : field.type.toLowerCase();
   return <input type={htmlType} disabled placeholder="Respuesta" />;
 }
 
@@ -151,7 +158,9 @@ export default function FormsPage(): React.JSX.Element {
   const [showFormList, setShowFormList] = useState(true);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
-  const [draggedField, setDraggedField] = useState<{ sectionId: string; fieldId: string } | null>(null);
+  const [draggedField, setDraggedField] = useState<{ sectionId: string; fieldId: string } | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +191,7 @@ export default function FormsPage(): React.JSX.Element {
       if (!response.ok) throw new Error(await responseTitle(response));
       const list = ((await response.json()) as List<FormContract>).data;
       setForms(list);
-      setDraft(selectedId ? list.find((entry) => entry.id === selectedId) ?? null : null);
+      setDraft(selectedId ? (list.find((entry) => entry.id === selectedId) ?? null) : null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cargar Formularios.");
     } finally {
@@ -399,7 +408,9 @@ export default function FormsPage(): React.JSX.Element {
           </p>
         ) : null}
         {notice ? <p className="form-notice">{notice}</p> : null}
-        <div className={`forms-workspace ${draft && !showFormList ? "forms-workspace-editing" : ""}`}>
+        <div
+          className={`forms-workspace ${draft && !showFormList ? "forms-workspace-editing" : ""}`}
+        >
           <aside className="forms-list">
             <h2>Tus formularios</h2>
             {loading ? <p>Cargando...</p> : null}
@@ -436,8 +447,13 @@ export default function FormsPage(): React.JSX.Element {
             <section className="forms-library-panel" aria-live="polite">
               <span>Biblioteca de formularios</span>
               <h2>Elige un formulario para editar</h2>
-              <p>Selecciona uno de la lista. Tus cambios se editan solo cuando abres ese formulario.</p>
-              <small>{forms.length} {forms.length === 1 ? "formulario disponible" : "formularios disponibles"}</small>
+              <p>
+                Selecciona uno de la lista. Tus cambios se editan solo cuando abres ese formulario.
+              </p>
+              <small>
+                {forms.length}{" "}
+                {forms.length === 1 ? "formulario disponible" : "formularios disponibles"}
+              </small>
             </section>
           ) : null}
           {draft && !showFormList ? (
@@ -510,7 +526,9 @@ export default function FormsPage(): React.JSX.Element {
                           value={draft.description}
                           aria-label="Descripcion del formulario"
                           placeholder="Descripcion del formulario"
-                          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                          onChange={(event) =>
+                            setDraft({ ...draft, description: event.target.value })
+                          }
                         />
                       </section>
                       {draft.definition.sections.map((section, sectionIndex) => (
@@ -546,265 +564,285 @@ export default function FormsPage(): React.JSX.Element {
                           </header>
                           {section.fields.map((field, index) => (
                             <Fragment key={field.id}>
-                            <div
-                              className={`form-field-editor ${selectedFieldId === field.id ? "is-selected" : ""}`}
-                              draggable
-                              onDragStart={() => setDraggedField({ sectionId: section.id, fieldId: field.id })}
-                              onDragEnd={() => setDraggedField(null)}
-                              onDragOver={(event) => event.preventDefault()}
-                              onDrop={(event) => {
-                                event.preventDefault();
-                                if (draggedField?.sectionId === section.id) moveFieldTo(section.id, draggedField.fieldId, index);
-                                setDraggedField(null);
-                              }}
-                              onClick={() => {
-                                setActiveSectionId(section.id);
-                                setSelectedFieldId(field.id);
-                              }}
-                            >
-                              <button className="form-canvas-field" type="button">
-                                <span className="form-canvas-field-type">{fieldLabels[field.type]}</span>
-                                <strong>{field.label || "Pregunta sin titulo"}{field.required ? " *" : ""}</strong>
-                                {field.description ? <small>{field.description}</small> : null}
-                                <div className="form-canvas-field-preview">{renderPreviewField(field)}</div>
-                              </button>
-                              <div className="form-field-head">
-                                <span className="drag-handle">⋮⋮</span>
-                                <input
-                                  value={field.label}
-                                  onChange={(event) =>
-                                    updateField(section.id, field.id, { label: event.target.value })
-                                  }
-                                />
-                                <select
-                                  value={field.type}
-                                  onChange={(event) => {
-                                    const type = event.target.value as FormFieldType;
-                                    updateField(section.id, field.id, {
-                                      type,
-                                      options: [
-                                        "SINGLE_CHOICE",
-                                        "MULTIPLE_CHOICE",
-                                        "DROPDOWN",
-                                      ].includes(type)
-                                        ? field.options.length
-                                          ? field.options
-                                          : ["Opcion 1"]
-                                        : [],
-                                      ...(["SCALE", "RATING"].includes(type)
-                                        ? { minimum: 1, maximum: 5 }
-                                        : {}),
-                                    });
-                                  }}
-                                >
-                                  {Object.entries(fieldLabels).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                      {label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <input
-                                className="form-field-description"
-                                value={field.description}
-                                placeholder="Ayuda o descripcion"
-                                onChange={(event) =>
-                                  updateField(section.id, field.id, {
-                                    description: event.target.value,
-                                  })
+                              <div
+                                className={`form-field-editor ${selectedFieldId === field.id ? "is-selected" : ""}`}
+                                draggable
+                                onDragStart={() =>
+                                  setDraggedField({ sectionId: section.id, fieldId: field.id })
                                 }
-                              />
-                              {["SINGLE_CHOICE", "MULTIPLE_CHOICE", "DROPDOWN"].includes(
-                                field.type,
-                              ) ? (
-                                <div className="form-choice-options" aria-label="Opciones de respuesta">
-                                  {field.options.map((option, optionIndex) => (
-                                    <div key={`${field.id}-${optionIndex}`}>
-                                      <span
-                                        aria-hidden="true"
-                                        className={`form-option-marker form-option-marker-${field.type.toLowerCase()}`}
-                                      />
-                                      <input
-                                        value={option}
-                                        aria-label={`Opcion ${optionIndex + 1}`}
-                                        onChange={(event) => {
-                                          const options = [...field.options];
-                                          options[optionIndex] = event.target.value;
-                                          updateField(section.id, field.id, { options });
-                                        }}
-                                      />
-                                      <button
-                                        type="button"
-                                        title="Eliminar opcion"
-                                        disabled={field.options.length === 1}
-                                        onClick={() =>
-                                          updateField(section.id, field.id, {
-                                            options: field.options.filter(
-                                              (_, currentIndex) => currentIndex !== optionIndex,
-                                            ),
-                                          })
-                                        }
-                                      >
-                                        Quitar
-                                      </button>
-                                    </div>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    className="form-add-option"
-                                    onClick={() =>
+                                onDragEnd={() => setDraggedField(null)}
+                                onDragOver={(event) => event.preventDefault()}
+                                onDrop={(event) => {
+                                  event.preventDefault();
+                                  if (draggedField?.sectionId === section.id)
+                                    moveFieldTo(section.id, draggedField.fieldId, index);
+                                  setDraggedField(null);
+                                }}
+                                onClick={() => {
+                                  setActiveSectionId(section.id);
+                                  setSelectedFieldId(field.id);
+                                }}
+                              >
+                                <button className="form-canvas-field" type="button">
+                                  <span className="form-canvas-field-type">
+                                    {fieldLabels[field.type]}
+                                  </span>
+                                  <strong>
+                                    {field.label || "Pregunta sin titulo"}
+                                    {field.required ? " *" : ""}
+                                  </strong>
+                                  {field.description ? <small>{field.description}</small> : null}
+                                  <div className="form-canvas-field-preview">
+                                    {renderPreviewField(field)}
+                                  </div>
+                                </button>
+                                <div className="form-field-head">
+                                  <span className="drag-handle">⋮⋮</span>
+                                  <input
+                                    value={field.label}
+                                    onChange={(event) =>
                                       updateField(section.id, field.id, {
-                                        options: [...field.options, `Opcion ${field.options.length + 1}`],
+                                        label: event.target.value,
                                       })
                                     }
+                                  />
+                                  <select
+                                    value={field.type}
+                                    onChange={(event) => {
+                                      const type = event.target.value as FormFieldType;
+                                      updateField(section.id, field.id, {
+                                        type,
+                                        options: [
+                                          "SINGLE_CHOICE",
+                                          "MULTIPLE_CHOICE",
+                                          "DROPDOWN",
+                                        ].includes(type)
+                                          ? field.options.length
+                                            ? field.options
+                                            : ["Opcion 1"]
+                                          : [],
+                                        ...(["SCALE", "RATING"].includes(type)
+                                          ? { minimum: 1, maximum: 5 }
+                                          : {}),
+                                      });
+                                    }}
                                   >
-                                    + Agregar opcion
-                                  </button>
-                                </div>
-                              ) : null}
-                              {["SCALE", "RATING"].includes(field.type) ? (
-                                <div className="form-field-limits">
-                                  <label>
-                                    Minimo
-                                    <input
-                                      type="number"
-                                      value={field.minimum ?? 1}
-                                      onChange={(event) =>
-                                        updateField(section.id, field.id, {
-                                          minimum: Number(event.target.value),
-                                        })
-                                      }
-                                    />
-                                  </label>
-                                  <label>
-                                    Maximo
-                                    <input
-                                      type="number"
-                                      value={field.maximum ?? 5}
-                                      onChange={(event) =>
-                                        updateField(section.id, field.id, {
-                                          maximum: Number(event.target.value),
-                                        })
-                                      }
-                                    />
-                                  </label>
-                                </div>
-                              ) : null}
-                              <details>
-                                <summary>Logica condicional</summary>
-                                <select
-                                  value={field.condition?.sourceFieldId ?? ""}
-                                  onChange={(event) =>
-                                    updateField(section.id, field.id, {
-                                      condition: event.target.value
-                                        ? {
-                                            sourceFieldId: event.target.value,
-                                            operator: "EQUALS",
-                                            value: "",
-                                          }
-                                        : null,
-                                    })
-                                  }
-                                >
-                                  <option value="">Siempre visible</option>
-                                  {allFields
-                                    .slice(
-                                      0,
-                                      allFields.findIndex((candidate) => candidate.id === field.id),
-                                    )
-                                    .map((candidate) => (
-                                      <option value={candidate.id} key={candidate.id}>
-                                        {candidate.label}
+                                    {Object.entries(fieldLabels).map(([value, label]) => (
+                                      <option key={value} value={value}>
+                                        {label}
                                       </option>
                                     ))}
-                                </select>
-                                {field.condition ? (
-                                  <>
-                                    <select
-                                      value={field.condition.operator}
-                                      onChange={(event) =>
+                                  </select>
+                                </div>
+                                <input
+                                  className="form-field-description"
+                                  value={field.description}
+                                  placeholder="Ayuda o descripcion"
+                                  onChange={(event) =>
+                                    updateField(section.id, field.id, {
+                                      description: event.target.value,
+                                    })
+                                  }
+                                />
+                                {["SINGLE_CHOICE", "MULTIPLE_CHOICE", "DROPDOWN"].includes(
+                                  field.type,
+                                ) ? (
+                                  <div
+                                    className="form-choice-options"
+                                    aria-label="Opciones de respuesta"
+                                  >
+                                    {field.options.map((option, optionIndex) => (
+                                      <div key={`${field.id}-${optionIndex}`}>
+                                        <span
+                                          aria-hidden="true"
+                                          className={`form-option-marker form-option-marker-${field.type.toLowerCase()}`}
+                                        />
+                                        <input
+                                          value={option}
+                                          aria-label={`Opcion ${optionIndex + 1}`}
+                                          onChange={(event) => {
+                                            const options = [...field.options];
+                                            options[optionIndex] = event.target.value;
+                                            updateField(section.id, field.id, { options });
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          title="Eliminar opcion"
+                                          disabled={field.options.length === 1}
+                                          onClick={() =>
+                                            updateField(section.id, field.id, {
+                                              options: field.options.filter(
+                                                (_, currentIndex) => currentIndex !== optionIndex,
+                                              ),
+                                            })
+                                          }
+                                        >
+                                          Quitar
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      className="form-add-option"
+                                      onClick={() =>
                                         updateField(section.id, field.id, {
-                                          condition: {
-                                            ...field.condition!,
-                                            operator: event.target.value as
-                                              "EQUALS" | "NOT_EQUALS" | "CONTAINS" | "NOT_EMPTY",
-                                          },
+                                          options: [
+                                            ...field.options,
+                                            `Opcion ${field.options.length + 1}`,
+                                          ],
                                         })
                                       }
                                     >
-                                      <option value="EQUALS">Es igual a</option>
-                                      <option value="NOT_EQUALS">No es igual a</option>
-                                      <option value="CONTAINS">Contiene</option>
-                                      <option value="NOT_EMPTY">Tiene respuesta</option>
-                                    </select>
-                                    {field.condition.operator !== "NOT_EMPTY" ? (
+                                      + Agregar opcion
+                                    </button>
+                                  </div>
+                                ) : null}
+                                {["SCALE", "RATING"].includes(field.type) ? (
+                                  <div className="form-field-limits">
+                                    <label>
+                                      Minimo
                                       <input
-                                        value={String(field.condition.value ?? "")}
-                                        placeholder="Valor"
+                                        type="number"
+                                        value={field.minimum ?? 1}
+                                        onChange={(event) =>
+                                          updateField(section.id, field.id, {
+                                            minimum: Number(event.target.value),
+                                          })
+                                        }
+                                      />
+                                    </label>
+                                    <label>
+                                      Maximo
+                                      <input
+                                        type="number"
+                                        value={field.maximum ?? 5}
+                                        onChange={(event) =>
+                                          updateField(section.id, field.id, {
+                                            maximum: Number(event.target.value),
+                                          })
+                                        }
+                                      />
+                                    </label>
+                                  </div>
+                                ) : null}
+                                <details>
+                                  <summary>Logica condicional</summary>
+                                  <select
+                                    value={field.condition?.sourceFieldId ?? ""}
+                                    onChange={(event) =>
+                                      updateField(section.id, field.id, {
+                                        condition: event.target.value
+                                          ? {
+                                              sourceFieldId: event.target.value,
+                                              operator: "EQUALS",
+                                              value: "",
+                                            }
+                                          : null,
+                                      })
+                                    }
+                                  >
+                                    <option value="">Siempre visible</option>
+                                    {allFields
+                                      .slice(
+                                        0,
+                                        allFields.findIndex(
+                                          (candidate) => candidate.id === field.id,
+                                        ),
+                                      )
+                                      .map((candidate) => (
+                                        <option value={candidate.id} key={candidate.id}>
+                                          {candidate.label}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  {field.condition ? (
+                                    <>
+                                      <select
+                                        value={field.condition.operator}
                                         onChange={(event) =>
                                           updateField(section.id, field.id, {
                                             condition: {
                                               ...field.condition!,
-                                              value: event.target.value,
+                                              operator: event.target.value as
+                                                "EQUALS" | "NOT_EQUALS" | "CONTAINS" | "NOT_EMPTY",
                                             },
                                           })
                                         }
-                                      />
-                                    ) : null}
-                                  </>
-                                ) : null}
-                              </details>
-                              <footer>
-                                <label>
-                                  <input
-                                    type="checkbox"
-                                    checked={field.required}
-                                    onChange={(event) =>
-                                      updateField(section.id, field.id, {
-                                        required: event.target.checked,
-                                      })
-                                    }
-                                  />{" "}
-                                  Obligatoria
-                                </label>
-                                <div>
-                                  <button
-                                    onClick={() => moveField(section.id, index, -1)}
-                                    disabled={index === 0}
-                                  >
-                                    ↑
-                                  </button>
-                                  <button
-                                    onClick={() => moveField(section.id, index, 1)}
-                                    disabled={index === section.fields.length - 1}
-                                  >
-                                    ↓
-                                  </button>
-                                  <button
-                                    className="danger-link"
-                                    onClick={() =>
-                                      updateSection(section.id, (current) => ({
-                                        ...current,
-                                        fields: current.fields.filter(
-                                          (item) => item.id !== field.id,
-                                        ),
-                                      }))
-                                    }
-                                  >
-                                    Eliminar
-                                  </button>
-                                </div>
-                              </footer>
-                            </div>
-                            <button
-                              className="form-insert-between"
-                              type="button"
-                              onClick={() => {
-                                addField(section.id, "SHORT_TEXT", index + 1);
-                              }}
-                            >
-                              + Añadir desde biblioteca
-                            </button>
+                                      >
+                                        <option value="EQUALS">Es igual a</option>
+                                        <option value="NOT_EQUALS">No es igual a</option>
+                                        <option value="CONTAINS">Contiene</option>
+                                        <option value="NOT_EMPTY">Tiene respuesta</option>
+                                      </select>
+                                      {field.condition.operator !== "NOT_EMPTY" ? (
+                                        <input
+                                          value={String(field.condition.value ?? "")}
+                                          placeholder="Valor"
+                                          onChange={(event) =>
+                                            updateField(section.id, field.id, {
+                                              condition: {
+                                                ...field.condition!,
+                                                value: event.target.value,
+                                              },
+                                            })
+                                          }
+                                        />
+                                      ) : null}
+                                    </>
+                                  ) : null}
+                                </details>
+                                <footer>
+                                  <label>
+                                    <input
+                                      type="checkbox"
+                                      checked={field.required}
+                                      onChange={(event) =>
+                                        updateField(section.id, field.id, {
+                                          required: event.target.checked,
+                                        })
+                                      }
+                                    />{" "}
+                                    Obligatoria
+                                  </label>
+                                  <div>
+                                    <button
+                                      onClick={() => moveField(section.id, index, -1)}
+                                      disabled={index === 0}
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      onClick={() => moveField(section.id, index, 1)}
+                                      disabled={index === section.fields.length - 1}
+                                    >
+                                      ↓
+                                    </button>
+                                    <button
+                                      className="danger-link"
+                                      onClick={() =>
+                                        updateSection(section.id, (current) => ({
+                                          ...current,
+                                          fields: current.fields.filter(
+                                            (item) => item.id !== field.id,
+                                          ),
+                                        }))
+                                      }
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                </footer>
+                              </div>
+                              <button
+                                className="form-insert-between"
+                                type="button"
+                                onClick={() => {
+                                  addField(section.id, "SHORT_TEXT", index + 1);
+                                }}
+                              >
+                                + Añadir desde biblioteca
+                              </button>
                             </Fragment>
                           ))}
                           <button
@@ -843,7 +881,10 @@ export default function FormsPage(): React.JSX.Element {
                         type="button"
                         title="Agregar pregunta"
                         onClick={() =>
-                          addField(activeSectionId ?? draft.definition.sections[0]!.id, "SHORT_TEXT")
+                          addField(
+                            activeSectionId ?? draft.definition.sections[0]!.id,
+                            "SHORT_TEXT",
+                          )
                         }
                       >
                         +
@@ -881,18 +922,41 @@ export default function FormsPage(): React.JSX.Element {
                       <header className="forms-preview-heading">
                         <span>VISTA PREVIA</span>
                         <div>
-                          <button type="button" className={previewDevice === "desktop" ? "active" : ""} onClick={() => setPreviewDevice("desktop")}>Escritorio</button>
-                          <button type="button" className={previewDevice === "mobile" ? "active" : ""} onClick={() => setPreviewDevice("mobile")}>Móvil</button>
+                          <button
+                            type="button"
+                            className={previewDevice === "desktop" ? "active" : ""}
+                            onClick={() => setPreviewDevice("desktop")}
+                          >
+                            Escritorio
+                          </button>
+                          <button
+                            type="button"
+                            className={previewDevice === "mobile" ? "active" : ""}
+                            onClick={() => setPreviewDevice("mobile")}
+                          >
+                            Móvil
+                          </button>
                         </div>
                       </header>
                       <div style={{ borderTopColor: draft.theme.accentColor }}>
                         {draft.theme.heroImageUrl ? (
-                          <img className="form-preview-hero" src={draft.theme.heroImageUrl} alt="Imagen de portada" />
+                          <img
+                            className="form-preview-hero"
+                            src={draft.theme.heroImageUrl}
+                            alt="Imagen de portada"
+                          />
                         ) : null}
                         <h2>{draft.title}</h2>
                         <p>{draft.description}</p>
                         {draft.theme.headerVideoUrl ? (
-                          <a className="form-preview-video" href={draft.theme.headerVideoUrl} target="_blank" rel="noreferrer">Ver video de bienvenida ↗</a>
+                          <a
+                            className="form-preview-video"
+                            href={draft.theme.headerVideoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Ver video de bienvenida ↗
+                          </a>
                         ) : null}
                         {draft.definition.sections.map((section) => (
                           <section key={section.id}>
@@ -946,7 +1010,12 @@ export default function FormsPage(): React.JSX.Element {
                           type="url"
                           value={draft.theme.heroImageUrl ?? ""}
                           placeholder="https://..."
-                          onChange={(event) => setDraft({ ...draft, theme: { ...draft.theme, heroImageUrl: event.target.value || null } })}
+                          onChange={(event) =>
+                            setDraft({
+                              ...draft,
+                              theme: { ...draft.theme, heroImageUrl: event.target.value || null },
+                            })
+                          }
                         />
                       </label>
                       <label>
@@ -955,7 +1024,12 @@ export default function FormsPage(): React.JSX.Element {
                           type="url"
                           value={draft.theme.headerVideoUrl ?? ""}
                           placeholder="https://..."
-                          onChange={(event) => setDraft({ ...draft, theme: { ...draft.theme, headerVideoUrl: event.target.value || null } })}
+                          onChange={(event) =>
+                            setDraft({
+                              ...draft,
+                              theme: { ...draft.theme, headerVideoUrl: event.target.value || null },
+                            })
+                          }
                         />
                       </label>
                       <label>

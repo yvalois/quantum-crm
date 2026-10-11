@@ -789,13 +789,21 @@ export default function DocumentsPage(): React.JSX.Element {
     patchDraft({
       design: {
         ...draft.design,
-        headerImagePlacement: { ...(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement), ...patch },
+        headerImagePlacement: {
+          ...(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement),
+          ...patch,
+        },
       },
     });
   }
 
   function beginHeaderImageMove(event: ReactPointerEvent<HTMLDivElement>): void {
-    if (!draft || !draft.design.logoFileId || (event.target as HTMLElement).closest("button, label")) return;
+    if (
+      !draft ||
+      !draft.design.logoFileId ||
+      (event.target as HTMLElement).closest("button, label")
+    )
+      return;
     event.preventDefault();
     const header = event.currentTarget.closest<HTMLElement>(".document-page-header");
     if (!header) return;
@@ -805,7 +813,11 @@ export default function DocumentsPage(): React.JSX.Element {
     const bounds = header.getBoundingClientRect();
     const move = (pointerEvent: PointerEvent): void => {
       patchHeaderImagePlacement({
-        leftPercent: clamp(start.leftPercent + ((pointerEvent.clientX - originX) / bounds.width) * 100, 0, 100 - start.widthPercent),
+        leftPercent: clamp(
+          start.leftPercent + ((pointerEvent.clientX - originX) / bounds.width) * 100,
+          0,
+          100 - start.widthPercent,
+        ),
         topPx: Math.max(0, start.topPx + pointerEvent.clientY - originY),
       });
     };
@@ -829,7 +841,11 @@ export default function DocumentsPage(): React.JSX.Element {
     const bounds = header.getBoundingClientRect();
     const move = (pointerEvent: PointerEvent): void => {
       patchHeaderImagePlacement({
-        widthPercent: clamp(start.widthPercent + ((pointerEvent.clientX - originX) / bounds.width) * 100, 4, 100 - start.leftPercent),
+        widthPercent: clamp(
+          start.widthPercent + ((pointerEvent.clientX - originX) / bounds.width) * 100,
+          4,
+          100 - start.leftPercent,
+        ),
         heightPx: Math.max(24, start.heightPx + pointerEvent.clientY - originY),
       });
     };
@@ -1895,8 +1911,10 @@ export default function DocumentsPage(): React.JSX.Element {
                               {
                                 borderColor: draft.design.accentColor,
                                 "--header-canvas-height": `${
-                                  (draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).topPx +
-                                  (draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).heightPx +
+                                  (draft.design.headerImagePlacement ?? defaultHeaderImagePlacement)
+                                    .topPx +
+                                  (draft.design.headerImagePlacement ?? defaultHeaderImagePlacement)
+                                    .heightPx +
                                   12
                                 }px`,
                               } as CSSProperties
@@ -2003,7 +2021,9 @@ export default function DocumentsPage(): React.JSX.Element {
                               </div>
                             ) : (
                               <label className="document-header-add-image">
-                                {uploadingTargetId === "design:logo" ? "Cargando imagen..." : "+ Imagen"}
+                                {uploadingTargetId === "design:logo"
+                                  ? "Cargando imagen..."
+                                  : "+ Imagen"}
                                 <input
                                   aria-label="Agregar imagen al encabezado"
                                   type="file"

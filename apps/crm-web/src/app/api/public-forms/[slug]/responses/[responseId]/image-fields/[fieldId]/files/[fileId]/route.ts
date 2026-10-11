@@ -3,7 +3,14 @@ import { withCrmAuthRuntime } from "../../../../../../../../../../server/crm-aut
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request, context: { params: Promise<{ slug: string; responseId: string; fieldId: string; fileId: string }> }) {
+export async function POST(
+  request: Request,
+  context: {
+    params: Promise<{ slug: string; responseId: string; fieldId: string; fileId: string }>;
+  },
+) {
   const { slug, responseId, fieldId, fileId } = await context.params;
-  return withCrmAuthRuntime((runtime) => handlePublicFormImageAttach(request, runtime, slug, responseId, fieldId, fileId));
+  return withCrmAuthRuntime((runtime) =>
+    handlePublicFormImageAttach(request, runtime, slug, responseId, fieldId, fileId),
+  );
 }

@@ -1650,7 +1650,12 @@ export async function handlePublicFormImageAttach(
     request,
     runtime,
     `/api/v1/forms/public/${slug}/responses/${responseId}/image-fields/${fieldId}/files/${fileId}`,
-    { safeParse: (value: unknown) => ({ success: typeof value === "object" && value !== null, data: {} }) },
+    {
+      safeParse: (value: unknown) => ({
+        success: typeof value === "object" && value !== null,
+        data: {},
+      }),
+    },
     SubmittedFormResponseResponseSchema,
   );
 }
@@ -1666,8 +1671,16 @@ export async function handlePublicFormImageStatus(
     return crmProblem(400, "Invalid request");
   try {
     const upstream = await runtime.crmApiFetch(
-      new URL(`/api/v1/forms/public/${slug}/responses/${responseId}/files/${fileId}`, runtime.config.crmApiOrigin),
-      { headers: { accept: "application/json", "x-correlation-id": crypto.randomUUID() }, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(5_000) },
+      new URL(
+        `/api/v1/forms/public/${slug}/responses/${responseId}/files/${fileId}`,
+        runtime.config.crmApiOrigin,
+      ),
+      {
+        headers: { accept: "application/json", "x-correlation-id": crypto.randomUUID() },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
     );
     return commercialResponse(upstream, FileResponseSchema);
   } catch {
@@ -1686,7 +1699,8 @@ export async function handlePublicFormUploadTransport(
     !contentType.toLocaleLowerCase("en").startsWith("multipart/form-data;") ||
     !Number.isFinite(declaredLength) ||
     declaredLength > maximumUploadProxyBytes
-  ) return crmProblem(400, "Invalid request");
+  )
+    return crmProblem(400, "Invalid request");
   try {
     const form = await request.formData();
     const uploadUrl = form.get("qcrm-upload-url");
@@ -1695,10 +1709,23 @@ export async function handlePublicFormUploadTransport(
       return crmProblem(400, "Invalid request");
     const allowedOrigin = siblingStorageOrigin(request.url, request.headers);
     const target = new URL(uploadUrl);
-    if (!allowedOrigin || target.origin !== allowedOrigin || target.username || target.password || target.search || target.hash)
+    if (
+      !allowedOrigin ||
+      target.origin !== allowedOrigin ||
+      target.username ||
+      target.password ||
+      target.search ||
+      target.hash
+    )
       return crmProblem(400, "Invalid request");
     form.delete("qcrm-upload-url");
-    const upstream = await runtime.crmApiFetch(target, { method: "POST", body: form, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(60_000) });
+    const upstream = await runtime.crmApiFetch(target, {
+      method: "POST",
+      body: form,
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(60_000),
+    });
     const body = await upstream.arrayBuffer();
     if (body.byteLength > maximumResponseBytes) return crmProblem(503, "Storage unavailable");
     const headers = crmNoStoreHeaders();

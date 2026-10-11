@@ -138,7 +138,8 @@ export class FormsController {
     const field = upload.definition.sections
       .flatMap((section) => section.fields)
       .find((candidate) => candidate.id === fieldId);
-    if (!field || field.type !== "IMAGE_UPLOAD") throw new FormValidationError("Invalid image field");
+    if (!field || field.type !== "IMAGE_UPLOAD")
+      throw new FormValidationError("Invalid image field");
     return upload;
   }
 
@@ -451,7 +452,9 @@ export class FormsController {
     try {
       await this.service.publicResponseUpload(slug, responseId);
       return FileResponseSchema.parse({
-        data: publicFile(await this.files.get(publicFileActor(responseId), publicFilePermissions, fileId)),
+        data: publicFile(
+          await this.files.get(publicFileActor(responseId), publicFilePermissions, fileId),
+        ),
       });
     } catch (error) {
       return map(error);
@@ -467,14 +470,22 @@ export class FormsController {
     @Param("fileId") fileId: string,
     @Headers("idempotency-key") idempotencyKey: string | undefined,
   ) {
-    if (![responseId, fieldId, fileId].every((value) => uuidPattern.test(value)) || !slugPattern.test(slug))
+    if (
+      ![responseId, fieldId, fileId].every((value) => uuidPattern.test(value)) ||
+      !slugPattern.test(slug)
+    )
       throw new BadRequestException();
     try {
       await this.imageUpload(slug, responseId, fieldId);
       const actor = publicFileActor(responseId);
       const file = await this.files.get(actor, publicFilePermissions, fileId);
       if (file.status !== "AVAILABLE") throw new FileStateConflictError();
-      const operationKey = hash({ responseId, fieldId, fileId, idempotencyKey: key(idempotencyKey) });
+      const operationKey = hash({
+        responseId,
+        fieldId,
+        fileId,
+        idempotencyKey: key(idempotencyKey),
+      });
       await this.files.attachReference({
         actor,
         permissions: publicFilePermissions,

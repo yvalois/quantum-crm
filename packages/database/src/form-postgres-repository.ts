@@ -493,7 +493,9 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
               AND response.id = $2::uuid
               AND response.submitted_at >= $3 - INTERVAL '15 minutes'`,
           [slug, responseId, now],
-        )) as { readonly rows: readonly (ResponseRow & { readonly published_definition: unknown })[] };
+        )) as {
+          readonly rows: readonly (ResponseRow & { readonly published_definition: unknown })[];
+        };
         const row = result.rows[0];
         return row
           ? Object.freeze({

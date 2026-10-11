@@ -153,9 +153,7 @@ export const FormAnswerValueSchema = z.union([
   z.number().finite(),
   z.boolean(),
   z.array(z.string().max(1_000)).max(100),
-  z
-    .object({ fileIds: z.array(UuidSchema).min(1).max(10) })
-    .strict(),
+  z.object({ fileIds: z.array(UuidSchema).min(1).max(10) }).strict(),
 ]);
 export const SubmitFormResponseSchema = z
   .object({
@@ -169,8 +167,17 @@ export const PublicFormImageUploadIntentSchema = z
   .object({
     fieldId: UuidSchema,
     originalName: z.string().trim().min(1).max(255),
-    declaredMime: z.string().trim().toLowerCase().regex(/^image\/[a-z0-9.+-]+$/u).max(160),
-    declaredSize: z.number().int().positive().max(20 * 1024 * 1024),
+    declaredMime: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(/^image\/[a-z0-9.+-]+$/u)
+      .max(160),
+    declaredSize: z
+      .number()
+      .int()
+      .positive()
+      .max(20 * 1024 * 1024),
     expectedSha256: z.string().regex(/^[A-Za-z0-9+/]{43}=$/u),
   })
   .strict();

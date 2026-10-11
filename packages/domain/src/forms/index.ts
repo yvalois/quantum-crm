@@ -87,13 +87,19 @@ export interface FormRepository {
     slug: string,
     responseId: string,
     now: Date,
-  ) => Promise<{ readonly response: SubmittedFormRecord; readonly definition: FormDefinition } | null>;
+  ) => Promise<{
+    readonly response: SubmittedFormRecord;
+    readonly definition: FormDefinition;
+  } | null>;
   readonly appendResponseImage: (input: {
     readonly responseId: string;
     readonly fieldId: string;
     readonly fileId: string;
   }) => Promise<SubmittedFormRecord | null>;
-  readonly findResponseForOwner: (responseId: string, now: Date) => Promise<SubmittedFormRecord | null>;
+  readonly findResponseForOwner: (
+    responseId: string,
+    now: Date,
+  ) => Promise<SubmittedFormRecord | null>;
 }
 
 export class FormNotFoundError extends Error {

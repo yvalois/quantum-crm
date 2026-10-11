@@ -58,7 +58,11 @@ function validFor(field: FormField, value: FormAnswerValue): boolean {
       value.fileIds.length > 0
     );
   }
-  if (["SHORT_TEXT", "LONG_TEXT", "EMAIL", "PHONE", "URL", "ADDRESS", "DATE", "TIME"].includes(field.type)) {
+  if (
+    ["SHORT_TEXT", "LONG_TEXT", "EMAIL", "PHONE", "URL", "ADDRESS", "DATE", "TIME"].includes(
+      field.type,
+    )
+  ) {
     if (typeof value !== "string") return false;
     if (field.type === "EMAIL" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value)) return false;
     if (field.type === "PHONE" && !/^\+?[0-9 ()-]{7,30}$/u.test(value)) return false;
@@ -106,7 +110,11 @@ export function validateFormAnswers(
     const empty =
       value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
     if (empty) {
-      if (field.type === "IMAGE_UPLOAD" && field.required && pendingImageFieldIds.includes(field.id)) {
+      if (
+        field.type === "IMAGE_UPLOAD" &&
+        field.required &&
+        pendingImageFieldIds.includes(field.id)
+      ) {
         continue;
       }
       if (field.required) throw new FormValidationError(`Required field: ${field.label}`);
@@ -284,7 +292,11 @@ export class FormService {
   }
 
   public async publicResponseUpload(slugValue: string, responseId: string) {
-    const upload = await this.repository.findPublicResponseUpload(slugValue, responseId, this.clock());
+    const upload = await this.repository.findPublicResponseUpload(
+      slugValue,
+      responseId,
+      this.clock(),
+    );
     if (!upload) throw new FormNotFoundError();
     return upload;
   }
@@ -299,7 +311,8 @@ export class FormService {
     const field = upload.definition.sections
       .flatMap((section) => section.fields)
       .find((candidate) => candidate.id === input.fieldId);
-    if (!field || field.type !== "IMAGE_UPLOAD") throw new FormValidationError("Invalid image field");
+    if (!field || field.type !== "IMAGE_UPLOAD")
+      throw new FormValidationError("Invalid image field");
     const updated = await this.repository.appendResponseImage(input);
     if (!updated) throw new FormNotFoundError();
     return updated;

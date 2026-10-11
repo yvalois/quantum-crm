@@ -30,7 +30,11 @@ async function sha256Base64(file: File): Promise<string> {
 }
 
 function uploadVersionId(response: Response, body: string): string | null {
-  return response.headers.get("x-amz-version-id") ?? body.match(/<VersionId>([^<]+)<\/VersionId>/u)?.[1] ?? null;
+  return (
+    response.headers.get("x-amz-version-id") ??
+    body.match(/<VersionId>([^<]+)<\/VersionId>/u)?.[1] ??
+    null
+  );
 }
 
 async function responseTitle(response: Response): Promise<string> {
@@ -97,7 +101,10 @@ export default function PublicFormPage(): React.JSX.Element {
             multiple
             required={field.required}
             onChange={(event) =>
-              setImages((current) => ({ ...current, [field.id]: Array.from(event.target.files ?? []) }))
+              setImages((current) => ({
+                ...current,
+                [field.id]: Array.from(event.target.files ?? []),
+              }))
             }
           />
           <small>PNG, JPG o WebP; hasta 20 MB por imagen. Se valida antes de guardarse.</small>
@@ -210,13 +217,13 @@ export default function PublicFormPage(): React.JSX.Element {
           ? "tel"
           : field.type === "URL"
             ? "url"
-          : field.type === "DATE"
-            ? "date"
-            : field.type === "TIME"
-              ? "time"
-              : field.type === "NUMBER"
-                ? "number"
-                : "text";
+            : field.type === "DATE"
+              ? "date"
+              : field.type === "TIME"
+                ? "time"
+                : field.type === "NUMBER"
+                  ? "number"
+                  : "text";
     return (
       <input
         type={type}
@@ -224,7 +231,11 @@ export default function PublicFormPage(): React.JSX.Element {
         min={field.minimum}
         max={field.maximum}
         onChange={(event) =>
-          set(["NUMBER", "RATING"].includes(field.type) ? Number(event.target.value) : event.target.value)
+          set(
+            ["NUMBER", "RATING"].includes(field.type)
+              ? Number(event.target.value)
+              : event.target.value,
+          )
         }
         required={field.required}
       />
@@ -254,7 +265,10 @@ export default function PublicFormPage(): React.JSX.Element {
             `/api/public-forms/${encodeURIComponent(slug)}/responses/${submitted.data.id}/image-upload-intents`,
             {
               method: "POST",
-              headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
+              headers: {
+                "content-type": "application/json",
+                "idempotency-key": crypto.randomUUID(),
+              },
               body: JSON.stringify({
                 fieldId,
                 originalName: image.name,
@@ -267,10 +281,14 @@ export default function PublicFormPage(): React.JSX.Element {
           if (!intentResponse.ok) throw new Error(await responseTitle(intentResponse));
           const intent = (await intentResponse.json()) as UploadIntent;
           const uploadBody = new FormData();
-          for (const [name, value] of Object.entries(intent.data.upload.fields)) uploadBody.append(name, value);
+          for (const [name, value] of Object.entries(intent.data.upload.fields))
+            uploadBody.append(name, value);
           uploadBody.append("qcrm-upload-url", intent.data.upload.url);
           uploadBody.append("file", image, image.name);
-          const storage = await fetch("/api/public-forms/upload", { method: "POST", body: uploadBody });
+          const storage = await fetch("/api/public-forms/upload", {
+            method: "POST",
+            body: uploadBody,
+          });
           const storageBody = await storage.text();
           if (!storage.ok) throw new Error("El almacenamiento rechazo la imagen.");
           const versionId = uploadVersionId(storage, storageBody);
@@ -279,8 +297,15 @@ export default function PublicFormPage(): React.JSX.Element {
             `/api/public-forms/${encodeURIComponent(slug)}/responses/${submitted.data.id}/files/${intent.data.file.id}/complete`,
             {
               method: "POST",
-              headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
-              body: JSON.stringify({ checksum, ...(versionId ? { versionId } : {}), ...(receipt ? { receipt } : {}) }),
+              headers: {
+                "content-type": "application/json",
+                "idempotency-key": crypto.randomUUID(),
+              },
+              body: JSON.stringify({
+                checksum,
+                ...(versionId ? { versionId } : {}),
+                ...(receipt ? { receipt } : {}),
+              }),
             },
           );
           if (!complete.ok) throw new Error(await responseTitle(complete));
@@ -293,14 +318,25 @@ export default function PublicFormPage(): React.JSX.Element {
             );
             if (!status.ok) throw new Error(await responseTitle(status));
             const metadata = (await status.json()) as { data: { status: string } };
-            if (metadata.data.status === "AVAILABLE") { available = true; break; }
+            if (metadata.data.status === "AVAILABLE") {
+              available = true;
+              break;
+            }
             if (["REJECTED", "FAILED", "DELETED"].includes(metadata.data.status))
               throw new Error("La imagen no supero la validacion de seguridad.");
           }
-          if (!available) throw new Error("La imagen sigue en validacion. Intenta nuevamente en un momento.");
+          if (!available)
+            throw new Error("La imagen sigue en validacion. Intenta nuevamente en un momento.");
           const attach = await fetch(
             `/api/public-forms/${encodeURIComponent(slug)}/responses/${submitted.data.id}/image-fields/${fieldId}/files/${intent.data.file.id}`,
-            { method: "POST", headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() }, body: "{}" },
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "idempotency-key": crypto.randomUUID(),
+              },
+              body: "{}",
+            },
           );
           if (!attach.ok) throw new Error(await responseTitle(attach));
         }
@@ -355,10 +391,25 @@ export default function PublicFormPage(): React.JSX.Element {
         <header>
           <span style={{ background: presentationTheme.accentColor }}>Q</span>
           <p>FORMULARIO QUANTUM</p>
-          {form.theme.heroImageUrl ? <img className="public-form-hero" src={form.theme.heroImageUrl} alt="Imagen de portada" /> : null}
+          {form.theme.heroImageUrl ? (
+            <img
+              className="public-form-hero"
+              src={form.theme.heroImageUrl}
+              alt="Imagen de portada"
+            />
+          ) : null}
           <h1>{form.title}</h1>
           <p>{form.description}</p>
-          {form.theme.headerVideoUrl ? <a className="public-form-video" href={form.theme.headerVideoUrl} target="_blank" rel="noreferrer">Ver video de bienvenida ↗</a> : null}
+          {form.theme.headerVideoUrl ? (
+            <a
+              className="public-form-video"
+              href={form.theme.headerVideoUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ver video de bienvenida ↗
+            </a>
+          ) : null}
         </header>
         {form.definition.sections.map((section, index) => (
           <section key={section.id}>
