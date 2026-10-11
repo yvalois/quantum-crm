@@ -14,7 +14,9 @@ describe("contact update contract", () => {
     const id = "019b0000-0000-7000-8000-000000000011";
     expect(ContactListQuerySchema.parse({ ids: `${id},${id}` }).ids).toBe(`${id},${id}`);
     expect(ContactListQuerySchema.safeParse({ ids: "' OR true" }).success).toBe(false);
-    expect(ContactListQuerySchema.safeParse({ ids: Array(101).fill(id).join(",") }).success).toBe(false);
+    expect(ContactListQuerySchema.safeParse({ ids: Array(101).fill(id).join(",") }).success).toBe(
+      false,
+    );
     expect(ContactBulkFilterSchema.safeParse({ ids: id }).success).toBe(false);
   });
   it("preserves long imported custom-field names and keys within the explicit limit", () => {

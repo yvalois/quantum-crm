@@ -1650,7 +1650,11 @@
     min-height: 0;
     height: 34rem;
   }
-  .contextPanel { flex: none; max-height: none; overflow: visible; }
+  .contextPanel {
+    flex: none;
+    max-height: none;
+    overflow: visible;
+  }
 
   .messageBubble {
     max-width: 90%;

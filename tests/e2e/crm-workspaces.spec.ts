@@ -22,7 +22,15 @@ function contact(index: number, displayName: string): Contact {
     email: `contact-${index}@example.test`,
     phone: "+573000000001",
     labels: [{ id: "019b0000-0000-7000-8000-000000000099", name: "Cliente frecuente" }],
-    customFields: [{ fieldId: "019b0000-0000-7000-8000-000000000098", key: "vehicle", label: "Vehículo preferido", dataType: "TEXT", value: "Sedán sintético" }],
+    customFields: [
+      {
+        fieldId: "019b0000-0000-7000-8000-000000000098",
+        key: "vehicle",
+        label: "Vehículo preferido",
+        dataType: "TEXT",
+        value: "Sedán sintético",
+      },
+    ],
     source: "MANUAL",
     archivedAt: null,
     version: "1",
@@ -159,7 +167,12 @@ async function workspaceFixture(page: Page) {
       if (path === "/api/contacts") {
         queries.push(url.searchParams);
         if (url.searchParams.has("ids")) {
-          await respond({ data: contacts.filter((item) => url.searchParams.get("ids")?.split(",").includes(item.id)), page: { limit: 100, total: 1, nextCursor: null, previousCursor: null } });
+          await respond({
+            data: contacts.filter((item) =>
+              url.searchParams.get("ids")?.split(",").includes(item.id),
+            ),
+            page: { limit: 100, total: 1, nextCursor: null, previousCursor: null },
+          });
           return;
         }
         const searching = Boolean(url.searchParams.get("q"));
@@ -189,7 +202,22 @@ async function workspaceFixture(page: Page) {
         return;
       }
       if (path === "/api/conversations/historical") {
-        await respond({ data: url.searchParams.get("contactState") === "UNLINKED" ? [{ ...historical, id: "019b0000-0000-7000-8000-000000000009", contactId: null, sourceExternalId: "orphan-123456", subject: "Conversación histórica sin ficha actual en GHL", sourceThreadPresent: false }] : [historical], page: { nextCursor: null } });
+        await respond({
+          data:
+            url.searchParams.get("contactState") === "UNLINKED"
+              ? [
+                  {
+                    ...historical,
+                    id: "019b0000-0000-7000-8000-000000000009",
+                    contactId: null,
+                    sourceExternalId: "orphan-123456",
+                    subject: "Conversación histórica sin ficha actual en GHL",
+                    sourceThreadPresent: false,
+                  },
+                ]
+              : [historical],
+          page: { nextCursor: null },
+        });
         return;
       }
       if (path === `/api/conversations/historical/${historicalId}`) {
@@ -346,7 +374,9 @@ test("imported history remains read only and downloads only the verified synthet
   await expect(card).toBeVisible();
   await expectContainedViewport(page);
   await page.getByLabel("Vínculo del contacto").selectOption("UNLINKED");
-  await expect(page.getByRole("button", { name: /Sin contacto vinculado · 123456/u })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Sin contacto vinculado · 123456/u }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: /Andrea Sintética/u })).toHaveCount(0);
   expect(fixture.writes).toEqual([`POST /api/files/${fileId}/download-authorizations`]);
   expect(fixture.unexpected).toEqual([]);

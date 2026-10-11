@@ -270,7 +270,10 @@ export default function InboxPage(): React.JSX.Element {
   const modalRef = useRef<HTMLElement | null>(null);
   const lastModalFocusRef = useRef<HTMLElement | null>(null);
 
-  const relatedContacts = useConversationContacts([...items.map((item) => item.contactId), selected?.contactId]);
+  const relatedContacts = useConversationContacts([
+    ...items.map((item) => item.contactId),
+    selected?.contactId,
+  ]);
   const contactById = relatedContacts.contacts;
   const assigneeById = useMemo(
     () => new Map(assignees.map((assignee) => [assignee.id, assignee])),
@@ -1126,7 +1129,12 @@ export default function InboxPage(): React.JSX.Element {
                     <span className={styles.panelKicker}>Contexto</span>
                   </header>
 
-                  <ConversationContactCard contact={selectedContact} linked={true} loading={relatedContacts.loading} error={relatedContacts.error} />
+                  <ConversationContactCard
+                    contact={selectedContact}
+                    linked={true}
+                    loading={relatedContacts.loading}
+                    error={relatedContacts.error}
+                  />
 
                   <section className={styles.controlSection}>
                     <label>

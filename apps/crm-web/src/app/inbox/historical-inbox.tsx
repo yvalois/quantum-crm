@@ -15,8 +15,16 @@ import { ConversationContactCard, useConversationContacts } from "./conversation
 
 function threadTitle(thread: HistoricalConversation, name?: string): string {
   if (name) return name;
-  if (thread.subject && !["Conversación histórica sin ficha actual en GHL", "Conversación importada de GHL"].includes(thread.subject)) return thread.subject;
-  return thread.contactId ? "Cliente vinculado" : `Sin contacto vinculado · ${thread.sourceExternalId.slice(-6)}`;
+  if (
+    thread.subject &&
+    !["Conversación histórica sin ficha actual en GHL", "Conversación importada de GHL"].includes(
+      thread.subject,
+    )
+  )
+    return thread.subject;
+  return thread.contactId
+    ? "Cliente vinculado"
+    : `Sin contacto vinculado · ${thread.sourceExternalId.slice(-6)}`;
 }
 
 function when(value: string | null): string {
@@ -133,8 +141,13 @@ export function HistoricalInbox(): React.JSX.Element {
   const [threadError, setThreadError] = useState<string | null>(null);
   const listCursor = listCursors.at(-1) ?? null;
   const messageCursor = messageCursors.at(-1) ?? null;
-  const related = useConversationContacts([...threads.map((thread) => thread.contactId), selected?.contactId]);
-  const selectedContact = selected?.contactId ? related.contacts.get(selected.contactId) : undefined;
+  const related = useConversationContacts([
+    ...threads.map((thread) => thread.contactId),
+    selected?.contactId,
+  ]);
+  const selectedContact = selected?.contactId
+    ? related.contacts.get(selected.contactId)
+    : undefined;
 
   useEffect(() => {
     const contact = new URLSearchParams(window.location.search).get("contactId");
@@ -222,11 +235,19 @@ export function HistoricalInbox(): React.JSX.Element {
       </div>
       <div className={styles.columns}>
         <aside className={styles.list} aria-label="Conversaciones históricas" aria-busy={listBusy}>
-          <label className={styles.contactFilter}>Mostrar conversaciones
-            <select aria-label="Vínculo del contacto" value={contactState} onChange={(event) => {
-              setContactState(event.target.value as "ALL" | "LINKED" | "UNLINKED");
-              setListCursors([null]); setSelectedId(null); setSelected(null); setMessages([]);
-            }}>
+          <label className={styles.contactFilter}>
+            Mostrar conversaciones
+            <select
+              aria-label="Vínculo del contacto"
+              value={contactState}
+              onChange={(event) => {
+                setContactState(event.target.value as "ALL" | "LINKED" | "UNLINKED");
+                setListCursors([null]);
+                setSelectedId(null);
+                setSelected(null);
+                setMessages([]);
+              }}
+            >
               <option value="LINKED">Con contacto</option>
               <option value="UNLINKED">Sin contacto vinculado</option>
               <option value="ALL">Todas las conversaciones</option>
@@ -278,13 +299,24 @@ export function HistoricalInbox(): React.JSX.Element {
                   className={styles.threadButton}
                   onClick={() => choose(item)}
                 >
-                  <strong>{threadTitle(item, item.contactId ? related.contacts.get(item.contactId)?.displayName : undefined)}</strong>
-                  {item.contactId && related.contacts.get(item.contactId)?.phone ? <span>{related.contacts.get(item.contactId)?.phone}</span> : null}
+                  <strong>
+                    {threadTitle(
+                      item,
+                      item.contactId
+                        ? related.contacts.get(item.contactId)?.displayName
+                        : undefined,
+                    )}
+                  </strong>
+                  {item.contactId && related.contacts.get(item.contactId)?.phone ? (
+                    <span>{related.contacts.get(item.contactId)?.phone}</span>
+                  ) : null}
                   <span>
                     {item.messageCount} mensajes · {item.rawChannel || "Canal no informado"}
                   </span>
                   <time>{when(item.lastMessageAt ?? item.sourceCreatedAt)}</time>
-                  {!item.contactId ? <small>Datos del cliente no incluidos en la importación</small> : null}
+                  {!item.contactId ? (
+                    <small>Datos del cliente no incluidos en la importación</small>
+                  ) : null}
                 </button>
               </li>
             ))}
@@ -426,7 +458,19 @@ export function HistoricalInbox(): React.JSX.Element {
           )}
         </section>
         <aside className={styles.contactPanel} aria-label="Información del cliente">
-          {selected ? <ConversationContactCard contact={selectedContact} linked={Boolean(selected.contactId)} loading={Boolean(selected.contactId) && related.loading} error={selected.contactId ? related.error : null} /> : <p>Selecciona una conversación para ver el cliente, sus etiquetas y campos personalizados.</p>}
+          {selected ? (
+            <ConversationContactCard
+              contact={selectedContact}
+              linked={Boolean(selected.contactId)}
+              loading={Boolean(selected.contactId) && related.loading}
+              error={selected.contactId ? related.error : null}
+            />
+          ) : (
+            <p>
+              Selecciona una conversación para ver el cliente, sus etiquetas y campos
+              personalizados.
+            </p>
+          )}
         </aside>
       </div>
     </section>

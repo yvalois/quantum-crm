@@ -260,10 +260,35 @@
   flex: none;
   margin: 8px 12px;
 }
-.contactFilter { display: grid; gap: 6px; padding: 12px; font-size: 12px; border-bottom: 1px solid #e1e7ec; }
-.contactFilter select { width: 100%; min-width: 0; padding: 8px; border: 1px solid #ccd5de; border-radius: 5px; background: #fff; font: inherit; }
-.contactPanel { min-width: 0; min-height: 0; overflow-y: auto; border-left: 1px solid #e1e7ec; background: #fff; }
-.contactPanel > p { padding: 16px; font-size: 13px; color: #647384; line-height: 1.6; }
+.contactFilter {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  font-size: 12px;
+  border-bottom: 1px solid #e1e7ec;
+}
+.contactFilter select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #ccd5de;
+  border-radius: 5px;
+  background: #fff;
+  font: inherit;
+}
+.contactPanel {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid #e1e7ec;
+  background: #fff;
+}
+.contactPanel > p {
+  padding: 16px;
+  font-size: 13px;
+  color: #647384;
+  line-height: 1.6;
+}
 .readOnly {
   flex: none;
   margin: 0;
@@ -289,7 +314,12 @@
     flex: none;
     height: 34rem;
   }
-  .contactPanel { flex: none; overflow: visible; border-left: 0; border-top: 1px solid #e1e7ec; }
+  .contactPanel {
+    flex: none;
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid #e1e7ec;
+  }
   .messages {
     padding: 14px;
   }

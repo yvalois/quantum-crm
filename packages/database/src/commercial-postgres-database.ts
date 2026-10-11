@@ -342,7 +342,8 @@ function contactQueryParts(actor: CommercialActor, filters: ContactListFilters):
     params.push(value);
     return `$${params.length}`;
   };
-  if (filters.ids !== undefined) conditions.push(`contact.id = ANY(${parameter(filters.ids)}::uuid[])`);
+  if (filters.ids !== undefined)
+    conditions.push(`contact.id = ANY(${parameter(filters.ids)}::uuid[])`);
   if (filters.q !== undefined) {
     const value = parameter(filters.q);
     conditions.push(
