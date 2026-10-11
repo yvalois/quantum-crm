@@ -23,6 +23,14 @@ const authContext: CrmAuthContext = {
 };
 
 describe("ContactsController", () => {
+  it("resolves bounded IDs under the authenticated scope including archived related contacts", async () => {
+    const listPage = vi.fn(async () => ({ records: [], total: 0, hasMoreInRequestedDirection: false }));
+    const controller = new ContactsController({ listPage } as unknown as ContactService);
+    await controller.list({ headers: {}, [CRM_AUTH_CONTEXT]: authContext }, { ids: `${memberId},${memberId}` });
+    expect(listPage).toHaveBeenCalledWith({ memberId, scope: "OWN" }, authContext.permissions, expect.objectContaining({ ids: [memberId], includeArchived: true }));
+    await expect(controller.list({ headers: {}, [CRM_AUTH_CONTEXT]: authContext }, { ids: "not-a-uuid" })).rejects.toThrow();
+    expect(listPage).toHaveBeenCalledTimes(1);
+  });
   it("normalizes a validated filter action into a server-side target before invoking the domain", async () => {
     const bulk = vi.fn(async () => ({
       results: [],

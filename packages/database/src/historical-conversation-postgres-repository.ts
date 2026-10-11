@@ -436,6 +436,8 @@ export function createHistoricalConversationPostgresRepository(
           return `$${params.length}`;
         };
         if (query.contactId) conditions.push(`thread.contact_id = ${bind(query.contactId)}::uuid`);
+        if (query.contactState === "LINKED") conditions.push("thread.contact_id IS NOT NULL");
+        if (query.contactState === "UNLINKED") conditions.push("thread.contact_id IS NULL");
         if (query.query) {
           const search = bind(`%${query.query.replace(/[\\%_]/gu, "\\$&")}%`);
           conditions.push(`(thread.subject ILIKE ${search} OR thread.source_external_id ILIKE ${search}

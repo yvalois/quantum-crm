@@ -1565,7 +1565,10 @@
   }
 
   .contextPanel {
-    display: none;
+    display: block;
+    grid-column: 1 / -1;
+    max-height: 20rem;
+    border-top: 1px solid var(--line);
   }
 }
 
@@ -1647,6 +1650,7 @@
     min-height: 0;
     height: 34rem;
   }
+  .contextPanel { flex: none; max-height: none; overflow: visible; }
 
   .messageBubble {
     max-width: 90%;

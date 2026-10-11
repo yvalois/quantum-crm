@@ -128,6 +128,11 @@ export const ContactBulkFilterSchema = z
 export const ContactListQuerySchema = z
   .object({
     ...ContactFilterShape,
+    /** Bounded lookup includes archived records under the same contact read scope. */
+    ids: z.string().min(1).max(3699).refine((value) => {
+      const ids = value.split(",");
+      return ids.length <= 100 && ids.every((id) => ContactIdSchema.safeParse(id).success);
+    }, "Expected up to 100 contact UUIDs").optional(),
     limit: z.coerce.number().int().min(1).max(100).default(50),
     cursor: z.string().trim().min(1).max(2_048).optional(),
     sort: ContactSortSchema.default("UPDATED_DESC"),

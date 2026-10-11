@@ -220,6 +220,16 @@ describe("historical conversation repository", () => {
     expect(params).toEqual([actor.memberId, threadId, 51]);
   });
 
+  it("separates linked and unresolved history without dropping scope restrictions", async () => {
+    const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
+    const repository = createHistoricalConversationPostgresRepository(poolWith(query));
+    await repository.list(actor, { limit: 50, contactState: "LINKED" });
+    expect(query.mock.calls.at(-1)?.[0]).toContain("thread.contact_id IS NOT NULL");
+    await repository.list({ ...actor, scope: "OWN" }, { limit: 50, contactState: "UNLINKED" });
+    expect(query.mock.calls.at(-1)?.[0]).toContain("thread.contact_id IS NULL");
+    expect(query.mock.calls.at(-1)?.[0]).toContain("thread.assignee_member_id = $1::uuid");
+  });
+
   it("does not load messages before the thread passes its scope check", async () => {
     const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
     expect(

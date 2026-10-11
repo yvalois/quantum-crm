@@ -20,7 +20,7 @@
   display: grid;
   flex: 1;
   min-width: 0;
-  grid-template-columns: minmax(240px, 304px) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(240px, 300px);
   background: white;
   overflow: hidden;
   min-height: 0;
@@ -260,6 +260,10 @@
   flex: none;
   margin: 8px 12px;
 }
+.contactFilter { display: grid; gap: 6px; padding: 12px; font-size: 12px; border-bottom: 1px solid #e1e7ec; }
+.contactFilter select { width: 100%; min-width: 0; padding: 8px; border: 1px solid #ccd5de; border-radius: 5px; background: #fff; font: inherit; }
+.contactPanel { min-width: 0; min-height: 0; overflow-y: auto; border-left: 1px solid #e1e7ec; background: #fff; }
+.contactPanel > p { padding: 16px; font-size: 13px; color: #647384; line-height: 1.6; }
 .readOnly {
   flex: none;
   margin: 0;
@@ -269,7 +273,7 @@
   color: #647384;
   font-size: 12px;
 }
-@media (max-width: 780px) {
+@media (max-width: 1050px) {
   .columns {
     display: flex;
     flex-direction: column;
@@ -277,7 +281,7 @@
   }
   .list {
     flex: none;
-    height: 16rem;
+    height: 20rem;
     border-right: 0;
     border-bottom: 1px solid #e1e7ec;
   }
@@ -285,6 +289,7 @@
     flex: none;
     height: 34rem;
   }
+  .contactPanel { flex: none; overflow: visible; border-left: 0; border-top: 1px solid #e1e7ec; }
   .messages {
     padding: 14px;
   }

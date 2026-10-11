@@ -12,6 +12,7 @@ export const HistoricalConversationPageQuerySchema = z
   })
   .strict();
 export const HistoricalConversationListQuerySchema = HistoricalConversationPageQuerySchema.extend({
+  contactState: z.enum(["ALL", "LINKED", "UNLINKED"]).optional(),
   contactId: z.string().uuid().optional(),
   query: z.string().trim().min(1).max(160).optional(),
 });

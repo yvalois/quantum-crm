@@ -142,6 +142,20 @@ afterAll(async () => {
 });
 
 describe("PIPE-07 practical board against isolated PostgreSQL", () => {
+  it("resolves related contact IDs without exposing another owner or profile", async () => {
+    const { contact } = await fixture();
+    const filters = { ids: [contact.id], includeArchived: true, limit: 100 };
+    const serviceA = new ContactService(profileA.database.commercial.contacts, clock);
+    const serviceB = new ContactService(profileB.database.commercial.contacts, clock);
+    const readPermissions = ["crm:contacts:read"] as const;
+    expect((await serviceA.listPage(actor, readPermissions, filters)).records.map((item) => item.id)).toEqual([contact.id]);
+    expect((await serviceA.listPage({ memberId: randomUUID(), scope: "OWN" }, readPermissions, filters)).records).toEqual([]);
+    expect((await serviceB.listPage(actor, readPermissions, filters)).records).toEqual([]);
+    expect(() => serviceA.listPage(actor, [], filters)).toThrow(IamAuthorizationError);
+    await profileA.pool.query("UPDATE contacts.contacts SET archived_at = now() WHERE id = $1::uuid", [contact.id]);
+    expect((await serviceA.listPage(actor, readPermissions, filters)).records[0]?.archivedAt).not.toBeNull();
+    expect((await serviceA.listPage(actor, readPermissions, { ...filters, includeArchived: false })).records).toEqual([]);
+  });
   it("returns all 1127 opportunities and applies stage filters without truncation", async () => {
     const { contact, pipeline, firstStage, nextStage } = await fixture();
     await profileA.pool.query(

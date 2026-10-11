@@ -15,6 +15,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 
 import { CrmShell } from "../crm-shell";
 import { HistoricalInbox } from "./historical-inbox";
+import { ConversationContactCard, useConversationContacts } from "./conversation-contact";
 import styles from "./inbox.module.css";
 
 interface SessionPayload {
@@ -269,10 +270,8 @@ export default function InboxPage(): React.JSX.Element {
   const modalRef = useRef<HTMLElement | null>(null);
   const lastModalFocusRef = useRef<HTMLElement | null>(null);
 
-  const contactById = useMemo(
-    () => new Map(contacts.map((contact) => [contact.id, contact])),
-    [contacts],
-  );
+  const relatedContacts = useConversationContacts([...items.map((item) => item.contactId), selected?.contactId]);
+  const contactById = relatedContacts.contacts;
   const assigneeById = useMemo(
     () => new Map(assignees.map((assignee) => [assignee.id, assignee])),
     [assignees],
@@ -1127,17 +1126,7 @@ export default function InboxPage(): React.JSX.Element {
                     <span className={styles.panelKicker}>Contexto</span>
                   </header>
 
-                  <section className={styles.contactCard}>
-                    <span className={cx(styles.avatar, styles.contactAvatar)}>
-                      {initials(selectedContact?.displayName ?? "Contacto")}
-                    </span>
-                    <div>
-                      <h2>{selectedContact?.displayName ?? "Contacto"}</h2>
-                      <p>
-                        {selectedContact?.email ?? selectedContact?.phone ?? "Sin canal registrado"}
-                      </p>
-                    </div>
-                  </section>
+                  <ConversationContactCard contact={selectedContact} linked={true} loading={relatedContacts.loading} error={relatedContacts.error} />
 
                   <section className={styles.controlSection}>
                     <label>

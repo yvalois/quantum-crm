@@ -21,8 +21,8 @@ function contact(index: number, displayName: string): Contact {
     ownerMemberId: memberId,
     email: `contact-${index}@example.test`,
     phone: "+573000000001",
-    labels: [],
-    customFields: [],
+    labels: [{ id: "019b0000-0000-7000-8000-000000000099", name: "Cliente frecuente" }],
+    customFields: [{ fieldId: "019b0000-0000-7000-8000-000000000098", key: "vehicle", label: "Vehículo preferido", dataType: "TEXT", value: "Sedán sintético" }],
     source: "MANUAL",
     archivedAt: null,
     version: "1",
@@ -158,6 +158,10 @@ async function workspaceFixture(page: Page) {
       }
       if (path === "/api/contacts") {
         queries.push(url.searchParams);
+        if (url.searchParams.has("ids")) {
+          await respond({ data: contacts.filter((item) => url.searchParams.get("ids")?.split(",").includes(item.id)), page: { limit: 100, total: 1, nextCursor: null, previousCursor: null } });
+          return;
+        }
         const searching = Boolean(url.searchParams.get("q"));
         const secondPage = url.searchParams.get("cursor") === "synthetic-next";
         await respond({
@@ -185,7 +189,7 @@ async function workspaceFixture(page: Page) {
         return;
       }
       if (path === "/api/conversations/historical") {
-        await respond({ data: [historical], page: { nextCursor: null } });
+        await respond({ data: url.searchParams.get("contactState") === "UNLINKED" ? [{ ...historical, id: "019b0000-0000-7000-8000-000000000009", contactId: null, sourceExternalId: "orphan-123456", subject: "Conversación histórica sin ficha actual en GHL", sourceThreadPresent: false }] : [historical], page: { nextCursor: null } });
         return;
       }
       if (path === `/api/conversations/historical/${historicalId}`) {
@@ -294,6 +298,8 @@ test("active inbox preserves thread, draft composer and contact context at both 
   await expect(list.getByRole("button", { name: /Andrea Sintética/u })).toBeVisible();
   await expect(thread.getByText(message.body, { exact: true })).toBeVisible();
   await expect(context.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
+  await expect(context.getByText("Sedán sintético", { exact: true })).toBeVisible();
+  await expect(context.getByText("Cliente frecuente", { exact: true })).toBeVisible();
   const draft = thread.getByPlaceholder("Responder por Correo…");
   await draft.fill("Borrador sintético sin enviar");
   await expect(thread.getByRole("button", { name: "Enviar", exact: true })).toBeEnabled();
@@ -315,7 +321,12 @@ test("imported history remains read only and downloads only the verified synthet
   const fixture = await workspaceFixture(page);
   await page.goto("/inbox");
   await page.getByRole("button", { name: "Historial GHL", exact: true }).click();
-  await page.getByRole("button", { name: /Historial sintético conservado/u }).click();
+  await page.getByRole("button", { name: /Andrea Sintética/u }).click();
+  const card = page.getByRole("region", { name: "Ficha del cliente" });
+  await expect(card.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
+  await expect(card.getByText("Vehículo preferido", { exact: true })).toBeVisible();
+  await expect(card.getByText("Sedán sintético", { exact: true })).toBeVisible();
+  await expect(card.getByText("Cliente frecuente", { exact: true })).toBeVisible();
   const history = page.getByRole("region", { name: "Mensajes históricos", exact: true });
   await expect(history.getByText(historicalMessage.body, { exact: true })).toBeVisible();
   await expect(history.getByRole("textbox")).toHaveCount(0);
@@ -330,6 +341,13 @@ test("imported history remains read only and downloads only the verified synthet
   const download = await downloadEvent;
   expect(download.suggestedFilename()).toBe("synthetic.txt");
   expect(await download.failure()).toBeNull();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await card.scrollIntoViewIfNeeded();
+  await expect(card).toBeVisible();
+  await expectContainedViewport(page);
+  await page.getByLabel("Vínculo del contacto").selectOption("UNLINKED");
+  await expect(page.getByRole("button", { name: /Sin contacto vinculado · 123456/u })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Andrea Sintética/u })).toHaveCount(0);
   expect(fixture.writes).toEqual([`POST /api/files/${fileId}/download-authorizations`]);
   expect(fixture.unexpected).toEqual([]);
 });

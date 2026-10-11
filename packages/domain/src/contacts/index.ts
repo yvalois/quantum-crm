@@ -20,6 +20,7 @@ export interface ContactListCursor {
 }
 
 export interface ContactListFilters {
+  readonly ids?: readonly string[];
   readonly q?: string;
   readonly label?: string;
   readonly pipelineId?: string;

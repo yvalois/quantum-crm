@@ -1,0 +1,15 @@
+.card { min-width: 0; padding: 1rem; color: #253b48; font-size: .8rem; }
+.card h3 { margin: 0 0 1rem; font-size: .75rem; color: #60707f; }
+.card h2 { font-size: 1rem; margin: 0 0 1rem; overflow-wrap: anywhere; }
+.card p { line-height: 1.6; color: #60707f; }
+.card a { color: #087d77; overflow-wrap: anywhere; }
+.facts, .fields { margin: 0; }
+.facts > div, .fields > div { margin: .75rem 0; }
+.card dt { font-size: .72rem; color: #647384; overflow-wrap: anywhere; }
+.card dd { margin: .3rem 0 0; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.open { display: inline-block; margin: .25rem 0 1rem; }
+.card details { border-top: 1px solid #e1e7ec; padding: .9rem 0; }
+.card summary { cursor: pointer; font-weight: 600; }
+.card summary span { font-weight: 400; color: #647384; margin-left: .4rem; }
+.tags { display: flex; flex-wrap: wrap; gap: .4rem; list-style: none; padding: 0; }
+.tags li { background: #edf5f7; border: 1px solid #d5e5eb; border-radius: 4px; padding: .25rem .45rem; overflow-wrap: anywhere; max-width: 100%; }

@@ -143,6 +143,7 @@ function paginationScope(
 ): Omit<ContactListFilters, "cursor" | "limit"> {
   return Object.freeze({
     ...(filters.q === undefined ? {} : { q: filters.q }),
+    ...(filters.ids === undefined ? {} : { ids: filters.ids, includeArchived: filters.includeArchived }),
     ...(filters.label === undefined ? {} : { label: filters.label }),
     ...(filters.pipelineId === undefined ? {} : { pipelineId: filters.pipelineId }),
     ...(filters.ownerMemberId === undefined ? {} : { ownerMemberId: filters.ownerMemberId }),
@@ -167,6 +168,8 @@ function cursorFingerprint(
         scope: actor.scope,
         filters: {
           q: filters.q,
+          ids: filters.ids,
+          includeArchived: filters.includeArchived,
           label: filters.label,
           pipelineId: filters.pipelineId,
           ownerMemberId: filters.ownerMemberId,
@@ -246,6 +249,7 @@ function contactFilters(
   const parsed = ContactListQuerySchema.safeParse(query);
   if (!parsed.success) throw new BadRequestException();
   const filters: Omit<ContactListFilters, "cursor"> = {
+    ...(parsed.data.ids === undefined ? {} : { ids: [...new Set(parsed.data.ids.split(","))].sort(), includeArchived: true }),
     ...(parsed.data.q === undefined ? {} : { q: parsed.data.q }),
     limit: parsed.data.limit,
     sort: parsed.data.sort,

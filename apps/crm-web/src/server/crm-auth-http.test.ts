@@ -251,7 +251,7 @@ describe("CRM web authentication HTTP boundary", () => {
     );
     const response = await handleCrmContactList(
       new Request(
-        "https://crm.example.test/api/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01",
+        "https://crm.example.test/api/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01&ids=019b0000-0000-7000-8000-000000000011",
         { headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` } },
       ),
       runtime(upstream as typeof fetch),
@@ -264,6 +264,7 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(Object.fromEntries(endpoint.searchParams)).toEqual({
       label: "VIP",
       channel: "EMAIL",
+      ids: "019b0000-0000-7000-8000-000000000011",
       archived: "false",
       createdFrom: "2026-09-01",
       limit: "50",

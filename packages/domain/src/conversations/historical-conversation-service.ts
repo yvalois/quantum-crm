@@ -115,6 +115,7 @@ export interface HistoricalPageQuery {
   readonly cursor?: string;
 }
 export interface HistoricalThreadQuery extends HistoricalPageQuery {
+  readonly contactState?: "ALL" | "LINKED" | "UNLINKED";
   readonly contactId?: string;
   readonly query?: string;
 }
@@ -362,6 +363,8 @@ export class HistoricalConversationService {
   ) {
     read(permissions, query);
     if (query.contactId !== undefined) id(query.contactId);
+    if (query.contactState !== undefined && !["ALL", "LINKED", "UNLINKED"].includes(query.contactState))
+      throw new HistoricalImportValidationError();
     if (query.query !== undefined) text(query.query, 160);
     return this.repository.list(actor, query);
   }

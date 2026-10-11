@@ -2352,6 +2352,7 @@ function memberListQuery(request: Request): URLSearchParams | null {
 function contactListQuery(request: Request): URLSearchParams | null {
   const input = new URL(request.url).searchParams;
   const allowed = new Set([
+    "ids",
     "q",
     "limit",
     "cursor",
