@@ -326,7 +326,11 @@ export function HistoricalInbox(): React.JSX.Element {
                 <>
                   <ol className={styles.messages}>
                     {messages.map((item) => (
-                      <li key={item.id} className={styles.message} data-direction={item.rawDirection}>
+                      <li
+                        key={item.id}
+                        className={styles.message}
+                        data-direction={item.rawDirection}
+                      >
                         <header>
                           <strong>
                             {item.rawDirection === "inbound"
