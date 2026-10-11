@@ -14,6 +14,7 @@ import type {
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
+import { HistoricalInbox } from "./historical-inbox";
 import styles from "./inbox.module.css";
 
 interface SessionPayload {
@@ -239,6 +240,7 @@ function availabilityMessage(selected: Conversation | null): string | null {
 }
 
 export default function InboxPage(): React.JSX.Element {
+  const [showHistorical, setShowHistorical] = useState(true);
   const [csrf, setCsrf] = useState<string | null>(null);
   const [items, setItems] = useState<Conversation[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -661,13 +663,15 @@ export default function InboxPage(): React.JSX.Element {
             </div>
           </div>
           <div className={styles.topbarActions}>
+            <button className={styles.outlineButton} type="button" aria-pressed={!showHistorical} onClick={() => setShowHistorical(false)}>Bandeja activa</button>
+            <button className={styles.outlineButton} type="button" aria-pressed={showHistorical} onClick={() => setShowHistorical(true)}>Historial GHL</button>
             <span className={styles.liveSignal}>
               <span aria-hidden="true" /> Datos sincronizados al abrir
             </span>
             <button
               className={styles.primaryButton}
               type="button"
-              onClick={() => setShowCreate(true)}
+              onClick={() => { setShowHistorical(false); setShowCreate(true); }}
             >
               <Icon name="add" size={17} />
               Nueva conversación
@@ -685,7 +689,7 @@ export default function InboxPage(): React.JSX.Element {
           </div>
         ) : null}
 
-        <section className={styles.inboxFrame} aria-label="Bandeja de conversaciones">
+        {showHistorical ? <HistoricalInbox /> : <section className={styles.inboxFrame} aria-label="Bandeja de conversaciones">
           <aside className={styles.viewsPanel} aria-label="Vistas de bandeja">
             <div className={styles.viewsBrand}>
               <span className={styles.viewsBrandIcon}>
@@ -1237,7 +1241,7 @@ export default function InboxPage(): React.JSX.Element {
               </div>
             )}
           </aside>
-        </section>
+        </section>}
       </section>
 
       {showCreate ? (

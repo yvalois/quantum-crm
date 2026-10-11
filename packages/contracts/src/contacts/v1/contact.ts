@@ -63,6 +63,25 @@ export const ContactLabelSchema = z.object({
   name: LabelTextSchema,
 });
 
+export type ContactCustomFieldValue =
+  | null | boolean | number | string
+  | ContactCustomFieldValue[]
+  | { [key: string]: ContactCustomFieldValue };
+const ContactCustomFieldValueSchema: z.ZodType<ContactCustomFieldValue> = z.lazy(() =>
+  z.union([
+    z.null(), z.boolean(), z.number().finite(), z.string().max(1_000_000),
+    z.array(ContactCustomFieldValueSchema).max(10_000),
+    z.record(z.string(), ContactCustomFieldValueSchema),
+  ]),
+);
+export const ContactCustomFieldSchema = z.object({
+  fieldId: ContactIdSchema,
+  key: z.string().min(1).max(300),
+  label: z.string().min(1).max(300),
+  dataType: z.string().min(1).max(100),
+  value: ContactCustomFieldValueSchema,
+});
+
 export const ContactSchema = z.object({
   id: ContactIdSchema,
   ownerMemberId: ContactIdSchema.nullable(),
@@ -70,6 +89,7 @@ export const ContactSchema = z.object({
   email: EmailSchema.nullable(),
   phone: PhoneSchema.nullable(),
   labels: z.array(ContactLabelSchema),
+  customFields: z.array(ContactCustomFieldSchema).max(500).default([]),
   source: ContactSourceSchema,
   archivedAt: TimestampSchema.nullable(),
   version: z.string().regex(/^[1-9][0-9]*$/u),

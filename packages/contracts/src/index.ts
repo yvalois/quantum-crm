@@ -1,3 +1,4 @@
+export * from "./conversations/v1/historical-conversation.js";
 export {
   CompleteFileUploadSchema,
   CreateFileDownloadAuthorizationSchema,

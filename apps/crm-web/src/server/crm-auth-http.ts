@@ -7,6 +7,11 @@ import {
 import { type CrmWebAuthConfig, SecretValue } from "@quantum-crm/config";
 import {
   CreateMemberInvitationSchema,
+  HistoricalConversationListQuerySchema,
+  HistoricalConversationListResponseSchema,
+  HistoricalConversationMessageListResponseSchema,
+  HistoricalConversationPageQuerySchema,
+  HistoricalConversationResponseSchema,
   ContactIdSchema,
   ContactBulkActionResponseSchema,
   ContactBulkActionSchema,
@@ -2023,6 +2028,32 @@ async function conversationMutation(
   } catch {
     return crmProblem(400, "Invalid request");
   }
+}
+
+export async function handleCrmHistoricalConversationList(request: Request, runtime: CrmAuthRuntime): Promise<Response> {
+  const parsed = HistoricalConversationListQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const endpoint = new URL("/api/v1/historical-conversations", runtime.config.crmApiOrigin);
+  for (const [name, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) endpoint.searchParams.set(name, String(value));
+  }
+  return conversationRead(request, runtime, `${endpoint.pathname}${endpoint.search}`, HistoricalConversationListResponseSchema);
+}
+
+export async function handleCrmHistoricalConversationGet(request: Request, runtime: CrmAuthRuntime, id: string): Promise<Response> {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  return conversationRead(request, runtime, `/api/v1/historical-conversations/${id}`, HistoricalConversationResponseSchema);
+}
+
+export async function handleCrmHistoricalConversationMessages(request: Request, runtime: CrmAuthRuntime, id: string): Promise<Response> {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  const parsed = HistoricalConversationPageQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const endpoint = new URL(`/api/v1/historical-conversations/${id}/messages`, runtime.config.crmApiOrigin);
+  for (const [name, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) endpoint.searchParams.set(name, String(value));
+  }
+  return conversationRead(request, runtime, `${endpoint.pathname}${endpoint.search}`, HistoricalConversationMessageListResponseSchema);
 }
 
 export async function handleCrmConversationList(

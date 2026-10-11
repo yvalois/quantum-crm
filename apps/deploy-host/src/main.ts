@@ -12,6 +12,7 @@ import {
 } from "./caddy-route-runner.js";
 import { createHostAdapterServer } from "./host-adapter.js";
 import { createPlatformFoundationReleaseDeployer } from "./platform-foundation-release.js";
+import { createTenantGhlImportRunner } from "./ghl-import-runner.js";
 
 const config = loadServiceConfig("deploy-host");
 if (!config.deployHostSocketPath) throw new Error("deploy-host socket configuration missing");
@@ -91,6 +92,22 @@ const server = createHostAdapterServer({
   requestTimeoutMilliseconds: 180_000,
   reconciler,
   migrationReconciler,
+  ghlImportRunner: createTenantGhlImportRunner({
+    configurationRoot: config.deployHostConfigurationRoot,
+    composeTemplate: config.deployHostComposeTemplate,
+    imageRegistry: config.deployHostImageRegistry,
+    environment:
+      config.environment === "local" || config.environment === "test"
+        ? "preview"
+        : config.environment,
+    tenantEdgeNetworkPrefix: config.deployHostTenantEdgeNetwork,
+    platformDatabaseNetwork: config.deployHostPlatformDatabaseNetwork,
+    platformStorageNetwork: config.deployHostPlatformStorageNetwork,
+    platformSessionNetwork: config.deployHostPlatformSessionNetwork,
+    platformOidcNetwork: config.deployHostPlatformOidcNetwork,
+    databaseSecretRoot: config.deployHostDatabaseSecretRoot,
+    storagePublicEndpoint: config.deployHostStoragePublicEndpoint,
+  }),
   runtimeDecommissioner: {
     decommission: async (request) => {
       const containers = await decommissionCompose.decommission(request);

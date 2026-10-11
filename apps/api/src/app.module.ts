@@ -9,6 +9,7 @@ import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/databa
 import {
   ContactService,
   ConversationService,
+  HistoricalConversationService,
   IamMemberService,
   IamRoleService,
   IamTeamService,
@@ -45,6 +46,7 @@ import { AcceptMemberInvitationController } from "./accept-member-invitation.con
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
 import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
+import { HISTORICAL_CONVERSATION_SERVICE, HistoricalConversationsController } from "./historical-conversations.controller.js";
 import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
 import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js";
 import { FILE_SERVICE, FilesController } from "./files.controller.js";
@@ -76,6 +78,7 @@ export class AppModule {
         InternalAdministratorsController,
         AutomationsController,
         ConversationsController,
+        HistoricalConversationsController,
         CalendarController,
         DocumentsController,
         FilesController,
@@ -147,6 +150,13 @@ export class AppModule {
               documentFor: async (actor, documentId) =>
                 database.commercial.documents.find(actor, documentId),
             }),
+        },
+        {
+          provide: HISTORICAL_CONVERSATION_SERVICE,
+          useFactory: () => new HistoricalConversationService(database.commercial.historicalConversations, {
+            contactExistsFor: async (actor, contactId) => (await database.commercial.contacts.find(actor, contactId)) !== null,
+            isActiveMember: async (memberId) => (await database.members.findById(memberId))?.status === "ACTIVE",
+          }),
         },
         {
           provide: CALENDAR_SERVICE,

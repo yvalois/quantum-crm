@@ -10,6 +10,19 @@ Se revisaron funcionalidades, fases, subtareas, estado, codigo existente y regla
 
 ## Contrato
 
+### Ampliacion autorizada: importacion en desarrollo
+
+La extraccion no satisface por si sola la migracion solicitada. El bloque activo agrega un comando de apply al perfil derivado de configuracion verificada, ejecutado por el host adapter mediante una operacion tipada y sin paths ni shell libres. El propietario difiere expresamente el respaldo externo para esta operacion en desarrollo; la regla permanece para produccion. No hay borrado ni sobrescritura de registros comerciales existentes.
+
+- Verificar el artefacto completo y su manifiesto antes de cualquier escritura; validar ubicacion, destino y esquema.
+- Persistir definiciones/valores de campos, etiquetas, contactos, pipelines/etapas y oportunidades mediante puertos de sus modulos propietarios. Mapas externos unicos conservan idempotencia y detectan conflictos sin fusionar personas por correo o telefono ambiguos.
+- Importar conversaciones y mensajes en almacenamiento historico del modulo conversations, visible y paginado desde la bandeja. Se preservan IDs y fechas originales, cuerpos vacios, canales/tipos originales y referencias incompletas sin crear contactos ficticios. El flujo historico no crea outbox, notificaciones ni automatizaciones.
+- Conservar referencias de adjuntos como pendientes; no exponer URLs ni marcar archivos disponibles sin Files/ClamAV.
+- Registrar progreso durable, resultados por recurso y conflictos; reanudar sin duplicar efectos. Repetir el mismo artefacto conserva cambios realizados en Quantum.
+- Migraciones nuevas aditivas y forward-only; aplicar mediante el migrador controlado. Pruebas enfocadas de aislamiento, reintento, corrupcion, fallos parciales y ausencia de envios, ademas de verificacion API/UI en el VPS.
+
+La implementacion se divide entre contactos/ventas/campos, historial de conversaciones, operacion tipada de host y orquestador de importacion. No se tocan login, Keycloak ni formularios/documentos.
+
 - Origen GHL fijo, Location ID fijo y allowlist de operaciones de lectura; POST solo para busqueda de contactos.
 - Token y clave de cifrado mediante archivos. Ningun secreto, contacto, mensaje o cursor aparece en logs o Git.
 - Exportacion completa paginada con deduplicacion por ID, timeouts, presupuesto de peticiones y limite conservador de velocidad. No sigue URLs entregadas por el proveedor.

@@ -1,4 +1,9 @@
 export const packageIdentity = "@quantum-crm/database" as const;
+export { createContactsHistoricalImportPort, createContactsHistoricalImportVerification } from "./contacts-historical-import-repository.js";
+export { createSettingsHistoricalImportPort, createSettingsHistoricalImportVerification } from "./settings-historical-import-repository.js";
+export { createSalesHistoricalImportPort, createSalesHistoricalImportVerification } from "./sales-historical-import-repository.js";
+export { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
+export { createGhlImportOperationRepository } from "./ghl-import-operation-repository.js";
 
 export { POSTGRES_DATABASE } from "./database-token.js";
 
