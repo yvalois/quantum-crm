@@ -2,6 +2,29 @@
 
 Esta carpeta contiene el bootstrap de contenedores de Quantum CRM. No acredita un despliegue productivo ni reemplaza el inventario pendiente del VPS (`OPS-02`).
 
+## WhatsApp YCloud por perfil (`CHAT-14`, `CFG-06`)
+
+El receptor publico de cada CRM es `https://<host-del-perfil>/api/webhooks/ycloud`.
+El endpoint YCloud debe suscribirse a `whatsapp.inbound_message.received`,
+`whatsapp.smb.message.echoes` y `whatsapp.smb.history`. El API verifica `YCloud-Signature`
+con el cuerpo original y acepta solo el WABA y numero vinculados al perfil.
+
+Para habilitar un perfil, crear fuera del checkout el archivo protegido
+`<QCRM_DEPLOY_HOST_DATABASE_SECRET_ROOT>/<tenant-uuid>/ycloud-binding` con una sola linea JSON:
+`{"wabaId":"<id>","businessPhone":"<digitos-sin-mas>","signingSecret":"<secreto-del-endpoint>"}`.
+El archivo debe ser regular, no symlink y de lectura restringida. `deploy-host` lo monta solo
+en el API de ese perfil; los demas perfiles permanecen deshabilitados. No copiar el secreto
+a Git, env files, argumentos, logs ni al navegador.
+
+El historial del telefono solo llega como `whatsapp.smb.history` si al vincular la app se
+eligio **Compartir chats** y YCloud entrega esos eventos. Un webhook creado despues de la
+vinculacion no demuestra recuperacion retroactiva. Esta rebanada sincroniza texto y metadatos
+de medios, pero los archivos multimedia no se consideran disponibles hasta ingresar por
+`files` con scan; enviar desde el CRM permanece en cola hasta conectar el adaptador saliente.
+Fuentes: [eventos](https://docs.ycloud.com/reference/webhook-events-payloads),
+[firma y reintentos](https://docs.ycloud.com/reference/configure-webhooks),
+[historial compartido](https://docs.ycloud.com/reference/whatsapp-business-app-sync-history-message-webhook).
+
 ## Matriz actual
 
 | Proyecto                                                   | Servicios                                                  | Proposito                                                                             |

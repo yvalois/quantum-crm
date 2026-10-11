@@ -106,6 +106,7 @@ describe("process configuration", () => {
         requiresIamBootstrapClient: true,
         requiresIamBootstrapClientSecret: true,
         requiresFilesStorage: "signer",
+        supportsYCloudBinding: true,
       },
       "admin-api": {
         serviceName: "admin-api",

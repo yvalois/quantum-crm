@@ -371,6 +371,21 @@ export default function InboxPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (loading) return;
+    const timer = window.setInterval(() => {
+      void Promise.all([
+        fetch("/api/contacts?limit=100", { cache: "no-store", credentials: "same-origin" }).then(
+          async (response) => {
+            if (response.ok) setContacts(((await response.json()) as List<Contact>).data);
+          },
+        ),
+        loadList(),
+      ]).catch(() => undefined);
+    }, 20_000);
+    return () => window.clearInterval(timer);
+  }, [loading, loadList]);
+
+  useEffect(() => {
     if (!showCreate && !showQuickReply && !showDocumentComposer) return;
 
     lastModalFocusRef.current =
@@ -868,11 +883,11 @@ export default function InboxPage(): React.JSX.Element {
                           }
                         >
                           <span className={styles.avatar}>
-                            {initials(contact?.displayName ?? "Contacto")}
+                            {initials(contact?.displayName ?? item.subject ?? "Contacto")}
                           </span>
                           <span className={styles.cardBody}>
                             <span className={styles.cardLine}>
-                              <strong>{contact?.displayName ?? "Contacto"}</strong>
+                              <strong>{contact?.displayName ?? item.subject ?? "Contacto"}</strong>
                               <time>{when(item.lastMessageAt)}</time>
                             </span>
                             <span className={styles.cardPreview}>
@@ -906,7 +921,7 @@ export default function InboxPage(): React.JSX.Element {
                   <header className={styles.threadHeader}>
                     <div className={styles.threadIdentity}>
                       <span className={cx(styles.avatar, styles.avatarLarge)}>
-                        {initials(selectedContact?.displayName ?? "Contacto")}
+                        {initials(selectedContact?.displayName ?? selected.subject ?? "Contacto")}
                       </span>
                       <div>
                         <span className={styles.threadKicker}>
@@ -919,7 +934,7 @@ export default function InboxPage(): React.JSX.Element {
                             </span>
                           ) : null}
                         </span>
-                        <h2>{selectedContact?.displayName ?? "Contacto"}</h2>
+                        <h2>{selectedContact?.displayName ?? selected.subject ?? "Contacto"}</h2>
                         <p>{selected.subject ?? "Conversación sin asunto"}</p>
                       </div>
                     </div>
@@ -1131,10 +1146,10 @@ export default function InboxPage(): React.JSX.Element {
 
                   <section className={styles.contactCard}>
                     <span className={cx(styles.avatar, styles.contactAvatar)}>
-                      {initials(selectedContact?.displayName ?? "Contacto")}
+                      {initials(selectedContact?.displayName ?? selected.subject ?? "Contacto")}
                     </span>
                     <div>
-                      <h2>{selectedContact?.displayName ?? "Contacto"}</h2>
+                      <h2>{selectedContact?.displayName ?? selected.subject ?? "Contacto"}</h2>
                       <p>
                         {selectedContact?.email ?? selectedContact?.phone ?? "Sin canal registrado"}
                       </p>

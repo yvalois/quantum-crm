@@ -256,6 +256,24 @@ export async function planForTenant(
       await readManifest(options.configurationRoot, request),
       requestFor(request),
     );
+    const ycloudBindingSecretFile = safeChildPath(
+      options.databaseSecretRoot,
+      `${request.tenantProfileId}/ycloud-binding`,
+    );
+    let ycloudConfigured = false;
+    try {
+      const metadata = await lstat(ycloudBindingSecretFile);
+      if (
+        !metadata.isFile() ||
+        metadata.isSymbolicLink() ||
+        metadata.size < 1 ||
+        metadata.size > 2_048
+      )
+        throw new HostAdapterError("UNAVAILABLE");
+      ycloudConfigured = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
     return createTenantComposePlan(requestFor(request), manifest, {
       templatePath: options.composeTemplate,
       imageRegistry: options.imageRegistry,
@@ -286,6 +304,7 @@ export async function planForTenant(
         options.databaseSecretRoot,
         `${request.tenantProfileId}/iam-bootstrap-client-secret`,
       ),
+      ...(ycloudConfigured ? { ycloudBindingSecretFile } : {}),
       crmSessionRedisUrlSecretFile: safeChildPath(
         options.databaseSecretRoot,
         `${request.tenantProfileId}/session-redis-url`,
@@ -349,6 +368,8 @@ export function createTenantComposeReconciler(
       );
       await assertSecretFile(plan.environment.QCRM_CRM_OIDC_CLIENT_SECRET_FILE as string);
       await assertSecretFile(plan.environment.QCRM_CRM_SESSION_REDIS_URL_SECRET_FILE as string);
+      if (plan.environment.QCRM_YCLOUD_BINDING_FILE)
+        await assertSecretFile(plan.environment.QCRM_YCLOUD_BINDING_SECRET_HOST_FILE as string);
       await assertSecretFile(
         plan.environment.QCRM_FILES_S3_UPLOAD_ACCESS_KEY_SECRET_FILE as string,
       );
