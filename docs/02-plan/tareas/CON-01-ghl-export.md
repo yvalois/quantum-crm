@@ -101,6 +101,8 @@ VPS autorizado, Node 24.21.0, 2026-10-11:
 
 ## Pendientes de estabilizacion posterior
 
+- Seguimiento CHAT-01/CON-05 del 2026-10-11 (PR #128): la auditoria confirma que los hilos reconstruidos desde mensajes usan el ID de contacto original solo cuando es unico y aparece en el stream de contactos; el importador conserva referencias no resueltas sin inventar clientes. La UI ahora muestra nombres y ficha/customs de relaciones confirmadas y separa explicitamente los historicos sin contacto, sin reimportar ni reasociar datos. Las fichas ausentes de la exportacion siguen pendientes de recuperacion verificable desde el origen.
+
 - Adjuntos con origen inaccesible o formato no admitido permanecen identificados y no disponibles: URLs externas 403/404, documentos Office fuera de la allowlist actual y fuentes cuya extension PNG contradice su Content-Type JPEG. No se publican sus URLs ni se omiten las validaciones. La transferencia disponible si conserva bytes propios verificados mediante Files/ClamAV.
 - GHL excluye Group Chat y SMS Review Request del exportador; su API no ofrece snapshot transaccional del conjunto.
 - Este artefacto en el VPS no sustituye un respaldo cifrado externo ni una restauracion verificada. El propietario difirio ese requisito exclusivamente para esta carga en desarrollo; produccion sigue bloqueada por configuracion.

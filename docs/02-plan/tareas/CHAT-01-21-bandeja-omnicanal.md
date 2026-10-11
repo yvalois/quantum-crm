@@ -107,6 +107,13 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Evidencia de cierre
 
+### Identidad y ficha contextual del 2026-10-11
+
+- PR #128, `d3eb5810`: contactos relacionados consultados por IDs acotados bajo permisos y alcance del actor, incluidos archivados. Nombres en listado e hilo y ficha compartida con correo, telefono, etiquetas y customs en bandeja activa e historial, escritorio/movil. Los filtros del historial no modifican asociaciones ni ocultan definitivamente los hilos sin contacto.
+- Cinco typechecks, ESLint, 59 pruebas enfocadas, una integracion PostgreSQL de permisos/aislamiento/archivado y tres Playwright aprobados en VPS; siete checks CI verdes. API/CRM desplegados una vez por digest y healthy, sin migracion. Digests y recibo en `estado.md`.
+- Revision autenticada real confirma nombres, ficha, valores personalizados y conservacion del historial sin correspondencia. Capturas sinteticas fuera de Git. Sin envio de mensajes ni cambios de datos reales para probar.
+- Pendientes de estabilizacion posterior: datos de clientes ausentes en el artefacto de origen requieren recuperacion verificable desde la fuente; no se reconstruyen mediante coincidencias ambiguas.
+
 ### Ajuste visual acotado del 2026-10-11
 
 - PR #127, candidato `e8656adb`: cabecera compacta, filtros horizontales, paneles lista/hilo/contexto y scroll independiente; historial GHL con presentacion coherente y mensajes entrantes/salientes diferenciados. Sin modificar envio, proveedores, contratos o identidad.
