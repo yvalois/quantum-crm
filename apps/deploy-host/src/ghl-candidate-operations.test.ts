@@ -80,13 +80,17 @@ describe("GHL isolated laboratory address", () => {
       { ...lab, Config: { ...lab.Config, Labels: { "com.quantum.ghl-test": "b".repeat(40) } } },
       { ...lab, Image: `sha256:${"f".repeat(64)}` },
       { ...lab, State: { Running: false } },
-    ]) expect(() => ghlTestLaboratoryAddress(input, inspectedNetwork, commit, imageId)).toThrow(HostAdapterError);
+    ])
+      expect(() => ghlTestLaboratoryAddress(input, inspectedNetwork, commit, imageId)).toThrow(
+        HostAdapterError,
+      );
     for (const input of [
       { ...inspectedNetwork, Internal: false },
       { ...inspectedNetwork, Name: "qcrm-staging-platform-database" },
       { ...inspectedNetwork, Labels: { "com.quantum.ghl-test": "b".repeat(40) } },
       { ...inspectedNetwork, Id: "b".repeat(64) },
-    ]) expect(() => ghlTestLaboratoryAddress(lab, input, commit, imageId)).toThrow(HostAdapterError);
+    ])
+      expect(() => ghlTestLaboratoryAddress(lab, input, commit, imageId)).toThrow(HostAdapterError);
   });
 
   it("rejects a different network identity or an extra attachment", () => {

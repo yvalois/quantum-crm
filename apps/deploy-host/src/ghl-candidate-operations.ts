@@ -486,7 +486,8 @@ export function ghlTestLaboratoryAddress(
     network.Internal !== true ||
     network.Labels?.["com.quantum.ghl-test"] !== laboratoryCommit ||
     !network.Id
-  ) throw new HostAdapterError("IDENTITY_MISMATCH");
+  )
+    throw new HostAdapterError("IDENTITY_MISMATCH");
   return ghlTestPostgresAddress(postgres, networkName, network.Id);
 }
 
@@ -524,7 +525,14 @@ export async function setupGhlIntegrationTest(commit: string, existingLaboratory
   if (observedNetwork.exitCode !== 0) {
     if (existingLaboratoryCommit) throw new HostAdapterError("UNAVAILABLE");
     const created = await docker.run(
-      ["network", "create", "--internal", "--label", `com.quantum.ghl-test=${laboratoryCommit}`, network],
+      [
+        "network",
+        "create",
+        "--internal",
+        "--label",
+        `com.quantum.ghl-test=${laboratoryCommit}`,
+        network,
+      ],
       {},
       15_000,
     );
@@ -582,7 +590,12 @@ export async function setupGhlIntegrationTest(commit: string, existingLaboratory
     if (started.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
   }
   const postgres = await inspectContainer(name);
-  const postgresAddress = ghlTestLaboratoryAddress(postgres, inspectedNetwork, laboratoryCommit, postgresImage);
+  const postgresAddress = ghlTestLaboratoryAddress(
+    postgres,
+    inspectedNetwork,
+    laboratoryCommit,
+    postgresImage,
+  );
   let ready = false;
   for (let attempt = 0; attempt < 60; attempt++) {
     const probe = await docker.run(
