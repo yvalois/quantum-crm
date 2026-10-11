@@ -18,10 +18,14 @@ export {
   type IdentityProvisionerConfig,
 } from "./identity-provisioner-config.js";
 export {
+  crmWebSessionPolicy,
   parseWebAuthConfig,
+  platformWebSessionPolicy,
+  type CrmWebSessionPolicy,
   type ParsedWebAuthConfig,
   type WebAuthConfig,
   type WebAuthConfigOptions,
+  type WebSessionPolicy,
 } from "./web-auth-config.js";
 export {
   loadProcessConfig,

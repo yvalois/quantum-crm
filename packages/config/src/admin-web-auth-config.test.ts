@@ -42,6 +42,8 @@ describe("admin web authentication configuration", () => {
       callbackUrl: "https://admin.example.test/api/auth/callback/keycloak",
       signedOutUrl: "https://admin.example.test/signed-out",
       requiredAcr: "2",
+      sessionIdleTtlSeconds: 1_800,
+      sessionAbsoluteTtlSeconds: 28_800,
       secureCookies: true,
     });
     expect(config.clientSecret.expose()).toBe("synthetic-client-secret");

@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { crmWebSessionPolicy } from "@quantum-crm/config";
 import {
   createTenantIdentityProvisioner,
   TenantIdentityProvisioningError,
@@ -33,6 +34,7 @@ function provisioner() {
     identityOrigin: "https://identity.example.test",
     redisAdminUrl,
     tenantSecretDirectory: secretDirectory,
+    sessionPolicy: crmWebSessionPolicy,
   });
 }
 

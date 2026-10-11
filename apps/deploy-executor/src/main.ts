@@ -3,7 +3,7 @@ import "reflect-metadata";
 import { hostname } from "node:os";
 
 import { NestFactory } from "@nestjs/core";
-import { loadServiceConfig, requireDatabaseConfig } from "@quantum-crm/config";
+import { crmWebSessionPolicy, loadServiceConfig, requireDatabaseConfig } from "@quantum-crm/config";
 import {
   createPlatformPostgresDatabase,
   createTenantDatabaseProvisioner,
@@ -84,6 +84,7 @@ async function bootstrap(): Promise<void> {
     identityOrigin: config.identityProvisioner.identityOrigin,
     redisAdminUrl: config.identityProvisioner.redisAdminUrl.expose(),
     tenantSecretDirectory: config.tenantSecretDirectory,
+    sessionPolicy: crmWebSessionPolicy,
   });
   const containerProvisioner = createTenantContainerProvisioner({
     socketPath: config.deployHostSocketPath,

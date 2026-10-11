@@ -9,6 +9,30 @@ import {
   type SecretValue,
 } from "./secret-value.js";
 
+export interface WebSessionPolicy {
+  readonly idleTtlSeconds: number;
+  readonly absoluteTtlSeconds: number;
+}
+
+export interface CrmWebSessionPolicy extends WebSessionPolicy {
+  readonly accessTokenLifespanSeconds: number;
+  readonly revokeRefreshToken: boolean;
+  readonly refreshTokenMaxReuse: number;
+}
+
+export const platformWebSessionPolicy: WebSessionPolicy = Object.freeze({
+  idleTtlSeconds: 1_800,
+  absoluteTtlSeconds: 28_800,
+});
+
+export const crmWebSessionPolicy: CrmWebSessionPolicy = Object.freeze({
+  accessTokenLifespanSeconds: 300,
+  idleTtlSeconds: 2_592_000,
+  absoluteTtlSeconds: 7_776_000,
+  revokeRefreshToken: true,
+  refreshTokenMaxReuse: 0,
+});
+
 export interface WebAuthConfig {
   readonly schemaVersion: string;
   readonly environment: QcrmEnvironment;
@@ -22,8 +46,8 @@ export interface WebAuthConfig {
   readonly signedOutUrl: string;
   readonly requiredAcr: "2";
   readonly loginTransactionTtlSeconds: 300;
-  readonly sessionIdleTtlSeconds: 1800;
-  readonly sessionAbsoluteTtlSeconds: 28800;
+  readonly sessionIdleTtlSeconds: number;
+  readonly sessionAbsoluteTtlSeconds: number;
   readonly secureCookies: boolean;
 }
 
@@ -38,6 +62,7 @@ export interface WebAuthConfigOptions {
   readonly clientSecretPath: string;
   readonly redisUrlPath: string;
   readonly sessionNamespace: string;
+  readonly sessionPolicy: WebSessionPolicy;
 }
 
 function protectedEnvironment(environment: QcrmEnvironment): boolean {
@@ -187,8 +212,8 @@ export function parseWebAuthConfig(
     signedOutUrl: `${normalizedOrigin}/signed-out`,
     requiredAcr: "2",
     loginTransactionTtlSeconds: 300,
-    sessionIdleTtlSeconds: 1800,
-    sessionAbsoluteTtlSeconds: 28800,
+    sessionIdleTtlSeconds: options.sessionPolicy.idleTtlSeconds,
+    sessionAbsoluteTtlSeconds: options.sessionPolicy.absoluteTtlSeconds,
     secureCookies: origin.protocol === "https:",
   });
 }

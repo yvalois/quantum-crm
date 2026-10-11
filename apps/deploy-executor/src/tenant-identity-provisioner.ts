@@ -4,6 +4,7 @@ import { dirname, resolve, sep } from "node:path";
 
 import { createClient } from "redis";
 
+import type { CrmWebSessionPolicy } from "@quantum-crm/config";
 import {
   tenantOidcIdentity,
   type TenantIdentityProvisioner,
@@ -29,6 +30,11 @@ interface KeycloakRealm {
   readonly otpPolicyLookAheadWindow?: unknown;
   readonly otpPolicyPeriod?: unknown;
   readonly otpPolicyCodeReusable?: unknown;
+  readonly accessTokenLifespan?: unknown;
+  readonly ssoSessionIdleTimeout?: unknown;
+  readonly ssoSessionMaxLifespan?: unknown;
+  readonly revokeRefreshToken?: unknown;
+  readonly refreshTokenMaxReuse?: unknown;
   readonly requiredActions?: unknown;
   readonly browserFlow?: unknown;
   readonly attributes?: unknown;
@@ -104,6 +110,14 @@ export interface TenantIdentityProvisionerOptions {
   readonly identityOrigin: string;
   readonly redisAdminUrl: string;
   readonly tenantSecretDirectory: string;
+  readonly sessionPolicy: CrmWebSessionPolicy;
+}
+
+interface TenantRealmSessionPolicyReconcilerOptions {
+  readonly keycloakAdminOrigin: string;
+  readonly keycloakProvisionerClientId: string;
+  readonly keycloakProvisionerClientSecret: string;
+  readonly sessionPolicy: CrmWebSessionPolicy;
 }
 
 function secretPath(rootDirectory: string, tenantProfileId: string, fileName: string): string {
@@ -208,11 +222,36 @@ function realmOtpMatches(realm: KeycloakRealm): boolean {
   );
 }
 
-function assertRealm(realm: KeycloakRealm, realmName: string): void {
+function realmSessionMatches(realm: KeycloakRealm, policy: CrmWebSessionPolicy): boolean {
+  return (
+    realm.accessTokenLifespan === policy.accessTokenLifespanSeconds &&
+    realm.ssoSessionIdleTimeout === policy.idleTtlSeconds &&
+    realm.ssoSessionMaxLifespan === policy.absoluteTtlSeconds &&
+    realm.revokeRefreshToken === policy.revokeRefreshToken &&
+    realm.refreshTokenMaxReuse === policy.refreshTokenMaxReuse
+  );
+}
+
+function realmSessionRepresentation(policy: CrmWebSessionPolicy): Record<string, unknown> {
+  return {
+    accessTokenLifespan: policy.accessTokenLifespanSeconds,
+    ssoSessionIdleTimeout: policy.idleTtlSeconds,
+    ssoSessionMaxLifespan: policy.absoluteTtlSeconds,
+    revokeRefreshToken: policy.revokeRefreshToken,
+    refreshTokenMaxReuse: policy.refreshTokenMaxReuse,
+  };
+}
+
+function assertRealm(
+  realm: KeycloakRealm,
+  realmName: string,
+  sessionPolicy: CrmWebSessionPolicy,
+): void {
   const attributes = realm.attributes;
   if (
     !realmCoreMatches(realm, realmName) ||
     !realmOtpMatches(realm) ||
+    !realmSessionMatches(realm, sessionPolicy) ||
     realm.browserFlow !== "quantum-crm-browser" ||
     typeof attributes !== "object" ||
     attributes === null ||
@@ -389,7 +428,10 @@ function assertBootstrapClient(client: KeycloakClient): string {
   return client.id;
 }
 
-function realmRepresentation(realmName: string): Record<string, unknown> {
+function realmRepresentation(
+  realmName: string,
+  sessionPolicy: CrmWebSessionPolicy,
+): Record<string, unknown> {
   return {
     realm: realmName,
     enabled: true,
@@ -402,6 +444,7 @@ function realmRepresentation(realmName: string): Record<string, unknown> {
     otpPolicyLookAheadWindow: 1,
     otpPolicyPeriod: 30,
     otpPolicyCodeReusable: false,
+    ...realmSessionRepresentation(sessionPolicy),
     attributes: { "acr.loa.map": '{"1":1,"2":2}' },
     authenticatorConfig: [
       {
@@ -655,7 +698,9 @@ async function request(
   }
 }
 
-async function keycloakAccessToken(options: TenantIdentityProvisionerOptions): Promise<string> {
+async function keycloakAccessToken(
+  options: TenantRealmSessionPolicyReconcilerOptions,
+): Promise<string> {
   const origin = new URL(options.keycloakAdminOrigin);
   const body = new URLSearchParams({
     grant_type: "client_credentials",
@@ -757,7 +802,11 @@ async function provisionKeycloak(
     try {
       await request(
         new URL("/admin/realms", adminOrigin),
-        { method: "POST", headers, body: JSON.stringify(realmRepresentation(realmName)) },
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(realmRepresentation(realmName, options.sessionPolicy)),
+        },
         [201],
       );
     } catch (error) {
@@ -775,6 +824,21 @@ async function provisionKeycloak(
   }
   if (!realmCoreMatches(realm.body as KeycloakRealm, realmName)) {
     throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  }
+  if (!realmSessionMatches(realm.body as KeycloakRealm, options.sessionPolicy)) {
+    await request(
+      realmUrl,
+      {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(realmSessionRepresentation(options.sessionPolicy)),
+      },
+      [204],
+    );
+    realm = await request(realmUrl, { headers }, [200]);
+    if (typeof realm.body !== "object" || realm.body === null) {
+      throw new TenantIdentityProvisioningError("UNAVAILABLE");
+    }
   }
   if (!realmOtpMatches(realm.body as KeycloakRealm)) {
     await request(
@@ -799,7 +863,7 @@ async function provisionKeycloak(
       throw new TenantIdentityProvisioningError("UNAVAILABLE");
     }
   }
-  assertRealm(realm.body as KeycloakRealm, realmName);
+  assertRealm(realm.body as KeycloakRealm, realmName, options.sessionPolicy);
   await reconcileRequiredActions(adminOrigin, realmName, headers);
 
   const clientsUrl = new URL(`/admin/realms/${encodeURIComponent(realmName)}/clients`, adminOrigin);
@@ -842,6 +906,51 @@ async function provisionKeycloak(
       : undefined;
   if (typeof value !== "string") throw new TenantIdentityProvisioningError("UNAVAILABLE");
   return `${reconciled ? "r" : "c"}:${safeSecret(value)}`;
+}
+
+export async function reconcileTenantCrmSessionPolicy(
+  options: TenantRealmSessionPolicyReconcilerOptions,
+  tenantProfileId: string,
+): Promise<void> {
+  if (!uuidPattern.test(tenantProfileId)) {
+    throw new TenantIdentityProvisioningError("IDENTITY_MISMATCH");
+  }
+  const identity = tenantOidcIdentity(tenantProfileId);
+  const adminOrigin = new URL(options.keycloakAdminOrigin);
+  const headers = {
+    authorization: `Bearer ${await keycloakAccessToken(options)}`,
+    "content-type": "application/json",
+  };
+  const realmUrl = new URL(`/admin/realms/${encodeURIComponent(identity.realmName)}`, adminOrigin);
+  let realm = await request(realmUrl, { headers }, [200, 404]);
+  if (realm.status === 404) {
+    throw new TenantIdentityProvisioningError("IDENTITY_MISMATCH");
+  }
+  if (typeof realm.body !== "object" || realm.body === null) {
+    throw new TenantIdentityProvisioningError("UNAVAILABLE");
+  }
+  if (!realmCoreMatches(realm.body as KeycloakRealm, identity.realmName)) {
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  }
+  if (!realmSessionMatches(realm.body as KeycloakRealm, options.sessionPolicy)) {
+    await request(
+      realmUrl,
+      {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(realmSessionRepresentation(options.sessionPolicy)),
+      },
+      [204],
+    );
+    realm = await request(realmUrl, { headers }, [200]);
+  }
+  if (
+    typeof realm.body !== "object" ||
+    realm.body === null ||
+    !realmSessionMatches(realm.body as KeycloakRealm, options.sessionPolicy)
+  ) {
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  }
 }
 
 async function provisionBootstrapClient(

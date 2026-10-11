@@ -151,7 +151,7 @@ async function commercialResponse(
 ): Promise<Response> {
   try {
     if (upstream.status === 400) return crmProblem(400, "Invalid request");
-    if (upstream.status === 401) return crmProblem(401, "Unauthorized");
+    if (upstream.status === 401) return upstreamAuthenticationProblem();
     if (upstream.status === 403) return crmProblem(403, "Forbidden");
     if (upstream.status === 404) return crmProblem(404, "Not found");
     if (upstream.status === 409) return crmProblem(409, "Request conflict");
@@ -464,7 +464,7 @@ export async function handleCrmContactExport(
       redirect: "manual",
       signal: AbortSignal.timeout(10_000),
     });
-    if (upstream.status === 401) return crmProblem(401, "Unauthorized");
+    if (upstream.status === 401) return upstreamAuthenticationProblem();
     if (upstream.status === 403) return crmProblem(403, "Forbidden");
     if (!upstream.ok) return crmProblem(503, "CRM service temporarily unavailable");
     const body = await upstream.text();
@@ -1717,7 +1717,7 @@ async function fileResponse(
   responseSchema: { parse(input: unknown): unknown },
 ): Promise<Response> {
   if (upstream.status === 400) return crmProblem(400, "Invalid request");
-  if (upstream.status === 401) return crmProblem(401, "Unauthorized");
+  if (upstream.status === 401) return upstreamAuthenticationProblem();
   if (upstream.status === 403) return crmProblem(403, "Forbidden");
   if (upstream.status === 404) return crmProblem(404, "Not found");
   if (upstream.status === 409) return crmProblem(409, "Request conflict");
@@ -2147,6 +2147,23 @@ export function crmProblem(status: number, title: string): Response {
   );
 }
 
+function upstreamAuthenticationProblem(): Response {
+  return crmProblem(503, "CRM authorization temporarily unavailable");
+}
+
+function expiredCrmSessionProblem(runtime: CrmAuthRuntime): Response {
+  const response = crmProblem(401, "Session expired");
+  response.headers.set("x-qcrm-session-state", "expired");
+  response.headers.append(
+    "set-cookie",
+    serializeCookie(crmSessionCookieName(runtime.config), "", {
+      maxAge: 0,
+      secure: runtime.config.secureCookies,
+    }),
+  );
+  return response;
+}
+
 function serializeCookie(
   name: string,
   value: string,
@@ -2179,10 +2196,10 @@ async function authorizedSession(
   runtime: CrmAuthRuntime,
 ): Promise<AuthorizedCrmSession | Response> {
   const handle = crmCookie(request, crmSessionCookieName(runtime.config));
-  if (!handle) return crmProblem(401, "Unauthorized");
+  if (!handle) return expiredCrmSessionProblem(runtime);
   try {
     const session = await runtime.auth.session(new SecretValue(handle));
-    if (!session) return crmProblem(401, "Unauthorized");
+    if (!session) return expiredCrmSessionProblem(runtime);
     return Object.freeze({ session, correlationId: crypto.randomUUID() });
   } catch {
     return crmProblem(503, "Session temporarily unavailable");
@@ -2314,7 +2331,7 @@ async function memberMutationResponse(
 ): Promise<Response> {
   try {
     if (upstream.status === 400) return crmProblem(400, "Invalid request");
-    if (upstream.status === 401) return crmProblem(401, "Unauthorized");
+    if (upstream.status === 401) return upstreamAuthenticationProblem();
     if (upstream.status === 403) return crmProblem(403, "Forbidden");
     if (upstream.status === 404) return crmProblem(404, "Not found");
     if (upstream.status === 409) return crmProblem(409, "Request conflict");
@@ -2393,7 +2410,12 @@ export async function handleCrmSession(
   const authorized = await authorizedSession(request, runtime);
   if (isResponse(authorized)) {
     if (authorized.status === 401) {
-      return Response.json({ authenticated: false }, { status: 401, headers: crmNoStoreHeaders() });
+      const headers = crmNoStoreHeaders();
+      const sessionState = authorized.headers.get("x-qcrm-session-state");
+      const cookie = authorized.headers.get("set-cookie");
+      if (sessionState) headers.set("x-qcrm-session-state", sessionState);
+      if (cookie) headers.append("set-cookie", cookie);
+      return Response.json({ authenticated: false }, { status: 401, headers });
     }
     return authorized;
   }
@@ -2453,7 +2475,7 @@ export async function handleCrmMemberList(
       redirect: "manual",
       signal: AbortSignal.timeout(5_000),
     });
-    if (upstream.status === 401) return crmProblem(401, "Unauthorized");
+    if (upstream.status === 401) return upstreamAuthenticationProblem();
     if (upstream.status === 403) return crmProblem(403, "Forbidden");
     if (!upstream.ok) return crmProblem(503, "CRM service temporarily unavailable");
     return Response.json(MemberListResponseSchema.parse(await readBoundedJson(upstream)), {
