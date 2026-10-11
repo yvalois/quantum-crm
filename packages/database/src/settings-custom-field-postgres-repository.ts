@@ -1,6 +1,7 @@
-import type { CustomFieldDefinition, CustomFieldModel } from "@quantum-crm/contracts";
 import {
   CustomFieldDefinitionValidationError,
+  type CustomFieldDefinition,
+  type CustomFieldModel,
   type CustomFieldDefinitionRepository,
 } from "@quantum-crm/domain";
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";

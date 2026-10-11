@@ -206,8 +206,33 @@ describe("historical conversation repository", () => {
   });
 
   it("restricts unresolved historical records to profile scope and parameterizes contact filters", async () => {
-    const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
-    await createHistoricalConversationPostgresRepository(poolWith(query)).list(
+    const references = {
+      locationId: "fixture-location",
+      ownerExternalId: "original-advisor",
+      followerExternalIds: ["original-follower"],
+    };
+    const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({
+      rows: [{
+        id: threadId,
+        source_system: "GHL",
+        source_external_id: "fixture-thread",
+        source_thread_present: true,
+        contact_id: threadId,
+        assignee_member_id: actor.memberId,
+        source_participant_references: { ...references, privateAttribute: "private-source-marker" },
+        source_payload: { privateAttribute: "private-source-marker" },
+        source_contact_id: "private-source-marker",
+        raw_channel: null,
+        raw_status: null,
+        subject: null,
+        source_created_at: null,
+        source_updated_at: null,
+        message_count: 0,
+        last_message_at: null,
+        imported_at: "2026-10-11T12:00:00.000Z",
+      }],
+    }));
+    const result = await createHistoricalConversationPostgresRepository(poolWith(query)).list(
       { ...actor, scope: "OWN" },
       { limit: 50, contactId: threadId },
     );
@@ -215,9 +240,18 @@ describe("historical conversation repository", () => {
     expect(statement).toContain("thread.contact_id IS NOT NULL");
     expect(statement).toContain("thread.source_thread_present = TRUE");
     expect(statement).toContain("thread.assignee_member_id = $1::uuid");
-    expect(statement).not.toContain("source_payload");
+    const sourceFields = /source_map\.source_payload\s*->>?\s*'([^']+)'/gu;
+    expect(Array.from((statement ?? "").matchAll(sourceFields), (match) => match[1])).toEqual([
+      "assignedTo",
+      "followers",
+    ]);
+    expect(statement?.replace(sourceFields, "allowed_projection")).not.toContain("source_payload");
     expect(statement).not.toContain("source_contact_id");
     expect(params).toEqual([actor.memberId, threadId, 51]);
+    expect(result.items[0]?.sourceParticipantReferences).toEqual(references);
+    expect(result.items[0]).not.toHaveProperty("source_payload");
+    expect(result.items[0]).not.toHaveProperty("source_contact_id");
+    expect(JSON.stringify(result)).not.toContain("private-source-marker");
   });
 
   it("separates linked and unresolved history without dropping scope restrictions", async () => {

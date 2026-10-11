@@ -112,7 +112,11 @@ describe("sales service", () => {
               permissions: ["crm:sales:update"],
               title: opportunity.title,
             });
-      expect(result).toBe(opportunity);
+      expect(result).toEqual(opportunity);
+      expect(result.ownerMemberId).toBe(actor.memberId);
+      expect(result.version).toBe(opportunity.version);
+      expect(result.stageId).toBe(opportunity.stageId);
+      expect(result).not.toHaveProperty("sourceParticipantReferences");
       expect(findOpportunityCommandResult).toHaveBeenCalledWith({
         actor,
         id: opportunity.id,
