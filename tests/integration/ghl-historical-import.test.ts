@@ -180,6 +180,7 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
     );
     const contact = await contactsA.importContact({
       ...context,
+      permissions: [...context.permissions, "crm:contacts:assign"],
       source: source(locationId, "contact"),
       displayName: "Synthetic attachment contact",
       email: null,
