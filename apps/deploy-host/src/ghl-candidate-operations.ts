@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { chown, mkdir, open, readFile, realpath, unlink, writeFile } from "node:fs/promises";
+import { isIPv4 } from "node:net";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -34,7 +35,16 @@ interface ContainerInspection {
   };
   readonly HostConfig: Readonly<Record<string, unknown>>;
   readonly NetworkSettings: {
-    readonly Networks: Readonly<Record<string, { readonly Aliases?: readonly string[] }>>;
+    readonly Networks: Readonly<
+      Record<
+        string,
+        {
+          readonly Aliases?: readonly string[];
+          readonly NetworkID?: string;
+          readonly IPAddress?: string;
+        }
+      >
+    >;
   };
   readonly State: { readonly Running: boolean; readonly Health?: { readonly Status: string } };
 }
@@ -421,6 +431,34 @@ async function fixedSyntheticFile(path: string, content: string): Promise<void> 
   await chown(path, 1000, 1000);
 }
 
+/** Host tests reach only the inspected endpoint on the isolated laboratory network. */
+export function ghlTestPostgresAddress(
+  postgres: Pick<ContainerInspection, "NetworkSettings">,
+  network: string,
+  networkId: string,
+): string {
+  const networks = postgres.NetworkSettings.Networks;
+  const endpoint = networks[network];
+  const address = endpoint?.IPAddress;
+  if (
+    !/^qcrm-ghl-test-[0-9a-f]{12}$/u.test(network) ||
+    !/^[0-9a-f]{64}$/u.test(networkId) ||
+    Object.keys(networks).length !== 1 ||
+    endpoint?.NetworkID !== networkId ||
+    !address ||
+    !isIPv4(address)
+  )
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  const [first, second] = address.split(".").map(Number);
+  if (
+    first !== 10 &&
+    !(first === 172 && second !== undefined && second >= 16 && second <= 31) &&
+    !(first === 192 && second === 168)
+  )
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  return address;
+}
+
 /** Two synthetic profiles in a separate PostgreSQL instance, never the platform server. */
 export async function setupGhlIntegrationTest(commit: string) {
   const root = await candidateRoot(commit);
@@ -443,7 +481,7 @@ export async function setupGhlIntegrationTest(commit: string) {
   await chown(join(testRoot, "init"), 999, 999);
   await chown(join(testRoot, "init", "10-ghl.sql"), 999, 999);
   await chown(join(testRoot, "postgres-password"), 999, 999);
-  const observedNetwork = await docker.run(["network", "inspect", network], {}, 15_000);
+  let observedNetwork = await docker.run(["network", "inspect", network], {}, 15_000);
   if (observedNetwork.exitCode !== 0) {
     const created = await docker.run(
       ["network", "create", "--internal", "--label", `com.quantum.ghl-test=${commit}`, network],
@@ -451,14 +489,23 @@ export async function setupGhlIntegrationTest(commit: string) {
       15_000,
     );
     if (created.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
-  } else {
-    const networks = JSON.parse(observedNetwork.stdout) as {
-      Internal?: boolean;
-      Labels?: Record<string, string>;
-    }[];
-    if (networks[0]?.Internal !== true || networks[0].Labels?.["com.quantum.ghl-test"] !== commit)
-      throw new HostAdapterError("IDENTITY_MISMATCH");
+    observedNetwork = await docker.run(["network", "inspect", network], {}, 15_000);
   }
+  if (observedNetwork.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
+  const networks = JSON.parse(observedNetwork.stdout) as {
+    Id?: string;
+    Internal?: boolean;
+    Labels?: Record<string, string>;
+  }[];
+  const inspectedNetwork = networks[0];
+  if (
+    networks.length !== 1 ||
+    inspectedNetwork?.Internal !== true ||
+    inspectedNetwork.Labels?.["com.quantum.ghl-test"] !== commit ||
+    !inspectedNetwork.Id ||
+    !/^[0-9a-f]{64}$/u.test(inspectedNetwork.Id)
+  )
+    throw new HostAdapterError("IDENTITY_MISMATCH");
   const observedPostgres = await docker.run(["container", "inspect", name], {}, 15_000);
   if (observedPostgres.exitCode !== 0) {
     const started = await docker.run(
@@ -471,8 +518,6 @@ export async function setupGhlIntegrationTest(commit: string) {
         name,
         "--network",
         network,
-        "--publish",
-        "127.0.0.1::5432",
         "--label",
         `com.quantum.ghl-test=${commit}`,
         "--memory",
@@ -515,14 +560,7 @@ export async function setupGhlIntegrationTest(commit: string) {
     await new Promise<void>((resolve) => setTimeout(resolve, 1_000));
   }
   if (!ready) throw new HostAdapterError("UNAVAILABLE");
-  const ports = (
-    postgres.NetworkSettings as unknown as {
-      Ports: Record<string, { HostIp: string; HostPort: string }[]>;
-    }
-  ).Ports;
-  const published = ports["5432/tcp"]?.[0];
-  if (!published || published.HostIp !== "127.0.0.1" || !/^\d{1,5}$/u.test(published.HostPort))
-    throw new HostAdapterError("IDENTITY_MISMATCH");
+  const postgresAddress = ghlTestPostgresAddress(postgres, network, inspectedNetwork.Id);
   for (const profile of ["a", "b"] as const) {
     const compact = `0000000000004000800000000000000${profile}`;
     const migrationUrl = `postgresql://qcrm_m_${compact}:test-only-ghl-migrator-${profile}@${name}:5432/qcrm_t_${compact}?sslmode=disable`;
@@ -560,7 +598,7 @@ export async function setupGhlIntegrationTest(commit: string) {
     await mkdir("/run/secrets", { recursive: true, mode: 0o700 });
     await fixedSyntheticFile(
       `/run/secrets/ghl_import_test_${profile}_database_url`,
-      `postgresql://qcrm_r_${compact}:test-only-ghl-runtime-${profile}@127.0.0.1:${published.HostPort}/qcrm_t_${compact}?sslmode=disable`,
+      `postgresql://qcrm_r_${compact}:test-only-ghl-runtime-${profile}@${postgresAddress}:5432/qcrm_t_${compact}?sslmode=disable`,
     );
   }
   return { state: "READY", container: name, network, profiles: 2, migratedImageId: migratorImage };

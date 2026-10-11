@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   candidateContainerBody,
+  ghlTestPostgresAddress,
   replaceGhlCandidateComponent,
   type CandidateDockerApi,
 } from "./ghl-candidate-operations.js";
@@ -40,6 +41,53 @@ const previous = {
   },
   State: { Running: true, Health: { Status: "healthy" } },
 };
+
+describe("GHL isolated laboratory address", () => {
+  const network = `qcrm-ghl-test-${commit.slice(0, 12)}`;
+  const networkId = "f".repeat(64);
+  const postgres = {
+    NetworkSettings: {
+      Networks: { [network]: { NetworkID: networkId, IPAddress: "172.16.4.2" } },
+    },
+  };
+
+  it("uses the private address on the exact inspected network without published ports", () => {
+    expect(ghlTestPostgresAddress(postgres, network, networkId)).toBe("172.16.4.2");
+  });
+
+  it("rejects a different network identity or an extra attachment", () => {
+    expect(() => ghlTestPostgresAddress(postgres, network, "e".repeat(64))).toThrow(
+      HostAdapterError,
+    );
+    expect(() => ghlTestPostgresAddress(postgres, "qcrm-ghl-test-bbbbbbbbbbbb", networkId)).toThrow(
+      HostAdapterError,
+    );
+    expect(() =>
+      ghlTestPostgresAddress(
+        {
+          NetworkSettings: {
+            Networks: { ...postgres.NetworkSettings.Networks, bridge: { IPAddress: "172.17.0.2" } },
+          },
+        },
+        network,
+        networkId,
+      ),
+    ).toThrow(HostAdapterError);
+  });
+
+  it.each(["", "127.0.0.1", "8.8.8.8", "169.254.169.254", "172.32.0.2", "::1", "172.16.4.999"])(
+    "rejects a missing, non-private or malformed address: %s",
+    (address) => {
+      expect(() =>
+        ghlTestPostgresAddress(
+          { NetworkSettings: { Networks: { [network]: { NetworkID: networkId, IPAddress: address } } } },
+          network,
+          networkId,
+        ),
+      ).toThrow(HostAdapterError);
+    },
+  );
+});
 
 describe("GHL candidate component promotion", () => {
   it("keeps the exact secrets, binds, command, policy and DNS aliases while replacing only the image", () => {
