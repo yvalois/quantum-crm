@@ -14,7 +14,9 @@ import { HistoricalChannelBadge } from "./historical-channel-badge";
 /** Hide legacy importer placeholders, never rewrite customer-authored subjects or messages. */
 export function historicalThreadSubject(subject: string | null): string | null {
   return subject &&
-    !["Conversación histórica sin ficha actual en GHL", "Conversación importada de GHL"].includes(subject)
+    !["Conversación histórica sin ficha actual en GHL", "Conversación importada de GHL"].includes(
+      subject,
+    )
     ? subject
     : null;
 }

@@ -442,9 +442,7 @@ async function workspaceFixture(
       if (path === "/api/conversations/historical") {
         await respond({
           data:
-            url.searchParams.get("contactState") === "UNLINKED"
-              ? [orphanThread]
-              : [visibleThread],
+            url.searchParams.get("contactState") === "UNLINKED" ? [orphanThread] : [visibleThread],
           page: { nextCursor: null },
         });
         return;
@@ -756,7 +754,9 @@ test("TikTok has its own icon and CRM labels omit the import provider while pres
   await expect(orphan).toBeVisible();
   await expect(list).not.toContainText(/GHL/u);
   await orphan.click();
-  await expect(history.getByRole("heading", { name: "Sin contacto vinculado · 123456" })).toBeVisible();
+  await expect(
+    history.getByRole("heading", { name: "Sin contacto vinculado · 123456" }),
+  ).toBeVisible();
   await expect(history.getByText(originalBody, { exact: true })).toBeVisible();
   await expect(history).toContainText("su ficha original no está disponible");
   await expect(context.getByRole("region", { name: "Ficha del cliente" })).toContainText(
@@ -765,15 +765,18 @@ test("TikTok has its own icon and CRM labels omit the import provider while pres
   await expect(page.getByText(/GHL/u)).toHaveText(originalBody);
 
   await page.goto("/contacts");
-  await page.getByRole("table", { name: "Lista de contactos" }).getByRole("button").filter({
-    has: page.getByText("Andrea Sintética", { exact: true }),
-  }).click();
+  await page
+    .getByRole("table", { name: "Lista de contactos" })
+    .getByRole("button")
+    .filter({
+      has: page.getByText("Andrea Sintética", { exact: true }),
+    })
+    .click();
   const detail = page.getByRole("complementary", { name: "Ficha de Andrea Sintética" });
   await detail.getByRole("button", { name: "Conversaciones", exact: true }).click();
-  await expect(detail.getByRole("link", { name: "Ver conversaciones", exact: true })).toHaveAttribute(
-    "href",
-    `/inbox?contactId=${primaryContact.id}`,
-  );
+  await expect(
+    detail.getByRole("link", { name: "Ver conversaciones", exact: true }),
+  ).toHaveAttribute("href", `/inbox?contactId=${primaryContact.id}`);
   await expect(page.locator("body")).not.toContainText(/GHL/u);
   expect(fixture.writes).toEqual([]);
   expect(fixture.unexpected).toEqual([]);

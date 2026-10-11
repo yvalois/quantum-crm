@@ -20,7 +20,11 @@ import {
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
-import { HistoricalThread, historicalThreadSubject, historicalThreadTitle } from "./historical-thread";
+import {
+  HistoricalThread,
+  historicalThreadSubject,
+  historicalThreadTitle,
+} from "./historical-thread";
 import { HistoricalChannelBadge } from "./historical-channel-badge";
 import { SourceParticipantsCard } from "../source-participants";
 import { ConversationContactCard, useConversationContacts } from "./conversation-contact";
@@ -975,7 +979,9 @@ export default function InboxPage(): React.JSX.Element {
                           </span>
                           <span className={styles.cardPreview}>
                             {native?.lastMessagePreview ??
-                              (imported ? historicalThreadSubject(imported.subject) : item.subject) ??
+                              (imported
+                                ? historicalThreadSubject(imported.subject)
+                                : item.subject) ??
                               (imported ? `${imported.messageCount} mensajes` : "Sin mensajes")}
                           </span>
                           <span className={styles.cardMeta}>
