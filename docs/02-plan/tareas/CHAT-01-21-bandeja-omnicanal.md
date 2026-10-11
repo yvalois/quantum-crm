@@ -107,6 +107,14 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Evidencia de cierre
 
+### Bandeja unica CHAT-11 / CHAT-13 / CHAT-14 — 2026-10-11
+
+- Sustituye la separacion visual activa/GHL: `/inbox` consume `/api/v1/conversations/inbox`, mezcla ambos origenes en una lista y comparte seleccion y ficha. GHL solo identifica procedencia; no se fusionan hilos ni identidades ambiguas.
+- Una consulta PostgreSQL paginada aplica permisos/alcance antes de ordenar globalmente; el cursor conserva microsegundos y desempates por origen/UUID. Busqueda por asunto/contenido, filtros compartidos y compatibilidad de enlaces `contactId`/`history=1`. Se reutilizan las APIs de detalle y archivos verificados.
+- Candidato `e69763a1`: cinco typechecks, ESLint, 75 pruebas enfocadas (incluidas cuatro de arquitectura), ocho PostgreSQL sobre dos perfiles sinteticos y cinco Playwright aprobados en VPS, sin reintentos. E2E cubre escritorio/movil, fuentes mixtas, paginacion, busqueda, seleccion, customs, responsables, descarga y reproduccion real de medios sinteticos.
+- Sin migracion, reimportacion ni escrituras comerciales para verificar. Envio externo sigue diferido expresamente; los controles nativos mantienen intencion durable/QUEUED sin afirmar entrega. Pendiente en este registro: CI y despliegue API/CRM acotado a InterAmerican.
+- Recuperacion: componentes anteriores conservados; rollback de aplicacion sin restaurar ni modificar datos. Los requisitos completos CHAT-11/13/14 permanecen abiertos; este bloque acredita exclusivamente la bandeja unica.
+
 ### Identidad y ficha contextual del 2026-10-11
 
 - PR #128, `d3eb5810`: contactos relacionados consultados por IDs acotados bajo permisos y alcance del actor, incluidos archivados. Nombres en listado e hilo y ficha compartida con correo, telefono, etiquetas y customs en bandeja activa e historial, escritorio/movil. Los filtros del historial no modifican asociaciones ni ocultan definitivamente los hilos sin contacto.
