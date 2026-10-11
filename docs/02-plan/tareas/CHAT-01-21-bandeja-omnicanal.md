@@ -111,7 +111,9 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 - Ajuste acotado al frontend: marca TikTok en lista/hilo y textos neutrales en conversaciones, responsables y enlace desde Contactos. Se retiran badges del proveedor anterior; los placeholders exactos del importador se ocultan tambien en la vista previa, sin modificar asuntos ni mensajes escritos por clientes.
 - Icono SVG embebido de [Simple Icons](https://github.com/simple-icons/simple-icons/blob/develop/icons/tiktok.svg), proyecto CC0; sin nueva dependencia ni llamadas externas para renderizarlo. Conserva etiqueta accesible TikTok.
-- Procedencia tecnica, IDs, permisos, archivos, datos y restricciones de envio intactos. No requiere API, migraciones ni reimportacion. Pendiente: verificaciones afectadas y despliegue exclusivo de `crm-web` en InterAmerican, conservando predecesor.
+- Procedencia tecnica, IDs, permisos, archivos, datos y restricciones de envio intactos. No requiere API, migraciones ni reimportacion.
+- PR #131, `5eead687`: formato, ESLint, typecheck CRM y cuatro pruebas de canales aprobadas en VPS; seis Playwright sin reintentos (26 s), incluyendo TikTok en lista/hilo/mensaje, ausencia de marca del proveedor en UI y conservacion de un mensaje sintetico que la menciona. Siete checks CI verdes. No se repiten pruebas ni builds al registrar este cierre documental.
+- CRM desplegado una vez: `sha256:1bd510fe6244387b5dd5d0ee7f87676c88aa82023582051f6abe31632a8e065a`, predecesor `before-ghl-5eead687f908` conservado. API intacta. Recibo privado `/opt/quantum/config/staging/candidates/5eead687f9080e8c0e64a7433f48cf9796c040cb/interamerican-neutral-branding.json`. Smoke autenticado confirma lista, mensajes y contexto sin marca del proveedor ni alertas. Pendientes de estabilizacion posterior sin cambios; envio externo sigue diferido por el propietario.
 
 ### Bandeja unica CHAT-11 / CHAT-13 / CHAT-14 — 2026-10-11
 
