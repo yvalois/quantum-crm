@@ -417,7 +417,9 @@ describe("GHL migration full export", () => {
     const captured = createSink();
     const report = await exportGhlMigration(config(), client, captured.sink, fakeClock());
     expect(report.streams.find((stream) => stream.stream === "MESSAGES_NON_EMAIL")).toMatchObject({
-      status: "COMPLETE", recordsWritten: 3, requestsMade: 3,
+      status: "COMPLETE",
+      recordsWritten: 3,
+      requestsMade: 3,
     });
   });
 

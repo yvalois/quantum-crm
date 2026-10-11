@@ -37,7 +37,14 @@ Scopes requeridos: contacts.readonly, locations/tags.readonly, locations/customF
 
 ## Validacion
 
-Pruebas sinteticas de paginacion, cursores opacos, deduplicacion, ubicacion, presupuesto, timeout, respuestas malformadas, cifrado, tampering y archivos privados. Ejecucion tecnica exclusivamente en el VPS. Evidencia final se consolida tras la corrida; datos reales y rutas privadas no se registran en Git.
+VPS autorizado, Node 24.21.0, 2026-10-11:
+
+- 27 pruebas enfocadas aprobadas: exportador, transporte, cifrado y configuracion. Cuatro pruebas de limites de arquitectura aprobadas.
+- Compilacion de `packages/config` y `apps/worker` aprobada; ESLint de archivos afectados aprobado. Prettier aplicado exclusivamente en el VPS.
+- Exportacion real completa: todos los streams alcanzaron su fin, sus conteos coincidieron con la fuente durante la corrida aceptada y el artefacto paso autenticacion de cada pagina/manifiesto. Sin modificaciones de origen/destino.
+- Auditoria en memoria: relaciones contacto/pipeline/etapa de oportunidades y contacto de conversaciones presentes; parte del historial de mensajes referencia IDs ausentes en las listas actuales de contactos/conversaciones. Se conservan integramente y requieren conciliacion antes del apply; no se descartan ni se inventan entidades.
+- Se reutiliza evidencia de codigo identico por contenido entre la rama exploratoria y el candidato enfocado; se verifico de nuevo la compilacion del candidato enfocado por el cambio de composicion. Solo se repitieron pruebas al corregir tipos, una expectativa de fixture y el manejo real del cursor opaco.
+- No se guardan conteos comerciales, IDs de cliente, credenciales ni datos del artefacto en Git. El cambio se limita al script/configuracion y no publica las APIs administrativas experimentales.
 
 ## Pendientes de estabilizacion posterior
 
