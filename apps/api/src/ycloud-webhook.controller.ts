@@ -17,7 +17,7 @@ interface WebhookRequest {
 
 function object(value: unknown): Json | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value as Json
+    ? (value as Json)
     : null;
 }
 
@@ -40,12 +40,8 @@ export function verifyYCloudSignature(
   const match = /^t=([0-9]{10,13}),s=([a-f0-9]{64})$/iu.exec(header);
   if (!match) return false;
   const timestamp = Number(match[1]);
-  if (!Number.isSafeInteger(timestamp) || Math.abs(now - timestamp * 1_000) > 300_000)
-    return false;
-  const expected = createHmac("sha256", secret)
-    .update(`${match[1]}.`)
-    .update(rawBody)
-    .digest();
+  if (!Number.isSafeInteger(timestamp) || Math.abs(now - timestamp * 1_000) > 300_000) return false;
+  const expected = createHmac("sha256", secret).update(`${match[1]}.`).update(rawBody).digest();
   const received = Buffer.from(match[2]!, "hex");
   return received.length === expected.length && timingSafeEqual(received, expected);
 }
@@ -62,15 +58,21 @@ export interface ParsedYCloudMessage {
   readonly historical: boolean;
 }
 
-export function parseYCloudMessage(payload: unknown, binding: YCloudBindingConfig): ParsedYCloudMessage | null {
+export function parseYCloudMessage(
+  payload: unknown,
+  binding: YCloudBindingConfig,
+): ParsedYCloudMessage | null {
   const event = object(payload);
   if (!event) return null;
   const type = string(event.type);
-  if (![
-    "whatsapp.inbound_message.received",
-    "whatsapp.smb.message.echoes",
-    "whatsapp.smb.history",
-  ].includes(type ?? "")) return null;
+  if (
+    ![
+      "whatsapp.inbound_message.received",
+      "whatsapp.smb.message.echoes",
+      "whatsapp.smb.history",
+    ].includes(type ?? "")
+  )
+    return null;
   const inbound = object(event.whatsappInboundMessage);
   const outbound = object(event.whatsappMessage);
   const message = inbound ?? outbound;
@@ -87,21 +89,34 @@ export function parseYCloudMessage(payload: unknown, binding: YCloudBindingConfi
   const caption = string(media?.caption)?.trim();
   const text = string(object(message.text)?.body)?.trim();
   const labels: Readonly<Record<string, string>> = {
-    image: "Imagen", audio: "Audio", video: "Video", document: "Documento",
-    sticker: "Sticker", location: "Ubicación", contacts: "Contacto",
+    image: "Imagen",
+    audio: "Audio",
+    video: "Video",
+    document: "Documento",
+    sticker: "Sticker",
+    location: "Ubicación",
+    contacts: "Contacto",
   };
   const body = (text || caption || labels[messageType] || "Mensaje de WhatsApp").slice(0, 16_000);
-  const kind: ConversationMessageKind = messageType === "image" ? "IMAGE"
-    : messageType === "audio" ? "AUDIO"
-    : messageType === "document" || messageType === "video" ? "DOCUMENT" : "TEXT";
+  const kind: ConversationMessageKind =
+    messageType === "image"
+      ? "IMAGE"
+      : messageType === "audio"
+        ? "AUDIO"
+        : messageType === "document" || messageType === "video"
+          ? "DOCUMENT"
+          : "TEXT";
   const customerProfile = object(message.customerProfile);
   const displayName = (string(customerProfile?.name)?.trim() || `+${phone}`).slice(0, 160);
   return Object.freeze({
-    phone, displayName,
+    phone,
+    displayName,
     externalThreadId: `ycloud:${binding.wabaId}:${phone}`,
     externalMessageId: `ycloud:${binding.wabaId}:${externalMessageId}`,
     direction: inbound ? "INBOUND" : "OUTBOUND",
-    kind, body, occurredAt: timestamp,
+    kind,
+    body,
+    occurredAt: timestamp,
     historical: type === "whatsapp.smb.history",
   });
 }
@@ -118,8 +133,15 @@ export class YCloudWebhookController {
   public async receive(@Req() request: WebhookRequest): Promise<{ received: true }> {
     if (!this.binding) throw new HttpException("Channel unavailable", 404);
     const rawBody = request.rawBody;
-    if (!rawBody || rawBody.byteLength > 1_048_576 ||
-        !verifyYCloudSignature(rawBody, request.headers["ycloud-signature"], this.binding.signingSecret.expose())) {
+    if (
+      !rawBody ||
+      rawBody.byteLength > 1_048_576 ||
+      !verifyYCloudSignature(
+        rawBody,
+        request.headers["ycloud-signature"],
+        this.binding.signingSecret.expose(),
+      )
+    ) {
       throw new HttpException("Invalid webhook signature", 401);
     }
     let event: unknown;
@@ -131,7 +153,8 @@ export class YCloudWebhookController {
     const message = parseYCloudMessage(event, this.binding);
     if (!message) return { received: true };
     const contact = await this.database.commercial.externalContacts.resolvePhone(
-      message.phone, message.displayName,
+      message.phone,
+      message.displayName,
     );
     await this.database.commercial.externalConversations.receive({
       contactId: contact.id,

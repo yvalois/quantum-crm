@@ -20,7 +20,11 @@ import {
   type GithubActionsReleasePublisherConfig,
 } from "./github-actions-release-publisher-config.js";
 import { loadSecretFile, SecretValue, type SecretFileSystem } from "./secret-value.js";
-import { parseYCloudBindingConfig, ycloudBindingEnvironmentKey, type YCloudBindingConfig } from "./ycloud-binding-config.js";
+import {
+  parseYCloudBindingConfig,
+  ycloudBindingEnvironmentKey,
+  type YCloudBindingConfig,
+} from "./ycloud-binding-config.js";
 import {
   parseStorageConfig,
   storageEnvironmentKeys,

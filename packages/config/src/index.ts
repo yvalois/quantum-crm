@@ -58,7 +58,11 @@ export {
   type OidcDefinition,
 } from "./oidc-config.js";
 export { ConfigurationError } from "./configuration-error.js";
-export { parseYCloudBindingConfig, ycloudBindingEnvironmentKey, type YCloudBindingConfig } from "./ycloud-binding-config.js";
+export {
+  parseYCloudBindingConfig,
+  ycloudBindingEnvironmentKey,
+  type YCloudBindingConfig,
+} from "./ycloud-binding-config.js";
 export {
   databaseEnvironmentKeys,
   expectedDatabaseSecretPath,

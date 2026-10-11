@@ -48,7 +48,10 @@ import type {
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
-import { createConversationPostgresRepository, createExternalConversationReceiver } from "./conversation-postgres-repository.js";
+import {
+  createConversationPostgresRepository,
+  createExternalConversationReceiver,
+} from "./conversation-postgres-repository.js";
 import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
 import { createUnifiedInboxPostgresRepository } from "./unified-inbox-postgres-repository.js";
 import { createSettingsCustomFieldPostgresRepository } from "./settings-custom-field-postgres-repository.js";

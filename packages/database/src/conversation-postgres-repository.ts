@@ -15,7 +15,9 @@ import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
 
-export function createExternalConversationReceiver(pool: PostgresPool): ExternalConversationReceiver {
+export function createExternalConversationReceiver(
+  pool: PostgresPool,
+): ExternalConversationReceiver {
   return Object.freeze({
     receive: async (message: ExternalConversationMessage) => {
       let client: PoolClient | undefined;
@@ -40,7 +42,13 @@ export function createExternalConversationReceiver(pool: PostgresPool): External
               version, created_at, updated_at)
              VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, NULL, 'open', 'human', $5,
                      NULL, NULL, 0, 1, $4, $4)`,
-            [conversationId, message.contactId, message.externalThreadId, message.occurredAt, message.contactDisplayName.slice(0, 240)],
+            [
+              conversationId,
+              message.contactId,
+              message.externalThreadId,
+              message.occurredAt,
+              message.contactDisplayName.slice(0, 240),
+            ],
           );
         }
         const duplicate = await client.query<{ id: string }>(
@@ -63,10 +71,15 @@ export function createExternalConversationReceiver(pool: PostgresPool): External
             external_message_id, delivery_status, failure_code, created_at, updated_at)
            VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, NULL, $6, $7, $8, NULL, $9, $9)`,
           [
-            randomUUID(), conversationId, sequence.rows[0]!.sequence,
-            message.direction.toLowerCase(), message.kind.toLowerCase(), message.body,
+            randomUUID(),
+            conversationId,
+            sequence.rows[0]!.sequence,
+            message.direction.toLowerCase(),
+            message.kind.toLowerCase(),
+            message.body,
             message.externalMessageId,
-            message.direction === "INBOUND" ? "received" : "sent", message.occurredAt,
+            message.direction === "INBOUND" ? "received" : "sent",
+            message.occurredAt,
           ],
         );
         await client.query(
@@ -77,7 +90,13 @@ export function createExternalConversationReceiver(pool: PostgresPool): External
              unread_count = unread_count + CASE WHEN $4 = 'inbound' AND NOT $5 THEN 1 ELSE 0 END,
              version = version + 1, updated_at = CURRENT_TIMESTAMP
            WHERE id = $1::uuid`,
-          [conversationId, message.occurredAt, message.body, message.direction.toLowerCase(), message.historical],
+          [
+            conversationId,
+            message.occurredAt,
+            message.body,
+            message.direction.toLowerCase(),
+            message.historical,
+          ],
         );
         await client.query("COMMIT");
         return "CREATED" as const;

@@ -62,7 +62,10 @@ export interface ContactPage {
 
 /** Provider-authenticated, tenant-local contact lookup. Never accepts a tenant identifier. */
 export interface ExternalContactDirectory {
-  readonly resolvePhone: (phone: string, displayName: string) => Promise<{ readonly id: string; readonly displayName: string }>;
+  readonly resolvePhone: (
+    phone: string,
+    displayName: string,
+  ) => Promise<{ readonly id: string; readonly displayName: string }>;
 }
 
 /**

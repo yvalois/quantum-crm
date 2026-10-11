@@ -263,7 +263,12 @@ export async function planForTenant(
     let ycloudConfigured = false;
     try {
       const metadata = await lstat(ycloudBindingSecretFile);
-      if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size < 1 || metadata.size > 2_048)
+      if (
+        !metadata.isFile() ||
+        metadata.isSymbolicLink() ||
+        metadata.size < 1 ||
+        metadata.size > 2_048
+      )
         throw new HostAdapterError("UNAVAILABLE");
       ycloudConfigured = true;
     } catch (error) {
