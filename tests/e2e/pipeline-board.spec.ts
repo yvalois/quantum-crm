@@ -111,17 +111,15 @@ async function boardFixture(page: Page, count = 2) {
   const histories = new Map<string, OpportunityHistoryEntry[]>();
   let rejectNextMove = false;
 
-  await page
-    .context()
-    .addCookies([
-      {
-        name: "qcrm_crm_session",
-        value: "synthetic-browser-only",
-        url: origin,
-        httpOnly: true,
-        sameSite: "Lax",
-      },
-    ]);
+  await page.context().addCookies([
+    {
+      name: "qcrm_crm_session",
+      value: "synthetic-browser-only",
+      url: origin,
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
   // Fail closed: no browser API request reaches a live CRM or authentication service.
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -290,7 +288,7 @@ test("pipeline row opens its own board and an opportunity opens full details", a
   await expect(drawer.getByRole("heading", { name: "Historial de la oportunidad" })).toBeVisible();
 });
 
-test("card body and keyboard open details with contact information on desktop and tablet", async ({
+test("card body and keyboard open details on desktop, tablet and mobile", async ({
   page,
 }, testInfo) => {
   await boardFixture(page);
@@ -314,6 +312,32 @@ test("card body and keyboard open details with contact information on desktop an
     path: testInfo.outputPath("pipeline-tablet-synthetic.png"),
     fullPage: true,
   });
+  await deal.click({ position: { x: 12, y: 12 } });
+  await expect(page.getByRole("dialog", { name: "Acuerdo sintético 1" })).toBeVisible();
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: testInfo.outputPath("pipeline-mobile-synthetic.png"),
+    fullPage: true,
+  });
+  const layout = await page.evaluate(() => {
+    const board = document.querySelector<HTMLElement>('[aria-label="Tablero Ventas sintéticas"]');
+    return {
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      documentWidth: document.documentElement.scrollWidth,
+      documentHeight: document.documentElement.scrollHeight,
+      boardWidth: board?.clientWidth,
+      boardScrollWidth: board?.scrollWidth,
+      boardHeight: board?.clientHeight,
+      boardScrollHeight: board?.scrollHeight,
+    };
+  });
+  await testInfo.attach("mobile-layout", {
+    body: JSON.stringify(layout),
+    contentType: "application/json",
+  });
+  expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
   await deal.click({ position: { x: 12, y: 12 } });
   await expect(page.getByRole("dialog", { name: "Acuerdo sintético 1" })).toBeVisible();
 });
@@ -352,6 +376,17 @@ test("pointer drag updates the column and counts, then selection moves the same 
   expect(fixture.mutations).toHaveLength(2);
   expect(fixture.mutations[1]).toMatchObject({ ifMatch: '"2"', stageId: initialStageId });
   await expect(page.getByRole("dialog")).toContainText("Cambio de etapa");
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await card(page, "Acuerdo sintético 1")
+    .getByRole("button", { name: "Arrastrar Acuerdo sintético 1" })
+    .focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Oportunidad movida a Propuesta.", { exact: true })).toBeVisible();
+  await expect(proposal.getByText("Acuerdo sintético 1", { exact: true })).toBeVisible();
+  expect(fixture.mutations).toHaveLength(3);
+  expect(fixture.mutations[2]).toMatchObject({ ifMatch: '"3"', stageId: proposalStageId });
 });
 
 test("a rejected move keeps the original card and counters and exposes the recoverable error", async ({
@@ -364,7 +399,9 @@ test("a rejected move keeps the original card and counters and exposes the recov
   const proposal = page.getByRole("region", { name: "Propuesta", exact: true });
   await expect(initial.getByRole("heading")).toHaveText("Contacto inicial 2");
   await dragCard(page, card(page, "Acuerdo sintético 1"), proposal);
-  await expect(page.getByRole("alert")).toContainText("Otra persona actualizó");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "No se pudo completar la acción." }),
+  ).toContainText("Otra persona actualizó");
   await expect(initial.getByText("Acuerdo sintético 1", { exact: true })).toBeVisible();
   await expect(initial.getByRole("heading")).toHaveText("Contacto inicial 2");
   await expect(proposal.getByText("Acuerdo sintético 1", { exact: true })).toHaveCount(0);

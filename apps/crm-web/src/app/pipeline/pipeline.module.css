@@ -2094,6 +2094,13 @@
   }
 }
 @media (max-width: 900px) {
+  .pipelineShell:global(.crm-shell-stitch) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pipelineShell > :global(.crm-sidebar) {
+    min-width: 0;
+    max-width: 100%;
+  }
   .workspace {
     padding: 1rem;
   }

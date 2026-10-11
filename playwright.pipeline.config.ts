@@ -13,6 +13,8 @@ export default defineConfig({
   outputDir: "test-results/pipeline-board",
   use: {
     baseURL: "http://127.0.0.1:3107",
+    // Next dev uses eval for HMR; this isolated interaction suite does not test CSP.
+    bypassCSP: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
