@@ -107,6 +107,13 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Evidencia de cierre
 
+### Canales completos CHAT-11 / CHAT-14 — 2026-10-11 (EN_CURSO)
+
+- Ampliacion aditiva exclusiva del filtro de consulta: Instagram, Messenger/Facebook, TikTok, Google Business, llamadas, formularios y registros sin canal identificado. No habilita canales nuevos de creacion o envio.
+- La consulta SQL filtra con el mismo canal inferido que muestra la lista, conserva aliases del origen, permisos y paginacion. Iconos diferenciados y filtro directo en la bandeja.
+- Validacion prevista: contrato/BFF, filtros con PostgreSQL sintetico y recorrido de navegador; despliegue API/CRM sin migraciones, reimportaciones ni escrituras comerciales.
+- Pendientes de estabilizacion posterior: envio externo sigue diferido por el propietario; no se inventan canales para registros sin evidencia.
+
 ### Identidad visual propia CHAT-13 / CHAT-14 — 2026-10-11
 
 - Ajuste acotado al frontend: marca TikTok en lista/hilo y textos neutrales en conversaciones, responsables y enlace desde Contactos. Se retiran badges del proveedor anterior; los placeholders exactos del importador se ocultan tambien en la vista previa, sin modificar asuntos ni mensajes escritos por clientes.

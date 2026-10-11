@@ -37,11 +37,27 @@ export function HistoricalChannelBadge({
             <path d="m3 6 9 7 9-7" />
           </>
         ) : channel.key === "instagram" ? (
-          <>
+          <g data-brand-icon="instagram">
             <rect x="3" y="3" width="18" height="18" rx="5" />
             <circle cx="12" cy="12" r="4" />
             <circle cx="17.5" cy="6.5" r=".6" fill="currentColor" />
-          </>
+          </g>
+        ) : channel.key === "facebook" ? (
+          // Messenger mark: Simple Icons (CC0), icons/messenger.svg.
+          <path
+            data-brand-icon="facebook"
+            fill="currentColor"
+            stroke="none"
+            d="M12 0C5.24 0 0 4.952 0 11.64c0 3.499 1.434 6.521 3.769 8.61a.96.96 0 0 1 .323.683l.065 2.135a.96.96 0 0 0 1.347.85l2.381-1.053a.96.96 0 0 1 .641-.046A13 13 0 0 0 12 23.28c6.76 0 12-4.952 12-11.64S18.76 0 12 0m6.806 7.44c.522-.03.971.567.63 1.094l-4.178 6.457a.707.707 0 0 1-.977.208l-3.87-2.504a.44.44 0 0 0-.49.007l-4.363 3.01c-.637.438-1.415-.317-.995-.966l4.179-6.457a.706.706 0 0 1 .977-.21l3.87 2.505c.15.097.344.094.491-.007l4.362-3.008a.7.7 0 0 1 .364-.13"
+          />
+        ) : channel.key === "google" ? (
+          // Google mark: Simple Icons (CC0), icons/google.svg.
+          <path
+            data-brand-icon="google"
+            fill="currentColor"
+            stroke="none"
+            d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+          />
         ) : channel.key === "tiktok" ? (
           // TikTok mark: Simple Icons (CC0), icons/tiktok.svg.
           <path
@@ -52,10 +68,25 @@ export function HistoricalChannelBadge({
           />
         ) : channel.key === "call" ? (
           <path d="m5 3 4 1 1 5-2 1c1.2 2.5 3.5 4.8 6 6l1-2 5 1 1 4c0 1.1-.9 2-2 2C10.2 21 3 13.8 3 5c0-1.1.9-2 2-2Z" />
+        ) : channel.key === "sms" ? (
+          <>
+            <path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 3v-3a2 2 0 0 1-1-2V6a2 2 0 0 1 2-2Z" />
+            <circle cx="8" cy="11" r=".6" fill="currentColor" />
+            <circle cx="12" cy="11" r=".6" fill="currentColor" />
+            <circle cx="16" cy="11" r=".6" fill="currentColor" />
+          </>
+        ) : channel.key === "chat" ? (
+          <>
+            <rect x="2" y="3" width="20" height="17" rx="2" />
+            <path d="M2 8h20M6 5.5h.1M9 5.5h.1M7 12h10M7 16h6" />
+          </>
+        ) : channel.key === "form" ? (
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm0 0v6h6M8 12h8M8 16h8M8 19h4" />
         ) : (
           <>
-            <path d="M21 11.5a8.8 8.8 0 0 1-9 8.5H9l-6 2 1.6-5A8.2 8.2 0 0 1 3 11.5 8.8 8.8 0 0 1 12 3a8.8 8.8 0 0 1 9 8.5Z" />
-            <path d="M8 11.5h8" />
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.5 9a2.5 2.5 0 1 1 4.4 1.6c-1.1.8-1.9 1.3-1.9 2.9" />
+            <circle cx="12" cy="17" r=".6" fill="currentColor" />
           </>
         )}
       </svg>

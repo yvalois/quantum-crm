@@ -279,6 +279,12 @@
 .channelBadge[data-channel="whatsapp"] .channelIcon {
   color: #14845b;
 }
+.channelBadge[data-channel="facebook"] .channelIcon {
+  color: #0866ff;
+}
+.channelBadge[data-channel="google"] .channelIcon {
+  color: #4285f4;
+}
 .header .channelBadge,
 .header .channelBadge span {
   margin: 0;

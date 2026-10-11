@@ -144,6 +144,39 @@ describe("unified inbox postgres repository", () => {
       31,
     ]);
   });
+  it("excludes native conversations for historical-only channels while retaining access predicates", async () => {
+    const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
+    await createUnifiedInboxPostgresRepository(poolWith(query)).list(
+      { ...actor, scope: "OWN" },
+      { limit: 30, contactState: "ALL", channel: "FACEBOOK" },
+    );
+    const statement = query.mock.calls[0]?.[0] ?? "";
+    expect(statement).toContain("conversation.assignee_member_id = $1::uuid AND FALSE");
+    expect(statement).toContain("thread.assignee_member_id = $2::uuid");
+    expect(statement).toContain("regexp_replace(upper(btrim(COALESCE(NULLIF(thread.raw_channel");
+    expect(query.mock.calls[0]?.[1]).toEqual([
+      actor.memberId,
+      actor.memberId,
+      ["FB", "FACEBOOK", "MESSENGER", "FACEBOOK_MESSENGER"],
+      31,
+    ]);
+  });
+  it("includes missing and unrecognized historical channels in UNKNOWN without interpolating aliases", async () => {
+    const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
+    await createUnifiedInboxPostgresRepository(poolWith(query)).list(actor, {
+      limit: 30,
+      contactState: "ALL",
+      channel: "UNKNOWN",
+    });
+    const statement = query.mock.calls[0]?.[0] ?? "";
+    expect(statement).toContain("AND FALSE");
+    expect(statement).toContain("NOT COALESCE(regexp_replace");
+    expect(statement).toContain("= ANY($1::text[]), FALSE)");
+    expect(statement).not.toContain("INSTAGRAM");
+    expect(query.mock.calls[0]?.[1]?.[0]).toEqual(
+      expect.arrayContaining(["INSTAGRAM", "TIKTOK", "GMB", "PHONE_CALL", "FORM_SUBMISSION"]),
+    );
+  });
   it("rejects malformed cursors before SQL and returns safe failures", async () => {
     const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
     const repository = createUnifiedInboxPostgresRepository(poolWith(query));

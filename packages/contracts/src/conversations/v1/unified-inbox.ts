@@ -7,6 +7,18 @@ import {
 } from "./conversation.js";
 import { HistoricalConversationSchema } from "./historical-conversation.js";
 
+/** Inbox classification only; historical channels do not enable native creation or sending. */
+export const UnifiedInboxChannelSchema = z.enum([
+  ...ConversationChannelSchema.options,
+  "INSTAGRAM",
+  "FACEBOOK",
+  "TIKTOK",
+  "GOOGLE",
+  "CALL",
+  "FORM",
+  "UNKNOWN",
+]);
+
 export const UnifiedInboxListQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(50).default(30),
@@ -17,7 +29,7 @@ export const UnifiedInboxListQuerySchema = z
     query: z.string().trim().min(1).max(160).optional(),
     contactId: z.string().uuid().optional(),
     contactState: z.enum(["ALL", "LINKED", "UNLINKED"]).default("ALL"),
-    channel: ConversationChannelSchema.optional(),
+    channel: UnifiedInboxChannelSchema.optional(),
     status: ConversationStatusSchema.optional(),
     attentionMode: ConversationAttentionModeSchema.optional(),
     unassigned: z
@@ -38,5 +50,6 @@ export const UnifiedInboxListResponseSchema = z
   })
   .strict();
 export type UnifiedInboxItem = z.infer<typeof UnifiedInboxItemSchema>;
+export type UnifiedInboxChannel = z.infer<typeof UnifiedInboxChannelSchema>;
 export type UnifiedInboxListQuery = z.infer<typeof UnifiedInboxListQuerySchema>;
 export type UnifiedInboxListResponse = z.infer<typeof UnifiedInboxListResponseSchema>;

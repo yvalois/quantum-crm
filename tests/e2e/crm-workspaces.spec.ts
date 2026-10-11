@@ -5,6 +5,7 @@ import type {
   HistoricalConversation,
   HistoricalConversationMessage,
   HistoricalConversationAttachment,
+  UnifiedInboxItem,
 } from "@quantum-crm/contracts";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -254,11 +255,30 @@ const historicalMessage: HistoricalConversationMessage = {
   importedAt: timestamp,
 };
 
+const channelSamples = [
+  { channel: "FACEBOOK", key: "facebook", label: "Messenger", rawChannel: "TYPE_FACEBOOK" },
+  { channel: "INSTAGRAM", key: "instagram", label: "Instagram", rawChannel: "TYPE_INSTAGRAM" },
+  { channel: "TIKTOK", key: "tiktok", label: "TikTok", rawChannel: "TYPE_TIKTOK" },
+  { channel: "GOOGLE", key: "google", label: "Google Business", rawChannel: "TYPE_GMB" },
+  { channel: "CALL", key: "call", label: "Llamada", rawChannel: "TYPE_CALL" },
+  { channel: "SMS", key: "sms", label: "SMS", rawChannel: "TYPE_SMS" },
+  { channel: "EMAIL", key: "email", label: "Correo", rawChannel: "TYPE_EMAIL" },
+  { channel: "WHATSAPP", key: "whatsapp", label: "WhatsApp", rawChannel: "TYPE_WHATSAPP" },
+  { channel: "WEBCHAT", key: "chat", label: "Chat web", rawChannel: "TYPE_LIVE_CHAT" },
+  {
+    channel: "UNKNOWN",
+    key: "unknown",
+    label: "Canal no identificado",
+    rawChannel: "TYPE_FUTURE_CHANNEL",
+  },
+] as const;
+
 async function workspaceFixture(
   page: Page,
   media?: SyntheticMedia,
   options: {
     readonly channel?: string;
+    readonly channelFiltering?: boolean;
     readonly message?: Partial<HistoricalConversationMessage>;
   } = {},
 ) {
@@ -268,6 +288,17 @@ async function workspaceFixture(
   const unexpected: string[] = [];
   const authorizations = new Map<string, number>();
   const mediaRequests: string[] = [];
+  const channelThreads = channelSamples.map((sample, index) => ({
+    ...sample,
+    conversation: {
+      ...historical,
+      id: `019b0000-0000-7000-8000-${String(index + 1_000).padStart(12, "0")}`,
+      sourceExternalId: `synthetic-${sample.key}-thread`,
+      rawChannel: sample.rawChannel,
+      rawStatus: "open",
+      subject: `Consulta sintética de ${sample.label}`,
+    },
+  }));
   const visibleThread = {
     ...historical,
     rawChannel: options.channel ?? (media ? "TYPE_WHATSAPP" : historical.rawChannel),
@@ -406,6 +437,45 @@ async function workspaceFixture(
       }
       if (path === "/api/conversations/inbox") {
         inboxQueries.push(url.searchParams);
+        if (options.channelFiltering) {
+          const params = url.searchParams;
+          const catalog: { channel: string; item: UnifiedInboxItem }[] = [
+            { channel: "EMAIL", item: { source: "QUANTUM", conversation } },
+            ...channelThreads.map((entry) => ({
+              channel: entry.channel,
+              item: { source: "GHL" as const, conversation: entry.conversation },
+            })),
+          ];
+          const filtered = catalog.filter(({ channel, item }) => {
+            const itemStatus =
+              item.source === "QUANTUM"
+                ? item.conversation.status
+                : item.conversation.rawStatus?.toUpperCase();
+            return (
+              (!params.has("channel") || params.get("channel") === channel) &&
+              (!params.has("query") ||
+                item.conversation.subject
+                  ?.toLowerCase()
+                  .includes(params.get("query")?.toLowerCase() ?? "")) &&
+              (!params.has("contactId") ||
+                params.get("contactId") === item.conversation.contactId) &&
+              params.get("contactState") !== "UNLINKED" &&
+              (!params.has("status") || params.get("status") === itemStatus) &&
+              (!params.has("attentionMode") ||
+                (item.source === "QUANTUM" &&
+                  params.get("attentionMode") === item.conversation.attentionMode))
+            );
+          });
+          const offset = Number(params.get("cursor")?.replace("synthetic-channels-", "") ?? 0);
+          await respond({
+            data: filtered.slice(offset, offset + 5).map((entry) => entry.item),
+            page: {
+              nextCursor:
+                offset + 5 < filtered.length ? `synthetic-channels-${offset + 5}` : null,
+            },
+          });
+          return;
+        }
         const secondPage = url.searchParams.get("cursor") === "synthetic-inbox-next";
         const searching = Boolean(url.searchParams.get("query"));
         await respond({
@@ -437,6 +507,34 @@ async function workspaceFixture(
                 : "synthetic-inbox-next",
           },
         });
+        return;
+      }
+      const channelThread = options.channelFiltering
+        ? channelThreads.find(
+            (entry) =>
+              path === `/api/conversations/historical/${entry.conversation.id}` ||
+              path === `/api/conversations/historical/${entry.conversation.id}/messages`,
+          )
+        : undefined;
+      if (channelThread) {
+        await respond(
+          path.endsWith("/messages")
+            ? {
+                data: [
+                  {
+                    ...historicalMessage,
+                    threadId: channelThread.conversation.id,
+                    rawChannel: null,
+                    rawType: channelThread.rawChannel,
+                    body: `Mensaje sintético de ${channelThread.label}`,
+                    attachmentCount: 0,
+                    attachments: [],
+                  },
+                ],
+                page: { nextCursor: null },
+              }
+            : { data: channelThread.conversation },
+        );
         return;
       }
       if (path === "/api/conversations/historical") {
@@ -647,6 +745,122 @@ test("one inbox preserves mixed pagination, shared search, selection and legacy 
   expect(fixture.inboxQueries.at(-1)?.has("cursor")).toBe(false);
   await expect(list.locator('[data-source="GHL"]')).toContainText("Andrea Sintética");
   await expect(list.locator('[data-source="QUANTUM"]')).toHaveCount(0);
+  expect(fixture.writes).toEqual([]);
+  expect(fixture.unexpected).toEqual([]);
+});
+
+test("channel filters reset pagination and preserve or clear shared inbox filters", async ({
+  page,
+}) => {
+  const fixture = await workspaceFixture(page, undefined, { channelFiltering: true });
+  await page.goto(`/inbox?contactId=${primaryContact.id}`);
+  const list = page.getByRole("region", { name: "Lista de conversaciones", exact: true });
+  const rows = list.locator("[data-source]");
+  const search = page.getByRole("searchbox", { name: "Buscar conversaciones" });
+  const pagination = page.getByRole("navigation", { name: "Páginas de conversaciones" });
+  await expect(rows).toHaveCount(5);
+  await search.fill("consulta");
+  await search.press("Enter");
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.get("query")).toBe("consulta");
+  await page.getByLabel("Vínculo del contacto").selectOption("LINKED");
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.get("contactState")).toBe("LINKED");
+  const openView = page.getByRole("button", { name: "Abiertas", exact: true });
+  await openView.click();
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.get("status")).toBe("OPEN");
+  await pagination.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.get("cursor")).toBe("synthetic-channels-5");
+  await expect(rows).toHaveCount(5);
+  await page.getByRole("button", { name: "Mostrar filtros" }).click();
+  const channel = page.getByLabel("Canal", { exact: true });
+  await channel.selectOption("FACEBOOK");
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.get("channel")).toBe("FACEBOOK");
+  expect(fixture.inboxQueries.at(-1)?.has("cursor")).toBe(false);
+  expect(fixture.inboxQueries.at(-1)?.get("query")).toBe("consulta");
+  expect(fixture.inboxQueries.at(-1)?.get("status")).toBe("OPEN");
+  expect(fixture.inboxQueries.at(-1)?.get("contactState")).toBe("LINKED");
+  expect(fixture.inboxQueries.at(-1)?.get("contactId")).toBe(primaryContact.id);
+  await expect(openView).toHaveAttribute("aria-pressed", "true");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.locator('[data-channel="facebook"]')).toHaveText("Messenger");
+  await expect(pagination.getByRole("button", { name: "Siguiente", exact: true })).toBeDisabled();
+
+  await channel.selectOption("FORM");
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.get("channel")).toBe("FORM");
+  await expect(list.getByText("Esta vista está vacía", { exact: true })).toBeVisible();
+  await expect(rows).toHaveCount(0);
+  await expect(list.getByRole("alert")).toHaveCount(0);
+  await channel.selectOption("");
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.has("channel")).toBe(false);
+  expect(fixture.inboxQueries.at(-1)?.get("query")).toBe("consulta");
+  expect(fixture.inboxQueries.at(-1)?.get("status")).toBe("OPEN");
+  expect(fixture.inboxQueries.at(-1)?.get("contactState")).toBe("LINKED");
+  await expect(rows).toHaveCount(5);
+
+  for (const sample of channelSamples.slice(4)) {
+    await channel.selectOption(sample.channel);
+    await expect.poll(() => fixture.inboxQueries.at(-1)?.get("channel")).toBe(sample.channel);
+    await expect(rows).toHaveCount(sample.channel === "EMAIL" ? 2 : 1);
+    await expect(rows.locator(`[data-channel="${sample.key}"]`)).toHaveCount(
+      sample.channel === "EMAIL" ? 2 : 1,
+    );
+    if (sample.channel === "EMAIL") {
+      await expect(list.locator('[data-source="QUANTUM"]')).toContainText("Correo");
+      await expect(list.locator('[data-source="GHL"]')).toContainText("Correo");
+    }
+  }
+
+  await channel.selectOption("EMAIL");
+  await expect(rows).toHaveCount(2);
+  await page.getByLabel("Atención", { exact: true }).selectOption("HUMAN");
+  await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.get("attentionMode")).toBe("HUMAN");
+  await expect(rows).toHaveCount(1);
+  await channel.selectOption("WHATSAPP");
+  await expect(list.getByText("Esta vista está vacía", { exact: true })).toBeVisible();
+  expect(fixture.inboxQueries.at(-1)?.get("attentionMode")).toBe("HUMAN");
+  await page.getByRole("button", { name: "Limpiar filtros", exact: true }).click();
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.has("attentionMode")).toBe(false);
+  for (const filter of ["channel", "query", "status", "contactId", "cursor"]) {
+    expect(fixture.inboxQueries.at(-1)?.has(filter)).toBe(false);
+  }
+  expect(fixture.inboxQueries.at(-1)?.get("contactState")).toBe("ALL");
+  await expect(search).toHaveValue("");
+  await expect(channel).toHaveValue("");
+  await expect(page.getByLabel("Vínculo del contacto")).toHaveValue("ALL");
+  expect(new URL(page.url()).searchParams.has("contactId")).toBe(false);
+  await expect(rows).toHaveCount(5);
+  expect(fixture.writes).toEqual([]);
+  expect(fixture.unexpected).toEqual([]);
+});
+
+test("recognized brands keep their own icons in filtered rows, thread headers and messages", async ({
+  page,
+}) => {
+  const fixture = await workspaceFixture(page, undefined, { channelFiltering: true });
+  await page.goto("/inbox");
+  const list = page.getByRole("region", { name: "Lista de conversaciones", exact: true });
+  await expect(list.locator("[data-source]")).toHaveCount(5);
+  await page.getByRole("button", { name: "Mostrar filtros" }).click();
+  for (const sample of channelSamples.slice(0, 4)) {
+    await page.getByLabel("Canal", { exact: true }).selectOption(sample.channel);
+    await expect.poll(() => fixture.inboxQueries.at(-1)?.get("channel")).toBe(sample.channel);
+    const row = list.locator('[data-source="GHL"]');
+    await expect(row).toHaveCount(1);
+    await expect(row.getByText(sample.label, { exact: true })).toBeVisible();
+    await expect(row.locator(`[data-brand-icon="${sample.key}"]`)).toBeVisible();
+    await row.click();
+    const history = page.getByRole("region", { name: "Mensajes históricos", exact: true });
+    await expect(
+      history.getByText(`Mensaje sintético de ${sample.label}`, { exact: true }),
+    ).toBeVisible();
+    await expect(history.locator(`[data-channel="${sample.key}"]`)).toHaveCount(2);
+    await expect(history.locator(`[data-brand-icon="${sample.key}"]`)).toHaveCount(2);
+    await expect(
+      history.locator(`[data-direction="inbound"] [data-brand-icon="${sample.key}"]`),
+    ).toBeVisible();
+    await expect(history.getByText("Solo lectura", { exact: true })).toBeVisible();
+    await expect(history.getByRole("button", { name: "Enviar", exact: true })).toHaveCount(0);
+  }
   expect(fixture.writes).toEqual([]);
   expect(fixture.unexpected).toEqual([]);
 });

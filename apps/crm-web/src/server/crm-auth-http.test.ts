@@ -153,9 +153,28 @@ describe("CRM web authentication HTTP boundary", () => {
     );
   });
 
+  it("forwards every read-only historical channel filter through the authenticated API", async () => {
+    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) =>
+      Response.json({ data: [], page: { nextCursor: null } }),
+    );
+    for (const channel of ["INSTAGRAM", "FACEBOOK", "TIKTOK", "GOOGLE", "CALL", "FORM", "UNKNOWN"]) {
+      const response = await handleCrmUnifiedInboxList(
+        new Request(`https://crm.example.test/api/conversations/inbox?channel=${channel}`, {
+          headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+        }),
+        runtime(upstream as typeof fetch),
+      );
+      expect(response.status).toBe(200);
+      const endpoint = new URL(String(upstream.mock.calls.at(-1)?.[0]));
+      expect(endpoint.pathname).toBe("/api/v1/conversations/inbox");
+      expect(endpoint.searchParams.get("channel")).toBe(channel);
+    }
+    expect(upstream).toHaveBeenCalledTimes(7);
+  });
+
   it("rejects foreign selectors and oversized inbox pages before calling the API", async () => {
     const upstream = vi.fn(fetch);
-    for (const query of ["tenantId=other", "limit=51", "contactState=UNKNOWN"]) {
+    for (const query of ["tenantId=other", "limit=51", "contactState=UNKNOWN", "channel=OTHER"]) {
       const response = await handleCrmUnifiedInboxList(
         new Request(`https://crm.example.test/api/conversations/inbox?${query}`, {
           headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },

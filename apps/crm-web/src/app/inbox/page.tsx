@@ -63,12 +63,6 @@ const channelLabel: Record<Conversation["channel"], string> = {
   WEBCHAT: "Chat web",
   SMS: "SMS",
 };
-const channelShortLabel: Record<Conversation["channel"], string> = {
-  EMAIL: "EM",
-  WHATSAPP: "WA",
-  WEBCHAT: "WEB",
-  SMS: "SMS",
-};
 const statusLabel: Record<Conversation["status"], string> = {
   OPEN: "Abierta",
   PENDING: "Pendiente",
@@ -529,9 +523,7 @@ export default function InboxPage(): React.JSX.Element {
       const created = (await response.json()) as { data: Conversation };
       setShowCreate(false);
       formElement.reset();
-      setView("ALL");
-      setAppliedFilters("");
-      setListCursors([null]);
+      clearFilters();
       chooseConversation({ source: "QUANTUM", conversation: created.data });
       setListRefresh((value) => value + 1);
     } catch (cause) {
@@ -732,6 +724,30 @@ export default function InboxPage(): React.JSX.Element {
     setListCursors([null]);
   }
 
+  function chooseChannel(nextChannel: string): void {
+    setChannel(nextChannel);
+    const filters = new URLSearchParams(appliedFilters);
+    if (nextChannel) filters.set("channel", nextChannel);
+    else filters.delete("channel");
+    setAppliedFilters(filters.toString());
+    setListCursors([null]);
+  }
+
+  function clearFilters(): void {
+    setQuery("");
+    setChannel("");
+    setStatus("");
+    setAttention("");
+    setContactState("ALL");
+    setContactId(null);
+    setView("ALL");
+    setAppliedFilters("");
+    setListCursors([null]);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("contactId");
+    window.history.replaceState(null, "", url);
+  }
+
   return (
     <CrmShell className={styles.shell ?? ""}>
       <section className={styles.workspace} aria-busy={loading}>
@@ -879,12 +895,19 @@ export default function InboxPage(): React.JSX.Element {
               <form className={styles.filterDrawer} onSubmit={applyFilters}>
                 <label>
                   Canal
-                  <select value={channel} onChange={(event) => setChannel(event.target.value)}>
+                  <select value={channel} onChange={(event) => chooseChannel(event.target.value)}>
                     <option value="">Todos los canales</option>
                     <option value="EMAIL">Correo</option>
                     <option value="WHATSAPP">WhatsApp</option>
                     <option value="WEBCHAT">Chat web</option>
-                    <option value="SMS">SMS</option>
+                    <option value="SMS">SMS / MMS</option>
+                    <option value="INSTAGRAM">Instagram</option>
+                    <option value="FACEBOOK">Facebook / Messenger</option>
+                    <option value="TIKTOK">TikTok</option>
+                    <option value="GOOGLE">Google Business</option>
+                    <option value="CALL">Llamadas</option>
+                    <option value="FORM">Formularios</option>
+                    <option value="UNKNOWN">Canal no identificado / no informado</option>
                   </select>
                 </label>
                 <label>
@@ -906,6 +929,9 @@ export default function InboxPage(): React.JSX.Element {
                   </select>
                 </label>
                 <button type="submit">Aplicar filtros</button>
+                <button type="button" onClick={clearFilters}>
+                  Limpiar filtros
+                </button>
               </form>
             ) : null}
 
@@ -987,9 +1013,7 @@ export default function InboxPage(): React.JSX.Element {
                           <span className={styles.cardMeta}>
                             {native ? (
                               <>
-                                <span className={styles.channelTag}>
-                                  {channelShortLabel[native.channel]}
-                                </span>
+                                <HistoricalChannelBadge rawChannel={native.channel} />
                                 <span className={cx(styles.statusTag, statusClass[native.status])}>
                                   {statusLabel[native.status]}
                                 </span>
@@ -1058,7 +1082,7 @@ export default function InboxPage(): React.JSX.Element {
                     </span>
                     <div>
                       <span className={styles.threadKicker}>
-                        <span className={styles.channelTag}>{channelLabel[selected.channel]}</span>
+                        <HistoricalChannelBadge rawChannel={selected.channel} />
                         {selected.attentionMode === "AGENT" ? (
                           <span className={styles.agentInline}>
                             <Icon name="spark" size={12} /> Agente

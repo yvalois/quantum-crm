@@ -422,6 +422,125 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
     ).not.toContain(privateSource);
   });
 
+  it("filters every inbox channel and provider alias, preserves inferred display channels and excludes other channels", async () => {
+    const locationId = randomUUID();
+    const marker = `channels-${locationId}`;
+    const contact = await contactsA.importContact({
+      ...context,
+      source: source(locationId, "channel-contact"),
+      displayName: "Synthetic channel filter contact",
+      email: null,
+      phone: null,
+      ownerMemberId: actor.memberId,
+      labelIds: [],
+      customFields: [],
+      createdAt: originalAt,
+      updatedAt: originalAt,
+    });
+    const groups = [
+      { channel: "EMAIL", rawChannels: ["EMAIL", " type_email "] },
+      { channel: "WHATSAPP", rawChannels: ["WHATSAPP", " type_whats_app "] },
+      { channel: "SMS", rawChannels: ["SMS", " type_mms "] },
+      { channel: "WEBCHAT", rawChannels: ["WEBCHAT", "WEB_CHAT", "LIVECHAT", " type_live_chat "] },
+      { channel: "INSTAGRAM", rawChannels: ["INSTAGRAM", " type_instagram "] },
+      {
+        channel: "FACEBOOK",
+        rawChannels: ["FB", "FACEBOOK", "MESSENGER", " type_facebook_messenger "],
+      },
+      { channel: "TIKTOK", rawChannels: ["TIKTOK", " type_tiktok "] },
+      { channel: "GOOGLE", rawChannels: ["GMB", " type_google_business "] },
+      { channel: "CALL", rawChannels: ["CALL", " type_phone_call "] },
+      { channel: "FORM", rawChannels: ["FORM_SUBMISSION", " type_form_submission "] },
+      { channel: "UNKNOWN", rawChannels: [null, "", "   ", "TYPE_PHONE", "CUSTOM_CHANNEL"] },
+    ] as const;
+    const expected = new Map<string, { channel: string; rawChannel?: string | null }>();
+    for (const group of groups) {
+      for (const rawChannel of group.rawChannels) {
+        const imported = await historyA.importThread({
+          ...context,
+          source: source(locationId, `channel-${expected.size}`),
+          thread: {
+            ...orphan(),
+            sourceThreadPresent: true,
+            contactId: contact.id,
+            assigneeMemberId: actor.memberId,
+            rawChannel,
+            subject: marker,
+          },
+        });
+        expected.set(imported.id, { channel: group.channel, rawChannel: rawChannel || null });
+      }
+    }
+    // The displayed channel comes from the latest message only when the thread has none.
+    for (const fixture of [
+      { rawChannel: null, channel: "INSTAGRAM" },
+      { rawChannel: "TYPE_EMAIL", channel: "EMAIL" },
+      { rawChannel: "CUSTOM_THREAD", channel: "UNKNOWN" },
+    ]) {
+      const externalId = `inferred-${fixture.channel}`;
+      const imported = await historyA.importThread({
+        ...context,
+        source: source(locationId, externalId),
+        thread: { ...orphan(), rawChannel: fixture.rawChannel, subject: marker },
+      });
+      await historyA.importMessage({
+        ...context,
+        source: source(locationId, `${externalId}-message`),
+        threadSourceExternalId: externalId,
+        message: {
+          ...message(),
+          rawChannel: null,
+          rawType: "TYPE_INSTAGRAM",
+          attachmentCount: 0,
+        },
+      });
+      expected.set(imported.id, {
+        channel: fixture.channel,
+        rawChannel: fixture.rawChannel ?? "TYPE_INSTAGRAM",
+      });
+    }
+    for (const channel of ["EMAIL", "WHATSAPP", "WEBCHAT", "SMS"]) {
+      const id = randomUUID();
+      await poolA.query(
+        `INSERT INTO conversations.conversations
+         (id, contact_id, channel, assignee_member_id, subject, status, attention_mode,
+          created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, 'open', 'human', $6, $6)`,
+        [id, contact.id, channel.toLowerCase(), actor.memberId, marker, originalAt],
+      );
+      expected.set(id, { channel });
+    }
+    const inbox = new UnifiedInboxService(createUnifiedInboxPostgresRepository(poolA));
+    const baseQuery = { limit: 50, contactState: "ALL", query: marker } as const;
+    const all = await inbox.list(actor, context.permissions, baseQuery);
+    expect(new Set(all.items.map((item) => item.conversation.id))).toEqual(
+      new Set(expected.keys()),
+    );
+    for (const { channel } of groups) {
+      const page = await inbox.list(actor, context.permissions, { ...baseQuery, channel });
+      expect(page.nextCursor).toBeNull();
+      expect(new Set(page.items.map((item) => item.conversation.id))).toEqual(
+        new Set([...expected].filter(([, item]) => item.channel === channel).map(([id]) => id)),
+      );
+      for (const item of page.items) {
+        if (item.source === "GHL")
+          expect(item.conversation.rawChannel).toBe(expected.get(item.conversation.id)?.rawChannel);
+        else expect(item.conversation.channel).toBe(channel);
+      }
+    }
+    const filter = { ...baseQuery, channel: "INSTAGRAM" } as const;
+    expect(
+      (await inbox.list(actor, context.permissions, { ...filter, attentionMode: "HUMAN" })).items,
+    ).toEqual([]);
+    expect(
+      (await inbox.list({ memberId: randomUUID(), scope: "OWN" }, context.permissions, filter))
+        .items,
+    ).toEqual([]);
+    await expect(inbox.list(actor, [], filter)).rejects.toBeInstanceOf(IamAuthorizationError);
+    const inboxB = new UnifiedInboxService(createUnifiedInboxPostgresRepository(poolB));
+    expect((await inboxB.list(actor, context.permissions, filter)).items).toEqual([]);
+  });
+
   it("resolves original participants without accounts or effects, isolates sources and replays atomically", async () => {
     const locationId = randomUUID();
     const directoryA = createIamExternalParticipantDirectory(poolA);

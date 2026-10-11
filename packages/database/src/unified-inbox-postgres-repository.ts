@@ -19,6 +19,22 @@ import {
 } from "./historical-conversation-postgres-repository.js";
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
 
+type InboxChannel = NonNullable<Parameters<UnifiedInboxRepository["list"]>[1]["channel"]>;
+const nativeChannels: ReadonlySet<InboxChannel> = new Set(["EMAIL", "WHATSAPP", "WEBCHAT", "SMS"]);
+const historicalChannelAliases = {
+  EMAIL: ["EMAIL"],
+  WHATSAPP: ["WHATSAPP", "WHATS_APP"],
+  SMS: ["SMS", "MMS"],
+  WEBCHAT: ["WEBCHAT", "WEB_CHAT", "LIVECHAT", "LIVE_CHAT"],
+  INSTAGRAM: ["INSTAGRAM"],
+  FACEBOOK: ["FB", "FACEBOOK", "MESSENGER", "FACEBOOK_MESSENGER"],
+  TIKTOK: ["TIKTOK"],
+  GOOGLE: ["GMB", "GOOGLE_BUSINESS"],
+  CALL: ["CALL", "PHONE_CALL"],
+  FORM: ["FORM_SUBMISSION"],
+} satisfies Record<Exclude<InboxChannel, "UNKNOWN">, readonly string[]>;
+const knownHistoricalChannels = Object.values(historicalChannelAliases).flat();
+
 interface InboxRow {
   readonly id: string;
   readonly source_rank: 0 | 1;
@@ -88,15 +104,17 @@ export function createUnifiedInboxPostgresRepository(pool: PostgresPool): Unifie
               WHERE searched.thread_id = thread.id AND searched.body ILIKE ${search}))`);
         }
         if (query.channel) {
-          native.push(`conversation.channel = ${bind(query.channel.toLowerCase())}`);
-          const aliases = {
-            EMAIL: ["EMAIL"],
-            WHATSAPP: ["WHATSAPP", "WHATS_APP"],
-            SMS: ["SMS", "MMS"],
-            WEBCHAT: ["WEBCHAT", "WEB_CHAT", "LIVECHAT", "LIVE_CHAT"],
-          };
+          native.push(
+            nativeChannels.has(query.channel)
+              ? `conversation.channel = ${bind(query.channel.toLowerCase())}`
+              : "FALSE",
+          );
+          // Classify the same inferred raw channel returned to the inbox for display.
+          const channel = `regexp_replace(upper(btrim(${historicalThreadChannelSelection})), '^TYPE_', '')`;
           historical.push(
-            `regexp_replace(upper(btrim(${historicalThreadChannelSelection})), '^TYPE_', '') = ANY(${bind(aliases[query.channel])}::text[])`,
+            query.channel === "UNKNOWN"
+              ? `NOT COALESCE(${channel} = ANY(${bind(knownHistoricalChannels)}::text[]), FALSE)`
+              : `${channel} = ANY(${bind(historicalChannelAliases[query.channel])}::text[])`,
           );
         }
         if (query.status) {

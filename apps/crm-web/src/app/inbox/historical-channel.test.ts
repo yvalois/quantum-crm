@@ -33,4 +33,26 @@ describe("historicalChannel", () => {
       label: "Formulario",
     });
   });
+
+  it.each([
+    ["FB", "facebook", "Messenger"],
+    ["FACEBOOK", "facebook", "Messenger"],
+    ["MESSENGER", "facebook", "Messenger"],
+    ["FACEBOOK_MESSENGER", "facebook", "Messenger"],
+    ["GMB", "google", "Google Business"],
+    ["GOOGLE_BUSINESS", "google", "Google Business"],
+    ["INSTAGRAM", "instagram", "Instagram"],
+    ["EMAIL", "email", "Correo"],
+    ["SMS", "sms", "SMS"],
+    ["MMS", "sms", "MMS"],
+    ["LIVE_CHAT", "chat", "Chat web"],
+    ["LIVECHAT", "chat", "Chat web"],
+    ["WEB_CHAT", "chat", "Chat web"],
+    ["WEBCHAT", "chat", "Chat web"],
+    ["CALL", "call", "Llamada"],
+    ["PHONE_CALL", "call", "Llamada"],
+  ] as const)("reconoce el alias %s en el canal y en el tipo original", (raw, key, label) => {
+    expect(historicalChannel(raw)).toEqual({ key, label });
+    expect(historicalChannel(null, ` type_${raw.toLowerCase()} `)).toEqual({ key, label });
+  });
 });
