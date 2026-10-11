@@ -434,6 +434,20 @@ export default function InboxPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (loading) return;
+    const timer = window.setInterval(() => {
+      void Promise.all([
+        fetch("/api/contacts?limit=100", { cache: "no-store", credentials: "same-origin" })
+          .then(async (response) => {
+            if (response.ok) setContacts(((await response.json()) as List<Contact>).data);
+          }),
+        loadList(),
+      ]).catch(() => undefined);
+    }, 20_000);
+    return () => window.clearInterval(timer);
+  }, [loading, loadList]);
+
+  useEffect(() => {
     if (!showCreate && !showQuickReply && !showDocumentComposer) return;
 
     lastModalFocusRef.current =

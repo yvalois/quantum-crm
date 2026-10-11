@@ -60,6 +60,11 @@ export interface ContactPage {
   readonly hasMoreInRequestedDirection: boolean;
 }
 
+/** Provider-authenticated, tenant-local contact lookup. Never accepts a tenant identifier. */
+export interface ExternalContactDirectory {
+  readonly resolvePhone: (phone: string, displayName: string) => Promise<{ readonly id: string; readonly displayName: string }>;
+}
+
 /**
  * Public list filters that may define a mass-action target. Pagination,
  * ordering and internal lifecycle overrides are deliberately excluded: the

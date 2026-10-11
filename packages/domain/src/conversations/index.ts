@@ -80,6 +80,23 @@ export interface ConversationListFilters {
   readonly unassigned?: boolean;
 }
 
+export interface ExternalConversationMessage {
+  readonly externalThreadId: string;
+  readonly externalMessageId: string;
+  readonly contactId: string;
+  readonly contactDisplayName: string;
+  readonly direction: "INBOUND" | "OUTBOUND";
+  readonly kind: ConversationMessageKind;
+  readonly body: string;
+  readonly occurredAt: Date;
+  readonly historical: boolean;
+}
+
+/** Writes one verified provider message, including the thread, atomically and idempotently. */
+export interface ExternalConversationReceiver {
+  readonly receive: (message: ExternalConversationMessage) => Promise<"CREATED" | "DUPLICATE">;
+}
+
 export interface ConversationRepository {
   readonly list: (
     actor: CommercialActor,

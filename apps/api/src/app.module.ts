@@ -62,6 +62,8 @@ import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js
 import { FILE_SERVICE, FilesController } from "./files.controller.js";
 import { FORM_SERVICE, FormsController } from "./forms.controller.js";
 import { InternalAdministratorsController } from "./internal-administrators.controller.js";
+import { YCLOUD_BINDING, YCloudWebhookController } from "./ycloud-webhook.controller.js";
+import type { YCloudBindingConfig } from "@quantum-crm/config";
 
 @Module({})
 export class AppModule {
@@ -72,6 +74,7 @@ export class AppModule {
     iamBootstrapClientId: "quantum-crm-bootstrap",
     activationIssuer?: MemberActivationIssuer,
     fileStorageAuthorization?: FileStorageAuthorization,
+    ycloudBinding?: YCloudBindingConfig,
   ): DynamicModule {
     return {
       module: AppModule,
@@ -95,12 +98,14 @@ export class AppModule {
         DocumentsController,
         FilesController,
         FormsController,
+        YCloudWebhookController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: verifier },
         { provide: CRM_MEMBERSHIPS, useValue: database.memberships },
         { provide: CRM_AUTH_POLICY, useValue: policy },
+        { provide: YCLOUD_BINDING, useValue: ycloudBinding },
         {
           provide: BOOTSTRAP_SERVICE_POLICY,
           useValue: { clientId: iamBootstrapClientId, audience: "quantum-crm-api" },
