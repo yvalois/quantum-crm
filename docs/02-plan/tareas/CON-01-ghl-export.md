@@ -1,6 +1,6 @@
 # CON-01 — Extraccion GHL de prueba
 
-Estado: EN_CURSO. Fases 4 y 5. Requisitos relacionados: CON-05/06/07, PIPE-01/03/05/06, CHAT-01/07.
+Estado: CARGA HISTORICA DESPLEGADA; adjuntos transferidos con excepciones explicitas de origen/formato. Fases 4 y 5. Requisitos relacionados: CON-05/06/07, PIPE-01/03/05/06, CHAT-01/04/07.
 
 ## Alcance y evidencia previa
 
@@ -77,7 +77,13 @@ Adjuntos, candidato funcional `900fcbe3`: nueve proyectos afectados aprobaron ty
 
 La transferencia real concilia todas las referencias: cada archivo disponible tiene scan limpio, checksum y version verificados, propietario correcto y una referencia exacta al mensaje. No hay asociaciones ausentes, disponibles sin bytes verificados ni outbox historico. Una descarga real mediante el servicio Files desplegado y permisos de administrador activo devolvio HTTPS 200, longitud, checksum y version correctos; no se creo una sesion ni se simulo una revision visual autenticada.
 
-La carga evidencio reinicios OOM del almacenamiento limitado a 768 MiB. El helper tipado `5d0b88cd` amplio solamente su memoria a 3 GiB y swap a 6 GiB, sin reinicio ni cambio de imagen/volumen/red. Persistio el override operativo sin modificar checkouts historicos. En VPS aprobaron 39 pruebas enfocadas, lint, formato, typecheck y build; los siete checks de CI aprobaron. Tras el ajuste no se observaron nuevos OOM y el reintento recupero los archivos afectados. Queda una transferencia soportada bloqueada por el tmpfs receptor de 64 MiB; su ampliacion controlada esta EN_CURSO.
+La carga evidencio reinicios OOM del almacenamiento limitado a 768 MiB. El helper tipado `5d0b88cd` amplio solamente su memoria a 3 GiB y swap a 6 GiB, sin reinicio ni cambio de imagen/volumen/red. Persistio el override operativo sin modificar checkouts historicos. En VPS aprobaron 39 pruebas enfocadas, lint, formato, typecheck y build; los siete checks de CI aprobaron. Tras el ajuste no se observaron nuevos OOM y el reintento recupero los archivos afectados.
+
+El candidato `b97ab5dc` amplio el tmpfs receptor de 64 a 512 MiB mediante una operacion tipada: exclusion de imports activos, preservacion de imagen/volumen/limites/red/IP/alias, recibo privado y predecesor detenido conservado. La recuperacion concilia respuestas Docker perdidas y verifica salud antes de permitir otro escritor. Cincuenta pruebas enfocadas, formato, lint, typecheck y build aprobaron en VPS; siete checks de CI verdes (run `38161912689`). La operacion termino APPLIED con el nuevo contenedor saludable y recupero la ultima transferencia soportada. No se reconstruyeron aplicaciones ni se repitieron migraciones o carga comercial.
+
+Conciliacion final de solo lectura: ninguna referencia ausente, pendiente, con propietario incorrecto, asociacion invalida o procesamiento incompleto; ningun mensaje historico en outbox. Los unicos no disponibles corresponden a origen inaccesible o formato rechazado, conservados explicitamente en el recibo con salida 2. Descarga autorizada repetida tras el cambio de almacenamiento: HTTPS, status, bytes, checksum y version correctos. No se presenta esta evidencia como una revision visual autenticada, diferida por el propietario.
+
+Digests de la ampliacion de adjuntos: API `sha256:b55d3cfb62402c380b33bec9904332edbd2fabc7820e06a35e3921ee57250df1`; CRM `sha256:ebb4e431690f88288828f403964314ce025906f73cdd2b50be4c86f740837b0f`; worker `sha256:c803dd9530bf544d2cf759f98f462da029ad2d046760c564fe08db345755ba70`; migrador `sha256:532c50fd71ac8b08888173c4f6ae24acebff41a8ba19f45a34966f1751d93896`. Almacenamiento conservado en `sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882`.
 
 VPS autorizado, Node 24.21.0, 2026-10-11:
 
