@@ -45,7 +45,7 @@ export interface GhlMigrationProbeConfig {
   readonly requestTimeoutMs: number;
 }
 
-function readEnvironment(): NodeJS.ProcessEnv {
+function readEnvironment(): Readonly<Record<string, string | undefined>> {
   return Object.fromEntries(
     Object.entries(process.env).filter(
       ([key]) => key === "QCRM_ENV" || key.startsWith("QCRM_GHL_"),
