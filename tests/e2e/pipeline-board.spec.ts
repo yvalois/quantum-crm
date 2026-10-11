@@ -220,6 +220,7 @@ test("pipeline row opens its own board and an opportunity opens full details", a
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText("Carolina Prueba", { exact: true })).toBeVisible();
   await expect(drawer.getByRole("spinbutton", { name: "Valor" })).toHaveValue("125000");
+  await expect(drawer.getByRole("button", { name: "Guardar cambios", exact: true })).toBeEnabled();
   await expect(drawer.getByRole("heading", { name: "Historial de la oportunidad" })).toBeVisible();
 });
 
@@ -250,6 +251,7 @@ test("pointer drag updates the column and counts, then selection moves the same 
   const proposal = page.getByRole("region", { name: "Propuesta", exact: true });
   await expect(initial.getByRole("heading")).toHaveText("Contacto inicial 2");
   await dragCard(page, card(page, "Acuerdo sintético 1"), proposal);
+  await expect(page.getByText("Oportunidad movida a Propuesta.", { exact: true })).toBeVisible();
   await expect(proposal.getByText("Acuerdo sintético 1", { exact: true })).toBeVisible();
   await expect(initial.getByRole("heading")).toHaveText("Contacto inicial 1");
   await expect(proposal.getByRole("heading")).toHaveText("Propuesta 1");
