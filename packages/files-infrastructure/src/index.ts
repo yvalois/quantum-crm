@@ -19,3 +19,8 @@ export {
   type ObjectStorageCredentials,
   type StoredObject,
 } from "./s3-object-storage.js";
+export {
+  uploadReservedFile,
+  type ReservedFileUploadAuthorization,
+  type ReservedFileUploadOptions,
+} from "./reserved-file-upload.js";

@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { CommercialActor, ImportHistoricalMessageInput } from "@quantum-crm/domain";
+import { HistoricalAttachmentConflictError } from "@quantum-crm/domain";
 import { describe, expect, it, vi } from "vitest";
 import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
 import type { PostgresPool } from "./postgres-database.js";
@@ -45,6 +46,59 @@ function poolWith(
 }
 
 describe("historical conversation repository", () => {
+  const attachmentRow = { id: "019b0000-0000-7000-8000-000000000004", message_id: messageId,
+    attachment_index: 0, source_hash: "a".repeat(64), file_id: null, status: "PENDING",
+    error_code: null, display_name: null, mime_type: null, byte_size: null };
+  it("reserves a stable source position with audit, without source URLs or message effects", async () => {
+    const query = vi.fn(async (statement: string, _values?: unknown[]) => {
+      if (statement.includes("SELECT id::text, attachment_count")) return { rows: [{ id: messageId, attachment_count: 1 }] };
+      if (statement.includes("INSERT INTO conversations.historical_attachments")) return { rows: [attachmentRow] };
+      return { rows: [] };
+    });
+    const result = await createHistoricalConversationPostgresRepository(poolWith(query)).reserveAttachment(input, {
+      locationId: "fixture-location", externalMessageId: "fixture-message", attachmentIndex: 0, sourceHash: attachmentRow.source_hash,
+    });
+    expect(result).toMatchObject({ id: attachmentRow.id, messageId, status: "PENDING" });
+    const statements = query.mock.calls.map(([statement]) => statement).join("\n");
+    expect(statements).toContain("ON CONFLICT (message_id, attachment_index) DO NOTHING");
+    expect(statements).toContain("INSERT INTO conversations.historical_attachment_events");
+    expect(statements).not.toContain("outbox");
+    expect(statements).not.toContain("source_payload");
+    expect(query.mock.calls.find(([statement]) => statement.includes("SELECT id::text, attachment_count"))?.[1]).toEqual(["fixture-location", "fixture-message"]);
+  });
+
+  it("fails on changed attachment source identity without overwriting the association", async () => {
+    const query = vi.fn(async (statement: string, _values?: unknown[]) => {
+      if (statement.includes("SELECT id::text, attachment_count")) return { rows: [{ id: messageId, attachment_count: 1 }] };
+      if (statement.includes("FROM conversations.historical_attachments attachment")) return { rows: [attachmentRow] };
+      return { rows: [] };
+    });
+    await expect(createHistoricalConversationPostgresRepository(poolWith(query)).reserveAttachment(input, {
+      locationId: "fixture-location", externalMessageId: "fixture-message", attachmentIndex: 0, sourceHash: "b".repeat(64),
+    })).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
+    expect(query.mock.calls.some(([statement]) => statement.includes("UPDATE"))).toBe(false);
+    expect(query.mock.calls.some(([statement]) => statement === "ROLLBACK")).toBe(true);
+  });
+
+  it("authorizes attachment reads through the same assigned thread scope", async () => {
+    const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
+    expect(await createHistoricalConversationPostgresRepository(poolWith(query)).findAttachment({ ...actor, scope: "TEAM" }, attachmentRow.id)).toBeNull();
+    expect(query.mock.calls[0]?.[0]).toContain("iam.team_members");
+    expect(query.mock.calls[0]?.[0]).toContain("thread.contact_id IS NOT NULL");
+    expect(query.mock.calls[0]?.[1]).toEqual([attachmentRow.id, actor.memberId]);
+  });
+
+  it("preserves AVAILABLE on a stale failure and prevents replacing a bound file", async () => {
+    const row = { ...attachmentRow, file_id: threadId, status: "AVAILABLE", display_name: "fixture.png", mime_type: "image/png", byte_size: "123" };
+    const query = vi.fn(async (statement: string, _values?: unknown[]) => statement.includes("FOR UPDATE") ? { rows: [row] } : { rows: [] });
+    const repository = createHistoricalConversationPostgresRepository(poolWith(query));
+    const update = { attachmentId: row.id, fileId: threadId, status: "FAILED" as const, errorCode: "TRANSFER_FAILED" as const,
+      name: row.display_name, mimeType: row.mime_type, size: 123 };
+    expect((await repository.setAttachmentResult(input, update)).status).toBe("AVAILABLE");
+    await expect(repository.setAttachmentResult(input, { ...update, fileId: messageId })).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
+    expect(query.mock.calls.some(([statement]) => statement.startsWith("UPDATE"))).toBe(false);
+    expect(query.mock.calls.some(([statement]) => statement.includes("INSERT INTO conversations.historical_attachment_events"))).toBe(false);
+  });
   it("inserts the message and source map atomically without any outbox and binds the source location", async () => {
     const query = vi.fn(async (statement: string, _values?: unknown[]) => {
       if (statement.includes("SELECT id::text FROM conversations.historical_threads"))

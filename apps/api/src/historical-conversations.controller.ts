@@ -44,6 +44,16 @@ function serialize(record: HistoricalThreadRecord | HistoricalMessageRecord) {
     ...("lastMessageAt" in record
       ? { lastMessageAt: record.lastMessageAt?.toISOString() ?? null }
       : {}),
+    ...("attachments" in record ? { attachments: record.attachments.map((attachment) => ({
+      id: attachment.id,
+      attachmentIndex: attachment.attachmentIndex,
+      fileId: attachment.fileId,
+      status: attachment.status,
+      errorCode: attachment.errorCode,
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+    })) } : {}),
   };
 }
 function map(error: unknown): never {

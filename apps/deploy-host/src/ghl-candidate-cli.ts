@@ -24,7 +24,10 @@ try {
     result = await buildGhlCandidate(first, second as GhlCandidateApp);
   } else if (action === "DEPLOY_COMPONENTS" && second && third) {
     result = await deployGhlCandidate(first, second, third);
-  } else if ((action === "MIGRATE" || action === "VERIFY" || action === "APPLY") && second) {
+  } else if (
+    (action === "MIGRATE" || action === "VERIFY" || action === "APPLY" || action === "ATTACHMENTS") &&
+    second
+  ) {
     const attempt = third === undefined ? 1 : Number(third);
     result = await runRegisteredGhlImport(first, second, action, attempt);
   } else {

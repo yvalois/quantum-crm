@@ -19,6 +19,21 @@ function allow(permissions: readonly IamPermission[], permission: IamPermission)
   if (!permissions.includes(permission)) throw new IamAuthorizationError();
 }
 
+function historicalOwner(owner: FileOwner): boolean {
+  return owner.kind === "existing" && owner.module === "conversations" &&
+    owner.type === "historical_attachment";
+}
+
+function allowOwner(
+  permissions: readonly IamPermission[],
+  owner: FileOwner,
+  access: "read" | "write",
+): void {
+  if (historicalOwner(owner)) {
+    allow(permissions, access === "read" ? "crm:conversations:read" : "crm:conversations:configure");
+  }
+}
+
 export class FileService {
   public constructor(
     private readonly repository: FileRepository,
@@ -32,7 +47,17 @@ export class FileService {
     filters: FileListFilters,
   ) {
     allow(permissions, "crm:files:read");
-    return this.repository.list(actor, filters);
+    const page = await this.repository.list(actor, filters);
+    const authorized = await Promise.all(page.items.map(async (file) =>
+      !historicalOwner(file.owner) || (
+        permissions.includes("crm:conversations:read") &&
+        await this.ownerAuthorization.canUseOwner(actor, file.owner)
+      ),
+    ));
+    return Object.freeze({
+      items: Object.freeze(page.items.filter((_file, index) => authorized[index])),
+      nextCursor: page.nextCursor,
+    });
   }
 
   public async get(
@@ -41,7 +66,7 @@ export class FileService {
     fileId: string,
   ): Promise<FileRecord> {
     allow(permissions, "crm:files:read");
-    return this.findAuthorized(actor, fileId);
+    return this.findAuthorized(actor, fileId, permissions, "read");
   }
 
   public async reserveUpload(input: {
@@ -58,6 +83,7 @@ export class FileService {
     readonly now?: Date;
   }) {
     allow(input.permissions, "crm:files:upload");
+    allowOwner(input.permissions, input.owner, "write");
     if (!(await this.ownerAuthorization.canUseOwner(input.actor, input.owner))) {
       throw new IamAuthorizationError();
     }
@@ -99,7 +125,7 @@ export class FileService {
     readonly now?: Date;
   }) {
     allow(input.permissions, "crm:files:upload");
-    const current = await this.findAuthorized(input.actor, input.fileId);
+    const current = await this.findAuthorized(input.actor, input.fileId, input.permissions, "write");
     const observed = await this.storageAuthorization.inspectUpload(current);
     if (
       (input.versionId !== undefined && input.versionId !== observed.versionId) ||
@@ -141,7 +167,7 @@ export class FileService {
   }) {
     allow(input.permissions, "crm:files:read");
     allow(input.permissions, "crm:files:download");
-    const file = await this.findAuthorized(input.actor, input.fileId);
+    const file = await this.findAuthorized(input.actor, input.fileId, input.permissions, "read");
     if (file.status !== "AVAILABLE" || file.objectVersionId === null) {
       throw new FileStateConflictError("Only an available file can be delivered");
     }
@@ -159,7 +185,8 @@ export class FileService {
     readonly now?: Date;
   }): Promise<{ readonly reference: FileReferenceRecord; readonly replayed: boolean }> {
     allow(input.permissions, "crm:files:reference");
-    const file = await this.findAuthorized(input.actor, input.fileId);
+    const file = await this.findAuthorized(input.actor, input.fileId, input.permissions, "write");
+    allowOwner(input.permissions, input.owner, "write");
     if (file.status !== "AVAILABLE") {
       throw new FileStateConflictError("Only an available file can be referenced");
     }
@@ -180,11 +207,17 @@ export class FileService {
     });
   }
 
-  private async findAuthorized(actor: CommercialActor, fileId: string): Promise<FileRecord> {
+  private async findAuthorized(
+    actor: CommercialActor,
+    fileId: string,
+    permissions: readonly IamPermission[],
+    access: "read" | "write",
+  ): Promise<FileRecord> {
     const file = await this.repository.find(actor, fileId);
     if (!file || !(await this.ownerAuthorization.canUseOwner(actor, file.owner))) {
       throw new FileNotFoundError();
     }
+    allowOwner(permissions, file.owner, access);
     return file;
   }
 }

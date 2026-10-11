@@ -21,6 +21,7 @@ interface FileRow {
     | "document_template"
     | "conversation"
     | "message"
+    | "historical_attachment"
     | "form_response"
     | "product"
     | "variant"
@@ -71,6 +72,7 @@ interface ReferenceRow {
     | "document_template"
     | "conversation"
     | "message"
+    | "historical_attachment"
     | "form_response"
     | "product"
     | "variant";
@@ -323,9 +325,14 @@ export function createFilePostgresRepository(pool: PostgresPool): FileProcessing
     find: async (actor, fileId) => {
       try {
         const visible = visibility(actor, 2);
+        // Imported attachments use the parent thread's scope, enforced by FileService's
+        // mandatory owner authorization. Their uploader is the import operator.
         const result = (await pool.query(
           `SELECT ${fileSelection} FROM files.files AS file
-           WHERE file.id = $1::uuid AND ${visible.sql}`,
+           WHERE file.id = $1::uuid AND (${visible.sql} OR (
+             file.owner_kind = 'existing' AND file.owner_module = 'conversations'
+             AND file.owner_type = 'historical_attachment'
+           ))`,
           [fileId, ...visible.params],
         )) as { rows: FileRow[] };
         return result.rows[0] ? fileFromRow(result.rows[0]) : null;

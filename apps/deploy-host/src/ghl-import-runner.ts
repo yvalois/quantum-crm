@@ -6,6 +6,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   createCommandRunner,
   planForTenant,
+  type ComposeCommandRunner,
   type TenantComposeRunnerOptions,
 } from "./compose-runner.js";
 import {
@@ -162,6 +163,9 @@ const receiptCounters = {
     "outboxCount",
   ],
 } as const;
+const attachmentCounters = [
+  "total", "processed", "available", "rejected", "failed", "pending", "bytes",
+] as const;
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -219,10 +223,21 @@ export function parseGhlImportReceipt(output: string): HostAdapterGhlImportRecei
         "ghl_import_complete",
         "ghl_import_verification",
         "ghl_import_failed",
+        "ghl_attachment_import_progress",
+        "ghl_attachment_import_completed",
       ].includes(String(event.event))
     )
       continue;
     recognized = true;
+    if (
+      event.event === "ghl_attachment_import_progress" ||
+      event.event === "ghl_attachment_import_completed"
+    ) {
+      for (const key of attachmentCounters) {
+        if (count(event[key])) counters[`attachments.${key}`] = event[key];
+      }
+      continue;
+    }
     if (event.event === "ghl_import_progress") addProgress(event);
     if (event.event === "ghl_import_failed" && event.code === "IMPORT_FAILED")
       errorCode = "IMPORT_FAILED";
@@ -256,6 +271,40 @@ export function parseGhlImportReceipt(output: string): HostAdapterGhlImportRecei
     ...(Object.keys(counters).length ? { counters } : {}),
     ...(errorCode ? { errorCode } : {}),
   };
+}
+
+/** A dedicated egress bridge belongs to one registered attempt, never another tenant's edge. */
+async function attachmentEgressNetwork(
+  runner: ComposeCommandRunner,
+  name: string,
+  labels: Readonly<Record<string, string>>,
+): Promise<string> {
+  const networkName = `${name}-egress`;
+  let inspected = await runner.run(["network", "inspect", networkName], {}, 15_000);
+  if (inspected.exitCode !== 0) {
+    if (inspected.exitCode !== 1 || !/No such|not found/u.test(inspected.stderr))
+      throw new HostAdapterError("UNAVAILABLE");
+    await runner.run([
+      "network", "create", "--driver", "bridge",
+      "--opt", "com.docker.network.bridge.enable_icc=false",
+      ...Object.entries(labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]),
+      networkName,
+    ], {}, 15_000);
+    inspected = await runner.run(["network", "inspect", networkName], {}, 15_000);
+  }
+  const networks: unknown = inspected.exitCode === 0 ? JSON.parse(inspected.stdout) : null;
+  const network = Array.isArray(networks) && networks.length === 1 ? record(networks[0]) : undefined;
+  const observedLabels = record(network?.Labels);
+  const networkOptions = record(network?.Options);
+  const members = record(network?.Containers);
+  if (
+    !network || network.Name !== networkName || network.Driver !== "bridge" ||
+    network.Internal !== false || network.Attachable !== false || network.Scope !== "local" ||
+    networkOptions?.["com.docker.network.bridge.enable_icc"] !== "false" ||
+    !observedLabels || Object.entries(labels).some(([key, value]) => observedLabels[key] !== value) ||
+    !members || Object.values(members).some((member) => record(member)?.Name !== name)
+  ) throw new HostAdapterError("IDENTITY_MISMATCH");
+  return networkName;
 }
 
 function observedContainer(
@@ -305,7 +354,9 @@ export function createTenantGhlImportRunner(
         options.environment !== "staging" ||
         !uuidPattern.test(request.exportId) ||
         !uuidPattern.test(request.operationId) ||
-        !uuidPattern.test(request.tenantProfileId)
+        !uuidPattern.test(request.tenantProfileId) ||
+        !["APPLY", "VERIFY", "MIGRATE", "ATTACHMENTS"].includes(request.mode) ||
+        !Number.isSafeInteger(request.attempt) || request.attempt < 1
       ) {
         throw new HostAdapterError("IDENTITY_MISMATCH");
       }
@@ -326,6 +377,7 @@ export function createTenantGhlImportRunner(
         await protectedFile(options.configurationRoot, jobFile, 16_384);
         const registered = await readFile(jobFile, "utf8");
         const approved = parseApprovedJob(JSON.parse(registered) as unknown, request);
+        const attachments = request.mode === "ATTACHMENTS";
         const imageId =
           request.mode === "MIGRATE" ? approved.migratorImageId : approved.workerImageId;
         if (!imageId) throw new HostAdapterError("IDENTITY_MISMATCH");
@@ -339,6 +391,36 @@ export function createTenantGhlImportRunner(
         await protectedFile(exportRoot, artifactFile, 256 * 1024 * 1024);
         await protectedFile(resolve(exportKeyFile, ".."), exportKeyFile, 16_384);
         await protectedFile(options.databaseSecretRoot, databaseFile, 16_384);
+        const filesEnvironment: Record<string, string> = {};
+        const filesMounts: string[] = [];
+        if (attachments) {
+          for (const role of ["UPLOAD", "DELIVERY", "PROCESSOR"] as const) {
+            for (const kind of ["ACCESS", "SECRET"] as const) {
+              const key = `QCRM_FILES_S3_${role}_${kind}_KEY`;
+              const path = plan.environment[`${key}_SECRET_FILE`];
+              if (!path) throw new HostAdapterError("IDENTITY_MISMATCH");
+              await protectedFile(options.databaseSecretRoot, path, 256);
+              const target = `/run/secrets/qcrm_files_s3_${role.toLowerCase()}_${kind.toLowerCase()}_key`;
+              filesEnvironment[`${key}_FILE`] = target;
+              filesMounts.push("--mount", `type=bind,source=${path},target=${target},readonly`);
+            }
+          }
+          for (const key of ["QCRM_FILES_INCOMING_BUCKET", "QCRM_FILES_OBJECTS_BUCKET", "QCRM_FILES_S3_PUBLIC_ENDPOINT"] as const) {
+            const value = plan.environment[key];
+            if (!value) throw new HostAdapterError("IDENTITY_MISMATCH");
+            filesEnvironment[key] = value;
+          }
+          Object.assign(filesEnvironment, {
+            QCRM_FILES_S3_ENDPOINT: "http://platform-storage:8333",
+            QCRM_FILES_S3_REGION: "us-east-1",
+            QCRM_FILES_CLAMAV_HOST: "platform-clamav",
+            QCRM_FILES_CLAMAV_PORT: "3310",
+            QCRM_FILES_CLAMAV_TIMEOUT_MS: "30000",
+            QCRM_FILES_CLAMAV_MAX_SIGNATURE_AGE_SECONDS: "172800",
+            QCRM_FILES_WORKER_POLL_INTERVAL_MS: "250",
+            QCRM_FILES_WORKER_LEASE_SECONDS: "300",
+          });
+        }
         if ((await sha256File(artifactFile)) !== approved.artifactSha256)
           throw new HostAdapterError("IDENTITY_MISMATCH");
         const name = `qcrm-ghl-${request.operationId}-${request.mode.toLowerCase()}-${request.attempt}`;
@@ -363,19 +445,15 @@ export function createTenantGhlImportRunner(
         if (inspect.exitCode === 0) return await observe(inspect.stdout);
         if (inspect.exitCode !== 1 || !inspect.stderr.includes("No such"))
           throw new HostAdapterError("UNAVAILABLE");
-        // Only an internal network is allowed; the job cannot contact GHL or a channel provider.
-        const network = await runner.run(
-          ["network", "inspect", options.platformDatabaseNetwork],
-          {},
-          15_000,
-        );
-        const networkValue: unknown = network.exitCode === 0 ? JSON.parse(network.stdout) : null;
-        if (
-          !Array.isArray(networkValue) ||
-          networkValue.length !== 1 ||
-          (networkValue[0] as { Internal?: unknown }).Internal !== true
-        )
-          throw new HostAdapterError("IDENTITY_MISMATCH");
+        const networks = [options.platformDatabaseNetwork, ...(attachments ? [options.platformStorageNetwork] : [])];
+        for (const networkName of networks) {
+          const network = await runner.run(["network", "inspect", networkName], {}, 15_000);
+          const networkValue: unknown = network.exitCode === 0 ? JSON.parse(network.stdout) : null;
+          if (
+            !Array.isArray(networkValue) || networkValue.length !== 1 ||
+            (networkValue[0] as { Internal?: unknown }).Internal !== true
+          ) throw new HostAdapterError("IDENTITY_MISMATCH");
+        }
         const running = await runner.run(
           [
             "ps",
@@ -390,6 +468,7 @@ export function createTenantGhlImportRunner(
         );
         if (running.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
         if (running.stdout.trim()) throw new HostAdapterError("TARGET_CONFLICT");
+        if (attachments) networks.push(await attachmentEgressNetwork(runner, name, labels));
         const environment: Readonly<Record<string, string>> =
           request.mode === "MIGRATE"
             ? {
@@ -407,8 +486,9 @@ export function createTenantGhlImportRunner(
                 QCRM_DATABASE_URL_FILE: "/run/secrets/qcrm_database_url",
                 QCRM_GHL_LOCATION_ID: approved.locationId,
                 QCRM_GHL_IMPORT_CURRENCY: approved.currency,
-                QCRM_GHL_IMPORT_MODE: request.mode,
+                QCRM_GHL_IMPORT_MODE: attachments ? "APPLY" : request.mode,
                 QCRM_GHL_IMPORT_DEVELOPMENT_EXCEPTION: "true",
+                ...filesEnvironment,
               };
         const args = [
           "run",
@@ -417,8 +497,7 @@ export function createTenantGhlImportRunner(
           "never",
           "--name",
           name,
-          "--network",
-          options.platformDatabaseNetwork,
+          ...networks.flatMap((network) => ["--network", network]),
           "--read-only",
           "--init",
           "--user",
@@ -432,7 +511,7 @@ export function createTenantGhlImportRunner(
           "--cpus",
           "1",
           "--memory",
-          "2g",
+          attachments ? "3g" : "2g",
           "--log-driver",
           request.mode === "MIGRATE" ? "none" : "json-file",
           ...(request.mode === "MIGRATE"
@@ -454,10 +533,13 @@ export function createTenantGhlImportRunner(
                 "--mount",
                 `type=bind,source=${databaseFile},target=/run/secrets/qcrm_database_url,readonly`,
               ]),
+          ...filesMounts,
           ...Object.entries(environment).flatMap(([key, value]) => ["--env", `${key}=${value}`]),
           ...(request.mode === "MIGRATE"
             ? [imageId]
-            : ["--entrypoint", "node", imageId, "dist/ghl-migration-import-cli.js"]),
+            : ["--entrypoint", "node", imageId, attachments
+                ? "dist/ghl-migration-attachments-cli.js"
+                : "dist/ghl-migration-import-cli.js"]),
         ];
         const launched = await runner.run(args, {}, 30_000);
         // Observe even a failed/uncertain launch before allowing any further attempt.

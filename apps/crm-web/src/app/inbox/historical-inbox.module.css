@@ -184,6 +184,12 @@
 .attachment {
   margin: 10px 0 0;
 }
+.attachments {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .empty {
   max-width: 440px;
   padding: 60px 12px;

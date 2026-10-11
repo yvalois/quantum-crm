@@ -10,6 +10,10 @@ Se revisaron funcionalidades, fases, subtareas, estado, codigo existente y regla
 
 ## Contrato
 
+### Ampliacion autorizada: adjuntos historicos (CHAT-04)
+
+Copiar los bytes de adjuntos del artefacto autenticado sin repetir la carga comercial. Resolver cada mensaje por su correspondencia de origen; conservar una asociacion durable por indice y `fileId`, con progreso y errores seguros. Las fuentes se consultan por HTTPS con destinos permitidos, limites de bytes/tiempo y sin reenviar credenciales a servidores de archivos. Reutilizar el pipeline propietario Files, cuarentena, validacion, ClamAV y promocion inmutable; nunca marcar disponible una referencia sin bytes verificados. Las descargas autorizan nuevamente el hilo y el estado del archivo. Cambios de esquema aditivos y forward-only, sin modificar migraciones aplicadas. El despliegue conserva aplicaciones anteriores; un rollback de aplicacion no borra archivos ni asociaciones. Probar aislamiento, reintentos, fuentes no disponibles, rechazo de contenidos y descarga real. No modificar GHL ni activar envios.
+
 ### Ampliacion autorizada: importacion en desarrollo
 
 La extraccion no satisface por si sola la migracion solicitada. El bloque activo agrega un comando de apply al perfil derivado de configuracion verificada, ejecutado por el host adapter mediante una operacion tipada y sin paths ni shell libres. El propietario difiere expresamente el respaldo externo para esta operacion en desarrollo; la regla permanece para produccion. No hay borrado ni sobrescritura de registros comerciales existentes.

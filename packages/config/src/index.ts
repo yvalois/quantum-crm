@@ -118,3 +118,4 @@ export {
   parseGhlMigrationImportConfig,
   type GhlMigrationImportConfig,
 } from "./ghl-migration-import-config.js";
+export { loadGhlMigrationAttachmentsConfig, parseGhlMigrationAttachmentsConfig, type GhlMigrationAttachmentsConfig } from "./ghl-migration-attachments-config.js";

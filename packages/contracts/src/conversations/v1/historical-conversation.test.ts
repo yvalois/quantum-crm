@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   HistoricalConversationListQuerySchema,
   HistoricalConversationMessageSchema,
+  HistoricalConversationAttachmentSchema,
 } from "./historical-conversation.js";
 
 const message = {
@@ -14,6 +15,7 @@ const message = {
   rawStatus: "pending",
   body: "",
   attachmentCount: 2,
+  attachments: [],
   sourceCreatedAt: "2020-01-01T13:00:00.000Z",
   sourceUpdatedAt: null,
   importedAt: "2026-10-11T13:00:00.000Z",
@@ -42,5 +44,13 @@ describe("historical conversation contracts", () => {
     expect(HistoricalConversationListQuerySchema.safeParse({ tenantId: "other" }).success).toBe(
       false,
     );
+  });
+  it("rejects attachment source URLs and availability without verified file metadata", () => {
+    const attachment = { id: message.id, attachmentIndex: 0, fileId: null,
+      status: "PENDING", errorCode: null, name: null, mimeType: null, size: null };
+    expect(HistoricalConversationAttachmentSchema.safeParse(attachment).success).toBe(true);
+    expect(HistoricalConversationAttachmentSchema.safeParse({ ...attachment,
+      sourceUrl: "https://invalid.example/private" }).success).toBe(false);
+    expect(HistoricalConversationAttachmentSchema.safeParse({ ...attachment, status: "AVAILABLE" }).success).toBe(false);
   });
 });

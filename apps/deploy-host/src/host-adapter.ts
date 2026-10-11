@@ -130,7 +130,7 @@ export interface TenantCrmMigrationReconciler {
 export interface HostAdapterGhlImportRequest extends Omit<HostAdapterRequest, "action"> {
   readonly action: "RUN_TENANT_GHL_IMPORT";
   readonly exportId: string;
-  readonly mode: "APPLY" | "VERIFY" | "MIGRATE";
+  readonly mode: "APPLY" | "VERIFY" | "MIGRATE" | "ATTACHMENTS";
 }
 
 export interface HostAdapterGhlImportResult {
@@ -284,7 +284,7 @@ function parseGhlImportRequest(value: unknown): HostAdapterGhlImportRequest {
     input.action !== "RUN_TENANT_GHL_IMPORT" ||
     typeof exportId !== "string" ||
     !uuidPattern.test(exportId) ||
-    (mode !== "APPLY" && mode !== "VERIFY" && mode !== "MIGRATE")
+    (mode !== "APPLY" && mode !== "VERIFY" && mode !== "MIGRATE" && mode !== "ATTACHMENTS")
   ) {
     throw new HostAdapterError("IDENTITY_MISMATCH");
   }

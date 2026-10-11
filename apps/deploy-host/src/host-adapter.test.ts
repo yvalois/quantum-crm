@@ -161,6 +161,12 @@ describe("deploy host adapter", () => {
           projectName: `qcrm-t-${requestBody.tenantProfileId}`,
         }),
       );
+      expect((await requestOverSocket(
+        socketPath,
+        { ...body, mode: "ATTACHMENTS" },
+        "/v1/ghl-migration/import",
+      )).status).toBe(200);
+      expect(run).toHaveBeenLastCalledWith(expect.objectContaining({ mode: "ATTACHMENTS" }));
       for (const extra of [
         { artifactFile: "/etc/passwd" },
         { image: "evil:latest" },
@@ -172,7 +178,7 @@ describe("deploy host adapter", () => {
             .status,
         ).toBe(409);
       }
-      expect(run).toHaveBeenCalledOnce();
+      expect(run).toHaveBeenCalledTimes(2);
       expect(reconcile).not.toHaveBeenCalled();
     } finally {
       await adapter.close();

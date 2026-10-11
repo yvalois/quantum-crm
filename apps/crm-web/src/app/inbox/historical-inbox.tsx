@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  FileDownloadAuthorizationResponseSchema,
   HistoricalConversationListResponseSchema,
   HistoricalConversationMessageListResponseSchema,
   HistoricalConversationResponseSchema,
   type HistoricalConversation,
   type HistoricalConversationMessage,
+  type HistoricalConversationAttachment,
 } from "@quantum-crm/contracts";
 import { type FormEvent, useEffect, useState } from "react";
 import styles from "./historical-inbox.module.css";
@@ -26,6 +28,44 @@ async function read(path: string, signal: AbortSignal): Promise<unknown> {
     throw new Error("No fue posible consultar el historial. Inténtalo de nuevo.");
   }
   return response.json() as Promise<unknown>;
+}
+
+function HistoricalAttachment({ attachment }: { readonly attachment: HistoricalConversationAttachment }): React.JSX.Element {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function download(): Promise<void> {
+    if (!attachment.fileId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const sessionResponse = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
+      if (!sessionResponse.ok) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      const session = await sessionResponse.json() as { authenticated?: unknown; csrfToken?: unknown };
+      if (session.authenticated !== true || typeof session.csrfToken !== "string")
+        throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      const response = await fetch(`/api/files/${attachment.fileId}/download-authorizations`, {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "x-csrf-token": session.csrfToken, "idempotency-key": crypto.randomUUID() },
+      });
+      if (!response.ok) throw new Error(response.status === 403 || response.status === 404
+        ? "No tienes acceso a este adjunto." : "El adjunto no está disponible. Inténtalo de nuevo.");
+      const authorization = FileDownloadAuthorizationResponseSchema.parse(await response.json());
+      window.location.assign(authorization.data.url);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "No fue posible descargar el adjunto.");
+    } finally { setBusy(false); }
+  }
+  const status = attachment.status === "REJECTED" ? "No disponible: formato o contenido rechazado."
+    : attachment.status === "FAILED" ? "No se pudo transferir desde el origen."
+      : "Pendiente de transferencia y verificación.";
+  return <li className={styles.attachment}>
+    <span>{attachment.name ?? `Adjunto ${attachment.attachmentIndex + 1}`}</span>{" "}
+    {attachment.size !== null ? <small>({new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 }).format(attachment.size / 1024)} KB)</small> : null}{" "}
+    {attachment.status === "AVAILABLE" && attachment.fileId ? <button type="button" disabled={busy} onClick={() => void download()}>
+      {busy ? "Preparando…" : "Descargar"}
+    </button> : <small>{status}</small>}
+    {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+  </li>;
 }
 
 export function HistoricalInbox(): React.JSX.Element {
@@ -268,11 +308,12 @@ export function HistoricalInbox(): React.JSX.Element {
                         ) : (
                           <p className={styles.noBody}>Mensaje original sin texto.</p>
                         )}
-                        {item.attachmentCount > 0 ? (
+                        {item.attachments.length > 0 ? <ul className={styles.attachments} aria-label="Adjuntos del mensaje">
+                          {item.attachments.map((attachment) => <HistoricalAttachment key={attachment.id} attachment={attachment} />)}
+                        </ul> : null}
+                        {item.attachmentCount > item.attachments.length ? (
                           <p className={styles.attachment}>
-                            {item.attachmentCount} adjunto{item.attachmentCount === 1 ? "" : "s"}{" "}
-                            pendiente{item.attachmentCount === 1 ? "" : "s"} de importación y
-                            verificación.
+                            {item.attachmentCount - item.attachments.length} adjunto(s) pendiente(s) de importación y verificación.
                           </p>
                         ) : null}
                       </li>

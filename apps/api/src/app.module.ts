@@ -220,11 +220,20 @@ export class AppModule {
             if (!fileStorageAuthorization) {
               throw new Error("File storage authorization is required");
             }
+            const history = new HistoricalConversationService(database.commercial.historicalConversations, {
+              contactExistsFor: async (actor, contactId) =>
+                (await database.commercial.contacts.find(actor, contactId)) !== null,
+              isActiveMember: async (memberId) =>
+                (await database.members.findById(memberId))?.status === "ACTIVE",
+            });
             return new FileService(
               database.commercial.files,
               {
                 canUseOwner: async (actor, owner) => {
                   if (owner.kind !== "existing") return false;
+                  if (owner.module === "conversations" && owner.type === "historical_attachment") {
+                    return history.canUseAttachmentOwner(actor, owner.id);
+                  }
                   if (owner.module === "forms" && owner.type === "form_response") {
                     const upload = await database.commercial.forms.findResponseForOwner(
                       owner.id,
