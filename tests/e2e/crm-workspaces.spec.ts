@@ -770,7 +770,7 @@ test("channel filters reset pagination and preserve or clear shared inbox filter
   await expect.poll(() => fixture.inboxQueries.at(-1)?.get("cursor")).toBe("synthetic-channels-5");
   await expect(rows).toHaveCount(5);
   await page.getByRole("button", { name: "Mostrar filtros" }).click();
-  const channel = page.getByLabel("Canal", { exact: true });
+  const channel = page.getByRole("combobox", { name: "Canal", exact: true });
   await channel.selectOption("FACEBOOK");
   await expect.poll(() => fixture.inboxQueries.at(-1)?.get("channel")).toBe("FACEBOOK");
   expect(fixture.inboxQueries.at(-1)?.has("cursor")).toBe(false);
@@ -810,7 +810,7 @@ test("channel filters reset pagination and preserve or clear shared inbox filter
 
   await channel.selectOption("EMAIL");
   await expect(rows).toHaveCount(2);
-  await page.getByLabel("Atención", { exact: true }).selectOption("HUMAN");
+  await page.getByRole("combobox", { name: "Atención", exact: true }).selectOption("HUMAN");
   await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
   await expect.poll(() => fixture.inboxQueries.at(-1)?.get("attentionMode")).toBe("HUMAN");
   await expect(rows).toHaveCount(1);
@@ -841,7 +841,7 @@ test("recognized brands keep their own icons in filtered rows, thread headers an
   await expect(list.locator("[data-source]")).toHaveCount(5);
   await page.getByRole("button", { name: "Mostrar filtros" }).click();
   for (const sample of channelSamples.slice(0, 4)) {
-    await page.getByLabel("Canal", { exact: true }).selectOption(sample.channel);
+    await page.getByRole("combobox", { name: "Canal", exact: true }).selectOption(sample.channel);
     await expect.poll(() => fixture.inboxQueries.at(-1)?.get("channel")).toBe(sample.channel);
     const row = list.locator('[data-source="GHL"]');
     await expect(row).toHaveCount(1);
