@@ -78,17 +78,21 @@ function runtime(crmApiFetch: typeof fetch = vi.fn(fetch)): CrmAuthRuntime {
 describe("CRM web authentication HTTP boundary", () => {
   it("reads the field catalog through the authenticated API and rejects arbitrary query selectors", async () => {
     const payload = {
-      data: [{
-        id: "019b0000-0000-7000-8000-000000000001",
-        key: "contact.favorite_color",
-        label: "Color favorito",
-        description: "",
-        dataType: "TEXT",
-        model: "contact",
-      }],
+      data: [
+        {
+          id: "019b0000-0000-7000-8000-000000000001",
+          key: "contact.favorite_color",
+          label: "Color favorito",
+          description: "",
+          dataType: "TEXT",
+          model: "contact",
+        },
+      ],
       page: { nextCursor: null },
     };
-    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => Response.json(payload));
+    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) =>
+      Response.json(payload),
+    );
     const response = await handleCrmCustomFieldDefinitionList(
       new Request("https://crm.example.test/api/custom-field-definitions?model=contact", {
         headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
@@ -102,7 +106,9 @@ describe("CRM web authentication HTTP boundary", () => {
       "http://api:3001/api/v1/custom-field-definitions?model=contact&limit=100",
     );
     const rejected = await handleCrmCustomFieldDefinitionList(
-      new Request("https://crm.example.test/api/custom-field-definitions?model=contact&tenantId=other"),
+      new Request(
+        "https://crm.example.test/api/custom-field-definitions?model=contact&tenantId=other",
+      ),
       runtime(upstream as typeof fetch),
     );
     expect(rejected.status).toBe(400);

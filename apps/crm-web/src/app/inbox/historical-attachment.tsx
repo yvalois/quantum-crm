@@ -11,8 +11,7 @@ import styles from "./historical-inbox.module.css";
 type MediaKind = "image" | "audio" | "video";
 
 function mediaKind(mimeType: string | null): MediaKind | null {
-  if (["image/jpeg", "image/png", "image/webp"].includes(mimeType ?? ""))
-    return "image";
+  if (["image/jpeg", "image/png", "image/webp"].includes(mimeType ?? "")) return "image";
   if (["audio/mpeg", "audio/ogg", "audio/wav", "audio/webm"].includes(mimeType ?? ""))
     return "audio";
   if (["video/mp4", "video/webm"].includes(mimeType ?? "")) return "video";
@@ -77,7 +76,9 @@ export function HistoricalAttachment({
   const downloadControllerRef = useRef<AbortController | null>(null);
   const [requested, setRequested] = useState(false);
   const [generation, setGeneration] = useState(0);
-  const [source, setSource] = useState<{ readonly fileId: string; readonly url: string } | null>(null);
+  const [source, setSource] = useState<{ readonly fileId: string; readonly url: string } | null>(
+    null,
+  );
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -108,7 +109,10 @@ export function HistoricalAttachment({
     setSource(null);
     setPreviewBusy(true);
     setPreviewError(null);
-    void authorizeAttachment(fileId, AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]))
+    void authorizeAttachment(
+      fileId,
+      AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]),
+    )
       .then((url) => {
         if (!controller.signal.aborted) setSource({ fileId, url });
       })

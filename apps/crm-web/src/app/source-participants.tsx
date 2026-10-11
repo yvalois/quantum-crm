@@ -18,7 +18,7 @@ export function SourceParticipantsCard({
           <dt>Propietario original</dt>
           <dd>
             {participants.owner
-              ? participants.owner.displayName ?? "Usuario de origen no disponible"
+              ? (participants.owner.displayName ?? "Usuario de origen no disponible")
               : "Sin propietario en el registro importado"}
           </dd>
         </div>

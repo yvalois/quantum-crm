@@ -57,7 +57,10 @@ export function parseGhlMigrationImportConfig(
       ...new Set(parsed.error.issues.map((issue) => String(issue.path[0]))),
     ]);
   const v = parsed.data;
-  if ((v.QCRM_GHL_IMPORT_MODE === "PARTICIPANTS") !== (v.QCRM_GHL_MIGRATION_TOKEN_FILE !== undefined))
+  if (
+    (v.QCRM_GHL_IMPORT_MODE === "PARTICIPANTS") !==
+    (v.QCRM_GHL_MIGRATION_TOKEN_FILE !== undefined)
+  )
     throw new ConfigurationError("ghl-migration-import", ["QCRM_GHL_MIGRATION_TOKEN_FILE"]);
   // This explicitly authorized development exception is never a production bypass.
   if (v.QCRM_ENV === "production")
@@ -94,14 +97,20 @@ export function parseGhlMigrationImportConfig(
   let participantToken: SecretValue | undefined;
   if (v.QCRM_GHL_MIGRATION_TOKEN_FILE) {
     try {
-      participantToken = loadSecretFile("GHL participant directory token", v.QCRM_GHL_MIGRATION_TOKEN_FILE, {
-        environment: v.QCRM_ENV,
-        expectedProtectedPath: ghlMigrationTokenPath,
-        ...(fileSystem ? { fileSystem } : {}),
-      });
+      participantToken = loadSecretFile(
+        "GHL participant directory token",
+        v.QCRM_GHL_MIGRATION_TOKEN_FILE,
+        {
+          environment: v.QCRM_ENV,
+          expectedProtectedPath: ghlMigrationTokenPath,
+          ...(fileSystem ? { fileSystem } : {}),
+        },
+      );
       if (participantToken.expose().length < 16 || participantToken.expose().length > 2048)
         throw new Error("Invalid token");
-    } catch { throw new ConfigurationError("ghl-migration-import", ["QCRM_GHL_MIGRATION_TOKEN_FILE"]); }
+    } catch {
+      throw new ConfigurationError("ghl-migration-import", ["QCRM_GHL_MIGRATION_TOKEN_FILE"]);
+    }
   }
   return Object.freeze({
     database,

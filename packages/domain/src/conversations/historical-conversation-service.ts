@@ -1,5 +1,12 @@
 import type { FileOwner } from "@quantum-crm/contracts";
-import { IamAuthorizationError, withSourceParticipants, type ExternalParticipantLookup, type SourceParticipantRecord, type CommercialActor, type IamPermission } from "../iam/index.js";
+import {
+  IamAuthorizationError,
+  withSourceParticipants,
+  type ExternalParticipantLookup,
+  type SourceParticipantRecord,
+  type CommercialActor,
+  type IamPermission,
+} from "../iam/index.js";
 import {
   authorizeHistoricalImport,
   HistoricalImportValidationError,
@@ -33,7 +40,8 @@ export interface HistoricalMessageInput {
   readonly sourceUpdatedAt: Date | null;
 }
 
-export interface HistoricalThreadRecord extends Omit<HistoricalThreadInput, "sourceContactId">, SourceParticipantRecord {
+export interface HistoricalThreadRecord
+  extends Omit<HistoricalThreadInput, "sourceContactId">, SourceParticipantRecord {
   readonly id: string;
   readonly source: "GHL";
   readonly sourceExternalId: string;

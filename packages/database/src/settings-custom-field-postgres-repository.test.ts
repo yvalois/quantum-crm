@@ -29,14 +29,16 @@ describe("settings custom field catalog persistence", () => {
     }));
     const repository = createSettingsCustomFieldPostgresRepository(poolWith(query));
     const result = await repository.list({ model: "contact", limit: 1 });
-    expect(result.items).toEqual([{
-      id: fieldId,
-      key: field.field_key,
-      label: field.name,
-      description: field.description,
-      dataType: field.data_type,
-      model: "contact",
-    }]);
+    expect(result.items).toEqual([
+      {
+        id: fieldId,
+        key: field.field_key,
+        label: field.name,
+        description: field.description,
+        dataType: field.data_type,
+        model: "contact",
+      },
+    ]);
     expect(result.nextCursor).not.toBeNull();
     expect(query.mock.calls[0]?.[1]).toEqual(["contact", null, 2]);
     expect(query.mock.calls[0]?.[0]).toContain("FROM settings.custom_field_definitions");
@@ -48,13 +50,15 @@ describe("settings custom field catalog persistence", () => {
   it("rejects a cursor from another model before querying the profile database", async () => {
     const query = vi.fn(async () => ({ rows: [] }));
     const repository = createSettingsCustomFieldPostgresRepository(poolWith(query));
-    const cursor = Buffer.from(JSON.stringify({ model: "contact", id: fieldId })).toString("base64url");
+    const cursor = Buffer.from(JSON.stringify({ model: "contact", id: fieldId })).toString(
+      "base64url",
+    );
     await expect(repository.list({ model: "opportunity", limit: 100, cursor })).rejects.toThrow(
       CustomFieldDefinitionValidationError,
     );
-    await expect(repository.list({ model: "contact", limit: 100, cursor: "invalid" })).rejects.toThrow(
-      CustomFieldDefinitionValidationError,
-    );
+    await expect(
+      repository.list({ model: "contact", limit: 100, cursor: "invalid" }),
+    ).rejects.toThrow(CustomFieldDefinitionValidationError);
     expect(query).not.toHaveBeenCalled();
   });
 
@@ -68,7 +72,11 @@ describe("settings custom field catalog persistence", () => {
     expect((await profileA.list({ model: "contact", limit: 100 })).items).toHaveLength(1);
     expect((await profileB.list({ model: "contact", limit: 100 })).items).toHaveLength(0);
     const unavailable = createSettingsCustomFieldPostgresRepository(
-      poolWith(vi.fn(async () => { throw new Error("private database error"); })),
+      poolWith(
+        vi.fn(async () => {
+          throw new Error("private database error");
+        }),
+      ),
     );
     await expect(unavailable.list({ model: "contact", limit: 100 })).rejects.toThrow(
       DatabaseUnavailableError,

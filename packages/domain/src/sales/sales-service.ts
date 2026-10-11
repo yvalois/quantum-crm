@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { IamAuthorizationError, withSourceParticipants, type ExternalParticipantLookup, type CommercialActor, type IamPermission } from "../iam/index.js";
+import {
+  IamAuthorizationError,
+  withSourceParticipants,
+  type ExternalParticipantLookup,
+  type CommercialActor,
+  type IamPermission,
+} from "../iam/index.js";
 import {
   type Pipeline,
   type PipelineStage,
@@ -115,7 +121,9 @@ export class SalesService {
     filters: Parameters<SalesRepository["listOpportunities"]>[1] = {},
   ) {
     allow(permissions, "crm:sales:read");
-    return this.repository.listOpportunities(actor, filters).then((records) => withSourceParticipants(records, this.sourceParticipants));
+    return this.repository
+      .listOpportunities(actor, filters)
+      .then((records) => withSourceParticipants(records, this.sourceParticipants));
   }
   public listOpportunityHistory(input: {
     readonly actor: CommercialActor;
@@ -210,7 +218,20 @@ export class SalesService {
         idempotencyKey: input.idempotencyKey,
         payloadHash: input.payloadHash,
       });
-      if (replay) return (await withSourceParticipants([{ ...replay, ...(current.sourceParticipantReferences ? { sourceParticipantReferences: current.sourceParticipantReferences } : {}) }], this.sourceParticipants))[0]!;
+      if (replay)
+        return (
+          await withSourceParticipants(
+            [
+              {
+                ...replay,
+                ...(current.sourceParticipantReferences
+                  ? { sourceParticipantReferences: current.sourceParticipantReferences }
+                  : {}),
+              },
+            ],
+            this.sourceParticipants,
+          )
+        )[0]!;
       throw new SalesVersionConflictError();
     }
     const ownerMemberId = input.ownerMemberId ?? current.ownerMemberId;
@@ -254,7 +275,19 @@ export class SalesService {
       payloadHash: input.payloadHash,
     });
     if (!result) throw new SalesVersionConflictError();
-    return (await withSourceParticipants([{ ...result, ...(current.sourceParticipantReferences ? { sourceParticipantReferences: current.sourceParticipantReferences } : {}) }], this.sourceParticipants))[0]!;
+    return (
+      await withSourceParticipants(
+        [
+          {
+            ...result,
+            ...(current.sourceParticipantReferences
+              ? { sourceParticipantReferences: current.sourceParticipantReferences }
+              : {}),
+          },
+        ],
+        this.sourceParticipants,
+      )
+    )[0]!;
   }
   public async moveOpportunity(input: {
     readonly actor: CommercialActor;
@@ -276,7 +309,20 @@ export class SalesService {
         idempotencyKey: input.idempotencyKey,
         payloadHash: input.payloadHash,
       });
-      if (replay) return (await withSourceParticipants([{ ...replay, ...(opportunity.sourceParticipantReferences ? { sourceParticipantReferences: opportunity.sourceParticipantReferences } : {}) }], this.sourceParticipants))[0]!;
+      if (replay)
+        return (
+          await withSourceParticipants(
+            [
+              {
+                ...replay,
+                ...(opportunity.sourceParticipantReferences
+                  ? { sourceParticipantReferences: opportunity.sourceParticipantReferences }
+                  : {}),
+              },
+            ],
+            this.sourceParticipants,
+          )
+        )[0]!;
       throw new SalesVersionConflictError();
     }
     const stage = await this.repository.findStage(input.stageId);
@@ -292,6 +338,18 @@ export class SalesService {
       payloadHash: input.payloadHash,
     });
     if (!result) throw new SalesVersionConflictError();
-    return (await withSourceParticipants([{ ...result, ...(opportunity.sourceParticipantReferences ? { sourceParticipantReferences: opportunity.sourceParticipantReferences } : {}) }], this.sourceParticipants))[0]!;
+    return (
+      await withSourceParticipants(
+        [
+          {
+            ...result,
+            ...(opportunity.sourceParticipantReferences
+              ? { sourceParticipantReferences: opportunity.sourceParticipantReferences }
+              : {}),
+          },
+        ],
+        this.sourceParticipants,
+      )
+    )[0]!;
   }
 }

@@ -61,7 +61,9 @@ export function createSettingsCustomFieldPostgresRepository(
           items,
           nextCursor:
             result.rows.length > query.limit && last
-              ? Buffer.from(JSON.stringify({ model: query.model, id: last.id })).toString("base64url")
+              ? Buffer.from(JSON.stringify({ model: query.model, id: last.id })).toString(
+                  "base64url",
+                )
               : null,
         };
       } catch {

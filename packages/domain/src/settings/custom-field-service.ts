@@ -1,7 +1,4 @@
-import type {
-  CustomFieldDefinition,
-  CustomFieldDefinitionListQuery,
-} from "@quantum-crm/contracts";
+import type { CustomFieldDefinition, CustomFieldDefinitionListQuery } from "@quantum-crm/contracts";
 import { IamAuthorizationError, type IamPermission } from "../iam/index.js";
 
 /** Definitions are profile-wide settings, not individual contact or opportunity values. */

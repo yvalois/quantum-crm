@@ -319,7 +319,10 @@ export function HistoricalInbox(): React.JSX.Element {
                           <time>{when(item.sourceCreatedAt)}</time>
                         </header>
                         <p className={styles.metadata}>
-                          <HistoricalChannelBadge rawChannel={item.rawChannel} rawType={item.rawType} />
+                          <HistoricalChannelBadge
+                            rawChannel={item.rawChannel}
+                            rawType={item.rawType}
+                          />
                           {item.rawStatus ? <span>{item.rawStatus}</span> : null}
                         </p>
                         {item.body.length > 0 ? (
@@ -385,7 +388,10 @@ export function HistoricalInbox(): React.JSX.Element {
         <aside className={styles.contactPanel} aria-label="Información del cliente">
           {selected ? (
             <>
-              <SourceParticipantsCard participants={selected.sourceParticipants} kind="conversación" />
+              <SourceParticipantsCard
+                participants={selected.sourceParticipants}
+                kind="conversación"
+              />
               <ConversationContactCard
                 contact={selectedContact}
                 linked={Boolean(selected.contactId)}

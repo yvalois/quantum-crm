@@ -1,10 +1,24 @@
 export interface HistoricalChannel {
-  readonly key: "whatsapp" | "sms" | "email" | "instagram" | "facebook" | "chat" | "call" | "google" | "tiktok" | "form" | "unknown";
+  readonly key:
+    | "whatsapp"
+    | "sms"
+    | "email"
+    | "instagram"
+    | "facebook"
+    | "chat"
+    | "call"
+    | "google"
+    | "tiktok"
+    | "form"
+    | "unknown";
   readonly label: string;
 }
 
 function knownChannel(value: string | null | undefined): HistoricalChannel | null {
-  const normalized = value?.trim().toUpperCase().replace(/^TYPE_/u, "");
+  const normalized = value
+    ?.trim()
+    .toUpperCase()
+    .replace(/^TYPE_/u, "");
   switch (normalized) {
     case "WHATSAPP":
     case "WHATS_APP":

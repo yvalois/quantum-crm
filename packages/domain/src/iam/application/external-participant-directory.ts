@@ -21,7 +21,9 @@ export interface ExternalParticipantName {
 }
 export interface ExternalParticipantLookup {
   /** Call only with references belonging to resources already authorized by their owner. */
-  readonly resolve: (references: readonly SourceParticipantReferences[]) => Promise<readonly ExternalParticipantName[]>;
+  readonly resolve: (
+    references: readonly SourceParticipantReferences[],
+  ) => Promise<readonly ExternalParticipantName[]>;
 }
 export interface ExternalParticipantImportResult {
   readonly total: number;
@@ -29,27 +31,42 @@ export interface ExternalParticipantImportResult {
   readonly replayed: number;
 }
 export interface ExternalParticipantDirectory extends ExternalParticipantLookup {
-  readonly importDirectory: (context: HistoricalImportContext, input: {
-    readonly operationId: string;
-    readonly locationId: string;
-    readonly participants: readonly { readonly externalId: string; readonly displayName: string }[];
-  }) => Promise<ExternalParticipantImportResult>;
+  readonly importDirectory: (
+    context: HistoricalImportContext,
+    input: {
+      readonly operationId: string;
+      readonly locationId: string;
+      readonly participants: readonly {
+        readonly externalId: string;
+        readonly displayName: string;
+      }[];
+    },
+  ) => Promise<ExternalParticipantImportResult>;
 }
 
 /** Accept only the narrow SQL projection, never propagate an import source payload. */
 export function sourceParticipantReferencesFromRow(value: unknown): SourceParticipantRecord {
   if (value === undefined || value === null) return {};
-  if (typeof value !== "object" || Array.isArray(value)) throw new HistoricalImportValidationError();
+  if (typeof value !== "object" || Array.isArray(value))
+    throw new HistoricalImportValidationError();
   const row = value as Record<string, unknown>;
-  const validId = (id: unknown): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,200}$/u.test(id);
-  if (!validId(row.locationId) || (row.ownerExternalId !== null && !validId(row.ownerExternalId)) ||
-    !Array.isArray(row.followerExternalIds) || row.followerExternalIds.length > 500 ||
-    !row.followerExternalIds.every(validId)) throw new HistoricalImportValidationError();
-  return { sourceParticipantReferences: {
-    locationId: row.locationId,
-    ownerExternalId: row.ownerExternalId,
-    followerExternalIds: [...new Set(row.followerExternalIds)],
-  } };
+  const validId = (id: unknown): id is string =>
+    typeof id === "string" && /^[A-Za-z0-9_-]{1,200}$/u.test(id);
+  if (
+    !validId(row.locationId) ||
+    (row.ownerExternalId !== null && !validId(row.ownerExternalId)) ||
+    !Array.isArray(row.followerExternalIds) ||
+    row.followerExternalIds.length > 500 ||
+    !row.followerExternalIds.every(validId)
+  )
+    throw new HistoricalImportValidationError();
+  return {
+    sourceParticipantReferences: {
+      locationId: row.locationId,
+      ownerExternalId: row.ownerExternalId,
+      followerExternalIds: [...new Set(row.followerExternalIds)],
+    },
+  };
 }
 
 export class ExternalParticipantConflictError extends Error {
@@ -64,10 +81,14 @@ export async function withSourceParticipants<T extends SourceParticipantRecord>(
   records: readonly T[],
   directory?: ExternalParticipantLookup,
 ): Promise<readonly T[]> {
-  const references = records.flatMap((record) => record.sourceParticipantReferences ? [record.sourceParticipantReferences] : []);
+  const references = records.flatMap((record) =>
+    record.sourceParticipantReferences ? [record.sourceParticipantReferences] : [],
+  );
   if (references.length === 0) return records;
   const names = directory ? await directory.resolve(references) : [];
-  const indexed = new Map(names.map((entry) => [JSON.stringify([entry.locationId, entry.externalId]), entry.displayName]));
+  const indexed = new Map(
+    names.map((entry) => [JSON.stringify([entry.locationId, entry.externalId]), entry.displayName]),
+  );
   return records.map((record) => {
     const { sourceParticipantReferences: reference, ...visible } = record;
     if (!reference) return record;

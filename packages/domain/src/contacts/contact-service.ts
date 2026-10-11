@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import { IamAuthorizationError, withSourceParticipants, type ExternalParticipantLookup, type IamPermission } from "../iam/index.js";
+import {
+  IamAuthorizationError,
+  withSourceParticipants,
+  type ExternalParticipantLookup,
+  type IamPermission,
+} from "../iam/index.js";
 import {
   createContact,
   type CommercialActor,
@@ -57,7 +62,9 @@ export class ContactService {
     filters?: ContactListFilters,
   ) {
     allow(permissions, "crm:contacts:read");
-    return this.repository.list(actor, filters).then((records) => withSourceParticipants(records, this.sourceParticipants));
+    return this.repository
+      .list(actor, filters)
+      .then((records) => withSourceParticipants(records, this.sourceParticipants));
   }
   public listPage(
     actor: CommercialActor,
@@ -66,7 +73,8 @@ export class ContactService {
   ): Promise<ContactPage> {
     allow(permissions, "crm:contacts:read");
     return this.repository.listPage(actor, filters).then(async (page) => ({
-      ...page, records: await withSourceParticipants(page.records, this.sourceParticipants),
+      ...page,
+      records: await withSourceParticipants(page.records, this.sourceParticipants),
     }));
   }
   public get(
@@ -211,7 +219,8 @@ export class ContactService {
       candidate.phone !== current.phone ||
       ownerChanged;
     const labelsChanged = labelIds !== undefined && !sameLabelIds(current.labels, labelIds);
-    if (!contactChanged && !labelsChanged) return (await withSourceParticipants([current], this.sourceParticipants))[0]!;
+    if (!contactChanged && !labelsChanged)
+      return (await withSourceParticipants([current], this.sourceParticipants))[0]!;
     if (ownerChanged) {
       allow(input.permissions, "crm:contacts:assign");
       if (

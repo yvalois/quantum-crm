@@ -15,7 +15,10 @@ export const CustomFieldDefinitionListQuerySchema = z
   .object({
     model: CustomFieldModelSchema,
     limit: z.coerce.number().int().min(1).max(100).default(100),
-    cursor: z.string().regex(/^[A-Za-z0-9_-]{1,256}$/u).optional(),
+    cursor: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,256}$/u)
+      .optional(),
   })
   .strict();
 export const CustomFieldDefinitionListResponseSchema = z

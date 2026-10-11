@@ -79,7 +79,10 @@ async function syntheticMedia(page: Page): Promise<SyntheticMedia> {
   audio.write("data", 36);
   audio.writeUInt32LE(samples * 2, 40);
   for (let index = 0; index < samples; index++)
-    audio.writeInt16LE(Math.round(Math.sin((index * 440 * Math.PI * 2) / 8_000) * 1_000), 44 + index * 2);
+    audio.writeInt16LE(
+      Math.round(Math.sin((index * 440 * Math.PI * 2) / 8_000) * 1_000),
+      44 + index * 2,
+    );
   return { image: Buffer.from(visual.image, "base64"), audio, video: Buffer.from(visual.video) };
 }
 
@@ -87,9 +90,24 @@ function mediaAttachments(media: SyntheticMedia): HistoricalConversationAttachme
   return [
     ...historicalMessage.attachments,
     ...[
-      { fileId: imageFileId, name: "synthetic-image.png", mimeType: "image/png", size: media.image.length },
-      { fileId: audioFileId, name: "synthetic-audio.wav", mimeType: "audio/wav", size: media.audio.length },
-      { fileId: videoFileId, name: "synthetic-video.webm", mimeType: "video/webm", size: media.video.length },
+      {
+        fileId: imageFileId,
+        name: "synthetic-image.png",
+        mimeType: "image/png",
+        size: media.image.length,
+      },
+      {
+        fileId: audioFileId,
+        name: "synthetic-audio.wav",
+        mimeType: "audio/wav",
+        size: media.audio.length,
+      },
+      {
+        fileId: videoFileId,
+        name: "synthetic-video.webm",
+        mimeType: "video/webm",
+        size: media.video.length,
+      },
     ].map((file, index): HistoricalConversationAttachment => ({
       id: file.fileId,
       attachmentIndex: index + 1,
@@ -130,8 +148,13 @@ function contact(index: number, displayName: string): Contact {
     source: "MIGRATION",
     sourceParticipants: {
       source: "GHL",
-      owner: { externalId: "synthetic-ghl-contact-owner", displayName: "Lucía Propietaria Sintética" },
-      followers: [{ externalId: "synthetic-ghl-contact-follower", displayName: "Mateo Seguidor Sintético" }],
+      owner: {
+        externalId: "synthetic-ghl-contact-owner",
+        displayName: "Lucía Propietaria Sintética",
+      },
+      followers: [
+        { externalId: "synthetic-ghl-contact-follower", displayName: "Mateo Seguidor Sintético" },
+      ],
     },
     archivedAt: null,
     version: "1",
@@ -195,8 +218,13 @@ const historical: HistoricalConversation = {
   importedAt: timestamp,
   sourceParticipants: {
     source: "GHL",
-    owner: { externalId: "synthetic-ghl-thread-owner", displayName: "Valentina Responsable Sintética" },
-    followers: [{ externalId: "synthetic-ghl-thread-follower", displayName: "Nicolás Seguidor Sintético" }],
+    owner: {
+      externalId: "synthetic-ghl-thread-owner",
+      displayName: "Valentina Responsable Sintética",
+    },
+    followers: [
+      { externalId: "synthetic-ghl-thread-follower", displayName: "Nicolás Seguidor Sintético" },
+    ],
   },
 };
 const historicalMessage: HistoricalConversationMessage = {
@@ -234,7 +262,13 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
   const mediaRequests: string[] = [];
   const visibleThread = media ? { ...historical, rawChannel: "TYPE_WHATSAPP" } : historical;
   const visibleMessage = media
-    ? { ...historicalMessage, rawChannel: null, rawType: "TYPE_WHATSAPP", attachmentCount: 5, attachments: mediaAttachments(media) }
+    ? {
+        ...historicalMessage,
+        rawChannel: null,
+        rawType: "TYPE_WHATSAPP",
+        attachmentCount: 5,
+        attachments: mediaAttachments(media),
+      }
     : historicalMessage;
   await page.context().addCookies([
     {
@@ -269,9 +303,10 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
       await respond({
         data: {
           method: "GET",
-          url: authorizedId === fileId
-            ? `${origin}/api/synthetic-download`
-            : `${origin}/api/synthetic-media/${authorizedId}?attempt=${attempt}`,
+          url:
+            authorizedId === fileId
+              ? `${origin}/api/synthetic-download`
+              : `${origin}/api/synthetic-media/${authorizedId}?attempt=${attempt}`,
           expiresAt: new Date(Date.now() + 60_000).toISOString(),
           objectVersionId: "synthetic-version",
         },
@@ -288,8 +323,22 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
         expect(url.searchParams.get("limit")).toBe("100");
         await respond({
           data: [
-            { id: "019b0000-0000-7000-8000-000000000098", key: "vehicle", label: "Vehículo preferido", description: "Preferencia sintética", dataType: "TEXT", model: "contact" },
-            { id: "019b0000-0000-7000-8000-000000000097", key: "synthetic-empty", label: "Preferencia sin completar", description: "Campo sintético vacío", dataType: "TEXT", model: "contact" },
+            {
+              id: "019b0000-0000-7000-8000-000000000098",
+              key: "vehicle",
+              label: "Vehículo preferido",
+              description: "Preferencia sintética",
+              dataType: "TEXT",
+              model: "contact",
+            },
+            {
+              id: "019b0000-0000-7000-8000-000000000097",
+              key: "synthetic-empty",
+              label: "Preferencia sin completar",
+              description: "Campo sintético vacío",
+              dataType: "TEXT",
+              model: "contact",
+            },
           ],
           page: { nextCursor: null },
         });
@@ -383,18 +432,22 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
           await route.fulfill({ status: 403, body: "Synthetic expired media authorization" });
           return;
         }
-        const file = mediaId === imageFileId
-          ? { bytes: media.image, type: "image/png", name: "synthetic-image.png" }
-          : mediaId === audioFileId
-            ? { bytes: media.audio, type: "audio/wav", name: "synthetic-audio.wav" }
-            : mediaId === videoFileId
-              ? { bytes: media.video, type: "video/webm", name: "synthetic-video.webm" }
-              : null;
+        const file =
+          mediaId === imageFileId
+            ? { bytes: media.image, type: "image/png", name: "synthetic-image.png" }
+            : mediaId === audioFileId
+              ? { bytes: media.audio, type: "audio/wav", name: "synthetic-audio.wav" }
+              : mediaId === videoFileId
+                ? { bytes: media.video, type: "video/webm", name: "synthetic-video.webm" }
+                : null;
         if (file) {
           await route.fulfill({
             status: 200,
             contentType: file.type,
-            headers: { "content-disposition": `attachment; filename="${file.name}"`, "cache-control": "no-store" },
+            headers: {
+              "content-disposition": `attachment; filename="${file.name}"`,
+              "cache-control": "no-store",
+            },
             body: file.bytes,
           });
           return;
@@ -511,11 +564,21 @@ test("imported history remains read only and downloads only the verified synthet
   await expect(card.getByText("Sedán sintético", { exact: true })).toBeVisible();
   await expect(card.getByText("Cliente frecuente", { exact: true })).toBeVisible();
   const originalContact = card.getByRole("region", { name: "Responsables originales de contacto" });
-  await expect(originalContact.getByText("Lucía Propietaria Sintética", { exact: true })).toBeVisible();
-  await expect(originalContact.getByText("Mateo Seguidor Sintético", { exact: true })).toBeVisible();
-  const originalThread = page.getByRole("region", { name: "Responsables originales de conversación" });
-  await expect(originalThread.getByText("Valentina Responsable Sintética", { exact: true })).toBeVisible();
-  await expect(originalThread.getByText("Nicolás Seguidor Sintético", { exact: true })).toBeVisible();
+  await expect(
+    originalContact.getByText("Lucía Propietaria Sintética", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    originalContact.getByText("Mateo Seguidor Sintético", { exact: true }),
+  ).toBeVisible();
+  const originalThread = page.getByRole("region", {
+    name: "Responsables originales de conversación",
+  });
+  await expect(
+    originalThread.getByText("Valentina Responsable Sintética", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    originalThread.getByText("Nicolás Seguidor Sintético", { exact: true }),
+  ).toBeVisible();
   await expect(originalThread).toContainText("No equivalen a cuentas ni permisos de Quantum");
   await card.getByLabel("Incluir campos vacíos").check();
   await expect(card.getByText("Preferencia sin completar", { exact: true })).toBeVisible();
@@ -564,14 +627,17 @@ test("historical verified images, audio and video render with fresh access and r
   const history = page.getByRole("region", { name: "Mensajes históricos", exact: true });
   await expect(history.getByText("WhatsApp", { exact: true })).toHaveCount(2);
   const attachments = history.getByRole("list", { name: "Adjuntos del mensaje" });
-  const attachment = (name: string) => attachments.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
+  const attachment = (name: string) =>
+    attachments.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
   const image = attachment("synthetic-image.png");
   await image.scrollIntoViewIfNeeded();
   await expect(image.getByRole("alert")).toContainText("No se pudo mostrar");
   await image.getByRole("button", { name: "Reintentar vista previa" }).click();
   const inlineImage = image.getByRole("img", { name: "synthetic-image.png" });
   await expect(inlineImage).toBeVisible();
-  await expect.poll(() => inlineImage.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(160);
+  await expect
+    .poll(() => inlineImage.evaluate((element: HTMLImageElement) => element.naturalWidth))
+    .toBe(160);
   expect(fixture.authorizations.get(imageFileId)).toBe(2);
 
   const audioAttachment = attachment("synthetic-audio.wav");
@@ -580,10 +646,17 @@ test("historical verified images, audio and video render with fresh access and r
   const audio = audioAttachment.locator("audio");
   await expect(audio).toHaveAttribute("controls", "");
   await expect(audio).not.toHaveAttribute("autoplay", "");
-  await expect.poll(() => audio.evaluate((element: HTMLAudioElement) => element.readyState)).toBeGreaterThanOrEqual(2);
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.readyState))
+    .toBeGreaterThanOrEqual(2);
   expect(await audio.evaluate((element: HTMLAudioElement) => element.paused)).toBe(true);
-  await audio.evaluate(async (element: HTMLAudioElement) => { element.muted = true; await element.play(); });
-  await expect.poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime)).toBeGreaterThan(0);
+  await audio.evaluate(async (element: HTMLAudioElement) => {
+    element.muted = true;
+    await element.play();
+  });
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
+    .toBeGreaterThan(0);
   await audio.evaluate((element: HTMLAudioElement) => element.pause());
 
   const videoAttachment = attachment("synthetic-video.webm");
@@ -592,10 +665,17 @@ test("historical verified images, audio and video render with fresh access and r
   const video = videoAttachment.locator("video");
   await expect(video).toHaveAttribute("controls", "");
   await expect(video).not.toHaveAttribute("autoplay", "");
-  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.videoWidth)).toBe(160);
+  await expect
+    .poll(() => video.evaluate((element: HTMLVideoElement) => element.videoWidth))
+    .toBe(160);
   expect(await video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true);
-  await video.evaluate(async (element: HTMLVideoElement) => { element.muted = true; await element.play(); });
-  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0);
+  await video.evaluate(async (element: HTMLVideoElement) => {
+    element.muted = true;
+    await element.play();
+  });
+  await expect
+    .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
+    .toBeGreaterThan(0);
   await video.evaluate((element: HTMLVideoElement) => element.pause());
 
   const rejected = attachment("synthetic-rejected.png");

@@ -340,7 +340,12 @@ export async function runRegisteredGhlParticipants(
   attempt = 1,
 ) {
   await candidateRoot(commit);
-  const request = await registeredGhlRequest(tenantId, exportId, migrate ? "MIGRATE" : "VERIFY", attempt);
+  const request = await registeredGhlRequest(
+    tenantId,
+    exportId,
+    migrate ? "MIGRATE" : "VERIFY",
+    attempt,
+  );
   const workerImageId = await candidateImage(commit, "worker");
   const migratorImageId = await candidateImage(commit, "crm-migrator");
   if (!workerImageId || !migratorImageId) throw new HostAdapterError("UNAVAILABLE");

@@ -63,10 +63,23 @@ async function main(): Promise<void> {
     };
     if (config.mode === "PARTICIPANTS") {
       const original = await operations.inspect(identity);
-      if (!original || original.status !== "COMPLETE" || !config.participantToken || !database.externalParticipants)
+      if (
+        !original ||
+        original.status !== "COMPLETE" ||
+        !config.participantToken ||
+        !database.externalParticipants
+      )
         throw new Error("Participant enrichment requires the approved completed historical import");
-      const result = await enrichGhlSourceParticipants(artifact, identity, context, database.externalParticipants, config.participantToken);
-      process.stdout.write(JSON.stringify({ event: "ghl_participants_complete", ...result }) + "\n");
+      const result = await enrichGhlSourceParticipants(
+        artifact,
+        identity,
+        context,
+        database.externalParticipants,
+        config.participantToken,
+      );
+      process.stdout.write(
+        JSON.stringify({ event: "ghl_participants_complete", ...result }) + "\n",
+      );
       if (result.status !== "COMPLETE") process.exitCode = 2;
       return;
     }

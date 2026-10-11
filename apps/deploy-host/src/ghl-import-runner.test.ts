@@ -134,22 +134,29 @@ async function fixture(participants = false) {
   let storageInternal = true;
   let egressCreated = false;
   let foreignEgress = false;
-  let currentMode = participants ? "VERIFY" as const : request.mode;
+  let currentMode = participants ? ("VERIFY" as const) : request.mode;
   const labels = () => ({
     "com.quantum.operation-id": request.operationId,
     "com.quantum.tenant-id": request.tenantProfileId,
     "com.quantum.ghl-export-id": request.exportId,
     "com.quantum.ghl-job-sha256": createHash("sha256").update(registered).digest("hex"),
     "com.quantum.ghl-import-mode": currentMode,
-    ...(participants ? { "com.quantum.ghl-participants-commit": participantsCandidate.commit } : {}),
+    ...(participants
+      ? { "com.quantum.ghl-participants-commit": participantsCandidate.commit }
+      : {}),
   });
   const container = () =>
     JSON.stringify([
       {
         Name: `/qcrm-ghl-${request.operationId}-${participants ? `participants-${participantsCandidate.commit}-` : ""}${currentMode.toLowerCase()}-${request.attempt}`,
-        Image: currentMode === "MIGRATE"
-          ? participants ? participantsCandidate.migratorImageId : migratorImageId
-          : participants ? participantsCandidate.workerImageId : imageId,
+        Image:
+          currentMode === "MIGRATE"
+            ? participants
+              ? participantsCandidate.migratorImageId
+              : migratorImageId
+            : participants
+              ? participantsCandidate.workerImageId
+              : imageId,
         Config: {
           Labels: labels(),
         },
@@ -248,19 +255,33 @@ async function fixture(participants = false) {
 
 describe("registered GHL import host job", () => {
   it("returns only aggregate participants enrichment evidence", () => {
-    const receipt = parseGhlImportReceipt(JSON.stringify({
-      event: "ghl_participants_complete", status: "COMPLETE", total: 2,
-      created: 2, replayed: 0, sourceReferences: 3, resolvedReferences: 3,
-      privateName: "private-canary", token: "secret-canary",
-    }));
-    expect(receipt).toMatchObject({ status: "COMPLETE", consistent: true, counters: { "participants.resolvedReferences": 3 } });
+    const receipt = parseGhlImportReceipt(
+      JSON.stringify({
+        event: "ghl_participants_complete",
+        status: "COMPLETE",
+        total: 2,
+        created: 2,
+        replayed: 0,
+        sourceReferences: 3,
+        resolvedReferences: 3,
+        privateName: "private-canary",
+        token: "secret-canary",
+      }),
+    );
+    expect(receipt).toMatchObject({
+      status: "COMPLETE",
+      consistent: true,
+      counters: { "participants.resolvedReferences": 3 },
+    });
     expect(JSON.stringify(receipt)).not.toContain("canary");
   });
   it("enriches only the registered target using candidate images without mutating its original registry", async () => {
     const f = await fixture(true);
     const before = await readFile(f.jobFile, "utf8");
     const runner = createTenantGhlImportRunner(f.options);
-    await expect(runner.run({ ...request, mode: "VERIFY" })).resolves.toMatchObject({ state: "RUNNING" });
+    await expect(runner.run({ ...request, mode: "VERIFY" })).resolves.toMatchObject({
+      state: "RUNNING",
+    });
     const args = f.run.mock.calls.find(([args]) => args[0] === "run")?.[0] ?? [];
     expect(args).toContain(`sha256:${"d".repeat(64)}`);
     expect(args).toContain("QCRM_GHL_IMPORT_MODE=PARTICIPANTS");
@@ -270,14 +291,19 @@ describe("registered GHL import host job", () => {
     expect(args.join(" ")).not.toContain("QCRM_FILES_");
     expect(await readFile(f.jobFile, "utf8")).toBe(before);
     f.finish();
-    await expect(runner.run({ ...request, mode: "VERIFY" })).resolves.toMatchObject({ state: "SUCCEEDED", reconciled: true });
+    await expect(runner.run({ ...request, mode: "VERIFY" })).resolves.toMatchObject({
+      state: "SUCCEEDED",
+      reconciled: true,
+    });
     expect(f.run.mock.calls.filter(([call]) => call[0] === "run")).toHaveLength(1);
   });
 
   it("never gives the supplemental migrator the GHL token or external network", async () => {
     const f = await fixture(true);
     f.migrationMode();
-    await expect(createTenantGhlImportRunner(f.options).run({ ...request, mode: "MIGRATE" })).resolves.toMatchObject({ state: "RUNNING" });
+    await expect(
+      createTenantGhlImportRunner(f.options).run({ ...request, mode: "MIGRATE" }),
+    ).resolves.toMatchObject({ state: "RUNNING" });
     const args = f.run.mock.calls.find(([args]) => args[0] === "run")?.[0] ?? [];
     expect(args.at(-1)).toBe(`sha256:${"e".repeat(64)}`);
     expect(args.join(" ")).not.toContain("migration-token");
@@ -287,8 +313,15 @@ describe("registered GHL import host job", () => {
 
   it("rejects using the supplemental candidate for APPLY or unvalidated candidate digests", async () => {
     const f = await fixture(true);
-    await expect(createTenantGhlImportRunner(f.options).run(request)).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
-    await expect(createTenantGhlImportRunner({ ...f.options, participantsCandidate: { ...f.options.participantsCandidate!, workerImageId: "latest" } }).run({ ...request, mode: "VERIFY" })).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
+    await expect(createTenantGhlImportRunner(f.options).run(request)).rejects.toEqual(
+      new HostAdapterError("IDENTITY_MISMATCH"),
+    );
+    await expect(
+      createTenantGhlImportRunner({
+        ...f.options,
+        participantsCandidate: { ...f.options.participantsCandidate!, workerImageId: "latest" },
+      }).run({ ...request, mode: "VERIFY" }),
+    ).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
     expect(f.run).not.toHaveBeenCalled();
   });
   it("returns only allowlisted aggregate progress and verification counters from worker logs", () => {

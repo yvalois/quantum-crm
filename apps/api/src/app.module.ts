@@ -113,7 +113,12 @@ export class AppModule {
         { provide: MEMBER_ACTIVATION_ISSUER, useValue: activationIssuer },
         {
           provide: CONTACT_SERVICE,
-          useFactory: () => new ContactService(database.commercial.contacts, undefined, database.externalParticipants),
+          useFactory: () =>
+            new ContactService(
+              database.commercial.contacts,
+              undefined,
+              database.externalParticipants,
+            ),
         },
         {
           provide: CUSTOM_FIELD_DEFINITION_SERVICE,
@@ -170,12 +175,17 @@ export class AppModule {
         {
           provide: HISTORICAL_CONVERSATION_SERVICE,
           useFactory: () =>
-            new HistoricalConversationService(database.commercial.historicalConversations, {
-              contactExistsFor: async (actor, contactId) =>
-                (await database.commercial.contacts.find(actor, contactId)) !== null,
-              isActiveMember: async (memberId) =>
-                (await database.members.findById(memberId))?.status === "ACTIVE",
-            }, undefined, database.externalParticipants),
+            new HistoricalConversationService(
+              database.commercial.historicalConversations,
+              {
+                contactExistsFor: async (actor, contactId) =>
+                  (await database.commercial.contacts.find(actor, contactId)) !== null,
+                isActiveMember: async (memberId) =>
+                  (await database.members.findById(memberId))?.status === "ACTIVE",
+              },
+              undefined,
+              database.externalParticipants,
+            ),
         },
         {
           provide: CALENDAR_SERVICE,

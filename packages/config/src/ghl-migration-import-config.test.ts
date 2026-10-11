@@ -40,10 +40,27 @@ describe("GHL import destination configuration", () => {
       QCRM_GHL_IMPORT_MODE: "PARTICIPANTS",
       QCRM_GHL_MIGRATION_TOKEN_FILE: "/run/secrets/qcrm_ghl_migration_token",
     };
-    expect(parseGhlMigrationImportConfig(participantEnvironment, files()).participantToken).toBeDefined();
-    expect(() => parseGhlMigrationImportConfig({ ...environment, QCRM_GHL_IMPORT_MODE: "PARTICIPANTS" }, files())).toThrow();
-    expect(() => parseGhlMigrationImportConfig({ ...participantEnvironment, QCRM_GHL_IMPORT_MODE: "APPLY" }, files())).toThrow();
-    expect(() => parseGhlMigrationImportConfig({ ...participantEnvironment, QCRM_GHL_MIGRATION_TOKEN_FILE: "/tmp/token" }, files())).toThrow();
+    expect(
+      parseGhlMigrationImportConfig(participantEnvironment, files()).participantToken,
+    ).toBeDefined();
+    expect(() =>
+      parseGhlMigrationImportConfig(
+        { ...environment, QCRM_GHL_IMPORT_MODE: "PARTICIPANTS" },
+        files(),
+      ),
+    ).toThrow();
+    expect(() =>
+      parseGhlMigrationImportConfig(
+        { ...participantEnvironment, QCRM_GHL_IMPORT_MODE: "APPLY" },
+        files(),
+      ),
+    ).toThrow();
+    expect(() =>
+      parseGhlMigrationImportConfig(
+        { ...participantEnvironment, QCRM_GHL_MIGRATION_TOKEN_FILE: "/tmp/token" },
+        files(),
+      ),
+    ).toThrow();
   });
   it("defaults to verify and binds both the CRM database and runtime role to the selected tenant", () => {
     expect(parseGhlMigrationImportConfig(environment, files())).toMatchObject({

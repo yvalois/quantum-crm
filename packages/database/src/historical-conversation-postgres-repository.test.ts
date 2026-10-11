@@ -232,7 +232,9 @@ describe("historical conversation repository", () => {
 
   it("resolves a missing thread channel from its latest attributed message without changing source data", async () => {
     const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
-    await createHistoricalConversationPostgresRepository(poolWith(query)).list(actor, { limit: 50 });
+    await createHistoricalConversationPostgresRepository(poolWith(query)).list(actor, {
+      limit: 50,
+    });
     const statement = query.mock.calls[0]?.[0];
     expect(statement).toContain("COALESCE(NULLIF(thread.raw_channel, '')");
     expect(statement).toContain("channel_message.thread_id = thread.id");

@@ -23,8 +23,12 @@ const auth: CrmAuthContext = {
 describe("CustomFieldDefinitionsController", () => {
   it("requires authenticated model-specific permission without broadening access to values", async () => {
     const list = vi.fn(async () => ({ items: [], nextCursor: null }));
-    const controller = new CustomFieldDefinitionsController(new CustomFieldDefinitionService({ list }));
-    await expect(controller.list({ headers: {} }, { model: "contact" })).rejects.toThrow("Unauthorized");
+    const controller = new CustomFieldDefinitionsController(
+      new CustomFieldDefinitionService({ list }),
+    );
+    await expect(controller.list({ headers: {} }, { model: "contact" })).rejects.toThrow(
+      "Unauthorized",
+    );
     await expect(
       controller.list({ headers: {}, [CRM_AUTH_CONTEXT]: auth }, { model: "opportunity" }),
     ).rejects.toThrow("Forbidden");
@@ -36,15 +40,17 @@ describe("CustomFieldDefinitionsController", () => {
 
   it("rejects caller profile selectors, unknown models and invalid page limits", async () => {
     const list = vi.fn(async () => ({ items: [], nextCursor: null }));
-    const controller = new CustomFieldDefinitionsController(new CustomFieldDefinitionService({ list }));
+    const controller = new CustomFieldDefinitionsController(
+      new CustomFieldDefinitionService({ list }),
+    );
     for (const query of [
       { model: "contact", tenantId: "other" },
       { model: "iam" },
       { model: "contact", limit: 101 },
     ])
-      await expect(controller.list({ headers: {}, [CRM_AUTH_CONTEXT]: auth }, query)).rejects.toThrow(
-        "Bad Request",
-      );
+      await expect(
+        controller.list({ headers: {}, [CRM_AUTH_CONTEXT]: auth }, query),
+      ).rejects.toThrow("Bad Request");
     expect(list).not.toHaveBeenCalled();
   });
 });

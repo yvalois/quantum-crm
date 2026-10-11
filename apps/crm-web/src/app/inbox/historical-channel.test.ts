@@ -4,7 +4,10 @@ import { historicalChannel } from "./historical-channel.js";
 
 describe("historicalChannel", () => {
   it("identifica WhatsApp desde el tipo original aunque el canal este ausente", () => {
-    expect(historicalChannel(null, "TYPE_WHATSAPP")).toEqual({ key: "whatsapp", label: "WhatsApp" });
+    expect(historicalChannel(null, "TYPE_WHATSAPP")).toEqual({
+      key: "whatsapp",
+      label: "WhatsApp",
+    });
     expect(historicalChannel(" type_whatsapp ")).toEqual({ key: "whatsapp", label: "WhatsApp" });
   });
 
@@ -25,6 +28,9 @@ describe("historicalChannel", () => {
 
   it("distingue TikTok y formularios originales de canales de mensajeria", () => {
     expect(historicalChannel(null, "TYPE_TIKTOK")).toEqual({ key: "tiktok", label: "TikTok" });
-    expect(historicalChannel(null, "TYPE_FORM_SUBMISSION")).toEqual({ key: "form", label: "Formulario" });
+    expect(historicalChannel(null, "TYPE_FORM_SUBMISSION")).toEqual({
+      key: "form",
+      label: "Formulario",
+    });
   });
 });

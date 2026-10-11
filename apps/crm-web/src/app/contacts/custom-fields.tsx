@@ -52,7 +52,8 @@ export function useCustomFieldDefinitions(model: CustomFieldModel) {
         setState({
           definitions: [],
           loading: false,
-          error: cause instanceof Error ? cause.message : "No se pudo cargar el catálogo de campos.",
+          error:
+            cause instanceof Error ? cause.message : "No se pudo cargar el catálogo de campos.",
         });
     });
     return () => controller.abort();
@@ -99,14 +100,16 @@ export function CustomFields({
           : fieldValue(field.value),
       saved: true,
     })),
-    ...definitions.filter((definition) => !savedIds.has(definition.id)).map((definition) => ({
-      id: definition.id,
-      key: definition.key,
-      label: definition.label,
-      description: definition.description,
-      text: "Sin valor guardado",
-      saved: false,
-    })),
+    ...definitions
+      .filter((definition) => !savedIds.has(definition.id))
+      .map((definition) => ({
+        id: definition.id,
+        key: definition.key,
+        label: definition.label,
+        description: definition.description,
+        text: "Sin valor guardado",
+        saved: false,
+      })),
   ];
   const search = query.trim().toLocaleLowerCase("es");
   const visible = rows.filter(
@@ -118,7 +121,10 @@ export function CustomFields({
   return (
     <details className={styles.panel} open>
       <summary>
-        {title} <span>{fields.length} con registro · {rows.length} disponibles</span>
+        {title}{" "}
+        <span>
+          {fields.length} con registro · {rows.length} disponibles
+        </span>
       </summary>
       <div className={styles.controls}>
         <label htmlFor={searchId}>Buscar campos</label>
@@ -145,7 +151,9 @@ export function CustomFields({
           {visible.map((field) => (
             <div key={field.id}>
               <dt>{field.label}</dt>
-              {field.description ? <dd className={styles.description}>{field.description}</dd> : null}
+              {field.description ? (
+                <dd className={styles.description}>{field.description}</dd>
+              ) : null}
               <dd className={field.saved ? undefined : styles.empty}>{field.text}</dd>
             </div>
           ))}
