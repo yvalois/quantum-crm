@@ -171,11 +171,11 @@ afterAll(async () => {
 describe("GHL imports against migrated PostgreSQL runtime roles", () => {
   it("reserves attachments once, audits retries, binds immutable files and authorizes through the scoped historical thread", async () => {
     const locationId = randomUUID();
-    const viewer: CommercialActor = { memberId: randomUUID(), scope: "OWN" };
-    const stranger: CommercialActor = { memberId: randomUUID(), scope: "OWN" };
+    const viewer: CommercialActor = { memberId: randomUUID(), scope: "ASSIGNED" };
+    const stranger: CommercialActor = { memberId: randomUUID(), scope: "ASSIGNED" };
     await poolA.query(
       `INSERT INTO iam.members(id, oidc_subject, display_name, email, status, commercial_scope)
-      VALUES ($1::uuid, $2, 'Synthetic attachment viewer', $3, 'active', 'own')`,
+      VALUES ($1::uuid, $2, 'Synthetic attachment viewer', $3, 'active', 'assigned')`,
       [viewer.memberId, `ghl-fixture-${viewer.memberId}`, `ghl-${viewer.memberId}@example.test`],
     );
     const contact = await contactsA.importContact({
@@ -498,7 +498,7 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
     await expect(
       contactsA.importContact({
         ...contactInput,
-        actor: { ...actor, scope: "OWN" },
+        actor: { ...actor, scope: "ASSIGNED" },
         source: source(locationId, "denied-contact"),
       }),
     ).rejects.toBeInstanceOf(IamAuthorizationError);
@@ -574,7 +574,7 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
     });
     expect(second.nextCursor).toBeNull();
     expect(
-      await historyA.list({ ...actor, scope: "OWN" }, context.permissions, {
+      await historyA.list({ ...actor, scope: "ASSIGNED" }, context.permissions, {
         limit: 50,
         query: "inert original text",
       }),
