@@ -14,6 +14,8 @@ import {
   HistoricalConversationMessageListResponseSchema,
   HistoricalConversationPageQuerySchema,
   HistoricalConversationResponseSchema,
+  UnifiedInboxListQuerySchema,
+  UnifiedInboxListResponseSchema,
   ContactIdSchema,
   ContactBulkActionResponseSchema,
   ContactBulkActionSchema,
@@ -2061,6 +2063,26 @@ async function conversationMutation(
   } catch {
     return crmProblem(400, "Invalid request");
   }
+}
+
+export async function handleCrmUnifiedInboxList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const parsed = UnifiedInboxListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const endpoint = new URL("/api/v1/conversations/inbox", runtime.config.crmApiOrigin);
+  for (const [name, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) endpoint.searchParams.set(name, String(value));
+  }
+  return conversationRead(
+    request,
+    runtime,
+    `${endpoint.pathname}${endpoint.search}`,
+    UnifiedInboxListResponseSchema,
+  );
 }
 
 export async function handleCrmHistoricalConversationList(

@@ -33,7 +33,7 @@ export function useConversationContacts(ids: readonly (string | null | undefined
         const response = await fetch(`/api/contacts?${params}`, {
           credentials: "same-origin",
           cache: "no-store",
-          signal: controller.signal,
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
         });
         if (!response.ok)
           throw new Error(

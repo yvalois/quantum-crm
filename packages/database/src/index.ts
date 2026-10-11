@@ -12,6 +12,7 @@ export {
   createSalesHistoricalImportVerification,
 } from "./sales-historical-import-repository.js";
 export { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
+export { createUnifiedInboxPostgresRepository } from "./unified-inbox-postgres-repository.js";
 export { createGhlImportOperationRepository } from "./ghl-import-operation-repository.js";
 
 export { POSTGRES_DATABASE } from "./database-token.js";

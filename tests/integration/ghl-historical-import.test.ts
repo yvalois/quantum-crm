@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { parseDatabaseConfig } from "@quantum-crm/config";
+import type { UnifiedInboxListQuery } from "@quantum-crm/contracts";
 import {
   acquireGhlAttachmentImportGuard,
   createContactsHistoricalImportPort,
@@ -9,6 +10,7 @@ import {
   createHistoricalConversationPostgresRepository,
   createSalesHistoricalImportPort,
   createSettingsHistoricalImportPort,
+  createUnifiedInboxPostgresRepository,
 } from "@quantum-crm/database";
 import {
   HistoricalConversationService,
@@ -24,6 +26,7 @@ import {
   FileStateConflictError,
   HistoricalImportValidationError,
   IamAuthorizationError,
+  UnifiedInboxService,
   type CommercialActor,
   type HistoricalImportContext,
   type HistoricalImportSource,
@@ -176,6 +179,241 @@ afterAll(async () => {
 });
 
 describe("GHL imports against migrated PostgreSQL runtime roles", () => {
+  it("pages one mixed inbox without timestamp-tie loss and applies filters, permissions and profile scope to both sources", async () => {
+    const locationId = randomUUID();
+    const marker = `inbox-${locationId}`;
+    const privateSource = `private-source-${locationId}`;
+    const bodyNeedle = `body-${locationId}-%_`;
+    const teammate = randomUUID();
+    const outsider = randomUUID();
+    const teamId = randomUUID();
+    for (const memberId of [teammate, outsider]) {
+      await poolA.query(
+        `INSERT INTO iam.members(id, oidc_subject, display_name, email, status, commercial_scope)
+         VALUES ($1::uuid, $2, 'Synthetic inbox member', $3, 'active', 'assigned')`,
+        [memberId, `inbox-${memberId}`, `inbox-${memberId}@example.test`],
+      );
+    }
+    await poolA.query("INSERT INTO iam.teams(id, name) VALUES ($1::uuid, $2)", [teamId, marker]);
+    await poolA.query(
+      "INSERT INTO iam.team_members(team_id, member_id) VALUES ($1::uuid, $2::uuid), ($1::uuid, $3::uuid)",
+      [teamId, actor.memberId, teammate],
+    );
+    const contact = await contactsA.importContact({
+      ...context,
+      source: source(locationId, "inbox-contact"),
+      displayName: "Synthetic unified inbox contact",
+      email: null,
+      phone: null,
+      ownerMemberId: actor.memberId,
+      labelIds: [],
+      customFields: [],
+      createdAt: originalAt,
+      updatedAt: originalAt,
+    });
+    const records: {
+      id: string;
+      source: "QUANTUM" | "GHL";
+      label: string;
+      at: string;
+    }[] = [];
+    const pairs = [
+      {
+        label: "own-one",
+        owner: actor.memberId,
+        at: "2035-01-01T00:00:00.123457Z",
+        channel: "email",
+        status: "open",
+      },
+      {
+        label: "own-two",
+        owner: actor.memberId,
+        at: "2035-01-01T00:00:00.123457Z",
+        channel: "email",
+        status: "open",
+      },
+      {
+        label: "team",
+        owner: teammate,
+        at: "2035-01-01T00:00:00.123456Z",
+        channel: "whatsapp",
+        status: "pending",
+      },
+      {
+        label: "outside",
+        owner: outsider,
+        at: "2035-01-01T00:00:01.000000Z",
+        channel: "sms",
+        status: "closed",
+      },
+      {
+        label: "unassigned",
+        owner: null,
+        at: "2034-12-31T00:00:00.000000Z",
+        channel: "email",
+        status: "open",
+      },
+    ] as const;
+    for (const fixture of pairs) {
+      const id = randomUUID();
+      const body = fixture.label === "own-one" ? bodyNeedle : `body-${locationId}-XY`;
+      await poolA.query(
+        `INSERT INTO conversations.conversations
+         (id, contact_id, channel, assignee_member_id, status, attention_mode, subject,
+          last_message_at, created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, 'human', $6,
+          $7::timestamptz, $7::timestamptz, $7::timestamptz)`,
+        [
+          id,
+          contact.id,
+          fixture.channel,
+          fixture.owner,
+          fixture.status,
+          `${marker} ${fixture.label}`,
+          fixture.at,
+        ],
+      );
+      await poolA.query(
+        `INSERT INTO conversations.messages
+         (id, conversation_id, sequence, direction, kind, body, delivery_status, created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, 1, 'inbound', 'text', $3, 'received', $4::timestamptz, $4::timestamptz)`,
+        [randomUUID(), id, body, fixture.at],
+      );
+      records.push({ id, source: "QUANTUM", label: fixture.label, at: fixture.at });
+      const imported = await historyA.importThread({
+        ...context,
+        source: source(locationId, fixture.label, { privateAttribute: privateSource }),
+        thread: {
+          ...orphan(),
+          sourceThreadPresent: true,
+          contactId: contact.id,
+          sourceContactId: privateSource,
+          assigneeMemberId: fixture.owner,
+          rawChannel:
+            fixture.channel === "whatsapp"
+              ? "TYPE_WHATS_APP"
+              : `TYPE_${fixture.channel.toUpperCase()}`,
+          rawStatus: fixture.label === "unassigned" ? "unread" : fixture.status.toUpperCase(),
+          subject: `${marker} ${fixture.label}`,
+          sourceCreatedAt: new Date(fixture.at),
+        },
+      });
+      await historyA.importMessage({
+        ...context,
+        source: source(locationId, `${fixture.label}-message`),
+        threadSourceExternalId: fixture.label,
+        message: { ...message(), body, attachmentCount: 0, sourceCreatedAt: new Date(fixture.at) },
+      });
+      // PostgreSQL timestamps retain microseconds that JavaScript Date cannot represent.
+      await poolA.query(
+        "UPDATE conversations.historical_threads SET last_message_at = $2::timestamptz WHERE id = $1::uuid",
+        [imported.id, fixture.at],
+      );
+      records.push({ id: imported.id, source: "GHL", label: fixture.label, at: fixture.at });
+    }
+    for (const fixture of [
+      { label: "orphan", contactId: null, at: "2035-01-01T00:00:03.000000Z" },
+      { label: "missing-thread", contactId: contact.id, at: "2035-01-01T00:00:02.000000Z" },
+    ]) {
+      const imported = await historyA.importThread({
+        ...context,
+        source: source(locationId, fixture.label, { privateAttribute: privateSource }),
+        thread: {
+          ...orphan(),
+          contactId: fixture.contactId,
+          assigneeMemberId: actor.memberId,
+          subject: `${marker} ${fixture.label}`,
+          sourceUpdatedAt: new Date(fixture.at),
+        },
+      });
+      records.push({ id: imported.id, source: "GHL", label: fixture.label, at: fixture.at });
+    }
+    const inbox = new UnifiedInboxService(createUnifiedInboxPostgresRepository(poolA));
+    const inboxB = new UnifiedInboxService(createUnifiedInboxPostgresRepository(poolB));
+    const query = { limit: 50, contactState: "ALL", query: marker } as const;
+    const key = (item: { source: string; id: string }) => `${item.source}:${item.id}`;
+    const ordered = [...records].sort(
+      (left, right) =>
+        right.at.localeCompare(left.at) ||
+        Number(right.source === "QUANTUM") - Number(left.source === "QUANTUM") ||
+        right.id.localeCompare(left.id),
+    );
+    const expected = (predicate: (item: (typeof records)[number]) => boolean) =>
+      ordered.filter(predicate).map(key);
+    const list = async (
+      filters: Partial<UnifiedInboxListQuery> = {},
+      viewer: CommercialActor = actor,
+    ) =>
+      (await inbox.list(viewer, context.permissions, { ...query, ...filters })).items.map((item) =>
+        key({ source: item.source, id: item.conversation.id }),
+      );
+
+    // Every equal timestamp and source tie crosses a page boundary at limit 1.
+    let cursor: string | undefined;
+    const paged: string[] = [];
+    for (let index = 0; index < records.length; index += 1) {
+      const page = await inbox.list(actor, context.permissions, {
+        ...query,
+        limit: 1,
+        ...(cursor ? { cursor } : {}),
+      });
+      expect(page.items).toHaveLength(1);
+      paged.push(...page.items.map((item) => key({ source: item.source, id: item.conversation.id })));
+      expect(page.nextCursor === null).toBe(index === records.length - 1);
+      cursor = page.nextCursor ?? undefined;
+    }
+    expect(paged).toEqual(ordered.map(key));
+    expect(new Set(paged).size).toBe(records.length);
+    expect(await list()).toEqual(paged);
+    expect(await list({ query: bodyNeedle })).toEqual(expected((item) => item.label === "own-one"));
+    expect(await list({ channel: "WHATSAPP", status: "PENDING" })).toEqual(
+      expected((item) => item.label === "team"),
+    );
+    expect(await list({ channel: "EMAIL", status: "OPEN" })).toEqual(
+      expected(
+        (item) =>
+          item.label.startsWith("own-") ||
+          (item.label === "unassigned" && item.source === "QUANTUM"),
+      ),
+    );
+    expect(await list({ unassigned: true })).toEqual(expected((item) => item.label === "unassigned"));
+    expect(await list({ contactId: contact.id })).toEqual(expected((item) => item.label !== "orphan"));
+    expect(await list({ contactState: "LINKED" })).toEqual(expected((item) => item.label !== "orphan"));
+    expect(await list({ contactState: "UNLINKED" })).toEqual(
+      expected((item) => item.label === "orphan"),
+    );
+    expect(await list({ attentionMode: "HUMAN" })).toEqual(
+      expected((item) => item.source === "QUANTUM"),
+    );
+    for (const scope of ["OWN", "ASSIGNED"] as const) {
+      expect(await list({}, { ...actor, scope })).toEqual(
+        expected((item) => item.label.startsWith("own-")),
+      );
+    }
+    expect(await list({}, { ...actor, scope: "TEAM" })).toEqual(
+      expected((item) => item.label.startsWith("own-") || item.label === "team"),
+    );
+    expect(await list({}, { memberId: randomUUID(), scope: "OWN" })).toEqual([]);
+    expect(await list({ contactState: "UNLINKED" }, { ...actor, scope: "TEAM" })).toEqual([]);
+    await expect(inbox.list(actor, [], query)).rejects.toBeInstanceOf(IamAuthorizationError);
+    expect(await inboxB.list(actor, context.permissions, query)).toEqual({
+      items: [],
+      nextCursor: null,
+    });
+    const visible = await inbox.list(actor, context.permissions, query);
+    for (const item of visible.items) {
+      expect(item.conversation).not.toHaveProperty("source_payload");
+      expect(item.conversation).not.toHaveProperty("sourceParticipantReferences");
+      expect(item.conversation).not.toHaveProperty("sourceContactId");
+      expect(item.conversation).not.toHaveProperty("privateAttribute");
+    }
+    expect(
+      JSON.stringify(visible, (_name, value: unknown) =>
+        typeof value === "bigint" ? String(value) : value,
+      ),
+    ).not.toContain(privateSource);
+  });
+
   it("resolves original participants without accounts or effects, isolates sources and replays atomically", async () => {
     const locationId = randomUUID();
     const directoryA = createIamExternalParticipantDirectory(poolA);

@@ -11,6 +11,7 @@ import {
   CustomFieldDefinitionService,
   ConversationService,
   HistoricalConversationService,
+  UnifiedInboxService,
   IamMemberService,
   IamRoleService,
   IamTeamService,
@@ -51,6 +52,7 @@ import { AcceptMemberInvitationController } from "./accept-member-invitation.con
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
 import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
+import { UNIFIED_INBOX_SERVICE, UnifiedInboxController } from "./unified-inbox.controller.js";
 import {
   HISTORICAL_CONVERSATION_SERVICE,
   HistoricalConversationsController,
@@ -86,6 +88,7 @@ export class AppModule {
         AcceptMemberInvitationController,
         InternalAdministratorsController,
         AutomationsController,
+        UnifiedInboxController,
         ConversationsController,
         HistoricalConversationsController,
         CalendarController,
@@ -171,6 +174,10 @@ export class AppModule {
               documentFor: async (actor, documentId) =>
                 database.commercial.documents.find(actor, documentId),
             }),
+        },
+        {
+          provide: UNIFIED_INBOX_SERVICE,
+          useFactory: () => new UnifiedInboxService(database.commercial.unifiedInbox, database.externalParticipants),
         },
         {
           provide: HISTORICAL_CONVERSATION_SERVICE,

@@ -25,6 +25,7 @@ import type {
   ContactRepository,
   ConversationRepository,
   HistoricalConversationRepository,
+  UnifiedInboxRepository,
   CommercialActor,
   Opportunity,
   OpportunityHistoryEntry,
@@ -47,6 +48,7 @@ import type { PoolClient } from "pg";
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
 import { createConversationPostgresRepository } from "./conversation-postgres-repository.js";
 import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
+import { createUnifiedInboxPostgresRepository } from "./unified-inbox-postgres-repository.js";
 import { createSettingsCustomFieldPostgresRepository } from "./settings-custom-field-postgres-repository.js";
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 import { createFormPostgresRepository } from "./form-postgres-repository.js";
@@ -708,6 +710,7 @@ export interface CommercialPostgresRepositories {
   readonly contacts: ContactRepository;
   readonly conversations: ConversationRepository;
   readonly historicalConversations: HistoricalConversationRepository;
+  readonly unifiedInbox: UnifiedInboxRepository;
   readonly sales: SalesRepository;
   readonly tasks: TaskRepository;
   readonly calendar: CalendarRepository;
@@ -2618,6 +2621,7 @@ export function createCommercialPostgresRepositories(
     contacts,
     conversations: createConversationPostgresRepository(pool),
     historicalConversations: createHistoricalConversationPostgresRepository(pool),
+    unifiedInbox: createUnifiedInboxPostgresRepository(pool),
     customFieldDefinitions: createSettingsCustomFieldPostgresRepository(pool),
     sales,
     tasks,

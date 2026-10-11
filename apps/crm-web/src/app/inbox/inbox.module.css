@@ -561,6 +561,71 @@
   scrollbar-color: #ccd9d8 transparent;
 }
 
+.contactFilter {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.contactFilter select {
+  min-width: 0;
+  max-width: 65%;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: #fff;
+  padding: 0.35rem;
+  color: var(--ink);
+  font: inherit;
+}
+
+.clearContactFilter {
+  flex: none;
+  margin: 0.5rem 0.9rem;
+  border: 0;
+  background: transparent;
+  color: var(--teal);
+  font: inherit;
+  font-size: 0.7rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pagination {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  border-top: 1px solid var(--line);
+  padding: 0.5rem 0.65rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.pagination button {
+  min-height: 1.9rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.65rem;
+}
+
+.sourceTag {
+  color: var(--muted);
+  font-size: 0.61rem;
+}
+
+.composerNotice {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
 .conversationCard {
   display: grid;
   width: 100%;
@@ -1640,7 +1705,7 @@
 
   .listPanel {
     flex: none;
-    height: 16rem;
+    height: 24rem;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }

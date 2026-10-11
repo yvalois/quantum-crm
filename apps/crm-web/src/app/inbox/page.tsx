@@ -10,11 +10,16 @@ import type {
   DocumentTemplate,
   QuickReply,
   TaskAssignee,
+  HistoricalConversation,
+  UnifiedInboxItem,
 } from "@quantum-crm/contracts";
+import { ConversationThreadResponseSchema, UnifiedInboxListResponseSchema } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
-import { HistoricalInbox } from "./historical-inbox";
+import { HistoricalThread, historicalThreadTitle } from "./historical-thread";
+import { HistoricalChannelBadge } from "./historical-channel-badge";
+import { SourceParticipantsCard } from "../source-participants";
 import { ConversationContactCard, useConversationContacts } from "./conversation-contact";
 import styles from "./inbox.module.css";
 
@@ -25,14 +30,6 @@ interface SessionPayload {
 
 interface List<T> {
   readonly data: T[];
-}
-
-interface Thread {
-  readonly data: {
-    readonly conversation: Conversation;
-    readonly messages: ConversationMessage[];
-    readonly history: ConversationHistoryEntry[];
-  };
 }
 
 type InboxView = "ALL" | "OPEN" | "PENDING" | "ESCALATED" | "CLOSED" | "UNASSIGNED";
@@ -241,20 +238,28 @@ function availabilityMessage(selected: Conversation | null): string | null {
 }
 
 export default function InboxPage(): React.JSX.Element {
-  const [showHistorical, setShowHistorical] = useState(true);
   const [csrf, setCsrf] = useState<string | null>(null);
-  const [items, setItems] = useState<Conversation[]>([]);
+  const [items, setItems] = useState<UnifiedInboxItem[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selected, setSelected] = useState<Conversation | null>(null);
+  const [historicalSelected, setHistoricalSelected] = useState<HistoricalConversation | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [history, setHistory] = useState<ConversationHistoryEntry[]>([]);
   const [query, setQuery] = useState("");
   const [channel, setChannel] = useState("");
   const [status, setStatus] = useState("");
   const [attention, setAttention] = useState("");
+  const [contactState, setContactState] = useState("ALL");
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [appliedFilters, setAppliedFilters] = useState("");
+  const [listCursors, setListCursors] = useState<readonly (string | null)[]>([null]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [listRefresh, setListRefresh] = useState(0);
+  const [listError, setListError] = useState<string | null>(null);
+  const [threadBusy, setThreadBusy] = useState(false);
   const [view, setView] = useState<InboxView>("ALL");
   const [mode, setMode] = useState<ComposerMode>("message");
   const [draft, setDraft] = useState("");
@@ -269,17 +274,22 @@ export default function InboxPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const modalRef = useRef<HTMLElement | null>(null);
   const lastModalFocusRef = useRef<HTMLElement | null>(null);
+  const selectionRef = useRef<string | null>(null);
+  const threadRequestRef = useRef<AbortController | null>(null);
+  const listCursor = listCursors.at(-1) ?? null;
 
   const relatedContacts = useConversationContacts([
-    ...items.map((item) => item.contactId),
+    ...items.map((item) => item.conversation.contactId),
     selected?.contactId,
+    historicalSelected?.contactId,
   ]);
   const contactById = relatedContacts.contacts;
   const assigneeById = useMemo(
     () => new Map(assignees.map((assignee) => [assignee.id, assignee])),
     [assignees],
   );
-  const selectedContact = selected ? contactById.get(selected.contactId) : undefined;
+  const activeContactId = selected?.contactId ?? historicalSelected?.contactId;
+  const selectedContact = activeContactId ? contactById.get(activeContactId) : undefined;
   const selectedAssignee = selected?.assigneeMemberId
     ? assigneeById.get(selected.assigneeMemberId)
     : undefined;
@@ -287,59 +297,97 @@ export default function InboxPage(): React.JSX.Element {
   const composerBlocked = mode === "message" ? messageBlocked : null;
 
   const loadThread = useCallback(async (id: string): Promise<void> => {
-    const response = await fetch(`/api/conversations/${id}`, {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-    if (!response.ok) throw new Error(await problem(response));
-    const thread = (await response.json()) as Thread;
-    setSelected(thread.data.conversation);
-    setMessages(thread.data.messages);
-    setHistory(thread.data.history);
-    setSelectedId(id);
-  }, []);
-
-  const loadList = useCallback(
-    async (
-      preferredId?: string | null,
-      preferredView?: InboxView,
-      preferredStatus?: string,
-    ): Promise<void> => {
-      const activeView = preferredView ?? view;
-      const activeStatus = preferredStatus ?? status;
-      const search = new URLSearchParams({ limit: "100" });
-      if (query.trim()) search.set("query", query.trim());
-      if (channel) search.set("channel", channel);
-      if (activeStatus) search.set("status", activeStatus);
-      if (attention) search.set("attentionMode", attention);
-      if (activeView === "UNASSIGNED") search.set("unassigned", "true");
-      else if (activeView !== "ALL") search.set("status", activeView);
-      const response = await fetch(`/api/conversations?${search}`, {
+    const key = `QUANTUM:${id}`;
+    if (selectionRef.current !== key) return;
+    threadRequestRef.current?.abort();
+    const controller = new AbortController();
+    threadRequestRef.current = controller;
+    setThreadBusy(true);
+    try {
+      const response = await fetch(`/api/conversations/${id}`, {
         cache: "no-store",
         credentials: "same-origin",
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
       });
       if (!response.ok) throw new Error(await problem(response));
-      const next = ((await response.json()) as List<Conversation>).data;
-      setItems(next);
-      const target = preferredId ?? selectedId ?? next[0]?.id;
-      if (target && next.some((item) => item.id === target)) await loadThread(target);
-      else {
-        setSelectedId(null);
-        setSelected(null);
-        setMessages([]);
-        setHistory([]);
+      const thread = ConversationThreadResponseSchema.parse(await response.json());
+      if (controller.signal.aborted || selectionRef.current !== key) return;
+      setSelected(thread.data.conversation);
+      setMessages(thread.data.messages);
+      setHistory(thread.data.history);
+    } catch (cause) {
+      if (!controller.signal.aborted && selectionRef.current === key) {
+        setError(cause instanceof Error ? cause.message : "No fue posible abrir la conversación.");
       }
-    },
-    [attention, channel, loadThread, query, selectedId, status, view],
-  );
+    } finally {
+      if (!controller.signal.aborted && selectionRef.current === key) setThreadBusy(false);
+    }
+  }, []);
+
+  function chooseConversation(item: UnifiedInboxItem): void {
+    threadRequestRef.current?.abort();
+    const key = `${item.source}:${item.conversation.id}`;
+    selectionRef.current = key;
+    setSelectedKey(key);
+    setSelected(null);
+    setMessages([]);
+    setHistory([]);
+    setDraft("");
+    setError(null);
+    setHistoricalSelected(item.source === "GHL" ? item.conversation : null);
+    setThreadBusy(false);
+    if (item.source === "QUANTUM") void loadThread(item.conversation.id);
+  }
+
+  async function refreshConversation(id: string): Promise<void> {
+    setListRefresh((value) => value + 1);
+    await loadThread(id);
+  }
 
   useEffect(() => {
+    if (!csrf) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setListError(null);
+    const search = new URLSearchParams(appliedFilters);
+    search.set("limit", "30");
+    if (!search.has("contactState")) search.set("contactState", "ALL");
+    if (contactId) search.set("contactId", contactId);
+    if (listCursor) search.set("cursor", listCursor);
+    void fetch(`/api/conversations/inbox?${search}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(await problem(response));
+      const result = UnifiedInboxListResponseSchema.parse(await response.json());
+      if (controller.signal.aborted) return;
+      setItems(result.data);
+      setNextCursor(result.page.nextCursor);
+    }).catch((cause: unknown) => {
+      if (!controller.signal.aborted) {
+        setItems([]);
+        setNextCursor(null);
+        setListError(cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.");
+      }
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+    return () => controller.abort();
+  }, [csrf, appliedFilters, contactId, listCursor, listRefresh]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]);
+    // Legacy ?history=1 links open this same inbox; only contactId narrows its list.
+    const contact = new URLSearchParams(window.location.search).get("contactId");
+    if (contact && /^[0-9a-f-]{36}$/iu.test(contact)) setContactId(contact);
     void (async () => {
-      setLoading(true);
       try {
         const sessionResponse = await fetch("/api/auth/session", {
           cache: "no-store",
           credentials: "same-origin",
+          signal,
         });
         if (sessionResponse.status === 401) {
           window.location.assign("/api/auth/login?returnTo=/inbox");
@@ -348,27 +396,31 @@ export default function InboxPage(): React.JSX.Element {
         const session = (await sessionResponse.json()) as SessionPayload;
         if (!session.authenticated || !session.csrfToken)
           throw new Error("La sesión no es válida.");
+        if (controller.signal.aborted) return;
         setCsrf(session.csrfToken);
         const [contactResponse, assigneeResponse, replyResponse] = await Promise.all([
-          fetch("/api/contacts", { cache: "no-store", credentials: "same-origin" }),
-          fetch("/api/tasks/assignees", { cache: "no-store", credentials: "same-origin" }),
+          fetch("/api/contacts", { cache: "no-store", credentials: "same-origin", signal }),
+          fetch("/api/tasks/assignees", { cache: "no-store", credentials: "same-origin", signal }),
           fetch("/api/conversations/quick-replies", {
             cache: "no-store",
             credentials: "same-origin",
+            signal,
           }),
         ]);
         for (const response of [contactResponse, assigneeResponse, replyResponse])
           if (!response.ok) throw new Error(await problem(response));
+        if (controller.signal.aborted) return;
         setContacts(((await contactResponse.json()) as List<Contact>).data);
         setAssignees(((await assigneeResponse.json()) as List<TaskAssignee>).data);
         setQuickReplies(((await replyResponse.json()) as List<QuickReply>).data);
-        await loadList();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.");
-      } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setError(cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.");
+          setLoading(false);
+        }
       }
     })();
+    return () => { controller.abort(); threadRequestRef.current?.abort(); };
     // La sesión y referencias se cargan una sola vez; los filtros se aplican explícitamente.
   }, []);
 
@@ -448,7 +500,8 @@ export default function InboxPage(): React.JSX.Element {
 
   async function createConversation(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setSaving(true);
     setError(null);
     try {
@@ -460,9 +513,12 @@ export default function InboxPage(): React.JSX.Element {
       });
       const created = (await response.json()) as { data: Conversation };
       setShowCreate(false);
-      event.currentTarget.reset();
+      formElement.reset();
       setView("ALL");
-      await loadList(created.data.id, "ALL");
+      setAppliedFilters("");
+      setListCursors([null]);
+      chooseConversation({ source: "QUANTUM", conversation: created.data });
+      setListRefresh((value) => value + 1);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible crear la conversación.");
     } finally {
@@ -482,7 +538,7 @@ export default function InboxPage(): React.JSX.Element {
         { version: selected.version },
       );
       setDraft("");
-      await loadList(selected.id);
+      await refreshConversation(selected.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible guardar el mensaje.");
     } finally {
@@ -608,7 +664,7 @@ export default function InboxPage(): React.JSX.Element {
       );
       setShowDocumentComposer(false);
       setPreparedDocument(null);
-      await loadList(selected.id);
+      await refreshConversation(selected.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible encolar el documento.");
     } finally {
@@ -625,7 +681,7 @@ export default function InboxPage(): React.JSX.Element {
         method: "PATCH",
         version: selected.version,
       });
-      await loadList(selected.id);
+      await refreshConversation(selected.id);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "No fue posible actualizar la conversación.",
@@ -639,18 +695,26 @@ export default function InboxPage(): React.JSX.Element {
     setView(nextView);
     setStatus("");
     setError(null);
-    void loadList(null, nextView, "").catch((cause: unknown) =>
-      setError(cause instanceof Error ? cause.message : "No fue posible filtrar la bandeja."),
-    );
+    const filters = new URLSearchParams(appliedFilters);
+    filters.delete("status");
+    filters.delete("unassigned");
+    if (nextView === "UNASSIGNED") filters.set("unassigned", "true");
+    else if (nextView !== "ALL") filters.set("status", nextView);
+    setAppliedFilters(filters.toString());
+    setListCursors([null]);
   }
 
   function applyFilters(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     setView("ALL");
     setError(null);
-    void loadList(null, "ALL").catch((cause: unknown) =>
-      setError(cause instanceof Error ? cause.message : "No fue posible filtrar la bandeja."),
-    );
+    const filters = new URLSearchParams({ contactState });
+    if (query.trim()) filters.set("query", query.trim());
+    if (channel) filters.set("channel", channel);
+    if (status) filters.set("status", status);
+    if (attention) filters.set("attentionMode", attention);
+    setAppliedFilters(filters.toString());
+    setListCursors([null]);
   }
 
   return (
@@ -663,22 +727,6 @@ export default function InboxPage(): React.JSX.Element {
             </div>
           </div>
           <div className={styles.topbarActions}>
-            <button
-              className={styles.outlineButton}
-              type="button"
-              aria-pressed={!showHistorical}
-              onClick={() => setShowHistorical(false)}
-            >
-              Bandeja activa
-            </button>
-            <button
-              className={styles.outlineButton}
-              type="button"
-              aria-pressed={showHistorical}
-              onClick={() => setShowHistorical(true)}
-            >
-              Historial GHL
-            </button>
             <span className={styles.liveSignal}>
               <span aria-hidden="true" /> Actualizado al abrir
             </span>
@@ -686,7 +734,6 @@ export default function InboxPage(): React.JSX.Element {
               className={styles.primaryButton}
               type="button"
               onClick={() => {
-                setShowHistorical(false);
                 setShowCreate(true);
               }}
             >
@@ -706,9 +753,6 @@ export default function InboxPage(): React.JSX.Element {
           </div>
         ) : null}
 
-        {showHistorical ? (
-          <HistoricalInbox />
-        ) : (
           <section className={styles.inboxFrame} aria-label="Bandeja de conversaciones">
             <aside className={styles.viewsPanel} aria-label="Vistas de bandeja">
               <div className={styles.viewsBrand}>
@@ -724,13 +768,6 @@ export default function InboxPage(): React.JSX.Element {
               <nav className={styles.viewNavigation} aria-label="Vistas rápidas">
                 <p>Vistas rápidas</p>
                 {(Object.keys(viewLabel) as InboxView[]).map((item) => {
-                  const count =
-                    item === "ALL"
-                      ? items.length
-                      : item === "UNASSIGNED"
-                        ? items.filter((conversation) => conversation.assigneeMemberId === null)
-                            .length
-                        : items.filter((conversation) => conversation.status === item).length;
                   return (
                     <button
                       key={item}
@@ -740,7 +777,6 @@ export default function InboxPage(): React.JSX.Element {
                       onClick={() => chooseView(item)}
                     >
                       <span>{viewLabel[item]}</span>
-                      <small>{count}</small>
                     </button>
                   );
                 })}
@@ -759,7 +795,7 @@ export default function InboxPage(): React.JSX.Element {
               <div className={styles.listHeader}>
                 <div>
                   <span className={styles.panelKicker}>{viewLabel[view]}</span>
-                  <h2>{items.length} conversaciones</h2>
+                  <h2>Conversaciones</h2>
                 </div>
                 <button
                   className={cx(styles.iconButton, showFilters && styles.iconButtonActive)}
@@ -777,8 +813,10 @@ export default function InboxPage(): React.JSX.Element {
                   <Icon name="search" size={17} />
                   <span className="sr-only">Buscar conversaciones</span>
                   <input
+                    type="search"
                     aria-label="Buscar conversaciones"
-                    placeholder="Buscar por asunto o último mensaje"
+                    placeholder="Buscar por asunto o mensaje"
+                    maxLength={160}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                   />
@@ -787,6 +825,34 @@ export default function InboxPage(): React.JSX.Element {
                   Buscar
                 </button>
               </form>
+
+              <label className={styles.contactFilter}>
+                Vínculo del contacto
+                <select
+                  aria-label="Vínculo del contacto"
+                  value={contactState}
+                  onChange={(event) => {
+                    setContactState(event.target.value);
+                    const filters = new URLSearchParams(appliedFilters);
+                    filters.set("contactState", event.target.value);
+                    setAppliedFilters(filters.toString());
+                    setListCursors([null]);
+                  }}
+                >
+                  <option value="ALL">Todas las conversaciones</option>
+                  <option value="LINKED">Con contacto</option>
+                  <option value="UNLINKED">Sin contacto vinculado</option>
+                </select>
+              </label>
+              {contactId ? (
+                <button className={styles.clearContactFilter} type="button" onClick={() => {
+                  setContactId(null);
+                  setListCursors([null]);
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("contactId");
+                  window.history.replaceState(null, "", url);
+                }}>Quitar filtro de contacto</button>
+              ) : null}
 
               {showFilters ? (
                 <form className={styles.filterDrawer} onSubmit={applyFilters}>
@@ -826,6 +892,12 @@ export default function InboxPage(): React.JSX.Element {
               ) : null}
 
               <div className={styles.conversationList} aria-live="polite">
+                {listError ? (
+                  <div className={styles.listState} role="alert">
+                    <p>{listError}</p>
+                    <button className={styles.outlineButton} type="button" onClick={() => setListRefresh((value) => value + 1)}>Reintentar</button>
+                  </div>
+                ) : null}
                 {loading ? (
                   <div className={styles.listState}>
                     <span className={styles.spinner} aria-hidden="true" />
@@ -833,7 +905,7 @@ export default function InboxPage(): React.JSX.Element {
                     <p>Consultando la bandeja real.</p>
                   </div>
                 ) : null}
-                {!loading && items.length === 0 ? (
+                {!loading && !listError && items.length === 0 ? (
                   <div className={styles.listState}>
                     <span className={styles.emptyIcon}>
                       <Icon name="inbox" size={22} />
@@ -843,53 +915,59 @@ export default function InboxPage(): React.JSX.Element {
                   </div>
                 ) : null}
                 {!loading
-                  ? items.map((item) => {
-                      const contact = contactById.get(item.contactId);
-                      const assignee = item.assigneeMemberId
-                        ? assigneeById.get(item.assigneeMemberId)
+                  ? items.map((entry) => {
+                      const item = entry.conversation;
+                      const native = entry.source === "QUANTUM" ? entry.conversation : null;
+                      const imported = entry.source === "GHL" ? entry.conversation : null;
+                      const key = `${entry.source}:${item.id}`;
+                      const contact = item.contactId ? contactById.get(item.contactId) : undefined;
+                      const title = imported ? historicalThreadTitle(imported, contact?.displayName) : contact?.displayName ?? item.subject ?? "Contacto vinculado";
+                      const assignee = native?.assigneeMemberId
+                        ? assigneeById.get(native.assigneeMemberId)
                         : undefined;
                       return (
                         <button
-                          key={item.id}
+                          key={key}
+                          data-source={entry.source}
+                          data-conversation-id={item.id}
+                          disabled={saving}
                           className={cx(
                             styles.conversationCard,
-                            item.id === selectedId && styles.conversationCardActive,
+                            key === selectedKey && styles.conversationCardActive,
                           )}
                           type="button"
-                          aria-current={item.id === selectedId ? "true" : undefined}
-                          onClick={() =>
-                            void loadThread(item.id).catch((cause: unknown) =>
-                              setError(
-                                cause instanceof Error
-                                  ? cause.message
-                                  : "No fue posible abrir la conversación.",
-                              ),
-                            )
-                          }
+                          aria-current={key === selectedKey ? "true" : undefined}
+                          onClick={() => chooseConversation(entry)}
                         >
                           <span className={styles.avatar}>
-                            {initials(contact?.displayName ?? "Contacto")}
+                            {initials(contact?.displayName ?? (item.contactId ? "Contacto" : "Sin vínculo"))}
                           </span>
                           <span className={styles.cardBody}>
                             <span className={styles.cardLine}>
-                              <strong>{contact?.displayName ?? "Contacto"}</strong>
-                              <time>{when(item.lastMessageAt)}</time>
+                              <strong>{title}</strong>
+                              <time>{when(item.lastMessageAt ?? imported?.sourceCreatedAt ?? null)}</time>
                             </span>
                             <span className={styles.cardPreview}>
-                              {item.lastMessagePreview ?? item.subject ?? "Sin mensajes"}
+                              {native?.lastMessagePreview ?? item.subject ?? (imported ? `${imported.messageCount} mensajes` : "Sin mensajes")}
                             </span>
                             <span className={styles.cardMeta}>
-                              <span className={styles.channelTag}>
-                                {channelShortLabel[item.channel]}
-                              </span>
-                              <span className={cx(styles.statusTag, statusClass[item.status])}>
-                                {statusLabel[item.status]}
-                              </span>
+                              {native ? (
+                                <>
+                                  <span className={styles.channelTag}>{channelShortLabel[native.channel]}</span>
+                                  <span className={cx(styles.statusTag, statusClass[native.status])}>{statusLabel[native.status]}</span>
+                                </>
+                              ) : imported ? (
+                                <>
+                                  <HistoricalChannelBadge rawChannel={imported.rawChannel} />
+                                  <span className={styles.sourceTag}>GHL</span>
+                                  {!imported.contactId ? <span className={styles.sourceTag}>Sin contacto vinculado</span> : null}
+                                </>
+                              ) : null}
                               {assignee ? (
                                 <span className={styles.assigneeTag}>{assignee.displayName}</span>
                               ) : null}
-                              {item.unreadCount > 0 ? (
-                                <span className={styles.unreadBadge}>{item.unreadCount}</span>
+                              {native && native.unreadCount > 0 ? (
+                                <span className={styles.unreadBadge}>{native.unreadCount}</span>
                               ) : null}
                             </span>
                           </span>
@@ -898,10 +976,21 @@ export default function InboxPage(): React.JSX.Element {
                     })
                   : null}
               </div>
+              <nav className={styles.pagination} aria-label="Páginas de conversaciones">
+                <button className={styles.outlineButton} type="button" disabled={loading || listCursors.length < 2}
+                  onClick={() => setListCursors((values) => values.slice(0, -1))}>Anterior</button>
+                <span>Página {listCursors.length}</span>
+                <button className={styles.outlineButton} type="button" disabled={loading || !nextCursor}
+                  onClick={() => { if (nextCursor) setListCursors((values) => [...values, nextCursor]); }}>Siguiente</button>
+              </nav>
             </section>
 
             <section className={styles.threadPanel} aria-label="Conversación seleccionada">
-              {selected ? (
+              {historicalSelected ? (
+                <HistoricalThread key={`GHL:${historicalSelected.id}`} conversation={historicalSelected} contactName={selectedContact?.displayName} />
+              ) : threadBusy ? (
+                <div className={styles.threadEmpty} role="status">Cargando conversación…</div>
+              ) : selected ? (
                 <>
                   <header className={styles.threadHeader}>
                     <div className={styles.threadIdentity}>
@@ -1107,6 +1196,7 @@ export default function InboxPage(): React.JSX.Element {
                             <Icon name={mode === "note" ? "arrow" : "send"} size={16} />
                           </button>
                         </footer>
+                        {mode === "message" ? <p className={styles.composerNotice}>El envío externo está pendiente de conexión del canal. Los mensajes preparados quedan en cola.</p> : null}
                       </>
                     )}
                   </form>
@@ -1123,7 +1213,23 @@ export default function InboxPage(): React.JSX.Element {
             </section>
 
             <aside className={styles.contextPanel} aria-label="Contexto de conversación">
-              {selected ? (
+              {historicalSelected ? (
+                <>
+                  <header className={styles.contextHeader}><span className={styles.panelKicker}>Contexto</span></header>
+                  <SourceParticipantsCard participants={historicalSelected.sourceParticipants} kind="conversación" />
+                  <ConversationContactCard
+                    contact={selectedContact}
+                    linked={Boolean(historicalSelected.contactId)}
+                    loading={Boolean(historicalSelected.contactId) && relatedContacts.loading}
+                    error={historicalSelected.contactId ? relatedContacts.error : null}
+                  />
+                  <section className={styles.contextFacts}>
+                    <div><span>Origen</span><strong>GHL · Solo lectura</strong></div>
+                    <div><span>Estado original</span><strong>{historicalSelected.rawStatus || "No informado"}</strong></div>
+                    <div><span>Última actividad</span><strong>{when(historicalSelected.lastMessageAt)}</strong></div>
+                  </section>
+                </>
+              ) : selected ? (
                 <>
                   <header className={styles.contextHeader}>
                     <span className={styles.panelKicker}>Contexto</span>
@@ -1263,7 +1369,6 @@ export default function InboxPage(): React.JSX.Element {
               )}
             </aside>
           </section>
-        )}
       </section>
 
       {showCreate ? (

@@ -1,5 +1,6 @@
 export * from "./settings/v1/custom-field.js";
 export * from "./conversations/v1/historical-conversation.js";
+export * from "./conversations/v1/unified-inbox.js";
 export { ContactCustomFieldSchema, type ContactCustomFieldValue } from "./contacts/v1/contact.js";
 export {
   CompleteFileUploadSchema,

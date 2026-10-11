@@ -23,6 +23,7 @@ import {
   handleCrmOpportunityList,
   handleCrmOpportunityUpdate,
   handleCrmSession,
+  handleCrmUnifiedInboxList,
 } from "./crm-auth-http.js";
 
 const config: CrmWebAuthConfig = {
@@ -76,6 +77,72 @@ function runtime(crmApiFetch: typeof fetch = vi.fn(fetch)): CrmAuthRuntime {
 }
 
 describe("CRM web authentication HTTP boundary", () => {
+  it("forwards one authenticated mixed inbox with filters and opaque pagination", async () => {
+    const contactId = "019b0000-0000-7000-8000-000000000002";
+    const id = "019b0000-0000-7000-8000-000000000001";
+    const timestamp = "2026-10-11T10:00:00.000Z";
+    const payload = {
+      data: [
+        { source: "QUANTUM", conversation: {
+          id, contactId, channel: "WHATSAPP", externalThreadId: null,
+          assigneeMemberId: null, status: "OPEN", attentionMode: "HUMAN",
+          subject: "Solicitud actual", lastMessagePreview: "Consulta sintética",
+          lastMessageAt: timestamp, unreadCount: 1, version: "1",
+          createdAt: timestamp, updatedAt: timestamp,
+        } },
+        { source: "GHL", conversation: {
+          id, source: "GHL", sourceExternalId: "synthetic-history-1", sourceThreadPresent: true,
+          contactId, assigneeMemberId: null, rawChannel: "TYPE_WHATSAPP", rawStatus: null,
+          subject: "Consulta anterior", sourceCreatedAt: timestamp, sourceUpdatedAt: null,
+          messageCount: 2, lastMessageAt: timestamp, importedAt: timestamp,
+        } },
+      ],
+      page: { nextCursor: "opaque_next" },
+    };
+    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => Response.json(payload));
+    const response = await handleCrmUnifiedInboxList(
+      new Request(`https://crm.example.test/api/conversations/inbox?limit=30&contactId=${contactId}&query=consulta&contactState=ALL&cursor=opaque_previous`, {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }), runtime(upstream as typeof fetch),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(payload);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    const endpoint = new URL(String(upstream.mock.calls[0]?.[0]));
+    expect(endpoint.pathname).toBe("/api/v1/conversations/inbox");
+    expect(Object.fromEntries(endpoint.searchParams)).toEqual({
+      limit: "30", contactId, query: "consulta", contactState: "ALL", cursor: "opaque_previous",
+    });
+    expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("authorization")).toBe("Bearer server-only-access-token");
+  });
+
+  it("rejects foreign selectors and oversized inbox pages before calling the API", async () => {
+    const upstream = vi.fn(fetch);
+    for (const query of ["tenantId=other", "limit=51", "contactState=UNKNOWN"]) {
+      const response = await handleCrmUnifiedInboxList(
+        new Request(`https://crm.example.test/api/conversations/inbox?${query}`, {
+          headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+        }), runtime(upstream),
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("requires the web session and preserves inbox access denial", async () => {
+    const upstream = vi.fn(async () => Response.json({ internal: "not exposed" }, { status: 403 }));
+    const unauthenticated = await handleCrmUnifiedInboxList(
+      new Request("https://crm.example.test/api/conversations/inbox"), runtime(upstream as typeof fetch),
+    );
+    expect(unauthenticated.status).toBe(401);
+    expect(upstream).not.toHaveBeenCalled();
+    const forbidden = await handleCrmUnifiedInboxList(new Request("https://crm.example.test/api/conversations/inbox", {
+      headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+    }), runtime(upstream as typeof fetch));
+    expect(forbidden.status).toBe(403);
+    expect(await forbidden.text()).not.toContain("not exposed");
+  });
+
   it("reads the field catalog through the authenticated API and rejects arbitrary query selectors", async () => {
     const payload = {
       data: [

@@ -152,3 +152,4 @@ export class ConversationVersionConflictError extends Error {
 }
 
 export { ConversationService } from "./conversation-service.js";
+export * from "./unified-inbox-service.js";

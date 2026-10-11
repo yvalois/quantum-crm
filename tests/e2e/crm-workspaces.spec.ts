@@ -256,6 +256,7 @@ const historicalMessage: HistoricalConversationMessage = {
 
 async function workspaceFixture(page: Page, media?: SyntheticMedia) {
   const queries: URLSearchParams[] = [];
+  const inboxQueries: URLSearchParams[] = [];
   const writes: string[] = [];
   const unexpected: string[] = [];
   const authorizations = new Map<string, number>();
@@ -381,6 +382,34 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
         });
         return;
       }
+      if (path === "/api/conversations/inbox") {
+        inboxQueries.push(url.searchParams);
+        const secondPage = url.searchParams.get("cursor") === "synthetic-inbox-next";
+        const searching = Boolean(url.searchParams.get("query"));
+        await respond({
+          data: url.searchParams.get("contactState") === "UNLINKED"
+            ? [{ source: "GHL", conversation: {
+                ...historical,
+                id: "019b0000-0000-7000-8000-000000000009",
+                contactId: null,
+                sourceExternalId: "orphan-123456",
+                subject: "Conversación histórica sin ficha actual en GHL",
+                sourceThreadPresent: false,
+              } }]
+            : secondPage
+              ? [{ source: "GHL", conversation: {
+                  ...visibleThread,
+                  id: "019b0000-0000-7000-8000-000000000008",
+                  contactId: contacts[2].id,
+                  subject: "Página siguiente sintética",
+                } }]
+              : searching
+                ? [{ source: "GHL", conversation: visibleThread }]
+                : [{ source: "QUANTUM", conversation }, { source: "GHL", conversation: visibleThread }],
+          page: { nextCursor: secondPage || searching || url.searchParams.get("contactState") === "UNLINKED" ? null : "synthetic-inbox-next" },
+        });
+        return;
+      }
       if (path === "/api/conversations/historical") {
         await respond({
           data:
@@ -472,7 +501,7 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
     unexpected.push(`${method} ${path}`);
     await route.fulfill({ status: 500, json: { title: "Unexpected synthetic API request" } });
   });
-  return { queries, writes, unexpected, authorizations, mediaRequests };
+  return { queries, inboxQueries, writes, unexpected, authorizations, mediaRequests };
 }
 
 async function expectContainedViewport(page: Page): Promise<void> {
@@ -527,11 +556,14 @@ test("active inbox preserves thread, draft composer and contact context at both 
 }, testInfo) => {
   const fixture = await workspaceFixture(page);
   await page.goto("/inbox");
-  await page.getByRole("button", { name: "Bandeja activa", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Bandeja activa", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Historial GHL", exact: true })).toHaveCount(0);
   const list = page.getByRole("region", { name: "Lista de conversaciones", exact: true });
   const thread = page.getByRole("region", { name: "Conversación seleccionada", exact: true });
   const context = page.getByRole("complementary", { name: "Contexto de conversación" });
-  await expect(list.getByRole("button", { name: /Andrea Sintética/u })).toBeVisible();
+  await expect(list.locator('[data-source="QUANTUM"]')).toContainText("Andrea Sintética");
+  await expect(list.locator('[data-source="GHL"]')).toContainText("Andrea Sintética");
+  await list.locator('[data-source="QUANTUM"]').click();
   await expect(thread.getByText(message.body, { exact: true })).toBeVisible();
   await expect(context.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
   await expect(context.getByText("Sedán sintético", { exact: true })).toBeVisible();
@@ -551,13 +583,43 @@ test("active inbox preserves thread, draft composer and contact context at both 
   expect(fixture.unexpected).toEqual([]);
 });
 
+test("one inbox preserves mixed pagination, shared search, selection and legacy contact links", async ({ page }) => {
+  const fixture = await workspaceFixture(page);
+  await page.goto(`/inbox?history=1&contactId=${primaryContact.id}`);
+  const list = page.getByRole("region", { name: "Lista de conversaciones", exact: true });
+  await expect(list.locator("[data-source]")).toHaveCount(2);
+  expect(fixture.inboxQueries[0]?.get("contactId")).toBe(primaryContact.id);
+  expect(fixture.inboxQueries[0]?.get("contactState")).not.toBe("LINKED");
+  await list.locator('[data-source="QUANTUM"]').click();
+  await expect(page.getByText(message.body, { exact: true }).last()).toBeVisible();
+  await list.locator('[data-source="GHL"]').click();
+  await expect(page.getByRole("region", { name: "Mensajes históricos", exact: true })
+    .getByText(historicalMessage.body, { exact: true })).toBeVisible();
+  await list.locator('[data-source="QUANTUM"]').click();
+  await expect(page.getByRole("region", { name: "Conversación seleccionada", exact: true })
+    .getByText(historicalMessage.body, { exact: true })).toHaveCount(0);
+  const pagination = page.getByRole("navigation", { name: "Páginas de conversaciones" });
+  await pagination.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await expect(list.locator("[data-source]")).toHaveCount(1);
+  await expect(list.locator('[data-source="GHL"]')).toContainText("Última Sintética");
+  expect(fixture.inboxQueries.at(-1)?.get("cursor")).toBe("synthetic-inbox-next");
+  const search = page.getByRole("searchbox", { name: "Buscar conversaciones" });
+  await search.fill("Texto original");
+  await search.press("Enter");
+  await expect.poll(() => fixture.inboxQueries.at(-1)?.get("query")).toBe("Texto original");
+  expect(fixture.inboxQueries.at(-1)?.has("cursor")).toBe(false);
+  await expect(list.locator('[data-source="GHL"]')).toContainText("Andrea Sintética");
+  await expect(list.locator('[data-source="QUANTUM"]')).toHaveCount(0);
+  expect(fixture.writes).toEqual([]);
+  expect(fixture.unexpected).toEqual([]);
+});
+
 test("imported history remains read only and downloads only the verified synthetic attachment", async ({
   page,
 }, testInfo) => {
   const fixture = await workspaceFixture(page);
   await page.goto("/inbox");
-  await page.getByRole("button", { name: "Historial GHL", exact: true }).click();
-  await page.getByRole("button", { name: /Andrea Sintética/u }).click();
+  await page.locator(`[data-source="GHL"][data-conversation-id="${historicalId}"]`).click();
   const card = page.getByRole("region", { name: "Ficha del cliente" });
   await expect(card.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
   await expect(card.getByText("Vehículo preferido", { exact: true })).toBeVisible();
@@ -620,8 +682,7 @@ test("historical verified images, audio and video render with fresh access and r
   const media = await syntheticMedia(page);
   const fixture = await workspaceFixture(page, media);
   await page.goto("/inbox");
-  await page.getByRole("button", { name: "Historial GHL", exact: true }).click();
-  const threadButton = page.getByRole("button", { name: /Andrea Sintética/u });
+  const threadButton = page.locator(`[data-source="GHL"][data-conversation-id="${historicalId}"]`);
   await expect(threadButton.getByText("WhatsApp", { exact: true })).toBeVisible();
   await threadButton.click();
   const history = page.getByRole("region", { name: "Mensajes históricos", exact: true });
