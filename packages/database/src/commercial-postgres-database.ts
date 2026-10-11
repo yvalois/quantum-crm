@@ -1827,6 +1827,32 @@ export function createCommercialPostgresRepositories(
         return fail(error);
       }
     },
+    findOpportunityCommandResult: async (input) => {
+      try {
+        const access = visibility(input.actor, 5, ["opportunity.owner_member_id"]);
+        const result = (await pool.query(
+          `SELECT command.payload_hash, command.response
+             FROM sales.command_idempotency AS command
+            WHERE command.actor_member_id = $1::uuid AND command.command = $2
+              AND command.idempotency_key = $3
+              AND EXISTS (SELECT 1 FROM sales.opportunities AS opportunity
+                           WHERE opportunity.id = $4::uuid AND ${access.sql})`,
+          [input.actor.memberId, input.command, input.idempotencyKey, input.id, ...access.params],
+        )) as {
+          readonly rows: readonly {
+            readonly payload_hash: string;
+            readonly response: OpportunityRow;
+          }[];
+        };
+        const previous = result.rows[0];
+        if (!previous) return null;
+        if (previous.payload_hash !== input.payloadHash || previous.response.id !== input.id)
+          throw new CommercialIdempotencyConflictError();
+        return opportunityFromRow(previous.response);
+      } catch (error) {
+        return fail(error);
+      }
+    },
     listOpportunityHistory: async (actor, id) => {
       try {
         const access = visibility(actor, 2, ["opportunity.owner_member_id"]);
@@ -1926,9 +1952,20 @@ export function createCommercialPostgresRepositories(
       let client: PoolClient | undefined;
       try {
         const access = visibility(input.actor, 5, ["opportunity.owner_member_id"]);
-        const readAccess = visibility(input.actor, 3, ["opportunity.owner_member_id"]);
+        const readAccess = visibility(input.actor, 2, ["opportunity.owner_member_id"]);
         client = await pool.connect();
         await client.query("BEGIN");
+        // Lock the authorized resource before checking replay so concurrent retries
+        // observe the first committed result even when the command row did not exist.
+        const beforeResult = await client.query<OpportunityRow>(
+          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${readAccess.sql} FOR UPDATE`,
+          [input.id, ...readAccess.params],
+        );
+        const before = beforeResult.rows[0];
+        if (!before) {
+          await client.query("COMMIT");
+          return null;
+        }
         const replay = await client.query<{
           readonly payload_hash: string;
           readonly response: OpportunityRow;
@@ -1938,17 +1975,12 @@ export function createCommercialPostgresRepositories(
         );
         const previous = replay.rows[0];
         if (previous) {
-          if (previous.payload_hash !== input.payloadHash)
+          if (previous.payload_hash !== input.payloadHash || previous.response.id !== input.id)
             throw new CommercialIdempotencyConflictError();
           await client.query("COMMIT");
           return opportunityFromRow(previous.response);
         }
-        const beforeResult = await client.query<OpportunityRow>(
-          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND opportunity.version = $2::bigint AND ${readAccess.sql} FOR UPDATE`,
-          [input.id, input.expectedVersion.toString(), ...readAccess.params],
-        );
-        const before = beforeResult.rows[0];
-        if (!before) {
+        if (BigInt(before.version) !== input.expectedVersion) {
           await client.query("COMMIT");
           return null;
         }
@@ -1992,9 +2024,18 @@ export function createCommercialPostgresRepositories(
     updateOpportunity: async (input) => {
       let client: PoolClient | undefined;
       try {
-        const access = visibility(input.actor, 3, ["opportunity.owner_member_id"]);
+        const access = visibility(input.actor, 2, ["opportunity.owner_member_id"]);
         client = await pool.connect();
         await client.query("BEGIN");
+        const beforeResult = await client.query<OpportunityRow>(
+          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql} FOR UPDATE`,
+          [input.opportunity.id, ...access.params],
+        );
+        const before = beforeResult.rows[0];
+        if (!before) {
+          await client.query("COMMIT");
+          return null;
+        }
         const replay = await client.query<{
           readonly payload_hash: string;
           readonly response: OpportunityRow;
@@ -2004,17 +2045,15 @@ export function createCommercialPostgresRepositories(
         );
         const previous = replay.rows[0];
         if (previous) {
-          if (previous.payload_hash !== input.payloadHash)
+          if (
+            previous.payload_hash !== input.payloadHash ||
+            previous.response.id !== input.opportunity.id
+          )
             throw new CommercialIdempotencyConflictError();
           await client.query("COMMIT");
           return opportunityFromRow(previous.response);
         }
-        const beforeResult = await client.query<OpportunityRow>(
-          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND opportunity.version = $2::bigint AND ${access.sql} FOR UPDATE`,
-          [input.opportunity.id, input.expectedVersion.toString(), ...access.params],
-        );
-        const before = beforeResult.rows[0];
-        if (!before) {
+        if (BigInt(before.version) !== input.expectedVersion) {
           await client.query("COMMIT");
           return null;
         }

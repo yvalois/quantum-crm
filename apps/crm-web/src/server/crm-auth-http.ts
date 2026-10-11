@@ -699,6 +699,38 @@ export async function handleCrmOpportunityList(
     return crmProblem(503, "CRM service temporarily unavailable");
   }
 }
+export async function handleCrmOpportunityDetail(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  opportunityId: string,
+): Promise<Response> {
+  if (!ContactIdSchema.safeParse(opportunityId).success) return crmProblem(400, "Invalid request");
+  if (new URL(request.url).search) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/sales/opportunities/${opportunityId}`, runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    const response = await commercialResponse(upstream, OpportunityResponseSchema);
+    const etag = upstream.headers.get("etag");
+    if (response.ok && etag && /^"[1-9][0-9]*"$/u.test(etag))
+      response.headers.set("etag", etag);
+    return response;
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
 export async function handleCrmOpportunityHistory(
   request: Request,
   runtime: CrmAuthRuntime,

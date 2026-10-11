@@ -18,6 +18,7 @@ import {
   handleCrmAutomationActivate,
   handleCrmAutomationCreate,
   handleCrmFileUploadTransport,
+  handleCrmOpportunityDetail,
   handleCrmOpportunityList,
   handleCrmOpportunityUpdate,
   handleCrmSession,
@@ -513,6 +514,82 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(upstream.mock.calls[0]?.[0].toString()).toBe(
       `http://api:3001/api/v1/sales/opportunities?pipelineId=${pipelineId}&status=OPEN&label=VIP`,
     );
+  });
+
+  it("loads a fresh opportunity detail with an opaque version and server-only credentials", async () => {
+    const opportunityId = "01995f7e-7b52-7000-8000-000000000121";
+    const opportunity = {
+      id: opportunityId,
+      ownerMemberId: "01995f7e-7b52-7000-8000-000000000102",
+      contactId: "01995f7e-7b52-7000-8000-000000000122",
+      pipelineId: "01995f7e-7b52-7000-8000-000000000123",
+      stageId: "01995f7e-7b52-7000-8000-000000000124",
+      title: "Synthetic opportunity",
+      amountMinor: "250000000",
+      currency: "COP",
+      status: "OPEN",
+      closeReason: null,
+      closedAt: null,
+      version: "9007199254740993",
+      createdAt: "2026-10-11T15:00:00.000Z",
+      updatedAt: "2026-10-11T16:00:00.000Z",
+    };
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ data: opportunity }, { headers: { etag: '"9007199254740993"' } }),
+    );
+    const response = await handleCrmOpportunityDetail(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}`, {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+      opportunityId,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: opportunity });
+    expect(response.headers.get("etag")).toBe('"9007199254740993"');
+    const [target, init] = upstream.mock.calls[0]!;
+    expect(target.toString()).toBe(`http://api:3001/api/v1/sales/opportunities/${opportunityId}`);
+    expect(init?.cache).toBe("no-store");
+    expect(new Headers(init?.headers).get("authorization")).toBe(
+      "Bearer server-only-access-token",
+    );
+  });
+
+  it.each([403, 404])("preserves denied opportunity detail responses (%s)", async (status) => {
+    const opportunityId = "01995f7e-7b52-7000-8000-000000000121";
+    const upstream = vi.fn(async () => new Response(null, { status }));
+    const response = await handleCrmOpportunityDetail(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}`, {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+      opportunityId,
+    );
+    expect(response.status).toBe(status);
+  });
+
+  it("rejects malformed IDs and untrusted detail query parameters before calling upstream", async () => {
+    const upstream = vi.fn(fetch);
+    const invalidId = await handleCrmOpportunityDetail(
+      new Request("https://crm.example.test/api/opportunities/invalid"),
+      runtime(upstream),
+      "invalid",
+    );
+    const opportunityId = "01995f7e-7b52-7000-8000-000000000121";
+    const invalidQuery = await handleCrmOpportunityDetail(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}?tenantId=other`),
+      runtime(upstream),
+      opportunityId,
+    );
+    const missingSession = await handleCrmOpportunityDetail(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}`),
+      runtime(upstream),
+      opportunityId,
+    );
+    expect(invalidId.status).toBe(400);
+    expect(invalidQuery.status).toBe(400);
+    expect(missingSession.status).toBe(401);
+    expect(upstream).not.toHaveBeenCalled();
   });
 
   it("updates an opportunity only through a same-origin versioned request", async () => {

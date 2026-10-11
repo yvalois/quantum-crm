@@ -85,6 +85,13 @@ export interface SalesRepository {
     filters?: OpportunityListFilters,
   ) => Promise<readonly Opportunity[]>;
   readonly findOpportunity: (actor: CommercialActor, id: string) => Promise<Opportunity | null>;
+  readonly findOpportunityCommandResult: (input: {
+    readonly actor: CommercialActor;
+    readonly id: string;
+    readonly command: "sales.opportunity.move" | "sales.opportunity.update";
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) => Promise<Opportunity | null>;
   readonly listOpportunityHistory: (
     actor: CommercialActor,
     id: string,

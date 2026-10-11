@@ -124,6 +124,16 @@ export class SalesService {
     allow(input.permissions, "crm:sales:read");
     return this.repository.listOpportunityHistory(input.actor, input.opportunityId);
   }
+  public async getOpportunity(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly opportunityId: string;
+  }) {
+    allow(input.permissions, "crm:sales:read");
+    const opportunity = await this.repository.findOpportunity(input.actor, input.opportunityId);
+    if (!opportunity) throw new SalesNotFoundError();
+    return opportunity;
+  }
   public createOpportunity(input: {
     readonly actor: CommercialActor;
     readonly permissions: readonly IamPermission[];
@@ -191,7 +201,17 @@ export class SalesService {
     allow(input.permissions, "crm:sales:update");
     const current = await this.repository.findOpportunity(input.actor, input.opportunityId);
     if (!current) throw new SalesNotFoundError();
-    if (current.version !== input.expectedVersion) throw new SalesVersionConflictError();
+    if (current.version !== input.expectedVersion) {
+      const replay = await this.repository.findOpportunityCommandResult({
+        actor: input.actor,
+        id: input.opportunityId,
+        command: "sales.opportunity.update",
+        idempotencyKey: input.idempotencyKey,
+        payloadHash: input.payloadHash,
+      });
+      if (replay) return replay;
+      throw new SalesVersionConflictError();
+    }
     const ownerMemberId = input.ownerMemberId ?? current.ownerMemberId;
     if (ownerMemberId !== current.ownerMemberId && !(await this.members.isActive(ownerMemberId)))
       throw new SalesValidationError();
@@ -247,7 +267,17 @@ export class SalesService {
     allow(input.permissions, "crm:sales:move");
     const opportunity = await this.repository.findOpportunity(input.actor, input.opportunityId);
     if (!opportunity) throw new SalesNotFoundError();
-    if (opportunity.version !== input.expectedVersion) throw new SalesVersionConflictError();
+    if (opportunity.version !== input.expectedVersion) {
+      const replay = await this.repository.findOpportunityCommandResult({
+        actor: input.actor,
+        id: input.opportunityId,
+        command: "sales.opportunity.move",
+        idempotencyKey: input.idempotencyKey,
+        payloadHash: input.payloadHash,
+      });
+      if (replay) return replay;
+      throw new SalesVersionConflictError();
+    }
     const stage = await this.repository.findStage(input.stageId);
     if (!stage) throw new SalesNotFoundError();
     validateOpportunityMove(opportunity, stage);
