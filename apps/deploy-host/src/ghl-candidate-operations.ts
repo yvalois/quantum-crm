@@ -13,6 +13,7 @@ import {
 } from "./ghl-import-runner.js";
 import {
   tuneAttachmentStorageResources,
+  tuneAttachmentStorageTemporary,
   withAttachmentStorageTuningLock,
 } from "./ghl-attachment-storage-tuning.js";
 import { HostAdapterError, type HostAdapterGhlImportRequest } from "./host-adapter.js";
@@ -35,6 +36,7 @@ export interface ContainerInspection {
   readonly Id: string;
   readonly Name: string;
   readonly Image: string;
+  readonly Mounts?: readonly { readonly Type: string; readonly Name?: string; readonly Destination: string; readonly RW: boolean }[];
   readonly Config: {
     readonly Image: string;
     readonly Env: readonly string[];
@@ -318,10 +320,13 @@ export async function runRegisteredGhlImport(
   attempt: number,
 ) {
   const typedRequest = await registeredGhlRequest(tenantId, exportId, mode, attempt);
-  return createTenantGhlImportRunner(await hostOptions()).run(typedRequest);
+  const runner = createTenantGhlImportRunner(await hostOptions());
+  return mode === "ATTACHMENTS"
+    ? withAttachmentStorageTuningLock(() => runner.run(typedRequest))
+    : runner.run(typedRequest);
 }
 
-export async function tuneRegisteredGhlAttachmentStorage(tenantId: string, exportId: string) {
+export async function tuneRegisteredGhlAttachmentStorage(tenantId: string, exportId: string, temporary = false) {
   const request = await registeredGhlRequest(tenantId, exportId, "ATTACHMENTS", 1);
   const registryPath = join(
     configurationRoot,
@@ -334,7 +339,7 @@ export async function tuneRegisteredGhlAttachmentStorage(tenantId: string, expor
   const options = await hostOptions();
   if (options.platformStorageNetwork !== "qcrm-staging-platform-storage")
     throw new HostAdapterError("IDENTITY_MISMATCH");
-  return withAttachmentStorageTuningLock(() => tuneAttachmentStorageResources(dockerApi));
+  return withAttachmentStorageTuningLock(() => temporary ? tuneAttachmentStorageTemporary(dockerApi) : tuneAttachmentStorageResources(dockerApi));
 }
 
 export function candidateContainerBody(previous: ContainerInspection, imageId: string) {

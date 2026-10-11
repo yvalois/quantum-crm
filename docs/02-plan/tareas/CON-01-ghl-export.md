@@ -62,15 +62,22 @@ Con ese registro aprobado, el mismo CLI de deploy-host ejecuta las operaciones r
 node apps/deploy-host/dist/ghl-candidate-cli.js MIGRATE <tenantId> <exportId>
 node apps/deploy-host/dist/ghl-candidate-cli.js APPLY <tenantId> <exportId>
 node apps/deploy-host/dist/ghl-candidate-cli.js VERIFY <tenantId> <exportId>
+node apps/deploy-host/dist/ghl-candidate-cli.js ATTACHMENTS <tenantId> <exportId> [attempt]
 ```
 
 Repetir el comando observa el trabajo existente y devuelve un recibo agregado; no lo vuelve a ejecutar. Tras una interrupcion confirmada se puede indicar un nuevo numero de intento como cuarto argumento: las correspondencias durables impiden duplicados y conservan ediciones locales. `VERIFY` concilia registros, relaciones, checkpoints y ausencia de mensajes en outbox. El proceso nunca contacta proveedores de mensajeria.
 
 Los contactos y oportunidades quedan en sus modulos habituales; los campos personalizados aparecen en la ficha del contacto. `/inbox` ofrece el historial GHL paginado, separado de los mensajes activos para impedir reenvios accidentales. Los adjuntos no disponibles se indican expresamente.
 
+`ATTACHMENTS` autentica el artefacto original y carga los archivos pendientes mediante Files/ClamAV, sin repetir `APPLY`. Reutiliza asociaciones y archivos ya disponibles. Un recibo con fallos o rechazos termina con salida 2 y conserva sus causas; no declara una transferencia completa. La descarga de cada archivo disponible se autoriza desde el historial del hilo. No necesita reenviar la credencial de GHL a los servidores de adjuntos.
+
 ## Validacion
 
-Adjuntos, candidato funcional `900fcbe3`: nueve proyectos afectados aprobaron typecheck; 116 pruebas enfocadas y cuatro de arquitectura aprobadas en el VPS. Se reutiliza evidencia por contenido entre commits de formato y pruebas. Las seis pruebas PostgreSQL reales cubren dos perfiles, permisos por hilo, referencias inmutables, reintento, auditoria y exclusion de cargas concurrentes; detectaron y corrigieron el alias SQL del enlace idempotente de Files. La migracion aditiva fue aplicada una sola vez en ambos perfiles sinteticos del laboratorio. Transferencia real y despliegue pendientes de los checks del candidato; no se presentan como realizados. El primer push aun no genero ejecucion de Actions pese a estar el workflow activo; se registra esta evidencia antes de reintentar la sincronizacion documental, sin repetir comprobaciones aprobadas.
+Adjuntos, candidato funcional `900fcbe3`: nueve proyectos afectados aprobaron typecheck; 116 pruebas enfocadas y cuatro de arquitectura aprobadas en el VPS. Se reutiliza evidencia por contenido entre commits de formato y pruebas. Las seis pruebas PostgreSQL reales cubren dos perfiles, permisos por hilo, referencias inmutables, reintento, auditoria y exclusion de cargas concurrentes; detectaron y corrigieron el alias SQL del enlace idempotente de Files. La migracion aditiva fue aplicada una sola vez en ambos perfiles sinteticos del laboratorio y despues en el perfil autorizado. Los siete checks de CI aprobaron en `c2431339`; API, CRM, worker y migrador se construyeron una sola vez desde `900fcbe3` y se desplegaron por digest, preservando los contenedores anteriores.
+
+La transferencia real concilia todas las referencias: cada archivo disponible tiene scan limpio, checksum y version verificados, propietario correcto y una referencia exacta al mensaje. No hay asociaciones ausentes, disponibles sin bytes verificados ni outbox historico. Una descarga real mediante el servicio Files desplegado y permisos de administrador activo devolvio HTTPS 200, longitud, checksum y version correctos; no se creo una sesion ni se simulo una revision visual autenticada.
+
+La carga evidencio reinicios OOM del almacenamiento limitado a 768 MiB. El helper tipado `5d0b88cd` amplio solamente su memoria a 3 GiB y swap a 6 GiB, sin reinicio ni cambio de imagen/volumen/red. Persistio el override operativo sin modificar checkouts historicos. En VPS aprobaron 39 pruebas enfocadas, lint, formato, typecheck y build; los siete checks de CI aprobaron. Tras el ajuste no se observaron nuevos OOM y el reintento recupero los archivos afectados. Queda una transferencia soportada bloqueada por el tmpfs receptor de 64 MiB; su ampliacion controlada esta EN_CURSO.
 
 VPS autorizado, Node 24.21.0, 2026-10-11:
 
@@ -88,7 +95,7 @@ VPS autorizado, Node 24.21.0, 2026-10-11:
 
 ## Pendientes de estabilizacion posterior
 
-- Adjuntos: se conservan referencias; copiar bytes requiere Files/ClamAV. No se publican URLs ni se marcan archivos AVAILABLE.
+- Adjuntos con origen inaccesible o formato no admitido permanecen identificados y no disponibles: URLs externas 403/404, documentos Office fuera de la allowlist actual y fuentes cuya extension PNG contradice su Content-Type JPEG. No se publican sus URLs ni se omiten las validaciones. La transferencia disponible si conserva bytes propios verificados mediante Files/ClamAV.
 - GHL excluye Group Chat y SMS Review Request del exportador; su API no ofrece snapshot transaccional del conjunto.
 - Este artefacto en el VPS no sustituye un respaldo cifrado externo ni una restauracion verificada. El propietario difirio ese requisito exclusivamente para esta carga en desarrollo; produccion sigue bloqueada por configuracion.
 - Paginas historicas excepcionalmente grandes: evaluar presupuesto por bytes antes de migrar otras fuentes; la fuente actual fue medida y cabe en el limite del BFF sin recortar mensajes.

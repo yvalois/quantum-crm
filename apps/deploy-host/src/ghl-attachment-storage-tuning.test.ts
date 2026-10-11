@@ -4,6 +4,8 @@ import {
   attachmentStorageCompose,
   attachmentStorageOverride,
   tuneAttachmentStorageResources,
+  attachmentStorageTempOverride,
+  tuneAttachmentStorageTemporary,
 } from "./ghl-attachment-storage-tuning.js";
 import type { CandidateDockerApi, ContainerInspection } from "./ghl-candidate-operations.js";
 import { HostAdapterError } from "./host-adapter.js";
@@ -209,5 +211,135 @@ describe("GHL attachment storage memory tuning", () => {
     );
     expect(files.replace).toHaveBeenCalledOnce();
     expect(api.mock.calls.filter(([method]) => method === "POST")).toHaveLength(1);
+  });
+});
+
+describe("GHL attachment storage temporary upload capacity", () => {
+  const original = {
+    ...before,
+    HostConfig: { ...before.HostConfig, Memory: memory, MemorySwap: memory * 2, Tmpfs: { "/tmp": "rw,noexec,nosuid,size=64m" } },
+    Mounts: [{ Type: "volume", Name: "qcrm-staging-platform-storage", Destination: "/data", RW: true }],
+    State: { ...before.State, Health: { Status: "healthy" } },
+  };
+  const newId = "d".repeat(64);
+  function temporaryHarness(failStart = false, active: readonly unknown[] = [], container = original) {
+    let predecessor: ContainerInspection = structuredClone(container);
+    let candidate: ContainerInspection | undefined;
+    const h = harness(container, network, initialCompose, attachmentStorageOverride(initialOverride));
+    h.api.mockImplementation(async (method, path, body) => {
+      if (path.startsWith("/containers/json?all=false")) return active;
+      if (path.startsWith("/containers/json?all=true")) {
+        const filter = JSON.parse(decodeURIComponent(path.split("filters=")[1]!)) as { id?: string[]; name?: string[] };
+        return [predecessor, ...(candidate ? [candidate] : [])].filter((entry) => filter.id ? filter.id.includes(entry.Id) : entry.Name === original.Name).map((entry) => ({ Id: entry.Id, Names: [entry.Name] }));
+      }
+      if (path === `/networks/${networkName}`) return network;
+      if (method === "GET") return path.includes(before.Id) ? predecessor : (candidate ?? predecessor);
+      if (path.startsWith("/containers/create?")) {
+        const input = body as { HostConfig: ContainerInspection["HostConfig"]; Labels: Record<string, string> };
+        candidate = { ...original, Id: newId, Config: { ...original.Config, Labels: input.Labels }, HostConfig: input.HostConfig };
+        return { Id: newId };
+      }
+      if (path === `/containers/${before.Id}/stop?t=30`) predecessor = { ...predecessor, State: { ...predecessor.State, Running: false } };
+      if (path.startsWith(`/containers/${before.Id}/rename?`)) predecessor = { ...predecessor, Name: `/${decodeURIComponent(path.split("name=")[1]!)}` };
+      if (path.endsWith("/disconnect")) predecessor = { ...predecessor, NetworkSettings: { Networks: {} } };
+      if (path.endsWith("/connect")) predecessor = { ...predecessor, NetworkSettings: original.NetworkSettings };
+      if (path === `/containers/${before.Id}/start`) predecessor = { ...predecessor, State: { ...predecessor.State, Running: true } };
+      if (method === "DELETE") candidate = undefined;
+      if (failStart && path === `/containers/${newId}/start`) throw new HostAdapterError("UNAVAILABLE");
+      return undefined;
+    });
+    return h;
+  }
+
+  it("changes only the known storage tmpfs override with memory and ClamAV unchanged", () => {
+    const old = attachmentStorageOverride(initialOverride);
+    const next = attachmentStorageTempOverride(old);
+    expect(next).toBe(old.replace("    mem_limit: 3072m\n", "    mem_limit: 3072m\n    tmpfs:\n      - /tmp:rw,noexec,nosuid,size=512m\n"));
+    expect(attachmentStorageTempOverride(next)).toBe(next);
+    expect(() => attachmentStorageTempOverride(next.replace("512m", "1024m"))).toThrow(HostAdapterError);
+  });
+
+  it("preserves the image, volume, credentials, address and limits while replacing only tmpfs", async () => {
+    const { api, files } = temporaryHarness();
+    await expect(tuneAttachmentStorageTemporary(api, files)).resolves.toMatchObject({ state: "APPLIED", tmpfsBytes: 512 * 1024 ** 2, reused: false });
+    const created = api.mock.calls.find(([, path]) => path.startsWith("/containers/create?"))?.[2] as { Image: string; HostConfig: Record<string, unknown>; NetworkingConfig: { EndpointsConfig: Record<string, { IPAMConfig: { IPv4Address: string } }> } };
+    expect(created.Image).toBe(original.Config.Image);
+    expect(created.HostConfig).toEqual({ ...original.HostConfig, AutoRemove: false, Tmpfs: { "/tmp": "rw,noexec,nosuid,size=512m" } });
+    expect(created.NetworkingConfig.EndpointsConfig[networkName]?.IPAMConfig.IPv4Address).toBe("172.23.0.2");
+    expect(api).toHaveBeenCalledWith("POST", `/networks/${network.Id}/disconnect`, { Container: before.Id, Force: false });
+    expect(api.mock.calls.some(([method]) => method === "DELETE")).toBe(false);
+    expect(files.replace).toHaveBeenCalledWith(override, attachmentStorageOverride(initialOverride), attachmentStorageTempOverride(attachmentStorageOverride(initialOverride)), "temp");
+  });
+
+  it("refuses mutation while any tenant attachment import is active", async () => {
+    const { api, files } = temporaryHarness(false, [{ Id: "e".repeat(64) }]);
+    await expect(tuneAttachmentStorageTemporary(api, files)).rejects.toEqual(new HostAdapterError("TARGET_CONFLICT"));
+    expect(files.replace).not.toHaveBeenCalled();
+    expect(api.mock.calls.some(([method]) => method !== "GET")).toBe(false);
+  });
+
+  it("restores the disconnected predecessor without deleting data volumes when start fails", async () => {
+    const { api, files } = temporaryHarness(true);
+    await expect(tuneAttachmentStorageTemporary(api, files)).rejects.toBeInstanceOf(HostAdapterError);
+    expect(api).toHaveBeenCalledWith("DELETE", `/containers/${newId}?force=true&v=false`);
+    expect(api.mock.calls.some(([method, path, body]) => method === "POST" && path === `/networks/${network.Id}/connect` && (body as { Container: string }).Container === before.Id)).toBe(true);
+    expect(api).toHaveBeenCalledWith("POST", `/containers/${before.Id}/start`);
+    expect(files.replace).toHaveBeenLastCalledWith(override, attachmentStorageTempOverride(attachmentStorageOverride(initialOverride)), attachmentStorageOverride(initialOverride), "temp-rollback");
+  });
+
+  it("reconciles an already healthy 512MiB container without another restart", async () => {
+    const { api, files } = temporaryHarness(false, [], { ...original, HostConfig: { ...original.HostConfig, Tmpfs: { "/tmp": "rw,noexec,nosuid,size=512m" } } });
+    await expect(tuneAttachmentStorageTemporary(api, files)).resolves.toMatchObject({ reused: true });
+    expect(api.mock.calls.some(([method]) => method !== "GET")).toBe(false);
+  });
+
+  it("fails closed for an unrelated data volume or unexpected tmpfs configuration", async () => {
+    for (const container of [
+      { ...original, Mounts: [{ Type: "volume", Name: "foreign-data", Destination: "/data", RW: true }] },
+      { ...original, HostConfig: { ...original.HostConfig, Tmpfs: { "/tmp": "rw,size=512m" } } },
+    ]) {
+      const { api, files } = temporaryHarness(false, [], container);
+      await expect(tuneAttachmentStorageTemporary(api, files)).rejects.toBeInstanceOf(HostAdapterError);
+      expect(files.replace).not.toHaveBeenCalled();
+      expect(api.mock.calls.some(([method]) => method !== "GET")).toBe(false);
+    }
+  });
+
+  it.each(["/rename?", "/disconnect", "/containers/create?"])("reconciles a lost Docker response after applying %s", async (suffix) => {
+    const { api, files } = temporaryHarness();
+    const implementation = api.getMockImplementation()!;
+    let failed = false;
+    api.mockImplementation(async (method, path, body) => {
+      const result = await implementation(method, path, body);
+      if (!failed && path.includes(suffix)) { failed = true; throw new HostAdapterError("UNAVAILABLE"); }
+      return result;
+    });
+    await expect(tuneAttachmentStorageTemporary(api, files)).rejects.toBeInstanceOf(HostAdapterError);
+    expect(api).toHaveBeenCalledWith("POST", `/containers/${before.Id}/start`);
+    expect(files.replace).toHaveBeenLastCalledWith(override, attachmentStorageTempOverride(attachmentStorageOverride(initialOverride)), attachmentStorageOverride(initialOverride), "temp-rollback");
+  });
+
+  it("continues safe rollback when candidate deletion succeeded but its response was lost", async () => {
+    const { api, files } = temporaryHarness(true);
+    const implementation = api.getMockImplementation()!;
+    api.mockImplementation(async (method, path, body) => {
+      const result = await implementation(method, path, body);
+      if (method === "DELETE") throw new HostAdapterError("UNAVAILABLE");
+      return result;
+    });
+    await expect(tuneAttachmentStorageTemporary(api, files)).rejects.toBeInstanceOf(HostAdapterError);
+    expect(api).toHaveBeenCalledWith("POST", `/containers/${before.Id}/start`);
+  });
+
+  it("never restarts the predecessor while candidate deletion remains unconfirmed", async () => {
+    const { api, files } = temporaryHarness(true);
+    const implementation = api.getMockImplementation()!;
+    api.mockImplementation(async (method, path, body) => {
+      if (method === "DELETE") throw new HostAdapterError("UNAVAILABLE");
+      return implementation(method, path, body);
+    });
+    await expect(tuneAttachmentStorageTemporary(api, files)).rejects.toEqual(new HostAdapterError("TARGET_CONFLICT"));
+    expect(api).not.toHaveBeenCalledWith("POST", `/containers/${before.Id}/start`);
+    expect(files.replace).toHaveBeenCalledOnce();
   });
 });

@@ -19,6 +19,8 @@ try {
     result = await setupGhlIntegrationTest(first);
   } else if (action === "TUNE_ATTACHMENT_STORAGE" && second && third === undefined) {
     result = await tuneRegisteredGhlAttachmentStorage(first, second);
+  } else if (action === "TUNE_ATTACHMENT_STORAGE_TEMP" && second && third === undefined) {
+    result = await tuneRegisteredGhlAttachmentStorage(first, second, true);
   } else if (action === "TEST_UPGRADE" && second && third === undefined) {
     result = await upgradeGhlIntegrationTest(first, second);
   } else if (
