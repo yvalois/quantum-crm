@@ -137,6 +137,23 @@ export interface HostAdapterGhlImportResult {
   readonly state: "RUNNING" | "SUCCEEDED" | "FAILED";
   readonly exitCode?: number;
   readonly reconciled: boolean;
+  readonly receipt?: HostAdapterGhlImportReceipt;
+}
+
+export interface HostAdapterGhlImportReceipt {
+  readonly progress: readonly {
+    readonly resource: string;
+    readonly processed: number;
+    readonly created: number;
+    readonly replayed: number;
+    readonly conflicts: number;
+    readonly total: number;
+  }[];
+  readonly status?: "RUNNING" | "COMPLETE" | "CONFLICTS" | "FAILED";
+  readonly consistent?: boolean;
+  readonly artifactRecords?: number;
+  readonly counters?: Readonly<Record<string, number>>;
+  readonly errorCode?: "IMPORT_FAILED";
 }
 
 export interface TenantGhlImportRunner {

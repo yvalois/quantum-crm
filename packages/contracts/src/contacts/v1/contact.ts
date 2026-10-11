@@ -64,20 +64,26 @@ export const ContactLabelSchema = z.object({
 });
 
 export type ContactCustomFieldValue =
-  | null | boolean | number | string
+  | null
+  | boolean
+  | number
+  | string
   | ContactCustomFieldValue[]
   | { [key: string]: ContactCustomFieldValue };
 const ContactCustomFieldValueSchema: z.ZodType<ContactCustomFieldValue> = z.lazy(() =>
   z.union([
-    z.null(), z.boolean(), z.number().finite(), z.string().max(1_000_000),
+    z.null(),
+    z.boolean(),
+    z.number().finite(),
+    z.string().max(1_000_000),
     z.array(ContactCustomFieldValueSchema).max(10_000),
     z.record(z.string(), ContactCustomFieldValueSchema),
   ]),
 );
 export const ContactCustomFieldSchema = z.object({
   fieldId: ContactIdSchema,
-  key: z.string().min(1).max(300),
-  label: z.string().min(1).max(300),
+  key: z.string().min(1).max(1000),
+  label: z.string().min(1).max(1000),
   dataType: z.string().min(1).max(100),
   value: ContactCustomFieldValueSchema,
 });

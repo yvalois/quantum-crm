@@ -49,7 +49,8 @@ export function validateHistoricalSource(source: HistoricalImportSource): void {
     !/^[A-Za-z0-9_-]{1,200}$/u.test(source.locationId) ||
     !/^[A-Za-z0-9_.:-]{1,300}$/u.test(source.externalId) ||
     !/^[a-f0-9]{64}$/u.test(source.payloadHash)
-  ) throw new HistoricalImportValidationError();
+  )
+    throw new HistoricalImportValidationError();
   validateHistoricalJson(source.raw);
 }
 
@@ -65,8 +66,12 @@ export function validateHistoricalJson(value: HistoricalJsonValue, depth = 0): v
     return;
   }
   if (typeof value !== "object") throw new HistoricalImportValidationError();
-  if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype &&
-    Object.getPrototypeOf(value) !== null) throw new HistoricalImportValidationError();
+  if (
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) !== Object.prototype &&
+    Object.getPrototypeOf(value) !== null
+  )
+    throw new HistoricalImportValidationError();
   const values = Array.isArray(value) ? value : Object.values(value);
   if (values.length > 10_000) throw new HistoricalImportValidationError();
   for (const item of values) validateHistoricalJson(item as HistoricalJsonValue, depth + 1);

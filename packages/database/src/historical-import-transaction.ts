@@ -75,11 +75,24 @@ export async function withHistoricalImport(
        (source_system, source_location_id, entity_type, external_id, entity_id, payload_hash,
         source_payload, result_metadata, actor_member_id)
        VALUES ($1, $2, $3, $4, $5::uuid, $6, $7::jsonb, $8::jsonb, $9::uuid)`,
-      [source.system, source.locationId, entityType, source.externalId, entity.id,
-        source.payloadHash, JSON.stringify(source.raw), JSON.stringify(relatedIds), input.actor.memberId],
+      [
+        source.system,
+        source.locationId,
+        entityType,
+        source.externalId,
+        entity.id,
+        source.payloadHash,
+        JSON.stringify(source.raw),
+        JSON.stringify(relatedIds),
+        input.actor.memberId,
+      ],
     );
     await client.query("COMMIT");
-    return Object.freeze({ id: entity.id, status: "CREATED", relatedIds: Object.freeze(relatedIds) });
+    return Object.freeze({
+      id: entity.id,
+      status: "CREATED",
+      relatedIds: Object.freeze(relatedIds),
+    });
   } catch (error) {
     await client?.query("ROLLBACK").catch(() => undefined);
     if (error instanceof HistoricalImportValidationError) throw error;

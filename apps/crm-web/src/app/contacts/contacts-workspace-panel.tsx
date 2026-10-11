@@ -1959,7 +1959,13 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                       {selectedContact.customFields.map((field) => (
                         <div key={field.fieldId} style={{ marginTop: "0.75rem" }}>
                           <dt style={{ fontWeight: 600 }}>{field.label}</dt>
-                          <dd style={{ margin: "0.25rem 0 0", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                          <dd
+                            style={{
+                              margin: "0.25rem 0 0",
+                              whiteSpace: "pre-wrap",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
                             {field.dataType.toUpperCase() === "FILE_UPLOAD"
                               ? "Adjunto pendiente de transferencia y análisis"
                               : customFieldText(field.value)}
@@ -1970,9 +1976,11 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                   </details>
                 ) : null}
                 {activeTab === "conversations" && selectedContact.source === "MIGRATION" ? (
-                  <p><a href={`/inbox?contactId=${encodeURIComponent(selectedContact.id)}`}>
-                    Ver historial importado de GHL
-                  </a></p>
+                  <p>
+                    <a href={`/inbox?contactId=${encodeURIComponent(selectedContact.id)}`}>
+                      Ver historial importado de GHL
+                    </a>
+                  </p>
                 ) : null}
                 {relationsLoading ? (
                   <div className="contact-workspace-drawer-loading">

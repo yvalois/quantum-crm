@@ -11,13 +11,18 @@ import { type FormEvent, useEffect, useState } from "react";
 import styles from "./historical-inbox.module.css";
 
 function when(value: string | null): string {
-  return value === null ? "Fecha no informada" : new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return value === null
+    ? "Fecha no informada"
+    : new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(
+        new Date(value),
+      );
 }
 async function read(path: string, signal: AbortSignal): Promise<unknown> {
   const response = await fetch(path, { credentials: "same-origin", cache: "no-store", signal });
   if (!response.ok) {
     if (response.status === 401) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
-    if (response.status === 403) throw new Error("No tienes permiso para consultar este historial.");
+    if (response.status === 403)
+      throw new Error("No tienes permiso para consultar este historial.");
     throw new Error("No fue posible consultar el historial. Inténtalo de nuevo.");
   }
   return response.json() as Promise<unknown>;
@@ -55,16 +60,22 @@ export function HistoricalInbox(): React.JSX.Element {
     if (listCursor) params.set("cursor", listCursor);
     if (search) params.set("query", search);
     if (contactId) params.set("contactId", contactId);
-    void read(`/api/conversations/historical?${params}`, controller.signal).then((result) => {
-      if (controller.signal.aborted) return;
-      const page = HistoricalConversationListResponseSchema.parse(result);
-      setThreads(page.data);
-      setNextListCursor(page.page.nextCursor);
-    }).catch((error: unknown) => {
-      if (!controller.signal.aborted) setListError(error instanceof Error ? error.message : "No fue posible cargar el historial.");
-    }).finally(() => {
-      if (!controller.signal.aborted) setListBusy(false);
-    });
+    void read(`/api/conversations/historical?${params}`, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        const page = HistoricalConversationListResponseSchema.parse(result);
+        setThreads(page.data);
+        setNextListCursor(page.page.nextCursor);
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted)
+          setListError(
+            error instanceof Error ? error.message : "No fue posible cargar el historial.",
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setListBusy(false);
+      });
     return () => controller.abort();
   }, [listCursor, search, contactId]);
 
@@ -78,17 +89,23 @@ export function HistoricalInbox(): React.JSX.Element {
     void Promise.all([
       read(`/api/conversations/historical/${selectedId}`, controller.signal),
       read(`/api/conversations/historical/${selectedId}/messages?${params}`, controller.signal),
-    ]).then(([thread, result]) => {
-      if (controller.signal.aborted) return;
-      setSelected(HistoricalConversationResponseSchema.parse(thread).data);
-      const page = HistoricalConversationMessageListResponseSchema.parse(result);
-      setMessages(page.data);
-      setNextMessageCursor(page.page.nextCursor);
-    }).catch((error: unknown) => {
-      if (!controller.signal.aborted) setThreadError(error instanceof Error ? error.message : "No fue posible cargar los mensajes.");
-    }).finally(() => {
-      if (!controller.signal.aborted) setThreadBusy(false);
-    });
+    ])
+      .then(([thread, result]) => {
+        if (controller.signal.aborted) return;
+        setSelected(HistoricalConversationResponseSchema.parse(thread).data);
+        const page = HistoricalConversationMessageListResponseSchema.parse(result);
+        setMessages(page.data);
+        setNextMessageCursor(page.page.nextCursor);
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted)
+          setThreadError(
+            error instanceof Error ? error.message : "No fue posible cargar los mensajes.",
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setThreadBusy(false);
+      });
     return () => controller.abort();
   }, [selectedId, messageCursor]);
 
@@ -109,63 +126,193 @@ export function HistoricalInbox(): React.JSX.Element {
     <section className={styles.workspace} aria-label="Historial de conversaciones GHL">
       <div className={styles.notice}>
         <strong>Historial importado de GHL</strong>
-        <span>Consulta mensajes y fechas originales. Los adjuntos pendientes se indican en cada mensaje.</span>
+        <span>
+          Consulta mensajes y fechas originales. Los adjuntos pendientes se indican en cada mensaje.
+        </span>
       </div>
       <div className={styles.columns}>
         <aside className={styles.list} aria-label="Conversaciones históricas" aria-busy={listBusy}>
           <form className={styles.search} onSubmit={submit}>
             <label htmlFor="historical-search">Buscar en el historial</label>
-            <div><input id="historical-search" maxLength={160} value={query} placeholder="Contacto, asunto o mensaje" onChange={(event) => setQuery(event.target.value)} /><button type="submit" disabled={listBusy}>Buscar</button></div>
+            <div>
+              <input
+                id="historical-search"
+                maxLength={160}
+                value={query}
+                placeholder="Contacto, asunto o mensaje"
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              <button type="submit" disabled={listBusy}>
+                Buscar
+              </button>
+            </div>
           </form>
-          {contactId ? <button className={styles.clearFilter} onClick={() => { setContactId(null); setListCursors([null]); }} type="button">Quitar filtro de contacto</button> : null}
-          {listError ? <p role="alert" className={styles.error}>{listError}</p> : null}
-          {listBusy ? <p role="status">Cargando conversaciones…</p> : threads.length === 0 ? <p>No hay historial importado visible con estos filtros.</p> : null}
+          {contactId ? (
+            <button
+              className={styles.clearFilter}
+              onClick={() => {
+                setContactId(null);
+                setListCursors([null]);
+              }}
+              type="button"
+            >
+              Quitar filtro de contacto
+            </button>
+          ) : null}
+          {listError ? (
+            <p role="alert" className={styles.error}>
+              {listError}
+            </p>
+          ) : null}
+          {listBusy ? (
+            <p role="status">Cargando conversaciones…</p>
+          ) : threads.length === 0 ? (
+            <p>No hay historial importado visible con estos filtros.</p>
+          ) : null}
           <ul className={styles.threadList}>
             {threads.map((item) => (
               <li key={item.id}>
-                <button type="button" aria-pressed={selectedId === item.id} className={styles.threadButton} onClick={() => choose(item)}>
+                <button
+                  type="button"
+                  aria-pressed={selectedId === item.id}
+                  className={styles.threadButton}
+                  onClick={() => choose(item)}
+                >
                   <strong>{item.subject || "Conversación histórica"}</strong>
-                  <span>{item.messageCount} mensajes · {item.rawChannel || "Canal no informado"}</span>
+                  <span>
+                    {item.messageCount} mensajes · {item.rawChannel || "Canal no informado"}
+                  </span>
                   <time>{when(item.lastMessageAt ?? item.sourceCreatedAt)}</time>
-                  {!item.sourceThreadPresent ? <small>Sin ficha actual de conversación en GHL</small> : null}
+                  {!item.sourceThreadPresent ? (
+                    <small>Sin ficha actual de conversación en GHL</small>
+                  ) : null}
                   {!item.contactId ? <small>Contacto sin correspondencia confirmada</small> : null}
                 </button>
               </li>
             ))}
           </ul>
           <nav className={styles.pagination} aria-label="Páginas de conversaciones históricas">
-            <button type="button" disabled={listBusy || listCursors.length < 2} onClick={() => setListCursors((values) => values.slice(0, -1))}>Anterior</button>
+            <button
+              type="button"
+              disabled={listBusy || listCursors.length < 2}
+              onClick={() => setListCursors((values) => values.slice(0, -1))}
+            >
+              Anterior
+            </button>
             <span>Página {listCursors.length}</span>
-            <button type="button" disabled={listBusy || !nextListCursor} onClick={() => { if (nextListCursor) setListCursors((values) => [...values, nextListCursor]); }}>Siguiente</button>
+            <button
+              type="button"
+              disabled={listBusy || !nextListCursor}
+              onClick={() => {
+                if (nextListCursor) setListCursors((values) => [...values, nextListCursor]);
+              }}
+            >
+              Siguiente
+            </button>
           </nav>
         </aside>
         <section className={styles.thread} aria-label="Mensajes históricos" aria-busy={threadBusy}>
-          {selected ? <>
-            <header className={styles.header}>
-              <div><h2>{selected.subject || "Conversación histórica"}</h2><p>{selected.messageCount} mensajes · {selected.rawStatus || "Estado original no informado"}</p></div>
-              {selected.contactId ? <a href={`/contacts?contact=${encodeURIComponent(selected.contactId)}`}>Abrir contacto</a> : <span>Contacto sin correspondencia confirmada</span>}
-            </header>
-            {!selected.sourceThreadPresent ? <p className={styles.orphan}>Este hilo se conserva a partir de referencias de sus mensajes; su ficha ya no aparece en la lista actual de GHL.</p> : null}
-            {threadError ? <p role="alert" className={styles.error}>{threadError}</p> : null}
-            {threadBusy ? <p role="status">Cargando mensajes…</p> : <>
-              <ol className={styles.messages}>
-                {messages.map((item) => (
-                  <li key={item.id} className={styles.message}>
-                    <header><strong>{item.rawDirection === "inbound" ? "Recibido" : item.rawDirection === "outbound" ? "Enviado desde GHL" : item.rawDirection || "Dirección no informada"}</strong><time>{when(item.sourceCreatedAt)}</time></header>
-                    <p className={styles.metadata}>{[item.rawChannel, item.rawType, item.rawStatus].filter(Boolean).join(" · ") || "Sin metadatos de canal"}</p>
-                    {item.body.length > 0 ? <pre className={styles.body}>{item.body}</pre> : <p className={styles.noBody}>Mensaje original sin texto.</p>}
-                    {item.attachmentCount > 0 ? <p className={styles.attachment}>{item.attachmentCount} adjunto{item.attachmentCount === 1 ? "" : "s"} pendiente{item.attachmentCount === 1 ? "" : "s"} de importación y verificación.</p> : null}
-                  </li>
-                ))}
-              </ol>
-              {messages.length === 0 && !threadError ? <p>No hay mensajes en esta página.</p> : null}
-            </>}
-            <nav className={styles.pagination} aria-label="Páginas de mensajes históricos">
-              <button type="button" disabled={threadBusy || messageCursors.length < 2} onClick={() => setMessageCursors((values) => values.slice(0, -1))}>Anteriores</button>
-              <span>Página {messageCursors.length}</span>
-              <button type="button" disabled={threadBusy || !nextMessageCursor} onClick={() => { if (nextMessageCursor) setMessageCursors((values) => [...values, nextMessageCursor]); }}>Siguientes</button>
-            </nav>
-          </> : <div className={styles.empty}><h2>Selecciona una conversación</h2><p>Aquí puedes consultar el historial importado y abrir el contacto cuando exista una correspondencia confirmada.</p></div>}
+          {selected ? (
+            <>
+              <header className={styles.header}>
+                <div>
+                  <h2>{selected.subject || "Conversación histórica"}</h2>
+                  <p>
+                    {selected.messageCount} mensajes ·{" "}
+                    {selected.rawStatus || "Estado original no informado"}
+                  </p>
+                </div>
+                {selected.contactId ? (
+                  <a href={`/contacts?contact=${encodeURIComponent(selected.contactId)}`}>
+                    Abrir contacto
+                  </a>
+                ) : (
+                  <span>Contacto sin correspondencia confirmada</span>
+                )}
+              </header>
+              {!selected.sourceThreadPresent ? (
+                <p className={styles.orphan}>
+                  Este hilo se conserva a partir de referencias de sus mensajes; su ficha ya no
+                  aparece en la lista actual de GHL.
+                </p>
+              ) : null}
+              {threadError ? (
+                <p role="alert" className={styles.error}>
+                  {threadError}
+                </p>
+              ) : null}
+              {threadBusy ? (
+                <p role="status">Cargando mensajes…</p>
+              ) : (
+                <>
+                  <ol className={styles.messages}>
+                    {messages.map((item) => (
+                      <li key={item.id} className={styles.message}>
+                        <header>
+                          <strong>
+                            {item.rawDirection === "inbound"
+                              ? "Recibido"
+                              : item.rawDirection === "outbound"
+                                ? "Enviado desde GHL"
+                                : item.rawDirection || "Dirección no informada"}
+                          </strong>
+                          <time>{when(item.sourceCreatedAt)}</time>
+                        </header>
+                        <p className={styles.metadata}>
+                          {[item.rawChannel, item.rawType, item.rawStatus]
+                            .filter(Boolean)
+                            .join(" · ") || "Sin metadatos de canal"}
+                        </p>
+                        {item.body.length > 0 ? (
+                          <pre className={styles.body}>{item.body}</pre>
+                        ) : (
+                          <p className={styles.noBody}>Mensaje original sin texto.</p>
+                        )}
+                        {item.attachmentCount > 0 ? (
+                          <p className={styles.attachment}>
+                            {item.attachmentCount} adjunto{item.attachmentCount === 1 ? "" : "s"}{" "}
+                            pendiente{item.attachmentCount === 1 ? "" : "s"} de importación y
+                            verificación.
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ol>
+                  {messages.length === 0 && !threadError ? (
+                    <p>No hay mensajes en esta página.</p>
+                  ) : null}
+                </>
+              )}
+              <nav className={styles.pagination} aria-label="Páginas de mensajes históricos">
+                <button
+                  type="button"
+                  disabled={threadBusy || messageCursors.length < 2}
+                  onClick={() => setMessageCursors((values) => values.slice(0, -1))}
+                >
+                  Anteriores
+                </button>
+                <span>Página {messageCursors.length}</span>
+                <button
+                  type="button"
+                  disabled={threadBusy || !nextMessageCursor}
+                  onClick={() => {
+                    if (nextMessageCursor)
+                      setMessageCursors((values) => [...values, nextMessageCursor]);
+                  }}
+                >
+                  Siguientes
+                </button>
+              </nav>
+            </>
+          ) : (
+            <div className={styles.empty}>
+              <h2>Selecciona una conversación</h2>
+              <p>
+                Aquí puedes consultar el historial importado y abrir el contacto cuando exista una
+                correspondencia confirmada.
+              </p>
+            </div>
+          )}
         </section>
       </div>
     </section>

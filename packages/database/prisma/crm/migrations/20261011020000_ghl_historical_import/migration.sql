@@ -8,8 +8,8 @@ ALTER TABLE contacts.contacts
 
 CREATE TABLE settings.custom_field_definitions (
   id uuid PRIMARY KEY DEFAULT uuidv7(),
-  field_key varchar(300) NOT NULL,
-  name varchar(300) NOT NULL,
+  field_key varchar(1000) NOT NULL,
+  name varchar(1000) NOT NULL,
   description text NOT NULL,
   data_type varchar(100) NOT NULL,
   section varchar(100) NOT NULL,
@@ -70,4 +70,5 @@ BEGIN
   END IF;
   EXECUTE format('GRANT USAGE ON SCHEMA settings TO %I', runtime_role);
   EXECUTE format('GRANT SELECT, INSERT ON contacts.historical_imports, sales.historical_imports, settings.historical_imports, settings.custom_field_definitions TO %I', runtime_role);
+  EXECUTE format('GRANT SELECT, INSERT ON sales.opportunity_history TO %I', runtime_role);
 END $$;

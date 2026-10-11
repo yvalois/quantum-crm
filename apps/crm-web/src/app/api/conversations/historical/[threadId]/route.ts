@@ -2,7 +2,12 @@ import { handleCrmHistoricalConversationGet } from "../../../../../server/crm-au
 import { withCrmAuthRuntime } from "../../../../../server/crm-auth-runtime";
 
 export const dynamic = "force-dynamic";
-export async function GET(request: Request, context: { params: Promise<{ threadId: string }> }): Promise<Response> {
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ threadId: string }> },
+): Promise<Response> {
   const { threadId } = await context.params;
-  return withCrmAuthRuntime((runtime) => handleCrmHistoricalConversationGet(request, runtime, threadId));
+  return withCrmAuthRuntime((runtime) =>
+    handleCrmHistoricalConversationGet(request, runtime, threadId),
+  );
 }

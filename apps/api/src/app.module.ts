@@ -46,7 +46,10 @@ import { AcceptMemberInvitationController } from "./accept-member-invitation.con
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
 import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
-import { HISTORICAL_CONVERSATION_SERVICE, HistoricalConversationsController } from "./historical-conversations.controller.js";
+import {
+  HISTORICAL_CONVERSATION_SERVICE,
+  HistoricalConversationsController,
+} from "./historical-conversations.controller.js";
 import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
 import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js";
 import { FILE_SERVICE, FilesController } from "./files.controller.js";
@@ -153,10 +156,13 @@ export class AppModule {
         },
         {
           provide: HISTORICAL_CONVERSATION_SERVICE,
-          useFactory: () => new HistoricalConversationService(database.commercial.historicalConversations, {
-            contactExistsFor: async (actor, contactId) => (await database.commercial.contacts.find(actor, contactId)) !== null,
-            isActiveMember: async (memberId) => (await database.members.findById(memberId))?.status === "ACTIVE",
-          }),
+          useFactory: () =>
+            new HistoricalConversationService(database.commercial.historicalConversations, {
+              contactExistsFor: async (actor, contactId) =>
+                (await database.commercial.contacts.find(actor, contactId)) !== null,
+              isActiveMember: async (memberId) =>
+                (await database.members.findById(memberId))?.status === "ACTIVE",
+            }),
         },
         {
           provide: CALENDAR_SERVICE,

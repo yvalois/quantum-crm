@@ -44,30 +44,58 @@ export function parseGhlMigrationImportConfig(
   environment: Readonly<Record<string, string | undefined>>,
   fileSystem?: SecretFileSystem,
 ): GhlMigrationImportConfig {
-  const unknown = Object.keys(environment).filter((key) => key.startsWith("QCRM_") && !(key in schema.shape));
+  const unknown = Object.keys(environment).filter(
+    (key) => key.startsWith("QCRM_") && !(key in schema.shape),
+  );
   if (unknown.length) throw new ConfigurationError("ghl-migration-import", unknown.sort());
   const parsed = schema.safeParse(environment);
-  if (!parsed.success) throw new ConfigurationError("ghl-migration-import", [...new Set(parsed.error.issues.map((issue) => String(issue.path[0])))]);
+  if (!parsed.success)
+    throw new ConfigurationError("ghl-migration-import", [
+      ...new Set(parsed.error.issues.map((issue) => String(issue.path[0]))),
+    ]);
   const v = parsed.data;
   // This explicitly authorized development exception is never a production bypass.
-  if (v.QCRM_ENV === "production") throw new ConfigurationError("ghl-migration-import", ["QCRM_ENV"]);
-  const database = parseDatabaseConfig("ghl-migration-import", { target: "crm", requiresTenant: true }, v.QCRM_ENV, v, fileSystem);
+  if (v.QCRM_ENV === "production")
+    throw new ConfigurationError("ghl-migration-import", ["QCRM_ENV"]);
+  const database = parseDatabaseConfig(
+    "ghl-migration-import",
+    { target: "crm", requiresTenant: true },
+    v.QCRM_ENV,
+    v,
+    fileSystem,
+  );
   const url = new URL(database.connectionUrl.expose());
   const suffix = v.QCRM_TENANT_ID.replaceAll("-", "");
-  if (url.pathname !== `/qcrm_t_${suffix}` || decodeURIComponent(url.username) !== `qcrm_r_${suffix}`) {
-    throw new ConfigurationError("ghl-migration-import", ["QCRM_DATABASE_URL_FILE", "QCRM_TENANT_ID"]);
+  if (
+    url.pathname !== `/qcrm_t_${suffix}` ||
+    decodeURIComponent(url.username) !== `qcrm_r_${suffix}`
+  ) {
+    throw new ConfigurationError("ghl-migration-import", [
+      "QCRM_DATABASE_URL_FILE",
+      "QCRM_TENANT_ID",
+    ]);
   }
   let encryptionKey: SecretValue;
   try {
     encryptionKey = loadSecretFile("GHL import encryption key", v.QCRM_GHL_EXPORT_KEY_FILE, {
-      environment: v.QCRM_ENV, expectedProtectedPath: keyPath, ...(fileSystem ? { fileSystem } : {}),
+      environment: v.QCRM_ENV,
+      expectedProtectedPath: keyPath,
+      ...(fileSystem ? { fileSystem } : {}),
     });
     if (!/^[a-f0-9]{64}$/u.test(encryptionKey.expose())) throw new Error("Invalid key");
   } catch {
     throw new ConfigurationError("ghl-migration-import", ["QCRM_GHL_EXPORT_KEY_FILE"]);
   }
-  return Object.freeze({ database, tenantId: v.QCRM_TENANT_ID, locationId: v.QCRM_GHL_LOCATION_ID,
-    operationId: v.QCRM_GHL_IMPORT_OPERATION_ID, exportId: v.QCRM_GHL_IMPORT_EXPORT_ID,
-    artifact: v.QCRM_GHL_IMPORT_ARTIFACT_FILE, artifactSha256: v.QCRM_GHL_IMPORT_ARTIFACT_SHA256,
-    encryptionKey, currency: v.QCRM_GHL_IMPORT_CURRENCY, mode: v.QCRM_GHL_IMPORT_MODE });
+  return Object.freeze({
+    database,
+    tenantId: v.QCRM_TENANT_ID,
+    locationId: v.QCRM_GHL_LOCATION_ID,
+    operationId: v.QCRM_GHL_IMPORT_OPERATION_ID,
+    exportId: v.QCRM_GHL_IMPORT_EXPORT_ID,
+    artifact: v.QCRM_GHL_IMPORT_ARTIFACT_FILE,
+    artifactSha256: v.QCRM_GHL_IMPORT_ARTIFACT_SHA256,
+    encryptionKey,
+    currency: v.QCRM_GHL_IMPORT_CURRENCY,
+    mode: v.QCRM_GHL_IMPORT_MODE,
+  });
 }

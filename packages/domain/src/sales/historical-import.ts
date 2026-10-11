@@ -46,5 +46,7 @@ export interface HistoricalSalesImportLookups {
 
 export interface HistoricalSalesImportPort {
   readonly importPipeline: (input: HistoricalPipelineInput) => Promise<HistoricalPipelineResult>;
-  readonly importOpportunity: (input: HistoricalOpportunityInput) => Promise<HistoricalImportResult>;
+  readonly importOpportunity: (
+    input: HistoricalOpportunityInput,
+  ) => Promise<HistoricalImportResult>;
 }

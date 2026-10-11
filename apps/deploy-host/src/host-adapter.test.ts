@@ -140,14 +140,37 @@ describe("deploy host adapter", () => {
     const socketPath = join(root, "adapter.sock");
     const run = vi.fn(async () => ({ state: "RUNNING" as const, reconciled: false }));
     const reconcile = vi.fn();
-    const adapter = createHostAdapterServer({ socketPath, reconciler: { reconcile }, ghlImportRunner: { run } });
+    const adapter = createHostAdapterServer({
+      socketPath,
+      reconciler: { reconcile },
+      ghlImportRunner: { run },
+    });
     await adapter.listen();
-    const body = { ...requestBody, action: "RUN_TENANT_GHL_IMPORT", exportId: "01995f7e-7b52-7000-8000-000000000401" };
+    const body = {
+      ...requestBody,
+      action: "RUN_TENANT_GHL_IMPORT",
+      exportId: "01995f7e-7b52-7000-8000-000000000401",
+    };
     try {
-      expect((await requestOverSocket(socketPath, body, "/v1/ghl-migration/import")).status).toBe(200);
-      expect(run).toHaveBeenCalledWith(expect.objectContaining({ mode: "VERIFY", projectName: `qcrm-t-${requestBody.tenantProfileId}` }));
-      for (const extra of [{ artifactFile: "/etc/passwd" }, { image: "evil:latest" }, { mode: "DELETE" }, { exportId: "../../etc" }]) {
-        expect((await requestOverSocket(socketPath, { ...body, ...extra }, "/v1/ghl-migration/import")).status).toBe(409);
+      expect((await requestOverSocket(socketPath, body, "/v1/ghl-migration/import")).status).toBe(
+        200,
+      );
+      expect(run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mode: "VERIFY",
+          projectName: `qcrm-t-${requestBody.tenantProfileId}`,
+        }),
+      );
+      for (const extra of [
+        { artifactFile: "/etc/passwd" },
+        { image: "evil:latest" },
+        { mode: "DELETE" },
+        { exportId: "../../etc" },
+      ]) {
+        expect(
+          (await requestOverSocket(socketPath, { ...body, ...extra }, "/v1/ghl-migration/import"))
+            .status,
+        ).toBe(409);
       }
       expect(run).toHaveBeenCalledOnce();
       expect(reconcile).not.toHaveBeenCalled();

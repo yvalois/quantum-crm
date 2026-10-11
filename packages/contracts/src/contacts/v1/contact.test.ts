@@ -3,12 +3,30 @@ import { describe, expect, it } from "vitest";
 import {
   ContactBulkActionSchema,
   ContactBulkFilterSchema,
+  ContactCustomFieldSchema,
   ContactListQuerySchema,
   CreateContactSchema,
   UpdateContactSchema,
 } from "./contact.js";
 
 describe("contact update contract", () => {
+  it("preserves long imported custom-field names and keys within the explicit limit", () => {
+    const field = {
+      fieldId: "019b0000-0000-7000-8000-000000000011",
+      key: "k".repeat(1000),
+      label: "n".repeat(1000),
+      dataType: "TEXT",
+      value: "original",
+    };
+    expect(ContactCustomFieldSchema.parse(field)).toEqual(field);
+    expect(ContactCustomFieldSchema.safeParse({ ...field, key: `${field.key}x` }).success).toBe(
+      false,
+    );
+    expect(ContactCustomFieldSchema.safeParse({ ...field, label: `${field.label}x` }).success).toBe(
+      false,
+    );
+  });
+
   it("distinguishes an intentional channel clear from an omitted field", () => {
     const ownerMemberId = "019b0000-0000-7000-8000-000000000011";
     expect(

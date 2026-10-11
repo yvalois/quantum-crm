@@ -162,19 +162,31 @@ function contactSelection(alias: string): string {
 function contactCustomFields(value: unknown): readonly HistoricalContactField[] {
   if (value === undefined) return Object.freeze([]);
   if (!Array.isArray(value)) throw new DatabaseUnavailableError();
-  return Object.freeze(value.map((candidate: unknown) => {
-    if (candidate === null || typeof candidate !== "object") throw new DatabaseUnavailableError();
-    const field = candidate as Record<string, unknown>;
-    if (typeof field.fieldId !== "string" || typeof field.key !== "string" ||
-      typeof field.label !== "string" || typeof field.dataType !== "string") throw new DatabaseUnavailableError();
-    const fieldValue = field.value as HistoricalJsonValue;
-    validateHistoricalJson(fieldValue);
-    return Object.freeze({
-      fieldId: field.fieldId, key: field.key, label: field.label, dataType: field.dataType,
-      value: field.dataType.toUpperCase() === "FILE_UPLOAD"
-        ? "Adjunto pendiente de transferencia y análisis" : fieldValue,
-    });
-  }));
+  return Object.freeze(
+    value.map((candidate: unknown) => {
+      if (candidate === null || typeof candidate !== "object") throw new DatabaseUnavailableError();
+      const field = candidate as Record<string, unknown>;
+      if (
+        typeof field.fieldId !== "string" ||
+        typeof field.key !== "string" ||
+        typeof field.label !== "string" ||
+        typeof field.dataType !== "string"
+      )
+        throw new DatabaseUnavailableError();
+      const fieldValue = field.value as HistoricalJsonValue;
+      validateHistoricalJson(fieldValue);
+      return Object.freeze({
+        fieldId: field.fieldId,
+        key: field.key,
+        label: field.label,
+        dataType: field.dataType,
+        value:
+          field.dataType.toUpperCase() === "FILE_UPLOAD"
+            ? "Adjunto pendiente de transferencia y análisis"
+            : fieldValue,
+      });
+    }),
+  );
 }
 
 function contactLabels(value: unknown): readonly ContactLabel[] {

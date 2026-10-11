@@ -83,9 +83,16 @@ export interface HistoricalConversationImportVerification {
 export interface HistoricalConversationRepository {
   readonly importThread: (input: ImportHistoricalThreadInput) => Promise<HistoricalImportResult>;
   readonly importMessage: (input: ImportHistoricalMessageInput) => Promise<HistoricalImportResult>;
-  readonly list: (actor: CommercialActor, query: HistoricalThreadQuery) => Promise<HistoricalPage<HistoricalThreadRecord>>;
+  readonly list: (
+    actor: CommercialActor,
+    query: HistoricalThreadQuery,
+  ) => Promise<HistoricalPage<HistoricalThreadRecord>>;
   readonly find: (actor: CommercialActor, id: string) => Promise<HistoricalThreadRecord | null>;
-  readonly messages: (actor: CommercialActor, id: string, query: HistoricalPageQuery) => Promise<HistoricalPage<HistoricalMessageRecord> | null>;
+  readonly messages: (
+    actor: CommercialActor,
+    id: string,
+    query: HistoricalPageQuery,
+  ) => Promise<HistoricalPage<HistoricalMessageRecord> | null>;
   readonly verifyImports: (locationId: string) => Promise<HistoricalConversationImportVerification>;
 }
 export interface HistoricalConversationReferences {
@@ -101,10 +108,16 @@ export class HistoricalConversationNotFoundError extends Error {
 }
 
 function text(value: string | null, max: number): void {
-  if (value !== null && (typeof value !== "string" || value.length > max || value.includes("\u0000")))
+  if (
+    value !== null &&
+    (typeof value !== "string" || value.length > max || value.includes("\u0000"))
+  )
     throw new HistoricalImportValidationError();
 }
-function dates(input: { readonly sourceCreatedAt: Date | null; readonly sourceUpdatedAt: Date | null }): void {
+function dates(input: {
+  readonly sourceCreatedAt: Date | null;
+  readonly sourceUpdatedAt: Date | null;
+}): void {
   for (const value of [input.sourceCreatedAt, input.sourceUpdatedAt]) {
     if (value !== null && (!(value instanceof Date) || !Number.isFinite(value.getTime())))
       throw new HistoricalImportValidationError();
@@ -116,7 +129,13 @@ function id(value: string): void {
 }
 function read(permissions: readonly IamPermission[], query?: HistoricalPageQuery): void {
   if (!permissions.includes("crm:conversations:read")) throw new IamAuthorizationError();
-  if (query && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100 || (query.cursor !== undefined && !/^[A-Za-z0-9_-]{1,512}$/u.test(query.cursor))))
+  if (
+    query &&
+    (!Number.isInteger(query.limit) ||
+      query.limit < 1 ||
+      query.limit > 100 ||
+      (query.cursor !== undefined && !/^[A-Za-z0-9_-]{1,512}$/u.test(query.cursor)))
+  )
     throw new HistoricalImportValidationError();
 }
 
@@ -131,7 +150,8 @@ export class HistoricalConversationService {
     authorizeHistoricalImport(input, "crm:conversations:configure");
     validateHistoricalSource(input.source);
     const thread = input.thread;
-    if (typeof thread.sourceThreadPresent !== "boolean") throw new HistoricalImportValidationError();
+    if (typeof thread.sourceThreadPresent !== "boolean")
+      throw new HistoricalImportValidationError();
     dates(thread);
     text(thread.sourceContactId, 300);
     text(thread.rawChannel, 200);
@@ -158,21 +178,39 @@ export class HistoricalConversationService {
     const message = input.message;
     dates(message);
     text(message.sourceContactId, 300);
-    for (const value of [message.rawChannel, message.rawType, message.rawDirection, message.rawStatus]) text(value, 200);
+    for (const value of [
+      message.rawChannel,
+      message.rawType,
+      message.rawDirection,
+      message.rawStatus,
+    ])
+      text(value, 200);
     text(message.body, 1_000_000);
-    if (typeof message.body !== "string" || !Number.isSafeInteger(message.attachmentCount) || message.attachmentCount < 0)
+    if (
+      typeof message.body !== "string" ||
+      !Number.isSafeInteger(message.attachmentCount) ||
+      message.attachmentCount < 0
+    )
       throw new HistoricalImportValidationError();
     return this.repository.importMessage(input);
   }
 
-  public async list(actor: CommercialActor, permissions: readonly IamPermission[], query: HistoricalThreadQuery) {
+  public async list(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    query: HistoricalThreadQuery,
+  ) {
     read(permissions, query);
     if (query.contactId !== undefined) id(query.contactId);
     if (query.query !== undefined) text(query.query, 160);
     return this.repository.list(actor, query);
   }
 
-  public async find(actor: CommercialActor, permissions: readonly IamPermission[], threadId: string) {
+  public async find(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    threadId: string,
+  ) {
     read(permissions);
     id(threadId);
     const record = await this.repository.find(actor, threadId);
@@ -180,7 +218,12 @@ export class HistoricalConversationService {
     return record;
   }
 
-  public async messages(actor: CommercialActor, permissions: readonly IamPermission[], threadId: string, query: HistoricalPageQuery) {
+  public async messages(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    threadId: string,
+    query: HistoricalPageQuery,
+  ) {
     read(permissions, query);
     id(threadId);
     const page = await this.repository.messages(actor, threadId, query);
@@ -188,7 +231,10 @@ export class HistoricalConversationService {
     return page;
   }
 
-  public async verifyImports(context: HistoricalImportContext, locationId: string): Promise<HistoricalConversationImportVerification> {
+  public async verifyImports(
+    context: HistoricalImportContext,
+    locationId: string,
+  ): Promise<HistoricalConversationImportVerification> {
     authorizeHistoricalImport(context, "crm:conversations:configure");
     if (!/^[A-Za-z0-9_-]{1,200}$/u.test(locationId)) throw new HistoricalImportValidationError();
     return this.repository.verifyImports(locationId);

@@ -8,20 +8,38 @@ import {
 import { withHistoricalImport } from "./historical-import-transaction.js";
 import type { PostgresPool } from "./postgres-database.js";
 
-export function createSettingsHistoricalImportPort(pool: PostgresPool): HistoricalSettingsImportPort {
+export function createSettingsHistoricalImportPort(
+  pool: PostgresPool,
+): HistoricalSettingsImportPort {
   return Object.freeze<HistoricalSettingsImportPort>({
     importCustomField: async (input) => {
       authorizeHistoricalImport(input, "crm:contacts:create");
-      if (!input.key || input.key.length > 300 || !input.name || input.name.length > 300 ||
-        !input.dataType || input.dataType.length > 100 || !input.section || input.section.length > 100 ||
-        input.description.length > 100_000) throw new HistoricalImportValidationError();
+      if (
+        !input.key ||
+        input.key.length > 1000 ||
+        !input.name ||
+        input.name.length > 1000 ||
+        !input.dataType ||
+        input.dataType.length > 100 ||
+        !input.section ||
+        input.section.length > 100 ||
+        input.description.length > 100_000
+      )
+        throw new HistoricalImportValidationError();
       validateHistoricalJson(input.options);
       return withHistoricalImport(pool, "settings", "custom_field", input, async (client) => {
         const inserted = await client.query<{ readonly id: string }>(
           `INSERT INTO settings.custom_field_definitions
            (field_key, name, description, data_type, section, options)
            VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING id::text`,
-          [input.key, input.name, input.description, input.dataType, input.section, JSON.stringify(input.options)],
+          [
+            input.key,
+            input.name,
+            input.description,
+            input.dataType,
+            input.section,
+            JSON.stringify(input.options),
+          ],
         );
         if (!inserted.rows[0]) throw new HistoricalImportValidationError();
         return inserted.rows[0];
@@ -44,8 +62,13 @@ export function createSettingsHistoricalImportVerification(pool: PostgresPool) {
         );
         const row = result.rows[0];
         if (!row) throw new HistoricalImportValidationError();
-        return { mappedFields: Number(row.mapped_fields), existingFields: Number(row.existing_fields) };
-      } finally { client.release(); }
+        return {
+          mappedFields: Number(row.mapped_fields),
+          existingFields: Number(row.existing_fields),
+        };
+      } finally {
+        client.release();
+      }
     },
   };
 }
