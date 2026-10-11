@@ -13,6 +13,8 @@ import { useSearchParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
+import { ContactCustomFields } from "../contacts/custom-fields";
+import { SourceParticipantsCard } from "../source-participants";
 import styles from "./pipeline.module.css";
 import { useBoardDrag } from "./use-board-drag";
 
@@ -1961,6 +1963,14 @@ export default function PipelinePage(): React.JSX.Element {
                 ))}
               </select>
             </div>
+            {contactById.get(editor.contactId) ? (
+              <ContactCustomFields
+                key={editor.contactId}
+                fields={contactById.get(editor.contactId)?.customFields ?? []}
+                title="Campos personalizados del contacto"
+              />
+            ) : null}
+            <SourceParticipantsCard participants={editor.sourceParticipants} kind="oportunidad" />
             <div className={styles.drawerBodyGrid}>
               <form
                 className={styles.drawerForm}

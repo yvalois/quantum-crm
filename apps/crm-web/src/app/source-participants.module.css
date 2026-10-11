@@ -1,0 +1,42 @@
+.card {
+  padding: 0.85rem 1rem;
+  margin: 0.5rem 0;
+  border: 1px solid #e0e7ee;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #273b4c;
+  min-width: 0;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.card h3 {
+  font-size: 0.8rem;
+  margin: 0 0 0.8rem;
+}
+.card dl,
+.card dd,
+.card ul {
+  margin: 0;
+}
+.card dl > div + div {
+  margin-top: 0.65rem;
+}
+.card dt,
+.card p {
+  color: #647384;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+.card dd {
+  margin-top: 0.2rem;
+}
+.card ul {
+  list-style: none;
+  padding: 0;
+}
+.card li + li {
+  margin-top: 0.25rem;
+}
+.card p {
+  margin: 0.85rem 0 0;
+}

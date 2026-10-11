@@ -19,6 +19,7 @@ import {
 } from "@quantum-crm/domain";
 import { loadVerifiedGhlImport } from "./ghl-migration-import-artifact.js";
 import { importGhlArtifact } from "./ghl-migration-import.js";
+import { enrichGhlSourceParticipants } from "./ghl-source-participants.js";
 
 async function main(): Promise<void> {
   const config = loadGhlMigrationImportConfig();
@@ -60,6 +61,15 @@ async function main(): Promise<void> {
       currency: config.currency,
       operatorMemberId: owner.id,
     };
+    if (config.mode === "PARTICIPANTS") {
+      const original = await operations.inspect(identity);
+      if (!original || original.status !== "COMPLETE" || !config.participantToken || !database.externalParticipants)
+        throw new Error("Participant enrichment requires the approved completed historical import");
+      const result = await enrichGhlSourceParticipants(artifact, identity, context, database.externalParticipants, config.participantToken);
+      process.stdout.write(JSON.stringify({ event: "ghl_participants_complete", ...result }) + "\n");
+      if (result.status !== "COMPLETE") process.exitCode = 2;
+      return;
+    }
     if (config.mode === "VERIFY") {
       const result = await operations.inspect(identity);
       const [contacts, settings, sales, conversations] = await Promise.all([

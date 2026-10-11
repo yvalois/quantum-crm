@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -29,7 +29,7 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-async function fixture() {
+async function fixture(participants = false) {
   const root = await mkdtemp(join(tmpdir(), "qcrm-ghl-runner-"));
   roots.push(root);
   const configurationRoot = join(root, "configuration");
@@ -100,6 +100,14 @@ async function fixture() {
   );
   const exportKeyFile = join(databaseSecretRoot, "export-key");
   await writeFile(exportKeyFile, "synthetic-key", { mode: 0o400 });
+  const tokenFile = join(databaseSecretRoot, "migration-token");
+  await writeFile(tokenFile, "synthetic-roster-token", { mode: 0o400 });
+  const participantsCandidate = {
+    commit: "c".repeat(40),
+    workerImageId: `sha256:${"d".repeat(64)}`,
+    migratorImageId: `sha256:${"e".repeat(64)}`,
+    tokenFile,
+  };
   const artifactFile = join(exportRoot, request.exportId, "records.qcrm");
   await writeFile(artifactFile, "encrypted-synthetic-artifact", { mode: 0o600 });
   const approved = {
@@ -126,19 +134,22 @@ async function fixture() {
   let storageInternal = true;
   let egressCreated = false;
   let foreignEgress = false;
-  let currentMode = request.mode;
+  let currentMode = participants ? "VERIFY" as const : request.mode;
   const labels = () => ({
     "com.quantum.operation-id": request.operationId,
     "com.quantum.tenant-id": request.tenantProfileId,
     "com.quantum.ghl-export-id": request.exportId,
     "com.quantum.ghl-job-sha256": createHash("sha256").update(registered).digest("hex"),
     "com.quantum.ghl-import-mode": currentMode,
+    ...(participants ? { "com.quantum.ghl-participants-commit": participantsCandidate.commit } : {}),
   });
   const container = () =>
     JSON.stringify([
       {
-        Name: `/qcrm-ghl-${request.operationId}-${currentMode.toLowerCase()}-${request.attempt}`,
-        Image: currentMode === "MIGRATE" ? migratorImageId : imageId,
+        Name: `/qcrm-ghl-${request.operationId}-${participants ? `participants-${participantsCandidate.commit}-` : ""}${currentMode.toLowerCase()}-${request.attempt}`,
+        Image: currentMode === "MIGRATE"
+          ? participants ? participantsCandidate.migratorImageId : migratorImageId
+          : participants ? participantsCandidate.workerImageId : imageId,
         Config: {
           Labels: labels(),
         },
@@ -203,6 +214,7 @@ async function fixture() {
     platformOidcNetwork: "qcrm-platform-oidc",
     storagePublicEndpoint: "https://files.example.test",
     commandRunner: { run },
+    ...(participants ? { participantsCandidate } : {}),
   };
   return {
     options,
@@ -235,6 +247,50 @@ async function fixture() {
 }
 
 describe("registered GHL import host job", () => {
+  it("returns only aggregate participants enrichment evidence", () => {
+    const receipt = parseGhlImportReceipt(JSON.stringify({
+      event: "ghl_participants_complete", status: "COMPLETE", total: 2,
+      created: 2, replayed: 0, sourceReferences: 3, resolvedReferences: 3,
+      privateName: "private-canary", token: "secret-canary",
+    }));
+    expect(receipt).toMatchObject({ status: "COMPLETE", consistent: true, counters: { "participants.resolvedReferences": 3 } });
+    expect(JSON.stringify(receipt)).not.toContain("canary");
+  });
+  it("enriches only the registered target using candidate images without mutating its original registry", async () => {
+    const f = await fixture(true);
+    const before = await readFile(f.jobFile, "utf8");
+    const runner = createTenantGhlImportRunner(f.options);
+    await expect(runner.run({ ...request, mode: "VERIFY" })).resolves.toMatchObject({ state: "RUNNING" });
+    const args = f.run.mock.calls.find(([args]) => args[0] === "run")?.[0] ?? [];
+    expect(args).toContain(`sha256:${"d".repeat(64)}`);
+    expect(args).toContain("QCRM_GHL_IMPORT_MODE=PARTICIPANTS");
+    expect(args).toContain("QCRM_GHL_MIGRATION_TOKEN_FILE=/run/secrets/qcrm_ghl_migration_token");
+    expect(args.join(" ")).not.toContain("synthetic-roster-token");
+    expect(args.join(" ")).not.toContain("migrator-url");
+    expect(args.join(" ")).not.toContain("QCRM_FILES_");
+    expect(await readFile(f.jobFile, "utf8")).toBe(before);
+    f.finish();
+    await expect(runner.run({ ...request, mode: "VERIFY" })).resolves.toMatchObject({ state: "SUCCEEDED", reconciled: true });
+    expect(f.run.mock.calls.filter(([call]) => call[0] === "run")).toHaveLength(1);
+  });
+
+  it("never gives the supplemental migrator the GHL token or external network", async () => {
+    const f = await fixture(true);
+    f.migrationMode();
+    await expect(createTenantGhlImportRunner(f.options).run({ ...request, mode: "MIGRATE" })).resolves.toMatchObject({ state: "RUNNING" });
+    const args = f.run.mock.calls.find(([args]) => args[0] === "run")?.[0] ?? [];
+    expect(args.at(-1)).toBe(`sha256:${"e".repeat(64)}`);
+    expect(args.join(" ")).not.toContain("migration-token");
+    expect(args.join(" ")).not.toContain("-egress");
+    expect(args.join(" ")).not.toContain("runtime-url");
+  });
+
+  it("rejects using the supplemental candidate for APPLY or unvalidated candidate digests", async () => {
+    const f = await fixture(true);
+    await expect(createTenantGhlImportRunner(f.options).run(request)).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
+    await expect(createTenantGhlImportRunner({ ...f.options, participantsCandidate: { ...f.options.participantsCandidate!, workerImageId: "latest" } }).run({ ...request, mode: "VERIFY" })).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
+    expect(f.run).not.toHaveBeenCalled();
+  });
   it("returns only allowlisted aggregate progress and verification counters from worker logs", () => {
     const receipt = parseGhlImportReceipt(
       [

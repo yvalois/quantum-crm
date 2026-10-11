@@ -8,6 +8,7 @@ import {
 import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/database";
 import {
   ContactService,
+  CustomFieldDefinitionService,
   ConversationService,
   HistoricalConversationService,
   IamMemberService,
@@ -37,6 +38,10 @@ import { MEMBER_ACTIVATION_ISSUER } from "./members.controller.js";
 import type { MemberActivationIssuer } from "./member-activation-issuer.js";
 import { IAM_ROLE_SERVICE, RolesController } from "./roles.controller.js";
 import { CONTACT_SERVICE, ContactsController } from "./contacts.controller.js";
+import {
+  CUSTOM_FIELD_DEFINITION_SERVICE,
+  CustomFieldDefinitionsController,
+} from "./custom-field-definitions.controller.js";
 import { SALES_SERVICE, SalesController } from "./sales.controller.js";
 import { TASK_SERVICE, TasksController } from "./tasks.controller.js";
 import { IAM_TEAM_SERVICE, TeamsController } from "./teams.controller.js";
@@ -73,6 +78,7 @@ export class AppModule {
         MembersController,
         RolesController,
         ContactsController,
+        CustomFieldDefinitionsController,
         SalesController,
         TasksController,
         TeamsController,
@@ -107,7 +113,12 @@ export class AppModule {
         { provide: MEMBER_ACTIVATION_ISSUER, useValue: activationIssuer },
         {
           provide: CONTACT_SERVICE,
-          useFactory: () => new ContactService(database.commercial.contacts),
+          useFactory: () => new ContactService(database.commercial.contacts, undefined, database.externalParticipants),
+        },
+        {
+          provide: CUSTOM_FIELD_DEFINITION_SERVICE,
+          useFactory: () =>
+            new CustomFieldDefinitionService(database.commercial.customFieldDefinitions),
         },
         {
           provide: SALES_SERVICE,
@@ -122,6 +133,8 @@ export class AppModule {
                 isActive: async (memberId) =>
                   (await database.members.findById(memberId))?.status === "ACTIVE",
               },
+              undefined,
+              database.externalParticipants,
             ),
         },
         {
@@ -162,7 +175,7 @@ export class AppModule {
                 (await database.commercial.contacts.find(actor, contactId)) !== null,
               isActiveMember: async (memberId) =>
                 (await database.members.findById(memberId))?.status === "ACTIVE",
-            }),
+            }, undefined, database.externalParticipants),
         },
         {
           provide: CALENDAR_SERVICE,

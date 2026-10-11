@@ -14,6 +14,7 @@ import {
   handleCrmContactLabelCreate,
   handleCrmContactLabelList,
   handleCrmContactList,
+  handleCrmCustomFieldDefinitionList,
   handleCrmContactUpdate,
   handleCrmAutomationActivate,
   handleCrmAutomationCreate,
@@ -75,6 +76,49 @@ function runtime(crmApiFetch: typeof fetch = vi.fn(fetch)): CrmAuthRuntime {
 }
 
 describe("CRM web authentication HTTP boundary", () => {
+  it("reads the field catalog through the authenticated API and rejects arbitrary query selectors", async () => {
+    const payload = {
+      data: [{
+        id: "019b0000-0000-7000-8000-000000000001",
+        key: "contact.favorite_color",
+        label: "Color favorito",
+        description: "",
+        dataType: "TEXT",
+        model: "contact",
+      }],
+      page: { nextCursor: null },
+    };
+    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => Response.json(payload));
+    const response = await handleCrmCustomFieldDefinitionList(
+      new Request("https://crm.example.test/api/custom-field-definitions?model=contact", {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(payload);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(String(upstream.mock.calls[0]?.[0])).toBe(
+      "http://api:3001/api/v1/custom-field-definitions?model=contact&limit=100",
+    );
+    const rejected = await handleCrmCustomFieldDefinitionList(
+      new Request("https://crm.example.test/api/custom-field-definitions?model=contact&tenantId=other"),
+      runtime(upstream as typeof fetch),
+    );
+    expect(rejected.status).toBe(400);
+    expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it("does not expose a field catalog without a web session", async () => {
+    const upstream = vi.fn(async () => Response.json({ data: [], page: { nextCursor: null } }));
+    const response = await handleCrmCustomFieldDefinitionList(
+      new Request("https://crm.example.test/api/custom-field-definitions?model=opportunity"),
+      runtime(upstream as typeof fetch),
+    );
+    expect(response.status).toBe(401);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("transporta una carga firmada solo al almacenamiento hermano autorizado", async () => {
     const upstream = vi.fn(async (url: URL | RequestInfo, init?: RequestInit) => {
       expect(String(url)).toBe("https://storage.example.test/incoming");

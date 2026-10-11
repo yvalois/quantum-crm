@@ -3,6 +3,7 @@ import {
   HistoricalImportValidationError,
   HistoricalAttachmentConflictError,
   HistoricalConversationNotFoundError,
+  sourceParticipantReferencesFromRow,
   type HistoricalAttachmentRecord,
   type HistoricalAttachmentVerification,
   type CommercialActor,
@@ -17,6 +18,7 @@ import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database
 
 interface ThreadRow {
   readonly id: string;
+  readonly source_participant_references?: unknown;
   readonly source_system: "GHL";
   readonly source_external_id: string;
   readonly source_thread_present: boolean;
@@ -78,8 +80,21 @@ function attachment(row: AttachmentRow): HistoricalAttachmentRecord {
 }
 const threadSelection = `thread.id::text, thread.source_system, thread.source_external_id,
   thread.source_thread_present, thread.contact_id::text, thread.assignee_member_id::text,
-  thread.raw_channel, thread.raw_status, thread.subject, thread.source_created_at,
-  thread.source_updated_at, thread.message_count, thread.last_message_at, thread.imported_at`;
+  COALESCE(NULLIF(thread.raw_channel, ''), (
+    SELECT COALESCE(NULLIF(channel_message.raw_channel, ''), NULLIF(channel_message.raw_type, ''))
+    FROM conversations.historical_messages channel_message
+    WHERE channel_message.thread_id = thread.id
+      AND COALESCE(NULLIF(channel_message.raw_channel, ''), NULLIF(channel_message.raw_type, '')) IS NOT NULL
+    ORDER BY channel_message.source_created_at DESC NULLS LAST, channel_message.id DESC LIMIT 1
+  )) AS raw_channel, thread.raw_status, thread.subject, thread.source_created_at,
+  thread.source_updated_at, thread.message_count, thread.last_message_at, thread.imported_at,
+  (SELECT jsonb_build_object('locationId', source_map.source_location_id,
+    'ownerExternalId', NULLIF(source_map.source_payload->>'assignedTo', ''),
+      'followerExternalIds', COALESCE(NULLIF(source_map.source_payload->'followers', 'null'::jsonb), '[]'::jsonb))
+    FROM conversations.historical_imports source_map WHERE source_map.entity_type = 'thread'
+      AND source_map.source_system = thread.source_system
+      AND source_map.source_location_id = thread.source_location_id
+      AND source_map.external_id = thread.source_external_id) AS source_participant_references`;
 const messageSelection = `message.id::text, message.thread_id::text, message.source_external_id,
   message.raw_channel, message.raw_type, message.raw_direction, message.raw_status,
   message.body, message.attachment_count, message.source_created_at,
@@ -102,6 +117,7 @@ function thread(row: ThreadRow): HistoricalThreadRecord {
     sourceThreadPresent: row.source_thread_present,
     contactId: row.contact_id,
     assigneeMemberId: row.assignee_member_id,
+    ...sourceParticipantReferencesFromRow(row.source_participant_references),
     rawChannel: row.raw_channel,
     rawStatus: row.raw_status,
     subject: row.subject,

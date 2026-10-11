@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SourceParticipantsSchema } from "../../iam/v1/source-participants.js";
 
 export const ContactIdSchema = z.string().uuid();
 const TextSchema = z.string().trim().min(1).max(160);
@@ -90,6 +91,7 @@ export const ContactCustomFieldSchema = z.object({
 
 export const ContactSchema = z.object({
   id: ContactIdSchema,
+  sourceParticipants: SourceParticipantsSchema.optional(),
   ownerMemberId: ContactIdSchema.nullable(),
   displayName: TextSchema,
   email: EmailSchema.nullable(),

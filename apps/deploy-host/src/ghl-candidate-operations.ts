@@ -331,6 +331,31 @@ export async function runRegisteredGhlImport(
     : runner.run(typedRequest);
 }
 
+/** Enrichment is separate from the immutable approved import and never replays its APPLY. */
+export async function runRegisteredGhlParticipants(
+  commit: string,
+  tenantId: string,
+  exportId: string,
+  migrate: boolean,
+  attempt = 1,
+) {
+  await candidateRoot(commit);
+  const request = await registeredGhlRequest(tenantId, exportId, migrate ? "MIGRATE" : "VERIFY", attempt);
+  const workerImageId = await candidateImage(commit, "worker");
+  const migratorImageId = await candidateImage(commit, "crm-migrator");
+  if (!workerImageId || !migratorImageId) throw new HostAdapterError("UNAVAILABLE");
+  const runner = createTenantGhlImportRunner({
+    ...(await hostOptions()),
+    participantsCandidate: {
+      commit,
+      workerImageId,
+      migratorImageId,
+      tokenFile: "/run/secrets/qcrm_ghl_migration_token",
+    },
+  });
+  return runner.run(request);
+}
+
 export async function tuneRegisteredGhlAttachmentStorage(
   tenantId: string,
   exportId: string,

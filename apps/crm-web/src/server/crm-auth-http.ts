@@ -7,6 +7,8 @@ import {
 import { type CrmWebAuthConfig, SecretValue } from "@quantum-crm/config";
 import {
   CreateMemberInvitationSchema,
+  CustomFieldDefinitionListQuerySchema,
+  CustomFieldDefinitionListResponseSchema,
   HistoricalConversationListQuerySchema,
   HistoricalConversationListResponseSchema,
   HistoricalConversationMessageListResponseSchema,
@@ -2092,6 +2094,26 @@ export async function handleCrmHistoricalConversationGet(
     runtime,
     `/api/v1/historical-conversations/${id}`,
     HistoricalConversationResponseSchema,
+  );
+}
+
+export async function handleCrmCustomFieldDefinitionList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const parsed = CustomFieldDefinitionListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const endpoint = new URL("/api/v1/custom-field-definitions", runtime.config.crmApiOrigin);
+  for (const [name, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) endpoint.searchParams.set(name, String(value));
+  }
+  return conversationRead(
+    request,
+    runtime,
+    `${endpoint.pathname}${endpoint.search}`,
+    CustomFieldDefinitionListResponseSchema,
   );
 }
 

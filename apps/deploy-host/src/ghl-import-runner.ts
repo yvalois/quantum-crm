@@ -49,6 +49,13 @@ export interface TenantGhlImportRunnerOptions extends TenantComposeRunnerOptions
   /** Host-controlled roots only; never accepted from an HTTP request. */
   readonly exportRoot?: string;
   readonly exportKeyFile?: string;
+  /** Bootstrap-only extension; never accepted from the platform HTTP request. */
+  readonly participantsCandidate?: {
+    readonly commit: string;
+    readonly workerImageId: string;
+    readonly migratorImageId: string;
+    readonly tokenFile: string;
+  };
 }
 
 export async function protectedFile(
@@ -234,10 +241,19 @@ export function parseGhlImportReceipt(output: string): HostAdapterGhlImportRecei
         "ghl_import_failed",
         "ghl_attachment_import_progress",
         "ghl_attachment_import_completed",
+        "ghl_participants_complete",
       ].includes(String(event.event))
     )
       continue;
     recognized = true;
+    if (event.event === "ghl_participants_complete") {
+      for (const key of ["total", "created", "replayed", "sourceReferences", "resolvedReferences"]) {
+        if (count(event[key])) counters[`participants.${key}`] = event[key];
+      }
+      status = event.status === "COMPLETE" ? "COMPLETE" : "CONFLICTS";
+      consistent = event.status === "COMPLETE" && count(event.sourceReferences) && event.sourceReferences === event.resolvedReferences;
+      continue;
+    }
     if (
       event.event === "ghl_attachment_import_progress" ||
       event.event === "ghl_attachment_import_completed"
@@ -403,9 +419,19 @@ export function createTenantGhlImportRunner(
         await protectedFile(options.configurationRoot, jobFile, 16_384);
         const registered = await readFile(jobFile, "utf8");
         const approved = parseApprovedJob(JSON.parse(registered) as unknown, request);
+        const candidate = options.participantsCandidate;
+        if (candidate && (
+          !/^[0-9a-f]{40}$/u.test(candidate.commit) ||
+          !digestPattern.test(candidate.workerImageId) ||
+          !digestPattern.test(candidate.migratorImageId) ||
+          !["VERIFY", "MIGRATE"].includes(request.mode)
+        )) throw new HostAdapterError("IDENTITY_MISMATCH");
+        const participants = Boolean(candidate) && request.mode === "VERIFY";
         const attachments = request.mode === "ATTACHMENTS";
         const imageId =
-          request.mode === "MIGRATE" ? approved.migratorImageId : approved.workerImageId;
+          request.mode === "MIGRATE"
+            ? candidate?.migratorImageId ?? approved.migratorImageId
+            : candidate?.workerImageId ?? approved.workerImageId;
         if (!imageId) throw new HostAdapterError("IDENTITY_MISMATCH");
         const registryHash = createHash("sha256").update(registered).digest("hex");
         const artifactFile = join(exportRoot, request.exportId, "records.qcrm");
@@ -419,6 +445,11 @@ export function createTenantGhlImportRunner(
         await protectedFile(options.databaseSecretRoot, databaseFile, 16_384);
         const filesEnvironment: Record<string, string> = {};
         const filesMounts: string[] = [];
+        if (participants && candidate) {
+          await protectedFile(resolve(candidate.tokenFile, ".."), candidate.tokenFile, 16_384);
+          filesEnvironment.QCRM_GHL_MIGRATION_TOKEN_FILE = "/run/secrets/qcrm_ghl_migration_token";
+          filesMounts.push("--mount", `type=bind,source=${candidate.tokenFile},target=/run/secrets/qcrm_ghl_migration_token,readonly`);
+        }
         if (attachments) {
           for (const role of ["UPLOAD", "DELIVERY", "PROCESSOR"] as const) {
             for (const kind of ["ACCESS", "SECRET"] as const) {
@@ -453,13 +484,14 @@ export function createTenantGhlImportRunner(
         }
         if ((await sha256File(artifactFile)) !== approved.artifactSha256)
           throw new HostAdapterError("IDENTITY_MISMATCH");
-        const name = `qcrm-ghl-${request.operationId}-${request.mode.toLowerCase()}-${request.attempt}`;
+        const name = `qcrm-ghl-${request.operationId}-${candidate ? `participants-${candidate.commit}-` : ""}${request.mode.toLowerCase()}-${request.attempt}`;
         const labels = {
           "com.quantum.operation-id": request.operationId,
           "com.quantum.tenant-id": request.tenantProfileId,
           "com.quantum.ghl-export-id": request.exportId,
           "com.quantum.ghl-job-sha256": registryHash,
           "com.quantum.ghl-import-mode": request.mode,
+          ...(candidate ? { "com.quantum.ghl-participants-commit": candidate.commit } : {}),
         };
         const observe = async (output: string): Promise<HostAdapterGhlImportResult> => {
           const state = observedContainer(output, imageId, name, labels);
@@ -503,7 +535,7 @@ export function createTenantGhlImportRunner(
         );
         if (running.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
         if (running.stdout.trim()) throw new HostAdapterError("TARGET_CONFLICT");
-        if (attachments) networks.push(await attachmentEgressNetwork(runner, name, labels));
+        if (attachments || participants) networks.push(await attachmentEgressNetwork(runner, name, labels));
         const environment: Readonly<Record<string, string>> =
           request.mode === "MIGRATE"
             ? {
@@ -521,7 +553,7 @@ export function createTenantGhlImportRunner(
                 QCRM_DATABASE_URL_FILE: "/run/secrets/qcrm_database_url",
                 QCRM_GHL_LOCATION_ID: approved.locationId,
                 QCRM_GHL_IMPORT_CURRENCY: approved.currency,
-                QCRM_GHL_IMPORT_MODE: attachments ? "APPLY" : request.mode,
+                QCRM_GHL_IMPORT_MODE: participants ? "PARTICIPANTS" : attachments ? "APPLY" : request.mode,
                 QCRM_GHL_IMPORT_DEVELOPMENT_EXCEPTION: "true",
                 ...filesEnvironment,
               };

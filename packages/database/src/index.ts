@@ -63,3 +63,4 @@ export {
   TenantDatabaseSecretsProvisioningError,
 } from "./tenant-database-secrets-provisioner.js";
 export { acquireGhlAttachmentImportGuard } from "./ghl-attachment-import-guard.js";
+export { createIamExternalParticipantDirectory } from "./iam-external-participant-directory.js";

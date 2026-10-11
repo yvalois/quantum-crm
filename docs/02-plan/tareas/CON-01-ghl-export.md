@@ -10,6 +10,14 @@ Se revisaron funcionalidades, fases, subtareas, estado, codigo existente y regla
 
 ## Contrato
 
+### Ampliacion autorizada: participantes originales (CON-06 / PIPE-06 / CHAT-07)
+
+El propietario difiere expresamente la conexion de envio desde Quantum. Este bloque no conecta canales, no envia mensajes de prueba ni procesa colas antiguas. El catalogo de campos se presenta completo con busqueda y opcion de incluir vacios; en oportunidades se distinguen los campos del contacto asociado. Las vistas previas usan exclusivamente archivos AVAILABLE y autorizaciones nuevas, sin persistir URLs firmadas.
+
+EN_CURSO 2026-10-11. Recuperar el directorio de nombres GHL mediante GET acotado a la ubicacion aprobada y validarlo completo antes de persistirlo. IAM conserva un directorio externo independiente de cuentas, sesiones, membresias, roles y permisos; solo ID externo y nombre. Cada modulo proyecta exclusivamente responsable y seguidores desde su propio payload historico. El lookup publico IAM resuelve nombres solo despues de autorizar el recurso. La respuesta opcional `sourceParticipants` distingue origen GHL y conserva intactas las asignaciones Quantum. No se importan correos, credenciales ni permisos GHL.
+
+Migracion nueva aditiva y forward-only: tablas IAM de directorio y recibo durable, sin backfill SQL ni cambios a tablas comerciales. La carga tipada PARTICIPANTS usa el artefacto original autenticado, configuracion de perfil y token por archivo; no repite APPLY ni emite outbox. Una identidad externa repetida conserva su nombre original y un payload distinto del mismo recibo produce conflicto. Rollback de aplicacion conserva las tablas y datos; no se ejecuta borrado inverso. Verificacion enfocada: contrato, autorizacion, directorio ajeno rechazado, reintento/concurrencia, lectura por dos perfiles, ausencia de nuevas cuentas/outbox y proyecciones visibles sin payload privado.
+
 ### Ampliacion autorizada: adjuntos historicos (CHAT-04)
 
 Copiar los bytes de adjuntos del artefacto autenticado sin repetir la carga comercial. Resolver cada mensaje por su correspondencia de origen; conservar una asociacion durable por indice y `fileId`, con progreso y errores seguros. Las fuentes se consultan por HTTPS con destinos permitidos, limites de bytes/tiempo y sin reenviar credenciales a servidores de archivos. Reutilizar el pipeline propietario Files, cuarentena, validacion, ClamAV y promocion inmutable; nunca marcar disponible una referencia sin bytes verificados. Las descargas autorizan nuevamente el hilo y el estado del archivo. Cambios de esquema aditivos y forward-only, sin modificar migraciones aplicadas. El despliegue conserva aplicaciones anteriores; un rollback de aplicacion no borra archivos ni asociaciones. Probar aislamiento, reintentos, fuentes no disponibles, rechazo de contenidos y descarga real. No modificar GHL ni activar envios.

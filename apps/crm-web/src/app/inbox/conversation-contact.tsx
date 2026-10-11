@@ -1,11 +1,9 @@
 "use client";
 
-import {
-  ContactListResponseSchema,
-  type Contact,
-  type ContactCustomFieldValue,
-} from "@quantum-crm/contracts";
+import { ContactListResponseSchema, type Contact } from "@quantum-crm/contracts";
 import { useEffect, useState } from "react";
+import { ContactCustomFields } from "../contacts/custom-fields";
+import { SourceParticipantsCard } from "../source-participants";
 import styles from "./conversation-contact.module.css";
 
 /** Resolve only related IDs in bounded batches, with server-side contact authorization. */
@@ -61,14 +59,6 @@ export function useConversationContacts(ids: readonly (string | null | undefined
   return result.key === key
     ? result
     : { contacts: new Map<string, Contact>(), loading: Boolean(key), error: null };
-}
-
-function fieldValue(value: ContactCustomFieldValue): string {
-  if (value === null || value === "") return "Sin valor";
-  if (typeof value === "boolean") return value ? "Sí" : "No";
-  if (Array.isArray(value)) return value.map(fieldValue).join(", ") || "Sin valor";
-  if (typeof value === "object") return JSON.stringify(value, null, 2);
-  return String(value);
 }
 
 export function ConversationContactCard({
@@ -131,23 +121,8 @@ export function ConversationContactCard({
               <p>Sin etiquetas</p>
             )}
           </details>
-          <details open>
-            <summary>
-              Campos personalizados <span>{contact.customFields.length}</span>
-            </summary>
-            {contact.customFields.length ? (
-              <dl className={styles.fields}>
-                {contact.customFields.map((field) => (
-                  <div key={field.fieldId}>
-                    <dt>{field.label}</dt>
-                    <dd>{fieldValue(field.value)}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p>Sin campos personalizados guardados</p>
-            )}
-          </details>
+          <ContactCustomFields key={contact.id} fields={contact.customFields} />
+          <SourceParticipantsCard participants={contact.sourceParticipants} kind="contacto" />
         </>
       ) : (
         <p>

@@ -13,6 +13,8 @@ import {
 } from "react";
 
 import { CrmShell } from "../crm-shell";
+import { ContactCustomFields } from "./custom-fields";
+import { SourceParticipantsCard } from "../source-participants";
 import styles from "./contacts-workspace.module.css";
 
 type WorkspaceView = "all" | "unassigned" | "archived";
@@ -53,13 +55,6 @@ interface ContactOwner {
 
 interface WorkspaceContact extends Contact {
   readonly owner?: ContactOwner | null;
-}
-
-function customFieldText(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "Sin valor";
-  if (typeof value === "boolean") return value ? "Sí" : "No";
-  if (typeof value === "string" || typeof value === "number") return String(value);
-  return JSON.stringify(value, null, 2);
 }
 
 interface MemberOption {
@@ -1952,31 +1947,14 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                 ))}
               </nav>
               <section className="contact-workspace-drawer-body">
-                {(selectedContact.customFields ?? []).length > 0 ? (
-                  <details style={{ marginBottom: "1rem" }}>
-                    <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-                      Campos personalizados ({selectedContact.customFields.length})
-                    </summary>
-                    <dl>
-                      {selectedContact.customFields.map((field) => (
-                        <div key={field.fieldId} style={{ marginTop: "0.75rem" }}>
-                          <dt style={{ fontWeight: 600 }}>{field.label}</dt>
-                          <dd
-                            style={{
-                              margin: "0.25rem 0 0",
-                              whiteSpace: "pre-wrap",
-                              overflowWrap: "anywhere",
-                            }}
-                          >
-                            {field.dataType.toUpperCase() === "FILE_UPLOAD"
-                              ? "Adjunto pendiente de transferencia y análisis"
-                              : customFieldText(field.value)}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </details>
-                ) : null}
+                <ContactCustomFields
+                  key={selectedContact.id}
+                  fields={selectedContact.customFields ?? []}
+                />
+                <SourceParticipantsCard
+                  participants={selectedContact.sourceParticipants}
+                  kind="contacto"
+                />
                 {activeTab === "conversations" && selectedContact.source === "MIGRATION" ? (
                   <p>
                     <a href={`/inbox?contactId=${encodeURIComponent(selectedContact.id)}`}>

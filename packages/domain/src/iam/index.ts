@@ -60,3 +60,4 @@ export {
   type ConfirmedInvitationAcceptance,
   type IamActor,
 } from "./application/member-service.js";
+export * from "./application/external-participant-directory.js";

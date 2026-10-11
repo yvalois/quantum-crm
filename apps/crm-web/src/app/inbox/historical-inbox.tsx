@@ -1,17 +1,18 @@
 "use client";
 
 import {
-  FileDownloadAuthorizationResponseSchema,
   HistoricalConversationListResponseSchema,
   HistoricalConversationMessageListResponseSchema,
   HistoricalConversationResponseSchema,
   type HistoricalConversation,
   type HistoricalConversationMessage,
-  type HistoricalConversationAttachment,
 } from "@quantum-crm/contracts";
 import { type FormEvent, useEffect, useState } from "react";
 import styles from "./historical-inbox.module.css";
 import { ConversationContactCard, useConversationContacts } from "./conversation-contact";
+import { HistoricalAttachment } from "./historical-attachment";
+import { HistoricalChannelBadge } from "./historical-channel-badge";
+import { SourceParticipantsCard } from "../source-participants";
 
 function threadTitle(thread: HistoricalConversation, name?: string): string {
   if (name) return name;
@@ -43,83 +44,6 @@ async function read(path: string, signal: AbortSignal): Promise<unknown> {
     throw new Error("No fue posible consultar el historial. Inténtalo de nuevo.");
   }
   return response.json() as Promise<unknown>;
-}
-
-function HistoricalAttachment({
-  attachment,
-}: {
-  readonly attachment: HistoricalConversationAttachment;
-}): React.JSX.Element {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  async function download(): Promise<void> {
-    if (!attachment.fileId || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const sessionResponse = await fetch("/api/auth/session", {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (!sessionResponse.ok) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
-      const session = (await sessionResponse.json()) as {
-        authenticated?: unknown;
-        csrfToken?: unknown;
-      };
-      if (session.authenticated !== true || typeof session.csrfToken !== "string")
-        throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
-      const response = await fetch(`/api/files/${attachment.fileId}/download-authorizations`, {
-        method: "POST",
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { "x-csrf-token": session.csrfToken, "idempotency-key": crypto.randomUUID() },
-      });
-      if (!response.ok)
-        throw new Error(
-          response.status === 403 || response.status === 404
-            ? "No tienes acceso a este adjunto."
-            : "El adjunto no está disponible. Inténtalo de nuevo.",
-        );
-      const authorization = FileDownloadAuthorizationResponseSchema.parse(await response.json());
-      window.location.assign(authorization.data.url);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "No fue posible descargar el adjunto.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  const status =
-    attachment.status === "REJECTED"
-      ? "No disponible: formato o contenido rechazado."
-      : attachment.status === "FAILED"
-        ? "No se pudo transferir desde el origen."
-        : "Pendiente de transferencia y verificación.";
-  return (
-    <li className={styles.attachment}>
-      <span>{attachment.name ?? `Adjunto ${attachment.attachmentIndex + 1}`}</span>{" "}
-      {attachment.size !== null ? (
-        <small>
-          (
-          {new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 }).format(
-            attachment.size / 1024,
-          )}{" "}
-          KB)
-        </small>
-      ) : null}{" "}
-      {attachment.status === "AVAILABLE" && attachment.fileId ? (
-        <button type="button" disabled={busy} onClick={() => void download()}>
-          {busy ? "Preparando…" : "Descargar"}
-        </button>
-      ) : (
-        <small>{status}</small>
-      )}
-      {error ? (
-        <p role="alert" className={styles.error}>
-          {error}
-        </p>
-      ) : null}
-    </li>
-  );
 }
 
 export function HistoricalInbox(): React.JSX.Element {
@@ -310,8 +234,9 @@ export function HistoricalInbox(): React.JSX.Element {
                   {item.contactId && related.contacts.get(item.contactId)?.phone ? (
                     <span>{related.contacts.get(item.contactId)?.phone}</span>
                   ) : null}
-                  <span>
-                    {item.messageCount} mensajes · {item.rawChannel || "Canal no informado"}
+                  <span className={styles.threadSummary}>
+                    <span>{item.messageCount} mensajes</span>
+                    <HistoricalChannelBadge rawChannel={item.rawChannel} />
                   </span>
                   <time>{when(item.lastMessageAt ?? item.sourceCreatedAt)}</time>
                   {!item.contactId ? (
@@ -351,6 +276,7 @@ export function HistoricalInbox(): React.JSX.Element {
                     {selected.messageCount} mensajes ·{" "}
                     {selected.rawStatus || "Estado original no informado"}
                   </p>
+                  <HistoricalChannelBadge rawChannel={selected.rawChannel} />
                 </div>
                 {selected.contactId ? (
                   <a href={`/contacts?contact=${encodeURIComponent(selected.contactId)}`}>
@@ -393,15 +319,14 @@ export function HistoricalInbox(): React.JSX.Element {
                           <time>{when(item.sourceCreatedAt)}</time>
                         </header>
                         <p className={styles.metadata}>
-                          {[item.rawChannel, item.rawType, item.rawStatus]
-                            .filter(Boolean)
-                            .join(" · ") || "Sin metadatos de canal"}
+                          <HistoricalChannelBadge rawChannel={item.rawChannel} rawType={item.rawType} />
+                          {item.rawStatus ? <span>{item.rawStatus}</span> : null}
                         </p>
                         {item.body.length > 0 ? (
                           <pre className={styles.body}>{item.body}</pre>
-                        ) : (
+                        ) : item.attachmentCount === 0 ? (
                           <p className={styles.noBody}>Mensaje original sin texto.</p>
-                        )}
+                        ) : null}
                         {item.attachments.length > 0 ? (
                           <ul className={styles.attachments} aria-label="Adjuntos del mensaje">
                             {item.attachments.map((attachment) => (
@@ -459,12 +384,15 @@ export function HistoricalInbox(): React.JSX.Element {
         </section>
         <aside className={styles.contactPanel} aria-label="Información del cliente">
           {selected ? (
-            <ConversationContactCard
-              contact={selectedContact}
-              linked={Boolean(selected.contactId)}
-              loading={Boolean(selected.contactId) && related.loading}
-              error={selected.contactId ? related.error : null}
-            />
+            <>
+              <SourceParticipantsCard participants={selected.sourceParticipants} kind="conversación" />
+              <ConversationContactCard
+                contact={selectedContact}
+                linked={Boolean(selected.contactId)}
+                loading={Boolean(selected.contactId) && related.loading}
+                error={selected.contactId ? related.error : null}
+              />
+            </>
           ) : (
             <p>
               Selecciona una conversación para ver el cliente, sus etiquetas y campos

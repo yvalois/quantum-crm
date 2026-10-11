@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ConfigurationError } from "./configuration-error.js";
 import { parseDatabaseConfig, type DatabaseConfig } from "./database-config.js";
 import { loadSecretFile, type SecretFileSystem, type SecretValue } from "./secret-value.js";
+import { ghlMigrationTokenPath } from "./ghl-migration-probe-config.js";
 
 const artifactPath = "/run/ghl-import/records.qcrm";
 const keyPath = "/run/secrets/qcrm_ghl_export_key";
@@ -18,7 +19,8 @@ const schema = z.object({
   QCRM_GHL_EXPORT_KEY_FILE: z.literal(keyPath),
   QCRM_GHL_IMPORT_CURRENCY: z.string().regex(/^[A-Z]{3}$/u),
   QCRM_GHL_IMPORT_DEVELOPMENT_EXCEPTION: z.literal("true"),
-  QCRM_GHL_IMPORT_MODE: z.enum(["VERIFY", "APPLY"]).default("VERIFY"),
+  QCRM_GHL_IMPORT_MODE: z.enum(["VERIFY", "APPLY", "PARTICIPANTS"]).default("VERIFY"),
+  QCRM_GHL_MIGRATION_TOKEN_FILE: z.literal(ghlMigrationTokenPath).optional(),
 });
 
 export interface GhlMigrationImportConfig {
@@ -31,7 +33,8 @@ export interface GhlMigrationImportConfig {
   readonly artifactSha256: string;
   readonly encryptionKey: SecretValue;
   readonly currency: string;
-  readonly mode: "VERIFY" | "APPLY";
+  readonly mode: "VERIFY" | "APPLY" | "PARTICIPANTS";
+  readonly participantToken?: SecretValue;
 }
 
 export function loadGhlMigrationImportConfig(): GhlMigrationImportConfig {
@@ -54,6 +57,8 @@ export function parseGhlMigrationImportConfig(
       ...new Set(parsed.error.issues.map((issue) => String(issue.path[0]))),
     ]);
   const v = parsed.data;
+  if ((v.QCRM_GHL_IMPORT_MODE === "PARTICIPANTS") !== (v.QCRM_GHL_MIGRATION_TOKEN_FILE !== undefined))
+    throw new ConfigurationError("ghl-migration-import", ["QCRM_GHL_MIGRATION_TOKEN_FILE"]);
   // This explicitly authorized development exception is never a production bypass.
   if (v.QCRM_ENV === "production")
     throw new ConfigurationError("ghl-migration-import", ["QCRM_ENV"]);
@@ -86,6 +91,18 @@ export function parseGhlMigrationImportConfig(
   } catch {
     throw new ConfigurationError("ghl-migration-import", ["QCRM_GHL_EXPORT_KEY_FILE"]);
   }
+  let participantToken: SecretValue | undefined;
+  if (v.QCRM_GHL_MIGRATION_TOKEN_FILE) {
+    try {
+      participantToken = loadSecretFile("GHL participant directory token", v.QCRM_GHL_MIGRATION_TOKEN_FILE, {
+        environment: v.QCRM_ENV,
+        expectedProtectedPath: ghlMigrationTokenPath,
+        ...(fileSystem ? { fileSystem } : {}),
+      });
+      if (participantToken.expose().length < 16 || participantToken.expose().length > 2048)
+        throw new Error("Invalid token");
+    } catch { throw new ConfigurationError("ghl-migration-import", ["QCRM_GHL_MIGRATION_TOKEN_FILE"]); }
+  }
   return Object.freeze({
     database,
     tenantId: v.QCRM_TENANT_ID,
@@ -97,5 +114,6 @@ export function parseGhlMigrationImportConfig(
     encryptionKey,
     currency: v.QCRM_GHL_IMPORT_CURRENCY,
     mode: v.QCRM_GHL_IMPORT_MODE,
+    ...(participantToken ? { participantToken } : {}),
   });
 }

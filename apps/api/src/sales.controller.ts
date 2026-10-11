@@ -40,6 +40,7 @@ import {
   SalesVersionConflictError,
   type CommercialActor,
   type IamPermission,
+  type SourceParticipants,
 } from "@quantum-crm/domain";
 import { CommercialIdempotencyConflictError } from "@quantum-crm/database";
 
@@ -102,6 +103,7 @@ function pipelineResponse(value: {
 }
 function opportunityResponse(value: {
   readonly id: string;
+  readonly sourceParticipants?: SourceParticipants;
   readonly ownerMemberId: string;
   readonly contactId: string;
   readonly pipelineId: string;
@@ -119,6 +121,7 @@ function opportunityResponse(value: {
   return {
     id: value.id,
     ownerMemberId: value.ownerMemberId,
+    ...(value.sourceParticipants ? { sourceParticipants: value.sourceParticipants } : {}),
     contactId: value.contactId,
     pipelineId: value.pipelineId,
     stageId: value.stageId,

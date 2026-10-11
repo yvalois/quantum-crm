@@ -4,6 +4,7 @@ import type {
   ConversationMessage,
   HistoricalConversation,
   HistoricalConversationMessage,
+  HistoricalConversationAttachment,
 } from "@quantum-crm/contracts";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -13,6 +14,101 @@ const memberId = "019b0000-0000-7000-8000-000000000001";
 const conversationId = "019b0000-0000-7000-8000-000000000002";
 const historicalId = "019b0000-0000-7000-8000-000000000003";
 const fileId = "019b0000-0000-7000-8000-000000000004";
+const imageFileId = "019b0000-0000-7000-8000-000000000021";
+const audioFileId = "019b0000-0000-7000-8000-000000000022";
+const videoFileId = "019b0000-0000-7000-8000-000000000023";
+const rejectedFileId = "019b0000-0000-7000-8000-000000000024";
+
+interface SyntheticMedia {
+  readonly image: Buffer;
+  readonly audio: Buffer;
+  readonly video: Buffer;
+}
+
+async function syntheticMedia(page: Page): Promise<SyntheticMedia> {
+  await page.goto("about:blank");
+  const visual = await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 160;
+    canvas.height = 90;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Synthetic media canvas unavailable");
+    context.fillStyle = "#d4ece3";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const image = canvas.toDataURL("image/png").split(",")[1];
+    if (!image) throw new Error("Synthetic image unavailable");
+    const stream = canvas.captureStream(20);
+    const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp8" });
+    const chunks: Blob[] = [];
+    const video = await new Promise<number[]>((resolve, reject) => {
+      recorder.ondataavailable = (event) => chunks.push(event.data);
+      recorder.onerror = () => reject(new Error("Synthetic recording failed"));
+      recorder.onstop = () => {
+        void new Blob(chunks, { type: "video/webm" }).arrayBuffer().then((bytes) => {
+          for (const track of stream.getTracks()) track.stop();
+          resolve(Array.from(new Uint8Array(bytes)));
+        }, reject);
+      };
+      recorder.start();
+      const started = performance.now();
+      function frame(now: number): void {
+        if (!context) return;
+        context.fillStyle = "#d4ece3";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "#146f61";
+        context.fillRect(((now - started) / 5) % 120, 25, 30, 40);
+        if (now - started >= 800) recorder.stop();
+        else requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+    return { image, video };
+  });
+  const samples = 8_000;
+  const audio = Buffer.alloc(44 + samples * 2);
+  audio.write("RIFF", 0);
+  audio.writeUInt32LE(36 + samples * 2, 4);
+  audio.write("WAVEfmt ", 8);
+  audio.writeUInt32LE(16, 16);
+  audio.writeUInt16LE(1, 20);
+  audio.writeUInt16LE(1, 22);
+  audio.writeUInt32LE(8_000, 24);
+  audio.writeUInt32LE(16_000, 28);
+  audio.writeUInt16LE(2, 32);
+  audio.writeUInt16LE(16, 34);
+  audio.write("data", 36);
+  audio.writeUInt32LE(samples * 2, 40);
+  for (let index = 0; index < samples; index++)
+    audio.writeInt16LE(Math.round(Math.sin((index * 440 * Math.PI * 2) / 8_000) * 1_000), 44 + index * 2);
+  return { image: Buffer.from(visual.image, "base64"), audio, video: Buffer.from(visual.video) };
+}
+
+function mediaAttachments(media: SyntheticMedia): HistoricalConversationAttachment[] {
+  return [
+    ...historicalMessage.attachments,
+    ...[
+      { fileId: imageFileId, name: "synthetic-image.png", mimeType: "image/png", size: media.image.length },
+      { fileId: audioFileId, name: "synthetic-audio.wav", mimeType: "audio/wav", size: media.audio.length },
+      { fileId: videoFileId, name: "synthetic-video.webm", mimeType: "video/webm", size: media.video.length },
+    ].map((file, index): HistoricalConversationAttachment => ({
+      id: file.fileId,
+      attachmentIndex: index + 1,
+      status: "AVAILABLE",
+      errorCode: null,
+      ...file,
+    })),
+    {
+      id: rejectedFileId,
+      attachmentIndex: 4,
+      fileId: rejectedFileId,
+      status: "REJECTED",
+      errorCode: "SCAN_REJECTED",
+      name: "synthetic-rejected.png",
+      mimeType: "image/png",
+      size: 20,
+    },
+  ];
+}
 
 function contact(index: number, displayName: string): Contact {
   return {
@@ -31,7 +127,12 @@ function contact(index: number, displayName: string): Contact {
         value: "Sedán sintético",
       },
     ],
-    source: "MANUAL",
+    source: "MIGRATION",
+    sourceParticipants: {
+      source: "GHL",
+      owner: { externalId: "synthetic-ghl-contact-owner", displayName: "Lucía Propietaria Sintética" },
+      followers: [{ externalId: "synthetic-ghl-contact-follower", displayName: "Mateo Seguidor Sintético" }],
+    },
     archivedAt: null,
     version: "1",
     createdAt: timestamp,
@@ -92,6 +193,11 @@ const historical: HistoricalConversation = {
   messageCount: 1,
   lastMessageAt: timestamp,
   importedAt: timestamp,
+  sourceParticipants: {
+    source: "GHL",
+    owner: { externalId: "synthetic-ghl-thread-owner", displayName: "Valentina Responsable Sintética" },
+    followers: [{ externalId: "synthetic-ghl-thread-follower", displayName: "Nicolás Seguidor Sintético" }],
+  },
 };
 const historicalMessage: HistoricalConversationMessage = {
   id: "019b0000-0000-7000-8000-000000000006",
@@ -120,10 +226,16 @@ const historicalMessage: HistoricalConversationMessage = {
   importedAt: timestamp,
 };
 
-async function workspaceFixture(page: Page) {
+async function workspaceFixture(page: Page, media?: SyntheticMedia) {
   const queries: URLSearchParams[] = [];
   const writes: string[] = [];
   const unexpected: string[] = [];
+  const authorizations = new Map<string, number>();
+  const mediaRequests: string[] = [];
+  const visibleThread = media ? { ...historical, rawChannel: "TYPE_WHATSAPP" } : historical;
+  const visibleMessage = media
+    ? { ...historicalMessage, rawChannel: null, rawType: "TYPE_WHATSAPP", attachmentCount: 5, attachments: mediaAttachments(media) }
+    : historicalMessage;
   await page.context().addCookies([
     {
       name: "qcrm_crm_session",
@@ -146,14 +258,21 @@ async function workspaceFixture(page: Page) {
       await route.abort("blockedbyclient");
       return;
     }
-    if (path === `/api/files/${fileId}/download-authorizations` && method === "POST") {
+    const authorizedId = [fileId, ...(media ? [imageFileId, audioFileId, videoFileId] : [])].find(
+      (id) => path === `/api/files/${id}/download-authorizations`,
+    );
+    if (authorizedId && method === "POST") {
       expect(request.headers()["x-csrf-token"]).toBe("synthetic-csrf-token");
       expect(request.headers()["idempotency-key"]).toBeTruthy();
+      const attempt = (authorizations.get(authorizedId) ?? 0) + 1;
+      authorizations.set(authorizedId, attempt);
       await respond({
         data: {
           method: "GET",
-          url: `${origin}/api/synthetic-download`,
-          expiresAt: "2026-10-11T15:05:00.000Z",
+          url: authorizedId === fileId
+            ? `${origin}/api/synthetic-download`
+            : `${origin}/api/synthetic-media/${authorizedId}?attempt=${attempt}`,
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
           objectVersionId: "synthetic-version",
         },
       });
@@ -162,6 +281,18 @@ async function workspaceFixture(page: Page) {
     if (method === "GET") {
       if (path === "/api/auth/session") {
         await respond({ authenticated: true, csrfToken: "synthetic-csrf-token" });
+        return;
+      }
+      if (path === "/api/custom-field-definitions") {
+        expect(url.searchParams.get("model")).toBe("contact");
+        expect(url.searchParams.get("limit")).toBe("100");
+        await respond({
+          data: [
+            { id: "019b0000-0000-7000-8000-000000000098", key: "vehicle", label: "Vehículo preferido", description: "Preferencia sintética", dataType: "TEXT", model: "contact" },
+            { id: "019b0000-0000-7000-8000-000000000097", key: "synthetic-empty", label: "Preferencia sin completar", description: "Campo sintético vacío", dataType: "TEXT", model: "contact" },
+          ],
+          page: { nextCursor: null },
+        });
         return;
       }
       if (path === "/api/contacts") {
@@ -215,17 +346,17 @@ async function workspaceFixture(page: Page) {
                     sourceThreadPresent: false,
                   },
                 ]
-              : [historical],
+              : [visibleThread],
           page: { nextCursor: null },
         });
         return;
       }
       if (path === `/api/conversations/historical/${historicalId}`) {
-        await respond({ data: historical });
+        await respond({ data: visibleThread });
         return;
       }
       if (path === `/api/conversations/historical/${historicalId}/messages`) {
-        await respond({ data: [historicalMessage], page: { nextCursor: null } });
+        await respond({ data: [visibleMessage], page: { nextCursor: null } });
         return;
       }
       if (path === "/api/conversations") {
@@ -244,6 +375,30 @@ async function workspaceFixture(page: Page) {
           body: "synthetic attachment",
         });
         return;
+      }
+      if (media && path.startsWith("/api/synthetic-media/")) {
+        const mediaId = path.slice("/api/synthetic-media/".length);
+        mediaRequests.push(mediaId);
+        if (mediaId === imageFileId && url.searchParams.get("attempt") === "1") {
+          await route.fulfill({ status: 403, body: "Synthetic expired media authorization" });
+          return;
+        }
+        const file = mediaId === imageFileId
+          ? { bytes: media.image, type: "image/png", name: "synthetic-image.png" }
+          : mediaId === audioFileId
+            ? { bytes: media.audio, type: "audio/wav", name: "synthetic-audio.wav" }
+            : mediaId === videoFileId
+              ? { bytes: media.video, type: "video/webm", name: "synthetic-video.webm" }
+              : null;
+        if (file) {
+          await route.fulfill({
+            status: 200,
+            contentType: file.type,
+            headers: { "content-disposition": `attachment; filename="${file.name}"`, "cache-control": "no-store" },
+            body: file.bytes,
+          });
+          return;
+        }
       }
       if (
         [
@@ -264,7 +419,7 @@ async function workspaceFixture(page: Page) {
     unexpected.push(`${method} ${path}`);
     await route.fulfill({ status: 500, json: { title: "Unexpected synthetic API request" } });
   });
-  return { queries, writes, unexpected };
+  return { queries, writes, unexpected, authorizations, mediaRequests };
 }
 
 async function expectContainedViewport(page: Page): Promise<void> {
@@ -355,6 +510,20 @@ test("imported history remains read only and downloads only the verified synthet
   await expect(card.getByText("Vehículo preferido", { exact: true })).toBeVisible();
   await expect(card.getByText("Sedán sintético", { exact: true })).toBeVisible();
   await expect(card.getByText("Cliente frecuente", { exact: true })).toBeVisible();
+  const originalContact = card.getByRole("region", { name: "Responsables originales de contacto" });
+  await expect(originalContact.getByText("Lucía Propietaria Sintética", { exact: true })).toBeVisible();
+  await expect(originalContact.getByText("Mateo Seguidor Sintético", { exact: true })).toBeVisible();
+  const originalThread = page.getByRole("region", { name: "Responsables originales de conversación" });
+  await expect(originalThread.getByText("Valentina Responsable Sintética", { exact: true })).toBeVisible();
+  await expect(originalThread.getByText("Nicolás Seguidor Sintético", { exact: true })).toBeVisible();
+  await expect(originalThread).toContainText("No equivalen a cuentas ni permisos de Quantum");
+  await card.getByLabel("Incluir campos vacíos").check();
+  await expect(card.getByText("Preferencia sin completar", { exact: true })).toBeVisible();
+  await expect(card.getByText("Sin valor guardado", { exact: true })).toBeVisible();
+  await card.getByRole("searchbox", { name: "Buscar campos" }).fill("preferido");
+  await expect(card.getByText("Sedán sintético", { exact: true })).toBeVisible();
+  await expect(card.getByText("Preferencia sin completar", { exact: true })).toHaveCount(0);
+  await card.getByRole("searchbox", { name: "Buscar campos" }).fill("");
   const history = page.getByRole("region", { name: "Mensajes históricos", exact: true });
   await expect(history.getByText(historicalMessage.body, { exact: true })).toBeVisible();
   await expect(history.getByRole("textbox")).toHaveCount(0);
@@ -380,4 +549,72 @@ test("imported history remains read only and downloads only the verified synthet
   await expect(page.getByRole("button", { name: /Andrea Sintética/u })).toHaveCount(0);
   expect(fixture.writes).toEqual([`POST /api/files/${fileId}/download-authorizations`]);
   expect(fixture.unexpected).toEqual([]);
+});
+
+test("historical verified images, audio and video render with fresh access and recognizable channels", async ({
+  page,
+}, testInfo) => {
+  const media = await syntheticMedia(page);
+  const fixture = await workspaceFixture(page, media);
+  await page.goto("/inbox");
+  await page.getByRole("button", { name: "Historial GHL", exact: true }).click();
+  const threadButton = page.getByRole("button", { name: /Andrea Sintética/u });
+  await expect(threadButton.getByText("WhatsApp", { exact: true })).toBeVisible();
+  await threadButton.click();
+  const history = page.getByRole("region", { name: "Mensajes históricos", exact: true });
+  await expect(history.getByText("WhatsApp", { exact: true })).toHaveCount(2);
+  const attachments = history.getByRole("list", { name: "Adjuntos del mensaje" });
+  const attachment = (name: string) => attachments.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
+  const image = attachment("synthetic-image.png");
+  await image.scrollIntoViewIfNeeded();
+  await expect(image.getByRole("alert")).toContainText("No se pudo mostrar");
+  await image.getByRole("button", { name: "Reintentar vista previa" }).click();
+  const inlineImage = image.getByRole("img", { name: "synthetic-image.png" });
+  await expect(inlineImage).toBeVisible();
+  await expect.poll(() => inlineImage.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(160);
+  expect(fixture.authorizations.get(imageFileId)).toBe(2);
+
+  const audioAttachment = attachment("synthetic-audio.wav");
+  expect(fixture.authorizations.has(audioFileId)).toBe(false);
+  await audioAttachment.getByRole("button", { name: "Cargar audio" }).click();
+  const audio = audioAttachment.locator("audio");
+  await expect(audio).toHaveAttribute("controls", "");
+  await expect(audio).not.toHaveAttribute("autoplay", "");
+  await expect.poll(() => audio.evaluate((element: HTMLAudioElement) => element.readyState)).toBeGreaterThanOrEqual(2);
+  expect(await audio.evaluate((element: HTMLAudioElement) => element.paused)).toBe(true);
+  await audio.evaluate(async (element: HTMLAudioElement) => { element.muted = true; await element.play(); });
+  await expect.poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime)).toBeGreaterThan(0);
+  await audio.evaluate((element: HTMLAudioElement) => element.pause());
+
+  const videoAttachment = attachment("synthetic-video.webm");
+  expect(fixture.authorizations.has(videoFileId)).toBe(false);
+  await videoAttachment.getByRole("button", { name: "Cargar video" }).click();
+  const video = videoAttachment.locator("video");
+  await expect(video).toHaveAttribute("controls", "");
+  await expect(video).not.toHaveAttribute("autoplay", "");
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.videoWidth)).toBe(160);
+  expect(await video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true);
+  await video.evaluate(async (element: HTMLVideoElement) => { element.muted = true; await element.play(); });
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0);
+  await video.evaluate((element: HTMLVideoElement) => element.pause());
+
+  const rejected = attachment("synthetic-rejected.png");
+  await expect(rejected).toContainText("No disponible: formato o contenido rechazado.");
+  await expect(rejected.getByRole("button")).toHaveCount(0);
+  expect(fixture.authorizations.has(rejectedFileId)).toBe(false);
+  expect(fixture.mediaRequests).not.toContain(rejectedFileId);
+  const document = attachment("synthetic.txt");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const event = page.waitForEvent("download");
+    await document.getByRole("button", { name: "Descargar", exact: true }).click();
+    const download = await event;
+    expect(await download.failure()).toBeNull();
+  }
+  expect(fixture.authorizations.get(fileId)).toBe(2);
+  expect(fixture.unexpected).toEqual([]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await image.scrollIntoViewIfNeeded();
+  await expect(inlineImage).toBeVisible();
+  await expectContainedViewport(page);
+  await page.screenshot({ path: testInfo.outputPath("historical-media-mobile.png") });
 });

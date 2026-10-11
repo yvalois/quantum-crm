@@ -6,6 +6,8 @@ Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No susti
 
 ## Resumen
 
+> **CHAT-04 / CHAT-07 / CON-01 / CON-05 / CON-06 / PIPE-06 (2026-10-11): EN_CURSO.** Se contrasta el artefacto GHL autenticado con el origen y las proyecciones visibles para distinguir campos vacios de datos omitidos, recuperar contexto de propietarios/seguidores sin conceder accesos por IDs externos, y mostrar imagenes, audio, video y canales reconocidos desde el historial. Las vistas previas usan exclusivamente Files y archivos AVAILABLE. Se verifica por separado la capacidad real de envio; importar historial no conecta un proveedor ni autoriza mensajes de prueba a clientes. No se reimporta ni sobrescribe informacion comercial existente.
+
 - Fase: preparacion del proyecto; construccion de la primera rebanada funcional del CRM.
 - Aplicacion implementada: acceso administrativo real desplegado y perfil piloto sintetico activo en el VPS; existe el bootstrap ejecutable de las ocho aplicaciones/procesos. `USR-01` esta EN_CURSO para sustituir el placeholder del CRM por el primer flujo comercial real.
 - Requisitos funcionales completados: `ADM-01`, `USR-03`, `USR-04`, `USR-05`.

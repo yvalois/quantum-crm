@@ -5,6 +5,7 @@ import {
   AutomationValidationError,
   ContactValidationError,
   validateHistoricalJson,
+  sourceParticipantReferencesFromRow,
   type AutomationActivationResult,
   type AutomationDefinition,
   type AutomationExecutionResult,
@@ -12,6 +13,7 @@ import {
 } from "@quantum-crm/domain";
 import type {
   ContactRecord,
+  CustomFieldDefinitionRepository,
   HistoricalContactField,
   HistoricalJsonValue,
   ContactBulkActionResponse,
@@ -45,6 +47,7 @@ import type { PoolClient } from "pg";
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
 import { createConversationPostgresRepository } from "./conversation-postgres-repository.js";
 import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
+import { createSettingsCustomFieldPostgresRepository } from "./settings-custom-field-postgres-repository.js";
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 import { createFormPostgresRepository } from "./form-postgres-repository.js";
 import { createDocumentPostgresRepository } from "./document-postgres-repository.js";
@@ -102,6 +105,7 @@ export class CommercialIdempotencyConflictError extends Error {
 
 interface ContactRow {
   readonly id: string;
+  readonly source_participant_references?: unknown;
   readonly owner_member_id: string | null;
   readonly display_name: string;
   readonly email: string | null;
@@ -156,6 +160,12 @@ function contactSelection(alias: string): string {
       JOIN contacts.labels AS label ON label.id = contact_label.label_id
       WHERE contact_label.contact_id = ${alias}.id
     ), '[]'::jsonb) AS labels,
+    (SELECT jsonb_build_object('locationId', source_map.source_location_id,
+      'ownerExternalId', NULLIF(source_map.source_payload->>'assignedTo', ''),
+      'followerExternalIds', COALESCE(NULLIF(source_map.source_payload->'followers', 'null'::jsonb), '[]'::jsonb))
+      FROM contacts.historical_imports source_map WHERE source_map.entity_type = 'contact'
+        AND source_map.source_system = 'GHL' AND source_map.entity_id = ${alias}.id
+      ORDER BY source_map.imported_at, source_map.external_id LIMIT 1) AS source_participant_references,
     ${alias}.custom_fields, ${alias}.version::text, ${alias}.created_at, ${alias}.updated_at`;
 }
 
@@ -225,6 +235,7 @@ function contactFromRow(row: ContactRow): ContactRecord {
     phone: row.phone,
     labels: contactLabels(row.labels),
     customFields: contactCustomFields(row.custom_fields),
+    ...sourceParticipantReferencesFromRow(row.source_participant_references),
     source: source as ContactRecord["source"],
     archivedAt: row.archived_at == null ? null : new Date(row.archived_at),
     version: BigInt(row.version),
@@ -469,6 +480,7 @@ interface PipelineSnapshotRow extends PipelineRow {
 }
 interface OpportunityRow {
   readonly id: string;
+  readonly source_participant_references?: unknown;
   readonly owner_member_id: string;
   readonly contact_id: string;
   readonly pipeline_id: string;
@@ -500,6 +512,12 @@ interface OpportunityHistoryRow {
   readonly created_at: Date;
 }
 const opportunitySelection = `id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, status, close_reason, closed_at, version::text, created_at, updated_at`;
+const opportunityParticipantSelection = `(SELECT jsonb_build_object('locationId', source_map.source_location_id,
+  'ownerExternalId', NULLIF(source_map.source_payload->>'assignedTo', ''),
+  'followerExternalIds', COALESCE(NULLIF(source_map.source_payload->'followers', 'null'::jsonb), '[]'::jsonb))
+  FROM sales.historical_imports source_map WHERE source_map.entity_type = 'opportunity'
+    AND source_map.source_system = 'GHL' AND source_map.entity_id = opportunity.id
+  ORDER BY source_map.imported_at, source_map.external_id LIMIT 1) AS source_participant_references`;
 const opportunityHistorySelection = `id::text, opportunity_id::text, event_type, actor_member_id::text, previous_stage_id::text, next_stage_id::text, previous_owner_member_id::text, next_owner_member_id::text, previous_status, next_status, previous_amount_minor::text, next_amount_minor::text, note, created_at`;
 function stageFromRow(row: StageRow): PipelineStage {
   return Object.freeze({
@@ -522,6 +540,7 @@ function opportunityFromRow(row: OpportunityRow): Opportunity {
     stageId: row.stage_id,
     title: row.title,
     amountMinor: BigInt(row.amount_minor),
+    ...sourceParticipantReferencesFromRow(row.source_participant_references),
     currency: row.currency,
     status: status as Opportunity["status"],
     closeReason: row.close_reason ?? null,
@@ -685,6 +704,7 @@ function isPipelineSnapshotRow(row: PipelineRow | PipelineSnapshotRow): row is P
 }
 
 export interface CommercialPostgresRepositories {
+  readonly customFieldDefinitions: CustomFieldDefinitionRepository;
   readonly contacts: ContactRepository;
   readonly conversations: ConversationRepository;
   readonly historicalConversations: HistoricalConversationRepository;
@@ -1808,7 +1828,7 @@ export function createCommercialPostgresRepositories(
         if (filters.createdTo !== undefined)
           conditions.push(`opportunity.created_at <= ${parameter(filters.createdTo)}::timestamptz`);
         const result = (await pool.query(
-          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE ${conditions.join(" AND ")} ORDER BY opportunity.updated_at DESC, opportunity.id DESC`,
+          `SELECT ${opportunitySelection}, ${opportunityParticipantSelection} FROM sales.opportunities AS opportunity WHERE ${conditions.join(" AND ")} ORDER BY opportunity.updated_at DESC, opportunity.id DESC`,
           params,
         )) as { readonly rows: readonly OpportunityRow[] };
         return Object.freeze(result.rows.map(opportunityFromRow));
@@ -1820,7 +1840,7 @@ export function createCommercialPostgresRepositories(
       try {
         const access = visibility(actor, 2, ["opportunity.owner_member_id"]);
         const result = (await pool.query(
-          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql}`,
+          `SELECT ${opportunitySelection}, ${opportunityParticipantSelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql}`,
           [id, ...access.params],
         )) as { readonly rows: readonly OpportunityRow[] };
         const row = result.rows[0];
@@ -2598,6 +2618,7 @@ export function createCommercialPostgresRepositories(
     contacts,
     conversations: createConversationPostgresRepository(pool),
     historicalConversations: createHistoricalConversationPostgresRepository(pool),
+    customFieldDefinitions: createSettingsCustomFieldPostgresRepository(pool),
     sales,
     tasks,
     calendar: createCalendarPostgresRepository(pool),

@@ -5,12 +5,19 @@ import {
   createContactsHistoricalImportPort,
   createCrmPostgresDatabase,
   createGhlImportOperationRepository,
+  createIamExternalParticipantDirectory,
   createHistoricalConversationPostgresRepository,
   createSalesHistoricalImportPort,
   createSettingsHistoricalImportPort,
 } from "@quantum-crm/database";
 import {
   HistoricalConversationService,
+  CustomFieldDefinitionService,
+  ContactService,
+  ContactNotFoundError,
+  SalesService,
+  ExternalParticipantConflictError,
+  HistoricalConversationNotFoundError,
   HistoricalAttachmentConflictError,
   FileService,
   FileNotFoundError,
@@ -25,7 +32,7 @@ import {
   type HistoricalThreadInput,
 } from "@quantum-crm/domain";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const tenantA = "00000000-0000-4000-8000-00000000000a";
 const tenantB = "00000000-0000-4000-8000-00000000000b";
@@ -169,6 +176,97 @@ afterAll(async () => {
 });
 
 describe("GHL imports against migrated PostgreSQL runtime roles", () => {
+  it("resolves original participants without accounts or effects, isolates sources and replays atomically", async () => {
+    const locationId = randomUUID();
+    const directoryA = createIamExternalParticipantDirectory(poolA);
+    const directoryB = createIamExternalParticipantDirectory(poolB);
+    const authorized: HistoricalImportContext = { ...context, permissions: [...context.permissions, "iam:members:update"] };
+    const input = { operationId: randomUUID(), locationId, participants: [
+      { externalId: "source-advisor", displayName: "Original advisor" },
+      { externalId: "source-follower", displayName: "Original follower" },
+    ] };
+    const before = await poolA.query<{ members: number; outbox: number }>(
+      "SELECT (SELECT count(*)::int FROM iam.members) AS members, (SELECT count(*)::int FROM conversations.outbox) AS outbox",
+    );
+    await expect(directoryA.importDirectory(context, input)).rejects.toBeInstanceOf(IamAuthorizationError);
+    const results = await Promise.all([directoryA.importDirectory(authorized, input), directoryA.importDirectory(authorized, input)]);
+    expect(results.map((item) => item.created).sort()).toEqual([0, 2]);
+    await expect(directoryA.importDirectory(authorized, { ...input, participants: [{ externalId: "source-advisor", displayName: "Changed source name" }] })).rejects.toBeInstanceOf(ExternalParticipantConflictError);
+    const references = [{ locationId, ownerExternalId: "source-advisor", followerExternalIds: ["source-follower"] }];
+    expect(await directoryA.resolve(references)).toHaveLength(2);
+    expect(await directoryB.resolve(references)).toEqual([]);
+    expect(await directoryA.resolve([{ ...references[0]!, locationId: randomUUID() }])).toEqual([]);
+    const raw = { assignedTo: "source-advisor", followers: ["source-follower"], privateAttribute: "must not escape" };
+    const contact = await contactsA.importContact({
+      ...context, source: source(locationId, "participant-contact", raw), displayName: "Synthetic participant contact",
+      email: null, phone: null, ownerMemberId: actor.memberId, labelIds: [], customFields: [], createdAt: originalAt, updatedAt: originalAt,
+    });
+    const pipeline = await salesA.importPipeline({
+      ...context, source: source(locationId, "participant-pipeline"), name: `Participants ${locationId}`,
+      description: "Synthetic participant pipeline", createdAt: originalAt,
+      stages: [{ externalId: "participant-stage", name: "First", description: "", position: 0 },
+        { externalId: "participant-next", name: "Next", description: "", position: 1 }],
+    });
+    const opportunity = await salesA.importOpportunity({
+      ...context, source: source(locationId, "participant-opportunity", raw), contactId: contact.id,
+      pipelineId: pipeline.id, stageId: pipeline.stages[0]!.id, ownerMemberId: actor.memberId,
+      title: "Synthetic participant opportunity", amountMinor: 0n, currency: "GTQ", status: "OPEN",
+      closeReason: null, closedAt: null, createdAt: originalAt, updatedAt: originalAt,
+    });
+    const thread = await historyA.importThread({
+      ...context, source: source(locationId, "participant-thread", raw),
+      thread: { ...orphan(), sourceThreadPresent: true, contactId: contact.id, assigneeMemberId: actor.memberId },
+    });
+    const resolve = vi.fn(directoryA.resolve);
+    const contacts = new ContactService(databaseA.commercial.contacts, undefined, { resolve });
+    const sales = new SalesService(databaseA.commercial.sales, { existsFor: async () => true }, membersA, undefined, { resolve });
+    const conversations = new HistoricalConversationService(createHistoricalConversationPostgresRepository(poolA), {
+      contactExistsFor: async () => true, isActiveMember: membersA.isActive,
+    }, undefined, { resolve });
+    const expected = { source: "GHL", owner: { externalId: "source-advisor", displayName: "Original advisor" },
+      followers: [{ externalId: "source-follower", displayName: "Original follower" }] };
+    const contactResult = await contacts.get(actor, ["crm:contacts:read"], contact.id);
+    const opportunityResult = await sales.getOpportunity({ actor, permissions: ["crm:sales:read"], opportunityId: opportunity.id });
+    const threadResult = await conversations.find(actor, context.permissions, thread.id);
+    expect(contactResult).toMatchObject({ ownerMemberId: actor.memberId, sourceParticipants: expected });
+    expect(opportunityResult).toMatchObject({ ownerMemberId: actor.memberId, sourceParticipants: expected });
+    expect(threadResult).toMatchObject({ assigneeMemberId: actor.memberId, sourceParticipants: expected });
+    for (const result of [contactResult, opportunityResult, threadResult]) {
+      expect(result).not.toHaveProperty("sourceParticipantReferences");
+      expect(result).not.toHaveProperty("source_payload");
+      expect(result).not.toHaveProperty("privateAttribute");
+    }
+    resolve.mockClear();
+    expect(() => contacts.get(actor, [], contact.id)).toThrow(IamAuthorizationError);
+    const stranger = { memberId: randomUUID(), scope: "ASSIGNED" as const };
+    await expect(contacts.get(stranger, ["crm:contacts:read"], contact.id)).rejects.toBeInstanceOf(ContactNotFoundError);
+    await expect(conversations.find(stranger, context.permissions, thread.id)).rejects.toBeInstanceOf(HistoricalConversationNotFoundError);
+    expect(resolve).not.toHaveBeenCalled();
+    const after = await poolA.query<{ members: number; outbox: number }>(
+      "SELECT (SELECT count(*)::int FROM iam.members) AS members, (SELECT count(*)::int FROM conversations.outbox) AS outbox",
+    );
+    expect(after.rows[0]).toEqual(before.rows[0]);
+    const receipts = await poolA.query<{ count: number }>("SELECT count(*)::int AS count FROM iam.external_participant_imports WHERE operation_id = $1::uuid", [input.operationId]);
+    expect(receipts.rows[0]?.count).toBe(1);
+    await expect(poolA.query("UPDATE iam.external_participants SET display_name = 'Forbidden' WHERE source_location_id = $1", [locationId])).rejects.toMatchObject({ code: "42501" });
+    expect(await contacts.update({ actor, permissions: ["crm:contacts:update"], id: contact.id,
+      expectedVersion: contactResult.version, displayName: "Edited in Quantum" })).toMatchObject({ sourceParticipants: expected, ownerMemberId: actor.memberId });
+    const updateInput = { actor, permissions: ["crm:sales:update"] as const, opportunityId: opportunity.id,
+      expectedVersion: opportunityResult.version, title: "Edited in Quantum", idempotencyKey: randomUUID(), payloadHash: "a".repeat(64) };
+    const updatedOpportunity = await sales.updateOpportunity(updateInput);
+    expect(updatedOpportunity).toMatchObject({ sourceParticipants: expected, ownerMemberId: actor.memberId });
+    expect(await sales.updateOpportunity(updateInput)).toMatchObject({ sourceParticipants: expected });
+    const moveInput = { actor, permissions: ["crm:sales:move"] as const, opportunityId: opportunity.id,
+      stageId: pipeline.stages[1]!.id, expectedVersion: updatedOpportunity.version,
+      idempotencyKey: randomUUID(), payloadHash: "b".repeat(64) };
+    expect(await sales.moveOpportunity(moveInput)).toMatchObject({ sourceParticipants: expected });
+    expect(await sales.moveOpportunity(moveInput)).toMatchObject({ sourceParticipants: expected });
+    const emptyFollowers = await contactsA.importContact({ ...context, source: source(locationId, "null-followers", { assignedTo: null, followers: null }),
+      displayName: "Synthetic nullable followers", email: null, phone: null, ownerMemberId: null,
+      labelIds: [], customFields: [], createdAt: originalAt, updatedAt: originalAt });
+    expect(await contacts.get(actor, ["crm:contacts:read"], emptyFollowers.id)).toMatchObject({ sourceParticipants: { source: "GHL", owner: null, followers: [] } });
+  });
+
   it("reserves attachments once, audits retries, binds immutable files and authorizes through the scoped historical thread", async () => {
     const locationId = randomUUID();
     const viewer: CommercialActor = { memberId: randomUUID(), scope: "ASSIGNED" };
@@ -391,6 +489,28 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
       section: "contact",
       options: [],
     });
+    // Catalog metadata is visible before any contact has a value, only in its configured profile.
+    const catalogA = new CustomFieldDefinitionService(databaseA.commercial.customFieldDefinitions);
+    const catalogB = new CustomFieldDefinitionService(databaseB.commercial.customFieldDefinitions);
+    expect(
+      (await catalogA.list(["crm:contacts:read"], { model: "contact", limit: 100 })).items,
+    ).toContainEqual({
+      id: custom.id,
+      key: longFieldKey,
+      label: longFieldName,
+      description: "Synthetic field",
+      dataType: "TEXT",
+      model: "contact",
+    });
+    expect(
+      (await catalogB.list(["crm:contacts:read"], { model: "contact", limit: 100 })).items,
+    ).not.toContainEqual(expect.objectContaining({ id: custom.id }));
+    expect(
+      (await catalogA.list(["crm:sales:read"], { model: "opportunity", limit: 100 })).items,
+    ).not.toContainEqual(expect.objectContaining({ id: custom.id }));
+    expect(() =>
+      catalogA.list(["crm:sales:read"], { model: "contact", limit: 100 }),
+    ).toThrow(IamAuthorizationError);
     const label = await contactsA.importLabel({
       ...context,
       source: source(locationId, "label"),
@@ -548,6 +668,7 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
     const visible = await historyA.find(actor, context.permissions, thread.id);
     expect(visible).toMatchObject({
       sourceThreadPresent: false,
+      rawChannel: "TYPE_CALL",
       contactId: null,
       sourceCreatedAt: null,
       messageCount: 2,

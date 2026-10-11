@@ -10,8 +10,10 @@ import type {
   IamRole,
   IamTeam,
   IamTeamRepository,
+  ExternalParticipantDirectory,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
+import { createIamExternalParticipantDirectory } from "./iam-external-participant-directory.js";
 
 import {
   createPostgresDatabaseFromPool,
@@ -33,6 +35,7 @@ export interface CrmPostgresDatabase extends PostgresDatabase {
   readonly invitationActivations: IamInvitationActivationRepository;
   readonly memberships: CrmMembershipRepository;
   readonly commercial: CommercialPostgresRepositories;
+  readonly externalParticipants?: ExternalParticipantDirectory;
 }
 
 export interface CrmMembershipAuthorization {
@@ -1290,5 +1293,6 @@ export function createCrmPostgresDatabase(
     invitationActivations: createIamInvitationActivationRepository(pool),
     memberships: createCrmMembershipRepository(pool),
     commercial: createCommercialPostgresRepositories(pool),
+    externalParticipants: createIamExternalParticipantDirectory(pool),
   });
 }
