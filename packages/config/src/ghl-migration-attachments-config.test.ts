@@ -36,19 +36,28 @@ const environment = {
 const files: SecretFileSystem = {
   lstat: () => ({ size: 64, isFile: () => true, isSymbolicLink: () => false }),
   realpath: (path) => path,
-  readFile: (path) => Buffer.from(
-    path === resolve(environment.QCRM_DATABASE_URL_FILE)
-      ? `postgresql://qcrm_r_${suffix}:synthetic@database/qcrm_t_${suffix}`
-      : path === resolve(environment.QCRM_GHL_EXPORT_KEY_FILE) ? "ab".repeat(32) : canary,
-  ),
+  readFile: (path) =>
+    Buffer.from(
+      path === resolve(environment.QCRM_DATABASE_URL_FILE)
+        ? `postgresql://qcrm_r_${suffix}:synthetic@database/qcrm_t_${suffix}`
+        : path === resolve(environment.QCRM_GHL_EXPORT_KEY_FILE)
+          ? "ab".repeat(32)
+          : canary,
+    ),
 };
 
 describe("GHL attachment storage configuration", () => {
   it("binds private storage buckets and scanner to the selected profile and keeps secrets opaque", () => {
     const config = parseGhlMigrationAttachmentsConfig(environment, files);
     expect(config).toMatchObject({
-      mode: "VERIFY", tenantId,
-      files: { role: "signer", endpoint: "http://platform-storage:8333", incomingBucket: `qcrm-${suffix}-incoming`, objectsBucket: `qcrm-${suffix}-objects` },
+      mode: "VERIFY",
+      tenantId,
+      files: {
+        role: "signer",
+        endpoint: "http://platform-storage:8333",
+        incomingBucket: `qcrm-${suffix}-incoming`,
+        objectsBucket: `qcrm-${suffix}-objects`,
+      },
       processor: { role: "processor", clamAv: { host: "platform-clamav" } },
     });
     expect(JSON.stringify(config)).not.toContain(canary);
@@ -70,7 +79,12 @@ describe("GHL attachment storage configuration", () => {
     { QCRM_FILES_S3_SECRET_KEY: "plaintext-secret" },
     { QCRM_UNDECLARED_SETTING: "unexpected" },
     { QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE: "/tmp/public-key" },
-  ])("does not extend the development exception or accept unknown/plaintext settings: %j", (patch) => {
-    expect(() => parseGhlMigrationAttachmentsConfig({ ...environment, ...patch }, files)).toThrow();
-  });
+  ])(
+    "does not extend the development exception or accept unknown/plaintext settings: %j",
+    (patch) => {
+      expect(() =>
+        parseGhlMigrationAttachmentsConfig({ ...environment, ...patch }, files),
+      ).toThrow();
+    },
+  );
 });

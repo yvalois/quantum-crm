@@ -51,8 +51,14 @@ export interface HistoricalMessageRecord extends Omit<HistoricalMessageInput, "s
 }
 
 export const historicalAttachmentErrorCodes = [
-  "SOURCE_UNAVAILABLE", "UNSUPPORTED_FORMAT", "SIZE_LIMIT", "CHECKSUM_MISMATCH",
-  "SCAN_REJECTED", "SCAN_PENDING", "TRANSFER_FAILED", "SOURCE_CHANGED",
+  "SOURCE_UNAVAILABLE",
+  "UNSUPPORTED_FORMAT",
+  "SIZE_LIMIT",
+  "CHECKSUM_MISMATCH",
+  "SCAN_REJECTED",
+  "SCAN_PENDING",
+  "TRANSFER_FAILED",
+  "SOURCE_CHANGED",
 ] as const;
 export type HistoricalAttachmentErrorCode = (typeof historicalAttachmentErrorCodes)[number];
 export type HistoricalAttachmentStatus = "PENDING" | "AVAILABLE" | "REJECTED" | "FAILED";
@@ -91,7 +97,10 @@ export interface HistoricalAttachmentVerification {
   readonly missingCount: number;
 }
 export interface HistoricalAttachmentFiles {
-  readonly fileForAttachment: (actor: CommercialActor, fileId: string) => Promise<{
+  readonly fileForAttachment: (
+    actor: CommercialActor,
+    fileId: string,
+  ) => Promise<{
     readonly id: string;
     readonly status: string;
     readonly owner: FileOwner;
@@ -134,13 +143,22 @@ export interface HistoricalConversationImportVerification {
   readonly outboxCount: number;
 }
 export interface HistoricalConversationRepository {
-  readonly reserveAttachment: (context: HistoricalImportContext, input: ReserveHistoricalAttachmentInput) => Promise<HistoricalAttachmentRecord>;
-  readonly findAttachment: (actor: CommercialActor, id: string) => Promise<HistoricalAttachmentRecord | null>;
-  readonly setAttachmentResult: (context: HistoricalImportContext, input: SetHistoricalAttachmentResultInput & {
-    readonly name: string | null;
-    readonly mimeType: string | null;
-    readonly size: number | null;
-  }) => Promise<HistoricalAttachmentRecord>;
+  readonly reserveAttachment: (
+    context: HistoricalImportContext,
+    input: ReserveHistoricalAttachmentInput,
+  ) => Promise<HistoricalAttachmentRecord>;
+  readonly findAttachment: (
+    actor: CommercialActor,
+    id: string,
+  ) => Promise<HistoricalAttachmentRecord | null>;
+  readonly setAttachmentResult: (
+    context: HistoricalImportContext,
+    input: SetHistoricalAttachmentResultInput & {
+      readonly name: string | null;
+      readonly mimeType: string | null;
+      readonly size: number | null;
+    },
+  ) => Promise<HistoricalAttachmentRecord>;
   readonly verifyAttachments: (locationId: string) => Promise<HistoricalAttachmentVerification>;
   readonly importThread: (input: ImportHistoricalThreadInput) => Promise<HistoricalImportResult>;
   readonly importMessage: (input: ImportHistoricalMessageInput) => Promise<HistoricalImportResult>;
@@ -215,28 +233,42 @@ export class HistoricalConversationService {
     private readonly files?: HistoricalAttachmentFiles,
   ) {}
 
-  public async reserveAttachment(context: HistoricalImportContext, input: ReserveHistoricalAttachmentInput) {
+  public async reserveAttachment(
+    context: HistoricalImportContext,
+    input: ReserveHistoricalAttachmentInput,
+  ) {
     authorizeHistoricalImport(context, "crm:conversations:configure");
-    if (!/^[A-Za-z0-9_-]{1,200}$/u.test(input.locationId) ||
+    if (
+      !/^[A-Za-z0-9_-]{1,200}$/u.test(input.locationId) ||
       !/^[A-Za-z0-9_.:-]{1,300}$/u.test(input.externalMessageId) ||
       !/^[a-f0-9]{64}$/u.test(input.sourceHash) ||
-      !Number.isSafeInteger(input.attachmentIndex) || input.attachmentIndex < 0)
+      !Number.isSafeInteger(input.attachmentIndex) ||
+      input.attachmentIndex < 0
+    )
       throw new HistoricalImportValidationError();
     return this.repository.reserveAttachment(context, input);
   }
 
   /** The files module calls this for every delivery; scope comes from the parent thread. */
-  public async canUseAttachmentOwner(actor: CommercialActor, attachmentId: string): Promise<boolean> {
+  public async canUseAttachmentOwner(
+    actor: CommercialActor,
+    attachmentId: string,
+  ): Promise<boolean> {
     id(attachmentId);
     return (await this.repository.findAttachment(actor, attachmentId)) !== null;
   }
 
-  public async setAttachmentResult(context: HistoricalImportContext, input: SetHistoricalAttachmentResultInput) {
+  public async setAttachmentResult(
+    context: HistoricalImportContext,
+    input: SetHistoricalAttachmentResultInput,
+  ) {
     authorizeHistoricalImport(context, "crm:conversations:configure");
     id(input.attachmentId);
-    if (!["PENDING", "AVAILABLE", "REJECTED", "FAILED"].includes(input.status) ||
+    if (
+      !["PENDING", "AVAILABLE", "REJECTED", "FAILED"].includes(input.status) ||
       (input.errorCode !== null && !historicalAttachmentErrorCodes.includes(input.errorCode)) ||
-      (input.status === "AVAILABLE" && (input.fileId === null || input.errorCode !== null)))
+      (input.status === "AVAILABLE" && (input.fileId === null || input.errorCode !== null))
+    )
       throw new HistoricalImportValidationError();
     const current = await this.repository.findAttachment(context.actor, input.attachmentId);
     if (!current) throw new HistoricalConversationNotFoundError();
@@ -248,10 +280,15 @@ export class HistoricalConversationService {
     if (input.fileId !== null) {
       id(input.fileId);
       const file = await this.files?.fileForAttachment(context.actor, input.fileId);
-      if (!file || file.id !== input.fileId || file.owner.kind !== "existing" ||
-        file.owner.module !== "conversations" || file.owner.type !== "historical_attachment" ||
+      if (
+        !file ||
+        file.id !== input.fileId ||
+        file.owner.kind !== "existing" ||
+        file.owner.module !== "conversations" ||
+        file.owner.type !== "historical_attachment" ||
         file.owner.id !== input.attachmentId ||
-        (input.status === "AVAILABLE" && file.status !== "AVAILABLE"))
+        (input.status === "AVAILABLE" && file.status !== "AVAILABLE")
+      )
         throw new HistoricalAttachmentConflictError();
       name = file.originalName;
       mimeType = file.mimeType;

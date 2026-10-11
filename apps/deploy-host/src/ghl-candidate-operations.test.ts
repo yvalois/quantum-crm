@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   candidateContainerBody,
   ghlTestPostgresAddress,
+  ghlTestLaboratoryAddress,
   replaceGhlCandidateComponent,
   type CandidateDockerApi,
 } from "./ghl-candidate-operations.js";
@@ -53,6 +54,39 @@ describe("GHL isolated laboratory address", () => {
 
   it("uses the private address on the exact inspected network without published ports", () => {
     expect(ghlTestPostgresAddress(postgres, network, networkId)).toBe("172.16.4.2");
+  });
+
+  const lab = {
+    ...previous,
+    Name: `/qcrm-ghl-test-pg-${commit.slice(0, 12)}`,
+    Image: imageId,
+    Config: { ...previous.Config, Labels: { "com.quantum.ghl-test": commit } },
+    NetworkSettings: postgres.NetworkSettings,
+  };
+  const inspectedNetwork = {
+    Id: networkId,
+    Name: network,
+    Internal: true,
+    Labels: { "com.quantum.ghl-test": commit },
+  };
+
+  it("upgrades only a running synthetic database bound to its original isolated network", () => {
+    expect(ghlTestLaboratoryAddress(lab, inspectedNetwork, commit, imageId)).toBe("172.16.4.2");
+  });
+
+  it("rejects a real profile, another lab, a substituted database or external network", () => {
+    for (const input of [
+      { ...lab, Name: "/quantum-platform-foundation-platform-postgres-1" },
+      { ...lab, Config: { ...lab.Config, Labels: { "com.quantum.ghl-test": "b".repeat(40) } } },
+      { ...lab, Image: `sha256:${"f".repeat(64)}` },
+      { ...lab, State: { Running: false } },
+    ]) expect(() => ghlTestLaboratoryAddress(input, inspectedNetwork, commit, imageId)).toThrow(HostAdapterError);
+    for (const input of [
+      { ...inspectedNetwork, Internal: false },
+      { ...inspectedNetwork, Name: "qcrm-staging-platform-database" },
+      { ...inspectedNetwork, Labels: { "com.quantum.ghl-test": "b".repeat(40) } },
+      { ...inspectedNetwork, Id: "b".repeat(64) },
+    ]) expect(() => ghlTestLaboratoryAddress(lab, input, commit, imageId)).toThrow(HostAdapterError);
   });
 
   it("rejects a different network identity or an extra attachment", () => {

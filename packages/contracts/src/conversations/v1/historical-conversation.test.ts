@@ -46,11 +46,26 @@ describe("historical conversation contracts", () => {
     );
   });
   it("rejects attachment source URLs and availability without verified file metadata", () => {
-    const attachment = { id: message.id, attachmentIndex: 0, fileId: null,
-      status: "PENDING", errorCode: null, name: null, mimeType: null, size: null };
+    const attachment = {
+      id: message.id,
+      attachmentIndex: 0,
+      fileId: null,
+      status: "PENDING",
+      errorCode: null,
+      name: null,
+      mimeType: null,
+      size: null,
+    };
     expect(HistoricalConversationAttachmentSchema.safeParse(attachment).success).toBe(true);
-    expect(HistoricalConversationAttachmentSchema.safeParse({ ...attachment,
-      sourceUrl: "https://invalid.example/private" }).success).toBe(false);
-    expect(HistoricalConversationAttachmentSchema.safeParse({ ...attachment, status: "AVAILABLE" }).success).toBe(false);
+    expect(
+      HistoricalConversationAttachmentSchema.safeParse({
+        ...attachment,
+        sourceUrl: "https://invalid.example/private",
+      }).success,
+    ).toBe(false);
+    expect(
+      HistoricalConversationAttachmentSchema.safeParse({ ...attachment, status: "AVAILABLE" })
+        .success,
+    ).toBe(false);
   });
 });

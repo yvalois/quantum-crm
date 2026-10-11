@@ -173,67 +173,205 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
     const locationId = randomUUID();
     const viewer: CommercialActor = { memberId: randomUUID(), scope: "OWN" };
     const stranger: CommercialActor = { memberId: randomUUID(), scope: "OWN" };
-    await poolA.query(`INSERT INTO iam.members(id, oidc_subject, display_name, email, status, commercial_scope)
+    await poolA.query(
+      `INSERT INTO iam.members(id, oidc_subject, display_name, email, status, commercial_scope)
       VALUES ($1::uuid, $2, 'Synthetic attachment viewer', $3, 'active', 'own')`,
-      [viewer.memberId, `ghl-fixture-${viewer.memberId}`, `ghl-${viewer.memberId}@example.test`]);
-    const contact = await contactsA.importContact({ ...context, source: source(locationId, "contact"),
-      displayName: "Synthetic attachment contact", email: null, phone: null,
-      ownerMemberId: viewer.memberId, labelIds: [], customFields: [], createdAt: originalAt, updatedAt: originalAt });
-    const thread = await historyA.importThread({ ...context, source: source(locationId, "thread"),
-      thread: { ...orphan(), sourceThreadPresent: true, contactId: contact.id, assigneeMemberId: viewer.memberId } });
-    await historyA.importMessage({ ...context, source: source(locationId, "message"),
-      threadSourceExternalId: "thread", message: message() });
-    const input = { locationId, externalMessageId: "message", attachmentIndex: 0, sourceHash: "a".repeat(64) };
-    const [first, replay] = await Promise.all([historyA.reserveAttachment(context, input), historyA.reserveAttachment(context, input)]);
+      [viewer.memberId, `ghl-fixture-${viewer.memberId}`, `ghl-${viewer.memberId}@example.test`],
+    );
+    const contact = await contactsA.importContact({
+      ...context,
+      source: source(locationId, "contact"),
+      displayName: "Synthetic attachment contact",
+      email: null,
+      phone: null,
+      ownerMemberId: viewer.memberId,
+      labelIds: [],
+      customFields: [],
+      createdAt: originalAt,
+      updatedAt: originalAt,
+    });
+    const thread = await historyA.importThread({
+      ...context,
+      source: source(locationId, "thread"),
+      thread: {
+        ...orphan(),
+        sourceThreadPresent: true,
+        contactId: contact.id,
+        assigneeMemberId: viewer.memberId,
+      },
+    });
+    await historyA.importMessage({
+      ...context,
+      source: source(locationId, "message"),
+      threadSourceExternalId: "thread",
+      message: message(),
+    });
+    const input = {
+      locationId,
+      externalMessageId: "message",
+      attachmentIndex: 0,
+      sourceHash: "a".repeat(64),
+    };
+    const [first, replay] = await Promise.all([
+      historyA.reserveAttachment(context, input),
+      historyA.reserveAttachment(context, input),
+    ]);
     expect(first.id).toBe(replay.id);
-    await expect(historyA.reserveAttachment(context, { ...input, sourceHash: "b".repeat(64) })).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
-    await expect(historyA.reserveAttachment(context, { ...input, attachmentIndex: 2 })).rejects.toBeInstanceOf(HistoricalImportValidationError);
+    await expect(
+      historyA.reserveAttachment(context, { ...input, sourceHash: "b".repeat(64) }),
+    ).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
+    await expect(
+      historyA.reserveAttachment(context, { ...input, attachmentIndex: 2 }),
+    ).rejects.toBeInstanceOf(HistoricalImportValidationError);
     expect(await historyA.canUseAttachmentOwner(viewer, first.id)).toBe(true);
     expect(await historyA.canUseAttachmentOwner(stranger, first.id)).toBe(false);
     expect(await historyB.canUseAttachmentOwner(actor, first.id)).toBe(false);
 
     // This test verifies persisted authorization and association, not storage/antivirus behavior.
     const storage = {
-      authorizeUpload: async () => ({ method: "POST" as const, url: "https://storage.example.test/upload", fields: {}, expiresAt: new Date() }),
+      authorizeUpload: async () => ({
+        method: "POST" as const,
+        url: "https://storage.example.test/upload",
+        fields: {},
+        expiresAt: new Date(),
+      }),
       inspectUpload: async () => ({ versionId: "synthetic-version", receipt: "synthetic-receipt" }),
-      authorizeDownload: async () => ({ method: "GET" as const, url: "https://storage.example.test/download", objectVersionId: "synthetic-version", expiresAt: new Date() }),
+      authorizeDownload: async () => ({
+        method: "GET" as const,
+        url: "https://storage.example.test/download",
+        objectVersionId: "synthetic-version",
+        expiresAt: new Date(),
+      }),
     };
-    const files = new FileService(databaseA.commercial.files, { canUseOwner: async (who, owner) =>
-      owner.kind === "existing" && owner.module === "conversations" && owner.type === "historical_attachment" &&
-      historyA.canUseAttachmentOwner(who, owner.id) }, storage);
-    const permissions = [...context.permissions, "crm:files:read", "crm:files:download", "crm:files:upload", "crm:files:reference"] as const;
-    const reserved = await files.reserveUpload({ actor, permissions,
-      owner: { kind: "existing", module: "conversations", type: "historical_attachment", id: first.id },
-      fileClass: "IMAGE", originalName: "synthetic.png", declaredMime: "image/png", declaredSize: 123,
+    const files = new FileService(
+      databaseA.commercial.files,
+      {
+        canUseOwner: async (who, owner) =>
+          owner.kind === "existing" &&
+          owner.module === "conversations" &&
+          owner.type === "historical_attachment" &&
+          historyA.canUseAttachmentOwner(who, owner.id),
+      },
+      storage,
+    );
+    const permissions = [
+      ...context.permissions,
+      "crm:files:read",
+      "crm:files:download",
+      "crm:files:upload",
+      "crm:files:reference",
+    ] as const;
+    const reserved = await files.reserveUpload({
+      actor,
+      permissions,
+      owner: {
+        kind: "existing",
+        module: "conversations",
+        type: "historical_attachment",
+        id: first.id,
+      },
+      fileClass: "IMAGE",
+      originalName: "synthetic.png",
+      declaredMime: "image/png",
+      declaredSize: 123,
       expectedSha256: "A".repeat(43) + "=",
-      idempotencyKey: `attachment-${first.id}`, payloadHash: "c".repeat(64) });
-    const authorizedHistory = new HistoricalConversationService(createHistoricalConversationPostgresRepository(poolA),
+      idempotencyKey: `attachment-${first.id}`,
+      payloadHash: "c".repeat(64),
+    });
+    const authorizedHistory = new HistoricalConversationService(
+      createHistoricalConversationPostgresRepository(poolA),
       { contactExistsFor: async () => true, isActiveMember: async () => true },
-      { fileForAttachment: async (who, fileId) => {
-        const file = await files.get(who, permissions, fileId);
-        return { id: file.id, status: file.status, owner: file.owner, originalName: file.originalName,
-          mimeType: file.observedMime ?? file.declaredMime, size: file.observedSize ?? file.declaredSize };
-      } });
-    await authorizedHistory.setAttachmentResult(context, { attachmentId: first.id, fileId: reserved.file.id, status: "PENDING", errorCode: null });
+      {
+        fileForAttachment: async (who, fileId) => {
+          const file = await files.get(who, permissions, fileId);
+          return {
+            id: file.id,
+            status: file.status,
+            owner: file.owner,
+            originalName: file.originalName,
+            mimeType: file.observedMime ?? file.declaredMime,
+            size: file.observedSize ?? file.declaredSize,
+          };
+        },
+      },
+    );
+    await authorizedHistory.setAttachmentResult(context, {
+      attachmentId: first.id,
+      fileId: reserved.file.id,
+      status: "PENDING",
+      errorCode: null,
+    });
     expect((await files.get(viewer, permissions, reserved.file.id)).id).toBe(reserved.file.id);
-    await expect(files.get(stranger, permissions, reserved.file.id)).rejects.toBeInstanceOf(FileNotFoundError);
-    await expect(files.authorizeDownload({ actor: viewer, permissions, fileId: reserved.file.id })).rejects.toBeInstanceOf(FileStateConflictError);
-    await expect(authorizedHistory.setAttachmentResult(context, { attachmentId: first.id, fileId: reserved.file.id, status: "AVAILABLE", errorCode: null })).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
-    await poolA.query(`UPDATE files.files SET status = 'available', object_key = $2, object_version_id = 'synthetic-version',
+    await expect(files.get(stranger, permissions, reserved.file.id)).rejects.toBeInstanceOf(
+      FileNotFoundError,
+    );
+    await expect(
+      files.authorizeDownload({ actor: viewer, permissions, fileId: reserved.file.id }),
+    ).rejects.toBeInstanceOf(FileStateConflictError);
+    await expect(
+      authorizedHistory.setAttachmentResult(context, {
+        attachmentId: first.id,
+        fileId: reserved.file.id,
+        status: "AVAILABLE",
+        errorCode: null,
+      }),
+    ).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
+    await poolA.query(
+      `UPDATE files.files SET status = 'available', object_key = $2, object_version_id = 'synthetic-version',
       verified_sha256 = expected_sha256, available_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
-      [reserved.file.id, `objects/${reserved.file.id}`]);
-    await files.attachReference({ actor, permissions, fileId: reserved.file.id,
-      owner: { kind: "existing", module: "conversations", type: "historical_attachment", id: first.id }, kind: "ATTACHMENT",
-      idempotencyKey: `reference-${first.id}`, payloadHash: "d".repeat(64) });
-    await authorizedHistory.setAttachmentResult(context, { attachmentId: first.id, fileId: reserved.file.id, status: "AVAILABLE", errorCode: null });
-    await authorizedHistory.setAttachmentResult(context, { attachmentId: first.id, fileId: reserved.file.id, status: "FAILED", errorCode: "TRANSFER_FAILED" });
+      [reserved.file.id, `objects/${reserved.file.id}`],
+    );
+    await files.attachReference({
+      actor,
+      permissions,
+      fileId: reserved.file.id,
+      owner: {
+        kind: "existing",
+        module: "conversations",
+        type: "historical_attachment",
+        id: first.id,
+      },
+      kind: "ATTACHMENT",
+      idempotencyKey: `reference-${first.id}`,
+      payloadHash: "d".repeat(64),
+    });
+    await authorizedHistory.setAttachmentResult(context, {
+      attachmentId: first.id,
+      fileId: reserved.file.id,
+      status: "AVAILABLE",
+      errorCode: null,
+    });
+    await authorizedHistory.setAttachmentResult(context, {
+      attachmentId: first.id,
+      fileId: reserved.file.id,
+      status: "FAILED",
+      errorCode: "TRANSFER_FAILED",
+    });
     expect((await historyA.reserveAttachment(context, input)).status).toBe("AVAILABLE");
-    await expect(files.authorizeDownload({ actor: viewer, permissions, fileId: reserved.file.id })).resolves.toMatchObject({ method: "GET" });
-    await expect(files.authorizeDownload({ actor: stranger, permissions, fileId: reserved.file.id })).rejects.toBeInstanceOf(FileNotFoundError);
-    expect((await historyA.messages(viewer, permissions, thread.id, { limit: 50 })).items[0]?.attachments).toHaveLength(1);
-    expect(await historyA.verifyAttachments(context, locationId)).toEqual({ expectedCount: 2, reservedCount: 1,
-      availableCount: 1, pendingCount: 0, rejectedCount: 0, failedCount: 0, missingCount: 1, totalBytes: 123 });
-    const audit = await poolA.query<{ count: number }>("SELECT count(*)::int AS count FROM conversations.historical_attachment_events WHERE attachment_id = $1::uuid", [first.id]);
+    await expect(
+      files.authorizeDownload({ actor: viewer, permissions, fileId: reserved.file.id }),
+    ).resolves.toMatchObject({ method: "GET" });
+    await expect(
+      files.authorizeDownload({ actor: stranger, permissions, fileId: reserved.file.id }),
+    ).rejects.toBeInstanceOf(FileNotFoundError);
+    expect(
+      (await historyA.messages(viewer, permissions, thread.id, { limit: 50 })).items[0]
+        ?.attachments,
+    ).toHaveLength(1);
+    expect(await historyA.verifyAttachments(context, locationId)).toEqual({
+      expectedCount: 2,
+      reservedCount: 1,
+      availableCount: 1,
+      pendingCount: 0,
+      rejectedCount: 0,
+      failedCount: 0,
+      missingCount: 1,
+      totalBytes: 123,
+    });
+    const audit = await poolA.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM conversations.historical_attachment_events WHERE attachment_id = $1::uuid",
+      [first.id],
+    );
     expect(audit.rows[0]?.count).toBe(3);
     expect((await historyA.verifyImports(context, locationId)).outboxCount).toBe(0);
   });
@@ -551,27 +689,55 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
   });
 
   it("permits attachments only after the matching core import completes and serializes the location", async () => {
-    const identity = { operationId: randomUUID(), tenantId: tenantA, locationId: randomUUID(),
-      exportId: randomUUID(), artifactSha256: "e".repeat(64), currency: "GTQ", operatorMemberId: actor.memberId };
+    const identity = {
+      operationId: randomUUID(),
+      tenantId: tenantA,
+      locationId: randomUUID(),
+      exportId: randomUUID(),
+      artifactSha256: "e".repeat(64),
+      currency: "GTQ",
+      operatorMemberId: actor.memberId,
+    };
     const operation = createGhlImportOperationRepository(poolA);
-    await expect(acquireGhlAttachmentImportGuard(poolA, identity)).rejects.toThrow("Attachment target is not approved or is busy");
+    await expect(acquireGhlAttachmentImportGuard(poolA, identity)).rejects.toThrow(
+      "Attachment target is not approved or is busy",
+    );
     try {
       await operation.begin(identity);
-      await expect(acquireGhlAttachmentImportGuard(poolA, identity)).rejects.toThrow("Attachment target is not approved or is busy");
+      await expect(acquireGhlAttachmentImportGuard(poolA, identity)).rejects.toThrow(
+        "Attachment target is not approved or is busy",
+      );
       await operation.finish("COMPLETE");
-    } finally { await operation.close(); }
-    for (const changed of [{ ...identity, artifactSha256: "f".repeat(64) },
-      { ...identity, tenantId: tenantB }, { ...identity, exportId: randomUUID() },
-      { ...identity, operatorMemberId: randomUUID() }]) {
-      await expect(acquireGhlAttachmentImportGuard(poolA, changed)).rejects.toThrow("Attachment target is not approved or is busy");
+    } finally {
+      await operation.close();
     }
-    await expect(acquireGhlAttachmentImportGuard(poolB, identity)).rejects.toThrow("Attachment target is not approved or is busy");
+    for (const changed of [
+      { ...identity, artifactSha256: "f".repeat(64) },
+      { ...identity, tenantId: tenantB },
+      { ...identity, exportId: randomUUID() },
+      { ...identity, operatorMemberId: randomUUID() },
+    ]) {
+      await expect(acquireGhlAttachmentImportGuard(poolA, changed)).rejects.toThrow(
+        "Attachment target is not approved or is busy",
+      );
+    }
+    await expect(acquireGhlAttachmentImportGuard(poolB, identity)).rejects.toThrow(
+      "Attachment target is not approved or is busy",
+    );
     const guard = await acquireGhlAttachmentImportGuard(poolA, identity);
     try {
       await guard.check();
-      await expect(acquireGhlAttachmentImportGuard(poolA, identity)).rejects.toThrow("Attachment target is not approved or is busy");
-    } finally { guard.close(); }
+      await expect(acquireGhlAttachmentImportGuard(poolA, identity)).rejects.toThrow(
+        "Attachment target is not approved or is busy",
+      );
+    } finally {
+      guard.close();
+    }
     const resumed = await acquireGhlAttachmentImportGuard(poolA, identity);
-    try { await resumed.check(); } finally { resumed.close(); }
+    try {
+      await resumed.check();
+    } finally {
+      resumed.close();
+    }
   });
 });

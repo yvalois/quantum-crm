@@ -20,8 +20,11 @@ function allow(permissions: readonly IamPermission[], permission: IamPermission)
 }
 
 function historicalOwner(owner: FileOwner): boolean {
-  return owner.kind === "existing" && owner.module === "conversations" &&
-    owner.type === "historical_attachment";
+  return (
+    owner.kind === "existing" &&
+    owner.module === "conversations" &&
+    owner.type === "historical_attachment"
+  );
 }
 
 function allowOwner(
@@ -30,7 +33,10 @@ function allowOwner(
   access: "read" | "write",
 ): void {
   if (historicalOwner(owner)) {
-    allow(permissions, access === "read" ? "crm:conversations:read" : "crm:conversations:configure");
+    allow(
+      permissions,
+      access === "read" ? "crm:conversations:read" : "crm:conversations:configure",
+    );
   }
 }
 
@@ -48,12 +54,14 @@ export class FileService {
   ) {
     allow(permissions, "crm:files:read");
     const page = await this.repository.list(actor, filters);
-    const authorized = await Promise.all(page.items.map(async (file) =>
-      !historicalOwner(file.owner) || (
-        permissions.includes("crm:conversations:read") &&
-        await this.ownerAuthorization.canUseOwner(actor, file.owner)
+    const authorized = await Promise.all(
+      page.items.map(
+        async (file) =>
+          !historicalOwner(file.owner) ||
+          (permissions.includes("crm:conversations:read") &&
+            (await this.ownerAuthorization.canUseOwner(actor, file.owner))),
       ),
-    ));
+    );
     return Object.freeze({
       items: Object.freeze(page.items.filter((_file, index) => authorized[index])),
       nextCursor: page.nextCursor,
@@ -125,7 +133,12 @@ export class FileService {
     readonly now?: Date;
   }) {
     allow(input.permissions, "crm:files:upload");
-    const current = await this.findAuthorized(input.actor, input.fileId, input.permissions, "write");
+    const current = await this.findAuthorized(
+      input.actor,
+      input.fileId,
+      input.permissions,
+      "write",
+    );
     const observed = await this.storageAuthorization.inspectUpload(current);
     if (
       (input.versionId !== undefined && input.versionId !== observed.versionId) ||

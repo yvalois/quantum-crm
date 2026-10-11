@@ -42,7 +42,9 @@ async function fixture() {
   await mkdir(storageDirectory, { recursive: true });
   const storageAccessKeyFile = join(storageDirectory, "storage-access-key");
   await writeFile(storageAccessKeyFile, "synthetic-storage-access", { mode: 0o400 });
-  await writeFile(join(storageDirectory, "storage-secret-key"), "synthetic-storage-secret", { mode: 0o400 });
+  await writeFile(join(storageDirectory, "storage-secret-key"), "synthetic-storage-secret", {
+    mode: 0o400,
+  });
   await mkdir(join(exportRoot, request.exportId), { recursive: true });
   const compact = request.tenantProfileId.replaceAll("-", "");
   const manifest = {
@@ -156,14 +158,32 @@ async function fixture() {
       if (args[2]?.endsWith("-egress")) {
         if (!egressCreated && !foreignEgress)
           return { exitCode: 1, stdout: "", stderr: "network not found" };
-        return { exitCode: 0, stdout: JSON.stringify([{
-          Name: args[2], Driver: "bridge", Internal: false, Attachable: false, Scope: "local",
-          Options: { "com.docker.network.bridge.enable_icc": "false" },
-          Labels: foreignEgress ? { ...labels(), "com.quantum.tenant-id": request.serverId } : labels(),
-          Containers: {},
-        }]), stderr: "" };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            {
+              Name: args[2],
+              Driver: "bridge",
+              Internal: false,
+              Attachable: false,
+              Scope: "local",
+              Options: { "com.docker.network.bridge.enable_icc": "false" },
+              Labels: foreignEgress
+                ? { ...labels(), "com.quantum.tenant-id": request.serverId }
+                : labels(),
+              Containers: {},
+            },
+          ]),
+          stderr: "",
+        };
       }
-      return { exitCode: 0, stdout: JSON.stringify([{ Internal: args[2] === "qcrm-platform-storage" ? storageInternal : internal }]), stderr: "" };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify([
+          { Internal: args[2] === "qcrm-platform-storage" ? storageInternal : internal },
+        ]),
+        stderr: "",
+      };
     }
     if (args[0] === "run") started = true;
     return { exitCode: 0, stdout: "", stderr: "" };
@@ -290,16 +310,26 @@ describe("registered GHL import host job", () => {
     const f = await fixture();
     f.attachmentsMode();
     const subject = createTenantGhlImportRunner(f.options);
-    await expect(subject.run({ ...request, mode: "ATTACHMENTS" })).resolves.toMatchObject({ state: "RUNNING" });
+    await expect(subject.run({ ...request, mode: "ATTACHMENTS" })).resolves.toMatchObject({
+      state: "RUNNING",
+    });
     const args = f.run.mock.calls.find(([args]) => args[0] === "run")?.[0] ?? [];
     const network = `qcrm-ghl-${request.operationId}-attachments-1-egress`;
     expect(args.slice(-3)).toEqual(["node", imageId, "dist/ghl-migration-attachments-cli.js"]);
     expect(args.filter((_, index) => args[index - 1] === "--network")).toEqual([
-      "qcrm-platform-database", "qcrm-platform-storage", network,
+      "qcrm-platform-database",
+      "qcrm-platform-storage",
+      network,
     ]);
-    expect(args).toContain(`type=bind,source=${f.storageAccessKeyFile},target=/run/secrets/qcrm_files_s3_upload_access_key,readonly`);
-    expect(args).toContain(`type=bind,source=${f.storageAccessKeyFile},target=/run/secrets/qcrm_files_s3_delivery_access_key,readonly`);
-    expect(args).toContain(`type=bind,source=${f.storageAccessKeyFile},target=/run/secrets/qcrm_files_s3_processor_access_key,readonly`);
+    expect(args).toContain(
+      `type=bind,source=${f.storageAccessKeyFile},target=/run/secrets/qcrm_files_s3_upload_access_key,readonly`,
+    );
+    expect(args).toContain(
+      `type=bind,source=${f.storageAccessKeyFile},target=/run/secrets/qcrm_files_s3_delivery_access_key,readonly`,
+    );
+    expect(args).toContain(
+      `type=bind,source=${f.storageAccessKeyFile},target=/run/secrets/qcrm_files_s3_processor_access_key,readonly`,
+    );
     expect(args).toContain("QCRM_FILES_S3_ENDPOINT=http://platform-storage:8333");
     expect(args).toContain("QCRM_FILES_S3_PUBLIC_ENDPOINT=https://files.example.test");
     expect(args).toContain("QCRM_GHL_IMPORT_MODE=APPLY");
@@ -307,29 +337,43 @@ describe("registered GHL import host job", () => {
     expect(args).toContain("QCRM_FILES_CLAMAV_MAX_SIGNATURE_AGE_SECONDS=172800");
     expect(args).toContain("QCRM_FILES_CLAMAV_HOST=platform-clamav");
     expect(args.join(" ")).not.toMatch(/qcrm_ghl_migration_token|synthetic-storage/);
-    const create = f.run.mock.calls.find(([args]) => args[0] === "network" && args[1] === "create")?.[0] ?? [];
+    const create =
+      f.run.mock.calls.find(([args]) => args[0] === "network" && args[1] === "create")?.[0] ?? [];
     expect(create).toContain("com.docker.network.bridge.enable_icc=false");
     expect(create).toContain(`com.quantum.tenant-id=${request.tenantProfileId}`);
     f.finish();
-    await expect(subject.run({ ...request, mode: "ATTACHMENTS" })).resolves.toMatchObject({ state: "SUCCEEDED", reconciled: true });
+    await expect(subject.run({ ...request, mode: "ATTACHMENTS" })).resolves.toMatchObject({
+      state: "SUCCEEDED",
+      reconciled: true,
+    });
     expect(f.run.mock.calls.filter(([args]) => args[0] === "run")).toHaveLength(1);
-    expect(f.run.mock.calls.filter(([args]) => args[0] === "network" && args[1] === "create")).toHaveLength(1);
+    expect(
+      f.run.mock.calls.filter(([args]) => args[0] === "network" && args[1] === "create"),
+    ).toHaveLength(1);
   });
 
   it("rejects an attachment storage network with egress before creating its private bridge", async () => {
     const f = await fixture();
     f.attachmentsMode();
     f.externalStorage();
-    await expect(createTenantGhlImportRunner(f.options).run({ ...request, mode: "ATTACHMENTS" })).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
-    expect(f.run.mock.calls.some(([args]) => args[0] === "run" || args[1] === "create")).toBe(false);
+    await expect(
+      createTenantGhlImportRunner(f.options).run({ ...request, mode: "ATTACHMENTS" }),
+    ).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
+    expect(f.run.mock.calls.some(([args]) => args[0] === "run" || args[1] === "create")).toBe(
+      false,
+    );
   });
 
   it("never reuses another tenant's egress bridge", async () => {
     const f = await fixture();
     f.attachmentsMode();
     f.foreignEgress();
-    await expect(createTenantGhlImportRunner(f.options).run({ ...request, mode: "ATTACHMENTS" })).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
-    expect(f.run.mock.calls.some(([args]) => args[0] === "run" || args[1] === "create")).toBe(false);
+    await expect(
+      createTenantGhlImportRunner(f.options).run({ ...request, mode: "ATTACHMENTS" }),
+    ).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
+    expect(f.run.mock.calls.some(([args]) => args[0] === "run" || args[1] === "create")).toBe(
+      false,
+    );
   });
 
   it("rejects a substituted storage secret before any Docker command", async () => {
@@ -337,19 +381,51 @@ describe("registered GHL import host job", () => {
     f.attachmentsMode();
     await rm(f.storageAccessKeyFile);
     await symlink(f.databaseFile, f.storageAccessKeyFile);
-    await expect(createTenantGhlImportRunner(f.options).run({ ...request, mode: "ATTACHMENTS" })).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
+    await expect(
+      createTenantGhlImportRunner(f.options).run({ ...request, mode: "ATTACHMENTS" }),
+    ).rejects.toEqual(new HostAdapterError("IDENTITY_MISMATCH"));
     expect(f.run).not.toHaveBeenCalled();
   });
 
   it("returns numeric attachment aggregates without URLs, names, credentials or provider errors", () => {
-    const receipt = parseGhlImportReceipt([
-      JSON.stringify({ event: "ghl_attachment_import_progress", total: 10, processed: 4, available: 2, pending: 2, bytes: 1024, sourceUrl: "https://secret-canary.test", filename: "private-canary" }),
-      JSON.stringify({ event: "ghl_attachment_import_completed", total: 10, processed: 10, available: 7, rejected: 1, failed: 2, pending: 0, bytes: 12345, error: "credential-canary", body: "private-canary" }),
-    ].join("\n"));
-    expect(receipt).toEqual({ progress: [], counters: {
-      "attachments.total": 10, "attachments.processed": 10, "attachments.available": 7,
-      "attachments.rejected": 1, "attachments.failed": 2, "attachments.pending": 0, "attachments.bytes": 12345,
-    } });
+    const receipt = parseGhlImportReceipt(
+      [
+        JSON.stringify({
+          event: "ghl_attachment_import_progress",
+          total: 10,
+          processed: 4,
+          available: 2,
+          pending: 2,
+          bytes: 1024,
+          sourceUrl: "https://secret-canary.test",
+          filename: "private-canary",
+        }),
+        JSON.stringify({
+          event: "ghl_attachment_import_completed",
+          total: 10,
+          processed: 10,
+          available: 7,
+          rejected: 1,
+          failed: 2,
+          pending: 0,
+          bytes: 12345,
+          error: "credential-canary",
+          body: "private-canary",
+        }),
+      ].join("\n"),
+    );
+    expect(receipt).toEqual({
+      progress: [],
+      counters: {
+        "attachments.total": 10,
+        "attachments.processed": 10,
+        "attachments.available": 7,
+        "attachments.rejected": 1,
+        "attachments.failed": 2,
+        "attachments.pending": 0,
+        "attachments.bytes": 12345,
+      },
+    });
     expect(JSON.stringify(receipt)).not.toContain("canary");
   });
 

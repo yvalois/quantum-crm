@@ -220,12 +220,15 @@ export class AppModule {
             if (!fileStorageAuthorization) {
               throw new Error("File storage authorization is required");
             }
-            const history = new HistoricalConversationService(database.commercial.historicalConversations, {
-              contactExistsFor: async (actor, contactId) =>
-                (await database.commercial.contacts.find(actor, contactId)) !== null,
-              isActiveMember: async (memberId) =>
-                (await database.members.findById(memberId))?.status === "ACTIVE",
-            });
+            const history = new HistoricalConversationService(
+              database.commercial.historicalConversations,
+              {
+                contactExistsFor: async (actor, contactId) =>
+                  (await database.commercial.contacts.find(actor, contactId)) !== null,
+                isActiveMember: async (memberId) =>
+                  (await database.members.findById(memberId))?.status === "ACTIVE",
+              },
+            );
             return new FileService(
               database.commercial.files,
               {

@@ -459,19 +459,58 @@ export function ghlTestPostgresAddress(
   return address;
 }
 
+interface GhlTestNetworkInspection {
+  readonly Id?: string;
+  readonly Name?: string;
+  readonly Internal?: boolean;
+  readonly Labels?: Readonly<Record<string, string>>;
+}
+
+/** A lab upgrade may reuse only the exact synthetic container and its isolated network. */
+export function ghlTestLaboratoryAddress(
+  postgres: ContainerInspection,
+  network: GhlTestNetworkInspection,
+  laboratoryCommit: string,
+  postgresImage: string,
+): string {
+  const suffix = laboratoryCommit.slice(0, 12);
+  const networkName = `qcrm-ghl-test-${suffix}`;
+  if (
+    !commitPattern.test(laboratoryCommit) ||
+    !/^sha256:[0-9a-f]{64}$/u.test(postgresImage) ||
+    postgres.Name !== `/qcrm-ghl-test-pg-${suffix}` ||
+    postgres.Config.Labels["com.quantum.ghl-test"] !== laboratoryCommit ||
+    postgres.Image !== postgresImage ||
+    !postgres.State.Running ||
+    network.Name !== networkName ||
+    network.Internal !== true ||
+    network.Labels?.["com.quantum.ghl-test"] !== laboratoryCommit ||
+    !network.Id
+  ) throw new HostAdapterError("IDENTITY_MISMATCH");
+  return ghlTestPostgresAddress(postgres, networkName, network.Id);
+}
+
+/** Upgrade a registered laboratory in place; its runtime connection files remain immutable. */
+export async function upgradeGhlIntegrationTest(commit: string, laboratoryCommit: string) {
+  if (!commitPattern.test(laboratoryCommit)) throw new HostAdapterError("IDENTITY_MISMATCH");
+  return setupGhlIntegrationTest(commit, laboratoryCommit);
+}
+
 /** Two synthetic profiles in a separate PostgreSQL instance, never the platform server. */
-export async function setupGhlIntegrationTest(commit: string) {
+export async function setupGhlIntegrationTest(commit: string, existingLaboratoryCommit?: string) {
   const root = await candidateRoot(commit);
+  const laboratoryCommit = existingLaboratoryCommit ?? commit;
+  if (!commitPattern.test(laboratoryCommit)) throw new HostAdapterError("IDENTITY_MISMATCH");
   const migratorImage = await candidateImage(commit, "crm-migrator");
   if (!migratorImage) throw new HostAdapterError("UNAVAILABLE");
   const postgresImage = (await inspectContainer("quantum-platform-foundation-platform-postgres-1"))
     .Image;
   if (!/^sha256:[0-9a-f]{64}$/u.test(postgresImage))
     throw new HostAdapterError("IDENTITY_MISMATCH");
-  const suffix = commit.slice(0, 12);
+  const suffix = laboratoryCommit.slice(0, 12);
   const name = `qcrm-ghl-test-pg-${suffix}`;
   const network = `qcrm-ghl-test-${suffix}`;
-  const testRoot = `/opt/quantum/test-secrets/ghl/${commit}`;
+  const testRoot = `/opt/quantum/test-secrets/ghl/${laboratoryCommit}`;
   await mkdir(join(testRoot, "init"), { recursive: true, mode: 0o700 });
   await fixedSyntheticFile(join(testRoot, "postgres-password"), "test-only-ghl-postgres");
   await fixedSyntheticFile(
@@ -483,8 +522,9 @@ export async function setupGhlIntegrationTest(commit: string) {
   await chown(join(testRoot, "postgres-password"), 999, 999);
   let observedNetwork = await docker.run(["network", "inspect", network], {}, 15_000);
   if (observedNetwork.exitCode !== 0) {
+    if (existingLaboratoryCommit) throw new HostAdapterError("UNAVAILABLE");
     const created = await docker.run(
-      ["network", "create", "--internal", "--label", `com.quantum.ghl-test=${commit}`, network],
+      ["network", "create", "--internal", "--label", `com.quantum.ghl-test=${laboratoryCommit}`, network],
       {},
       15_000,
     );
@@ -492,22 +532,20 @@ export async function setupGhlIntegrationTest(commit: string) {
     observedNetwork = await docker.run(["network", "inspect", network], {}, 15_000);
   }
   if (observedNetwork.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
-  const networks = JSON.parse(observedNetwork.stdout) as {
-    Id?: string;
-    Internal?: boolean;
-    Labels?: Record<string, string>;
-  }[];
+  const networks = JSON.parse(observedNetwork.stdout) as GhlTestNetworkInspection[];
   const inspectedNetwork = networks[0];
   if (
     networks.length !== 1 ||
     inspectedNetwork?.Internal !== true ||
-    inspectedNetwork.Labels?.["com.quantum.ghl-test"] !== commit ||
+    inspectedNetwork.Name !== network ||
+    inspectedNetwork.Labels?.["com.quantum.ghl-test"] !== laboratoryCommit ||
     !inspectedNetwork.Id ||
     !/^[0-9a-f]{64}$/u.test(inspectedNetwork.Id)
   )
     throw new HostAdapterError("IDENTITY_MISMATCH");
   const observedPostgres = await docker.run(["container", "inspect", name], {}, 15_000);
   if (observedPostgres.exitCode !== 0) {
+    if (existingLaboratoryCommit) throw new HostAdapterError("UNAVAILABLE");
     const started = await docker.run(
       [
         "run",
@@ -519,7 +557,7 @@ export async function setupGhlIntegrationTest(commit: string) {
         "--network",
         network,
         "--label",
-        `com.quantum.ghl-test=${commit}`,
+        `com.quantum.ghl-test=${laboratoryCommit}`,
         "--memory",
         "2g",
         "--cpus",
@@ -544,8 +582,7 @@ export async function setupGhlIntegrationTest(commit: string) {
     if (started.exitCode !== 0) throw new HostAdapterError("UNAVAILABLE");
   }
   const postgres = await inspectContainer(name);
-  if (postgres.Config.Labels["com.quantum.ghl-test"] !== commit || postgres.Image !== postgresImage)
-    throw new HostAdapterError("IDENTITY_MISMATCH");
+  const postgresAddress = ghlTestLaboratoryAddress(postgres, inspectedNetwork, laboratoryCommit, postgresImage);
   let ready = false;
   for (let attempt = 0; attempt < 60; attempt++) {
     const probe = await docker.run(
@@ -560,7 +597,6 @@ export async function setupGhlIntegrationTest(commit: string) {
     await new Promise<void>((resolve) => setTimeout(resolve, 1_000));
   }
   if (!ready) throw new HostAdapterError("UNAVAILABLE");
-  const postgresAddress = ghlTestPostgresAddress(postgres, network, inspectedNetwork.Id);
   for (const profile of ["a", "b"] as const) {
     const compact = `0000000000004000800000000000000${profile}`;
     const migrationUrl = `postgresql://qcrm_m_${compact}:test-only-ghl-migrator-${profile}@${name}:5432/qcrm_t_${compact}?sslmode=disable`;
@@ -575,7 +611,7 @@ export async function setupGhlIntegrationTest(commit: string) {
         "--network",
         network,
         "--name",
-        `qcrm-ghl-test-migrate-${suffix}-${profile}`,
+        `qcrm-ghl-test-migrate-${commit.slice(0, 12)}-${profile}`,
         "--read-only",
         "--cap-drop",
         "ALL",

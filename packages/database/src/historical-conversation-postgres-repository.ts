@@ -63,11 +63,18 @@ const attachmentSelection = `attachment.id::text, attachment.message_id::text,
   attachment.status, attachment.error_code, attachment.display_name,
   attachment.mime_type, attachment.byte_size`;
 function attachment(row: AttachmentRow): HistoricalAttachmentRecord {
-  return Object.freeze({ id: row.id, messageId: row.message_id,
-    attachmentIndex: row.attachment_index, sourceHash: row.source_hash,
-    fileId: row.file_id, status: row.status, errorCode: row.error_code,
-    name: row.display_name, mimeType: row.mime_type,
-    size: row.byte_size === null ? null : Number(row.byte_size) });
+  return Object.freeze({
+    id: row.id,
+    messageId: row.message_id,
+    attachmentIndex: row.attachment_index,
+    sourceHash: row.source_hash,
+    fileId: row.file_id,
+    status: row.status,
+    errorCode: row.error_code,
+    name: row.display_name,
+    mimeType: row.mime_type,
+    size: row.byte_size === null ? null : Number(row.byte_size),
+  });
 }
 const threadSelection = `thread.id::text, thread.source_system, thread.source_external_id,
   thread.source_thread_present, thread.contact_id::text, thread.assignee_member_id::text,
@@ -160,12 +167,19 @@ function decode(value: string): { id: string; at: Date | null } {
   }
 }
 function fail(error: unknown): never {
-  if (error instanceof HistoricalImportValidationError || error instanceof HistoricalAttachmentConflictError ||
-    error instanceof HistoricalConversationNotFoundError) throw error;
+  if (
+    error instanceof HistoricalImportValidationError ||
+    error instanceof HistoricalAttachmentConflictError ||
+    error instanceof HistoricalConversationNotFoundError
+  )
+    throw error;
   throw new DatabaseUnavailableError();
 }
 
-async function attachmentTransaction<T>(pool: PostgresPool, run: (client: PoolClient) => Promise<T>): Promise<T> {
+async function attachmentTransaction<T>(
+  pool: PostgresPool,
+  run: (client: PoolClient) => Promise<T>,
+): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -182,40 +196,55 @@ async function attachmentTransaction<T>(pool: PostgresPool, run: (client: PoolCl
   }
 }
 
-async function auditAttachment(client: PoolClient, row: AttachmentRow, actorMemberId: string): Promise<void> {
-  await client.query(`INSERT INTO conversations.historical_attachment_events
+async function auditAttachment(
+  client: PoolClient,
+  row: AttachmentRow,
+  actorMemberId: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO conversations.historical_attachment_events
     (attachment_id, actor_member_id, status, file_id, error_code)
     VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5)`,
-    [row.id, actorMemberId, row.status, row.file_id, row.error_code]);
+    [row.id, actorMemberId, row.status, row.file_id, row.error_code],
+  );
 }
 
 export function createHistoricalConversationPostgresRepository(
   pool: PostgresPool,
 ): HistoricalConversationRepository {
   return Object.freeze<HistoricalConversationRepository>({
-    reserveAttachment: (context, input) => attachmentTransaction(pool, async (client) => {
-      const parent = await client.query<{ id: string; attachment_count: number }>(
-        `SELECT id::text, attachment_count FROM conversations.historical_messages
+    reserveAttachment: (context, input) =>
+      attachmentTransaction(pool, async (client) => {
+        const parent = await client.query<{ id: string; attachment_count: number }>(
+          `SELECT id::text, attachment_count FROM conversations.historical_messages
          WHERE source_system = 'GHL' AND source_location_id = $1 AND source_external_id = $2`,
-        [input.locationId, input.externalMessageId]);
-      const message = parent.rows[0];
-      if (!message) throw new HistoricalConversationNotFoundError();
-      if (input.attachmentIndex >= message.attachment_count) throw new HistoricalImportValidationError();
-      const inserted = await client.query<AttachmentRow>(
-        `INSERT INTO conversations.historical_attachments AS attachment
+          [input.locationId, input.externalMessageId],
+        );
+        const message = parent.rows[0];
+        if (!message) throw new HistoricalConversationNotFoundError();
+        if (input.attachmentIndex >= message.attachment_count)
+          throw new HistoricalImportValidationError();
+        const inserted = await client.query<AttachmentRow>(
+          `INSERT INTO conversations.historical_attachments AS attachment
          (message_id, attachment_index, source_hash, created_by_member_id)
          VALUES ($1::uuid, $2, $3, $4::uuid)
          ON CONFLICT (message_id, attachment_index) DO NOTHING RETURNING ${attachmentSelection}`,
-        [message.id, input.attachmentIndex, input.sourceHash, context.actor.memberId]);
-      const row = inserted.rows[0] ?? (await client.query<AttachmentRow>(
-        `SELECT ${attachmentSelection} FROM conversations.historical_attachments attachment
+          [message.id, input.attachmentIndex, input.sourceHash, context.actor.memberId],
+        );
+        const row =
+          inserted.rows[0] ??
+          (
+            await client.query<AttachmentRow>(
+              `SELECT ${attachmentSelection} FROM conversations.historical_attachments attachment
          WHERE attachment.message_id = $1::uuid AND attachment.attachment_index = $2`,
-        [message.id, input.attachmentIndex])).rows[0];
-      if (!row) throw new DatabaseUnavailableError();
-      if (row.source_hash !== input.sourceHash) throw new HistoricalAttachmentConflictError();
-      if (inserted.rows[0]) await auditAttachment(client, row, context.actor.memberId);
-      return attachment(row);
-    }),
+              [message.id, input.attachmentIndex],
+            )
+          ).rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        if (row.source_hash !== input.sourceHash) throw new HistoricalAttachmentConflictError();
+        if (inserted.rows[0]) await auditAttachment(client, row, context.actor.memberId);
+        return attachment(row);
+      }),
     findAttachment: async (actor, id) => {
       try {
         const visible = access(actor, 2);
@@ -223,32 +252,55 @@ export function createHistoricalConversationPostgresRepository(
           `SELECT ${attachmentSelection} FROM conversations.historical_attachments attachment
            JOIN conversations.historical_messages message ON message.id = attachment.message_id
            JOIN conversations.historical_threads thread ON thread.id = message.thread_id
-           WHERE attachment.id = $1::uuid AND ${visible.sql}`, [id, ...visible.params])) as { rows: AttachmentRow[] };
+           WHERE attachment.id = $1::uuid AND ${visible.sql}`,
+          [id, ...visible.params],
+        )) as { rows: AttachmentRow[] };
         return result.rows[0] ? attachment(result.rows[0]) : null;
-      } catch (error) { return fail(error); }
+      } catch (error) {
+        return fail(error);
+      }
     },
-    setAttachmentResult: (context, input) => attachmentTransaction(pool, async (client) => {
-      const found = await client.query<AttachmentRow>(
-        `SELECT ${attachmentSelection} FROM conversations.historical_attachments attachment
-         WHERE attachment.id = $1::uuid FOR UPDATE`, [input.attachmentId]);
-      const current = found.rows[0];
-      if (!current) throw new HistoricalConversationNotFoundError();
-      if (current.file_id !== null && input.fileId !== current.file_id) throw new HistoricalAttachmentConflictError();
-      if (current.status === 'AVAILABLE' || (current.status === input.status && current.file_id === input.fileId && current.error_code === input.errorCode))
-        return attachment(current);
-      const saved = await client.query<AttachmentRow>(
-        `UPDATE conversations.historical_attachments attachment SET file_id = $2::uuid, status = $3,
+    setAttachmentResult: (context, input) =>
+      attachmentTransaction(pool, async (client) => {
+        const found = await client.query<AttachmentRow>(
+          `SELECT ${attachmentSelection} FROM conversations.historical_attachments attachment
+         WHERE attachment.id = $1::uuid FOR UPDATE`,
+          [input.attachmentId],
+        );
+        const current = found.rows[0];
+        if (!current) throw new HistoricalConversationNotFoundError();
+        if (current.file_id !== null && input.fileId !== current.file_id)
+          throw new HistoricalAttachmentConflictError();
+        if (
+          current.status === "AVAILABLE" ||
+          (current.status === input.status &&
+            current.file_id === input.fileId &&
+            current.error_code === input.errorCode)
+        )
+          return attachment(current);
+        const saved = await client.query<AttachmentRow>(
+          `UPDATE conversations.historical_attachments attachment SET file_id = $2::uuid, status = $3,
          error_code = $4, display_name = $5, mime_type = $6, byte_size = $7, updated_at = CURRENT_TIMESTAMP
          WHERE attachment.id = $1::uuid RETURNING ${attachmentSelection}`,
-        [input.attachmentId, input.fileId, input.status, input.errorCode, input.name, input.mimeType, input.size]);
-      const row = saved.rows[0];
-      if (!row) throw new DatabaseUnavailableError();
-      await auditAttachment(client, row, context.actor.memberId);
-      return attachment(row);
-    }),
+          [
+            input.attachmentId,
+            input.fileId,
+            input.status,
+            input.errorCode,
+            input.name,
+            input.mimeType,
+            input.size,
+          ],
+        );
+        const row = saved.rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        await auditAttachment(client, row, context.actor.memberId);
+        return attachment(row);
+      }),
     verifyAttachments: async (locationId) => {
       try {
-        const result = (await pool.query(`WITH messages AS (
+        const result = (await pool.query(
+          `WITH messages AS (
           SELECT id, attachment_count FROM conversations.historical_messages
           WHERE source_system = 'GHL' AND source_location_id = $1
         ), attachments AS (
@@ -263,11 +315,15 @@ export function createHistoricalConversationPostgresRepository(
           count(*) FILTER (WHERE status = 'FAILED')::int AS "failedCount",
           COALESCE(sum(byte_size), 0)::float8 AS "totalBytes",
           COALESCE((SELECT sum(attachment_count)::int FROM messages), 0) - count(*)::int AS "missingCount"
-          FROM attachments`, [locationId])) as { rows: HistoricalAttachmentVerification[] };
+          FROM attachments`,
+          [locationId],
+        )) as { rows: HistoricalAttachmentVerification[] };
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
         return Object.freeze(row);
-      } catch (error) { return fail(error); }
+      } catch (error) {
+        return fail(error);
+      }
     },
     verifyImports: async (locationId) => {
       try {

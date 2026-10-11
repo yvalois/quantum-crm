@@ -4,6 +4,7 @@ import {
   ghlCandidateApps,
   runRegisteredGhlImport,
   setupGhlIntegrationTest,
+  upgradeGhlIntegrationTest,
   type GhlCandidateApp,
 } from "./ghl-candidate-operations.js";
 import { HostAdapterError } from "./host-adapter.js";
@@ -15,6 +16,8 @@ try {
   let result: unknown;
   if (action === "TEST_SETUP" && second === undefined && third === undefined) {
     result = await setupGhlIntegrationTest(first);
+  } else if (action === "TEST_UPGRADE" && second && third === undefined) {
+    result = await upgradeGhlIntegrationTest(first, second);
   } else if (
     action === "BUILD" &&
     second &&
@@ -25,7 +28,10 @@ try {
   } else if (action === "DEPLOY_COMPONENTS" && second && third) {
     result = await deployGhlCandidate(first, second, third);
   } else if (
-    (action === "MIGRATE" || action === "VERIFY" || action === "APPLY" || action === "ATTACHMENTS") &&
+    (action === "MIGRATE" ||
+      action === "VERIFY" ||
+      action === "APPLY" ||
+      action === "ATTACHMENTS") &&
     second
   ) {
     const attempt = third === undefined ? 1 : Number(third);

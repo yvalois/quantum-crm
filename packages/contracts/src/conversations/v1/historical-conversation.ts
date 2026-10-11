@@ -33,22 +33,44 @@ export const HistoricalConversationSchema = z
     importedAt: TimestampSchema,
   })
   .strict();
-export const HistoricalConversationAttachmentSchema = z.object({
-  id: z.string().uuid(),
-  attachmentIndex: z.number().int().nonnegative(),
-  fileId: z.string().uuid().nullable(),
-  status: z.enum(["PENDING", "AVAILABLE", "REJECTED", "FAILED"]),
-  errorCode: z.enum(["SOURCE_UNAVAILABLE", "UNSUPPORTED_FORMAT", "SIZE_LIMIT", "CHECKSUM_MISMATCH",
-    "SCAN_REJECTED", "SCAN_PENDING", "TRANSFER_FAILED", "SOURCE_CHANGED"]).nullable(),
-  name: z.string().max(255).nullable(),
-  mimeType: z.string().max(160).nullable(),
-  size: z.number().int().positive().max(262144000).nullable(),
-}).strict().superRefine((value, context) => {
-  if (value.status === "AVAILABLE" && (value.fileId === null || value.errorCode !== null ||
-    value.name === null || value.mimeType === null || value.size === null)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: "Available attachment requires verified file metadata" });
-  }
-});
+export const HistoricalConversationAttachmentSchema = z
+  .object({
+    id: z.string().uuid(),
+    attachmentIndex: z.number().int().nonnegative(),
+    fileId: z.string().uuid().nullable(),
+    status: z.enum(["PENDING", "AVAILABLE", "REJECTED", "FAILED"]),
+    errorCode: z
+      .enum([
+        "SOURCE_UNAVAILABLE",
+        "UNSUPPORTED_FORMAT",
+        "SIZE_LIMIT",
+        "CHECKSUM_MISMATCH",
+        "SCAN_REJECTED",
+        "SCAN_PENDING",
+        "TRANSFER_FAILED",
+        "SOURCE_CHANGED",
+      ])
+      .nullable(),
+    name: z.string().max(255).nullable(),
+    mimeType: z.string().max(160).nullable(),
+    size: z.number().int().positive().max(262144000).nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.status === "AVAILABLE" &&
+      (value.fileId === null ||
+        value.errorCode !== null ||
+        value.name === null ||
+        value.mimeType === null ||
+        value.size === null)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Available attachment requires verified file metadata",
+      });
+    }
+  });
 export const HistoricalConversationMessageSchema = z
   .object({
     id: z.string().uuid(),
@@ -84,4 +106,6 @@ export const HistoricalConversationMessageListResponseSchema = z
   .strict();
 export type HistoricalConversation = z.infer<typeof HistoricalConversationSchema>;
 export type HistoricalConversationMessage = z.infer<typeof HistoricalConversationMessageSchema>;
-export type HistoricalConversationAttachment = z.infer<typeof HistoricalConversationAttachmentSchema>;
+export type HistoricalConversationAttachment = z.infer<
+  typeof HistoricalConversationAttachmentSchema
+>;

@@ -164,7 +164,13 @@ const receiptCounters = {
   ],
 } as const;
 const attachmentCounters = [
-  "total", "processed", "available", "rejected", "failed", "pending", "bytes",
+  "total",
+  "processed",
+  "available",
+  "rejected",
+  "failed",
+  "pending",
+  "bytes",
 ] as const;
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -284,26 +290,42 @@ async function attachmentEgressNetwork(
   if (inspected.exitCode !== 0) {
     if (inspected.exitCode !== 1 || !/No such|not found/u.test(inspected.stderr))
       throw new HostAdapterError("UNAVAILABLE");
-    await runner.run([
-      "network", "create", "--driver", "bridge",
-      "--opt", "com.docker.network.bridge.enable_icc=false",
-      ...Object.entries(labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]),
-      networkName,
-    ], {}, 15_000);
+    await runner.run(
+      [
+        "network",
+        "create",
+        "--driver",
+        "bridge",
+        "--opt",
+        "com.docker.network.bridge.enable_icc=false",
+        ...Object.entries(labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]),
+        networkName,
+      ],
+      {},
+      15_000,
+    );
     inspected = await runner.run(["network", "inspect", networkName], {}, 15_000);
   }
   const networks: unknown = inspected.exitCode === 0 ? JSON.parse(inspected.stdout) : null;
-  const network = Array.isArray(networks) && networks.length === 1 ? record(networks[0]) : undefined;
+  const network =
+    Array.isArray(networks) && networks.length === 1 ? record(networks[0]) : undefined;
   const observedLabels = record(network?.Labels);
   const networkOptions = record(network?.Options);
   const members = record(network?.Containers);
   if (
-    !network || network.Name !== networkName || network.Driver !== "bridge" ||
-    network.Internal !== false || network.Attachable !== false || network.Scope !== "local" ||
+    !network ||
+    network.Name !== networkName ||
+    network.Driver !== "bridge" ||
+    network.Internal !== false ||
+    network.Attachable !== false ||
+    network.Scope !== "local" ||
     networkOptions?.["com.docker.network.bridge.enable_icc"] !== "false" ||
-    !observedLabels || Object.entries(labels).some(([key, value]) => observedLabels[key] !== value) ||
-    !members || Object.values(members).some((member) => record(member)?.Name !== name)
-  ) throw new HostAdapterError("IDENTITY_MISMATCH");
+    !observedLabels ||
+    Object.entries(labels).some(([key, value]) => observedLabels[key] !== value) ||
+    !members ||
+    Object.values(members).some((member) => record(member)?.Name !== name)
+  )
+    throw new HostAdapterError("IDENTITY_MISMATCH");
   return networkName;
 }
 
@@ -356,7 +378,8 @@ export function createTenantGhlImportRunner(
         !uuidPattern.test(request.operationId) ||
         !uuidPattern.test(request.tenantProfileId) ||
         !["APPLY", "VERIFY", "MIGRATE", "ATTACHMENTS"].includes(request.mode) ||
-        !Number.isSafeInteger(request.attempt) || request.attempt < 1
+        !Number.isSafeInteger(request.attempt) ||
+        request.attempt < 1
       ) {
         throw new HostAdapterError("IDENTITY_MISMATCH");
       }
@@ -405,7 +428,11 @@ export function createTenantGhlImportRunner(
               filesMounts.push("--mount", `type=bind,source=${path},target=${target},readonly`);
             }
           }
-          for (const key of ["QCRM_FILES_INCOMING_BUCKET", "QCRM_FILES_OBJECTS_BUCKET", "QCRM_FILES_S3_PUBLIC_ENDPOINT"] as const) {
+          for (const key of [
+            "QCRM_FILES_INCOMING_BUCKET",
+            "QCRM_FILES_OBJECTS_BUCKET",
+            "QCRM_FILES_S3_PUBLIC_ENDPOINT",
+          ] as const) {
             const value = plan.environment[key];
             if (!value) throw new HostAdapterError("IDENTITY_MISMATCH");
             filesEnvironment[key] = value;
@@ -445,14 +472,19 @@ export function createTenantGhlImportRunner(
         if (inspect.exitCode === 0) return await observe(inspect.stdout);
         if (inspect.exitCode !== 1 || !inspect.stderr.includes("No such"))
           throw new HostAdapterError("UNAVAILABLE");
-        const networks = [options.platformDatabaseNetwork, ...(attachments ? [options.platformStorageNetwork] : [])];
+        const networks = [
+          options.platformDatabaseNetwork,
+          ...(attachments ? [options.platformStorageNetwork] : []),
+        ];
         for (const networkName of networks) {
           const network = await runner.run(["network", "inspect", networkName], {}, 15_000);
           const networkValue: unknown = network.exitCode === 0 ? JSON.parse(network.stdout) : null;
           if (
-            !Array.isArray(networkValue) || networkValue.length !== 1 ||
+            !Array.isArray(networkValue) ||
+            networkValue.length !== 1 ||
             (networkValue[0] as { Internal?: unknown }).Internal !== true
-          ) throw new HostAdapterError("IDENTITY_MISMATCH");
+          )
+            throw new HostAdapterError("IDENTITY_MISMATCH");
         }
         const running = await runner.run(
           [
@@ -537,9 +569,14 @@ export function createTenantGhlImportRunner(
           ...Object.entries(environment).flatMap(([key, value]) => ["--env", `${key}=${value}`]),
           ...(request.mode === "MIGRATE"
             ? [imageId]
-            : ["--entrypoint", "node", imageId, attachments
-                ? "dist/ghl-migration-attachments-cli.js"
-                : "dist/ghl-migration-import-cli.js"]),
+            : [
+                "--entrypoint",
+                "node",
+                imageId,
+                attachments
+                  ? "dist/ghl-migration-attachments-cli.js"
+                  : "dist/ghl-migration-import-cli.js",
+              ]),
         ];
         const launched = await runner.run(args, {}, 30_000);
         // Observe even a failed/uncertain launch before allowing any further attempt.

@@ -105,20 +105,21 @@ describe("reserved file upload", () => {
     [413, "TOO_LARGE"],
     [429, "UNAVAILABLE"],
     [503, "UNAVAILABLE"],
-  ] as const)("maps HTTP %i to a safe error without exposing the response", async (status, failure) => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response("private-response-canary", { status }));
-    const attempt = uploadReservedFile(options(fetcher));
-    await expect(attempt).rejects.toMatchObject({ failure });
-    await expect(attempt).rejects.not.toThrow("private-response-canary");
-    expect(fetcher).toHaveBeenCalledOnce();
-  });
+  ] as const)(
+    "maps HTTP %i to a safe error without exposing the response",
+    async (status, failure) => {
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response("private-response-canary", { status }));
+      const attempt = uploadReservedFile(options(fetcher));
+      await expect(attempt).rejects.toMatchObject({ failure });
+      await expect(attempt).rejects.not.toThrow("private-response-canary");
+      expect(fetcher).toHaveBeenCalledOnce();
+    },
+  );
 
   it("does not retry an uncertain upload and strips private transport diagnostics", async () => {
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockRejectedValue(new Error("private-signed-url-canary"));
+    const fetcher = vi.fn<typeof fetch>().mockRejectedValue(new Error("private-signed-url-canary"));
     const attempt = uploadReservedFile(options(fetcher));
     await expect(attempt).rejects.toMatchObject({ failure: "UNAVAILABLE" });
     await expect(attempt).rejects.not.toThrow("private-signed-url-canary");

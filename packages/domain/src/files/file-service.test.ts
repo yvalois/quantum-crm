@@ -142,9 +142,11 @@ describe("file service authorization", () => {
       },
       objectVersionId: "verified-version",
     };
-    const viewer: CommercialActor = { ...actor, scope: "SELF" };
+    const viewer: CommercialActor = { ...actor, scope: "ASSIGNED" };
     const permissions: readonly IamPermission[] = [
-      "crm:files:read", "crm:files:download", "crm:conversations:read",
+      "crm:files:read",
+      "crm:files:download",
+      "crm:conversations:read",
     ];
     await expect(
       service(file).authorizeDownload({ actor: viewer, permissions, fileId: file.id }),
@@ -166,10 +168,14 @@ describe("file service authorization", () => {
         fileId: file.id,
       }),
     ).rejects.toBeInstanceOf(IamAuthorizationError);
-    await expect(service(file).list(viewer, ["crm:files:read"], { limit: 25 })).resolves.toMatchObject({
+    await expect(
+      service(file).list(viewer, ["crm:files:read"], { limit: 25 }),
+    ).resolves.toMatchObject({
       items: [],
     });
-    await expect(service(file, false).list(viewer, permissions, { limit: 25 })).resolves.toMatchObject({
+    await expect(
+      service(file, false).list(viewer, permissions, { limit: 25 }),
+    ).resolves.toMatchObject({
       items: [],
     });
     await expect(

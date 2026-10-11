@@ -48,9 +48,16 @@ const thread: HistoricalThreadInput = {
   sourceUpdatedAt: null,
 };
 const attachment: HistoricalAttachmentRecord = {
-  id: "019b0000-0000-7000-8000-000000000004", messageId: "019b0000-0000-7000-8000-000000000002",
-  attachmentIndex: 0, sourceHash: "b".repeat(64), fileId: null, status: "PENDING",
-  errorCode: null, name: null, mimeType: null, size: null,
+  id: "019b0000-0000-7000-8000-000000000004",
+  messageId: "019b0000-0000-7000-8000-000000000002",
+  attachmentIndex: 0,
+  sourceHash: "b".repeat(64),
+  fileId: null,
+  status: "PENDING",
+  errorCode: null,
+  name: null,
+  mimeType: null,
+  size: null,
 };
 const context = { actor, permissions: ["crm:conversations:configure"] as const };
 function setup(contactExists = true) {
@@ -59,8 +66,16 @@ function setup(contactExists = true) {
     reserveAttachment: vi.fn(async () => attachment),
     findAttachment: vi.fn(async () => attachment),
     setAttachmentResult: vi.fn(async () => attachment),
-    verifyAttachments: vi.fn(async () => ({ expectedCount: 1, reservedCount: 1,
-      availableCount: 0, pendingCount: 1, rejectedCount: 0, failedCount: 0, missingCount: 0, totalBytes: 0 })),
+    verifyAttachments: vi.fn(async () => ({
+      expectedCount: 1,
+      reservedCount: 1,
+      availableCount: 0,
+      pendingCount: 1,
+      rejectedCount: 0,
+      failedCount: 0,
+      missingCount: 0,
+      totalBytes: 0,
+    })),
     importThread: vi.fn(async () => result),
     importMessage: vi.fn(async () => result),
     list: vi.fn(async () => ({ items: [], nextCursor: null })),
@@ -82,12 +97,21 @@ function setup(contactExists = true) {
     contactExistsFor: vi.fn(async () => contactExists),
     isActiveMember: vi.fn(async () => true),
   };
-  const files = { fileForAttachment: vi.fn(async () => ({
-    id: "019b0000-0000-7000-8000-000000000005", status: "AVAILABLE",
-    owner: { kind: "existing" as const, module: "conversations" as const,
-      type: "historical_attachment" as const, id: attachment.id },
-    originalName: "attachment.png", mimeType: "image/png", size: 1234,
-  })) };
+  const files = {
+    fileForAttachment: vi.fn(async () => ({
+      id: "019b0000-0000-7000-8000-000000000005",
+      status: "AVAILABLE",
+      owner: {
+        kind: "existing" as const,
+        module: "conversations" as const,
+        type: "historical_attachment" as const,
+        id: attachment.id,
+      },
+      originalName: "attachment.png",
+      mimeType: "image/png",
+      size: 1234,
+    })),
+  };
   return {
     repository,
     references,
@@ -99,35 +123,75 @@ function setup(contactExists = true) {
 describe("historical conversations", () => {
   it("reserves only authorized bounded source identities", async () => {
     const { service, repository } = setup();
-    const input = { locationId: "fixture-location", externalMessageId: "message", attachmentIndex: 0, sourceHash: attachment.sourceHash };
+    const input = {
+      locationId: "fixture-location",
+      externalMessageId: "message",
+      attachmentIndex: 0,
+      sourceHash: attachment.sourceHash,
+    };
     await service.reserveAttachment(context, input);
-    await expect(service.reserveAttachment({ ...context, actor: { ...actor, scope: "OWN" } }, input)).rejects.toBeInstanceOf(IamAuthorizationError);
-    await expect(service.reserveAttachment(context, { ...input, attachmentIndex: -1 })).rejects.toBeInstanceOf(HistoricalImportValidationError);
+    await expect(
+      service.reserveAttachment({ ...context, actor: { ...actor, scope: "OWN" } }, input),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+    await expect(
+      service.reserveAttachment(context, { ...input, attachmentIndex: -1 }),
+    ).rejects.toBeInstanceOf(HistoricalImportValidationError);
     expect(repository.reserveAttachment).toHaveBeenCalledTimes(1);
   });
 
   it("requires the Files owner and AVAILABLE state before making an attachment usable", async () => {
     const { service, files, repository } = setup();
     const file = await files.fileForAttachment();
-    const input = { attachmentId: attachment.id, fileId: file.id, status: "AVAILABLE" as const, errorCode: null };
+    const input = {
+      attachmentId: attachment.id,
+      fileId: file.id,
+      status: "AVAILABLE" as const,
+      errorCode: null,
+    };
     files.fileForAttachment.mockResolvedValueOnce({ ...file, status: "QUARANTINED" });
-    await expect(service.setAttachmentResult(context, input)).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
-    files.fileForAttachment.mockResolvedValueOnce({ ...file, owner: { ...file.owner, id: actor.memberId } });
-    await expect(service.setAttachmentResult(context, input)).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
+    await expect(service.setAttachmentResult(context, input)).rejects.toBeInstanceOf(
+      HistoricalAttachmentConflictError,
+    );
+    files.fileForAttachment.mockResolvedValueOnce({
+      ...file,
+      owner: { ...file.owner, id: actor.memberId },
+    });
+    await expect(service.setAttachmentResult(context, input)).rejects.toBeInstanceOf(
+      HistoricalAttachmentConflictError,
+    );
     expect(repository.setAttachmentResult).not.toHaveBeenCalled();
     await service.setAttachmentResult(context, input);
-    expect(repository.setAttachmentResult).toHaveBeenCalledWith(context, { ...input, name: "attachment.png", mimeType: "image/png", size: 1234 });
+    expect(repository.setAttachmentResult).toHaveBeenCalledWith(context, {
+      ...input,
+      name: "attachment.png",
+      mimeType: "image/png",
+      size: 1234,
+    });
   });
 
   it("binds a pending file durably and prevents substitution on retry", async () => {
     const { service, files, repository } = setup();
     const file = await files.fileForAttachment();
     files.fileForAttachment.mockResolvedValue({ ...file, status: "PENDING" });
-    await service.setAttachmentResult(context, { attachmentId: attachment.id, fileId: file.id, status: "PENDING", errorCode: null });
+    await service.setAttachmentResult(context, {
+      attachmentId: attachment.id,
+      fileId: file.id,
+      status: "PENDING",
+      errorCode: null,
+    });
     vi.mocked(repository.findAttachment).mockResolvedValue({ ...attachment, fileId: file.id });
-    await expect(service.setAttachmentResult(context, { attachmentId: attachment.id, fileId: actor.memberId, status: "PENDING", errorCode: null })).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
+    await expect(
+      service.setAttachmentResult(context, {
+        attachmentId: attachment.id,
+        fileId: actor.memberId,
+        status: "PENDING",
+        errorCode: null,
+      }),
+    ).rejects.toBeInstanceOf(HistoricalAttachmentConflictError);
     vi.mocked(repository.findAttachment).mockResolvedValue(null);
-    expect(await service.canUseAttachmentOwner({ ...actor, scope: "OWN" }, attachment.id)).toBe(false);
+    expect(await service.canUseAttachmentOwner({ ...actor, scope: "OWN" }, attachment.id)).toBe(
+      false,
+    );
   });
   it("preserves empty body, unknown provider channel, pending source status and original date without a send command", async () => {
     const { service, repository } = setup();
