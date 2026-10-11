@@ -149,6 +149,13 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 - CRM web publicado y healthy en InterAmerican; navegador autenticado confirma lista e hilo importado sin overflow horizontal. Digest/recibo en `estado.md`; API no reiniciada, sin migraciones ni cambios de datos.
 - Pendientes de estabilizacion posterior: historial importado permanece de consulta; adaptadores externos y mayor paridad funcional no forman parte de este bloque visual.
 
+### Extension YCloud para InterAmerican (`CHAT-14` / `CFG-06`, 2026-10-11)
+
+- Canal autorizado: el numero terminado en 4370 queda ligado solo al perfil InterAmerican mediante archivo de secreto montado en su API. El webhook publico atraviesa CRM web sin sesion humana y verifica HMAC sobre el cuerpo original, antiguedad de la firma, WABA y numero antes de tocar datos.
+- Eventos incluidos: entrantes, ecos enviados desde WhatsApp Business App e historial compartido que YCloud entregue. Contactos y conversaciones se resuelven por telefono dentro de la base aislada; el `wamid` y el hilo estable deduplican reintentos. No se genera outbox por mensajes ya enviados desde el telefono.
+- Evidencia tecnica del candidato: en el VPS aprobaron los typechecks afectados, 12 pruebas enfocadas, lint y builds de API, CRM web y deploy-host. La activacion real del endpoint y el smoke de mensaje aun no estan acreditados; por tanto no se marca el bloque terminado.
+- Pendientes de estabilizacion posterior: descarga de medios mediante `files` y ClamAV, adaptador saliente desde el CRM, y determinar si YCloud permite reemitir historial anterior al webhook. La suscripcion `whatsapp.smb.history` sola no garantiza recuperacion retroactiva.
+
 - Archivos, commits o PR: contratos `conversations/v1`, servicio de dominio, repositorio PostgreSQL, migracion `20260930020000_chat_omnichannel_inbox`, controlador API, BFF y ruta visual `/inbox` en `feat/CHAT-01-21-omnichannel-inbox`.
 - Comandos y resultados: Node 24 en el VPS aprobo Prettier y ESLint afectados, cinco typechecks, 8/8 pruebas nuevas, builds de `api` y `crm-web`; PostgreSQL 18.1 desechable aplico desde cero las 14 migraciones, creo seis tablas de conversaciones, sembro 13 permisos por rol y confirmo privilegios runtime.
 - Recorrido real del 2026-10-04 en `quantum-demo-jueves`: se creo la conversacion `a01243c1-3ba5-47c2-88e0-bb62f3f0035f`, el reintento con la misma clave devolvio el mismo ID y una respuesta preparada con revision anterior fue rechazada despues de pasar de agente a atencion humana. El mensaje `3778701d-7583-4725-b161-feab5dfb8c2a` se reintento con la misma clave, conservo un solo registro y quedo honestamente `QUEUED`. La conversacion queda visible en `/inbox` hasta conectar un proveedor.
