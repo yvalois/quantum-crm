@@ -107,11 +107,14 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Evidencia de cierre
 
-### Canales completos CHAT-11 / CHAT-14 — 2026-10-11 (EN_CURSO)
+### Canales completos CHAT-11 / CHAT-14 — 2026-10-11 (DESPLEGADO)
 
 - Ampliacion aditiva exclusiva del filtro de consulta: Instagram, Messenger/Facebook, TikTok, Google Business, llamadas, formularios y registros sin canal identificado. No habilita canales nuevos de creacion o envio.
 - La consulta SQL filtra con el mismo canal inferido que muestra la lista, conserva aliases del origen, permisos y paginacion. Iconos diferenciados y filtro directo en la bandeja.
-- Validacion prevista: contrato/BFF, filtros con PostgreSQL sintetico y recorrido de navegador; despliegue API/CRM sin migraciones, reimportaciones ni escrituras comerciales.
+- PR #132, candidato `827f4c9c` (runtime sin diferencias respecto a `7b7098c8`): cinco typechecks, formato/lint, 81 pruebas enfocadas y nueve PostgreSQL reales sobre perfiles sinteticos aprobados en VPS; siete checks CI verdes. Ocho Playwright aprobados: seis inicialmente y dos tras corregir un selector de prueba `getByLabel` por el nombre accesible del combobox. No era intermitencia ni un reintento automatico: solo se repitieron los dos casos afectados por la correccion del test; el resto de evidencia permanece vigente.
+- Iconos Messenger y Google embebidos desde Simple Icons CC0, conservando estilo compacto y etiquetas accesibles; las marcas se comprueban en lista, cabecera y mensaje. Filtros combinados, cursor reiniciado, vacios, consulta nativa/historica y limpieza acreditados; no se amplia envio.
+- API `sha256:c8845494b6c0724a140604a9fd4a3a8fb6b21f81c95c06dbc792861f3d5c8138` y CRM web `sha256:e252f2cf864c1ee97500374457ba68f3b7bf974559ee2bbe82eba14ee4a94644`, un build por imagen. Ambos saludables, predecesores `before-ghl-827f4c9caeb7` conservados y recibo privado `/opt/quantum/config/staging/candidates/827f4c9caeb7b6844734259fe061ade50815b7a8/interamerican-channel-filters.json`.
+- Navegador autenticado: once opciones mas Todos; Facebook/Messenger devuelve 17 filas y 17 logos sin canales mezclados ni alertas; Todos restablece 30 filas. Sin migraciones, reimportaciones ni escrituras comerciales. Next de prueba detenido; capturas exclusivamente sinteticas fuera de Git. Cierre documental reutiliza evidencia y no provoca nuevos builds ni despliegues manuales.
 - Pendientes de estabilizacion posterior: envio externo sigue diferido por el propietario; no se inventan canales para registros sin evidencia.
 
 ### Identidad visual propia CHAT-13 / CHAT-14 — 2026-10-11
