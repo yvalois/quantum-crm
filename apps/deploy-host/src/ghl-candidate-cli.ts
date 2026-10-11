@@ -5,6 +5,7 @@ import {
   runRegisteredGhlImport,
   setupGhlIntegrationTest,
   upgradeGhlIntegrationTest,
+  tuneRegisteredGhlAttachmentStorage,
   type GhlCandidateApp,
 } from "./ghl-candidate-operations.js";
 import { HostAdapterError } from "./host-adapter.js";
@@ -16,6 +17,8 @@ try {
   let result: unknown;
   if (action === "TEST_SETUP" && second === undefined && third === undefined) {
     result = await setupGhlIntegrationTest(first);
+  } else if (action === "TUNE_ATTACHMENT_STORAGE" && second && third === undefined) {
+    result = await tuneRegisteredGhlAttachmentStorage(first, second);
   } else if (action === "TEST_UPGRADE" && second && third === undefined) {
     result = await upgradeGhlIntegrationTest(first, second);
   } else if (

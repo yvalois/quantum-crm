@@ -128,7 +128,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    mem_limit: 768m
+    mem_limit: 3072m
     cpus: 0.5
     networks: [platform-storage]
 

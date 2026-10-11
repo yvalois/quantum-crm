@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { createCommandRunner, type TenantComposeRunnerOptions } from "./compose-runner.js";
-import { createTenantGhlImportRunner, protectedFile } from "./ghl-import-runner.js";
+import { createTenantGhlImportRunner, parseApprovedJob, protectedFile } from "./ghl-import-runner.js";
+import { tuneAttachmentStorageResources, withAttachmentStorageTuningLock } from "./ghl-attachment-storage-tuning.js";
 import { HostAdapterError, type HostAdapterGhlImportRequest } from "./host-adapter.js";
 
 const execFileAsync = promisify(execFile);
@@ -23,7 +24,7 @@ export type GhlCandidateApp = (typeof ghlCandidateApps)[number];
 const configurationRoot = "/opt/quantum/config/staging/tenants";
 const docker = createCommandRunner("/usr/bin/docker");
 
-interface ContainerInspection {
+export interface ContainerInspection {
   readonly Id: string;
   readonly Name: string;
   readonly Image: string;
@@ -46,7 +47,13 @@ interface ContainerInspection {
       >
     >;
   };
-  readonly State: { readonly Running: boolean; readonly Health?: { readonly Status: string } };
+  readonly State: {
+    readonly Running: boolean;
+    readonly Paused?: boolean;
+    readonly Restarting?: boolean;
+    readonly StartedAt?: string;
+    readonly Health?: { readonly Status: string };
+  };
 }
 
 export type CandidateDockerApi = (method: string, path: string, body?: unknown) => Promise<unknown>;
@@ -305,6 +312,16 @@ export async function runRegisteredGhlImport(
 ) {
   const typedRequest = await registeredGhlRequest(tenantId, exportId, mode, attempt);
   return createTenantGhlImportRunner(await hostOptions()).run(typedRequest);
+}
+
+export async function tuneRegisteredGhlAttachmentStorage(tenantId: string, exportId: string) {
+  const request = await registeredGhlRequest(tenantId, exportId, "ATTACHMENTS", 1);
+  const registryPath = join(configurationRoot, "tenant", tenantId, "ghl-imports", `${exportId}.json`);
+  parseApprovedJob(JSON.parse(await readFile(registryPath, "utf8")) as unknown, request);
+  const options = await hostOptions();
+  if (options.platformStorageNetwork !== "qcrm-staging-platform-storage")
+    throw new HostAdapterError("IDENTITY_MISMATCH");
+  return withAttachmentStorageTuningLock(() => tuneAttachmentStorageResources(dockerApi));
 }
 
 export function candidateContainerBody(previous: ContainerInspection, imageId: string) {
