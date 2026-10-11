@@ -45,7 +45,10 @@ import type {
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
-import { createConversationPostgresRepository, createExternalConversationReceiver } from "./conversation-postgres-repository.js";
+import {
+  createConversationPostgresRepository,
+  createExternalConversationReceiver,
+} from "./conversation-postgres-repository.js";
 import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 import { createFormPostgresRepository } from "./form-postgres-repository.js";

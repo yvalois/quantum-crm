@@ -12,11 +12,13 @@ export interface YCloudBindingConfig {
   readonly signingSecret: SecretValue;
 }
 
-const bindingSchema = z.object({
-  wabaId: z.string().regex(/^[0-9]{5,30}$/u),
-  businessPhone: z.string().regex(/^[0-9]{8,20}$/u),
-  signingSecret: z.string().min(24).max(512),
-}).strict();
+const bindingSchema = z
+  .object({
+    wabaId: z.string().regex(/^[0-9]{5,30}$/u),
+    businessPhone: z.string().regex(/^[0-9]{8,20}$/u),
+    signingSecret: z.string().min(24).max(512),
+  })
+  .strict();
 
 export function parseYCloudBindingConfig(
   serviceName: string,
