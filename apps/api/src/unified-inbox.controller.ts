@@ -7,7 +7,10 @@ import {
   Query,
   Req,
 } from "@nestjs/common";
-import { UnifiedInboxListQuerySchema, UnifiedInboxListResponseSchema } from "@quantum-crm/contracts";
+import {
+  UnifiedInboxListQuerySchema,
+  UnifiedInboxListResponseSchema,
+} from "@quantum-crm/contracts";
 import {
   ConversationValidationError,
   IamAuthorizationError,
@@ -47,7 +50,9 @@ function serialize(item: UnifiedInboxRecord) {
 
 @Controller("api/v1/conversations/inbox")
 export class UnifiedInboxController {
-  public constructor(@Inject(UNIFIED_INBOX_SERVICE) private readonly service: UnifiedInboxService) {}
+  public constructor(
+    @Inject(UNIFIED_INBOX_SERVICE) private readonly service: UnifiedInboxService,
+  ) {}
 
   @Get()
   @RequireCrmPermission("crm:conversations:read")

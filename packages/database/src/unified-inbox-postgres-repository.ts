@@ -43,7 +43,8 @@ function decode(value: string): Cursor {
       !Number.isFinite(Date.parse(data.at)) ||
       typeof data.id !== "string" ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(data.id)
-    ) throw new Error();
+    )
+      throw new Error();
     return data as Cursor;
   } catch {
     throw new ConversationValidationError();
@@ -94,7 +95,9 @@ export function createUnifiedInboxPostgresRepository(pool: PostgresPool): Unifie
             SMS: ["SMS", "MMS"],
             WEBCHAT: ["WEBCHAT", "WEB_CHAT", "LIVECHAT", "LIVE_CHAT"],
           };
-          historical.push(`regexp_replace(upper(btrim(${historicalThreadChannelSelection})), '^TYPE_', '') = ANY(${bind(aliases[query.channel])}::text[])`);
+          historical.push(
+            `regexp_replace(upper(btrim(${historicalThreadChannelSelection})), '^TYPE_', '') = ANY(${bind(aliases[query.channel])}::text[])`,
+          );
         }
         if (query.status) {
           native.push(`conversation.status = ${bind(query.status.toLowerCase())}`);
@@ -110,7 +113,8 @@ export function createUnifiedInboxPostgresRepository(pool: PostgresPool): Unifie
           historical.push("thread.assignee_member_id IS NULL");
         }
         const nativeActivity = "COALESCE(conversation.last_message_at, conversation.created_at)";
-        const historicalActivity = "COALESCE(thread.last_message_at, thread.source_updated_at, thread.source_created_at, thread.imported_at)";
+        const historicalActivity =
+          "COALESCE(thread.last_message_at, thread.source_updated_at, thread.source_created_at, thread.imported_at)";
         if (query.cursor) {
           const cursor = decode(query.cursor);
           const boundary = `(${bind(cursor.at)}::timestamptz, ${bind(cursor.source)}::integer, ${bind(cursor.id)}::uuid)`;
@@ -153,9 +157,17 @@ export function createUnifiedInboxPostgresRepository(pool: PostgresPool): Unifie
               return { source: "GHL", conversation: historicalThreadFromRow(row.ghl) };
             throw new DatabaseUnavailableError();
           }),
-          nextCursor: result.rows.length > query.limit && last
-            ? Buffer.from(JSON.stringify({ v: 1, at: last.activity_at, source: last.source_rank, id: last.id })).toString("base64url")
-            : null,
+          nextCursor:
+            result.rows.length > query.limit && last
+              ? Buffer.from(
+                  JSON.stringify({
+                    v: 1,
+                    at: last.activity_at,
+                    source: last.source_rank,
+                    id: last.id,
+                  }),
+                ).toString("base64url")
+              : null,
         };
       } catch (error) {
         if (error instanceof ConversationValidationError) throw error;

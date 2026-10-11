@@ -138,7 +138,10 @@ function replyFromRow(row: QuickReplyRow): QuickReplyRecord {
     updatedAt: new Date(row.updated_at),
   });
 }
-export function conversationAccess(actor: CommercialActor, placeholder: number): { sql: string; params: string[] } {
+export function conversationAccess(
+  actor: CommercialActor,
+  placeholder: number,
+): { sql: string; params: string[] } {
   if (actor.scope === "PROFILE") return { sql: "TRUE", params: [] };
   if (actor.scope === "TEAM")
     return {

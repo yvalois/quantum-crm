@@ -83,27 +83,58 @@ describe("CRM web authentication HTTP boundary", () => {
     const timestamp = "2026-10-11T10:00:00.000Z";
     const payload = {
       data: [
-        { source: "QUANTUM", conversation: {
-          id, contactId, channel: "WHATSAPP", externalThreadId: null,
-          assigneeMemberId: null, status: "OPEN", attentionMode: "HUMAN",
-          subject: "Solicitud actual", lastMessagePreview: "Consulta sintética",
-          lastMessageAt: timestamp, unreadCount: 1, version: "1",
-          createdAt: timestamp, updatedAt: timestamp,
-        } },
-        { source: "GHL", conversation: {
-          id, source: "GHL", sourceExternalId: "synthetic-history-1", sourceThreadPresent: true,
-          contactId, assigneeMemberId: null, rawChannel: "TYPE_WHATSAPP", rawStatus: null,
-          subject: "Consulta anterior", sourceCreatedAt: timestamp, sourceUpdatedAt: null,
-          messageCount: 2, lastMessageAt: timestamp, importedAt: timestamp,
-        } },
+        {
+          source: "QUANTUM",
+          conversation: {
+            id,
+            contactId,
+            channel: "WHATSAPP",
+            externalThreadId: null,
+            assigneeMemberId: null,
+            status: "OPEN",
+            attentionMode: "HUMAN",
+            subject: "Solicitud actual",
+            lastMessagePreview: "Consulta sintética",
+            lastMessageAt: timestamp,
+            unreadCount: 1,
+            version: "1",
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        },
+        {
+          source: "GHL",
+          conversation: {
+            id,
+            source: "GHL",
+            sourceExternalId: "synthetic-history-1",
+            sourceThreadPresent: true,
+            contactId,
+            assigneeMemberId: null,
+            rawChannel: "TYPE_WHATSAPP",
+            rawStatus: null,
+            subject: "Consulta anterior",
+            sourceCreatedAt: timestamp,
+            sourceUpdatedAt: null,
+            messageCount: 2,
+            lastMessageAt: timestamp,
+            importedAt: timestamp,
+          },
+        },
       ],
       page: { nextCursor: "opaque_next" },
     };
-    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => Response.json(payload));
+    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) =>
+      Response.json(payload),
+    );
     const response = await handleCrmUnifiedInboxList(
-      new Request(`https://crm.example.test/api/conversations/inbox?limit=30&contactId=${contactId}&query=consulta&contactState=ALL&cursor=opaque_previous`, {
-        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
-      }), runtime(upstream as typeof fetch),
+      new Request(
+        `https://crm.example.test/api/conversations/inbox?limit=30&contactId=${contactId}&query=consulta&contactState=ALL&cursor=opaque_previous`,
+        {
+          headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+        },
+      ),
+      runtime(upstream as typeof fetch),
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(payload);
@@ -111,9 +142,15 @@ describe("CRM web authentication HTTP boundary", () => {
     const endpoint = new URL(String(upstream.mock.calls[0]?.[0]));
     expect(endpoint.pathname).toBe("/api/v1/conversations/inbox");
     expect(Object.fromEntries(endpoint.searchParams)).toEqual({
-      limit: "30", contactId, query: "consulta", contactState: "ALL", cursor: "opaque_previous",
+      limit: "30",
+      contactId,
+      query: "consulta",
+      contactState: "ALL",
+      cursor: "opaque_previous",
     });
-    expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("authorization")).toBe("Bearer server-only-access-token");
+    expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
+      "Bearer server-only-access-token",
+    );
   });
 
   it("rejects foreign selectors and oversized inbox pages before calling the API", async () => {
@@ -122,7 +159,8 @@ describe("CRM web authentication HTTP boundary", () => {
       const response = await handleCrmUnifiedInboxList(
         new Request(`https://crm.example.test/api/conversations/inbox?${query}`, {
           headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
-        }), runtime(upstream),
+        }),
+        runtime(upstream),
       );
       expect(response.status).toBe(400);
     }
@@ -132,13 +170,17 @@ describe("CRM web authentication HTTP boundary", () => {
   it("requires the web session and preserves inbox access denial", async () => {
     const upstream = vi.fn(async () => Response.json({ internal: "not exposed" }, { status: 403 }));
     const unauthenticated = await handleCrmUnifiedInboxList(
-      new Request("https://crm.example.test/api/conversations/inbox"), runtime(upstream as typeof fetch),
+      new Request("https://crm.example.test/api/conversations/inbox"),
+      runtime(upstream as typeof fetch),
     );
     expect(unauthenticated.status).toBe(401);
     expect(upstream).not.toHaveBeenCalled();
-    const forbidden = await handleCrmUnifiedInboxList(new Request("https://crm.example.test/api/conversations/inbox", {
-      headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
-    }), runtime(upstream as typeof fetch));
+    const forbidden = await handleCrmUnifiedInboxList(
+      new Request("https://crm.example.test/api/conversations/inbox", {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+    );
     expect(forbidden.status).toBe(403);
     expect(await forbidden.text()).not.toContain("not exposed");
   });

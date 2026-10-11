@@ -358,7 +358,9 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
         ...(cursor ? { cursor } : {}),
       });
       expect(page.items).toHaveLength(1);
-      paged.push(...page.items.map((item) => key({ source: item.source, id: item.conversation.id })));
+      paged.push(
+        ...page.items.map((item) => key({ source: item.source, id: item.conversation.id })),
+      );
       expect(page.nextCursor === null).toBe(index === records.length - 1);
       cursor = page.nextCursor ?? undefined;
     }
@@ -376,9 +378,15 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
           (item.label === "unassigned" && item.source === "QUANTUM"),
       ),
     );
-    expect(await list({ unassigned: true })).toEqual(expected((item) => item.label === "unassigned"));
-    expect(await list({ contactId: contact.id })).toEqual(expected((item) => item.label !== "orphan"));
-    expect(await list({ contactState: "LINKED" })).toEqual(expected((item) => item.label !== "orphan"));
+    expect(await list({ unassigned: true })).toEqual(
+      expected((item) => item.label === "unassigned"),
+    );
+    expect(await list({ contactId: contact.id })).toEqual(
+      expected((item) => item.label !== "orphan"),
+    );
+    expect(await list({ contactState: "LINKED" })).toEqual(
+      expected((item) => item.label !== "orphan"),
+    );
     expect(await list({ contactState: "UNLINKED" })).toEqual(
       expected((item) => item.label === "orphan"),
     );

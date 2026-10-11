@@ -387,26 +387,45 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
         const secondPage = url.searchParams.get("cursor") === "synthetic-inbox-next";
         const searching = Boolean(url.searchParams.get("query"));
         await respond({
-          data: url.searchParams.get("contactState") === "UNLINKED"
-            ? [{ source: "GHL", conversation: {
-                ...historical,
-                id: "019b0000-0000-7000-8000-000000000009",
-                contactId: null,
-                sourceExternalId: "orphan-123456",
-                subject: "Conversación histórica sin ficha actual en GHL",
-                sourceThreadPresent: false,
-              } }]
-            : secondPage
-              ? [{ source: "GHL", conversation: {
-                  ...visibleThread,
-                  id: "019b0000-0000-7000-8000-000000000008",
-                  contactId: contacts[2].id,
-                  subject: "Página siguiente sintética",
-                } }]
-              : searching
-                ? [{ source: "GHL", conversation: visibleThread }]
-                : [{ source: "QUANTUM", conversation }, { source: "GHL", conversation: visibleThread }],
-          page: { nextCursor: secondPage || searching || url.searchParams.get("contactState") === "UNLINKED" ? null : "synthetic-inbox-next" },
+          data:
+            url.searchParams.get("contactState") === "UNLINKED"
+              ? [
+                  {
+                    source: "GHL",
+                    conversation: {
+                      ...historical,
+                      id: "019b0000-0000-7000-8000-000000000009",
+                      contactId: null,
+                      sourceExternalId: "orphan-123456",
+                      subject: "Conversación histórica sin ficha actual en GHL",
+                      sourceThreadPresent: false,
+                    },
+                  },
+                ]
+              : secondPage
+                ? [
+                    {
+                      source: "GHL",
+                      conversation: {
+                        ...visibleThread,
+                        id: "019b0000-0000-7000-8000-000000000008",
+                        contactId: contacts[2].id,
+                        subject: "Página siguiente sintética",
+                      },
+                    },
+                  ]
+                : searching
+                  ? [{ source: "GHL", conversation: visibleThread }]
+                  : [
+                      { source: "QUANTUM", conversation },
+                      { source: "GHL", conversation: visibleThread },
+                    ],
+          page: {
+            nextCursor:
+              secondPage || searching || url.searchParams.get("contactState") === "UNLINKED"
+                ? null
+                : "synthetic-inbox-next",
+          },
         });
         return;
       }
@@ -583,7 +602,9 @@ test("active inbox preserves thread, draft composer and contact context at both 
   expect(fixture.unexpected).toEqual([]);
 });
 
-test("one inbox preserves mixed pagination, shared search, selection and legacy contact links", async ({ page }) => {
+test("one inbox preserves mixed pagination, shared search, selection and legacy contact links", async ({
+  page,
+}) => {
   const fixture = await workspaceFixture(page);
   await page.goto(`/inbox?history=1&contactId=${primaryContact.id}`);
   const list = page.getByRole("region", { name: "Lista de conversaciones", exact: true });
@@ -593,11 +614,17 @@ test("one inbox preserves mixed pagination, shared search, selection and legacy 
   await list.locator('[data-source="QUANTUM"]').click();
   await expect(page.getByText(message.body, { exact: true }).last()).toBeVisible();
   await list.locator('[data-source="GHL"]').click();
-  await expect(page.getByRole("region", { name: "Mensajes históricos", exact: true })
-    .getByText(historicalMessage.body, { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Mensajes históricos", exact: true })
+      .getByText(historicalMessage.body, { exact: true }),
+  ).toBeVisible();
   await list.locator('[data-source="QUANTUM"]').click();
-  await expect(page.getByRole("region", { name: "Conversación seleccionada", exact: true })
-    .getByText(historicalMessage.body, { exact: true })).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("region", { name: "Conversación seleccionada", exact: true })
+      .getByText(historicalMessage.body, { exact: true }),
+  ).toHaveCount(0);
   const pagination = page.getByRole("navigation", { name: "Páginas de conversaciones" });
   await pagination.getByRole("button", { name: "Siguiente", exact: true }).click();
   await expect(list.locator("[data-source]")).toHaveCount(1);

@@ -147,7 +147,10 @@ function message(row: MessageRow): HistoricalMessageRecord {
     importedAt: new Date(row.imported_at),
   });
 }
-export function historicalConversationAccess(actor: CommercialActor, placeholder: number): { sql: string; params: string[] } {
+export function historicalConversationAccess(
+  actor: CommercialActor,
+  placeholder: number,
+): { sql: string; params: string[] } {
   if (actor.scope === "PROFILE") return { sql: "TRUE", params: [] };
   const related = "thread.contact_id IS NOT NULL AND thread.source_thread_present = TRUE";
   if (actor.scope === "TEAM")

@@ -17,7 +17,10 @@ export interface UnifiedInboxPage {
   readonly nextCursor: string | null;
 }
 export interface UnifiedInboxRepository {
-  readonly list: (actor: CommercialActor, query: UnifiedInboxListQuery) => Promise<UnifiedInboxPage>;
+  readonly list: (
+    actor: CommercialActor,
+    query: UnifiedInboxListQuery,
+  ) => Promise<UnifiedInboxPage>;
 }
 
 export class UnifiedInboxService {
@@ -37,15 +40,17 @@ export class UnifiedInboxService {
     const page = await this.repository.list(actor, parsed.data);
     // Resolve source names only after the owning repository has applied each resource's scope.
     const history = await withSourceParticipants(
-      page.items.flatMap((item) => item.source === "GHL" ? [item.conversation] : []),
+      page.items.flatMap((item) => (item.source === "GHL" ? [item.conversation] : [])),
       this.participants,
     );
     const indexed = new Map(history.map((conversation) => [conversation.id, conversation]));
     return {
       ...page,
-      items: page.items.map((item) => item.source === "GHL"
-        ? { source: "GHL", conversation: indexed.get(item.conversation.id)! }
-        : item),
+      items: page.items.map((item) =>
+        item.source === "GHL"
+          ? { source: "GHL", conversation: indexed.get(item.conversation.id)! }
+          : item,
+      ),
     };
   }
 }

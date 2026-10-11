@@ -13,7 +13,10 @@ import type {
   HistoricalConversation,
   UnifiedInboxItem,
 } from "@quantum-crm/contracts";
-import { ConversationThreadResponseSchema, UnifiedInboxListResponseSchema } from "@quantum-crm/contracts";
+import {
+  ConversationThreadResponseSchema,
+  UnifiedInboxListResponseSchema,
+} from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
@@ -358,21 +361,26 @@ export default function InboxPage(): React.JSX.Element {
       cache: "no-store",
       credentials: "same-origin",
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
-    }).then(async (response) => {
-      if (!response.ok) throw new Error(await problem(response));
-      const result = UnifiedInboxListResponseSchema.parse(await response.json());
-      if (controller.signal.aborted) return;
-      setItems(result.data);
-      setNextCursor(result.page.nextCursor);
-    }).catch((cause: unknown) => {
-      if (!controller.signal.aborted) {
-        setItems([]);
-        setNextCursor(null);
-        setListError(cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.");
-      }
-    }).finally(() => {
-      if (!controller.signal.aborted) setLoading(false);
-    });
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await problem(response));
+        const result = UnifiedInboxListResponseSchema.parse(await response.json());
+        if (controller.signal.aborted) return;
+        setItems(result.data);
+        setNextCursor(result.page.nextCursor);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) {
+          setItems([]);
+          setNextCursor(null);
+          setListError(
+            cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, [csrf, appliedFilters, contactId, listCursor, listRefresh]);
 
@@ -420,7 +428,10 @@ export default function InboxPage(): React.JSX.Element {
         }
       }
     })();
-    return () => { controller.abort(); threadRequestRef.current?.abort(); };
+    return () => {
+      controller.abort();
+      threadRequestRef.current?.abort();
+    };
     // La sesión y referencias se cargan una sola vez; los filtros se aplican explícitamente.
   }, []);
 
@@ -753,622 +764,681 @@ export default function InboxPage(): React.JSX.Element {
           </div>
         ) : null}
 
-          <section className={styles.inboxFrame} aria-label="Bandeja de conversaciones">
-            <aside className={styles.viewsPanel} aria-label="Vistas de bandeja">
-              <div className={styles.viewsBrand}>
-                <span className={styles.viewsBrandIcon}>
-                  <Icon name="inbox" size={18} />
-                </span>
-                <div>
-                  <strong>Bandeja</strong>
-                  <small>Atención central</small>
-                </div>
+        <section className={styles.inboxFrame} aria-label="Bandeja de conversaciones">
+          <aside className={styles.viewsPanel} aria-label="Vistas de bandeja">
+            <div className={styles.viewsBrand}>
+              <span className={styles.viewsBrandIcon}>
+                <Icon name="inbox" size={18} />
+              </span>
+              <div>
+                <strong>Bandeja</strong>
+                <small>Atención central</small>
               </div>
+            </div>
 
-              <nav className={styles.viewNavigation} aria-label="Vistas rápidas">
-                <p>Vistas rápidas</p>
-                {(Object.keys(viewLabel) as InboxView[]).map((item) => {
-                  return (
-                    <button
-                      key={item}
-                      className={cx(styles.viewButton, view === item && styles.viewButtonActive)}
-                      type="button"
-                      aria-pressed={view === item}
-                      onClick={() => chooseView(item)}
-                    >
-                      <span>{viewLabel[item]}</span>
-                    </button>
-                  );
-                })}
-              </nav>
+            <nav className={styles.viewNavigation} aria-label="Vistas rápidas">
+              <p>Vistas rápidas</p>
+              {(Object.keys(viewLabel) as InboxView[]).map((item) => {
+                return (
+                  <button
+                    key={item}
+                    className={cx(styles.viewButton, view === item && styles.viewButtonActive)}
+                    type="button"
+                    aria-pressed={view === item}
+                    onClick={() => chooseView(item)}
+                  >
+                    <span>{viewLabel[item]}</span>
+                  </button>
+                );
+              })}
+            </nav>
 
-              <div className={styles.viewsFooter}>
-                <span className={styles.queueDot} aria-hidden="true" />
-                <p>
-                  Los canales externos se activan por proveedor. Los mensajes en cola permanecen
-                  visibles aquí.
-                </p>
+            <div className={styles.viewsFooter}>
+              <span className={styles.queueDot} aria-hidden="true" />
+              <p>
+                Los canales externos se activan por proveedor. Los mensajes en cola permanecen
+                visibles aquí.
+              </p>
+            </div>
+          </aside>
+
+          <section className={styles.listPanel} aria-label="Lista de conversaciones">
+            <div className={styles.listHeader}>
+              <div>
+                <span className={styles.panelKicker}>{viewLabel[view]}</span>
+                <h2>Conversaciones</h2>
               </div>
-            </aside>
+              <button
+                className={cx(styles.iconButton, showFilters && styles.iconButtonActive)}
+                type="button"
+                aria-label={showFilters ? "Ocultar filtros" : "Mostrar filtros"}
+                aria-expanded={showFilters}
+                onClick={() => setShowFilters((current) => !current)}
+              >
+                <Icon name="filter" size={17} />
+              </button>
+            </div>
 
-            <section className={styles.listPanel} aria-label="Lista de conversaciones">
-              <div className={styles.listHeader}>
-                <div>
-                  <span className={styles.panelKicker}>{viewLabel[view]}</span>
-                  <h2>Conversaciones</h2>
-                </div>
-                <button
-                  className={cx(styles.iconButton, showFilters && styles.iconButtonActive)}
-                  type="button"
-                  aria-label={showFilters ? "Ocultar filtros" : "Mostrar filtros"}
-                  aria-expanded={showFilters}
-                  onClick={() => setShowFilters((current) => !current)}
-                >
-                  <Icon name="filter" size={17} />
-                </button>
-              </div>
-
-              <form className={styles.searchForm} onSubmit={applyFilters}>
-                <label className={styles.searchField}>
-                  <Icon name="search" size={17} />
-                  <span className="sr-only">Buscar conversaciones</span>
-                  <input
-                    type="search"
-                    aria-label="Buscar conversaciones"
-                    placeholder="Buscar por asunto o mensaje"
-                    maxLength={160}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </label>
-                <button className={styles.searchSubmit} type="submit">
-                  Buscar
-                </button>
-              </form>
-
-              <label className={styles.contactFilter}>
-                Vínculo del contacto
-                <select
-                  aria-label="Vínculo del contacto"
-                  value={contactState}
-                  onChange={(event) => {
-                    setContactState(event.target.value);
-                    const filters = new URLSearchParams(appliedFilters);
-                    filters.set("contactState", event.target.value);
-                    setAppliedFilters(filters.toString());
-                    setListCursors([null]);
-                  }}
-                >
-                  <option value="ALL">Todas las conversaciones</option>
-                  <option value="LINKED">Con contacto</option>
-                  <option value="UNLINKED">Sin contacto vinculado</option>
-                </select>
+            <form className={styles.searchForm} onSubmit={applyFilters}>
+              <label className={styles.searchField}>
+                <Icon name="search" size={17} />
+                <span className="sr-only">Buscar conversaciones</span>
+                <input
+                  type="search"
+                  aria-label="Buscar conversaciones"
+                  placeholder="Buscar por asunto o mensaje"
+                  maxLength={160}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
               </label>
-              {contactId ? (
-                <button className={styles.clearContactFilter} type="button" onClick={() => {
+              <button className={styles.searchSubmit} type="submit">
+                Buscar
+              </button>
+            </form>
+
+            <label className={styles.contactFilter}>
+              Vínculo del contacto
+              <select
+                aria-label="Vínculo del contacto"
+                value={contactState}
+                onChange={(event) => {
+                  setContactState(event.target.value);
+                  const filters = new URLSearchParams(appliedFilters);
+                  filters.set("contactState", event.target.value);
+                  setAppliedFilters(filters.toString());
+                  setListCursors([null]);
+                }}
+              >
+                <option value="ALL">Todas las conversaciones</option>
+                <option value="LINKED">Con contacto</option>
+                <option value="UNLINKED">Sin contacto vinculado</option>
+              </select>
+            </label>
+            {contactId ? (
+              <button
+                className={styles.clearContactFilter}
+                type="button"
+                onClick={() => {
                   setContactId(null);
                   setListCursors([null]);
                   const url = new URL(window.location.href);
                   url.searchParams.delete("contactId");
                   window.history.replaceState(null, "", url);
-                }}>Quitar filtro de contacto</button>
-              ) : null}
+                }}
+              >
+                Quitar filtro de contacto
+              </button>
+            ) : null}
 
-              {showFilters ? (
-                <form className={styles.filterDrawer} onSubmit={applyFilters}>
+            {showFilters ? (
+              <form className={styles.filterDrawer} onSubmit={applyFilters}>
+                <label>
+                  Canal
+                  <select value={channel} onChange={(event) => setChannel(event.target.value)}>
+                    <option value="">Todos los canales</option>
+                    <option value="EMAIL">Correo</option>
+                    <option value="WHATSAPP">WhatsApp</option>
+                    <option value="WEBCHAT">Chat web</option>
+                    <option value="SMS">SMS</option>
+                  </select>
+                </label>
+                <label>
+                  Estado
+                  <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                    <option value="">Todos los estados</option>
+                    <option value="OPEN">Abierta</option>
+                    <option value="PENDING">Pendiente</option>
+                    <option value="ESCALATED">Escalada</option>
+                    <option value="CLOSED">Cerrada</option>
+                  </select>
+                </label>
+                <label>
+                  Atención
+                  <select value={attention} onChange={(event) => setAttention(event.target.value)}>
+                    <option value="">Humana y agente</option>
+                    <option value="HUMAN">Equipo humano</option>
+                    <option value="AGENT">Agente Quantum</option>
+                  </select>
+                </label>
+                <button type="submit">Aplicar filtros</button>
+              </form>
+            ) : null}
+
+            <div className={styles.conversationList} aria-live="polite">
+              {listError ? (
+                <div className={styles.listState} role="alert">
+                  <p>{listError}</p>
+                  <button
+                    className={styles.outlineButton}
+                    type="button"
+                    onClick={() => setListRefresh((value) => value + 1)}
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              ) : null}
+              {loading ? (
+                <div className={styles.listState}>
+                  <span className={styles.spinner} aria-hidden="true" />
+                  <strong>Cargando conversaciones</strong>
+                  <p>Consultando la bandeja real.</p>
+                </div>
+              ) : null}
+              {!loading && !listError && items.length === 0 ? (
+                <div className={styles.listState}>
+                  <span className={styles.emptyIcon}>
+                    <Icon name="inbox" size={22} />
+                  </span>
+                  <strong>Esta vista está vacía</strong>
+                  <p>Ajusta los filtros o inicia una conversación desde un contacto.</p>
+                </div>
+              ) : null}
+              {!loading
+                ? items.map((entry) => {
+                    const item = entry.conversation;
+                    const native = entry.source === "QUANTUM" ? entry.conversation : null;
+                    const imported = entry.source === "GHL" ? entry.conversation : null;
+                    const key = `${entry.source}:${item.id}`;
+                    const contact = item.contactId ? contactById.get(item.contactId) : undefined;
+                    const title = imported
+                      ? historicalThreadTitle(imported, contact?.displayName)
+                      : (contact?.displayName ?? item.subject ?? "Contacto vinculado");
+                    const assignee = native?.assigneeMemberId
+                      ? assigneeById.get(native.assigneeMemberId)
+                      : undefined;
+                    return (
+                      <button
+                        key={key}
+                        data-source={entry.source}
+                        data-conversation-id={item.id}
+                        disabled={saving}
+                        className={cx(
+                          styles.conversationCard,
+                          key === selectedKey && styles.conversationCardActive,
+                        )}
+                        type="button"
+                        aria-current={key === selectedKey ? "true" : undefined}
+                        onClick={() => chooseConversation(entry)}
+                      >
+                        <span className={styles.avatar}>
+                          {initials(
+                            contact?.displayName ?? (item.contactId ? "Contacto" : "Sin vínculo"),
+                          )}
+                        </span>
+                        <span className={styles.cardBody}>
+                          <span className={styles.cardLine}>
+                            <strong>{title}</strong>
+                            <time>
+                              {when(item.lastMessageAt ?? imported?.sourceCreatedAt ?? null)}
+                            </time>
+                          </span>
+                          <span className={styles.cardPreview}>
+                            {native?.lastMessagePreview ??
+                              item.subject ??
+                              (imported ? `${imported.messageCount} mensajes` : "Sin mensajes")}
+                          </span>
+                          <span className={styles.cardMeta}>
+                            {native ? (
+                              <>
+                                <span className={styles.channelTag}>
+                                  {channelShortLabel[native.channel]}
+                                </span>
+                                <span className={cx(styles.statusTag, statusClass[native.status])}>
+                                  {statusLabel[native.status]}
+                                </span>
+                              </>
+                            ) : imported ? (
+                              <>
+                                <HistoricalChannelBadge rawChannel={imported.rawChannel} />
+                                <span className={styles.sourceTag}>GHL</span>
+                                {!imported.contactId ? (
+                                  <span className={styles.sourceTag}>Sin contacto vinculado</span>
+                                ) : null}
+                              </>
+                            ) : null}
+                            {assignee ? (
+                              <span className={styles.assigneeTag}>{assignee.displayName}</span>
+                            ) : null}
+                            {native && native.unreadCount > 0 ? (
+                              <span className={styles.unreadBadge}>{native.unreadCount}</span>
+                            ) : null}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })
+                : null}
+            </div>
+            <nav className={styles.pagination} aria-label="Páginas de conversaciones">
+              <button
+                className={styles.outlineButton}
+                type="button"
+                disabled={loading || listCursors.length < 2}
+                onClick={() => setListCursors((values) => values.slice(0, -1))}
+              >
+                Anterior
+              </button>
+              <span>Página {listCursors.length}</span>
+              <button
+                className={styles.outlineButton}
+                type="button"
+                disabled={loading || !nextCursor}
+                onClick={() => {
+                  if (nextCursor) setListCursors((values) => [...values, nextCursor]);
+                }}
+              >
+                Siguiente
+              </button>
+            </nav>
+          </section>
+
+          <section className={styles.threadPanel} aria-label="Conversación seleccionada">
+            {historicalSelected ? (
+              <HistoricalThread
+                key={`GHL:${historicalSelected.id}`}
+                conversation={historicalSelected}
+                contactName={selectedContact?.displayName}
+              />
+            ) : threadBusy ? (
+              <div className={styles.threadEmpty} role="status">
+                Cargando conversación…
+              </div>
+            ) : selected ? (
+              <>
+                <header className={styles.threadHeader}>
+                  <div className={styles.threadIdentity}>
+                    <span className={cx(styles.avatar, styles.avatarLarge)}>
+                      {initials(selectedContact?.displayName ?? "Contacto")}
+                    </span>
+                    <div>
+                      <span className={styles.threadKicker}>
+                        <span className={styles.channelTag}>{channelLabel[selected.channel]}</span>
+                        {selected.attentionMode === "AGENT" ? (
+                          <span className={styles.agentInline}>
+                            <Icon name="spark" size={12} /> Agente
+                          </span>
+                        ) : null}
+                      </span>
+                      <h2>{selectedContact?.displayName ?? "Contacto"}</h2>
+                      <p>{selected.subject ?? "Conversación sin asunto"}</p>
+                    </div>
+                  </div>
+                  <div className={styles.threadActions}>
+                    <span className={cx(styles.statusTag, statusClass[selected.status])}>
+                      {statusLabel[selected.status]}
+                    </span>
+                    <button
+                      className={styles.outlineButton}
+                      type="button"
+                      disabled={saving || selected.status === "CLOSED"}
+                      onClick={() => void update({ status: "CLOSED" })}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </header>
+
+                <div className={styles.messageScroll} aria-live="polite">
+                  {messages.length === 0 ? (
+                    <div className={styles.messageEmpty}>
+                      <span className={styles.emptyIcon}>
+                        <Icon name="message" size={22} />
+                      </span>
+                      <strong>Sin mensajes todavía</strong>
+                      <p>Escribe la primera respuesta para dejar una trazabilidad real.</p>
+                    </div>
+                  ) : (
+                    messages.map((item, index) => (
+                      <div key={item.id}>
+                        {!sameDay(item, messages[index - 1]) ? (
+                          <div className={styles.dayDivider}>
+                            <span>{day(item.createdAt)}</span>
+                          </div>
+                        ) : null}
+                        <article
+                          className={cx(
+                            styles.messageRow,
+                            item.direction === "OUTBOUND" && styles.messageRowOutbound,
+                            item.direction === "INTERNAL" && styles.messageRowInternal,
+                          )}
+                        >
+                          <div className={styles.messageMeta}>
+                            <span>{authorLabel(item)}</span>
+                            <time>{time(item.createdAt)}</time>
+                          </div>
+                          <div className={styles.messageBubble}>
+                            {item.kind === "DOCUMENT" && item.documentSnapshot ? (
+                              <div className={styles.documentMessage}>
+                                <span>
+                                  <Icon name="document" size={16} />
+                                </span>
+                                <div>
+                                  <strong>{item.documentSnapshot.title}</strong>
+                                  <small>
+                                    Documento preparado · revisión {item.documentSnapshot.revision}
+                                  </small>
+                                </div>
+                              </div>
+                            ) : null}
+                            <p>{item.body}</p>
+                            <footer>
+                              <span>{deliveryLabel[item.deliveryStatus]}</span>
+                              {item.failureCode ? <span>{item.failureCode}</span> : null}
+                            </footer>
+                          </div>
+                        </article>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form className={styles.composer} onSubmit={(event) => void send(event)}>
+                  <div className={styles.composerMode}>
+                    <div role="tablist" aria-label="Tipo de respuesta">
+                      <button
+                        className={mode === "message" ? styles.modeActive : undefined}
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "message"}
+                        onClick={() => setMode("message")}
+                      >
+                        <Icon name="message" size={15} /> Responder
+                      </button>
+                      <button
+                        className={mode === "note" ? styles.modeNoteActive : undefined}
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "note"}
+                        onClick={() => setMode("note")}
+                      >
+                        <Icon name="note" size={15} /> Nota interna
+                      </button>
+                    </div>
+                    {mode === "note" ? (
+                      <span className={styles.noteHint}>Solo la ve el equipo</span>
+                    ) : null}
+                  </div>
+
+                  {composerBlocked ? (
+                    <div className={styles.composerBlocked}>
+                      <Icon
+                        name={selected.attentionMode === "AGENT" ? "agent" : "inbox"}
+                        size={18}
+                      />
+                      <span>{composerBlocked}</span>
+                      {selected.attentionMode === "AGENT" ? (
+                        <button
+                          type="button"
+                          onClick={() => void update({ attentionMode: "HUMAN" })}
+                          disabled={saving}
+                        >
+                          Tomar conversación
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void update({ status: "OPEN" })}
+                          disabled={saving}
+                        >
+                          Reabrir
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <textarea
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        placeholder={
+                          mode === "note"
+                            ? "Escribe una nota para el equipo…"
+                            : `Responder por ${channelLabel[selected.channel]}…`
+                        }
+                        maxLength={16000}
+                      />
+                      <footer className={styles.composerFooter}>
+                        <div className={styles.composerTools}>
+                          <button
+                            className={styles.toolButton}
+                            type="button"
+                            disabled={saving || !csrf || Boolean(messageBlocked)}
+                            onClick={() => void openDocumentComposer()}
+                          >
+                            <Icon name="document" size={16} /> Documento
+                          </button>
+                          <label className={styles.quickReplySelect}>
+                            <span className="sr-only">Insertar respuesta rápida</span>
+                            <select
+                              aria-label="Insertar respuesta rápida"
+                              defaultValue=""
+                              onChange={(event) => {
+                                const reply = quickReplies.find(
+                                  (item) => item.id === event.target.value,
+                                );
+                                if (reply) setDraft(reply.body);
+                                event.target.value = "";
+                              }}
+                            >
+                              <option value="">Respuestas rápidas</option>
+                              {quickReplies.map((reply) => (
+                                <option key={reply.id} value={reply.id}>
+                                  {reply.title}
+                                </option>
+                              ))}
+                            </select>
+                            <Icon name="chevron" size={15} />
+                          </label>
+                          <button
+                            className={styles.toolButton}
+                            type="button"
+                            onClick={() => setShowQuickReply(true)}
+                            disabled={saving || !csrf}
+                          >
+                            <Icon name="add" size={15} /> Guardar rápida
+                          </button>
+                        </div>
+                        <button
+                          className={styles.sendButton}
+                          disabled={saving || !draft.trim()}
+                          type="submit"
+                        >
+                          {mode === "note" ? "Guardar nota" : "Enviar"}
+                          <Icon name={mode === "note" ? "arrow" : "send"} size={16} />
+                        </button>
+                      </footer>
+                      {mode === "message" ? (
+                        <p className={styles.composerNotice}>
+                          El envío externo está pendiente de conexión del canal. Los mensajes
+                          preparados quedan en cola.
+                        </p>
+                      ) : null}
+                    </>
+                  )}
+                </form>
+              </>
+            ) : (
+              <div className={styles.threadEmpty}>
+                <span className={styles.emptyIcon}>
+                  <Icon name="message" size={25} />
+                </span>
+                <h2>Elige una conversación</h2>
+                <p>El hilo, su estado y los controles de atención aparecerán aquí.</p>
+              </div>
+            )}
+          </section>
+
+          <aside className={styles.contextPanel} aria-label="Contexto de conversación">
+            {historicalSelected ? (
+              <>
+                <header className={styles.contextHeader}>
+                  <span className={styles.panelKicker}>Contexto</span>
+                </header>
+                <SourceParticipantsCard
+                  participants={historicalSelected.sourceParticipants}
+                  kind="conversación"
+                />
+                <ConversationContactCard
+                  contact={selectedContact}
+                  linked={Boolean(historicalSelected.contactId)}
+                  loading={Boolean(historicalSelected.contactId) && relatedContacts.loading}
+                  error={historicalSelected.contactId ? relatedContacts.error : null}
+                />
+                <section className={styles.contextFacts}>
+                  <div>
+                    <span>Origen</span>
+                    <strong>GHL · Solo lectura</strong>
+                  </div>
+                  <div>
+                    <span>Estado original</span>
+                    <strong>{historicalSelected.rawStatus || "No informado"}</strong>
+                  </div>
+                  <div>
+                    <span>Última actividad</span>
+                    <strong>{when(historicalSelected.lastMessageAt)}</strong>
+                  </div>
+                </section>
+              </>
+            ) : selected ? (
+              <>
+                <header className={styles.contextHeader}>
+                  <span className={styles.panelKicker}>Contexto</span>
+                </header>
+
+                <ConversationContactCard
+                  contact={selectedContact}
+                  linked={true}
+                  loading={relatedContacts.loading}
+                  error={relatedContacts.error}
+                />
+
+                <section className={styles.controlSection}>
                   <label>
-                    Canal
-                    <select value={channel} onChange={(event) => setChannel(event.target.value)}>
-                      <option value="">Todos los canales</option>
-                      <option value="EMAIL">Correo</option>
-                      <option value="WHATSAPP">WhatsApp</option>
-                      <option value="WEBCHAT">Chat web</option>
-                      <option value="SMS">SMS</option>
+                    Responsable
+                    <select
+                      value={selected.assigneeMemberId ?? ""}
+                      disabled={saving}
+                      onChange={(event) =>
+                        void update({ assigneeMemberId: event.target.value || null })
+                      }
+                    >
+                      <option value="">Sin asignar</option>
+                      {assignees.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.displayName}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label>
-                    Estado
-                    <select value={status} onChange={(event) => setStatus(event.target.value)}>
-                      <option value="">Todos los estados</option>
+                    Estado de conversación
+                    <select
+                      value={selected.status}
+                      disabled={saving}
+                      onChange={(event) => void update({ status: event.target.value })}
+                    >
                       <option value="OPEN">Abierta</option>
                       <option value="PENDING">Pendiente</option>
                       <option value="ESCALATED">Escalada</option>
                       <option value="CLOSED">Cerrada</option>
                     </select>
                   </label>
-                  <label>
-                    Atención
-                    <select
-                      value={attention}
-                      onChange={(event) => setAttention(event.target.value)}
-                    >
-                      <option value="">Humana y agente</option>
-                      <option value="HUMAN">Equipo humano</option>
-                      <option value="AGENT">Agente Quantum</option>
-                    </select>
-                  </label>
-                  <button type="submit">Aplicar filtros</button>
-                </form>
-              ) : null}
+                </section>
 
-              <div className={styles.conversationList} aria-live="polite">
-                {listError ? (
-                  <div className={styles.listState} role="alert">
-                    <p>{listError}</p>
-                    <button className={styles.outlineButton} type="button" onClick={() => setListRefresh((value) => value + 1)}>Reintentar</button>
-                  </div>
-                ) : null}
-                {loading ? (
-                  <div className={styles.listState}>
-                    <span className={styles.spinner} aria-hidden="true" />
-                    <strong>Cargando conversaciones</strong>
-                    <p>Consultando la bandeja real.</p>
-                  </div>
-                ) : null}
-                {!loading && !listError && items.length === 0 ? (
-                  <div className={styles.listState}>
-                    <span className={styles.emptyIcon}>
-                      <Icon name="inbox" size={22} />
+                <section className={styles.attentionCard}>
+                  <div>
+                    <span className={styles.attentionIcon}>
+                      <Icon
+                        name={selected.attentionMode === "HUMAN" ? "user" : "agent"}
+                        size={17}
+                      />
                     </span>
-                    <strong>Esta vista está vacía</strong>
-                    <p>Ajusta los filtros o inicia una conversación desde un contacto.</p>
+                    <div>
+                      <span>Atención actual</span>
+                      <strong>
+                        {selected.attentionMode === "HUMAN" ? "Equipo humano" : "Agente Quantum"}
+                      </strong>
+                    </div>
                   </div>
-                ) : null}
-                {!loading
-                  ? items.map((entry) => {
-                      const item = entry.conversation;
-                      const native = entry.source === "QUANTUM" ? entry.conversation : null;
-                      const imported = entry.source === "GHL" ? entry.conversation : null;
-                      const key = `${entry.source}:${item.id}`;
-                      const contact = item.contactId ? contactById.get(item.contactId) : undefined;
-                      const title = imported ? historicalThreadTitle(imported, contact?.displayName) : contact?.displayName ?? item.subject ?? "Contacto vinculado";
-                      const assignee = native?.assigneeMemberId
-                        ? assigneeById.get(native.assigneeMemberId)
-                        : undefined;
-                      return (
-                        <button
-                          key={key}
-                          data-source={entry.source}
-                          data-conversation-id={item.id}
-                          disabled={saving}
-                          className={cx(
-                            styles.conversationCard,
-                            key === selectedKey && styles.conversationCardActive,
-                          )}
-                          type="button"
-                          aria-current={key === selectedKey ? "true" : undefined}
-                          onClick={() => chooseConversation(entry)}
-                        >
-                          <span className={styles.avatar}>
-                            {initials(contact?.displayName ?? (item.contactId ? "Contacto" : "Sin vínculo"))}
-                          </span>
-                          <span className={styles.cardBody}>
-                            <span className={styles.cardLine}>
-                              <strong>{title}</strong>
-                              <time>{when(item.lastMessageAt ?? imported?.sourceCreatedAt ?? null)}</time>
-                            </span>
-                            <span className={styles.cardPreview}>
-                              {native?.lastMessagePreview ?? item.subject ?? (imported ? `${imported.messageCount} mensajes` : "Sin mensajes")}
-                            </span>
-                            <span className={styles.cardMeta}>
-                              {native ? (
-                                <>
-                                  <span className={styles.channelTag}>{channelShortLabel[native.channel]}</span>
-                                  <span className={cx(styles.statusTag, statusClass[native.status])}>{statusLabel[native.status]}</span>
-                                </>
-                              ) : imported ? (
-                                <>
-                                  <HistoricalChannelBadge rawChannel={imported.rawChannel} />
-                                  <span className={styles.sourceTag}>GHL</span>
-                                  {!imported.contactId ? <span className={styles.sourceTag}>Sin contacto vinculado</span> : null}
-                                </>
-                              ) : null}
-                              {assignee ? (
-                                <span className={styles.assigneeTag}>{assignee.displayName}</span>
-                              ) : null}
-                              {native && native.unreadCount > 0 ? (
-                                <span className={styles.unreadBadge}>{native.unreadCount}</span>
-                              ) : null}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })
-                  : null}
-              </div>
-              <nav className={styles.pagination} aria-label="Páginas de conversaciones">
-                <button className={styles.outlineButton} type="button" disabled={loading || listCursors.length < 2}
-                  onClick={() => setListCursors((values) => values.slice(0, -1))}>Anterior</button>
-                <span>Página {listCursors.length}</span>
-                <button className={styles.outlineButton} type="button" disabled={loading || !nextCursor}
-                  onClick={() => { if (nextCursor) setListCursors((values) => [...values, nextCursor]); }}>Siguiente</button>
-              </nav>
-            </section>
+                  <button
+                    type="button"
+                    disabled={
+                      saving ||
+                      (selected.attentionMode === "HUMAN" &&
+                        (selected.status === "CLOSED" || selected.status === "ESCALATED"))
+                    }
+                    onClick={() =>
+                      void update({
+                        attentionMode: selected.attentionMode === "HUMAN" ? "AGENT" : "HUMAN",
+                      })
+                    }
+                  >
+                    {selected.attentionMode === "HUMAN"
+                      ? "Entregar al agente"
+                      : "Tomar conversación"}
+                    <Icon name="arrow" size={15} />
+                  </button>
+                </section>
 
-            <section className={styles.threadPanel} aria-label="Conversación seleccionada">
-              {historicalSelected ? (
-                <HistoricalThread key={`GHL:${historicalSelected.id}`} conversation={historicalSelected} contactName={selectedContact?.displayName} />
-              ) : threadBusy ? (
-                <div className={styles.threadEmpty} role="status">Cargando conversación…</div>
-              ) : selected ? (
-                <>
-                  <header className={styles.threadHeader}>
-                    <div className={styles.threadIdentity}>
-                      <span className={cx(styles.avatar, styles.avatarLarge)}>
-                        {initials(selectedContact?.displayName ?? "Contacto")}
-                      </span>
-                      <div>
-                        <span className={styles.threadKicker}>
-                          <span className={styles.channelTag}>
-                            {channelLabel[selected.channel]}
-                          </span>
-                          {selected.attentionMode === "AGENT" ? (
-                            <span className={styles.agentInline}>
-                              <Icon name="spark" size={12} /> Agente
-                            </span>
-                          ) : null}
-                        </span>
-                        <h2>{selectedContact?.displayName ?? "Contacto"}</h2>
-                        <p>{selected.subject ?? "Conversación sin asunto"}</p>
-                      </div>
-                    </div>
-                    <div className={styles.threadActions}>
-                      <span className={cx(styles.statusTag, statusClass[selected.status])}>
-                        {statusLabel[selected.status]}
-                      </span>
-                      <button
-                        className={styles.outlineButton}
-                        type="button"
-                        disabled={saving || selected.status === "CLOSED"}
-                        onClick={() => void update({ status: "CLOSED" })}
-                      >
-                        Cerrar
-                      </button>
-                    </div>
-                  </header>
-
-                  <div className={styles.messageScroll} aria-live="polite">
-                    {messages.length === 0 ? (
-                      <div className={styles.messageEmpty}>
-                        <span className={styles.emptyIcon}>
-                          <Icon name="message" size={22} />
-                        </span>
-                        <strong>Sin mensajes todavía</strong>
-                        <p>Escribe la primera respuesta para dejar una trazabilidad real.</p>
-                      </div>
-                    ) : (
-                      messages.map((item, index) => (
-                        <div key={item.id}>
-                          {!sameDay(item, messages[index - 1]) ? (
-                            <div className={styles.dayDivider}>
-                              <span>{day(item.createdAt)}</span>
-                            </div>
-                          ) : null}
-                          <article
-                            className={cx(
-                              styles.messageRow,
-                              item.direction === "OUTBOUND" && styles.messageRowOutbound,
-                              item.direction === "INTERNAL" && styles.messageRowInternal,
-                            )}
-                          >
-                            <div className={styles.messageMeta}>
-                              <span>{authorLabel(item)}</span>
-                              <time>{time(item.createdAt)}</time>
-                            </div>
-                            <div className={styles.messageBubble}>
-                              {item.kind === "DOCUMENT" && item.documentSnapshot ? (
-                                <div className={styles.documentMessage}>
-                                  <span>
-                                    <Icon name="document" size={16} />
-                                  </span>
-                                  <div>
-                                    <strong>{item.documentSnapshot.title}</strong>
-                                    <small>
-                                      Documento preparado · revisión{" "}
-                                      {item.documentSnapshot.revision}
-                                    </small>
-                                  </div>
-                                </div>
-                              ) : null}
-                              <p>{item.body}</p>
-                              <footer>
-                                <span>{deliveryLabel[item.deliveryStatus]}</span>
-                                {item.failureCode ? <span>{item.failureCode}</span> : null}
-                              </footer>
-                            </div>
-                          </article>
-                        </div>
-                      ))
-                    )}
+                <section className={styles.contextFacts}>
+                  <div>
+                    <span>Canal</span>
+                    <strong>{channelLabel[selected.channel]}</strong>
                   </div>
+                  <div>
+                    <span>Responsable</span>
+                    <strong>{selectedAssignee?.displayName ?? "Sin asignar"}</strong>
+                  </div>
+                  <div>
+                    <span>Última actividad</span>
+                    <strong>{when(selected.lastMessageAt)}</strong>
+                  </div>
+                </section>
 
-                  <form className={styles.composer} onSubmit={(event) => void send(event)}>
-                    <div className={styles.composerMode}>
-                      <div role="tablist" aria-label="Tipo de respuesta">
-                        <button
-                          className={mode === "message" ? styles.modeActive : undefined}
-                          type="button"
-                          role="tab"
-                          aria-selected={mode === "message"}
-                          onClick={() => setMode("message")}
-                        >
-                          <Icon name="message" size={15} /> Responder
-                        </button>
-                        <button
-                          className={mode === "note" ? styles.modeNoteActive : undefined}
-                          type="button"
-                          role="tab"
-                          aria-selected={mode === "note"}
-                          onClick={() => setMode("note")}
-                        >
-                          <Icon name="note" size={15} /> Nota interna
-                        </button>
-                      </div>
-                      {mode === "note" ? (
-                        <span className={styles.noteHint}>Solo la ve el equipo</span>
-                      ) : null}
-                    </div>
-
-                    {composerBlocked ? (
-                      <div className={styles.composerBlocked}>
-                        <Icon
-                          name={selected.attentionMode === "AGENT" ? "agent" : "inbox"}
-                          size={18}
-                        />
-                        <span>{composerBlocked}</span>
-                        {selected.attentionMode === "AGENT" ? (
-                          <button
-                            type="button"
-                            onClick={() => void update({ attentionMode: "HUMAN" })}
-                            disabled={saving}
-                          >
-                            Tomar conversación
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => void update({ status: "OPEN" })}
-                            disabled={saving}
-                          >
-                            Reabrir
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <textarea
-                          value={draft}
-                          onChange={(event) => setDraft(event.target.value)}
-                          placeholder={
-                            mode === "note"
-                              ? "Escribe una nota para el equipo…"
-                              : `Responder por ${channelLabel[selected.channel]}…`
-                          }
-                          maxLength={16000}
-                        />
-                        <footer className={styles.composerFooter}>
-                          <div className={styles.composerTools}>
-                            <button
-                              className={styles.toolButton}
-                              type="button"
-                              disabled={saving || !csrf || Boolean(messageBlocked)}
-                              onClick={() => void openDocumentComposer()}
-                            >
-                              <Icon name="document" size={16} /> Documento
-                            </button>
-                            <label className={styles.quickReplySelect}>
-                              <span className="sr-only">Insertar respuesta rápida</span>
-                              <select
-                                aria-label="Insertar respuesta rápida"
-                                defaultValue=""
-                                onChange={(event) => {
-                                  const reply = quickReplies.find(
-                                    (item) => item.id === event.target.value,
-                                  );
-                                  if (reply) setDraft(reply.body);
-                                  event.target.value = "";
-                                }}
-                              >
-                                <option value="">Respuestas rápidas</option>
-                                {quickReplies.map((reply) => (
-                                  <option key={reply.id} value={reply.id}>
-                                    {reply.title}
-                                  </option>
-                                ))}
-                              </select>
-                              <Icon name="chevron" size={15} />
-                            </label>
-                            <button
-                              className={styles.toolButton}
-                              type="button"
-                              onClick={() => setShowQuickReply(true)}
-                              disabled={saving || !csrf}
-                            >
-                              <Icon name="add" size={15} /> Guardar rápida
-                            </button>
-                          </div>
-                          <button
-                            className={styles.sendButton}
-                            disabled={saving || !draft.trim()}
-                            type="submit"
-                          >
-                            {mode === "note" ? "Guardar nota" : "Enviar"}
-                            <Icon name={mode === "note" ? "arrow" : "send"} size={16} />
-                          </button>
-                        </footer>
-                        {mode === "message" ? <p className={styles.composerNotice}>El envío externo está pendiente de conexión del canal. Los mensajes preparados quedan en cola.</p> : null}
-                      </>
-                    )}
-                  </form>
-                </>
-              ) : (
-                <div className={styles.threadEmpty}>
-                  <span className={styles.emptyIcon}>
-                    <Icon name="message" size={25} />
-                  </span>
-                  <h2>Elige una conversación</h2>
-                  <p>El hilo, su estado y los controles de atención aparecerán aquí.</p>
-                </div>
-              )}
-            </section>
-
-            <aside className={styles.contextPanel} aria-label="Contexto de conversación">
-              {historicalSelected ? (
-                <>
-                  <header className={styles.contextHeader}><span className={styles.panelKicker}>Contexto</span></header>
-                  <SourceParticipantsCard participants={historicalSelected.sourceParticipants} kind="conversación" />
-                  <ConversationContactCard
-                    contact={selectedContact}
-                    linked={Boolean(historicalSelected.contactId)}
-                    loading={Boolean(historicalSelected.contactId) && relatedContacts.loading}
-                    error={historicalSelected.contactId ? relatedContacts.error : null}
-                  />
-                  <section className={styles.contextFacts}>
-                    <div><span>Origen</span><strong>GHL · Solo lectura</strong></div>
-                    <div><span>Estado original</span><strong>{historicalSelected.rawStatus || "No informado"}</strong></div>
-                    <div><span>Última actividad</span><strong>{when(historicalSelected.lastMessageAt)}</strong></div>
-                  </section>
-                </>
-              ) : selected ? (
-                <>
-                  <header className={styles.contextHeader}>
-                    <span className={styles.panelKicker}>Contexto</span>
-                  </header>
-
-                  <ConversationContactCard
-                    contact={selectedContact}
-                    linked={true}
-                    loading={relatedContacts.loading}
-                    error={relatedContacts.error}
-                  />
-
-                  <section className={styles.controlSection}>
-                    <label>
-                      Responsable
-                      <select
-                        value={selected.assigneeMemberId ?? ""}
-                        disabled={saving}
-                        onChange={(event) =>
-                          void update({ assigneeMemberId: event.target.value || null })
-                        }
-                      >
-                        <option value="">Sin asignar</option>
-                        {assignees.map((member) => (
-                          <option key={member.id} value={member.id}>
-                            {member.displayName}
-                          </option>
+                <section className={styles.activitySection}>
+                  <div className={styles.sectionHeading}>
+                    <h3>Actividad</h3>
+                    <span>{history.length}</span>
+                  </div>
+                  {history.length ? (
+                    <ol className={styles.activityList}>
+                      {history
+                        .slice(-6)
+                        .reverse()
+                        .map((entry) => (
+                          <li key={entry.id}>
+                            <span />
+                            <div>
+                              <strong>{historyLabel[entry.eventType]}</strong>
+                              <p>
+                                {entry.previousValue && entry.nextValue
+                                  ? `${entry.previousValue} → ${entry.nextValue}`
+                                  : (entry.nextValue ?? entry.previousValue ?? "Registrado")}
+                              </p>
+                              <time>{when(entry.createdAt)}</time>
+                            </div>
+                          </li>
                         ))}
-                      </select>
-                    </label>
-                    <label>
-                      Estado de conversación
-                      <select
-                        value={selected.status}
-                        disabled={saving}
-                        onChange={(event) => void update({ status: event.target.value })}
-                      >
-                        <option value="OPEN">Abierta</option>
-                        <option value="PENDING">Pendiente</option>
-                        <option value="ESCALATED">Escalada</option>
-                        <option value="CLOSED">Cerrada</option>
-                      </select>
-                    </label>
-                  </section>
+                    </ol>
+                  ) : (
+                    <p className={styles.activityEmpty}>Aún no hay actividad adicional.</p>
+                  )}
+                </section>
 
-                  <section className={styles.attentionCard}>
-                    <div>
-                      <span className={styles.attentionIcon}>
-                        <Icon
-                          name={selected.attentionMode === "HUMAN" ? "user" : "agent"}
-                          size={17}
-                        />
-                      </span>
-                      <div>
-                        <span>Atención actual</span>
-                        <strong>
-                          {selected.attentionMode === "HUMAN" ? "Equipo humano" : "Agente Quantum"}
-                        </strong>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={
-                        saving ||
-                        (selected.attentionMode === "HUMAN" &&
-                          (selected.status === "CLOSED" || selected.status === "ESCALATED"))
-                      }
-                      onClick={() =>
-                        void update({
-                          attentionMode: selected.attentionMode === "HUMAN" ? "AGENT" : "HUMAN",
-                        })
-                      }
-                    >
-                      {selected.attentionMode === "HUMAN"
-                        ? "Entregar al agente"
-                        : "Tomar conversación"}
-                      <Icon name="arrow" size={15} />
-                    </button>
-                  </section>
-
-                  <section className={styles.contextFacts}>
-                    <div>
-                      <span>Canal</span>
-                      <strong>{channelLabel[selected.channel]}</strong>
-                    </div>
-                    <div>
-                      <span>Responsable</span>
-                      <strong>{selectedAssignee?.displayName ?? "Sin asignar"}</strong>
-                    </div>
-                    <div>
-                      <span>Última actividad</span>
-                      <strong>{when(selected.lastMessageAt)}</strong>
-                    </div>
-                  </section>
-
-                  <section className={styles.activitySection}>
-                    <div className={styles.sectionHeading}>
-                      <h3>Actividad</h3>
-                      <span>{history.length}</span>
-                    </div>
-                    {history.length ? (
-                      <ol className={styles.activityList}>
-                        {history
-                          .slice(-6)
-                          .reverse()
-                          .map((entry) => (
-                            <li key={entry.id}>
-                              <span />
-                              <div>
-                                <strong>{historyLabel[entry.eventType]}</strong>
-                                <p>
-                                  {entry.previousValue && entry.nextValue
-                                    ? `${entry.previousValue} → ${entry.nextValue}`
-                                    : (entry.nextValue ?? entry.previousValue ?? "Registrado")}
-                                </p>
-                                <time>{when(entry.createdAt)}</time>
-                              </div>
-                            </li>
-                          ))}
-                      </ol>
-                    ) : (
-                      <p className={styles.activityEmpty}>Aún no hay actividad adicional.</p>
-                    )}
-                  </section>
-
-                  <p className={styles.queueNotice}>
-                    <Icon name="inbox" size={15} />
-                    Los mensajes quedan registrados. La entrega externa se confirmará cuando el
-                    proveedor del canal esté configurado.
-                  </p>
-                </>
-              ) : (
-                <div className={styles.contextEmpty}>
-                  <Icon name="user" size={22} />
-                  <p>Selecciona un hilo para ver el contacto, la asignación y la actividad.</p>
-                </div>
-              )}
-            </aside>
-          </section>
+                <p className={styles.queueNotice}>
+                  <Icon name="inbox" size={15} />
+                  Los mensajes quedan registrados. La entrega externa se confirmará cuando el
+                  proveedor del canal esté configurado.
+                </p>
+              </>
+            ) : (
+              <div className={styles.contextEmpty}>
+                <Icon name="user" size={22} />
+                <p>Selecciona un hilo para ver el contacto, la asignación y la actividad.</p>
+              </div>
+            )}
+          </aside>
+        </section>
       </section>
 
       {showCreate ? (

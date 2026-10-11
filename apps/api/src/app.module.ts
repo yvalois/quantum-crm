@@ -177,7 +177,11 @@ export class AppModule {
         },
         {
           provide: UNIFIED_INBOX_SERVICE,
-          useFactory: () => new UnifiedInboxService(database.commercial.unifiedInbox, database.externalParticipants),
+          useFactory: () =>
+            new UnifiedInboxService(
+              database.commercial.unifiedInbox,
+              database.externalParticipants,
+            ),
         },
         {
           provide: HISTORICAL_CONVERSATION_SERVICE,

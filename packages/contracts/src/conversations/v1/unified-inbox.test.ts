@@ -22,16 +22,30 @@ describe("unified inbox contracts", () => {
     expect(UnifiedInboxListQuerySchema.parse({})).toEqual({ limit: 30, contactState: "ALL" });
     expect(UnifiedInboxListQuerySchema.parse({ unassigned: "false" }).unassigned).toBe(false);
     expect(UnifiedInboxListQuerySchema.parse({ unassigned: "true" }).unassigned).toBe(true);
-    for (const input of [{ limit: 51 }, { unassigned: "0" }, { tenantId: "other" }, { scope: "PROFILE" }])
+    for (const input of [
+      { limit: 51 },
+      { unassigned: "0" },
+      { tenantId: "other" },
+      { scope: "PROFILE" },
+    ])
       expect(UnifiedInboxListQuerySchema.safeParse(input).success).toBe(false);
   });
   it("preserves unknown provider status and rejects internal source metadata or the wrong discriminator", () => {
-    const response = { data: [{ source: "GHL", conversation: historical }], page: { nextCursor: null } };
+    const response = {
+      data: [{ source: "GHL", conversation: historical }],
+      page: { nextCursor: null },
+    };
     expect(UnifiedInboxListResponseSchema.parse(response)).toEqual(response);
     for (const item of [
       { source: "QUANTUM", conversation: historical },
-      { source: "GHL", conversation: { ...historical, sourceParticipantReferences: { locationId: "private" } } },
+      {
+        source: "GHL",
+        conversation: { ...historical, sourceParticipantReferences: { locationId: "private" } },
+      },
       { source: "GHL", conversation: { ...historical, raw: { token: "never-visible" } } },
-    ]) expect(UnifiedInboxListResponseSchema.safeParse({ ...response, data: [item] }).success).toBe(false);
+    ])
+      expect(UnifiedInboxListResponseSchema.safeParse({ ...response, data: [item] }).success).toBe(
+        false,
+      );
   });
 });
