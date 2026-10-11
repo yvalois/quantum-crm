@@ -1,0 +1,296 @@
+.shell {
+  min-width: 0;
+}
+
+.shell.shell :global(.crm-content.contact-workspace) {
+  min-width: 0;
+  min-height: 0;
+  height: 100dvh;
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.shell :global(.contact-workspace-header) {
+  min-height: 3.5rem;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+}
+
+.shell :global(.contact-workspace-heading h1) {
+  font-size: 1.15rem;
+  letter-spacing: -0.025em;
+}
+
+.shell :global(.contact-workspace-count) {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.3rem;
+  padding: 0.2rem 0.4rem;
+  color: #626d7c;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.shell :global(.contact-workspace-grid),
+.shell :global(.contact-workspace-grid.has-detail) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell :global(.contact-workspace-grid.has-detail) {
+  grid-template-columns: minmax(0, 1fr) 23rem;
+}
+
+.shell :global(.contact-workspace-views) {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+  align-items: center;
+  flex-direction: row;
+  gap: 0.5rem;
+  overflow: hidden;
+  border-right: 0;
+  border-bottom: 1px solid var(--contact-line);
+  background: #fff;
+  padding: 0 1rem;
+}
+
+.shell :global(.contact-workspace-views-heading) {
+  order: 2;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
+}
+
+.shell :global(.contact-workspace-views nav) {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  gap: 1rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.shell :global(.contact-workspace-views nav button) {
+  min-height: 2.8rem;
+  min-width: max-content;
+  gap: 0.45rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.5rem 0.05rem;
+  color: #657183;
+  font-size: 0.75rem;
+  box-shadow: none;
+}
+
+.shell :global(.contact-workspace-views nav button.is-active) {
+  border-bottom-color: var(--quantum-primary);
+  background: transparent;
+  color: var(--quantum-primary-dark);
+  box-shadow: none;
+}
+
+.shell :global(.contact-workspace-views nav button em:empty) {
+  display: none;
+}
+
+.shell :global(.contact-workspace-table-pane) {
+  grid-row: 2;
+  grid-column: 1;
+  min-height: 0;
+}
+
+.shell :global(.contact-workspace-toolbar) {
+  min-height: 3.5rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.6rem 1rem;
+}
+
+.shell :global(.contact-workspace-search) {
+  min-width: 10rem;
+  max-width: 24rem;
+  flex: 1 1 15rem;
+}
+
+.shell :global(.contact-workspace-table-wrap) {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.shell :global(.contact-workspace-table) {
+  min-width: 43rem;
+}
+
+.shell :global(.contact-workspace-table th) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 2.35rem;
+  padding: 0.45rem 0.7rem;
+  background: #f8fafc;
+  color: #596579;
+  font-size: 0.67rem;
+}
+
+.shell :global(.contact-workspace-table td) {
+  padding: 0.48rem 0.7rem;
+}
+
+.shell :global(.contact-workspace-avatar) {
+  width: 1.8rem;
+  height: 1.8rem;
+  font-size: 0.59rem;
+}
+
+.shell :global(.contact-workspace-bulk-bar) {
+  min-height: 3rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  padding: 0.5rem 1rem;
+}
+
+.shell :global(.contact-workspace-pagination) {
+  min-height: 3rem;
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+}
+
+.shell :global(.contact-workspace-filter-menu form) {
+  max-height: min(35rem, calc(100dvh - 12rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.shell :global(.contact-workspace-grid .contact-workspace-drawer) {
+  position: relative;
+  grid-row: 2;
+  grid-column: 2;
+  top: auto;
+  right: auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  box-shadow: none;
+}
+
+.shell :global(.contact-workspace-drawer > header) {
+  padding: 0.7rem 0.8rem;
+}
+
+.shell :global(.contact-workspace-contact-methods) {
+  padding: 0.65rem 0.8rem;
+}
+
+@media (max-width: 1100px) {
+  .shell :global(.contact-workspace-grid.has-detail) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell :global(.contact-workspace-grid .contact-workspace-drawer) {
+    position: fixed;
+    z-index: 55;
+    top: 0;
+    right: 0;
+    width: min(25rem, 100vw);
+    height: 100dvh;
+    box-shadow: -0.5rem 0 1.8rem rgb(15 23 42 / 15%);
+  }
+}
+
+@media (max-width: 900px) {
+  .shell:global(.crm-shell-stitch) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell > :global(.crm-sidebar) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .shell.shell :global(.crm-content.contact-workspace) {
+    height: calc(100dvh - 4rem);
+    min-height: 30rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .shell :global(.contact-workspace-header) {
+    align-items: stretch;
+    gap: 0.55rem;
+    padding: 0.7rem 0.75rem;
+  }
+
+  .shell :global(.contact-workspace-header-actions) {
+    gap: 0.35rem;
+  }
+
+  .shell :global(.contact-workspace-header-actions .contact-workspace-quiet-button) {
+    display: inline-flex;
+    padding-inline: 0.45rem;
+  }
+
+  .shell :global(.contact-workspace-header-actions .contact-workspace-primary-button) {
+    margin-left: auto;
+    padding-inline: 0.55rem;
+  }
+
+  .shell :global(.contact-workspace-views) {
+    padding: 0 0.75rem;
+  }
+
+  .shell :global(.contact-workspace-views nav) {
+    gap: 0.85rem;
+  }
+
+  .shell :global(.contact-workspace-views nav button) {
+    font-size: 0.7rem;
+  }
+
+  .shell :global(.contact-workspace-views nav button svg) {
+    display: none;
+  }
+
+  .shell :global(.contact-workspace-toolbar) {
+    position: relative;
+    padding: 0.55rem 0.75rem;
+  }
+
+  .shell :global(.contact-workspace-search) {
+    min-width: 0;
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .shell :global(.contact-workspace-filter-menu),
+  .shell :global(.contact-workspace-columns-menu) {
+    position: static;
+  }
+
+  .shell :global(.contact-workspace-filter-menu form),
+  .shell :global(.contact-workspace-columns-menu > div) {
+    top: 100%;
+    left: 0.75rem;
+    right: auto;
+    max-width: calc(100% - 1.5rem);
+  }
+
+  .shell :global(.contact-workspace-filter-menu form) {
+    max-height: min(30rem, calc(100dvh - 16rem));
+  }
+
+  .shell :global(.contact-workspace-sort-select) {
+    min-width: 0;
+    max-width: 9rem;
+    flex: 1;
+  }
+}

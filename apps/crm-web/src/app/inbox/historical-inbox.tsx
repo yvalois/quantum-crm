@@ -204,9 +204,9 @@ export function HistoricalInbox(): React.JSX.Element {
   return (
     <section className={styles.workspace} aria-label="Historial de conversaciones GHL">
       <div className={styles.notice}>
-        <strong>Historial importado de GHL</strong>
+        <strong>Historial importado de GHL · Solo lectura</strong>
         <span>
-          Consulta mensajes y fechas originales. Los adjuntos pendientes se indican en cada mensaje.
+          Mensajes y fechas originales. Los adjuntos pendientes se indican en cada mensaje.
         </span>
       </div>
       <div className={styles.columns}>
@@ -326,7 +326,11 @@ export function HistoricalInbox(): React.JSX.Element {
                 <>
                   <ol className={styles.messages}>
                     {messages.map((item) => (
-                      <li key={item.id} className={styles.message}>
+                      <li
+                        key={item.id}
+                        className={styles.message}
+                        data-direction={item.rawDirection}
+                      >
                         <header>
                           <strong>
                             {item.rawDirection === "inbound"
@@ -388,6 +392,9 @@ export function HistoricalInbox(): React.JSX.Element {
                   Siguientes
                 </button>
               </nav>
+              <p className={styles.readOnly}>
+                Historial de consulta. No se envían mensajes desde esta vista.
+              </p>
             </>
           ) : (
             <div className={styles.empty}>

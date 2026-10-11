@@ -107,6 +107,13 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Evidencia de cierre
 
+### Ajuste visual acotado del 2026-10-11
+
+- PR #127, candidato `e8656adb`: cabecera compacta, filtros horizontales, paneles lista/hilo/contexto y scroll independiente; historial GHL con presentacion coherente y mensajes entrantes/salientes diferenciados. Sin modificar envio, proveedores, contratos o identidad.
+- VPS: formato/ESLint/typecheck afectados aprobados; suite `playwright.workspaces.config.ts` 3/3 sin reintentos, incluyendo inbox desktop/390px, borrador sin envio y descarga de adjunto sintetico autorizado. Siete checks CI aprobados; capturas solo sinteticas fuera de Git.
+- CRM web publicado y healthy en InterAmerican; navegador autenticado confirma lista e hilo importado sin overflow horizontal. Digest/recibo en `estado.md`; API no reiniciada, sin migraciones ni cambios de datos.
+- Pendientes de estabilizacion posterior: historial importado permanece de consulta; adaptadores externos y mayor paridad funcional no forman parte de este bloque visual.
+
 - Archivos, commits o PR: contratos `conversations/v1`, servicio de dominio, repositorio PostgreSQL, migracion `20260930020000_chat_omnichannel_inbox`, controlador API, BFF y ruta visual `/inbox` en `feat/CHAT-01-21-omnichannel-inbox`.
 - Comandos y resultados: Node 24 en el VPS aprobo Prettier y ESLint afectados, cinco typechecks, 8/8 pruebas nuevas, builds de `api` y `crm-web`; PostgreSQL 18.1 desechable aplico desde cero las 14 migraciones, creo seis tablas de conversaciones, sembro 13 permisos por rol y confirmo privilegios runtime.
 - Recorrido real del 2026-10-04 en `quantum-demo-jueves`: se creo la conversacion `a01243c1-3ba5-47c2-88e0-bb62f3f0035f`, el reintento con la misma clave devolvio el mismo ID y una respuesta preparada con revision anterior fue rechazada despues de pasar de agente a atencion humana. El mensaje `3778701d-7583-4725-b161-feab5dfb8c2a` se reintento con la misma clave, conservo un solo registro y quedo honestamente `QUEUED`. La conversacion queda visible en `/inbox` hasta conectar un proveedor.

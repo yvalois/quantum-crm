@@ -656,10 +656,8 @@ export default function InboxPage(): React.JSX.Element {
       <section className={styles.workspace} aria-busy={loading}>
         <header className={styles.topbar}>
           <div className={styles.titleGroup}>
-            <span className={styles.productEyebrow}>Centro de atención</span>
             <div>
               <h1>Conversaciones</h1>
-              <p>Una bandeja operativa para atender, asignar y dar continuidad.</p>
             </div>
           </div>
           <div className={styles.topbarActions}>
@@ -680,7 +678,7 @@ export default function InboxPage(): React.JSX.Element {
               Historial GHL
             </button>
             <span className={styles.liveSignal}>
-              <span aria-hidden="true" /> Datos sincronizados al abrir
+              <span aria-hidden="true" /> Actualizado al abrir
             </span>
             <button
               className={styles.primaryButton}
