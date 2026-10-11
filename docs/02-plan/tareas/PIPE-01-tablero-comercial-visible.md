@@ -112,7 +112,14 @@ Un usuario autorizado entra al CRM y opera un tablero Kanban real: selecciona un
 - Las interacciones de navegador se ejecutan en el VPS con respuestas sinteticas aisladas en loopback; no se mueven oportunidades reales para probar. Esta evidencia no sustituye la persistencia PostgreSQL anterior ni la inspeccion autenticada posterior al despliegue.
 - Base: PR #125, que contiene la importacion historica ya desplegada. No se elimina ni se repite esa importacion para publicar el tablero.
 - Navegador en VPS: 5/5 escenarios aprobados, incluidos arrastre de raton, selector, movimiento por teclado, apertura de detalle, recuperacion 412, busqueda entre 1127 oportunidades y anchos 1440/1024/390. Se corrigio el minimo automatico del grid solo en el shell de pipelines; movil ya no ensancha la pagina. Los fallos previos de arranque fueron dependencias Chromium/CSP de desarrollo; el bypass existe solo en el navegador sintetico de loopback, sin cambiar la politica del CRM. Se repitieron unicamente los escenarios invalidados.
-- Pendiente de cierre de esta ampliacion: CI y despliegue/inspeccion de la ruta real. No se declara terminado todo el conjunto `PIPE-*`.
+- Cierre: candidato funcional `42717655fa14aebb882cc4448cbb561a9f98a097`, siete checks verdes en [PR #126](https://github.com/yvalois/quantum-crm/pull/126). Publicacion en VPS mediante las operaciones existentes de deploy-host, con preflight de perfil/entorno/contenedores/imagenes, exclusion operativa y predecesores retenidos. No se usa ni se modifica el registro de importacion historica para desplegar este bloque.
+- Digests publicados: API `sha256:2fc1a543d416e5eb4299e78b681ff8de7357af50a13b801da1cfea749b7594df` (candidato `0f6fc6f3`, identico codigo API al candidato final); CRM web `sha256:991f0b34a2bf05de426b8b768d758c252030fd09b3f6671411a23c2c392588be` (`42717655`). La imagen API ya construida para comprobar el candidato se reutilizo despues de CI: el unico cambio de runtime posterior fue el CSS movil. No se repitio su build ni las pruebas de servidor verdes.
+- Smoke autenticado en `https://interamerican.2-25-172-119.nip.io/pipeline`: pagina limitada a la altura del viewport en escritorio, tarjetas de 155 px, columnas con scroll propio y ningun contacto pendiente de resolver; el nombre del pipeline abre sus oportunidades y una tarjeta abre detalle autorizado con historial y campos habilitados, sin alertas. Se cerro el detalle sin guardar ni modificar datos reales. Ambos contenedores saludables; recibo operacional `pipeline-publication-42717655.json` dentro de la configuracion protegida del perfil.
+- Los fixtures/capturas son sinteticos y el servidor privado de pruebas quedo detenido. Los cierres documentales posteriores reutilizan esta evidencia sin reconstruir, migrar ni redesplegar. No se declara terminado todo el conjunto `PIPE-*`.
+
+#### Pendientes de estabilizacion posterior
+
+- Persistir preferencias de ancho y plegado entre sesiones y evaluar virtualizacion para volumenes superiores al recorrido verificado. Automatizaciones y capacidades agentivas conservan sus requisitos propietarios.
 
 ### Evidencia anterior
 
