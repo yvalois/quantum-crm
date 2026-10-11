@@ -611,7 +611,7 @@ Dependencias: Contactos, canales, asesores y conexión con agentes. Las acciones
 - [ ] **CHAT-11 — Búsqueda y filtros de conversaciones.**
   - [ ] Buscar por contacto y contenido del mensaje.
   - [ ] Combinar filtros por canal, asesor, estado y fecha.
-  - [ ] Paginar resultados respetando permisos.
+  - [x] Paginar resultados respetando permisos. Bandeja mixta verificada en VPS, PR #130.
 
 - [ ] **CHAT-12 — Respuestas rápidas.**
   - [ ] Crear y editar respuestas rápidas.
