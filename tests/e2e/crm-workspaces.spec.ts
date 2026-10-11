@@ -470,8 +470,7 @@ async function workspaceFixture(
           await respond({
             data: filtered.slice(offset, offset + 5).map((entry) => entry.item),
             page: {
-              nextCursor:
-                offset + 5 < filtered.length ? `synthetic-channels-${offset + 5}` : null,
+              nextCursor: offset + 5 < filtered.length ? `synthetic-channels-${offset + 5}` : null,
             },
           });
           return;

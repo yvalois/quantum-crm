@@ -157,7 +157,15 @@ describe("CRM web authentication HTTP boundary", () => {
     const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) =>
       Response.json({ data: [], page: { nextCursor: null } }),
     );
-    for (const channel of ["INSTAGRAM", "FACEBOOK", "TIKTOK", "GOOGLE", "CALL", "FORM", "UNKNOWN"]) {
+    for (const channel of [
+      "INSTAGRAM",
+      "FACEBOOK",
+      "TIKTOK",
+      "GOOGLE",
+      "CALL",
+      "FORM",
+      "UNKNOWN",
+    ]) {
       const response = await handleCrmUnifiedInboxList(
         new Request(`https://crm.example.test/api/conversations/inbox?channel=${channel}`, {
           headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
