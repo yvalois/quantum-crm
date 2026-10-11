@@ -102,6 +102,13 @@ Un usuario autorizado opera Contactos desde una sola superficie de trabajo: busc
 
 ## Evidencia de cierre
 
+### Ajuste visual acotado del 2026-10-11
+
+- PR #127, candidato `e8656adb`: vistas horizontales, tabla compacta con scroll propio y ficha lateral; handlers, filtros, paginacion y permisos preservados. Sin cambios de API ni persistencia.
+- VPS: formato/ESLint/typecheck afectados aprobados; suite `playwright.workspaces.config.ts` 3/3 sin reintentos, incluyendo contactos desktop/390px, busqueda, cursores, filtros y apertura/cierre de ficha. Capturas sinteticas fuera de Git.
+- Publicado solo CRM web en InterAmerican; navegador autenticado confirma tabla y ficha, sin overflow horizontal. Digest y recibo operativo en `estado.md`. Se reutiliza evidencia previa de backend sin repetir pruebas no afectadas.
+- El ajuste no cierra por si solo todos los criterios historicos de esta ficha. Pendientes de estabilizacion posterior: mayor paridad funcional con GHL fuera de este bloque visual.
+
 - Archivos, commits o PR: pendiente.
 - Comandos y resultados: pendiente.
 - Documentacion actualizada: esta ficha y `estado.md` al inicio.
