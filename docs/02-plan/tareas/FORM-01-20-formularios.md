@@ -49,6 +49,10 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 - Mutacion automatica de contactos, oportunidades o cotizaciones, consumidores de automatizacion y tool MCP; se conectaran desde sus modulos propietarios sin cambiar el contrato de respuestas.
 - Carga publica de archivos y contenido multimedia nuevo; se integrara con el modulo `files` sin acceso directo a S3.
 
+### Extension solicitada — FORM-05 (2026-10-08)
+
+La carga de imagenes pasa a este bloque por solicitud directa del propietario. Debe crear una reserva durable en `files`, mantener los bytes fuera de las respuestas hasta que el analisis los marque `AVAILABLE` y conservar solo `fileId` como respuesta. No se permite una carga ficticia ni acceso directo del formulario a S3.
+
 ## Impacto tecnico
 
 | Area | Impacto previsto |
@@ -109,6 +113,9 @@ El usuario del CRM puede crear y editar formularios visuales, publicarlos median
 - Archivos, commits o PR: candidato funcional `9d7903a` y correccion de hidratacion `d9984ff` en `fix/FORM-01-csp-hidratacion`; PR pendiente de publicacion.
 - Comandos y resultados: en el VPS aprobaron Prettier y ESLint afectados; cinco typechecks; seis pruebas focalizadas; builds de contratos, dominio, plataforma, base de datos, autenticacion, API y CRM web; las 19 migraciones CRM sobre PostgreSQL 18; y smoke create/publicar/consultar/enviar/reintentar/listar con una sola respuesta durable. Para `d9984ff` aprobaron Prettier, ESLint, las 3 regresiones del proxy/CSP, typecheck de `crm-web` y builds de `config`, `contracts`, `auth` y `crm-web`; el build clasifico las rutas CRM como dinamicas.
 - Evidencia operativa autenticada: el contenedor candidato `qcrm-candidate/crm-web:d9984ff` esta saludable en InterAmerican. `/forms` hidrata y conserva el borrador `Solicitud inicial InterAmerican` con tres preguntas; `/documents` hidrata, permite editar y creo la plantilla reutilizable `Propuesta comercial InterAmerican` con variables de contacto y asesor y un bloque de imagen reemplazable.
+- Correccion visual 2026-10-08: el candidato `e51919e1` aprobo el build de produccion de `crm-web` en el VPS y quedo desplegado como `qcrm-candidate/crm-web:e51919e1` saludable. El recorrido autenticado en `/forms` verifico la hoja central, edicion en contexto de una pregunta y la insercion de un tipo desde la barra vertical; el navegador se recargo sin guardar para no modificar el borrador existente.
+- Replanteamiento visual 2026-10-08: el candidato `929c8257` aprobo el build de produccion de `crm-web`, quedo desplegado y saludable. El recorrido autenticado verifico la hoja central sin el listado interno, los controles de pregunta/seccion y la configuracion directa de la pregunta activa; no se guardaron modificaciones de prueba.
+- Componentes 2026-10-08: el candidato `22900584` aprobo el build de produccion de `crm-web` y quedo desplegado y saludable. La comprobacion autenticada convirtio una pregunta temporalmente a opcion unica y verifico las opciones individuales, alta y baja; se recargo sin guardar la prueba.
 - Documentacion actualizada: ficha y estado oficial.
 - Desviaciones del plan: las integraciones con proveedores externos se excluyeron por decision explicita del propietario.
 - Pendientes o decisiones nuevas: publicar el PR, aprobar CI y promover el digest oficial. Para cerrar todos los criterios de formularios falta el recorrido autenticado de publicar, responder por el enlace, consultar/exportar respuestas y cerrar la recepcion; archivos publicos, contacto, chat, agente y consumidores de automatizacion permanecen en sus bloques propietarios.

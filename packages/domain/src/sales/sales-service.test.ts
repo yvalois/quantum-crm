@@ -115,4 +115,64 @@ describe("sales service", () => {
       }),
     ).rejects.toBeInstanceOf(IamAuthorizationError);
   });
+
+  it("creates all initial stages in their supplied order", async () => {
+    let persisted: Parameters<SalesRepository["createPipeline"]>[0] | undefined;
+    const service = new SalesService(
+      {
+        ...repository,
+        createPipeline: async (input) => {
+          persisted = input;
+          return input.pipeline;
+        },
+      },
+      { existsFor: async () => true },
+    );
+
+    const created = await service.createPipeline({
+      actor,
+      permissions: ["crm:sales:configure"],
+      name: "Ventas",
+      description: "Proceso principal",
+      stages: [
+        { name: "Prospección", description: "Contacto inicial" },
+        { name: "Propuesta", description: "Oferta enviada" },
+      ],
+      idempotencyKey: "pipeline-stages-0001",
+      payloadHash: "a".repeat(64),
+    });
+
+    expect(created.stages).toEqual([
+      expect.objectContaining({ name: "Prospección", position: 0 }),
+      expect.objectContaining({ name: "Propuesta", position: 1 }),
+    ]);
+    expect(created.stages[0]?.pipelineId).toBe(created.id);
+    expect(created.stages[1]?.pipelineId).toBe(created.id);
+    expect(persisted?.pipeline).toBe(created);
+  });
+
+  it("rejects duplicate initial stage names before persistence", () => {
+    const createPipeline = async (_input: Parameters<SalesRepository["createPipeline"]>[0]) => {
+      throw new Error("must not persist");
+    };
+    const service = new SalesService(
+      { ...repository, createPipeline },
+      { existsFor: async () => true },
+    );
+
+    expect(() =>
+      service.createPipeline({
+        actor,
+        permissions: ["crm:sales:configure"],
+        name: "Ventas",
+        description: "Proceso principal",
+        stages: [
+          { name: "Calificación", description: "Primera etapa" },
+          { name: " calificación ", description: "No debe persistir" },
+        ],
+        idempotencyKey: "pipeline-duplicates-0001",
+        payloadHash: "a".repeat(64),
+      }),
+    ).toThrow(SalesValidationError);
+  });
 });

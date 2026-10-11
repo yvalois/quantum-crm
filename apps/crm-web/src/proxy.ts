@@ -25,8 +25,7 @@ export function proxy(request: NextRequest): NextResponse {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
-  const hasSession =
-    request.cookies.has("__Host-qcrm_crm_session") || request.cookies.has("qcrm_crm_session");
+  const hasSession = request.cookies.has(sessionCookieName(request));
   const isPublic =
     request.nextUrl.pathname === "/signed-out" || request.nextUrl.pathname.startsWith("/f/");
   const response =
@@ -43,6 +42,12 @@ export function proxy(request: NextRequest): NextResponse {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   return response;
+}
+
+function sessionCookieName(request: NextRequest): string {
+  const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",", 1)[0]?.trim();
+  const secure = forwardedProtocol === "https" || request.nextUrl.protocol === "https:";
+  return `${secure ? "__Host-" : ""}qcrm_crm_session`;
 }
 
 function redirectToLogin(request: NextRequest): NextResponse {

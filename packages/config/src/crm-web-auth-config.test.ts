@@ -41,6 +41,8 @@ describe("CRM web authentication configuration", () => {
       crmApiOrigin: "http://api:3001",
       callbackUrl: "https://crm.example.test/api/auth/callback/keycloak",
       sessionNamespace: "crm:01995f7e-7b52-7000-8000-000000000101",
+      sessionIdleTtlSeconds: 2_592_000,
+      sessionAbsoluteTtlSeconds: 7_776_000,
       secureCookies: true,
     });
     expect(JSON.stringify(config)).not.toContain("synthetic-client-secret");

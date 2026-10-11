@@ -1,5 +1,9 @@
 import type { SecretFileSystem } from "./secret-value.js";
-import { parseWebAuthConfig, type WebAuthConfig } from "./web-auth-config.js";
+import {
+  parseWebAuthConfig,
+  platformWebSessionPolicy,
+  type WebAuthConfig,
+} from "./web-auth-config.js";
 
 export const adminWebOidcClientSecretPath = "/run/secrets/qcrm_oidc_client_secret";
 export const adminWebSessionRedisUrlPath = "/run/secrets/qcrm_session_redis_url";
@@ -23,6 +27,7 @@ export function parseAdminWebAuthConfig(
       clientSecretPath: adminWebOidcClientSecretPath,
       redisUrlPath: adminWebSessionRedisUrlPath,
       sessionNamespace: "platform",
+      sessionPolicy: platformWebSessionPolicy,
     },
     fileSystem,
   );

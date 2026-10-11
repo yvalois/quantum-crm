@@ -61,6 +61,7 @@ const navigation: readonly NavigationGroup[] = [
   {
     label: "Administración",
     items: [
+      { href: "/pipelines", icon: "pipeline", label: "Pipelines" },
       { href: "/team", icon: "team", label: "Equipo y acceso" },
       { icon: "settings", label: "Configuración" },
     ],

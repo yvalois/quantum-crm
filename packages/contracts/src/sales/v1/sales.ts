@@ -62,9 +62,31 @@ export const OpportunityHistoryEntrySchema = z.object({
   note: OptionalTextSchema,
   createdAt: TimestampSchema,
 });
-export const CreatePipelineSchema = z
+const CreateInitialPipelineStageSchema = z
   .object({ name: TextSchema, description: DescriptionSchema })
   .strict();
+export const CreatePipelineSchema = z
+  .object({
+    name: TextSchema,
+    description: DescriptionSchema,
+    stages: z.array(CreateInitialPipelineStageSchema).min(1).max(25).optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (!value.stages) return;
+    const names = new Set<string>();
+    for (const [index, stage] of value.stages.entries()) {
+      const normalizedName = stage.name.normalize("NFKC").toLowerCase();
+      if (names.has(normalizedName)) {
+        context.addIssue({
+          code: "custom",
+          path: ["stages", index, "name"],
+          message: "Pipeline stage names must be unique",
+        });
+      }
+      names.add(normalizedName);
+    }
+  });
 export const CreatePipelineStageSchema = z
   .object({
     name: TextSchema,

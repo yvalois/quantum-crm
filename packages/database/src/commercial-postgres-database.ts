@@ -425,6 +425,9 @@ interface StageRow {
   readonly description: string;
   readonly position: number;
 }
+interface PipelineSnapshotRow extends PipelineRow {
+  readonly stages: readonly StageRow[];
+}
 interface OpportunityRow {
   readonly id: string;
   readonly owner_member_id: string;
@@ -628,6 +631,18 @@ async function pipelineFromRow(pool: PostgresPool, row: PipelineRow): Promise<Pi
     stages: Object.freeze(stages.rows.map(stageFromRow)),
     createdAt: new Date(row.created_at),
   });
+}
+function pipelineFromSnapshot(row: PipelineSnapshotRow): Pipeline {
+  return Object.freeze({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    stages: Object.freeze(row.stages.map(stageFromRow)),
+    createdAt: new Date(row.created_at),
+  });
+}
+function isPipelineSnapshotRow(row: PipelineRow | PipelineSnapshotRow): row is PipelineSnapshotRow {
+  return "stages" in row && Array.isArray(row.stages);
 }
 
 export interface CommercialPostgresRepositories {
@@ -1621,9 +1636,12 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `${input.actor.memberId}:sales.pipeline.create:${input.idempotencyKey}`,
+        ]);
         const existing = await client.query<{
           readonly payload_hash: string;
-          readonly response: PipelineRow;
+          readonly response: PipelineRow | PipelineSnapshotRow;
         }>(
           `SELECT payload_hash, response FROM sales.command_idempotency WHERE actor_member_id = $1::uuid AND command = 'sales.pipeline.create' AND idempotency_key = $2 FOR UPDATE`,
           [input.actor.memberId, input.idempotencyKey],
@@ -1633,7 +1651,9 @@ export function createCommercialPostgresRepositories(
           if (replay.payload_hash !== input.payloadHash)
             throw new CommercialIdempotencyConflictError();
           await client.query("COMMIT");
-          return pipelineFromRow(pool, replay.response);
+          return isPipelineSnapshotRow(replay.response)
+            ? pipelineFromSnapshot(replay.response)
+            : pipelineFromRow(pool, replay.response);
         }
         const inserted = await client.query<PipelineRow>(
           `INSERT INTO sales.pipelines (id, name, description, created_at) VALUES ($1::uuid, $2, $3, $4) RETURNING id::text, name, description, created_at`,
@@ -1646,12 +1666,23 @@ export function createCommercialPostgresRepositories(
         );
         const created = inserted.rows[0];
         if (!created) throw new DatabaseUnavailableError();
+        const createdStages: StageRow[] = [];
+        for (const stage of input.pipeline.stages) {
+          const stageResult = await client.query<StageRow>(
+            `INSERT INTO sales.pipeline_stages (id, pipeline_id, name, description, position) VALUES ($1::uuid, $2::uuid, $3, $4, $5) RETURNING id::text, pipeline_id::text, name, description, position`,
+            [stage.id, stage.pipelineId, stage.name, stage.description, stage.position],
+          );
+          const createdStage = stageResult.rows[0];
+          if (!createdStage) throw new DatabaseUnavailableError();
+          createdStages.push(createdStage);
+        }
+        const response: PipelineSnapshotRow = { ...created, stages: createdStages };
         await client.query(
           `INSERT INTO sales.command_idempotency (actor_member_id, command, idempotency_key, payload_hash, response) VALUES ($1::uuid, 'sales.pipeline.create', $2, $3, $4::jsonb)`,
-          [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(created)],
+          [input.actor.memberId, input.idempotencyKey, input.payloadHash, JSON.stringify(response)],
         );
         await client.query("COMMIT");
-        return Object.freeze({ ...input.pipeline, stages: [] });
+        return pipelineFromSnapshot(response);
       } catch (error) {
         await client?.query("ROLLBACK").catch(() => undefined);
         return fail(error);

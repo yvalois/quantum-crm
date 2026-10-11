@@ -32,12 +32,15 @@ import {
   documentColumnLayouts,
   imageFrameWidth,
   type ImageResizeHandle,
+  type TableGrid,
   moveImageFocalPoint,
   moveColumnItem,
   moveColumnItemToCell,
   moveDocumentBlock,
   moveDocumentBlockTo,
   normalizeDocumentBlocks,
+  normalizeTableGrid,
+  projectTableGrid,
   removeColumnItem,
   removeTableColumn,
   removeTableRow,
@@ -48,6 +51,12 @@ import {
   tableColumnWidths,
   updateColumnItem,
 } from "./document-editor-model";
+import { createDocumentPageGeometry, paginateDocumentBlocks } from "./document-page-layout";
+import {
+  createReferenceBlueprint,
+  referenceTemplateKeys,
+  type ReferenceTemplateKey,
+} from "./document-reference-templates";
 
 interface SessionPayload {
   readonly authenticated: boolean;
@@ -56,6 +65,33 @@ interface SessionPayload {
 interface List<T> {
   readonly data: T[];
 }
+
+function commercialHeaderSegments(design: CommercialDocument["design"]): {
+  readonly left: string;
+  readonly right: string;
+} {
+  const rightHeaderText = design.headerRightText ?? "";
+  if (rightHeaderText.trim().length > 0) {
+    return { left: design.headerText, right: rightHeaderText };
+  }
+  // Existing documents used a padded string. Read it once as two regions so
+  // they immediately gain stable alignment without forcing a data migration.
+  const legacy = design.headerText.match(/^(.*?)\s{2,}(Cotizaci[oó]n\s+No\..+)$/iu);
+  return legacy
+    ? { left: (legacy[1] ?? "").trimEnd(), right: legacy[2] ?? "" }
+    : { left: design.headerText, right: "" };
+}
+
+function closeImagePropertiesOutside(target: EventTarget | null) {
+  if (!(target instanceof Element)) return;
+  document
+    .querySelectorAll<HTMLDetailsElement>("details.document-image-properties[open]")
+    .forEach((panel) => {
+      if (!panel.contains(target)) panel.open = false;
+    });
+}
+
+const defaultHeaderImagePlacement = { leftPercent: 2, topPx: 4, widthPercent: 18, heightPx: 54 };
 
 interface FileUploadIntent {
   readonly data: {
@@ -160,6 +196,15 @@ function beginImageResize(
   const availableWidth = Math.max(container.clientWidth, 1);
   const originWidthPx = Math.max(media.offsetWidth, 1);
   const originHeight = Math.max(media.offsetHeight, 1);
+  const sheet = media.closest<HTMLElement>(".document-page-sheet");
+  const sheetBounds = sheet?.getBoundingClientRect();
+  const maximumHeight = sheetBounds
+    ? Math.max(
+        originHeight,
+        (sheetBounds.bottom - mediaBounds.top) /
+          (mediaBounds.height / Math.max(media.offsetHeight, 1)),
+      )
+    : Number.POSITIVE_INFINITY;
   const horizontalScale = mediaBounds.width / originWidthPx || 1;
   const verticalScale = mediaBounds.height / originHeight || 1;
   const originX = event.clientX;
@@ -178,7 +223,11 @@ function beginImageResize(
     );
     onPatch({
       ...resized,
-      widthPercent: handle === "N" || handle === "S" ? originWidthPercent : resized.widthPercent,
+      widthPercent:
+        handle === "N" || handle === "S"
+          ? Math.min(100, originWidthPercent)
+          : Math.min(100, resized.widthPercent),
+      heightPx: Math.min(maximumHeight, resized.heightPx),
       aspectRatio: "FREE",
     });
   };
@@ -283,6 +332,53 @@ function textPresentationStyle(
     ...(text.fontSize ? { fontSize: `${text.fontSize}pt` } : {}),
     ...(fontFamily ? { fontFamily } : {}),
   };
+}
+
+type TableGridCell = TableGrid["rows"][number]["cells"][number];
+
+function tableCellPresentationStyle(cell: TableGridCell): CSSProperties {
+  const style = cell.style;
+  const side = (name: "top" | "right" | "bottom" | "left"): string | undefined => {
+    const border = style?.borders?.[name];
+    if (!border || border.style === "NONE") return undefined;
+    return `${border.width}px ${border.style.toLowerCase()} ${border.color}`;
+  };
+  return {
+    textAlign: style?.horizontalAlign?.toLowerCase() as CSSProperties["textAlign"],
+    verticalAlign: style?.verticalAlign?.toLowerCase() as CSSProperties["verticalAlign"],
+    fontWeight: style?.bold ? 700 : undefined,
+    fontStyle: style?.italic ? "italic" : undefined,
+    textDecoration: style?.underline ? "underline" : undefined,
+    fontSize: style?.fontSize ? `${style.fontSize}pt` : undefined,
+    color: style?.color,
+    backgroundColor: style?.backgroundColor,
+    padding: style?.paddingMm === undefined ? undefined : `${style.paddingMm}mm`,
+    borderTop: side("top"),
+    borderRight: side("right"),
+    borderBottom: side("bottom"),
+    borderLeft: side("left"),
+  };
+}
+
+function patchTableGridCell(
+  block: Extract<DocumentBlock, { readonly type: "TABLE" }>,
+  rowId: string,
+  cellId: string,
+  patch: Partial<TableGridCell>,
+): Extract<DocumentBlock, { readonly type: "TABLE" }> {
+  const grid = normalizeTableGrid(block);
+  const nextGrid: TableGrid = {
+    ...grid,
+    rows: grid.rows.map((row) =>
+      row.id === rowId
+        ? {
+            ...row,
+            cells: row.cells.map((cell) => (cell.id === cellId ? { ...cell, ...patch } : cell)),
+          }
+        : row,
+    ),
+  };
+  return projectTableGrid(block, nextGrid);
 }
 
 function setImageDragData(event: DragEvent<HTMLElement>, source: DocumentImageDragSource): void {
@@ -509,11 +605,14 @@ export default function DocumentsPage(): React.JSX.Element {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [showColumnLayouts, setShowColumnLayouts] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [headerImageSelected, setHeaderImageSelected] = useState(false);
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(90);
   const [ribbonTab, setRibbonTab] = useState<"HOME" | "INSERT" | "LAYOUT">("HOME");
-  const [pageCount, setPageCount] = useState(1);
-  const pageRef = useRef<HTMLElement | null>(null);
+  const [blockHeightsPx, setBlockHeightsPx] = useState<Readonly<Record<string, number>>>({});
+  const [headerHeightPx, setHeaderHeightPx] = useState(0);
+  const [footerHeightPx, setFooterHeightPx] = useState(0);
+  const pagesRootRef = useRef<HTMLDivElement | null>(null);
 
   const selectedContact = useMemo(
     () => contacts.find((contact) => contact.id === draft?.contactId) ?? null,
@@ -523,6 +622,46 @@ export default function DocumentsPage(): React.JSX.Element {
     () => draft?.blocks.find((block) => block.id === selectedBlockId) ?? null,
     [draft?.blocks, selectedBlockId],
   );
+  const headerSegments = useMemo(
+    () => (draft ? commercialHeaderSegments(draft.design) : { left: "", right: "" }),
+    [draft],
+  );
+  const pagedBlocks = useMemo(() => {
+    if (!draft) return [] as readonly (readonly DocumentBlock[])[];
+    const haveMeasurements = draft.blocks.every((block) => (blockHeightsPx[block.id] ?? 0) > 0);
+    if (!haveMeasurements) return [draft.blocks];
+    const baseGeometry = createDocumentPageGeometry(draft.design.pageSize, draft.design.margins);
+    const rootSize =
+      typeof window === "undefined"
+        ? 16
+        : Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+    const pixelsPerMillimetre = (50 * rootSize) / baseGeometry.widthMm;
+    const geometry = createDocumentPageGeometry(draft.design.pageSize, {
+      top: draft.design.margins.top + headerHeightPx / pixelsPerMillimetre,
+      right: draft.design.margins.right,
+      bottom: draft.design.margins.bottom + footerHeightPx / pixelsPerMillimetre,
+      left: draft.design.margins.left,
+    });
+    try {
+      return paginateDocumentBlocks(
+        draft.blocks.map((block) => ({
+          id: block.id,
+          ...(block.breakBefore ? { breakBefore: true } : {}),
+          box: {
+            widthMm: geometry.contentWidthMm,
+            heightMm: (blockHeightsPx[block.id] ?? 0) / pixelsPerMillimetre,
+          },
+          value: block,
+        })),
+        geometry,
+      ).pages.map((page) => page.blocks.map((positioned) => positioned.value));
+    } catch {
+      // A block taller than the printable body remains visible in its own page
+      // while the author reduces it; it is never clipped by the canvas.
+      return draft.blocks.map((block) => [block]);
+    }
+  }, [blockHeightsPx, draft, footerHeightPx, headerHeightPx]);
+  const pageCount = Math.max(1, pagedBlocks.length);
   const filteredDocuments = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
     return documents.filter(
@@ -575,27 +714,42 @@ export default function DocumentsPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    const page = pageRef.current;
-    if (!page || !draft) {
-      setPageCount(1);
-      return;
-    }
-    const updatePageCount = (): void => {
-      const rootFontSize = Number.parseFloat(
-        window.getComputedStyle(document.documentElement).fontSize,
+    const root = pagesRootRef.current;
+    if (!root || !draft) return;
+    const update = (): void => {
+      const next: Record<string, number> = {};
+      root.querySelectorAll<HTMLElement>("[data-document-block-id]").forEach((element) => {
+        const id = element.dataset.documentBlockId;
+        if (id) next[id] = element.offsetHeight;
+      });
+      const header = root.querySelector<HTMLElement>("[data-document-header]");
+      const footer = root.querySelector<HTMLElement>("[data-document-footer]");
+      setBlockHeightsPx((current) => {
+        const changed =
+          Object.keys(next).length !== Object.keys(current).length ||
+          Object.entries(next).some(([id, height]) => Math.abs((current[id] ?? 0) - height) > 1);
+        return changed ? next : current;
+      });
+      setHeaderHeightPx((current) =>
+        Math.abs(current - (header?.offsetHeight ?? 0)) > 1 ? (header?.offsetHeight ?? 0) : current,
       );
-      const pageHeightRem = draft.design.pageSize === "LETTER" ? 64.7 : 70.7;
-      const pageHeight = pageHeightRem * (Number.isFinite(rootFontSize) ? rootFontSize : 16);
-      setPageCount(Math.max(1, Math.ceil(page.scrollHeight / pageHeight)));
+      setFooterHeightPx((current) =>
+        Math.abs(current - (footer?.offsetHeight ?? 0)) > 1 ? (footer?.offsetHeight ?? 0) : current,
+      );
     };
-    const frame = window.requestAnimationFrame(updatePageCount);
-    const observer = new ResizeObserver(updatePageCount);
-    observer.observe(page);
+    const frame = window.requestAnimationFrame(update);
+    const observer = new ResizeObserver(update);
+    observer.observe(root);
+    root
+      .querySelectorAll<HTMLElement>(
+        "[data-document-block-id], [data-document-header], [data-document-footer]",
+      )
+      .forEach((element) => observer.observe(element));
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [draft, zoom]);
+  }, [draft?.id, draft?.blocks, draft?.design, zoom]);
 
   useEffect(() => {
     function closeTemporaryPanels(event: KeyboardEvent): void {
@@ -626,6 +780,81 @@ export default function DocumentsPage(): React.JSX.Element {
   function patchDraft(patch: Partial<CommercialDocument>): void {
     setDraft((current) => (current ? { ...current, ...patch } : current));
     setDirty(true);
+  }
+
+  function patchHeaderImagePlacement(
+    patch: Partial<NonNullable<CommercialDocument["design"]["headerImagePlacement"]>>,
+  ): void {
+    if (!draft) return;
+    patchDraft({
+      design: {
+        ...draft.design,
+        headerImagePlacement: {
+          ...(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement),
+          ...patch,
+        },
+      },
+    });
+  }
+
+  function beginHeaderImageMove(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (
+      !draft ||
+      !draft.design.logoFileId ||
+      (event.target as HTMLElement).closest("button, label")
+    )
+      return;
+    event.preventDefault();
+    const header = event.currentTarget.closest<HTMLElement>(".document-page-header");
+    if (!header) return;
+    const start = draft.design.headerImagePlacement ?? defaultHeaderImagePlacement;
+    const originX = event.clientX;
+    const originY = event.clientY;
+    const bounds = header.getBoundingClientRect();
+    const move = (pointerEvent: PointerEvent): void => {
+      patchHeaderImagePlacement({
+        leftPercent: clamp(
+          start.leftPercent + ((pointerEvent.clientX - originX) / bounds.width) * 100,
+          0,
+          100 - start.widthPercent,
+        ),
+        topPx: Math.max(0, start.topPx + pointerEvent.clientY - originY),
+      });
+    };
+    const stop = (): void => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
+  }
+
+  function beginHeaderImageResize(event: ReactPointerEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!draft) return;
+    const header = event.currentTarget.closest<HTMLElement>(".document-page-header");
+    const start = draft.design.headerImagePlacement ?? defaultHeaderImagePlacement;
+    if (!header) return;
+    const originX = event.clientX;
+    const originY = event.clientY;
+    const bounds = header.getBoundingClientRect();
+    const move = (pointerEvent: PointerEvent): void => {
+      patchHeaderImagePlacement({
+        widthPercent: clamp(
+          start.widthPercent + ((pointerEvent.clientX - originX) / bounds.width) * 100,
+          4,
+          100 - start.leftPercent,
+        ),
+        heightPx: Math.max(24, start.heightPx + pointerEvent.clientY - originY),
+      });
+    };
+    const stop = (): void => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
   }
 
   function openInspectorSection(
@@ -775,20 +1004,41 @@ export default function DocumentsPage(): React.JSX.Element {
     setError(null);
     try {
       const templateId = String(form.get("templateId") || "");
+      const referenceKey = String(form.get("referenceTemplate") || "");
+      const reference = referenceTemplateKeys.includes(referenceKey as ReferenceTemplateKey)
+        ? createReferenceBlueprint(referenceKey as ReferenceTemplateKey)
+        : null;
       const response = await mutate("/api/documents", {
-        kind: form.get("kind"),
+        kind: reference ? "QUOTE" : form.get("kind"),
         title: form.get("title"),
         contactId: String(form.get("contactId") || "") || null,
         opportunityId: String(form.get("opportunityId") || "") || null,
-        ...(templateId ? { templateId } : {}),
+        ...(reference
+          ? { blocks: reference.blocks, design: reference.design }
+          : templateId
+            ? { templateId }
+            : {}),
       });
       const created = ((await response.json()) as { data: CommercialDocument }).data;
+      if (reference) {
+        const templateResponse = await mutate("/api/documents/templates", {
+          name: reference.name,
+          sourceDocumentId: created.id,
+        });
+        const createdTemplate = ((await templateResponse.json()) as { data: DocumentTemplate })
+          .data;
+        setTemplates((current) => [...current, createdTemplate]);
+      }
       setDocuments((current) => [created, ...current]);
       setSelectedId(created.id);
       setDraft(normalizeDocumentForEditor(created));
       setDirty(false);
       setShowCreate(false);
-      setNotice("Borrador creado y listo para editar.");
+      setNotice(
+        reference
+          ? "Borrador y plantilla reutilizable creados; reemplaza las imagenes marcadas y guarda."
+          : "Borrador creado y listo para editar.",
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible crear el documento.");
     } finally {
@@ -981,7 +1231,10 @@ export default function DocumentsPage(): React.JSX.Element {
   }
 
   return (
-    <main className="documents-shell document-studio-shell document-processor">
+    <main
+      className="documents-shell document-studio-shell document-processor"
+      onPointerDownCapture={(event) => closeImagePropertiesOutside(event.target)}
+    >
       <section className="documents-page">
         <header className="document-commandbar">
           <div className="document-command-title">
@@ -1630,298 +1883,428 @@ export default function DocumentsPage(): React.JSX.Element {
                     } as CSSProperties
                   }
                 >
-                  <article
-                    ref={pageRef}
-                    className={`document-page document-page-sheet ${
-                      draft.design.fontFamily === "SERIF"
-                        ? "preview-serif"
-                        : draft.design.fontFamily === "MONO"
-                          ? "preview-mono"
-                          : ""
-                    }`}
-                    style={
-                      {
-                        color: draft.design.textColor,
-                        "--document-margin-top": `${draft.design.margins.top}mm`,
-                        "--document-margin-right": `${draft.design.margins.right}mm`,
-                        "--document-margin-bottom": `${draft.design.margins.bottom}mm`,
-                        "--document-margin-left": `${draft.design.margins.left}mm`,
-                      } as CSSProperties
-                    }
-                  >
-                    {pageCount > 1 ? (
-                      <div className="document-page-breaks" aria-hidden="true">
-                        {Array.from({ length: pageCount - 1 }, (_, pageIndex) => (
-                          <span
-                            className="document-page-break"
-                            style={{
-                              top: `calc(var(--document-page-height) * ${pageIndex + 1})`,
-                            }}
-                            key={pageIndex}
+                  <div ref={pagesRootRef} className="document-page-sheet-list">
+                    {pagedBlocks.map((pageBlocks, pageIndex) => (
+                      <article
+                        className={`document-page document-page-sheet ${
+                          draft.design.fontFamily === "SERIF"
+                            ? "preview-serif"
+                            : draft.design.fontFamily === "MONO"
+                              ? "preview-mono"
+                              : ""
+                        }`}
+                        style={
+                          {
+                            color: draft.design.textColor,
+                            "--document-margin-top": `${draft.design.margins.top}mm`,
+                            "--document-margin-right": `${draft.design.margins.right}mm`,
+                            "--document-margin-bottom": `${draft.design.margins.bottom}mm`,
+                            "--document-margin-left": `${draft.design.margins.left}mm`,
+                          } as CSSProperties
+                        }
+                      >
+                        {draft.design.headerEnabled ? (
+                          <header
+                            data-document-header={pageIndex === 0 ? "true" : undefined}
+                            className={`document-page-region document-page-header region-${draft.design.headerSpacing.toLowerCase()} layout-${draft.design.headerLayout.toLowerCase()} align-${draft.design.headerAlign.toLowerCase()}`}
+                            style={
+                              {
+                                borderColor: draft.design.accentColor,
+                                "--header-canvas-height": `${
+                                  (draft.design.headerImagePlacement ?? defaultHeaderImagePlacement)
+                                    .topPx +
+                                  (draft.design.headerImagePlacement ?? defaultHeaderImagePlacement)
+                                    .heightPx +
+                                  12
+                                }px`,
+                              } as CSSProperties
+                            }
+                            title="Doble clic para configurar el encabezado"
+                            onDoubleClick={() => openInspectorSection("document-header-settings")}
                           >
-                            Pagina {pageIndex + 1} / {pageCount}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                    {draft.design.headerEnabled ? (
-                      <header
-                        className={`document-page-region document-page-header region-${draft.design.headerSpacing.toLowerCase()} layout-${draft.design.headerLayout.toLowerCase()} align-${draft.design.headerAlign.toLowerCase()}`}
-                        style={{ borderColor: draft.design.accentColor }}
-                        title="Doble clic para configurar el encabezado"
-                        onDoubleClick={() => openInspectorSection("document-header-settings")}
-                      >
-                        <span className="document-region-label">ENCABEZADO</span>
-                        <div className="document-header-content">
-                          {draft.design.logoFileId && csrf ? (
-                            <span className="document-header-logo">
-                              <AuthorizedFileImage
-                                fileId={draft.design.logoFileId}
-                                alt="Logotipo de la empresa"
-                                csrf={csrf}
-                              />
-                            </span>
-                          ) : null}
-                          <textarea
-                            aria-label="Texto del encabezado"
-                            value={draft.design.headerText}
-                            rows={2}
-                            onChange={(event) =>
-                              patchDraft({
-                                design: { ...draft.design, headerText: event.target.value },
-                              })
-                            }
-                          />
-                        </div>
-                        {draft.design.showDocumentKind ? (
-                          <strong>{draft.kind === "QUOTE" ? "COTIZACION" : "FACTURA"}</strong>
-                        ) : null}
-                        <button
-                          className="document-region-settings"
-                          type="button"
-                          onClick={() => openInspectorSection("document-header-settings")}
-                        >
-                          Opciones de encabezado
-                        </button>
-                      </header>
-                    ) : (
-                      <button
-                        className="document-region-hidden"
-                        type="button"
-                        onClick={() =>
-                          patchDraft({
-                            design: {
-                              ...draft.design,
-                              headerEnabled: true,
-                              showDocumentKind:
-                                draft.design.headerText.trim().length === 0 &&
-                                draft.design.logoFileId === null
-                                  ? false
-                                  : draft.design.showDocumentKind,
-                            },
-                          })
-                        }
-                      >
-                        + Agregar encabezado
-                      </button>
-                    )}
-                    {draft.design.identityEnabled ? (
-                      <section className="document-page-title">
-                        <p>PREPARADO PARA</p>
-                        <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
-                        <textarea
-                          className="document-title-input"
-                          aria-label="Titulo del documento"
-                          value={draft.title}
-                          rows={2}
-                          onChange={(event) => patchDraft({ title: event.target.value })}
-                        />
-                        <button
-                          className="document-region-settings"
-                          type="button"
-                          onClick={() =>
-                            patchDraft({
-                              design: { ...draft.design, identityEnabled: false },
-                            })
-                          }
-                        >
-                          Quitar datos del documento
-                        </button>
-                      </section>
-                    ) : (
-                      <button
-                        className="document-region-hidden identity-hidden"
-                        type="button"
-                        onClick={() =>
-                          patchDraft({
-                            design: { ...draft.design, identityEnabled: true },
-                          })
-                        }
-                      >
-                        + Agregar datos del documento
-                      </button>
-                    )}
-                    <div className="document-block-list document-page-blocks">
-                      {draft.blocks.length === 0 ? (
-                        <button
-                          className="document-empty-page"
-                          type="button"
-                          onClick={() =>
-                            patchDraft({ blocks: [...draft.blocks, newBlock("TEXT")] })
-                          }
-                        >
-                          <span>+</span>
-                          Empieza a escribir
-                        </button>
-                      ) : null}
-                      {draft.blocks.map((block, index) => (
-                        <article
-                          className={`document-block document-block-${block.type.toLowerCase()} ${block.locked ? "locked" : ""} ${selectedBlockId === block.id ? "selected" : ""} ${draggedBlockId === block.id ? "dragging" : ""} ${block.type === "IMAGE" ? `document-block-image image-block-flow-${(block.flow ?? "INLINE").toLowerCase()}` : ""}`}
-                          style={
-                            block.type === "IMAGE"
-                              ? ({
-                                  "--image-frame-width": `${imageFrameWidth(block)}%`,
-                                } as CSSProperties)
-                              : undefined
-                          }
-                          key={block.id}
-                          onClick={() => setSelectedBlockId(block.id)}
-                          onFocus={() => setSelectedBlockId(block.id)}
-                          onDragOver={(event) => {
-                            if (event.dataTransfer.types.includes(documentImageDragType)) {
-                              event.preventDefault();
-                              event.dataTransfer.dropEffect = "move";
-                              return;
-                            }
-                            const sourceIndex = draft.blocks.findIndex(
-                              (item) => item.id === draggedBlockId,
-                            );
-                            if (moveDocumentBlockTo(draft.blocks, sourceIndex, index) !== null) {
-                              event.preventDefault();
-                            }
-                          }}
-                          onDrop={(event) => {
-                            event.preventDefault();
-                            const imageSource = imageDragData(event);
-                            if (imageSource?.kind === "COLUMN_ITEM") {
-                              moveImageToPage(imageSource, index);
-                              return;
-                            }
-                            dropBlock(index);
-                          }}
-                        >
-                          <header className="document-block-gutter">
-                            <span
-                              className="block-handle"
-                              draggable={!block.locked}
-                              onDragStart={(event) => {
-                                event.dataTransfer.effectAllowed = "move";
-                                event.dataTransfer.setData("text/plain", block.id);
-                                if (block.type === "IMAGE") {
-                                  setImageDragData(event, { kind: "BLOCK", blockId: block.id });
+                            <span className="document-region-label">ENCABEZADO</span>
+                            <div className="document-header-content">
+                              <textarea
+                                aria-label="Texto del encabezado"
+                                value={headerSegments.left}
+                                rows={2}
+                                onChange={(event) =>
+                                  patchDraft({
+                                    design: {
+                                      ...draft.design,
+                                      headerText: event.target.value,
+                                      headerRightText: headerSegments.right,
+                                    },
+                                  })
                                 }
-                                setDraggedBlockId(block.id);
-                              }}
-                              onDragEnd={() => setDraggedBlockId(null)}
-                              title={block.locked ? "Bloque protegido" : "Arrastrar para reordenar"}
-                              aria-hidden="true"
-                            >
-                              ⋮⋮
-                            </span>
-                            <strong>{blockLabels[block.type]}</strong>
-                            {block.locked ? <small aria-label="Bloque protegido">●</small> : null}
+                              />
+                            </div>
+                            {draft.design.headerLayout === "SPLIT" ? (
+                              <textarea
+                                className="document-header-reference"
+                                aria-label="Referencia derecha del encabezado"
+                                value={headerSegments.right}
+                                rows={2}
+                                onChange={(event) =>
+                                  patchDraft({
+                                    design: {
+                                      ...draft.design,
+                                      headerText: headerSegments.left,
+                                      headerRightText: event.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                            ) : null}
+                            {draft.design.logoFileId && csrf ? (
+                              <div
+                                className={`document-header-free-image ${headerImageSelected ? "is-selected" : ""}`}
+                                style={
+                                  {
+                                    "--header-image-left": `${(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).leftPercent}%`,
+                                    "--header-image-top": `${(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).topPx}px`,
+                                    "--header-image-width": `${(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).widthPercent}%`,
+                                    "--header-image-height": `${(draft.design.headerImagePlacement ?? defaultHeaderImagePlacement).heightPx}px`,
+                                  } as CSSProperties
+                                }
+                                onPointerDown={(event) => {
+                                  setHeaderImageSelected(true);
+                                  beginHeaderImageMove(event);
+                                }}
+                                title="Arrastra la imagen para moverla"
+                              >
+                                <AuthorizedFileImage
+                                  fileId={draft.design.logoFileId}
+                                  alt="Imagen del encabezado"
+                                  csrf={csrf}
+                                />
+                                {headerImageSelected ? (
+                                  <>
+                                    <label className="document-header-image-change">
+                                      Cambiar imagen
+                                      <input
+                                        aria-label="Sustituir imagen del encabezado"
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        disabled={uploadingTargetId === "design:logo"}
+                                        onChange={(event) => {
+                                          const file = event.target.files?.[0];
+                                          if (file) void uploadDocumentFile({ kind: "LOGO" }, file);
+                                          event.currentTarget.value = "";
+                                        }}
+                                      />
+                                    </label>
+                                    <button
+                                      className="document-header-image-delete"
+                                      type="button"
+                                      onClick={() => {
+                                        patchDraft({
+                                          design: {
+                                            ...draft.design,
+                                            logoFileId: null,
+                                            logoChecksum: null,
+                                          },
+                                        });
+                                        setHeaderImageSelected(false);
+                                      }}
+                                    >
+                                      Eliminar
+                                    </button>
+                                    <button
+                                      className="document-header-image-resize"
+                                      type="button"
+                                      aria-label="Redimensionar imagen del encabezado"
+                                      onPointerDown={beginHeaderImageResize}
+                                    />
+                                  </>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <label className="document-header-add-image">
+                                {uploadingTargetId === "design:logo"
+                                  ? "Cargando imagen..."
+                                  : "+ Imagen"}
+                                <input
+                                  aria-label="Agregar imagen al encabezado"
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  disabled={uploadingTargetId === "design:logo"}
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (file) void uploadDocumentFile({ kind: "LOGO" }, file);
+                                    event.currentTarget.value = "";
+                                  }}
+                                />
+                              </label>
+                            )}
+                            {draft.design.showDocumentKind ? (
+                              <strong>{draft.kind === "QUOTE" ? "COTIZACION" : "FACTURA"}</strong>
+                            ) : null}
                             <button
-                              className="document-block-delete"
+                              className="document-region-settings"
                               type="button"
-                              disabled={block.locked}
-                              aria-label={`Eliminar ${blockLabels[block.type]}`}
-                              title={
-                                block.locked
-                                  ? "Desprotege el elemento para eliminarlo"
-                                  : "Eliminar del lienzo"
-                              }
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                patchDraft({
-                                  blocks: draft.blocks.filter((item) => item.id !== block.id),
-                                });
-                                setSelectedBlockId(null);
-                              }}
+                              onClick={() => openInspectorSection("document-header-settings")}
                             >
-                              <span aria-hidden="true">×</span>
-                              Eliminar
+                              Opciones de encabezado
                             </button>
                           </header>
-                          <BlockEditor
-                            block={block}
-                            selected={selectedBlockId === block.id}
-                            onChange={(next) => updateBlock(block.id, () => next)}
-                            uploading={uploadingTargetId === `block:${block.id}`}
-                            uploadingItemId={
-                              uploadingTargetId?.startsWith(`column:${block.id}:`)
-                                ? (uploadingTargetId.split(":")[2] ?? null)
-                                : null
+                        ) : (
+                          <button
+                            className="document-region-hidden"
+                            type="button"
+                            onClick={() =>
+                              patchDraft({
+                                design: {
+                                  ...draft.design,
+                                  headerEnabled: true,
+                                  showDocumentKind:
+                                    draft.design.headerText.trim().length === 0 &&
+                                    draft.design.logoFileId === null
+                                      ? false
+                                      : draft.design.showDocumentKind,
+                                },
+                              })
                             }
-                            onFileSelected={(file, itemId) =>
-                              void uploadDocumentFile(
-                                itemId
-                                  ? { kind: "COLUMN_ITEM", blockId: block.id, itemId }
-                                  : { kind: "BLOCK", blockId: block.id },
-                                file,
-                              )
+                          >
+                            + Agregar encabezado
+                          </button>
+                        )}
+                        {pageIndex === 0 && draft.design.identityEnabled ? (
+                          <section className="document-page-title">
+                            <p>PREPARADO PARA</p>
+                            <span>{selectedContact?.displayName ?? "Selecciona un contacto"}</span>
+                            <textarea
+                              className="document-title-input"
+                              aria-label="Titulo del documento"
+                              value={draft.title}
+                              rows={2}
+                              onChange={(event) => patchDraft({ title: event.target.value })}
+                            />
+                            <button
+                              className="document-region-settings"
+                              type="button"
+                              onClick={() =>
+                                patchDraft({
+                                  design: { ...draft.design, identityEnabled: false },
+                                })
+                              }
+                            >
+                              Quitar datos del documento
+                            </button>
+                          </section>
+                        ) : pageIndex === 0 ? (
+                          <button
+                            className="document-region-hidden identity-hidden"
+                            type="button"
+                            onClick={() =>
+                              patchDraft({
+                                design: { ...draft.design, identityEnabled: true },
+                              })
                             }
-                            onImageDropToColumn={(source, cellId) =>
-                              moveImageToColumn(source, block.id, cellId)
-                            }
-                            csrf={csrf}
-                          />
-                        </article>
-                      ))}
-                    </div>
-                    {draft.design.footerEnabled ? (
-                      <footer
-                        className={`document-page-region document-page-footer region-${draft.design.footerSpacing.toLowerCase()} align-${draft.design.footerAlign.toLowerCase()}`}
-                        style={{ borderColor: draft.design.accentColor }}
-                        title="Doble clic para configurar el pie de pagina"
-                        onDoubleClick={() => openInspectorSection("document-footer-settings")}
-                      >
-                        <span className="document-region-label">PIE DE PAGINA</span>
-                        <textarea
-                          aria-label="Texto del pie de pagina"
-                          value={draft.design.footerText}
-                          rows={2}
-                          placeholder="Pie de pagina"
-                          onChange={(event) =>
-                            patchDraft({
-                              design: { ...draft.design, footerText: event.target.value },
-                            })
-                          }
-                        />
-                        {draft.design.showPageNumbers ? (
-                          <small>01 / {String(pageCount).padStart(2, "0")}</small>
+                          >
+                            + Agregar datos del documento
+                          </button>
                         ) : null}
-                        <button
-                          className="document-region-settings"
-                          type="button"
-                          onClick={() => openInspectorSection("document-footer-settings")}
-                        >
-                          Opciones de pie
-                        </button>
-                      </footer>
-                    ) : (
-                      <button
-                        className="document-region-hidden footer-hidden"
-                        type="button"
-                        onClick={() =>
-                          patchDraft({
-                            design: { ...draft.design, footerEnabled: true },
-                          })
-                        }
-                      >
-                        + Agregar pie de pagina
-                      </button>
-                    )}
-                  </article>
+                        <div className="document-block-list document-page-blocks">
+                          {draft.blocks.length === 0 ? (
+                            <button
+                              className="document-empty-page"
+                              type="button"
+                              onClick={() =>
+                                patchDraft({ blocks: [...draft.blocks, newBlock("TEXT")] })
+                              }
+                            >
+                              <span>+</span>
+                              Empieza a escribir
+                            </button>
+                          ) : null}
+                          {pageBlocks.map((block) => {
+                            const index = draft.blocks.findIndex((item) => item.id === block.id);
+                            return (
+                              <article
+                                data-document-block-id={block.id}
+                                className={`document-block document-block-${block.type.toLowerCase()} ${block.locked ? "locked" : ""} ${selectedBlockId === block.id ? "selected" : ""} ${draggedBlockId === block.id ? "dragging" : ""} ${block.type === "IMAGE" ? `document-block-image image-block-flow-${(block.flow ?? "INLINE").toLowerCase()}` : ""}`}
+                                style={
+                                  block.type === "IMAGE"
+                                    ? ({
+                                        "--image-frame-width": `${imageFrameWidth(block)}%`,
+                                      } as CSSProperties)
+                                    : undefined
+                                }
+                                key={block.id}
+                                onClick={() => setSelectedBlockId(block.id)}
+                                onFocus={() => setSelectedBlockId(block.id)}
+                                onDragOver={(event) => {
+                                  if (event.dataTransfer.types.includes(documentImageDragType)) {
+                                    event.preventDefault();
+                                    event.dataTransfer.dropEffect = "move";
+                                    return;
+                                  }
+                                  const sourceIndex = draft.blocks.findIndex(
+                                    (item) => item.id === draggedBlockId,
+                                  );
+                                  if (
+                                    moveDocumentBlockTo(draft.blocks, sourceIndex, index) !== null
+                                  ) {
+                                    event.preventDefault();
+                                  }
+                                }}
+                                onDrop={(event) => {
+                                  event.preventDefault();
+                                  const imageSource = imageDragData(event);
+                                  if (imageSource?.kind === "COLUMN_ITEM") {
+                                    moveImageToPage(imageSource, index);
+                                    return;
+                                  }
+                                  dropBlock(index);
+                                }}
+                              >
+                                <header className="document-block-gutter">
+                                  <span
+                                    className="block-handle"
+                                    draggable={!block.locked}
+                                    onDragStart={(event) => {
+                                      event.dataTransfer.effectAllowed = "move";
+                                      event.dataTransfer.setData("text/plain", block.id);
+                                      if (block.type === "IMAGE") {
+                                        setImageDragData(event, {
+                                          kind: "BLOCK",
+                                          blockId: block.id,
+                                        });
+                                      }
+                                      setDraggedBlockId(block.id);
+                                    }}
+                                    onDragEnd={() => setDraggedBlockId(null)}
+                                    title={
+                                      block.locked ? "Bloque protegido" : "Arrastrar para reordenar"
+                                    }
+                                    aria-hidden="true"
+                                  >
+                                    ⋮⋮
+                                  </span>
+                                  <strong>{blockLabels[block.type]}</strong>
+                                  <button
+                                    className="document-block-page-break"
+                                    type="button"
+                                    disabled={block.locked}
+                                    aria-pressed={block.breakBefore ?? false}
+                                    title={
+                                      block.breakBefore
+                                        ? "Quitar salto de pagina anterior"
+                                        : "Iniciar este bloque en una pagina nueva"
+                                    }
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      updateBlock(block.id, (current) => ({
+                                        ...current,
+                                        breakBefore: !current.breakBefore,
+                                      }));
+                                    }}
+                                  >
+                                    {block.breakBefore ? "Unir pagina" : "Nueva pagina"}
+                                  </button>
+                                  {block.locked ? (
+                                    <small aria-label="Bloque protegido">●</small>
+                                  ) : null}
+                                  <button
+                                    className="document-block-delete"
+                                    type="button"
+                                    disabled={block.locked}
+                                    aria-label={`Eliminar ${blockLabels[block.type]}`}
+                                    title={
+                                      block.locked
+                                        ? "Desprotege el elemento para eliminarlo"
+                                        : "Eliminar del lienzo"
+                                    }
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      patchDraft({
+                                        blocks: draft.blocks.filter((item) => item.id !== block.id),
+                                      });
+                                      setSelectedBlockId(null);
+                                    }}
+                                  >
+                                    <span aria-hidden="true">×</span>
+                                    Eliminar
+                                  </button>
+                                </header>
+                                <BlockEditor
+                                  block={block}
+                                  selected={selectedBlockId === block.id}
+                                  onChange={(next) => updateBlock(block.id, () => next)}
+                                  uploading={uploadingTargetId === `block:${block.id}`}
+                                  uploadingItemId={
+                                    uploadingTargetId?.startsWith(`column:${block.id}:`)
+                                      ? (uploadingTargetId.split(":")[2] ?? null)
+                                      : null
+                                  }
+                                  onFileSelected={(file, itemId) =>
+                                    void uploadDocumentFile(
+                                      itemId
+                                        ? { kind: "COLUMN_ITEM", blockId: block.id, itemId }
+                                        : { kind: "BLOCK", blockId: block.id },
+                                      file,
+                                    )
+                                  }
+                                  onImageDropToColumn={(source, cellId) =>
+                                    moveImageToColumn(source, block.id, cellId)
+                                  }
+                                  csrf={csrf}
+                                />
+                              </article>
+                            );
+                          })}
+                        </div>
+                        {draft.design.footerEnabled ? (
+                          <footer
+                            data-document-footer={pageIndex === 0 ? "true" : undefined}
+                            className={`document-page-region document-page-footer region-${draft.design.footerSpacing.toLowerCase()} align-${draft.design.footerAlign.toLowerCase()}`}
+                            style={{ borderColor: draft.design.accentColor }}
+                            title="Doble clic para configurar el pie de pagina"
+                            onDoubleClick={() => openInspectorSection("document-footer-settings")}
+                          >
+                            <span className="document-region-label">PIE DE PAGINA</span>
+                            <textarea
+                              aria-label="Texto del pie de pagina"
+                              value={draft.design.footerText}
+                              rows={2}
+                              placeholder="Pie de pagina"
+                              onChange={(event) =>
+                                patchDraft({
+                                  design: { ...draft.design, footerText: event.target.value },
+                                })
+                              }
+                            />
+                            {draft.design.showPageNumbers ? (
+                              <small>
+                                {String(pageIndex + 1).padStart(2, "0")} /{" "}
+                                {String(pageCount).padStart(2, "0")}
+                              </small>
+                            ) : null}
+                            <button
+                              className="document-region-settings"
+                              type="button"
+                              onClick={() => openInspectorSection("document-footer-settings")}
+                            >
+                              Opciones de pie
+                            </button>
+                          </footer>
+                        ) : (
+                          <button
+                            className="document-region-hidden footer-hidden"
+                            type="button"
+                            onClick={() =>
+                              patchDraft({
+                                design: { ...draft.design, footerEnabled: true },
+                              })
+                            }
+                          >
+                            + Agregar pie de pagina
+                          </button>
+                        )}
+                      </article>
+                    ))}
+                  </div>
                 </div>
               </div>
             </section>
@@ -2004,6 +2387,25 @@ export default function DocumentsPage(): React.JSX.Element {
                 </label>
                 <div className="document-inspector-grid">
                   <label>
+                    Referencia derecha
+                    <input
+                      value={headerSegments.right}
+                      disabled={
+                        !draft.design.headerEnabled || draft.design.headerLayout !== "SPLIT"
+                      }
+                      placeholder="Cotizacion No. {{quote.number}}"
+                      onChange={(event) =>
+                        patchDraft({
+                          design: {
+                            ...draft.design,
+                            headerText: headerSegments.left,
+                            headerRightText: event.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
                     Distribucion
                     <select
                       value={draft.design.headerLayout}
@@ -2018,9 +2420,9 @@ export default function DocumentsPage(): React.JSX.Element {
                         })
                       }
                     >
-                      <option value="TEXT">Texto y tipo, sin logo</option>
-                      <option value="LOGO_TEXT">Logo y texto, tipo debajo</option>
-                      <option value="SPLIT">Logo y texto, tipo separado</option>
+                      <option value="TEXT">Texto y tipo</option>
+                      <option value="LOGO_TEXT">Imagen y texto, tipo debajo</option>
+                      <option value="SPLIT">Imagen y texto, tipo separado</option>
                     </select>
                   </label>
                   <label>
@@ -2307,6 +2709,18 @@ export default function DocumentsPage(): React.JSX.Element {
                 </select>
               </label>
             </div>
+            <label>
+              Base comercial
+              <select name="referenceTemplate" defaultValue="">
+                <option value="">No usar una base de referencia</option>
+                <option value="TRANSFER_SEDAN">InterAmerican · Traslado Sedan (2 paginas)</option>
+                <option value="RENTAL_SUV">InterAmerican · Alquiler SUV (3 paginas)</option>
+              </select>
+              <small>
+                Crea el borrador y una plantilla reutilizable. Las zonas de imagen quedan marcadas
+                para sustituirlas por tus archivos verificados.
+              </small>
+            </label>
             <div className="form-grid-2">
               <label>
                 Contacto
@@ -2524,12 +2938,13 @@ function ImagePresentationControls({
             <input
               type="number"
               min={0.01}
+              max={100}
               step={0.1}
               value={width}
               disabled={locked}
               onChange={(event) => {
                 const widthPercent = Number(event.target.value);
-                if (widthPercent > 0) onPatch({ widthPercent });
+                if (widthPercent > 0) onPatch({ widthPercent: Math.min(100, widthPercent) });
               }}
             />
             <output>{width}%</output>
@@ -2959,94 +3374,111 @@ function BlockEditor({
           </label>
         </div>
         {selected ? (
-          <div className="document-inline-controls" aria-label="Propiedades de la imagen">
-            <label>
-              Etiqueta
-              <input
-                value={block.label}
-                disabled={block.locked}
-                onChange={(event) => onChange({ ...block, label: event.target.value })}
-              />
-            </label>
-            <label>
-              Texto alternativo
-              <input
-                value={block.alt}
-                disabled={block.locked}
-                onChange={(event) => onChange({ ...block, alt: event.target.value })}
-              />
-            </label>
-            <label>
-              Pie de imagen
-              <input
-                value={block.caption}
-                disabled={block.locked}
-                onChange={(event) => onChange({ ...block, caption: event.target.value })}
-              />
-            </label>
-            <div className="image-presentation-controls">
+          <details
+            className="document-image-properties"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.currentTarget.removeAttribute("open");
+              event.currentTarget.querySelector<HTMLElement>("summary")?.focus();
+            }}
+          >
+            <summary>Propiedades</summary>
+            <div className="document-inline-controls" aria-label="Propiedades de la imagen">
               <label>
-                Ancho
-                <select
-                  value={block.width}
+                Etiqueta
+                <input
+                  value={block.label}
                   disabled={block.locked}
-                  onChange={(event) =>
-                    onChange({ ...block, width: event.target.value as typeof block.width })
-                  }
-                >
-                  <option value="FULL">Completo</option>
-                  <option value="WIDE">Amplio</option>
-                  <option value="MEDIUM">Mediano</option>
-                  <option value="SMALL">Pequeño</option>
-                </select>
+                  onChange={(event) => onChange({ ...block, label: event.target.value })}
+                />
               </label>
               <label>
-                Alineacion
-                <select
-                  value={block.align}
+                Texto alternativo
+                <input
+                  value={block.alt}
                   disabled={block.locked}
-                  onChange={(event) =>
-                    onChange({ ...block, align: event.target.value as typeof block.align })
-                  }
-                >
-                  <option value="LEFT">Izquierda</option>
-                  <option value="CENTER">Centro</option>
-                  <option value="RIGHT">Derecha</option>
-                </select>
+                  onChange={(event) => onChange({ ...block, alt: event.target.value })}
+                />
               </label>
               <label>
-                Ajuste
-                <select
-                  value={block.fit}
+                Pie de imagen
+                <input
+                  value={block.caption}
                   disabled={block.locked}
-                  onChange={(event) =>
-                    onChange({
-                      ...block,
-                      ...imageFitPatch(event.target.value as typeof block.fit),
-                    })
-                  }
-                >
-                  <option value="CONTAIN">Imagen completa</option>
-                  <option value="COVER">Recortar para llenar</option>
-                </select>
+                  onChange={(event) => onChange({ ...block, caption: event.target.value })}
+                />
               </label>
+              <div className="image-presentation-controls">
+                <label>
+                  Ancho
+                  <select
+                    value={block.width}
+                    disabled={block.locked}
+                    onChange={(event) =>
+                      onChange({ ...block, width: event.target.value as typeof block.width })
+                    }
+                  >
+                    <option value="FULL">Completo</option>
+                    <option value="WIDE">Amplio</option>
+                    <option value="MEDIUM">Mediano</option>
+                    <option value="SMALL">Pequeño</option>
+                  </select>
+                </label>
+                <label>
+                  Alineacion
+                  <select
+                    value={block.align}
+                    disabled={block.locked}
+                    onChange={(event) =>
+                      onChange({ ...block, align: event.target.value as typeof block.align })
+                    }
+                  >
+                    <option value="LEFT">Izquierda</option>
+                    <option value="CENTER">Centro</option>
+                    <option value="RIGHT">Derecha</option>
+                  </select>
+                </label>
+                <label>
+                  Ajuste
+                  <select
+                    value={block.fit}
+                    disabled={block.locked}
+                    onChange={(event) =>
+                      onChange({
+                        ...block,
+                        ...imageFitPatch(event.target.value as typeof block.fit),
+                      })
+                    }
+                  >
+                    <option value="CONTAIN">Imagen completa</option>
+                    <option value="COVER">Recortar para llenar</option>
+                  </select>
+                </label>
+              </div>
+              <ImagePresentationControls
+                image={block}
+                locked={block.locked}
+                allowFlow
+                onPatch={(patch) => onChange({ ...block, ...patch })}
+              />
+              <label className="instance-editability">
+                <input
+                  type="checkbox"
+                  checked={block.replaceable}
+                  disabled={block.locked}
+                  onChange={(event) => onChange({ ...block, replaceable: event.target.checked })}
+                />
+                Permitir cambiar esta imagen al usar la plantilla
+              </label>
+              <button
+                className="document-image-properties-close"
+                type="button"
+                onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}
+              >
+                Cerrar configuracion
+              </button>
             </div>
-            <ImagePresentationControls
-              image={block}
-              locked={block.locked}
-              allowFlow
-              onPatch={(patch) => onChange({ ...block, ...patch })}
-            />
-            <label className="instance-editability">
-              <input
-                type="checkbox"
-                checked={block.replaceable}
-                disabled={block.locked}
-                onChange={(event) => onChange({ ...block, replaceable: event.target.checked })}
-              />
-              Permitir cambiar esta imagen al usar la plantilla
-            </label>
-          </div>
+          </details>
         ) : null}
       </div>
     );
@@ -3337,6 +3769,104 @@ function BlockEditor({
         </div>
       </div>
     );
+  if (block.type === "TABLE" && block.grid) {
+    const grid = block.grid;
+    return (
+      <div className="table-editor document-table-composer document-table-v2-composer">
+        <div
+          className="document-table-v2-grid"
+          style={{
+            gridTemplateColumns: grid.columns.map((column) => `${column.widthPercent}fr`).join(" "),
+            gridTemplateRows: grid.rows
+              .map((row) => (row.heightMm ? `${row.heightMm}mm` : "minmax(2.3rem, auto)"))
+              .join(" "),
+          }}
+        >
+          {grid.rows.flatMap((row, rowIndex) =>
+            row.cells.map((cell) => (
+              <label
+                className="document-table-v2-cell"
+                key={cell.id}
+                style={{
+                  ...tableCellPresentationStyle(cell),
+                  gridColumn: `${cell.column + 1} / span ${cell.colSpan}`,
+                  gridRow: `${rowIndex + 1} / span ${cell.rowSpan}`,
+                }}
+              >
+                <span className="sr-only">Celda de tabla</span>
+                <textarea
+                  aria-label={`Fila ${rowIndex + 1}, columna ${cell.column + 1}`}
+                  value={cell.content}
+                  disabled={block.locked}
+                  onChange={(event) =>
+                    onChange(
+                      patchTableGridCell(block, row.id, cell.id, { content: event.target.value }),
+                    )
+                  }
+                />
+                {selected && !block.locked ? (
+                  <span className="document-table-v2-cell-controls">
+                    <button
+                      type="button"
+                      aria-label="Alternar negrita de celda"
+                      aria-pressed={cell.style?.bold ?? false}
+                      onClick={() =>
+                        onChange(
+                          patchTableGridCell(block, row.id, cell.id, {
+                            style: { ...cell.style, bold: !cell.style?.bold },
+                          }),
+                        )
+                      }
+                    >
+                      B
+                    </button>
+                    <select
+                      aria-label="Alineacion de celda"
+                      value={cell.style?.horizontalAlign ?? "LEFT"}
+                      onChange={(event) =>
+                        onChange(
+                          patchTableGridCell(block, row.id, cell.id, {
+                            style: {
+                              ...cell.style,
+                              horizontalAlign: event.target.value as NonNullable<
+                                TableGridCell["style"]
+                              >["horizontalAlign"],
+                            },
+                          }),
+                        )
+                      }
+                    >
+                      <option value="LEFT">Izq.</option>
+                      <option value="CENTER">Centro</option>
+                      <option value="RIGHT">Der.</option>
+                    </select>
+                    <input
+                      aria-label="Color de fondo de celda"
+                      type="color"
+                      value={cell.style?.backgroundColor ?? "#ffffff"}
+                      onChange={(event) =>
+                        onChange(
+                          patchTableGridCell(block, row.id, cell.id, {
+                            style: { ...cell.style, backgroundColor: event.target.value },
+                          }),
+                        )
+                      }
+                    />
+                  </span>
+                ) : null}
+              </label>
+            )),
+          )}
+        </div>
+        {selected ? (
+          <p className="document-table-v2-help">
+            Tabla avanzada: conserva celdas combinadas, estilos y bordes al guardar. Ajusta el
+            contenido directamente sobre la hoja.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
   if (block.type === "TABLE") {
     const widths = tableColumnWidths(block);
     const rowTemplate = `${widths.map((width) => `${width}fr`).join(" ")} ${selected ? "2.25rem" : "0"}`;
@@ -3437,6 +3967,13 @@ function BlockEditor({
         </div>
         {selected ? (
           <div className="document-table-actions document-table-toolbar document-inline-controls">
+            <button
+              type="button"
+              disabled={block.locked}
+              onClick={() => onChange(projectTableGrid(block, normalizeTableGrid(block)))}
+            >
+              Usar tabla avanzada
+            </button>
             <button
               className="document-add-row"
               type="button"
@@ -3737,103 +4274,120 @@ function ColumnItemEditor({
           />
         </label>
         {selected ? (
-          <div className="document-inline-controls" aria-label="Propiedades de imagen de columna">
-            <label>
-              Etiqueta
-              <input
-                value={item.label}
-                disabled={locked}
-                onChange={(event) => onChange({ ...item, label: event.target.value })}
-              />
-            </label>
-            <label>
-              Texto alternativo
-              <input
-                value={item.alt}
-                disabled={locked}
-                onChange={(event) => onChange({ ...item, alt: event.target.value })}
-              />
-            </label>
-            <label>
-              Pie de imagen
-              <input
-                value={item.caption}
-                disabled={locked}
-                onChange={(event) => onChange({ ...item, caption: event.target.value })}
-              />
-            </label>
-            <div className="image-presentation-controls">
+          <details
+            className="document-image-properties"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.currentTarget.removeAttribute("open");
+              event.currentTarget.querySelector<HTMLElement>("summary")?.focus();
+            }}
+          >
+            <summary>Propiedades</summary>
+            <div className="document-inline-controls" aria-label="Propiedades de imagen de columna">
               <label>
-                Ancho
-                <select
-                  value={item.width}
+                Etiqueta
+                <input
+                  value={item.label}
                   disabled={locked}
-                  onChange={(event) =>
-                    onChange({ ...item, width: event.target.value as typeof item.width })
-                  }
-                >
-                  <option value="FULL">Completo</option>
-                  <option value="WIDE">Amplio</option>
-                  <option value="MEDIUM">Mediano</option>
-                  <option value="SMALL">Pequeño</option>
-                </select>
+                  onChange={(event) => onChange({ ...item, label: event.target.value })}
+                />
               </label>
               <label>
-                Alineacion
-                <select
-                  value={item.align}
+                Texto alternativo
+                <input
+                  value={item.alt}
                   disabled={locked}
-                  onChange={(event) =>
-                    onChange({ ...item, align: event.target.value as typeof item.align })
-                  }
-                >
-                  <option value="LEFT">Izquierda</option>
-                  <option value="CENTER">Centro</option>
-                  <option value="RIGHT">Derecha</option>
-                </select>
+                  onChange={(event) => onChange({ ...item, alt: event.target.value })}
+                />
               </label>
               <label>
-                Ajuste
-                <select
-                  value={item.fit}
+                Pie de imagen
+                <input
+                  value={item.caption}
                   disabled={locked}
-                  onChange={(event) =>
-                    onChange({
-                      ...item,
-                      ...imageFitPatch(event.target.value as typeof item.fit),
-                    })
-                  }
-                >
-                  <option value="CONTAIN">Imagen completa</option>
-                  <option value="COVER">Recortar para llenar</option>
-                </select>
+                  onChange={(event) => onChange({ ...item, caption: event.target.value })}
+                />
               </label>
+              <div className="image-presentation-controls">
+                <label>
+                  Ancho
+                  <select
+                    value={item.width}
+                    disabled={locked}
+                    onChange={(event) =>
+                      onChange({ ...item, width: event.target.value as typeof item.width })
+                    }
+                  >
+                    <option value="FULL">Completo</option>
+                    <option value="WIDE">Amplio</option>
+                    <option value="MEDIUM">Mediano</option>
+                    <option value="SMALL">Pequeño</option>
+                  </select>
+                </label>
+                <label>
+                  Alineacion
+                  <select
+                    value={item.align}
+                    disabled={locked}
+                    onChange={(event) =>
+                      onChange({ ...item, align: event.target.value as typeof item.align })
+                    }
+                  >
+                    <option value="LEFT">Izquierda</option>
+                    <option value="CENTER">Centro</option>
+                    <option value="RIGHT">Derecha</option>
+                  </select>
+                </label>
+                <label>
+                  Ajuste
+                  <select
+                    value={item.fit}
+                    disabled={locked}
+                    onChange={(event) =>
+                      onChange({
+                        ...item,
+                        ...imageFitPatch(event.target.value as typeof item.fit),
+                      })
+                    }
+                  >
+                    <option value="CONTAIN">Imagen completa</option>
+                    <option value="COVER">Recortar para llenar</option>
+                  </select>
+                </label>
+              </div>
+              <ImagePresentationControls
+                image={item}
+                locked={locked}
+                allowFlow={false}
+                onPatch={(patch) => onChange({ ...item, ...patch })}
+              />
+              <label className="instance-editability">
+                <input
+                  type="checkbox"
+                  checked={item.visible}
+                  disabled={locked && !item.replaceable}
+                  onChange={(event) => onChange({ ...item, visible: event.target.checked })}
+                />
+                Mostrar esta imagen en el documento
+              </label>
+              <label className="instance-editability">
+                <input
+                  type="checkbox"
+                  checked={item.replaceable}
+                  disabled={locked}
+                  onChange={(event) => onChange({ ...item, replaceable: event.target.checked })}
+                />
+                Permitir cambiar u ocultar esta imagen al usar la plantilla
+              </label>
+              <button
+                className="document-image-properties-close"
+                type="button"
+                onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}
+              >
+                Cerrar configuracion
+              </button>
             </div>
-            <ImagePresentationControls
-              image={item}
-              locked={locked}
-              allowFlow={false}
-              onPatch={(patch) => onChange({ ...item, ...patch })}
-            />
-            <label className="instance-editability">
-              <input
-                type="checkbox"
-                checked={item.visible}
-                disabled={locked && !item.replaceable}
-                onChange={(event) => onChange({ ...item, visible: event.target.checked })}
-              />
-              Mostrar esta imagen en el documento
-            </label>
-            <label className="instance-editability">
-              <input
-                type="checkbox"
-                checked={item.replaceable}
-                disabled={locked}
-                onChange={(event) => onChange({ ...item, replaceable: event.target.checked })}
-              />
-              Permitir cambiar u ocultar esta imagen al usar la plantilla
-            </label>
-          </div>
+          </details>
         ) : null}
       </div>
     );

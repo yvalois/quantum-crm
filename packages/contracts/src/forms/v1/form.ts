@@ -12,6 +12,8 @@ export const FormFieldTypeSchema = z.enum([
   "NUMBER",
   "EMAIL",
   "PHONE",
+  "URL",
+  "ADDRESS",
   "DATE",
   "TIME",
   "SINGLE_CHOICE",
@@ -19,6 +21,8 @@ export const FormFieldTypeSchema = z.enum([
   "DROPDOWN",
   "CHECKBOX",
   "SCALE",
+  "RATING",
+  "IMAGE_UPLOAD",
 ]);
 export const FormConditionOperatorSchema = z.enum([
   "EQUALS",
@@ -102,6 +106,8 @@ export const FormThemeSchema = z
     accentColor: ColorSchema.default("#5de1d4"),
     backgroundColor: ColorSchema.default("#07110f"),
     logoFileId: UuidSchema.nullable().default(null),
+    heroImageUrl: z.string().url().max(2_048).nullable().default(null),
+    headerVideoUrl: z.string().url().max(2_048).nullable().default(null),
     completionMessage: z.string().trim().min(1).max(1_000).default("Respuesta enviada."),
     closedMessage: z.string().trim().min(1).max(1_000).default("Este formulario esta cerrado."),
   })
@@ -147,10 +153,32 @@ export const FormAnswerValueSchema = z.union([
   z.number().finite(),
   z.boolean(),
   z.array(z.string().max(1_000)).max(100),
+  z.object({ fileIds: z.array(UuidSchema).min(1).max(10) }).strict(),
 ]);
 export const SubmitFormResponseSchema = z
   .object({
     answers: z.record(UuidSchema, FormAnswerValueSchema),
+    pendingImageFieldIds: z.array(UuidSchema).max(10).default([]),
+  })
+  .strict();
+
+/** Metadata accepted before an image is sent through the secure files pipeline. */
+export const PublicFormImageUploadIntentSchema = z
+  .object({
+    fieldId: UuidSchema,
+    originalName: z.string().trim().min(1).max(255),
+    declaredMime: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(/^image\/[a-z0-9.+-]+$/u)
+      .max(160),
+    declaredSize: z
+      .number()
+      .int()
+      .positive()
+      .max(20 * 1024 * 1024),
+    expectedSha256: z.string().regex(/^[A-Za-z0-9+/]{43}=$/u),
   })
   .strict();
 
@@ -192,3 +220,4 @@ export type FormFieldType = z.infer<typeof FormFieldTypeSchema>;
 export type FormTheme = z.infer<typeof FormThemeSchema>;
 export type FormAnswerValue = z.infer<typeof FormAnswerValueSchema>;
 export type SubmittedFormResponse = z.infer<typeof SubmittedFormResponseSchema>;
+export type PublicFormImageUploadIntent = z.infer<typeof PublicFormImageUploadIntentSchema>;

@@ -159,7 +159,9 @@ export class SalesController {
     @Body() body: unknown,
   ) {
     try {
-      const payload = CreatePipelineSchema.parse(body);
+      const parsedPayload = CreatePipelineSchema.safeParse(body);
+      if (!parsedPayload.success) throw new BadRequestException();
+      const payload = parsedPayload.data;
       const actor = identity(request);
       return PipelineResponseSchema.parse({
         data: pipelineResponse(
