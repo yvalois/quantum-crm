@@ -107,6 +107,12 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Evidencia de cierre
 
+### Identidad visual propia CHAT-13 / CHAT-14 — 2026-10-11
+
+- Ajuste acotado al frontend: marca TikTok en lista/hilo y textos neutrales en conversaciones, responsables y enlace desde Contactos. Se retiran badges del proveedor anterior; los placeholders exactos del importador se ocultan tambien en la vista previa, sin modificar asuntos ni mensajes escritos por clientes.
+- Icono SVG embebido de [Simple Icons](https://github.com/simple-icons/simple-icons/blob/develop/icons/tiktok.svg), proyecto CC0; sin nueva dependencia ni llamadas externas para renderizarlo. Conserva etiqueta accesible TikTok.
+- Procedencia tecnica, IDs, permisos, archivos, datos y restricciones de envio intactos. No requiere API, migraciones ni reimportacion. Pendiente: verificaciones afectadas y despliegue exclusivo de `crm-web` en InterAmerican, conservando predecesor.
+
 ### Bandeja unica CHAT-11 / CHAT-13 / CHAT-14 — 2026-10-11
 
 - Sustituye la separacion visual activa/GHL: `/inbox` consume `/api/v1/conversations/inbox`, mezcla ambos origenes en una lista y comparte seleccion y ficha. GHL solo identifica procedencia; no se fusionan hilos ni identidades ambiguas.

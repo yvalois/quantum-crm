@@ -12,7 +12,7 @@ export function SourceParticipantsCard({
   if (!participants) return null;
   return (
     <section className={styles.card} aria-label={`Responsables originales de ${kind}`}>
-      <h3>Responsables en GHL · {kind}</h3>
+      <h3>Responsables originales · {kind}</h3>
       <dl>
         <div>
           <dt>Propietario original</dt>

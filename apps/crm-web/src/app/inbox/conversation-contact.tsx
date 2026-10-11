@@ -128,7 +128,7 @@ export function ConversationContactCard({
         <p>
           {linked
             ? "El contacto no está disponible con tus permisos actuales."
-            : "Este historial no tiene un contacto vinculado. GHL no incluyó su ficha en los datos importados; no hay nombre ni campos confirmados que mostrar."}
+            : "Esta conversación no tiene un contacto vinculado; no hay nombre ni campos confirmados que mostrar."}
         </p>
       )}
     </section>

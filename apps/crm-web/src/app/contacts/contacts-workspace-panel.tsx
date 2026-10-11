@@ -1958,7 +1958,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
                 {activeTab === "conversations" && selectedContact.source === "MIGRATION" ? (
                   <p>
                     <a href={`/inbox?contactId=${encodeURIComponent(selectedContact.id)}`}>
-                      Ver historial importado de GHL
+                      Ver conversaciones
                     </a>
                   </p>
                 ) : null}

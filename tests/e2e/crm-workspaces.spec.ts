@@ -254,23 +254,45 @@ const historicalMessage: HistoricalConversationMessage = {
   importedAt: timestamp,
 };
 
-async function workspaceFixture(page: Page, media?: SyntheticMedia) {
+async function workspaceFixture(
+  page: Page,
+  media?: SyntheticMedia,
+  options: {
+    readonly channel?: string;
+    readonly message?: Partial<HistoricalConversationMessage>;
+  } = {},
+) {
   const queries: URLSearchParams[] = [];
   const inboxQueries: URLSearchParams[] = [];
   const writes: string[] = [];
   const unexpected: string[] = [];
   const authorizations = new Map<string, number>();
   const mediaRequests: string[] = [];
-  const visibleThread = media ? { ...historical, rawChannel: "TYPE_WHATSAPP" } : historical;
-  const visibleMessage = media
-    ? {
-        ...historicalMessage,
-        rawChannel: null,
-        rawType: "TYPE_WHATSAPP",
-        attachmentCount: 5,
-        attachments: mediaAttachments(media),
-      }
-    : historicalMessage;
+  const visibleThread = {
+    ...historical,
+    rawChannel: options.channel ?? (media ? "TYPE_WHATSAPP" : historical.rawChannel),
+  };
+  const visibleMessage = {
+    ...(media
+      ? {
+          ...historicalMessage,
+          rawChannel: null,
+          rawType: "TYPE_WHATSAPP",
+          attachmentCount: 5,
+          attachments: mediaAttachments(media),
+        }
+      : historicalMessage),
+    ...(options.channel ? { rawChannel: null, rawType: options.channel } : {}),
+    ...options.message,
+  };
+  const orphanThread: HistoricalConversation = {
+    ...visibleThread,
+    id: "019b0000-0000-7000-8000-000000000009",
+    contactId: null,
+    sourceExternalId: "orphan-123456",
+    subject: "Conversación histórica sin ficha actual en GHL",
+    sourceThreadPresent: false,
+  };
   await page.context().addCookies([
     {
       name: "qcrm_crm_session",
@@ -389,19 +411,7 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
         await respond({
           data:
             url.searchParams.get("contactState") === "UNLINKED"
-              ? [
-                  {
-                    source: "GHL",
-                    conversation: {
-                      ...historical,
-                      id: "019b0000-0000-7000-8000-000000000009",
-                      contactId: null,
-                      sourceExternalId: "orphan-123456",
-                      subject: "Conversación histórica sin ficha actual en GHL",
-                      sourceThreadPresent: false,
-                    },
-                  },
-                ]
+              ? [{ source: "GHL", conversation: orphanThread }]
               : secondPage
                 ? [
                     {
@@ -433,16 +443,7 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
         await respond({
           data:
             url.searchParams.get("contactState") === "UNLINKED"
-              ? [
-                  {
-                    ...historical,
-                    id: "019b0000-0000-7000-8000-000000000009",
-                    contactId: null,
-                    sourceExternalId: "orphan-123456",
-                    subject: "Conversación histórica sin ficha actual en GHL",
-                    sourceThreadPresent: false,
-                  },
-                ]
+              ? [orphanThread]
               : [visibleThread],
           page: { nextCursor: null },
         });
@@ -454,6 +455,17 @@ async function workspaceFixture(page: Page, media?: SyntheticMedia) {
       }
       if (path === `/api/conversations/historical/${historicalId}/messages`) {
         await respond({ data: [visibleMessage], page: { nextCursor: null } });
+        return;
+      }
+      if (path === `/api/conversations/historical/${orphanThread.id}`) {
+        await respond({ data: orphanThread });
+        return;
+      }
+      if (path === `/api/conversations/historical/${orphanThread.id}/messages`) {
+        await respond({
+          data: [{ ...visibleMessage, threadId: orphanThread.id }],
+          page: { nextCursor: null },
+        });
         return;
       }
       if (path === "/api/conversations") {
@@ -700,6 +712,70 @@ test("imported history remains read only and downloads only the verified synthet
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /Andrea Sintética/u })).toHaveCount(0);
   expect(fixture.writes).toEqual([`POST /api/files/${fileId}/download-authorizations`]);
+  expect(fixture.unexpected).toEqual([]);
+});
+
+test("TikTok has its own icon and CRM labels omit the import provider while preserving message content", async ({
+  page,
+}) => {
+  const originalBody = "Mensaje original: nuestro equipo usaba GHL.";
+  const fixture = await workspaceFixture(page, undefined, {
+    channel: "TYPE_TIKTOK",
+    message: { rawDirection: "outbound", body: originalBody },
+  });
+  await page.goto("/inbox");
+  const list = page.getByRole("region", { name: "Lista de conversaciones", exact: true });
+  const context = page.getByRole("complementary", { name: "Contexto de conversación" });
+  await expect(list.locator("[data-source]")).toHaveCount(2);
+  const imported = list.locator(`[data-source="GHL"][data-conversation-id="${historicalId}"]`);
+  const listIcon = imported.locator('[data-channel="tiktok"] path[data-brand-icon="tiktok"]');
+  await expect(imported.getByText("TikTok", { exact: true })).toBeVisible();
+  await expect(listIcon).toBeVisible();
+  await expect(listIcon).toHaveAttribute("fill", "currentColor");
+  await expect(listIcon).toHaveAttribute("stroke", "none");
+  await list.locator('[data-source="QUANTUM"]').click();
+  await expect(context.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(/GHL/u);
+
+  await imported.click();
+  const history = page.getByRole("region", { name: "Mensajes históricos", exact: true });
+  await expect(history.getByText(originalBody, { exact: true })).toBeVisible();
+  await expect(history.getByText("Enviado", { exact: true })).toBeVisible();
+  await expect(history.getByText("Solo lectura", { exact: true })).toBeVisible();
+  await expect(context.getByText("Solo lectura", { exact: true })).toBeVisible();
+  await expect(history.locator('path[data-brand-icon="tiktok"]')).toHaveCount(2);
+  await expect(
+    history.locator('[data-direction="outbound"] path[data-brand-icon="tiktok"]'),
+  ).toBeVisible();
+  await expect(context).not.toContainText(/GHL/u);
+  await expect(list).not.toContainText(/GHL/u);
+  await expect(page.getByText(/GHL/u)).toHaveText(originalBody);
+
+  await page.getByLabel("Vínculo del contacto").selectOption("UNLINKED");
+  const orphan = list.getByRole("button", { name: /Sin contacto vinculado · 123456/u });
+  await expect(orphan).toBeVisible();
+  await expect(list).not.toContainText(/GHL/u);
+  await orphan.click();
+  await expect(history.getByRole("heading", { name: "Sin contacto vinculado · 123456" })).toBeVisible();
+  await expect(history.getByText(originalBody, { exact: true })).toBeVisible();
+  await expect(history).toContainText("su ficha original no está disponible");
+  await expect(context.getByRole("region", { name: "Ficha del cliente" })).toContainText(
+    "Esta conversación no tiene un contacto vinculado",
+  );
+  await expect(page.getByText(/GHL/u)).toHaveText(originalBody);
+
+  await page.goto("/contacts");
+  await page.getByRole("table", { name: "Lista de contactos" }).getByRole("button").filter({
+    has: page.getByText("Andrea Sintética", { exact: true }),
+  }).click();
+  const detail = page.getByRole("complementary", { name: "Ficha de Andrea Sintética" });
+  await detail.getByRole("button", { name: "Conversaciones", exact: true }).click();
+  await expect(detail.getByRole("link", { name: "Ver conversaciones", exact: true })).toHaveAttribute(
+    "href",
+    `/inbox?contactId=${primaryContact.id}`,
+  );
+  await expect(page.locator("body")).not.toContainText(/GHL/u);
+  expect(fixture.writes).toEqual([]);
   expect(fixture.unexpected).toEqual([]);
 });
 

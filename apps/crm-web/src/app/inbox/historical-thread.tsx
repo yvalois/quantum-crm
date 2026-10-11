@@ -11,15 +11,18 @@ import styles from "./historical-inbox.module.css";
 import { HistoricalAttachment } from "./historical-attachment";
 import { HistoricalChannelBadge } from "./historical-channel-badge";
 
+/** Hide legacy importer placeholders, never rewrite customer-authored subjects or messages. */
+export function historicalThreadSubject(subject: string | null): string | null {
+  return subject &&
+    !["Conversación histórica sin ficha actual en GHL", "Conversación importada de GHL"].includes(subject)
+    ? subject
+    : null;
+}
+
 export function historicalThreadTitle(thread: HistoricalConversation, name?: string): string {
   if (name) return name;
-  if (
-    thread.subject &&
-    !["Conversación histórica sin ficha actual en GHL", "Conversación importada de GHL"].includes(
-      thread.subject,
-    )
-  )
-    return thread.subject;
+  const subject = historicalThreadSubject(thread.subject);
+  if (subject) return subject;
   return thread.contactId
     ? "Cliente vinculado"
     : `Sin contacto vinculado · ${thread.sourceExternalId.slice(-6)}`;
@@ -112,7 +115,7 @@ export function HistoricalThread({
           <HistoricalChannelBadge rawChannel={selected.rawChannel} />
         </div>
         <div>
-          <span>Origen GHL · Solo lectura</span>
+          <span>Solo lectura</span>
           {selected.contactId ? (
             <a
               className={styles.contactLink}
@@ -125,8 +128,7 @@ export function HistoricalThread({
       </header>
       {!selected.sourceThreadPresent ? (
         <p className={styles.orphan}>
-          Este hilo se conserva a partir de referencias de sus mensajes; su ficha ya no aparece en
-          la lista actual de GHL.
+          Se conservan los mensajes de esta conversación, pero su ficha original no está disponible.
         </p>
       ) : null}
       {error ? (
@@ -150,7 +152,7 @@ export function HistoricalThread({
                   {item.rawDirection === "inbound"
                     ? "Recibido"
                     : item.rawDirection === "outbound"
-                      ? "Enviado desde GHL"
+                      ? "Enviado"
                       : item.rawDirection || "Dirección no informada"}
                 </strong>
                 <time>{when(item.sourceCreatedAt)}</time>

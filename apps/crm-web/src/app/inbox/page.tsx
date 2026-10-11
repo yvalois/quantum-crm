@@ -20,7 +20,7 @@ import {
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
-import { HistoricalThread, historicalThreadTitle } from "./historical-thread";
+import { HistoricalThread, historicalThreadSubject, historicalThreadTitle } from "./historical-thread";
 import { HistoricalChannelBadge } from "./historical-channel-badge";
 import { SourceParticipantsCard } from "../source-participants";
 import { ConversationContactCard, useConversationContacts } from "./conversation-contact";
@@ -975,7 +975,7 @@ export default function InboxPage(): React.JSX.Element {
                           </span>
                           <span className={styles.cardPreview}>
                             {native?.lastMessagePreview ??
-                              item.subject ??
+                              (imported ? historicalThreadSubject(imported.subject) : item.subject) ??
                               (imported ? `${imported.messageCount} mensajes` : "Sin mensajes")}
                           </span>
                           <span className={styles.cardMeta}>
@@ -991,7 +991,6 @@ export default function InboxPage(): React.JSX.Element {
                             ) : imported ? (
                               <>
                                 <HistoricalChannelBadge rawChannel={imported.rawChannel} />
-                                <span className={styles.sourceTag}>GHL</span>
                                 {!imported.contactId ? (
                                   <span className={styles.sourceTag}>Sin contacto vinculado</span>
                                 ) : null}
@@ -1286,8 +1285,8 @@ export default function InboxPage(): React.JSX.Element {
                 />
                 <section className={styles.contextFacts}>
                   <div>
-                    <span>Origen</span>
-                    <strong>GHL · Solo lectura</strong>
+                    <span>Disponibilidad</span>
+                    <strong>Solo lectura</strong>
                   </div>
                   <div>
                     <span>Estado original</span>
