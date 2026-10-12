@@ -33,6 +33,64 @@ export function createConversationAgentPostgresRepository(
         throw new DatabaseUnavailableError();
       }
     },
+    contextForExecution: async (inboundMessageId) => {
+      try {
+        const result = (await pool.query(
+          `WITH execution AS (
+             SELECT conversation.id, conversation.agent_reset_sequence, inbound.sequence
+               FROM conversations.agent_requests AS request
+               JOIN conversations.conversations AS conversation ON conversation.id = request.conversation_id
+               JOIN conversations.messages AS inbound ON inbound.id = request.inbound_message_id
+              WHERE request.inbound_message_id = $1::uuid AND request.status = 'leased'
+                AND request.lease_expires_at > CURRENT_TIMESTAMP
+                AND conversation.attention_mode = 'agent' AND conversation.status <> 'closed'
+                AND conversation.channel = 'whatsapp'
+           )
+           SELECT execution.id::text AS thread_id, prior.direction,
+                  prior.author_member_id IS NOT NULL AS from_advisor, prior.body
+             FROM execution
+             LEFT JOIN LATERAL (
+               SELECT message.direction, message.author_member_id,
+                      left(message.body, 1200) AS body, message.sequence
+                 FROM conversations.messages AS message
+                WHERE message.conversation_id = execution.id
+                  AND message.sequence > execution.agent_reset_sequence
+                  AND message.sequence < execution.sequence
+                  AND message.direction IN ('inbound', 'outbound')
+                  AND message.kind = 'text' AND length(trim(message.body)) > 0
+                  AND (message.direction = 'inbound' OR message.delivery_status <> 'failed')
+                ORDER BY message.sequence DESC LIMIT 100
+             ) AS prior ON true
+            ORDER BY prior.sequence ASC`,
+          [inboundMessageId],
+        )) as {
+          readonly rows: readonly {
+            readonly thread_id: string;
+            readonly direction: "inbound" | "outbound" | null;
+            readonly from_advisor: boolean | null;
+            readonly body: string | null;
+          }[];
+        };
+        const threadId = result.rows[0]?.thread_id;
+        if (!threadId) return null;
+        const recent = result.rows.filter((row) => row.direction && row.body).reverse();
+        const messages: Array<{ role: "customer" | "advisor" | "agent"; text: string }> = [];
+        let used = 0;
+        for (const row of recent) {
+          const text = row.body!;
+          if (used + text.length > 16_000) break;
+          used += text.length;
+          messages.push({
+            role: row.direction === "inbound" ? "customer" : row.from_advisor ? "advisor" : "agent",
+            text,
+          });
+        }
+        messages.reverse();
+        return Object.freeze({ threadId, messages: Object.freeze(messages) });
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
     claimNext: async (input) => {
       let client: PoolClient | undefined;
       try {
@@ -74,7 +132,12 @@ export function createConversationAgentPostgresRepository(
                 SELECT 1 FROM conversations.agent_requests AS other
                  WHERE other.conversation_id = request.conversation_id
                    AND other.inbound_message_id <> request.inbound_message_id
-                   AND other.status = 'leased' AND other.lease_expires_at >= CURRENT_TIMESTAMP
+                   AND (
+                     (other.status = 'leased' AND other.lease_expires_at >= CURRENT_TIMESTAMP)
+                     OR (other.status = 'pending' AND
+                         (other.created_at, other.inbound_message_id) <
+                         (request.created_at, request.inbound_message_id))
+                   )
               )
             ORDER BY request.created_at, request.inbound_message_id LIMIT 1
             FOR UPDATE OF request SKIP LOCKED`,

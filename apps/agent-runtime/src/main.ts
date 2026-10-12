@@ -5,26 +5,19 @@ import { loadServiceConfig, requireOidcConfig, SecretValue } from "@quantum-crm/
 import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
 import { z } from "zod";
 
-import { createMcpCatalogSearch } from "./mcp-catalog-client.js";
-import { briefIntroduction, noCatalogAnswer } from "./interamerican-greeting.js";
+import { answerAgentTurnSafely } from "./agent-response.js";
+import { createMcpAgentClient } from "./mcp-catalog-client.js";
+import { createOpenAiConversationAnswer } from "./openai-conversation-answer.js";
 import { createOpenAiRagAnswer } from "./openai-rag-answer.js";
-import { askCatalog } from "./rag-graph.js";
 
 const requestSchema = z
   .object({
     tenantId: z.string().uuid(),
     executionId: z.string().uuid(),
-    question: z.string().trim().min(3).max(2_000),
+    question: z.string().trim().min(1).max(2_000),
     firstTurn: z.boolean(),
   })
   .strict();
-
-function catalogFor(question: string): "individual" | "corporativo" | null {
-  const corporate = /\b(corporativ[oa]|empresa|empresarial|flota|convenio)\b/iu.test(question);
-  const individual = /\b(individual|personal|particular|familia|turismo)\b/iu.test(question);
-  if (corporate === individual) return null;
-  return corporate ? "corporativo" : "individual";
-}
 
 async function readBody(request: IncomingMessage): Promise<unknown> {
   const chunks: Uint8Array[] = [];
@@ -67,6 +60,9 @@ async function bootstrap(): Promise<void> {
   const answer = config.openAiApiKey
     ? createOpenAiRagAnswer({ apiKey: config.openAiApiKey })
     : undefined;
+  const answerConversation = config.openAiApiKey
+    ? createOpenAiConversationAnswer({ apiKey: config.openAiApiKey })
+    : undefined;
   let ready = false;
   const healthServer = createInternalHealthServer({
     serviceName: config.serviceName,
@@ -80,7 +76,7 @@ async function bootstrap(): Promise<void> {
         send(response, 404, { status: 404, title: "Not Found" });
         return;
       }
-      if (!ready || !mcpTokenClient || !answer) {
+      if (!ready || !mcpTokenClient || !answer || !answerConversation) {
         send(response, 503, { status: 503, title: "Agent Not Configured" });
         return;
       }
@@ -111,30 +107,30 @@ async function bootstrap(): Promise<void> {
         send(response, 400, { status: 400, title: "Invalid Agent Request" });
         return;
       }
-      const catalog = catalogFor(parsed.data.question);
-      if (!catalog) {
-        send(response, 200, {
-          answer: noCatalogAnswer(parsed.data.firstTurn),
-          sourceIds: [],
-          grounded: false,
-        });
-        return;
-      }
-      const result = await askCatalog(
-        {
-          search: createMcpCatalogSearch({
-            executionId: parsed.data.executionId,
-            tokenClient: mcpTokenClient,
-          }),
-          answer,
-        },
-        { catalog, question: parsed.data.question },
-      );
-      send(response, 200, {
-        answer: parsed.data.firstTurn ? `${briefIntroduction}${result.answer}` : result.answer,
-        sourceIds: result.sources.map((source) => source.id),
-        grounded: result.grounded,
+      const mcp = createMcpAgentClient({
+        executionId: parsed.data.executionId,
+        tokenClient: mcpTokenClient,
       });
+      const result = await answerAgentTurnSafely(
+        parsed.data,
+        {
+          context: mcp.context,
+          search: mcp.search,
+          answerCatalog: answer,
+          answerConversation,
+        },
+        (error) => {
+          const code =
+            error instanceof Error &&
+            /^MCP_HTTP_(400|401|403|404|429|500|502|503|504)$/u.test(error.message)
+              ? error.message
+              : "AGENT_DEPENDENCY_FAILURE";
+          process.stderr.write(
+            JSON.stringify({ level: "error", event: "agent_run_degraded", code }) + "\n",
+          );
+        },
+      );
+      send(response, 200, result);
     })().catch(() => {
       if (!response.headersSent) send(response, 503, { status: 503, title: "Agent Unavailable" });
       else response.end();

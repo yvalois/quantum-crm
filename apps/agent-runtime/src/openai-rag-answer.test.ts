@@ -6,6 +6,7 @@ import { createOpenAiRagAnswer } from "./openai-rag-answer.js";
 const input = {
   catalog: "individual" as const,
   question: "¿Cuál es la cobertura?",
+  history: [{ role: "customer" as const, text: "Busco alquiler individual" }],
   sources: [
     {
       id: "individual-p2-a",
@@ -25,6 +26,7 @@ describe("OpenAI RAG answer adapter", () => {
       expect(body.store).toBe(false);
       expect(body.text.format.type).toBe("json_schema");
       expect(JSON.parse(body.input).sources[0].text).toBe("Cobertura básica incluida.");
+      expect(JSON.parse(body.input).history[0].text).toBe("Busco alquiler individual");
       return new Response(
         JSON.stringify({
           status: "completed",

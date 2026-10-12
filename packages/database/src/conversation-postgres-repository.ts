@@ -777,6 +777,10 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
              attention_mode = COALESCE($3, conversation.attention_mode),
              assignee_member_id = CASE WHEN $4::boolean THEN $5::uuid ELSE conversation.assignee_member_id END,
              agent_reset_at = CASE WHEN $7::boolean THEN $6 ELSE conversation.agent_reset_at END,
+             agent_reset_sequence = CASE WHEN $7::boolean THEN
+               COALESCE((SELECT MAX(message.sequence) FROM conversations.messages AS message
+                         WHERE message.conversation_id = conversation.id), 0)
+               ELSE conversation.agent_reset_sequence END,
              version = conversation.version + 1, updated_at = $6
            WHERE conversation.id = $1::uuid
            RETURNING id::text, contact_id::text, channel, external_thread_id,

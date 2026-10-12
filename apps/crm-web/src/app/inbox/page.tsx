@@ -1428,7 +1428,8 @@ export default function InboxPage(): React.JSX.Element {
                         Reiniciar agente
                       </button>
                       <p className={styles.agentResetHint}>
-                        Conserva el historial. El saludo volverá con el próximo mensaje del cliente.
+                        Borra el contexto que usa el agente en este chat, pero conserva el historial
+                        visible. El próximo mensaje inicia una conversación nueva con Alex.
                       </p>
                     </>
                   )}
