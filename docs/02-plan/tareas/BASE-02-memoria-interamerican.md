@@ -96,4 +96,8 @@ Cada nuevo mensaje de WhatsApp recibe una respuesta que considera el contexto pr
 
 ## Evidencia de cierre
 
-Pendiente.
+La memoria durable y el reinicio están desplegados en InterAmerican. La prueba real confirmó entrega de tres respuestas, pero reveló una desviación del prompt: saludo repetido y pregunta de tipo de cliente no requerida. El candidato `927d7381` corrige la adaptación conversacional del export n8n; formato, lint, 17 pruebas focalizadas y typecheck aprobaron en el VPS. Falta la verificación real posterior al despliegue; no se cierra el bloque.
+
+## Pendientes de estabilizacion posterior
+
+- Portar por separado las acciones del flujo n8n que exceden la prueba RAG actual (imágenes, seguimientos y pase técnico), sin prometerlas desde el agente de texto.
