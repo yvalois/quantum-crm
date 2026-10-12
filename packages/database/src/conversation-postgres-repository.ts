@@ -120,16 +120,30 @@ export function createConversationOutboundDispatcher(
           [lease.outboxId, lease.messageId, workerId, status, errorCode ?? null, lease.attempt],
         );
         if (!result.rows[0]) {
-          await client.query("ROLLBACK");
-          return false;
+          const reconciled = await client.query<{ status: string }>(
+            `SELECT status FROM conversations.outbox WHERE id = $1::uuid AND message_id = $2::uuid`,
+            [lease.outboxId, lease.messageId],
+          );
+          await client.query("COMMIT");
+          return ["sent", "failed"].includes(reconciled.rows[0]?.status ?? "");
         }
         await client.query(
           `UPDATE conversations.messages SET delivery_status = CASE
-                    WHEN $2 = 'queued' AND delivery_status IN ('sent', 'delivered', 'read')
+                    WHEN delivery_status IN ('sent', 'delivered', 'read', 'failed')
                       THEN delivery_status ELSE $2 END,
                   external_message_id = COALESCE($3, external_message_id),
-                  failure_code = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
+                  failure_code = CASE WHEN delivery_status IN ('sent', 'delivered', 'read', 'failed')
+                    THEN failure_code ELSE $4 END,
+                  updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
           [lease.messageId, delivery, externalMessageId ?? null, errorCode ?? null],
+        );
+        await client.query(
+          `UPDATE conversations.outbox AS outbox SET status = 'sent', next_attempt_at = 'infinity',
+                  last_error_code = NULL, updated_at = CURRENT_TIMESTAMP
+            FROM conversations.messages AS message
+           WHERE outbox.message_id = message.id AND message.id = $1::uuid
+             AND message.delivery_status IN ('sent', 'delivered', 'read')`,
+          [lease.messageId],
         );
         await client.query("COMMIT");
         return true;
@@ -150,21 +164,29 @@ export function createExternalConversationReceiver(
     reconcileOutbound: async (
       input: Parameters<ExternalConversationReceiver["reconcileOutbound"]>[0],
     ) => {
+      let client: PoolClient | undefined;
       try {
-        const result = (await pool.query(
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const result = await client.query<{ delivery_status: string }>(
           `UPDATE conversations.messages AS message SET
              delivery_status = CASE
                WHEN message.delivery_status = 'read' THEN 'read'
                WHEN message.delivery_status = 'delivered' AND $4 IN ('sent', 'failed') THEN 'delivered'
+               WHEN message.delivery_status = 'failed' AND $4 = 'sent' THEN 'failed'
                ELSE $4 END,
              external_message_id = COALESCE(message.external_message_id, $3),
-             failure_code = CASE WHEN $4 = 'failed' THEN $5 ELSE NULL END,
+             failure_code = CASE
+               WHEN message.delivery_status IN ('read', 'delivered') THEN NULL
+               WHEN message.delivery_status = 'failed' AND $4 = 'sent' THEN message.failure_code
+               WHEN $4 = 'failed' THEN $5 ELSE NULL END,
              updated_at = CURRENT_TIMESTAMP
             FROM conversations.conversations AS conversation
            WHERE message.id = $1::uuid AND message.conversation_id = conversation.id
              AND conversation.channel = 'whatsapp' AND conversation.external_thread_id = $2
              AND message.direction = 'outbound'
-             AND (message.external_message_id IS NULL OR message.external_message_id = $3)`,
+             AND (message.external_message_id IS NULL OR message.external_message_id = $3)
+           RETURNING message.delivery_status`,
           [
             input.messageId,
             input.externalThreadId,
@@ -172,10 +194,30 @@ export function createExternalConversationReceiver(
             input.status.toLowerCase(),
             input.failureCode ?? null,
           ],
-        )) as { readonly rowCount: number | null };
-        return (result.rowCount ?? 0) === 1;
+        );
+        if (result.rowCount !== 1) {
+          await client.query("COMMIT");
+          return false;
+        }
+        const effectiveStatus = result.rows[0]!.delivery_status;
+        await client.query(
+          `UPDATE conversations.outbox SET status = $2, lease_owner = NULL,
+                  lease_expires_at = NULL, next_attempt_at = 'infinity',
+                  last_error_code = $3, updated_at = CURRENT_TIMESTAMP
+            WHERE message_id = $1::uuid`,
+          [
+            input.messageId,
+            effectiveStatus === "failed" ? "failed" : "sent",
+            effectiveStatus === "failed" ? (input.failureCode ?? null) : null,
+          ],
+        );
+        await client.query("COMMIT");
+        return true;
       } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
         return fail(error);
+      } finally {
+        client?.release();
       }
     },
     receive: async (message: ExternalConversationMessage) => {

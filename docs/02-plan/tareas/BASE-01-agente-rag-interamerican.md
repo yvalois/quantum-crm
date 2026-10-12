@@ -91,4 +91,6 @@ Un mensaje de WhatsApp recibido por el canal YCloud autorizado inicia, solo cuan
 
 ## Evidencia de cierre
 
-- Pendiente de implementacion y validacion; no se marca terminado.
+- El canal entrante y el secreto de firma se verificaron con un mensaje real. La clave de envio YCloud se guardo como archivo privado del perfil y la API de lectura del proveedor respondio `HTTP 200`.
+- Despacho de texto, lease durable, limite de reintentos, estado de entrega y red de salida preparados en la rama; typecheck, lint y pruebas enfocadas aprobados en el VPS de desarrollo. No se marca envio completado sin publicacion y prueba real.
+- Pendientes de implementacion y validacion: carga de los catalogos por Files, busqueda MCP, identidad de servicio, ejecucion LangGraph y respuesta real en WhatsApp. No se marca terminado.

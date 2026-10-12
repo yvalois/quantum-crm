@@ -106,6 +106,10 @@ describe("tenant compose policy", () => {
         "/opt/quantum/secrets/tenant/01995f7e-7b52-7000-8000-000000000201/storage-access-key",
       QCRM_FILES_S3_PROCESSOR_SECRET_KEY_SECRET_FILE:
         "/opt/quantum/secrets/tenant/01995f7e-7b52-7000-8000-000000000201/storage-secret-key",
+      QCRM_YCLOUD_BINDING_SECRET_HOST_FILE: "/dev/null",
+      QCRM_YCLOUD_API_KEY_SECRET_HOST_FILE: "/dev/null",
+      QCRM_YCLOUD_BINDING_FILE: "",
+      QCRM_YCLOUD_API_KEY_FILE: "",
     });
   });
 

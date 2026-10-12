@@ -210,7 +210,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [tenant-internal, platform-database, platform-storage]
+    networks: [tenant-internal, tenant-edge, platform-database, platform-storage]
 
   agent-runtime:
     <<: *service-defaults
