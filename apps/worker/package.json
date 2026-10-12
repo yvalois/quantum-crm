@@ -19,6 +19,7 @@
     "@quantum-crm/domain": "workspace:*",
     "@quantum-crm/files-infrastructure": "workspace:*",
     "@quantum-crm/observability": "workspace:*",
+    "pdfjs-dist": "6.4.299",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
   }

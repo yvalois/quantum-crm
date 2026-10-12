@@ -23,6 +23,12 @@ describe("file contracts", () => {
     expect(FileOwnerSchema.safeParse({ ...owner, module: "documents" }).success).toBe(false);
   });
 
+  it("restricts RAG knowledge files to their agent source", () => {
+    const owner = { kind: "existing", module: "agents", type: "knowledge_source", id: fileId };
+    expect(FileOwnerSchema.safeParse(owner).success).toBe(true);
+    expect(FileOwnerSchema.safeParse({ ...owner, module: "documents" }).success).toBe(false);
+  });
+
   it("accepts a bounded upload intent without storage or tenant coordinates", () => {
     const intent = CreateFileUploadIntentSchema.parse({
       owner: {

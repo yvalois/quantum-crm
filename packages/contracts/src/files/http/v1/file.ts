@@ -22,7 +22,13 @@ export const FileStatusSchema = z.enum([
   "DELETED",
 ]);
 
-export const FileOwnerModuleSchema = z.enum(["documents", "conversations", "forms", "catalog"]);
+export const FileOwnerModuleSchema = z.enum([
+  "documents",
+  "conversations",
+  "forms",
+  "catalog",
+  "agents",
+]);
 export const FileOwnerTypeSchema = z.enum([
   "commercial_document",
   "document_template",
@@ -32,6 +38,7 @@ export const FileOwnerTypeSchema = z.enum([
   "form_response",
   "product",
   "variant",
+  "knowledge_source",
 ]);
 
 const ExistingFileOwnerSchema = z
@@ -49,6 +56,7 @@ const ExistingFileOwnerSchema = z
         conversations: ["conversation", "message", "historical_attachment"],
         forms: ["form_response"],
         catalog: ["product", "variant"],
+        agents: ["knowledge_source"],
       };
     if (!allowedTypes[owner.module].includes(owner.type)) {
       context.addIssue({

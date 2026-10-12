@@ -129,3 +129,8 @@ export {
   parseGhlMigrationAttachmentsConfig,
   type GhlMigrationAttachmentsConfig,
 } from "./ghl-migration-attachments-config.js";
+export {
+  loadAgentKnowledgeImportConfig,
+  parseAgentKnowledgeImportConfig,
+  type AgentKnowledgeImportConfig,
+} from "./agent-knowledge-import-config.js";

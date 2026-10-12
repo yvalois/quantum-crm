@@ -9,6 +9,8 @@ export const ServicePermissionCatalog = [
   "iam:bootstrap-initial-administrator",
   "iam:accept-member-invitation",
   "iam:create-administrator",
+  "agents:invoke",
+  "agents:catalog-search",
 ] as const;
 
 export const ServicePermissionSchema = z.enum(ServicePermissionCatalog);

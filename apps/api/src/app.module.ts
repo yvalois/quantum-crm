@@ -283,6 +283,12 @@ export class AppModule {
                     );
                     return upload !== null && actor.memberId === owner.id;
                   }
+                  if (owner.module === "agents" && owner.type === "knowledge_source") {
+                    return (
+                      actor.scope === "PROFILE" &&
+                      (await database.commercial.agentKnowledge.findSource(owner.id)) !== null
+                    );
+                  }
                   if (owner.module !== "documents") return false;
                   if (owner.type === "commercial_document") {
                     return (await database.commercial.documents.find(actor, owner.id)) !== null;

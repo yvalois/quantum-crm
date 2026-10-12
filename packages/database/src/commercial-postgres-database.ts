@@ -26,6 +26,7 @@ import type {
   ExternalContactDirectory,
   ExternalConversationReceiver,
   ConversationOutboundDispatcher,
+  ConversationAgentDispatcher,
   ConversationRepository,
   HistoricalConversationRepository,
   UnifiedInboxRepository,
@@ -45,6 +46,7 @@ import type {
   CalendarRepository,
   FormRepository,
   DocumentRepository,
+  AgentKnowledgeRepository,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
@@ -60,6 +62,8 @@ import { createSettingsCustomFieldPostgresRepository } from "./settings-custom-f
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 import { createFormPostgresRepository } from "./form-postgres-repository.js";
 import { createDocumentPostgresRepository } from "./document-postgres-repository.js";
+import { createAgentKnowledgePostgresRepository } from "./agent-knowledge-postgres-repository.js";
+import { createConversationAgentPostgresRepository } from "./conversation-agent-postgres-repository.js";
 import {
   createFilePostgresRepository,
   type FileProcessingRepository,
@@ -719,6 +723,7 @@ export interface CommercialPostgresRepositories {
   readonly conversations: ConversationRepository;
   readonly externalConversations: ExternalConversationReceiver;
   readonly conversationOutbound: ConversationOutboundDispatcher;
+  readonly conversationAgent: ConversationAgentDispatcher;
   readonly historicalConversations: HistoricalConversationRepository;
   readonly unifiedInbox: UnifiedInboxRepository;
   readonly sales: SalesRepository;
@@ -726,6 +731,7 @@ export interface CommercialPostgresRepositories {
   readonly calendar: CalendarRepository;
   readonly forms: FormRepository;
   readonly documents: DocumentRepository;
+  readonly agentKnowledge: AgentKnowledgeRepository;
   readonly files: FileProcessingRepository;
   readonly automation: AutomationRepository;
 }
@@ -2669,6 +2675,7 @@ export function createCommercialPostgresRepositories(
     externalContacts,
     externalConversations: createExternalConversationReceiver(pool),
     conversationOutbound: createConversationOutboundDispatcher(pool),
+    conversationAgent: createConversationAgentPostgresRepository(pool),
     historicalConversations: createHistoricalConversationPostgresRepository(pool),
     unifiedInbox: createUnifiedInboxPostgresRepository(pool),
     customFieldDefinitions: createSettingsCustomFieldPostgresRepository(pool),
@@ -2677,6 +2684,7 @@ export function createCommercialPostgresRepositories(
     calendar: createCalendarPostgresRepository(pool),
     forms: createFormPostgresRepository(pool),
     documents: createDocumentPostgresRepository(pool),
+    agentKnowledge: createAgentKnowledgePostgresRepository(pool),
     files: createFilePostgresRepository(pool),
     automation,
   });

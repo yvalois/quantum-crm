@@ -11,6 +11,7 @@ export * from "./calendar/index.js";
 export * from "./forms/index.js";
 export * from "./documents/index.js";
 export * from "./files/index.js";
+export * from "./agents/knowledge-source.js";
 export * from "./shared/historical-import.js";
 export * from "./contacts/historical-import.js";
 export * from "./sales/historical-import.js";

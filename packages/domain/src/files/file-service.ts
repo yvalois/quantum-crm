@@ -38,6 +38,9 @@ function allowOwner(
       access === "read" ? "crm:conversations:read" : "crm:conversations:configure",
     );
   }
+  if (owner.kind === "existing" && owner.module === "agents") {
+    allow(permissions, "crm:documents:templates");
+  }
 }
 
 export class FileService {
@@ -55,12 +58,19 @@ export class FileService {
     allow(permissions, "crm:files:read");
     const page = await this.repository.list(actor, filters);
     const authorized = await Promise.all(
-      page.items.map(
-        async (file) =>
+      page.items.map(async (file) => {
+        if (file.owner.kind === "existing" && file.owner.module === "agents") {
+          return (
+            permissions.includes("crm:documents:templates") &&
+            this.ownerAuthorization.canUseOwner(actor, file.owner)
+          );
+        }
+        return (
           !historicalOwner(file.owner) ||
           (permissions.includes("crm:conversations:read") &&
-            (await this.ownerAuthorization.canUseOwner(actor, file.owner))),
-      ),
+            this.ownerAuthorization.canUseOwner(actor, file.owner))
+        );
+      }),
     );
     return Object.freeze({
       items: Object.freeze(page.items.filter((_file, index) => authorized[index])),

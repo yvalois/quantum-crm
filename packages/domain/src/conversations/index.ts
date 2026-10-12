@@ -127,6 +127,33 @@ export interface ConversationOutboundDispatcher {
   }) => Promise<boolean>;
 }
 
+export interface ConversationAgentLease {
+  readonly inboundMessageId: string;
+  readonly conversationId: string;
+  readonly question: string;
+  readonly generation: bigint;
+}
+
+/** Durable inbound trigger; outbound insertion is fenced and atomic with completion. */
+export interface ConversationAgentDispatcher {
+  readonly claimNext: (input: {
+    readonly workerId: string;
+    readonly leaseSeconds: number;
+  }) => Promise<ConversationAgentLease | null>;
+  readonly complete: (input: {
+    readonly lease: ConversationAgentLease;
+    readonly workerId: string;
+    readonly answer: string;
+    readonly sourceIds: readonly string[];
+  }) => Promise<"COMPLETED" | "CANCELLED" | "STALE">;
+  readonly fail: (input: {
+    readonly lease: ConversationAgentLease;
+    readonly workerId: string;
+    readonly retry: boolean;
+    readonly code: string;
+  }) => Promise<boolean>;
+}
+
 export interface ConversationRepository {
   readonly list: (
     actor: CommercialActor,
