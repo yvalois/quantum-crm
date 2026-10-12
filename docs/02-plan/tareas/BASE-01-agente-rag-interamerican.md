@@ -61,7 +61,8 @@ Un administrador de InterAmerican puede consultar manualmente al primer agente L
 - [ ] Implementar recuperacion por catalogo y gateway de lectura autorizado.
 - [ ] Implementar grafo LangGraph y contrato de consulta de prueba.
 - [ ] Exponer prueba manual en CRM, sin canal saliente.
-- [ ] Validar con fuentes reales solo despues de cargar la credencial directamente en el VPS como archivo secreto, sin volver a transmitirla por chat.
+- [x] Cargar la credencial directamente en el VPS como archivo secreto; permisos `600` y OpenAI `/v1/models` `HTTP 200` sin transmitir el valor en comandos o salidas.
+- [ ] Validar consultas con fuentes reales, Files y aislamiento.
 
 ## Riesgos y mitigaciones
 
