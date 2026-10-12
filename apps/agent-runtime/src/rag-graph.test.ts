@@ -66,6 +66,6 @@ describe("RAG del primer agente", () => {
       question: "¿Qué incluye?",
     });
     expect(result.grounded).toBe(false);
-    expect(result.answer).toContain("No encontré información suficiente");
+    expect(result.answer).toContain("Ese dato lo validamos");
   });
 });
