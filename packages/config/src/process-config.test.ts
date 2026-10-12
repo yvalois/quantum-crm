@@ -123,6 +123,8 @@ describe("process configuration", () => {
         defaultPort: 3101,
         database: { target: "crm", requiresTenant: true },
         requiresFilesStorage: "processor",
+        supportsYCloudBinding: true,
+        supportsYCloudApiKey: true,
       },
       "deploy-executor": {
         serviceName: "deploy-executor",
