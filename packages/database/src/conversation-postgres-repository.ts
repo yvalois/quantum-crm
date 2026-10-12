@@ -30,7 +30,10 @@ export function createConversationOutboundDispatcher(
   pool: PostgresPool,
 ): ConversationOutboundDispatcher {
   return Object.freeze({
-    claimNext: async ({ workerId, leaseSeconds }) => {
+    claimNext: async ({
+      workerId,
+      leaseSeconds,
+    }: Parameters<ConversationOutboundDispatcher["claimNext"]>[0]) => {
       let client: PoolClient | undefined;
       try {
         client = await pool.connect();
@@ -86,14 +89,26 @@ export function createConversationOutboundDispatcher(
         client?.release();
       }
     },
-    complete: async ({ lease, workerId, outcome, externalMessageId, errorCode }) => {
+    complete: async ({
+      lease,
+      workerId,
+      outcome,
+      externalMessageId,
+      errorCode,
+    }: Parameters<ConversationOutboundDispatcher["complete"]>[0]) => {
       let client: PoolClient | undefined;
       try {
         client = await pool.connect();
         await client.query("BEGIN");
         const status = outcome === "SENT" ? "sent" : outcome === "RETRY" ? "pending" : "failed";
-        const delivery = outcome === "SENT" ? "sent" : outcome === "UNKNOWN" ? "unknown" :
-          outcome === "FAILED" ? "failed" : "queued";
+        const delivery =
+          outcome === "SENT"
+            ? "sent"
+            : outcome === "UNKNOWN"
+              ? "unknown"
+              : outcome === "FAILED"
+                ? "failed"
+                : "queued";
         const result = await client.query<{ message_id: string }>(
           `UPDATE conversations.outbox SET status = $4, lease_owner = NULL, lease_expires_at = NULL,
                   next_attempt_at = CASE WHEN $4 = 'pending' THEN CURRENT_TIMESTAMP + interval '60 seconds'

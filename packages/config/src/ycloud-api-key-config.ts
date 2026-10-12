@@ -20,7 +20,9 @@ export function parseYCloudApiKeyConfig(
       ...(fileSystem ? { fileSystem } : {}),
       maxBytes: 256,
     });
-    z.string().regex(/^[a-f0-9]{32}$/u).parse(key.expose());
+    z.string()
+      .regex(/^[a-f0-9]{32}$/u)
+      .parse(key.expose());
     return key;
   } catch {
     throw new ConfigurationError(serviceName, [ycloudApiKeyEnvironmentKey]);

@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 
 import type { YCloudBindingConfig } from "@quantum-crm/config";
-import type { ConversationOutboundDispatcher, ConversationOutboundLease } from "@quantum-crm/domain";
+import type {
+  ConversationOutboundDispatcher,
+  ConversationOutboundLease,
+} from "@quantum-crm/domain";
 
 export interface YCloudOutboundOptions {
   readonly repository: ConversationOutboundDispatcher;
@@ -30,8 +33,12 @@ export async function sendYCloudText(
   lease: ConversationOutboundLease,
 ): Promise<SendResult> {
   const match = threadPattern.exec(lease.externalThreadId);
-  if (!match || match[1] !== options.binding.wabaId || lease.kind !== "TEXT" ||
-      lease.body.length > 4096) {
+  if (
+    !match ||
+    match[1] !== options.binding.wabaId ||
+    lease.kind !== "TEXT" ||
+    lease.body.length > 4096
+  ) {
     return { outcome: "FAILED", errorCode: "UNSUPPORTED_MESSAGE" };
   }
   let response: Response;
@@ -65,8 +72,14 @@ export async function sendYCloudText(
   }
   try {
     const payload: unknown = await response.json();
-    if (!payload || typeof payload !== "object" || !("id" in payload) ||
-        typeof payload.id !== "string" || payload.id.length < 1 || payload.id.length > 400) {
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      !("id" in payload) ||
+      typeof payload.id !== "string" ||
+      payload.id.length < 1 ||
+      payload.id.length > 400
+    ) {
       return { outcome: "UNKNOWN", errorCode: "INVALID_PROVIDER_RESPONSE" };
     }
     return {
@@ -99,7 +112,9 @@ export function startYCloudOutboundLoop(options: YCloudOutboundOptions): YCloudO
   let running = Promise.resolve();
   const schedule = () => {
     if (closed) return;
-    timer = setTimeout(() => { running = tick(); }, options.pollIntervalMs);
+    timer = setTimeout(() => {
+      running = tick();
+    }, options.pollIntervalMs);
     timer.unref();
   };
   const tick = async (): Promise<void> => {

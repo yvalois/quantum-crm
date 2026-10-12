@@ -40,18 +40,39 @@ describe("YCloud outbound", () => {
 
   it("rejects another WABA and unsupported media before a network call", async () => {
     const fetcher = vi.fn();
-    expect(await sendYCloudText({ binding, apiKey: "test", fetcher }, {
-      ...lease, externalThreadId: "ycloud:9999999999:50255556666",
-    })).toMatchObject({ outcome: "FAILED" });
-    expect(await sendYCloudText({ binding, apiKey: "test", fetcher }, {
-      ...lease, kind: "IMAGE",
-    })).toMatchObject({ outcome: "FAILED" });
+    expect(
+      await sendYCloudText(
+        { binding, apiKey: "test", fetcher },
+        {
+          ...lease,
+          externalThreadId: "ycloud:9999999999:50255556666",
+        },
+      ),
+    ).toMatchObject({ outcome: "FAILED" });
+    expect(
+      await sendYCloudText(
+        { binding, apiKey: "test", fetcher },
+        {
+          ...lease,
+          kind: "IMAGE",
+        },
+      ),
+    ).toMatchObject({ outcome: "FAILED" });
     expect(fetcher).not.toHaveBeenCalled();
   });
 
   it("does not retry an uncertain provider result", async () => {
-    expect(await sendYCloudText({ binding, apiKey: "test", fetcher: vi.fn(async () => {
-      throw new Error("timeout");
-    }) }, lease)).toEqual({ outcome: "UNKNOWN", errorCode: "DELIVERY_UNCERTAIN" });
+    expect(
+      await sendYCloudText(
+        {
+          binding,
+          apiKey: "test",
+          fetcher: vi.fn(async () => {
+            throw new Error("timeout");
+          }),
+        },
+        lease,
+      ),
+    ).toEqual({ outcome: "UNKNOWN", errorCode: "DELIVERY_UNCERTAIN" });
   });
 });
