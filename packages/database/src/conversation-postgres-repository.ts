@@ -241,7 +241,8 @@ export function createExternalConversationReceiver(
              (id, contact_id, channel, external_thread_id, assignee_member_id, status,
               attention_mode, subject, last_message_preview, last_message_at, unread_count,
               version, created_at, updated_at)
-             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, NULL, 'open', 'human', $5,
+             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, NULL, 'open',
+                     CASE WHEN $6 = 'inbound' AND NOT $7::boolean THEN 'agent' ELSE 'human' END, $5,
                      NULL, NULL, 0, 1, $4, $4)`,
             [
               conversationId,
@@ -249,6 +250,8 @@ export function createExternalConversationReceiver(
               message.externalThreadId,
               message.occurredAt,
               message.contactDisplayName.slice(0, 240),
+              message.direction.toLowerCase(),
+              message.historical,
             ],
           );
         }
@@ -266,13 +269,14 @@ export function createExternalConversationReceiver(
            FROM conversations.messages WHERE conversation_id = $1::uuid`,
           [conversationId],
         );
+        const inboundMessageId = randomUUID();
         await client.query(
           `INSERT INTO conversations.messages
            (id, conversation_id, sequence, direction, kind, author_member_id, body,
             external_message_id, delivery_status, failure_code, created_at, updated_at)
            VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, NULL, $6, $7, $8, NULL, $9, $9)`,
           [
-            randomUUID(),
+            inboundMessageId,
             conversationId,
             sequence.rows[0]!.sequence,
             message.direction.toLowerCase(),
@@ -299,6 +303,15 @@ export function createExternalConversationReceiver(
             message.historical,
           ],
         );
+        if (message.direction === "INBOUND" && message.kind === "TEXT" && !message.historical) {
+          await client.query(
+            `INSERT INTO conversations.agent_requests (inbound_message_id, conversation_id)
+             SELECT $1::uuid, conversation.id FROM conversations.conversations AS conversation
+              WHERE conversation.id = $2::uuid AND conversation.attention_mode = 'agent'
+                AND conversation.status <> 'closed' AND conversation.channel = 'whatsapp'`,
+            [inboundMessageId, conversationId],
+          );
+        }
         await client.query("COMMIT");
         return "CREATED" as const;
       } catch (error) {

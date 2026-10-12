@@ -122,7 +122,9 @@ describe("process configuration", () => {
         defaultHost: "127.0.0.1",
         defaultPort: 3101,
         database: { target: "crm", requiresTenant: true },
+        oidc: { provider: "keycloak", boundary: "crm" },
         requiresFilesStorage: "processor",
+        supportsAgentGatewaySecret: true,
         supportsYCloudBinding: true,
         supportsYCloudApiKey: true,
       },
@@ -149,6 +151,10 @@ describe("process configuration", () => {
         serviceName: "agent-runtime",
         defaultHost: "127.0.0.1",
         defaultPort: 3103,
+        oidc: { provider: "keycloak", boundary: "crm" },
+        requiresTenantId: true,
+        supportsAgentRuntimeSecret: true,
+        supportsOpenAiApiKey: true,
       },
     });
   });

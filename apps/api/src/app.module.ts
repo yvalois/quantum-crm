@@ -63,6 +63,7 @@ import { FILE_SERVICE, FilesController } from "./files.controller.js";
 import { FORM_SERVICE, FormsController } from "./forms.controller.js";
 import { InternalAdministratorsController } from "./internal-administrators.controller.js";
 import { YCLOUD_BINDING, YCloudWebhookController } from "./ycloud-webhook.controller.js";
+import { AgentMcpController } from "./agent-mcp.controller.js";
 import type { YCloudBindingConfig } from "@quantum-crm/config";
 
 @Module({})
@@ -99,6 +100,7 @@ export class AppModule {
         FilesController,
         FormsController,
         YCloudWebhookController,
+        AgentMcpController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
@@ -282,6 +284,12 @@ export class AppModule {
                       new Date(),
                     );
                     return upload !== null && actor.memberId === owner.id;
+                  }
+                  if (owner.module === "agents" && owner.type === "knowledge_source") {
+                    return (
+                      actor.scope === "PROFILE" &&
+                      (await database.commercial.agentKnowledge.findSource(owner.id)) !== null
+                    );
                   }
                   if (owner.module !== "documents") return false;
                   if (owner.type === "commercial_document") {

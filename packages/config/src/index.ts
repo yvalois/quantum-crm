@@ -129,3 +129,16 @@ export {
   parseGhlMigrationAttachmentsConfig,
   type GhlMigrationAttachmentsConfig,
 } from "./ghl-migration-attachments-config.js";
+export {
+  loadAgentKnowledgeImportConfig,
+  parseAgentKnowledgeImportConfig,
+  type AgentKnowledgeImportConfig,
+} from "./agent-knowledge-import-config.js";
+export {
+  agentGatewaySecretEnvironmentKey,
+  agentRuntimeSecretEnvironmentKey,
+  openAiApiKeyEnvironmentKey,
+  parseAgentGatewaySecret,
+  parseAgentRuntimeSecret,
+  parseOpenAiApiKey,
+} from "./agent-service-config.js";

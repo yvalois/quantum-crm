@@ -72,3 +72,4 @@ export {
 } from "./redis-platform-session-store.js";
 
 export const packageIdentity = "@quantum-crm/auth" as const;
+export { createServiceTokenClient, type ServiceTokenClient } from "./service-token-client.js";

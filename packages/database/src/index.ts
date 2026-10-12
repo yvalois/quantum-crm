@@ -50,6 +50,8 @@ export { ConversationIdempotencyConflictError } from "./conversation-postgres-re
 export { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 export { createFormPostgresRepository } from "./form-postgres-repository.js";
 export { createDocumentPostgresRepository } from "./document-postgres-repository.js";
+export { createAgentKnowledgePostgresRepository } from "./agent-knowledge-postgres-repository.js";
+export { createConversationAgentPostgresRepository } from "./conversation-agent-postgres-repository.js";
 export {
   createFilePostgresRepository,
   type FileProcessingLease,

@@ -666,6 +666,77 @@ function bootstrapClientRepresentation(): Record<string, unknown> {
   };
 }
 
+const agentServiceClients = [
+  {
+    clientId: "quantum-agent-gateway",
+    audience: "quantum-agent-runtime",
+    permission: "agents:invoke",
+    secretName: "agent-gateway-client-secret",
+  },
+  {
+    clientId: "quantum-agent-runtime",
+    audience: "quantum-crm-api",
+    permission: "agents:catalog-search",
+    secretName: "agent-runtime-client-secret",
+  },
+] as const;
+
+function agentServiceClientRepresentation(
+  client: (typeof agentServiceClients)[number],
+): Record<string, unknown> {
+  return {
+    clientId: client.clientId,
+    enabled: true,
+    protocol: "openid-connect",
+    publicClient: false,
+    standardFlowEnabled: false,
+    directAccessGrantsEnabled: false,
+    implicitFlowEnabled: false,
+    serviceAccountsEnabled: true,
+    fullScopeAllowed: false,
+    redirectUris: [],
+    webOrigins: [],
+    protocolMappers: [
+      {
+        name: "qcrm-agent-permission",
+        protocol: "openid-connect",
+        protocolMapper: "oidc-hardcoded-claim-mapper",
+        config: {
+          "claim.name": "qcrm_service_permissions",
+          "claim.value": client.permission,
+          "access.token.claim": "true",
+          "id.token.claim": "false",
+          "userinfo.token.claim": "false",
+          "jsonType.label": "String",
+        },
+      },
+      {
+        name: "qcrm-service-principal",
+        protocol: "openid-connect",
+        protocolMapper: "oidc-hardcoded-claim-mapper",
+        config: {
+          "claim.name": "qcrm_principal_type",
+          "claim.value": "service",
+          "access.token.claim": "true",
+          "id.token.claim": "false",
+          "userinfo.token.claim": "false",
+          "jsonType.label": "String",
+        },
+      },
+      {
+        name: "qcrm-agent-audience",
+        protocol: "openid-connect",
+        protocolMapper: "oidc-audience-mapper",
+        config: {
+          "included.client.audience": client.audience,
+          "access.token.claim": "true",
+          "id.token.claim": "false",
+        },
+      },
+    ],
+  };
+}
+
 async function responseBody(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -1015,6 +1086,112 @@ async function provisionBootstrapClient(
   return safeSecret(value);
 }
 
+async function provisionAgentServiceClient(
+  options: TenantIdentityProvisionerOptions,
+  realmName: string,
+  client: (typeof agentServiceClients)[number],
+): Promise<string> {
+  const adminOrigin = new URL(options.keycloakAdminOrigin);
+  const headers = {
+    authorization: `Bearer ${await keycloakAccessToken(options)}`,
+    "content-type": "application/json",
+  };
+  const clientsUrl = new URL(`/admin/realms/${encodeURIComponent(realmName)}/clients`, adminOrigin);
+  clientsUrl.searchParams.set("clientId", client.clientId);
+  let listed = await request(clientsUrl, { headers }, [200]);
+  if (!Array.isArray(listed.body)) throw new TenantIdentityProvisioningError("UNAVAILABLE");
+  if (listed.body.length === 0) {
+    await request(
+      clientsUrl,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(agentServiceClientRepresentation(client)),
+      },
+      [201, 409],
+    );
+    listed = await request(clientsUrl, { headers }, [200]);
+  }
+  if (!Array.isArray(listed.body) || listed.body.length !== 1)
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  const record = listed.body[0] as KeycloakClient;
+  if (
+    typeof record.id !== "string" ||
+    !uuidPattern.test(record.id) ||
+    record.clientId !== client.clientId
+  )
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  await request(
+    new URL(
+      `/admin/realms/${encodeURIComponent(realmName)}/clients/${encodeURIComponent(record.id)}`,
+      adminOrigin,
+    ),
+    {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ ...agentServiceClientRepresentation(client), id: record.id }),
+    },
+    [204],
+  );
+  const verified = await request(
+    new URL(
+      `/admin/realms/${encodeURIComponent(realmName)}/clients/${encodeURIComponent(record.id)}`,
+      adminOrigin,
+    ),
+    { headers },
+    [200],
+  );
+  const value = verified.body as KeycloakClient;
+  const mappers = Array.isArray(value.protocolMappers)
+    ? (value.protocolMappers as Record<string, unknown>[])
+    : [];
+  const mapper = (name: string) => mappers.find((entry) => entry.name === name);
+  const permission = mapper("qcrm-agent-permission")?.config as Record<string, unknown> | undefined;
+  const audience = mapper("qcrm-agent-audience")?.config as Record<string, unknown> | undefined;
+  const principal = mapper("qcrm-service-principal")?.config as Record<string, unknown> | undefined;
+  if (
+    value.clientId !== client.clientId ||
+    value.serviceAccountsEnabled !== true ||
+    value.standardFlowEnabled !== false ||
+    value.directAccessGrantsEnabled !== false ||
+    permission?.["claim.value"] !== client.permission ||
+    audience?.["included.client.audience"] !== client.audience ||
+    principal?.["claim.value"] !== "service"
+  )
+    throw new TenantIdentityProvisioningError("TARGET_CONFLICT");
+  const secret = await request(
+    new URL(
+      `/admin/realms/${encodeURIComponent(realmName)}/clients/${encodeURIComponent(record.id)}/client-secret`,
+      adminOrigin,
+    ),
+    { headers },
+    [200],
+  );
+  const raw =
+    typeof secret.body === "object" && secret.body !== null
+      ? (secret.body as Record<string, unknown>).value
+      : undefined;
+  if (typeof raw !== "string") throw new TenantIdentityProvisioningError("UNAVAILABLE");
+  return safeSecret(raw);
+}
+
+/** Idempotent identity setup for existing and newly provisioned profiles. */
+export async function reconcileTenantAgentClients(
+  options: TenantIdentityProvisionerOptions,
+  tenantProfileId: string,
+): Promise<void> {
+  if (!uuidPattern.test(tenantProfileId))
+    throw new TenantIdentityProvisioningError("IDENTITY_MISMATCH");
+  const identity = tenantOidcIdentity(tenantProfileId);
+  for (const client of agentServiceClients) {
+    const secret = await provisionAgentServiceClient(options, identity.realmName, client);
+    await writeSecretIfMissing(
+      secretPath(options.tenantSecretDirectory, tenantProfileId, client.secretName),
+      secret,
+    );
+  }
+}
+
 async function provisionRedisAcl(
   redisAdminUrl: string,
   tenantProfileId: string,
@@ -1069,6 +1246,7 @@ export function createTenantIdentityProvisioner(
       origin,
     );
     const bootstrapSecret = await provisionBootstrapClient(options, identity.realmName);
+    await reconcileTenantAgentClients(options, identity.tenantProfileId);
     const clientSecretPath = secretPath(
       options.tenantSecretDirectory,
       identity.tenantProfileId,
