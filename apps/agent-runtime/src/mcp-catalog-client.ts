@@ -46,15 +46,13 @@ export function createMcpCatalogSearch(input: {
         .parse(await response.json());
       return payload.result;
     };
-    const initialized = z
-      .object({ protocolVersion: z.literal("2025-03-26") })
-      .parse(
-        await call(1, "initialize", {
-          protocolVersion: "2025-03-26",
-          capabilities: {},
-          clientInfo: { name: "quantum-agent-runtime", version: "1.0.0" },
-        }),
-      );
+    const initialized = z.object({ protocolVersion: z.literal("2025-03-26") }).parse(
+      await call(1, "initialize", {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "quantum-agent-runtime", version: "1.0.0" },
+      }),
+    );
     if (initialized.protocolVersion !== "2025-03-26") throw new Error("MCP version mismatch");
     const result = z
       .object({

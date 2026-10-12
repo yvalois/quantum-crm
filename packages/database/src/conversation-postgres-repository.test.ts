@@ -35,7 +35,7 @@ describe("conversation PostgreSQL repository", () => {
     { historical: true, expectedMode: "human", expectedRequest: false },
   ])(
     "sets new inbound WhatsApp threads to $expectedMode when historical=$historical",
-    async ({ historical, expectedMode, expectedRequest }) => {
+    async ({ historical, expectedRequest }) => {
       const query = vi.fn(async (statement: string) => {
         if (statement.includes("SELECT id::text FROM conversations.conversations"))
           return { rows: [] };
