@@ -9,16 +9,217 @@ import type {
   ConversationRepository,
   ExternalConversationReceiver,
   ExternalConversationMessage,
+  ConversationOutboundDispatcher,
   QuickReplyRecord,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
 
+interface OutboundRow {
+  readonly outbox_id: string;
+  readonly message_id: string;
+  readonly external_thread_id: string | null;
+  readonly body: string;
+  readonly kind: string;
+  readonly attempts: number;
+}
+
+/** An expired, uncertain lease is never sent again without reconciliation. */
+export function createConversationOutboundDispatcher(
+  pool: PostgresPool,
+): ConversationOutboundDispatcher {
+  return Object.freeze({
+    claimNext: async ({
+      workerId,
+      leaseSeconds,
+    }: Parameters<ConversationOutboundDispatcher["claimNext"]>[0]) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query(
+          `WITH stale AS (
+             UPDATE conversations.outbox SET status = 'failed', next_attempt_at = 'infinity',
+                    last_error_code = 'DELIVERY_UNCERTAIN', updated_at = CURRENT_TIMESTAMP
+              WHERE channel = 'whatsapp' AND status = 'leased'
+                AND lease_expires_at < CURRENT_TIMESTAMP
+              RETURNING message_id
+           )
+           UPDATE conversations.messages SET delivery_status = 'unknown',
+                  failure_code = 'DELIVERY_UNCERTAIN', updated_at = CURRENT_TIMESTAMP
+            WHERE id IN (SELECT message_id FROM stale)`,
+        );
+        const result = await client.query<OutboundRow>(
+          `SELECT outbox.id::text AS outbox_id, message.id::text AS message_id,
+                  conversation.external_thread_id, message.body, message.kind, outbox.attempts
+             FROM conversations.outbox AS outbox
+             JOIN conversations.messages AS message ON message.id = outbox.message_id
+             JOIN conversations.conversations AS conversation ON conversation.id = message.conversation_id
+            WHERE outbox.channel = 'whatsapp' AND outbox.status IN ('pending', 'failed')
+              AND outbox.next_attempt_at <= CURRENT_TIMESTAMP
+            ORDER BY outbox.next_attempt_at, outbox.id LIMIT 1
+            FOR UPDATE OF outbox SKIP LOCKED`,
+        );
+        const row = result.rows[0];
+        if (!row) {
+          await client.query("COMMIT");
+          return null;
+        }
+        const attempt = row.attempts + 1;
+        await client.query(
+          `UPDATE conversations.outbox SET status = 'leased', attempts = $2,
+                  lease_owner = $3, lease_expires_at = CURRENT_TIMESTAMP + make_interval(secs => $4),
+                  updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
+          [row.outbox_id, attempt, workerId, leaseSeconds],
+        );
+        await client.query("COMMIT");
+        return Object.freeze({
+          outboxId: row.outbox_id,
+          messageId: row.message_id,
+          externalThreadId: row.external_thread_id ?? "",
+          body: row.body,
+          kind: row.kind.toUpperCase() as "TEXT" | "IMAGE" | "AUDIO" | "DOCUMENT" | "SYSTEM",
+          attempt,
+        });
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    complete: async ({
+      lease,
+      workerId,
+      outcome,
+      externalMessageId,
+      errorCode,
+    }: Parameters<ConversationOutboundDispatcher["complete"]>[0]) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const status = outcome === "SENT" ? "sent" : outcome === "RETRY" ? "pending" : "failed";
+        const delivery =
+          outcome === "SENT"
+            ? "queued"
+            : outcome === "UNKNOWN"
+              ? "unknown"
+              : outcome === "FAILED"
+                ? "failed"
+                : "queued";
+        const result = await client.query<{ message_id: string }>(
+          `UPDATE conversations.outbox SET status = $4, lease_owner = NULL, lease_expires_at = NULL,
+                  next_attempt_at = CASE WHEN $4 = 'pending' THEN CURRENT_TIMESTAMP + interval '60 seconds'
+                    WHEN $4 = 'failed' THEN 'infinity'::timestamptz ELSE next_attempt_at END,
+                  last_error_code = $5, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid AND message_id = $2::uuid AND status = 'leased'
+              AND lease_owner = $3 AND attempts = $6
+            RETURNING message_id::text`,
+          [lease.outboxId, lease.messageId, workerId, status, errorCode ?? null, lease.attempt],
+        );
+        if (!result.rows[0]) {
+          const reconciled = await client.query<{ status: string }>(
+            `SELECT status FROM conversations.outbox WHERE id = $1::uuid AND message_id = $2::uuid`,
+            [lease.outboxId, lease.messageId],
+          );
+          await client.query("COMMIT");
+          return ["sent", "failed"].includes(reconciled.rows[0]?.status ?? "");
+        }
+        await client.query(
+          `UPDATE conversations.messages SET delivery_status = CASE
+                    WHEN delivery_status IN ('sent', 'delivered', 'read', 'failed')
+                      THEN delivery_status ELSE $2 END,
+                  external_message_id = COALESCE($3, external_message_id),
+                  failure_code = CASE WHEN delivery_status IN ('sent', 'delivered', 'read', 'failed')
+                    THEN failure_code ELSE $4 END,
+                  updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
+          [lease.messageId, delivery, externalMessageId ?? null, errorCode ?? null],
+        );
+        await client.query(
+          `UPDATE conversations.outbox AS outbox SET status = 'sent', next_attempt_at = 'infinity',
+                  last_error_code = NULL, updated_at = CURRENT_TIMESTAMP
+            FROM conversations.messages AS message
+           WHERE outbox.message_id = message.id AND message.id = $1::uuid
+             AND message.delivery_status IN ('sent', 'delivered', 'read')`,
+          [lease.messageId],
+        );
+        await client.query("COMMIT");
+        return true;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+  });
+}
+
 export function createExternalConversationReceiver(
   pool: PostgresPool,
 ): ExternalConversationReceiver {
   return Object.freeze({
+    reconcileOutbound: async (
+      input: Parameters<ExternalConversationReceiver["reconcileOutbound"]>[0],
+    ) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const result = await client.query<{ delivery_status: string }>(
+          `UPDATE conversations.messages AS message SET
+             delivery_status = CASE
+               WHEN message.delivery_status = 'read' THEN 'read'
+               WHEN message.delivery_status = 'delivered' AND $4 IN ('sent', 'failed') THEN 'delivered'
+               WHEN message.delivery_status = 'failed' AND $4 = 'sent' THEN 'failed'
+               ELSE $4 END,
+             external_message_id = COALESCE(message.external_message_id, $3),
+             failure_code = CASE
+               WHEN message.delivery_status IN ('read', 'delivered') THEN NULL
+               WHEN message.delivery_status = 'failed' AND $4 = 'sent' THEN message.failure_code
+               WHEN $4 = 'failed' THEN $5 ELSE NULL END,
+             updated_at = CURRENT_TIMESTAMP
+            FROM conversations.conversations AS conversation
+           WHERE message.id = $1::uuid AND message.conversation_id = conversation.id
+             AND conversation.channel = 'whatsapp' AND conversation.external_thread_id = $2
+             AND message.direction = 'outbound'
+             AND (message.external_message_id IS NULL OR message.external_message_id = $3)
+           RETURNING message.delivery_status`,
+          [
+            input.messageId,
+            input.externalThreadId,
+            input.externalMessageId,
+            input.status.toLowerCase(),
+            input.failureCode ?? null,
+          ],
+        );
+        if (result.rowCount !== 1) {
+          await client.query("COMMIT");
+          return false;
+        }
+        const effectiveStatus = result.rows[0]!.delivery_status;
+        await client.query(
+          `UPDATE conversations.outbox SET status = $2, lease_owner = NULL,
+                  lease_expires_at = NULL, next_attempt_at = 'infinity',
+                  last_error_code = $3, updated_at = CURRENT_TIMESTAMP
+            WHERE message_id = $1::uuid`,
+          [
+            input.messageId,
+            effectiveStatus === "failed" ? "failed" : "sent",
+            effectiveStatus === "failed" ? (input.failureCode ?? null) : null,
+          ],
+        );
+        await client.query("COMMIT");
+        return true;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
     receive: async (message: ExternalConversationMessage) => {
       let client: PoolClient | undefined;
       try {

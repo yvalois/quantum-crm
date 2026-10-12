@@ -1,7 +1,10 @@
 import type { CommercialActor } from "@quantum-crm/domain";
 import { describe, expect, it, vi } from "vitest";
 
-import { createConversationPostgresRepository } from "./conversation-postgres-repository.js";
+import {
+  createConversationPostgresRepository,
+  createExternalConversationReceiver,
+} from "./conversation-postgres-repository.js";
 import type { PostgresPool } from "./postgres-database.js";
 
 const actor: CommercialActor = Object.freeze({
@@ -46,5 +49,34 @@ describe("conversation PostgreSQL repository", () => {
     expect(statement).toContain("conversation.contact_id = $2::uuid");
     expect(statement).toContain("conversation.assignee_member_id = $1::uuid");
     expect(values).toEqual([actor.memberId, contactId, 26]);
+  });
+
+  it("reconciles a bound outbound receipt and stops its delivery lease", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ delivery_status: "delivered" }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const client = { query, release: vi.fn() };
+    const pool = { connect: vi.fn(async () => client) } as unknown as PostgresPool;
+    const input = {
+      messageId: "01995f7e-7b52-7000-8000-000000000402",
+      externalThreadId: "ycloud:1234567890123456:50255556666",
+      externalMessageId: "ycloud:1234567890123456:provider-1",
+      status: "DELIVERED" as const,
+    };
+
+    expect(await createExternalConversationReceiver(pool).reconcileOutbound(input)).toBe(true);
+    expect(query.mock.calls[1]?.[0]).toContain("conversation.external_thread_id = $2");
+    expect(query.mock.calls[1]?.[1]).toEqual([
+      input.messageId,
+      input.externalThreadId,
+      input.externalMessageId,
+      "delivered",
+      null,
+    ]);
+    expect(query.mock.calls[2]?.[1]).toEqual([input.messageId, "sent", null]);
+    expect(client.release).toHaveBeenCalledOnce();
   });
 });

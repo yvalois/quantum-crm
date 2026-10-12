@@ -10,6 +10,7 @@ import { CrmPublicRoute } from "./crm-security.js";
 export const YCLOUD_BINDING = Symbol("YCLOUD_BINDING");
 
 type Json = Record<string, unknown>;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 interface WebhookRequest {
   readonly rawBody?: Buffer;
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
@@ -56,6 +57,51 @@ export interface ParsedYCloudMessage {
   readonly body: string;
   readonly occurredAt: Date;
   readonly historical: boolean;
+}
+
+export interface ParsedYCloudOutboundStatus {
+  readonly messageId: string;
+  readonly externalThreadId: string;
+  readonly externalMessageId: string;
+  readonly status: "SENT" | "DELIVERED" | "READ" | "FAILED";
+  readonly failureCode?: string;
+}
+
+export function parseYCloudOutboundStatus(
+  payload: unknown,
+  binding: YCloudBindingConfig,
+): ParsedYCloudOutboundStatus | null {
+  const event = object(payload);
+  if (string(event?.type) !== "whatsapp.message.updated") return null;
+  const message = object(event?.whatsappMessage);
+  if (
+    !message ||
+    string(message.wabaId) !== binding.wabaId ||
+    digits(message.from) !== binding.businessPhone
+  )
+    return null;
+  const phone = digits(message.to);
+  const messageId = string(message.externalId);
+  const providerId = string(message.id);
+  const rawStatus = string(message.status);
+  if (
+    !phone ||
+    !messageId ||
+    !uuidPattern.test(messageId) ||
+    !providerId ||
+    providerId.length > 400 ||
+    !rawStatus ||
+    !["sent", "delivered", "read", "failed"].includes(rawStatus)
+  )
+    return null;
+  const errorCode = string(message.errorCode);
+  return {
+    messageId,
+    externalThreadId: `ycloud:${binding.wabaId}:${phone}`,
+    externalMessageId: `ycloud:${binding.wabaId}:${providerId}`,
+    status: rawStatus.toUpperCase() as ParsedYCloudOutboundStatus["status"],
+    ...(errorCode && /^[A-Z0-9_]{1,120}$/u.test(errorCode) ? { failureCode: errorCode } : {}),
+  };
 }
 
 export function parseYCloudMessage(
@@ -150,8 +196,24 @@ export class YCloudWebhookController {
     } catch {
       throw new HttpException("Invalid webhook payload", 400);
     }
+    const outboundStatus = parseYCloudOutboundStatus(event, this.binding);
+    if (outboundStatus) {
+      await this.database.commercial.externalConversations.reconcileOutbound(outboundStatus);
+      return { received: true };
+    }
     const message = parseYCloudMessage(event, this.binding);
     if (!message) return { received: true };
+    const providerMessage = object(object(event)?.whatsappMessage);
+    const correlatedId = string(providerMessage?.externalId);
+    if (message.direction === "OUTBOUND" && correlatedId && uuidPattern.test(correlatedId)) {
+      const correlated = await this.database.commercial.externalConversations.reconcileOutbound({
+        messageId: correlatedId,
+        externalThreadId: message.externalThreadId,
+        externalMessageId: `ycloud:${this.binding.wabaId}:${string(providerMessage?.id) ?? correlatedId}`,
+        status: "SENT",
+      });
+      if (correlated) return { received: true };
+    }
     const contact = await this.database.commercial.externalContacts.resolvePhone(
       message.phone,
       message.displayName,

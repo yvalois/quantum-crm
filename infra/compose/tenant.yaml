@@ -172,6 +172,8 @@ services:
       QCRM_PORT: "3101"
       QCRM_TENANT_ID: "${QCRM_TENANT_ID:?set QCRM_TENANT_ID}"
       QCRM_DATABASE_URL_FILE: /run/secrets/qcrm_database_url
+      QCRM_YCLOUD_BINDING_FILE: "${QCRM_YCLOUD_BINDING_FILE:-}"
+      QCRM_YCLOUD_API_KEY_FILE: "${QCRM_YCLOUD_API_KEY_FILE:-}"
       QCRM_FILES_S3_ENDPOINT: http://platform-storage:8333
       QCRM_FILES_S3_REGION: "${QCRM_FILES_S3_REGION:-us-east-1}"
       QCRM_FILES_INCOMING_BUCKET: "${QCRM_FILES_INCOMING_BUCKET:?set QCRM_FILES_INCOMING_BUCKET}"
@@ -188,6 +190,10 @@ services:
     secrets:
       - source: crm-database-url
         target: qcrm_database_url
+      - source: ycloud-binding
+        target: qcrm_ycloud_binding
+      - source: ycloud-api-key
+        target: qcrm_ycloud_api_key
       - source: files-s3-processor-access-key
         target: qcrm_files_s3_processor_access_key
       - source: files-s3-processor-secret-key
@@ -204,7 +210,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    networks: [tenant-internal, platform-database, platform-storage]
+    networks: [tenant-internal, tenant-edge, platform-database, platform-storage]
 
   agent-runtime:
     <<: *service-defaults
@@ -256,6 +262,8 @@ secrets:
     file: "${QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_HOST_FILE:?set QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_HOST_FILE}"
   ycloud-binding:
     file: "${QCRM_YCLOUD_BINDING_SECRET_HOST_FILE:?set QCRM_YCLOUD_BINDING_SECRET_HOST_FILE}"
+  ycloud-api-key:
+    file: "${QCRM_YCLOUD_API_KEY_SECRET_HOST_FILE:?set QCRM_YCLOUD_API_KEY_SECRET_HOST_FILE}"
   crm-oidc-client-secret:
     file: "${QCRM_CRM_OIDC_CLIENT_SECRET_FILE:?set QCRM_CRM_OIDC_CLIENT_SECRET_FILE}"
   crm-session-redis-url:

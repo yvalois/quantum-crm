@@ -260,7 +260,12 @@ export async function planForTenant(
       options.databaseSecretRoot,
       `${request.tenantProfileId}/ycloud-binding`,
     );
+    const ycloudApiKeySecretFile = safeChildPath(
+      options.databaseSecretRoot,
+      `${request.tenantProfileId}/ycloud-api-key`,
+    );
     let ycloudConfigured = false;
+    let ycloudApiKeyConfigured = false;
     try {
       const metadata = await lstat(ycloudBindingSecretFile);
       if (
@@ -274,6 +279,16 @@ export async function planForTenant(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
+    try {
+      const metadata = await lstat(ycloudApiKeySecretFile);
+      if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size !== 32) {
+        throw new HostAdapterError("UNAVAILABLE");
+      }
+      ycloudApiKeyConfigured = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    if (ycloudApiKeyConfigured && !ycloudConfigured) throw new HostAdapterError("UNAVAILABLE");
     return createTenantComposePlan(requestFor(request), manifest, {
       templatePath: options.composeTemplate,
       imageRegistry: options.imageRegistry,
@@ -305,6 +320,7 @@ export async function planForTenant(
         `${request.tenantProfileId}/iam-bootstrap-client-secret`,
       ),
       ...(ycloudConfigured ? { ycloudBindingSecretFile } : {}),
+      ...(ycloudApiKeyConfigured ? { ycloudApiKeySecretFile } : {}),
       crmSessionRedisUrlSecretFile: safeChildPath(
         options.databaseSecretRoot,
         `${request.tenantProfileId}/session-redis-url`,

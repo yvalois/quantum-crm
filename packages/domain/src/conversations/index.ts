@@ -95,6 +95,36 @@ export interface ExternalConversationMessage {
 /** Writes one verified provider message, including the thread, atomically and idempotently. */
 export interface ExternalConversationReceiver {
   readonly receive: (message: ExternalConversationMessage) => Promise<"CREATED" | "DUPLICATE">;
+  readonly reconcileOutbound: (input: {
+    readonly messageId: string;
+    readonly externalThreadId: string;
+    readonly externalMessageId: string;
+    readonly status: "SENT" | "DELIVERED" | "READ" | "FAILED";
+    readonly failureCode?: string;
+  }) => Promise<boolean>;
+}
+
+export interface ConversationOutboundLease {
+  readonly outboxId: string;
+  readonly messageId: string;
+  readonly externalThreadId: string;
+  readonly body: string;
+  readonly kind: ConversationMessageKind;
+  readonly attempt: number;
+}
+
+export interface ConversationOutboundDispatcher {
+  readonly claimNext: (input: {
+    readonly workerId: string;
+    readonly leaseSeconds: number;
+  }) => Promise<ConversationOutboundLease | null>;
+  readonly complete: (input: {
+    readonly lease: ConversationOutboundLease;
+    readonly workerId: string;
+    readonly outcome: "SENT" | "RETRY" | "FAILED" | "UNKNOWN";
+    readonly externalMessageId?: string;
+    readonly errorCode?: string;
+  }) => Promise<boolean>;
 }
 
 export interface ConversationRepository {

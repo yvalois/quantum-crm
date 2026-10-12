@@ -25,6 +25,7 @@ import type {
   ContactRepository,
   ExternalContactDirectory,
   ExternalConversationReceiver,
+  ConversationOutboundDispatcher,
   ConversationRepository,
   HistoricalConversationRepository,
   UnifiedInboxRepository,
@@ -51,6 +52,7 @@ import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database
 import {
   createConversationPostgresRepository,
   createExternalConversationReceiver,
+  createConversationOutboundDispatcher,
 } from "./conversation-postgres-repository.js";
 import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
 import { createUnifiedInboxPostgresRepository } from "./unified-inbox-postgres-repository.js";
@@ -716,6 +718,7 @@ export interface CommercialPostgresRepositories {
   readonly externalContacts: ExternalContactDirectory;
   readonly conversations: ConversationRepository;
   readonly externalConversations: ExternalConversationReceiver;
+  readonly conversationOutbound: ConversationOutboundDispatcher;
   readonly historicalConversations: HistoricalConversationRepository;
   readonly unifiedInbox: UnifiedInboxRepository;
   readonly sales: SalesRepository;
@@ -2665,6 +2668,7 @@ export function createCommercialPostgresRepositories(
     conversations: createConversationPostgresRepository(pool),
     externalContacts,
     externalConversations: createExternalConversationReceiver(pool),
+    conversationOutbound: createConversationOutboundDispatcher(pool),
     historicalConversations: createHistoricalConversationPostgresRepository(pool),
     unifiedInbox: createUnifiedInboxPostgresRepository(pool),
     customFieldDefinitions: createSettingsCustomFieldPostgresRepository(pool),

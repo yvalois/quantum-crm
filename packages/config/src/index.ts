@@ -63,6 +63,7 @@ export {
   ycloudBindingEnvironmentKey,
   type YCloudBindingConfig,
 } from "./ycloud-binding-config.js";
+export { parseYCloudApiKeyConfig, ycloudApiKeyEnvironmentKey } from "./ycloud-api-key-config.js";
 export {
   databaseEnvironmentKeys,
   expectedDatabaseSecretPath,
