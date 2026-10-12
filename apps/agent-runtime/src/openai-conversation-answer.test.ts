@@ -112,4 +112,32 @@ describe("OpenAI conversational answer", () => {
       "¡Hola! ¿Qué tipo de vehículo necesitas?",
     );
   });
+
+  it("does not duplicate the application-owned greeting on a direct first message", async () => {
+    const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.instructions).toContain("la agrega la aplicación");
+      return new Response(
+        JSON.stringify({
+          status: "completed",
+          output: [
+            {
+              type: "message",
+              content: [
+                {
+                  type: "output_text",
+                  text: JSON.stringify({ answer: "¡Hola! ¿Qué tipo de vehículo te interesa?" }),
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const answer = createOpenAiConversationAnswer({ apiKey: new SecretValue("test"), fetcher });
+    expect(
+      await answer({ question: "Hola, quiero rentar un carro", history: [], firstTurn: true }),
+    ).toBe("¿Qué tipo de vehículo te interesa?");
+  });
 });

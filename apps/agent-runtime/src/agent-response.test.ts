@@ -67,6 +67,7 @@ describe("InterAmerican agent memory", () => {
     expect(current.answerConversation).toHaveBeenCalledWith({
       question: "Quiero rentar un vehículo",
       history: [],
+      firstTurn: true,
     });
     expect(result.answer).toContain("Soy Alex");
     expect(result.answer).not.toBe(initialGreeting);
@@ -96,6 +97,7 @@ describe("InterAmerican agent memory", () => {
     expect(current.answerConversation).toHaveBeenCalledWith({
       question: "¿Puede ser mañana?",
       history: [{ role: "customer", text: "Necesito un traslado" }],
+      firstTurn: false,
     });
     expect(current.search).not.toHaveBeenCalled();
   });
@@ -106,6 +108,7 @@ describe("InterAmerican agent memory", () => {
     expect(current.answerConversation).toHaveBeenCalledWith({
       question: "Sí",
       history: [{ role: "customer", text: "Busco un carro individual" }],
+      firstTurn: false,
     });
     expect(current.search).not.toHaveBeenCalled();
   });

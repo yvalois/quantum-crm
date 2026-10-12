@@ -22,6 +22,7 @@ export function createOpenAiConversationAnswer(options: {
 }): (input: {
   readonly question: string;
   readonly history: AgentConversationContext["messages"];
+  readonly firstTurn?: boolean;
 }) => Promise<string> {
   return async (input) => {
     const response = await (options.fetcher ?? fetch)("https://api.openai.com/v1/responses", {
@@ -35,7 +36,9 @@ export function createOpenAiConversationAnswer(options: {
         model: options.model ?? "gpt-5-mini",
         store: false,
         max_output_tokens: 1600,
-        instructions: interAmericanConversationPolicy,
+        instructions: input.firstTurn
+          ? `${interAmericanConversationPolicy}\n\nLa primera presentación de Alex la agrega la aplicación a esta respuesta. No inicies tu texto con saludo ni presentación; responde directamente la solicitud.`
+          : interAmericanConversationPolicy,
         input: [
           ...input.history.map((message) => ({
             role: message.role === "customer" ? "user" : "assistant",
@@ -74,12 +77,13 @@ export function createOpenAiConversationAnswer(options: {
       /^(?:[¡!¿?\s]*)(?:hola|buen(?:os|as)(?:\s+d[ií]as|\s+tardes|\s+noches)?|hi|hello)\b/iu.test(
         input.question,
       );
-    const continuation = customerGreeted
-      ? answer
-      : answer
-          .replace(/^\s*[¡!]?hola(?:\s+de nuevo)?[!¡.,:\s-]*/iu, "")
-          .replace(/^gracias por (?:escribir(?:nos)?|preguntar)[.!?,:\s-]*/iu, "")
-          .trim();
+    const continuation =
+      customerGreeted && !input.firstTurn
+        ? answer
+        : answer
+            .replace(/^\s*[¡!]?hola(?:\s+de nuevo)?[!¡.,:\s-]*/iu, "")
+            .replace(/^gracias por (?:escribir(?:nos)?|preguntar)[.!?,:\s-]*/iu, "")
+            .trim();
     if (!continuation) throw new Error("Conversation answer contained only a greeting");
     return continuation;
   };

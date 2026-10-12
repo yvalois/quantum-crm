@@ -56,6 +56,7 @@ export async function answerAgentTurn(
     readonly answerConversation: (input: {
       readonly question: string;
       readonly history: AgentConversationContext["messages"];
+      readonly firstTurn: boolean;
     }) => Promise<string>;
   },
 ): Promise<AgentResponse> {
@@ -69,6 +70,7 @@ export async function answerAgentTurn(
       answer: `${firstTurn ? briefIntroduction : ""}${await gateway.answerConversation({
         question: input.question,
         history: context.messages,
+        firstTurn,
       })}`,
       sourceIds: [],
       grounded: false,
