@@ -1,10 +1,12 @@
 # Estado del proyecto
 
-Actualizado: 2026-10-11
+Actualizado: 2026-10-12
 
 Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No sustituye el checklist.
 
 ## Resumen
+
+> **USR-01 (2026-10-12): ALTA COMPLETADA; ACTIVACIÓN PERSONAL PENDIENTE.** La API de GHL confirmó cuatro asesores reales de la ubicación autorizada: Armando Morales, Carlos Mejía, Hugo González y Julio Rafael. En InterAmerican existen exactamente cuatro invitaciones `pending`, una por persona, con rol `ADVISOR`, alcance `assigned`, identidad emitida y acceso temporal. El primer intento creó a Armando pero la pantalla perdió su credencial por usar `event.currentTarget` después de una operación asíncrona; el candidato `af170642` corrigió la entrega, aprobó typecheck, Prettier y ESLint focalizados en el VPS, build de producción y siete checks de CI, y quedó saludable como `qcrm-candidate/crm-web:af170642` (`/api/health/ready`: `200`). Carlos, Hugo y Julio se crearon desde `/team` y mostraron la credencial; la invitación original de Armando se recuperó mediante reemisión de generación 1 sin duplicar la cuenta. Keycloak exige nueva contraseña, QR TOTP y completar la activación; cada persona debe realizar esos pasos, por lo que no se afirma que haya iniciado sesión. PR #140. No se publican secretos en Git ni en este registro. Pendientes de estabilización posterior: entrega permanente de accesos de un solo uso y reemisión autoservicio desde `/team` cuando se cierre la vista o expire el enlace.
 
 > **BASE-02 / CHAT-20 (2026-10-12): EN_CURSO — fidelidad del agente InterAmerican.** El propietario confirmó recepción de las respuestas a «Hola», «Renta de vehículos» y «¿Qué vehículos tienes?», pero el agente volvió a saludar y preguntó «personal o corporativa». La memoria durable y el corte por reinicio ya están desplegados; el defecto es la adaptación genérica del prompt original. El candidato `927d7381` conserva el historial como turnos de usuario/asistente, recupera del export n8n las reglas de continuidad, estilo y renta sin conductor, limita los tipos visibles a cinco, evita clasificar al cliente como pregunta obligatoria y responde solicitudes directas del primer mensaje sin mostrar el menú. En el VPS: formato, lint, 17 pruebas focalizadas y typecheck de `agent-runtime` aprobados. Pendiente: CI, despliegue por digest y verificación de respuesta real en WhatsApp; no se declara terminado.
 

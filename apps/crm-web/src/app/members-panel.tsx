@@ -280,7 +280,8 @@ export function MembersPanel(): React.JSX.Element {
   const inviteMember = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (!csrfToken) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -304,10 +305,14 @@ export function MembersPanel(): React.JSX.Element {
       });
       if (!response.ok) throw new Error(await responseMessage(response));
       const payload = (await response.json()) as InvitationPayload;
-      event.currentTarget.reset();
+      formElement.reset();
       invitationKey.current = null;
       setActivationLink(payload.activation);
-      setNotice("Usuario creado. Copia ahora la contraseña temporal: no volverá a mostrarse.");
+      setNotice(
+        payload.activation
+          ? "Usuario creado. Copia ahora la contraseña temporal: no volverá a mostrarse."
+          : "La invitación ya existía; no se generó otra contraseña temporal.",
+      );
       await loadMembers();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible crear la invitación.");
