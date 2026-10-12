@@ -58,6 +58,30 @@ describe("InterAmerican agent memory", () => {
     expect(result.sourceIds).toEqual([source.id]);
   });
 
+  it("answers a direct first request instead of showing the general menu", async () => {
+    const current = gateway([]);
+    const result = await answerAgentTurn(
+      { question: "Quiero rentar un vehículo", firstTurn: true },
+      current,
+    );
+    expect(current.answerConversation).toHaveBeenCalledWith({
+      question: "Quiero rentar un vehículo",
+      history: [],
+    });
+    expect(result.answer).toContain("Soy Alex");
+    expect(result.answer).not.toBe(initialGreeting);
+  });
+
+  it("uses the rental flow rather than RAG when a company asks for a vehicle", async () => {
+    const current = gateway([]);
+    await answerAgentTurn(
+      { question: "Soy una empresa y quiero un SUV por 3 días", firstTurn: true },
+      current,
+    );
+    expect(current.answerConversation).toHaveBeenCalledOnce();
+    expect(current.search).not.toHaveBeenCalled();
+  });
+
   it("starts without prior memory after reset while leaving the CRM transcript untouched", async () => {
     const afterReset = gateway([]);
     const result = await answerAgentTurn({ question: "Hola", firstTurn: true }, afterReset);
@@ -84,6 +108,13 @@ describe("InterAmerican agent memory", () => {
       history: [{ role: "customer", text: "Busco un carro individual" }],
     });
     expect(current.search).not.toHaveBeenCalled();
+  });
+
+  it("does not introduce itself again if earlier messages exist despite a stale first-turn flag", async () => {
+    const current = gateway([{ role: "customer", text: "Busco un carro individual" }]);
+    const result = await answerAgentTurn({ question: "¿Qué incluye?", firstTurn: true }, current);
+    expect(result.answer).toBe("Tenemos opciones de renta individual.");
+    expect(result.answer).not.toContain("Soy Alex");
   });
 
   it("answers safely instead of becoming silent when a dependency fails", async () => {

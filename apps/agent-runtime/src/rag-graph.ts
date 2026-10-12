@@ -48,7 +48,7 @@ export interface RagResult {
 }
 
 const noEvidenceAnswer =
-  "No encontré información suficiente en el catálogo seleccionado para responder con seguridad.";
+  "Ese dato lo validamos al preparar la cotización para darte una respuesta precisa.";
 
 export function createRagGraph(gateway: RagGateway) {
   return new StateGraph(ragState)
