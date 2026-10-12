@@ -1,11 +1,11 @@
 # BASE-01 — Primer agente RAG de InterAmerican
 
-> Plan derivado para una capacidad de prueba manual. No sustituye el alcance completo de BASE-01 ni acredita envio automatico.
+> Bloque funcional de prueba conversacional por WhatsApp para InterAmerican. No sustituye el alcance completo de BASE-01.
 
 ## Identificacion
 
 - Requisito principal: `BASE-01`.
-- Requisitos relacionados: `CHAT-03`, `BASE-02`, `BASE-06`, `ADM-18`.
+- Requisitos relacionados: `CHAT-02`, `CHAT-03`, `CHAT-14`, `CHAT-15`, `CHAT-17`, `BASE-02`, `BASE-06`, `ADM-18`.
 - Fase del MVP: 5, interaccion inteligente.
 - Estado oficial: [`estado.md`](../../04-proceso/estado.md).
 - Responsable: Quantum CRM.
@@ -15,7 +15,7 @@
 
 ## Resultado esperado
 
-Un administrador de InterAmerican puede consultar manualmente al primer agente LangGraph desde CRM. El agente recupera solo texto pertinente del catalogo individual o corporativo, responde en espanol con referencias comprobables y reconoce cuando la fuente no respalda una afirmacion. No envia mensajes ni ejecuta acciones comerciales.
+Un mensaje de WhatsApp recibido por el canal YCloud autorizado inicia, solo cuando la conversacion esta asignada al agente, una consulta LangGraph sobre los catalogos individual o corporativo. La respuesta sustentada se envia por ese mismo canal y queda en la bandeja; un humano puede detener la atencion automatica. Los reintentos no duplican respuestas ni envios.
 
 ## Lectura obligatoria aplicada
 
@@ -25,7 +25,7 @@ Un administrador de InterAmerican puede consultar manualmente al primer agente L
 
 ## Auditoria del trabajo existente
 
-- Export n8n: 201 nodos; solo se reutiliza la separacion de dos herramientas RAG por tipo de catalogo y su criterio de no inventar datos. Los nodos de imagen, audio, envio, seguimiento y escalamiento no se trasladan.
+- Export n8n: 201 nodos; solo se reutiliza la separacion de dos herramientas RAG por tipo de catalogo y su criterio de no inventar datos. Los nodos de imagen, audio, seguimiento y escalamiento no se trasladan.
 - Catalogos: dos PDF de 33 paginas con texto extraible; no se incorporan a Git ni a fixtures.
 - Codigo: `apps/agent-runtime` solo tiene health; no hay MCP ni indice RAG implementados. Se reutilizan sesion CRM, Files y la API aislada por perfil.
 
@@ -33,23 +33,23 @@ Un administrador de InterAmerican puede consultar manualmente al primer agente L
 
 ### Incluido
 
-- Consulta manual del agente desde CRM para InterAmerican.
+- Recepcion de WhatsApp, control agente/humano, consulta RAG y respuesta por YCloud para InterAmerican.
 - Dos fuentes separadas, individual y corporativa, cargadas y procesadas tras validacion de Files.
 - LangGraph TypeScript con recuperacion obligatoria y respuesta basada en fuentes.
 - Contratos, permisos, aislamiento, limites, idempotencia de consulta y evidencia operativa.
 
 ### No incluido
 
-- Imagenes, audio, envio de PDF, WhatsApp automatico, follow-ups, asignacion, escritura CRM o migracion literal del prompt n8n.
+- Imagenes, audio, envio de PDF, follow-ups, asignacion y migracion literal del prompt n8n.
 - Completar todos los requisitos BASE-01 a BASE-03 o todos los tools MCP.
 
 ## Impacto tecnico
 
 | Area | Impacto previsto |
 |---|---|
-| Aplicaciones y modulos | CRM web, API por perfil, `agent-runtime`, Files y gateway de lectura |
-| Contratos y eventos | Contratos de consulta, fuentes y resultado; sin eventos salientes |
-| Datos y migraciones | Fuentes y revision del indice por perfil, migracion aditiva e idempotente |
+| Aplicaciones y modulos | API por perfil, worker de mensajes, `agent-runtime`, Files y gateway MCP de lectura |
+| Contratos y eventos | Consulta de fuentes, ejecucion de agente y salida WhatsApp |
+| Datos y migraciones | Fuentes e indice por perfil; intento y salida durables, migraciones aditivas e idempotentes |
 | Permisos y aislamiento | Administrador CRM y principal de agente limitados al perfil |
 | Configuracion y secretos | Credencial OpenAI montada via `*_FILE`; nada en Git o logs. El propietario decidio usar la clave ya compartida sin rotarla durante esta prueba. |
 | Observabilidad y operacion | Resultado y fallo tipados, timeout y limites; sin contenido sensible en logs |
@@ -60,7 +60,8 @@ Un administrador de InterAmerican puede consultar manualmente al primer agente L
 - [ ] Preparar fuente de catalogos por Files con scan y revision fija.
 - [ ] Implementar recuperacion por catalogo y gateway de lectura autorizado.
 - [ ] Implementar grafo LangGraph y contrato de consulta de prueba.
-- [ ] Exponer prueba manual en CRM, sin canal saliente.
+- [ ] Conectar recepcion YCloud con ejecucion LangGraph solo en modo agente.
+- [ ] Persistir salida, despacharla por YCloud y conciliar su resultado sin duplicados.
 - [x] Cargar la credencial directamente en el VPS como archivo secreto; permisos `600` y OpenAI `/v1/models` `HTTP 200` sin transmitir el valor en comandos o salidas.
 - [ ] Validar consultas con fuentes reales, Files y aislamiento.
 
@@ -75,16 +76,16 @@ Un administrador de InterAmerican puede consultar manualmente al primer agente L
 
 ## Criterios de aceptacion
 
-- [ ] Consultas manuales en InterAmerican devuelven respuesta sustentada y paginas de origen para ambos catalogos.
+- [ ] Mensajes reales en InterAmerican reciben respuesta sustentada en WhatsApp y visible en la bandeja para ambos catalogos.
 - [ ] No se puede consultar otro perfil ni usar fuentes no disponibles.
-- [ ] No hay envio automatico, imagenes, audio ni escrituras comerciales.
+- [ ] Solo responde en modo agente; no procesa imagenes/audio ni ejecuta otras escrituras comerciales.
 - [ ] Runtime, API y CRM saludables en VPS; comprobacion enfocada y CI verde.
 
 ## Plan de verificacion
 
 - Unitarias: clasificacion, limites, abstencion y formato de referencias.
 - Integracion: dos perfiles sinteticos, permisos y seleccion de fuente.
-- E2E: usuario autorizado pregunta a ambos catalogos y observa respuesta/citas; usuario sin permiso es denegado.
+- E2E: mensaje real por WhatsApp pregunta a ambos catalogos y observa respuesta/citas en telefono y bandeja; modo humano detiene respuestas.
 - Seguridad: token de servicio, archivos `AVAILABLE`, secreto montado y ausencia de fuga en logs.
 - Recuperacion: migracion aditiva, reindexacion idempotente y rollback del runtime sin modificar fuentes.
 

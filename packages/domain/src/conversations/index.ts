@@ -97,6 +97,29 @@ export interface ExternalConversationReceiver {
   readonly receive: (message: ExternalConversationMessage) => Promise<"CREATED" | "DUPLICATE">;
 }
 
+export interface ConversationOutboundLease {
+  readonly outboxId: string;
+  readonly messageId: string;
+  readonly externalThreadId: string;
+  readonly body: string;
+  readonly kind: ConversationMessageKind;
+  readonly attempt: number;
+}
+
+export interface ConversationOutboundDispatcher {
+  readonly claimNext: (input: {
+    readonly workerId: string;
+    readonly leaseSeconds: number;
+  }) => Promise<ConversationOutboundLease | null>;
+  readonly complete: (input: {
+    readonly lease: ConversationOutboundLease;
+    readonly workerId: string;
+    readonly outcome: "SENT" | "RETRY" | "FAILED" | "UNKNOWN";
+    readonly externalMessageId?: string;
+    readonly errorCode?: string;
+  }) => Promise<boolean>;
+}
+
 export interface ConversationRepository {
   readonly list: (
     actor: CommercialActor,

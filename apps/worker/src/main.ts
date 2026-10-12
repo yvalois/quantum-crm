@@ -13,6 +13,7 @@ import {
   type FileProcessingLoop,
   type FileProcessingRepository,
 } from "./file-processing-loop.js";
+import { startYCloudOutboundLoop, type YCloudOutboundLoop } from "./ycloud-outbound-loop.js";
 
 async function bootstrap(): Promise<void> {
   const config = loadServiceConfig("worker");
@@ -54,6 +55,7 @@ async function bootstrap(): Promise<void> {
   });
   let application: INestApplicationContext | undefined;
   let fileProcessingLoop: FileProcessingLoop | undefined;
+  let ycloudOutboundLoop: YCloudOutboundLoop | undefined;
   try {
     await database.connect();
     application = await NestFactory.createApplicationContext(AppModule, {
@@ -71,6 +73,17 @@ async function bootstrap(): Promise<void> {
         process.stderr.write('{"level":"error","event":"file_processing_attempt_failed"}\n');
       },
     });
+    if (config.ycloudBinding && config.ycloudApiKey) {
+      ycloudOutboundLoop = startYCloudOutboundLoop({
+        repository: database.commercial.conversationOutbound,
+        binding: config.ycloudBinding,
+        apiKey: config.ycloudApiKey.expose(),
+        pollIntervalMs: 2_000,
+        onError: () => {
+          process.stderr.write('{"level":"error","event":"ycloud_outbound_attempt_failed"}\n');
+        },
+      });
+    }
     let ready = false;
     const healthServer = createInternalHealthServer({
       serviceName: config.serviceName,
@@ -85,6 +98,7 @@ async function bootstrap(): Promise<void> {
       [
         healthServer,
         fileProcessingLoop,
+        ...(ycloudOutboundLoop ? [ycloudOutboundLoop] : []),
         {
           close: async () => {
             ready = false;
@@ -97,6 +111,7 @@ async function bootstrap(): Promise<void> {
     );
   } catch (error) {
     await fileProcessingLoop?.close();
+    await ycloudOutboundLoop?.close();
     await application?.close();
     await database.close();
     throw error;

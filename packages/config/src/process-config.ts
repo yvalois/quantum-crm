@@ -25,6 +25,7 @@ import {
   ycloudBindingEnvironmentKey,
   type YCloudBindingConfig,
 } from "./ycloud-binding-config.js";
+import { parseYCloudApiKeyConfig, ycloudApiKeyEnvironmentKey } from "./ycloud-api-key-config.js";
 import {
   parseStorageConfig,
   storageEnvironmentKeys,
@@ -116,6 +117,8 @@ export const processDefinitions = Object.freeze({
     defaultPort: 3101,
     database: Object.freeze({ target: "crm", requiresTenant: true }),
     requiresFilesStorage: "processor",
+    supportsYCloudBinding: true,
+    supportsYCloudApiKey: true,
   }),
   "deploy-executor": Object.freeze({
     serviceName: "deploy-executor",
@@ -163,6 +166,7 @@ export interface ProcessDefinition {
   readonly requiresIamBootstrapClientSecret?: boolean;
   readonly requiresFilesStorage?: FilesStorageRole;
   readonly supportsYCloudBinding?: boolean;
+  readonly supportsYCloudApiKey?: boolean;
 }
 
 export interface ProcessConfig {
@@ -200,6 +204,7 @@ export interface ProcessConfig {
   readonly iamBootstrapClientSecret?: SecretValue;
   readonly filesStorage?: FilesStorageConfig;
   readonly ycloudBinding?: YCloudBindingConfig;
+  readonly ycloudApiKey?: SecretValue;
 }
 
 function readEnvironment(): NodeJS.ProcessEnv {
@@ -275,6 +280,7 @@ export function parseProcessConfig(
     ...(definition.requiresFilesStorage === "signer" ? filesSignerEnvironmentKeys : []),
     ...(definition.requiresFilesStorage === "processor" ? filesProcessorEnvironmentKeys : []),
     ...(definition.supportsYCloudBinding ? [ycloudBindingEnvironmentKey] : []),
+    ...(definition.supportsYCloudApiKey ? [ycloudApiKeyEnvironmentKey] : []),
     ...(definition.requiresDeployHostSocket ? [deployHostSocketEnvironmentKey] : []),
     ...(definition.requiresDeployHostComposeRuntime
       ? [
@@ -555,6 +561,14 @@ export function parseProcessConfig(
         fileSystem,
       )
     : undefined;
+  const ycloudApiKey = definition.supportsYCloudApiKey
+    ? parseYCloudApiKeyConfig(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        environment[ycloudApiKeyEnvironmentKey],
+        fileSystem,
+      )
+    : undefined;
   const iamBootstrapClientId = definition.requiresIamBootstrapClient
     ? environment.QCRM_IAM_BOOTSTRAP_CLIENT_ID === "quantum-crm-bootstrap"
       ? ("quantum-crm-bootstrap" as const)
@@ -623,6 +637,7 @@ export function parseProcessConfig(
     ...(activationDeliveryCallback ? { activationDeliveryCallback } : {}),
     ...(filesStorage ? { filesStorage } : {}),
     ...(ycloudBinding ? { ycloudBinding } : {}),
+    ...(ycloudApiKey ? { ycloudApiKey } : {}),
     ...(iamBootstrapClientId ? { iamBootstrapClientId } : {}),
     ...(iamBootstrapClientSecret ? { iamBootstrapClientSecret } : {}),
   });

@@ -103,6 +103,7 @@ export interface ComposePolicyOptions {
   readonly crmOidcClientSecretFile: string;
   readonly iamBootstrapClientSecretFile: string;
   readonly ycloudBindingSecretFile?: string;
+  readonly ycloudApiKeySecretFile?: string;
   readonly crmSessionRedisUrlSecretFile: string;
 }
 
@@ -430,6 +431,9 @@ export function createTenantComposePlan(
   const ycloudBindingSecretFile = options.ycloudBindingSecretFile
     ? requireAbsolutePath(options.ycloudBindingSecretFile, "ycloudBindingSecretFile")
     : undefined;
+  const ycloudApiKeySecretFile = options.ycloudApiKeySecretFile
+    ? requireAbsolutePath(options.ycloudApiKeySecretFile, "ycloudApiKeySecretFile")
+    : undefined;
   const storageSecretRoot = requireAbsolutePath(
     options.storageSecretRoot,
     "storageSecretRoot",
@@ -496,6 +500,8 @@ export function createTenantComposePlan(
     QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_HOST_FILE: iamBootstrapClientSecretFile,
     QCRM_YCLOUD_BINDING_SECRET_HOST_FILE: ycloudBindingSecretFile ?? iamBootstrapClientSecretFile,
     QCRM_YCLOUD_BINDING_FILE: ycloudBindingSecretFile ? "/run/secrets/qcrm_ycloud_binding" : "",
+    QCRM_YCLOUD_API_KEY_SECRET_HOST_FILE: ycloudApiKeySecretFile ?? iamBootstrapClientSecretFile,
+    QCRM_YCLOUD_API_KEY_FILE: ycloudApiKeySecretFile ? "/run/secrets/qcrm_ycloud_api_key" : "",
     QCRM_CRM_WEB_ORIGIN: manifest.identity.crmWebOrigin,
     QCRM_CRM_API_ORIGIN: "http://api:3001",
     QCRM_OIDC_ISSUER: manifest.identity.issuer,

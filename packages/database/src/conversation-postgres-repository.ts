@@ -9,11 +9,122 @@ import type {
   ConversationRepository,
   ExternalConversationReceiver,
   ExternalConversationMessage,
+  ConversationOutboundDispatcher,
   QuickReplyRecord,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
+
+interface OutboundRow {
+  readonly outbox_id: string;
+  readonly message_id: string;
+  readonly external_thread_id: string | null;
+  readonly body: string;
+  readonly kind: string;
+  readonly attempts: number;
+}
+
+/** An expired, uncertain lease is never sent again without reconciliation. */
+export function createConversationOutboundDispatcher(
+  pool: PostgresPool,
+): ConversationOutboundDispatcher {
+  return Object.freeze({
+    claimNext: async ({ workerId, leaseSeconds }) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query(
+          `WITH stale AS (
+             UPDATE conversations.outbox SET status = 'failed', next_attempt_at = 'infinity',
+                    last_error_code = 'DELIVERY_UNCERTAIN', updated_at = CURRENT_TIMESTAMP
+              WHERE channel = 'whatsapp' AND status = 'leased'
+                AND lease_expires_at < CURRENT_TIMESTAMP
+              RETURNING message_id
+           )
+           UPDATE conversations.messages SET delivery_status = 'unknown',
+                  failure_code = 'DELIVERY_UNCERTAIN', updated_at = CURRENT_TIMESTAMP
+            WHERE id IN (SELECT message_id FROM stale)`,
+        );
+        const result = await client.query<OutboundRow>(
+          `SELECT outbox.id::text AS outbox_id, message.id::text AS message_id,
+                  conversation.external_thread_id, message.body, message.kind, outbox.attempts
+             FROM conversations.outbox AS outbox
+             JOIN conversations.messages AS message ON message.id = outbox.message_id
+             JOIN conversations.conversations AS conversation ON conversation.id = message.conversation_id
+            WHERE outbox.channel = 'whatsapp' AND outbox.status IN ('pending', 'failed')
+              AND outbox.next_attempt_at <= CURRENT_TIMESTAMP
+            ORDER BY outbox.next_attempt_at, outbox.id LIMIT 1
+            FOR UPDATE OF outbox SKIP LOCKED`,
+        );
+        const row = result.rows[0];
+        if (!row) {
+          await client.query("COMMIT");
+          return null;
+        }
+        const attempt = row.attempts + 1;
+        await client.query(
+          `UPDATE conversations.outbox SET status = 'leased', attempts = $2,
+                  lease_owner = $3, lease_expires_at = CURRENT_TIMESTAMP + make_interval(secs => $4),
+                  updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
+          [row.outbox_id, attempt, workerId, leaseSeconds],
+        );
+        await client.query("COMMIT");
+        return Object.freeze({
+          outboxId: row.outbox_id,
+          messageId: row.message_id,
+          externalThreadId: row.external_thread_id ?? "",
+          body: row.body,
+          kind: row.kind.toUpperCase() as "TEXT" | "IMAGE" | "AUDIO" | "DOCUMENT" | "SYSTEM",
+          attempt,
+        });
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    complete: async ({ lease, workerId, outcome, externalMessageId, errorCode }) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const status = outcome === "SENT" ? "sent" : outcome === "RETRY" ? "pending" : "failed";
+        const delivery = outcome === "SENT" ? "sent" : outcome === "UNKNOWN" ? "unknown" :
+          outcome === "FAILED" ? "failed" : "queued";
+        const result = await client.query<{ message_id: string }>(
+          `UPDATE conversations.outbox SET status = $4, lease_owner = NULL, lease_expires_at = NULL,
+                  next_attempt_at = CASE WHEN $4 = 'pending' THEN CURRENT_TIMESTAMP + interval '60 seconds'
+                    WHEN $4 = 'failed' THEN 'infinity'::timestamptz ELSE next_attempt_at END,
+                  last_error_code = $5, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1::uuid AND message_id = $2::uuid AND status = 'leased'
+              AND lease_owner = $3 AND attempts = $6
+            RETURNING message_id::text`,
+          [lease.outboxId, lease.messageId, workerId, status, errorCode ?? null, lease.attempt],
+        );
+        if (!result.rows[0]) {
+          await client.query("ROLLBACK");
+          return false;
+        }
+        await client.query(
+          `UPDATE conversations.messages SET delivery_status = $2,
+                  external_message_id = COALESCE($3, external_message_id),
+                  failure_code = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
+          [lease.messageId, delivery, externalMessageId ?? null, errorCode ?? null],
+        );
+        await client.query("COMMIT");
+        return true;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+  });
+}
 
 export function createExternalConversationReceiver(
   pool: PostgresPool,
