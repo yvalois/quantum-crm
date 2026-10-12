@@ -6,6 +6,7 @@ import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-c
 import { z } from "zod";
 
 import { createMcpCatalogSearch } from "./mcp-catalog-client.js";
+import { briefIntroduction, noCatalogAnswer } from "./interamerican-greeting.js";
 import { createOpenAiRagAnswer } from "./openai-rag-answer.js";
 import { askCatalog } from "./rag-graph.js";
 
@@ -14,6 +15,7 @@ const requestSchema = z
     tenantId: z.string().uuid(),
     executionId: z.string().uuid(),
     question: z.string().trim().min(3).max(2_000),
+    firstTurn: z.boolean(),
   })
   .strict();
 
@@ -112,7 +114,7 @@ async function bootstrap(): Promise<void> {
       const catalog = catalogFor(parsed.data.question);
       if (!catalog) {
         send(response, 200, {
-          answer: "¿Consultas el catálogo individual o el corporativo?",
+          answer: noCatalogAnswer(parsed.data.firstTurn),
           sourceIds: [],
           grounded: false,
         });
@@ -129,7 +131,7 @@ async function bootstrap(): Promise<void> {
         { catalog, question: parsed.data.question },
       );
       send(response, 200, {
-        answer: result.answer,
+        answer: parsed.data.firstTurn ? `${briefIntroduction}${result.answer}` : result.answer,
         sourceIds: result.sources.map((source) => source.id),
         grounded: result.grounded,
       });

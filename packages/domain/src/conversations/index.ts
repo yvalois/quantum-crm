@@ -51,6 +51,7 @@ export interface ConversationHistoryRecord {
     | "TRANSFERRED"
     | "STATUS_CHANGED"
     | "ATTENTION_CHANGED"
+    | "AGENT_RESET"
     | "MESSAGE_ADDED"
     | "NOTE_ADDED";
   readonly actorMemberId: string;
@@ -132,6 +133,7 @@ export interface ConversationAgentLease {
   readonly conversationId: string;
   readonly question: string;
   readonly generation: bigint;
+  readonly firstTurn: boolean;
 }
 
 /** Durable inbound trigger; outbound insertion is fenced and atomic with completion. */
@@ -186,6 +188,7 @@ export interface ConversationRepository {
     readonly status?: ConversationStatus;
     readonly attentionMode?: ConversationAttentionMode;
     readonly assigneeMemberId?: string | null;
+    readonly resetAgent?: boolean;
     readonly now: Date;
     readonly idempotencyKey: string;
     readonly payloadHash: string;

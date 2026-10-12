@@ -28,6 +28,8 @@ describe("conversation contracts", () => {
   it("requires at least one controlled mutation field", () => {
     expect(UpdateConversationSchema.safeParse({}).success).toBe(false);
     expect(UpdateConversationSchema.safeParse({ attentionMode: "HUMAN" }).success).toBe(true);
+    expect(UpdateConversationSchema.safeParse({ resetAgent: true }).success).toBe(true);
+    expect(UpdateConversationSchema.safeParse({ resetAgent: false }).success).toBe(false);
   });
 
   it("bounds pagination and normalizes query values", () => {

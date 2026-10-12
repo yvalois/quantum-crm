@@ -9,6 +9,7 @@ const lease: ConversationAgentLease = {
   conversationId: "019b0000-0000-7000-8000-000000000002",
   question: "Catalogo corporativo",
   generation: 1n,
+  firstTurn: true,
 };
 
 describe("conversation agent dispatch", () => {
@@ -33,6 +34,7 @@ describe("conversation agent dispatch", () => {
         tenantId: "019b0000-0000-7000-8000-000000000003",
         executionId: lease.inboundMessageId,
         question: lease.question,
+        firstTurn: true,
       });
       expect(init?.headers).toMatchObject({ authorization: "Bearer fake-service-token" });
       return new Response(

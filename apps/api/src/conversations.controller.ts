@@ -273,6 +273,7 @@ export class ConversationsController {
             ...(parsed.data.assigneeMemberId === undefined
               ? {}
               : { assigneeMemberId: parsed.data.assigneeMemberId }),
+            ...(parsed.data.resetAgent ? { resetAgent: true } : {}),
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash({
               id: conversationId,
