@@ -13241,3 +13241,687 @@ body {
     width: 100vw;
   }
 }
+
+/* Equipo y acceso: directorio primero, configuración cuando se solicita. */
+.crm-shell-stitch .crm-content.team-workspace {
+  min-height: 100vh;
+  padding: 0 clamp(1rem, 3vw, 3.5rem) 3.5rem;
+  background: #f4f6f8;
+  color: #192b3b;
+}
+
+.team-workspace .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.team-topline,
+.team-topline-actions,
+.team-section-heading,
+.team-directory-heading,
+.team-directory-toolbar,
+.team-person-actions,
+.team-dialog-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.team-topline {
+  min-height: 5rem;
+  gap: 1rem;
+  color: #718096;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.095em;
+}
+
+.team-topline > span span {
+  margin-inline: 0.5rem;
+  color: #acb6c1;
+}
+
+.team-topline-actions {
+  gap: 0.6rem;
+}
+
+.team-refresh,
+.team-new-member {
+  min-height: 2.65rem;
+  border: 1px solid #d6dee5;
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.85rem;
+  background: #fff;
+  color: #31465a;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.team-new-member {
+  border-color: #123047;
+  background: #123047;
+  color: #fff;
+  box-shadow: 0 0.35rem 0.7rem rgb(18 48 71 / 0.12);
+}
+
+.team-new-member:hover {
+  background: #0b5062;
+}
+
+.team-new-member span {
+  margin-right: 0.3rem;
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+.team-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 11.2rem;
+  gap: 2rem;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  padding: 1.65rem clamp(1.5rem, 3vw, 3rem);
+  background:
+    radial-gradient(circle at 83% 18%, rgb(26 191 185 / 0.23), transparent 25%),
+    linear-gradient(115deg, #102337, #173b4b 76%, #154e53);
+  color: #fff;
+}
+
+.team-hero::after {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 34%;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 23px,
+    rgb(255 255 255 / 0.045) 24px 25px
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.team-kicker,
+.team-section-label,
+.team-dialog-topline > span {
+  margin: 0 0 0.7rem;
+  color: #3ecac4;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.team-hero h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.9rem, 3.2vw, 3rem);
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+}
+
+.team-hero p:last-child {
+  max-width: 34rem;
+  margin: 0.8rem 0 0;
+  color: #b6d2d5;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.team-hero-figure {
+  z-index: 1;
+  display: grid;
+  min-width: 8rem;
+  gap: 0.15rem;
+  border-left: 1px solid rgb(255 255 255 / 0.2);
+  padding-left: 1.5rem;
+}
+
+.team-hero-figure span {
+  color: #fff;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.team-hero-figure small {
+  color: #8bd8d4;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+}
+
+.team-metrics {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: -0.75rem 1rem 0;
+  border: 1px solid #dfe6e8;
+  border-radius: 0.7rem;
+  background: #fff;
+  box-shadow: 0 0.6rem 1.8rem rgb(24 47 61 / 0.065);
+}
+
+.team-metrics > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.2rem 0.7rem;
+  min-width: 0;
+  padding: 1rem 1.4rem;
+}
+
+.team-metrics > div + div {
+  border-left: 1px solid #e9eef0;
+}
+
+.team-metrics span {
+  color: #496171;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.team-metrics strong {
+  grid-row: span 2;
+  color: #15364a;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 1.65rem;
+  font-weight: 500;
+}
+
+.team-metrics small {
+  color: #8696a0;
+  font-size: 0.73rem;
+}
+
+.team-tabs {
+  display: flex;
+  align-items: end;
+  gap: 1.5rem;
+  margin: 1.8rem 0 1rem;
+  border-bottom: 1px solid #dce4e8;
+}
+
+.team-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.7rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0 0.2rem 0.55rem;
+  background: transparent;
+  color: #667988;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.team-tabs button[aria-pressed="true"] {
+  border-bottom-color: #159a9a;
+  color: #123e4b;
+}
+
+.team-tabs button span {
+  border-radius: 999px;
+  padding: 0.13rem 0.42rem;
+  background: #e8eef0;
+  color: #5b7180;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.65rem;
+}
+
+.team-workspace .team-member-layout {
+  display: block;
+}
+
+.crm-shell-stitch .team-workspace .member-card {
+  border-color: #dfe6e8;
+  border-radius: 0.75rem;
+  box-shadow: 0 0.45rem 1.5rem rgb(21 45 58 / 0.035);
+}
+
+.team-directory-heading,
+.team-section-heading {
+  min-height: 6.7rem;
+  gap: 1.2rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.team-directory-heading .team-section-label,
+.team-section-heading .team-section-label {
+  margin-bottom: 0.4rem;
+  color: #118a8b;
+}
+
+.team-directory-heading h2,
+.team-section-heading h2 {
+  color: #173144;
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+}
+
+.team-directory-heading p:last-child,
+.team-section-heading p:last-child {
+  margin-top: 0.35rem;
+  color: #778996;
+  font-size: 0.81rem;
+}
+
+.team-directory-toolbar {
+  gap: 0.75rem;
+  border-top: 1px solid #edf1f2;
+  padding: 0.8rem 1.5rem;
+}
+
+.team-search {
+  flex: 1;
+}
+
+.team-directory-toolbar input,
+.team-directory-toolbar select {
+  width: 100%;
+  min-height: 2.5rem;
+  border: 1px solid #dce5e7;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  background: #f9fbfb;
+  color: #263f50;
+  font: inherit;
+  font-size: 0.81rem;
+}
+
+.team-directory-toolbar .team-status-filter {
+  width: min(12rem, 35%);
+}
+
+.team-workspace .team-person-row {
+  grid-template-columns: 2.65rem minmax(0, 1fr) 6.5rem auto;
+  min-height: 5.3rem;
+  gap: 0.8rem;
+  padding: 0.9rem 1.5rem;
+}
+
+.team-person-row:hover,
+.team-role-row:hover {
+  background: #f8fbfb;
+}
+
+.team-person-row .member-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: #e2f1f0;
+  color: #166a70;
+  font-size: 0.9rem;
+}
+
+.team-person-row .member-details {
+  gap: 0.13rem;
+}
+
+.team-person-row .member-details strong {
+  color: #1c3446;
+  font-size: 0.92rem;
+}
+
+.team-person-row .member-details span,
+.team-person-row .member-details small {
+  color: #748795;
+  font-size: 0.74rem;
+}
+
+.team-person-row .status {
+  justify-self: start;
+  font-size: 0.68rem;
+}
+
+.team-person-actions {
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.team-person-actions > button {
+  border: 0;
+  background: transparent;
+  color: #226476;
+  box-shadow: none;
+}
+
+.team-action-menu {
+  position: relative;
+}
+
+.team-action-menu summary {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.45rem;
+  color: #677f8c;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 800;
+  list-style: none;
+}
+
+.team-action-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.team-action-menu[open] summary,
+.team-action-menu summary:hover {
+  background: #eaf1f2;
+}
+
+.team-action-menu > div {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 0.2rem);
+  right: 0;
+  display: grid;
+  min-width: 12rem;
+  border: 1px solid #dbe4e6;
+  border-radius: 0.55rem;
+  padding: 0.3rem;
+  background: #fff;
+  box-shadow: 0 0.8rem 1.6rem rgb(22 42 56 / 0.14);
+}
+
+.team-action-menu button {
+  border: 0;
+  padding: 0.6rem 0.7rem;
+  background: transparent;
+  color: #a0263d;
+  font: inherit;
+  font-size: 0.77rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.team-action-menu button:hover {
+  background: #fff3f4;
+}
+
+.team-dialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(29rem, 100vw);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: #fff;
+  color: #1c3446;
+  box-shadow: -1rem 0 2.5rem rgb(13 33 46 / 0.16);
+}
+
+.team-dialog::backdrop {
+  background: rgb(11 29 42 / 0.4);
+  backdrop-filter: blur(2px);
+}
+
+.team-dialog-topline {
+  min-height: 4rem;
+  border-bottom: 1px solid #e3eaec;
+  padding: 0.75rem 1.5rem;
+}
+
+.team-dialog-topline > span {
+  margin: 0;
+  color: #138d8c;
+}
+
+.team-dialog-topline button {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: #edf2f3;
+  color: #385464;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.team-dialog .team-member-form {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.team-dialog .team-member-form form {
+  padding: 1.75rem 1.5rem;
+}
+
+.team-dialog .team-member-form h2 {
+  font-size: 1.55rem;
+  letter-spacing: -0.035em;
+}
+
+.team-dialog .team-member-form .primary-action {
+  width: 100%;
+  margin-top: 1.5rem;
+  background: #123e4b;
+  box-shadow: none;
+}
+
+.team-workspace .roles-card {
+  margin-top: 0;
+}
+
+.team-workspace .roles-layout {
+  grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.2fr);
+  gap: 0;
+  border-top: 1px solid #e8eef0;
+}
+
+.team-roles .member-list {
+  border-right: 1px solid #e8eef0;
+}
+
+.team-roles .team-role-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 4.6rem;
+}
+
+.team-role-empty {
+  align-self: center;
+  max-width: 24rem;
+  margin: 2rem auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.team-role-empty strong {
+  color: #1f4451;
+  font-size: 1rem;
+}
+
+.team-role-empty p {
+  color: #788a96;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.team-role-editor {
+  padding: 1.5rem;
+}
+
+.team-role-editor h3 {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+}
+
+.team-role-editor > label {
+  display: grid;
+  gap: 0.45rem;
+  color: #415c6b;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.team-role-editor > label input {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.team-role-editor fieldset {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  max-height: 28rem;
+  margin-top: 1rem;
+  border-color: #dfe8e9;
+}
+
+.team-role-editor .permission-section {
+  align-content: start;
+  border: 1px solid #e8eeef;
+  border-radius: 0.45rem;
+  padding: 0.7rem;
+}
+
+.team-role-editor .permission-section strong {
+  margin-bottom: 0.25rem;
+  color: #1d6170;
+  font-size: 0.66rem;
+}
+
+.team-role-editor .permission-section label {
+  color: #4d6572;
+}
+
+.team-teams .inline-form {
+  border-top: 1px solid #e8eef0;
+  padding: 1.2rem 1.5rem;
+}
+
+.team-teams .member-list {
+  border-top: 1px solid #e8eef0;
+}
+
+@media (max-width: 1050px) {
+  .team-workspace .team-person-row {
+    grid-template-columns: 2.65rem minmax(0, 1fr) auto;
+  }
+
+  .team-person-row .status {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .team-person-actions {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .crm-shell-stitch .crm-content.team-workspace {
+    padding-inline: 0.85rem;
+  }
+
+  .team-topline {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-block: 0.8rem;
+  }
+
+  .team-topline-actions,
+  .team-topline-actions button {
+    flex: 1;
+  }
+
+  .team-topline-actions,
+  .team-directory-toolbar {
+    width: 100%;
+  }
+
+  .team-hero {
+    min-height: 10rem;
+  }
+
+  .team-hero-figure {
+    display: none;
+  }
+
+  .team-metrics {
+    margin-inline: 0.4rem;
+  }
+
+  .team-metrics > div {
+    display: block;
+    padding: 0.75rem;
+  }
+
+  .team-metrics strong {
+    display: block;
+    margin-top: 0.2rem;
+  }
+
+  .team-metrics small {
+    display: none;
+  }
+
+  .team-tabs {
+    gap: 0.8rem;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .team-tabs button {
+    font-size: 0.78rem;
+  }
+
+  .team-directory-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .team-directory-toolbar .team-status-filter {
+    width: 100%;
+  }
+
+  .team-workspace .team-person-row {
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    padding-inline: 0.9rem;
+  }
+
+  .team-person-actions {
+    grid-column: 2 / span 2;
+    grid-row: 3;
+    justify-content: flex-start;
+  }
+
+  .team-workspace .roles-layout,
+  .team-role-editor fieldset {
+    grid-template-columns: 1fr;
+  }
+
+  .team-roles .member-list {
+    border-right: 0;
+    border-bottom: 1px solid #e8eef0;
+  }
+
+  .team-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

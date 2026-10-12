@@ -44,6 +44,47 @@ function memberStatus(status: Member["status"]): string {
   return { ACTIVE: "Activo", DEACTIVATED: "Desactivado", INVITED: "Invitado" }[status];
 }
 
+function scopeLabel(scope: Member["commercialScope"]): string {
+  return { PROFILE: "Todo el espacio", TEAM: "Su equipo", ASSIGNED: "Solo asignados" }[scope];
+}
+
+const permissionAreaLabels: Record<string, string> = {
+  "iam:members": "Usuarios",
+  "iam:teams": "Equipos",
+  "crm:contacts": "Contactos",
+  "crm:sales": "Ventas",
+  "crm:tasks": "Tareas",
+  "crm:calendar": "Calendario",
+  "crm:forms": "Formularios",
+  "crm:automations": "Automatizaciones",
+  "crm:conversations": "Conversaciones",
+  "crm:documents": "Documentos",
+  "crm:files": "Archivos",
+};
+
+const permissionActionLabels: Record<string, string> = {
+  read: "Ver",
+  create: "Crear",
+  update: "Editar",
+  delete: "Eliminar",
+  deactivate: "Desactivar",
+  export: "Exportar",
+  roles: "Gestionar roles",
+  assign: "Asignar",
+  configure: "Configurar",
+  move: "Mover",
+  write: "Escribir",
+  publish: "Publicar",
+  responses: "Ver respuestas",
+  execute: "Ejecutar",
+  reply: "Responder",
+  "control-agent": "Controlar agente",
+  templates: "Plantillas",
+  upload: "Subir",
+  reference: "Vincular",
+  download: "Descargar",
+};
+
 function dateLabel(value: string): string {
   return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date(value));
 }
@@ -73,6 +114,13 @@ export function MembersPanel(): React.JSX.Element {
   const [notice, setNotice] = useState<string | null>(null);
   const [activationLink, setActivationLink] = useState<InvitationPayload["activation"]>();
   const [saving, setSaving] = useState(false);
+  const [activeView, setActiveView] = useState<"members" | "roles" | "teams">("members");
+  const [memberQuery, setMemberQuery] = useState("");
+  const [memberFilter, setMemberFilter] = useState<"ALL" | Member["status"]>("ALL");
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteRoleCode, setInviteRoleCode] = useState("ADVISOR");
+  const [showRoleEditor, setShowRoleEditor] = useState(false);
+  const memberDialogRef = useRef<HTMLDialogElement>(null);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -82,6 +130,22 @@ export function MembersPanel(): React.JSX.Element {
   const [roleDisplayName, setRoleDisplayName] = useState("");
   const [rolePermissions, setRolePermissions] = useState<CrmPermission[]>([]);
   const invitationKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    const dialog = memberDialogRef.current;
+    if (!dialog) return;
+    if (showInvite || editingMember) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [showInvite, editingMember]);
+
+  const closeMemberDialog = (): void => {
+    if (saving) return;
+    setShowInvite(false);
+    setEditingMember(null);
+  };
 
   const loadMembers = useCallback(async (): Promise<void> => {
     const response = await fetch("/api/members?limit=100", {
@@ -260,6 +324,7 @@ export function MembersPanel(): React.JSX.Element {
       setRoleDisplayName("");
       setRolePermissions([]);
       setNotice(editingRole ? "Rol personalizado actualizado." : "Rol personalizado creado.");
+      setShowRoleEditor(false);
       await loadRoles();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible guardar el rol.");
@@ -273,6 +338,8 @@ export function MembersPanel(): React.JSX.Element {
     setEditingRole(role);
     setRoleDisplayName(role.displayName);
     setRolePermissions([...role.permissions]);
+    setShowRoleEditor(true);
+    setActiveView("roles");
     setError(null);
     setNotice(null);
   };
@@ -306,7 +373,9 @@ export function MembersPanel(): React.JSX.Element {
       if (!response.ok) throw new Error(await responseMessage(response));
       const payload = (await response.json()) as InvitationPayload;
       formElement.reset();
+      setInviteRoleCode("ADVISOR");
       invitationKey.current = null;
+      setShowInvite(false);
       setActivationLink(payload.activation);
       setNotice(
         payload.activation
@@ -408,6 +477,7 @@ export function MembersPanel(): React.JSX.Element {
   };
 
   const beginEditing = (member: Member): void => {
+    setShowInvite(false);
     setEditingMember(member);
     setEditDisplayName(member.displayName);
     setEditEmail(member.email);
@@ -416,23 +486,57 @@ export function MembersPanel(): React.JSX.Element {
     setNotice(null);
   };
 
+  const visibleMembers = members.filter((member) => {
+    if (memberFilter !== "ALL" && member.status !== memberFilter) return false;
+    const query = memberQuery.trim().toLocaleLowerCase("es");
+    return (
+      query.length === 0 ||
+      member.displayName.toLocaleLowerCase("es").includes(query) ||
+      member.email.toLocaleLowerCase("es").includes(query)
+    );
+  });
+  const activeCount = members.filter((member) => member.status === "ACTIVE").length;
+  const invitedCount = members.filter((member) => member.status === "INVITED").length;
+
   return (
     <CrmShell>
-      <section className="crm-content" aria-busy={loading}>
-        <header className="page-header">
-          <div>
-            <p className="eyebrow">Administración</p>
-            <h1>Equipo</h1>
-            <p>Gestiona las personas que pueden trabajar dentro de tu espacio de CRM.</p>
+      <section className="crm-content team-workspace" aria-busy={loading}>
+        <div className="team-topline">
+          <span>
+            ADMINISTRACIÓN <span aria-hidden="true">/</span> EQUIPO Y ACCESO
+          </span>
+          <div className="team-topline-actions">
+            <button
+              type="button"
+              className="team-refresh"
+              onClick={() => void refresh()}
+              disabled={loading}
+            >
+              Actualizar
+            </button>
+            <button
+              type="button"
+              className="team-new-member"
+              onClick={() => {
+                setEditingMember(null);
+                setShowInvite(true);
+              }}
+              disabled={!csrfToken}
+            >
+              <span aria-hidden="true">+</span> Nuevo usuario
+            </button>
           </div>
-          <button
-            type="button"
-            className="secondary-action"
-            onClick={() => void refresh()}
-            disabled={loading}
-          >
-            Actualizar
-          </button>
+        </div>
+        <header className="team-hero">
+          <div>
+            <p className="team-kicker">PERSONAS · ACCESOS · EQUIPOS</p>
+            <h1>Tu equipo, en orden.</h1>
+            <p>Personas y permisos de este CRM, sin mezclar los accesos de otros perfiles.</p>
+          </div>
+          <div className="team-hero-figure" aria-hidden="true">
+            <span>{String(members.length).padStart(2, "0")}</span>
+            <small>PERSONAS</small>
+          </div>
         </header>
         {error ? (
           <p className="feedback feedback-error" role="alert">
@@ -467,66 +571,164 @@ export function MembersPanel(): React.JSX.Element {
           </section>
         ) : null}
 
-        <div className="member-layout">
-          <section className="member-card" aria-labelledby="members-heading">
-            <div className="card-heading">
-              <div>
-                <h2 id="members-heading">Miembros</h2>
-                <p>{members.length} registrados en este espacio</p>
+        <div className="team-metrics" aria-label="Resumen del equipo">
+          <div>
+            <span>Total</span>
+            <strong>{members.length}</strong>
+            <small>en este espacio</small>
+          </div>
+          <div>
+            <span>Activos</span>
+            <strong>{activeCount}</strong>
+            <small>con acceso vigente</small>
+          </div>
+          <div>
+            <span>Invitados</span>
+            <strong>{invitedCount}</strong>
+            <small>por activar</small>
+          </div>
+        </div>
+        <nav className="team-tabs" aria-label="Secciones del equipo">
+          <button
+            type="button"
+            aria-pressed={activeView === "members"}
+            onClick={() => setActiveView("members")}
+          >
+            Usuarios <span>{members.length}</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={activeView === "roles"}
+            onClick={() => setActiveView("roles")}
+          >
+            Roles y permisos <span>{roles.length}</span>
+          </button>
+          {teamsAvailable ? (
+            <button
+              type="button"
+              aria-pressed={activeView === "teams"}
+              onClick={() => setActiveView("teams")}
+            >
+              Equipos <span>{teams.length}</span>
+            </button>
+          ) : null}
+        </nav>
+        {activeView === "members" ? (
+          <div className="member-layout team-member-layout">
+            <section className="member-card team-directory" aria-labelledby="members-heading">
+              <div className="card-heading team-directory-heading">
+                <div>
+                  <p className="team-section-label">DIRECTORIO</p>
+                  <h2 id="members-heading">Personas del CRM</h2>
+                  <p>Consulta el estado de cada acceso y administra sus datos.</p>
+                </div>
               </div>
-            </div>
-            {loading ? <p className="state-message">Cargando equipo…</p> : null}
-            {!loading && members.length === 0 ? (
-              <p className="state-message">Aún no hay miembros registrados.</p>
-            ) : null}
-            {!loading && members.length > 0 ? (
-              <ul className="member-list">
-                {members.map((member) => (
-                  <li key={member.id} className="member-row">
-                    <div className="member-avatar" aria-hidden="true">
-                      {member.displayName.slice(0, 1).toUpperCase()}
-                    </div>
-                    <div className="member-details">
-                      <strong>{member.displayName}</strong>
-                      <span>{member.email}</span>
-                      <small>Desde {dateLabel(member.createdAt)}</small>
-                      <small>Alcance: {member.commercialScope.toLowerCase()}</small>
-                    </div>
-                    <span className={`status status-${member.status.toLowerCase()}`}>
-                      {memberStatus(member.status)}
-                    </span>
-                    <div className="member-actions">
-                      <button type="button" onClick={() => beginEditing(member)} disabled={saving}>
-                        Editar
-                      </button>
-                      {member.status !== "DEACTIVATED" ? (
+              <div className="team-directory-toolbar">
+                <label className="team-search">
+                  <span className="visually-hidden">Buscar usuario</span>
+                  <input
+                    value={memberQuery}
+                    onChange={(event) => setMemberQuery(event.target.value)}
+                    placeholder="Buscar por nombre o correo"
+                    type="search"
+                  />
+                </label>
+                <label className="team-status-filter">
+                  <span className="visually-hidden">Filtrar por estado</span>
+                  <select
+                    value={memberFilter}
+                    onChange={(event) => setMemberFilter(event.target.value as typeof memberFilter)}
+                  >
+                    <option value="ALL">Todos los estados</option>
+                    <option value="ACTIVE">Activos</option>
+                    <option value="INVITED">Invitados</option>
+                    <option value="DEACTIVATED">Desactivados</option>
+                  </select>
+                </label>
+              </div>
+              {loading ? <p className="state-message">Cargando equipo…</p> : null}
+              {!loading && members.length === 0 ? (
+                <p className="state-message">Aún no hay miembros registrados.</p>
+              ) : null}
+              {!loading && members.length > 0 && visibleMembers.length === 0 ? (
+                <p className="state-message">No hay usuarios que coincidan con la búsqueda.</p>
+              ) : null}
+              {!loading && visibleMembers.length > 0 ? (
+                <ul className="member-list">
+                  {visibleMembers.map((member) => (
+                    <li key={member.id} className="member-row team-person-row">
+                      <div className="member-avatar" aria-hidden="true">
+                        {member.displayName.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="member-details">
+                        <strong>{member.displayName}</strong>
+                        <span>{member.email}</span>
+                        <small>
+                          Desde {dateLabel(member.createdAt)} <span aria-hidden="true">·</span>{" "}
+                          {scopeLabel(member.commercialScope)}
+                        </small>
+                      </div>
+                      <span className={`status status-${member.status.toLowerCase()}`}>
+                        {memberStatus(member.status)}
+                      </span>
+                      <div className="member-actions team-person-actions">
                         <button
                           type="button"
-                          className="danger-action"
-                          onClick={() => void deactivateMember(member)}
+                          onClick={() => beginEditing(member)}
                           disabled={saving}
                         >
-                          Desactivar
+                          Editar
                         </button>
-                      ) : null}
-                      {member.status === "INVITED" ? (
-                        <button
-                          type="button"
-                          className="danger-action"
-                          onClick={() => void revokeInvitation(member)}
-                          disabled={saving}
-                        >
-                          Revocar invitación
-                        </button>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </section>
+                        {member.status !== "DEACTIVATED" ? (
+                          <details className="team-action-menu">
+                            <summary aria-label={`Más acciones para ${member.displayName}`}>
+                              ···
+                            </summary>
+                            <div>
+                              {member.status === "INVITED" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void revokeInvitation(member)}
+                                  disabled={saving}
+                                >
+                                  Revocar invitación
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => void deactivateMember(member)}
+                                disabled={saving}
+                              >
+                                Desactivar acceso
+                              </button>
+                            </div>
+                          </details>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          </div>
+        ) : null}
 
-          <aside className="member-card member-form-card">
+        <dialog
+          ref={memberDialogRef}
+          className="team-dialog"
+          aria-label={editingMember ? `Editar a ${editingMember.displayName}` : "Crear usuario"}
+          onClose={closeMemberDialog}
+          onCancel={(event) => {
+            if (saving) event.preventDefault();
+          }}
+        >
+          <div className="team-dialog-topline">
+            <span>{editingMember ? "PERFIL DE USUARIO" : "INVITACIÓN SEGURA"}</span>
+            <button type="button" onClick={closeMemberDialog} disabled={saving} aria-label="Cerrar">
+              ×
+            </button>
+          </div>
+          <aside className="member-card member-form-card team-member-form">
             {editingMember ? (
               <form onSubmit={(event) => void saveMember(event)}>
                 <p className="eyebrow">Editar miembro</p>
@@ -582,8 +784,8 @@ export function MembersPanel(): React.JSX.Element {
                 <p className="eyebrow">Nuevo miembro</p>
                 <h2>Crear usuario</h2>
                 <p className="form-intro">
-                  Elige Administrador para el dueño y las personas que darán seguimiento. Los demás
-                  roles se asignan aquí mismo cuando se crean sus usuarios.
+                  El acceso será temporal. En su primer ingreso, la persona cambiará la contraseña y
+                  configurará TOTP.
                 </p>
                 <label>
                   Nombre completo
@@ -595,7 +797,11 @@ export function MembersPanel(): React.JSX.Element {
                 </label>
                 <label>
                   Rol inicial
-                  <select name="roleCode" defaultValue="ADVISOR">
+                  <select
+                    name="roleCode"
+                    value={inviteRoleCode}
+                    onChange={(event) => setInviteRoleCode(event.target.value)}
+                  >
                     {roles.map((role) => (
                       <option key={role.code} value={role.code}>
                         {role.displayName}
@@ -609,100 +815,137 @@ export function MembersPanel(): React.JSX.Element {
               </form>
             )}
           </aside>
-        </div>
+        </dialog>
 
-        <section className="member-card roles-card" aria-labelledby="roles-heading">
-          <div className="card-heading">
-            <div>
-              <h2 id="roles-heading">Roles y permisos</h2>
-              <p>Configura una matriz reutilizable para los miembros de este espacio.</p>
-            </div>
-          </div>
-          <div className="roles-layout">
-            <ul className="member-list" aria-label="Roles disponibles">
-              {roles.map((role) => (
-                <li key={role.id} className="member-row">
-                  <div className="member-details">
-                    <strong>{role.displayName}</strong>
-                    <span>
-                      {role.system
-                        ? "Plantilla del sistema"
-                        : `${role.permissions.length} permisos`}
-                    </span>
-                  </div>
-                  {!role.system ? (
-                    <button type="button" onClick={() => beginEditingRole(role)} disabled={saving}>
-                      Editar
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-            <form onSubmit={(event) => void saveRole(event)}>
-              <p className="eyebrow">{editingRole ? "Editar rol" : "Nuevo rol"}</p>
-              <label>
-                Nombre del rol
-                <input
-                  value={roleDisplayName}
-                  onChange={(event) => setRoleDisplayName(event.target.value)}
-                  required
-                  maxLength={160}
-                />
-              </label>
-              <fieldset>
-                <legend>Permisos</legend>
-                {permissionSections.map((section) => (
-                  <div key={section} className="permission-section">
-                    <strong>{section.replace(":", " / ")}</strong>
-                    {CrmPermissionCatalog.filter((permission) =>
-                      permission.startsWith(`${section}:`),
-                    ).map((permission) => (
-                      <label key={permission}>
-                        <input
-                          type="checkbox"
-                          checked={rolePermissions.includes(permission)}
-                          onChange={(event) =>
-                            setRolePermissions((current) =>
-                              event.target.checked
-                                ? [...current, permission]
-                                : current.filter((value) => value !== permission),
-                            )
-                          }
-                        />
-                        {permission.split(":").at(-1)}
-                      </label>
-                    ))}
-                  </div>
-                ))}
-              </fieldset>
-              <div className="form-actions">
-                {editingRole ? (
-                  <button
-                    type="button"
-                    className="text-action"
-                    onClick={() => {
-                      setEditingRole(null);
-                      setRoleDisplayName("");
-                      setRolePermissions([]);
-                    }}
-                    disabled={saving}
-                  >
-                    Cancelar
-                  </button>
-                ) : null}
-                <button type="submit" className="primary-action" disabled={saving || !csrfToken}>
-                  {saving ? "Guardando…" : editingRole ? "Guardar rol" : "Crear rol"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </section>
-        {teamsAvailable ? (
-          <section className="member-card roles-card" aria-labelledby="teams-heading">
-            <div className="card-heading">
+        {activeView === "roles" ? (
+          <section className="member-card roles-card team-roles" aria-labelledby="roles-heading">
+            <div className="card-heading team-section-heading">
               <div>
+                <p className="team-section-label">CONTROL DE ACCESO</p>
+                <h2 id="roles-heading">Roles y permisos</h2>
+                <p>Define qué puede hacer cada persona. Las plantillas del sistema no se editan.</p>
+              </div>
+              <button
+                type="button"
+                className="team-new-member"
+                onClick={() => {
+                  setEditingRole(null);
+                  setRoleDisplayName("");
+                  setRolePermissions([]);
+                  setShowRoleEditor(true);
+                }}
+              >
+                + Nuevo rol
+              </button>
+            </div>
+            <div className="roles-layout">
+              <ul className="member-list" aria-label="Roles disponibles">
+                {roles.map((role) => (
+                  <li key={role.id} className="member-row team-role-row">
+                    <div className="member-details">
+                      <strong>{role.displayName}</strong>
+                      <span>
+                        {role.system
+                          ? "Plantilla del sistema"
+                          : `${role.permissions.length} permisos configurados`}
+                      </span>
+                    </div>
+                    {!role.system ? (
+                      <button
+                        type="button"
+                        onClick={() => beginEditingRole(role)}
+                        disabled={saving}
+                      >
+                        Editar
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {showRoleEditor ? (
+                <form className="team-role-editor" onSubmit={(event) => void saveRole(event)}>
+                  <p className="eyebrow">{editingRole ? "Editar rol" : "Nuevo rol"}</p>
+                  <h3>{editingRole ? editingRole.displayName : "Configurar nuevo rol"}</h3>
+                  <label>
+                    Nombre del rol
+                    <input
+                      value={roleDisplayName}
+                      onChange={(event) => setRoleDisplayName(event.target.value)}
+                      required
+                      maxLength={160}
+                    />
+                  </label>
+                  <fieldset>
+                    <legend>Permisos</legend>
+                    {permissionSections.map((section) => (
+                      <div key={section} className="permission-section">
+                        <strong>
+                          {permissionAreaLabels[section] ?? section.replace(":", " / ")}
+                        </strong>
+                        {CrmPermissionCatalog.filter((permission) =>
+                          permission.startsWith(`${section}:`),
+                        ).map((permission) => (
+                          <label key={permission}>
+                            <input
+                              type="checkbox"
+                              checked={rolePermissions.includes(permission)}
+                              onChange={(event) =>
+                                setRolePermissions((current) =>
+                                  event.target.checked
+                                    ? [...current, permission]
+                                    : current.filter((value) => value !== permission),
+                                )
+                              }
+                            />
+                            {permissionActionLabels[permission.split(":").at(-1) ?? ""] ??
+                              permission.split(":").at(-1)}
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                  </fieldset>
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="text-action"
+                      onClick={() => {
+                        setShowRoleEditor(false);
+                        setEditingRole(null);
+                        setRoleDisplayName("");
+                        setRolePermissions([]);
+                      }}
+                      disabled={saving}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="primary-action"
+                      disabled={saving || !csrfToken}
+                    >
+                      {saving ? "Guardando…" : editingRole ? "Guardar rol" : "Crear rol"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="team-role-empty">
+                  <strong>Permisos bajo control</strong>
+                  <p>
+                    Elige un rol personalizado para editarlo o crea uno nuevo. Las plantillas del
+                    sistema permanecen protegidas.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
+        {activeView === "teams" && teamsAvailable ? (
+          <section className="member-card roles-card team-teams" aria-labelledby="teams-heading">
+            <div className="card-heading team-section-heading">
+              <div>
+                <p className="team-section-label">ORGANIZACIÓN</p>
                 <h2 id="teams-heading">Equipos</h2>
-                <p>Organiza miembros para aplicar el alcance de datos por equipo.</p>
+                <p>Agrupa a las personas para coordinar su trabajo y alcance de datos.</p>
               </div>
             </div>
             <form className="inline-form" onSubmit={(event) => void createTeam(event)}>
