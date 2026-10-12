@@ -63,6 +63,7 @@ import { FILE_SERVICE, FilesController } from "./files.controller.js";
 import { FORM_SERVICE, FormsController } from "./forms.controller.js";
 import { InternalAdministratorsController } from "./internal-administrators.controller.js";
 import { YCLOUD_BINDING, YCloudWebhookController } from "./ycloud-webhook.controller.js";
+import { AgentMcpController } from "./agent-mcp.controller.js";
 import type { YCloudBindingConfig } from "@quantum-crm/config";
 
 @Module({})
@@ -99,6 +100,7 @@ export class AppModule {
         FilesController,
         FormsController,
         YCloudWebhookController,
+        AgentMcpController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },

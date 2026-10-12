@@ -15,7 +15,7 @@
 
 ## Resultado esperado
 
-Un mensaje de WhatsApp recibido por el canal YCloud autorizado inicia, solo cuando la conversacion esta asignada al agente, una consulta LangGraph sobre los catalogos individual o corporativo. La respuesta sustentada se envia por ese mismo canal y queda en la bandeja; un humano puede detener la atencion automatica. Los reintentos no duplican respuestas ni envios.
+Un mensaje de WhatsApp recibido por el canal YCloud autorizado inicia una consulta LangGraph sobre los catalogos individual o corporativo en toda conversacion nueva no historica. Los hilos ya existentes conservan su modo actual. La respuesta sustentada se envia por ese mismo canal y queda en la bandeja; un humano puede detener la atencion automatica. Los reintentos no duplican respuestas ni envios.
 
 ## Lectura obligatoria aplicada
 
@@ -60,7 +60,7 @@ Un mensaje de WhatsApp recibido por el canal YCloud autorizado inicia, solo cuan
 - [ ] Preparar fuente de catalogos por Files con scan y revision fija.
 - [ ] Implementar recuperacion por catalogo y gateway de lectura autorizado.
 - [ ] Implementar grafo LangGraph y contrato de consulta de prueba.
-- [ ] Conectar recepcion YCloud con ejecucion LangGraph solo en modo agente.
+- [ ] Conectar recepcion YCloud con ejecucion LangGraph: modo agente automatico en hilos nuevos no historicos y control humano en los existentes.
 - [ ] Persistir salida, despacharla por YCloud y conciliar su resultado sin duplicados.
 - [x] Cargar la credencial directamente en el VPS como archivo secreto; permisos `600` y OpenAI `/v1/models` `HTTP 200` sin transmitir el valor en comandos o salidas.
 - [ ] Validar consultas con fuentes reales, Files y aislamiento.
@@ -78,7 +78,7 @@ Un mensaje de WhatsApp recibido por el canal YCloud autorizado inicia, solo cuan
 
 - [ ] Mensajes reales en InterAmerican reciben respuesta sustentada en WhatsApp y visible en la bandeja para ambos catalogos.
 - [ ] No se puede consultar otro perfil ni usar fuentes no disponibles.
-- [ ] Solo responde en modo agente; no procesa imagenes/audio ni ejecuta otras escrituras comerciales.
+- [ ] Solo responde en modo agente, asignado automaticamente a hilos nuevos no historicos; no procesa imagenes/audio ni ejecuta otras escrituras comerciales.
 - [ ] Runtime, API y CRM saludables en VPS; comprobacion enfocada y CI verde.
 
 ## Plan de verificacion
@@ -93,4 +93,5 @@ Un mensaje de WhatsApp recibido por el canal YCloud autorizado inicia, solo cuan
 
 - El canal entrante y el secreto de firma se verificaron con un mensaje real. La clave de envio YCloud se guardo como archivo privado del perfil y la API de lectura del proveedor respondio `HTTP 200`.
 - Despacho de texto, lease durable, limite de reintentos, estado de entrega y red de salida preparados en la rama; typecheck, lint y pruebas enfocadas aprobados en el VPS de desarrollo. No se marca envio completado sin publicacion y prueba real.
+- El candidato agrega cola de ejecucion con lease, MCP de solo lectura autorizado, cliente OAuth aislado y compuerta que exige ambos catalogos `AVAILABLE` y activos. En VPS: 31 pruebas enfocadas, validacion Prisma, typecheck y builds afectados aprobados. Los hilos entrantes nuevos no historicos quedan en modo agente; los historicos y existentes no se cambian.
 - Pendientes de implementacion y validacion: carga de los catalogos por Files, busqueda MCP, identidad de servicio, ejecucion LangGraph y respuesta real en WhatsApp. No se marca terminado.

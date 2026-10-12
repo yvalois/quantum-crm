@@ -30,6 +30,44 @@ const row = Object.freeze({
 });
 
 describe("conversation PostgreSQL repository", () => {
+  it.each([
+    { historical: false, expectedMode: "agent", expectedRequest: true },
+    { historical: true, expectedMode: "human", expectedRequest: false },
+  ])(
+    "sets new inbound WhatsApp threads to $expectedMode when historical=$historical",
+    async ({ historical, expectedMode, expectedRequest }) => {
+      const query = vi.fn(async (statement: string) => {
+        if (statement.includes("SELECT id::text FROM conversations.conversations"))
+          return { rows: [] };
+        if (statement.includes("SELECT id::text FROM conversations.messages")) return { rows: [] };
+        if (statement.includes("COALESCE(MAX(sequence)")) return { rows: [{ sequence: "1" }] };
+        return { rows: [], rowCount: 1 };
+      });
+      const client = { query, release: vi.fn() };
+      const pool = { connect: vi.fn(async () => client) } as unknown as PostgresPool;
+      const result = await createExternalConversationReceiver(pool).receive({
+        externalThreadId: "ycloud:1234567890123456:50255556666",
+        externalMessageId: historical ? "historic-1" : "live-1",
+        contactId,
+        contactDisplayName: "Cliente",
+        direction: "INBOUND",
+        kind: "TEXT",
+        body: "Catalogo corporativo",
+        occurredAt: new Date("2026-10-12T01:00:00.000Z"),
+        historical,
+      });
+      expect(result).toBe("CREATED");
+      const insert = query.mock.calls.find(([sql]) =>
+        sql.includes("INSERT INTO conversations.conversations"),
+      );
+      expect(insert?.[0]).toContain("CASE WHEN $6 = 'inbound' AND NOT $7::boolean THEN 'agent'");
+      expect(insert?.[1]?.slice(-2)).toEqual(["inbound", historical]);
+      expect(
+        query.mock.calls.some(([sql]) => sql.includes("INSERT INTO conversations.agent_requests")),
+      ).toBe(expectedRequest);
+    },
+  );
+
   it("keeps the contact filter inside the authorized conversation query", async () => {
     const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [row] }));
     const pool = {

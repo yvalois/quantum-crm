@@ -27,6 +27,14 @@ import {
 } from "./ycloud-binding-config.js";
 import { parseYCloudApiKeyConfig, ycloudApiKeyEnvironmentKey } from "./ycloud-api-key-config.js";
 import {
+  agentGatewaySecretEnvironmentKey,
+  agentRuntimeSecretEnvironmentKey,
+  openAiApiKeyEnvironmentKey,
+  parseAgentGatewaySecret,
+  parseAgentRuntimeSecret,
+  parseOpenAiApiKey,
+} from "./agent-service-config.js";
+import {
   parseStorageConfig,
   storageEnvironmentKeys,
   type StorageConfig,
@@ -116,9 +124,11 @@ export const processDefinitions = Object.freeze({
     defaultHost: "127.0.0.1",
     defaultPort: 3101,
     database: Object.freeze({ target: "crm", requiresTenant: true }),
+    oidc: Object.freeze({ provider: "keycloak", boundary: "crm" }),
     requiresFilesStorage: "processor",
     supportsYCloudBinding: true,
     supportsYCloudApiKey: true,
+    supportsAgentGatewaySecret: true,
   }),
   "deploy-executor": Object.freeze({
     serviceName: "deploy-executor",
@@ -143,6 +153,10 @@ export const processDefinitions = Object.freeze({
     serviceName: "agent-runtime",
     defaultHost: "127.0.0.1",
     defaultPort: 3103,
+    oidc: Object.freeze({ provider: "keycloak", boundary: "crm" }),
+    requiresTenantId: true,
+    supportsAgentRuntimeSecret: true,
+    supportsOpenAiApiKey: true,
   }),
 });
 
@@ -154,6 +168,10 @@ export interface ProcessDefinition {
   readonly defaultPort: number;
   readonly database?: DatabaseDefinition;
   readonly oidc?: OidcDefinition;
+  readonly requiresTenantId?: boolean;
+  readonly supportsAgentGatewaySecret?: boolean;
+  readonly supportsAgentRuntimeSecret?: boolean;
+  readonly supportsOpenAiApiKey?: boolean;
   readonly requiresGithubActionsReleasePublisher?: boolean;
   readonly requiresTenantSecretDirectory?: boolean;
   readonly requiresTenantConfigurationDirectory?: boolean;
@@ -203,6 +221,10 @@ export interface ProcessConfig {
   readonly iamBootstrapClientId?: "quantum-crm-bootstrap";
   readonly iamBootstrapClientSecret?: SecretValue;
   readonly filesStorage?: FilesStorageConfig;
+  readonly tenantId?: string;
+  readonly agentGatewaySecret?: SecretValue;
+  readonly agentRuntimeSecret?: SecretValue;
+  readonly openAiApiKey?: SecretValue;
   readonly ycloudBinding?: YCloudBindingConfig;
   readonly ycloudApiKey?: SecretValue;
 }
@@ -261,6 +283,7 @@ export function parseProcessConfig(
   const allowedKeys = new Set<string>([
     ...processEnvironmentKeys,
     ...(definition.database ? databaseEnvironmentKeys : []),
+    ...(definition.requiresTenantId && !definition.database ? ["QCRM_TENANT_ID"] : []),
     ...(definition.database?.requiresAdmin ? databaseAdminEnvironmentKeys : []),
     ...(definition.oidc ? oidcEnvironmentKeys : []),
     ...(definition.requiresGithubActionsReleasePublisher
@@ -281,6 +304,9 @@ export function parseProcessConfig(
     ...(definition.requiresFilesStorage === "processor" ? filesProcessorEnvironmentKeys : []),
     ...(definition.supportsYCloudBinding ? [ycloudBindingEnvironmentKey] : []),
     ...(definition.supportsYCloudApiKey ? [ycloudApiKeyEnvironmentKey] : []),
+    ...(definition.supportsAgentGatewaySecret ? [agentGatewaySecretEnvironmentKey] : []),
+    ...(definition.supportsAgentRuntimeSecret ? [agentRuntimeSecretEnvironmentKey] : []),
+    ...(definition.supportsOpenAiApiKey ? [openAiApiKeyEnvironmentKey] : []),
     ...(definition.requiresDeployHostSocket ? [deployHostSocketEnvironmentKey] : []),
     ...(definition.requiresDeployHostComposeRuntime
       ? [
@@ -569,6 +595,36 @@ export function parseProcessConfig(
         fileSystem,
       )
     : undefined;
+  const agentGatewaySecret = definition.supportsAgentGatewaySecret
+    ? parseAgentGatewaySecret(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        environment[agentGatewaySecretEnvironmentKey],
+        fileSystem,
+      )
+    : undefined;
+  const agentRuntimeSecret = definition.supportsAgentRuntimeSecret
+    ? parseAgentRuntimeSecret(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        environment[agentRuntimeSecretEnvironmentKey],
+        fileSystem,
+      )
+    : undefined;
+  const openAiApiKey = definition.supportsOpenAiApiKey
+    ? parseOpenAiApiKey(
+        definition.serviceName,
+        result.data.QCRM_ENV,
+        environment[openAiApiKeyEnvironmentKey],
+        fileSystem,
+      )
+    : undefined;
+  const runtimeTenantId = definition.requiresTenantId
+    ? z.string().uuid().safeParse(environment.QCRM_TENANT_ID)
+    : undefined;
+  if (runtimeTenantId && !runtimeTenantId.success)
+    throw new ConfigurationError(definition.serviceName, ["QCRM_TENANT_ID"]);
+  const tenantId = runtimeTenantId?.data;
   const iamBootstrapClientId = definition.requiresIamBootstrapClient
     ? environment.QCRM_IAM_BOOTSTRAP_CLIENT_ID === "quantum-crm-bootstrap"
       ? ("quantum-crm-bootstrap" as const)
@@ -638,6 +694,10 @@ export function parseProcessConfig(
     ...(filesStorage ? { filesStorage } : {}),
     ...(ycloudBinding ? { ycloudBinding } : {}),
     ...(ycloudApiKey ? { ycloudApiKey } : {}),
+    ...(agentGatewaySecret ? { agentGatewaySecret } : {}),
+    ...(agentRuntimeSecret ? { agentRuntimeSecret } : {}),
+    ...(openAiApiKey ? { openAiApiKey } : {}),
+    ...(tenantId ? { tenantId } : {}),
     ...(iamBootstrapClientId ? { iamBootstrapClientId } : {}),
     ...(iamBootstrapClientSecret ? { iamBootstrapClientSecret } : {}),
   });

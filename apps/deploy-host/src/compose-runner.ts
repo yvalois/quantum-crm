@@ -289,6 +289,26 @@ export async function planForTenant(
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
     if (ycloudApiKeyConfigured && !ycloudConfigured) throw new HostAdapterError("UNAVAILABLE");
+    const optionalAgentSecret = async (name: string): Promise<string | undefined> => {
+      const path = safeChildPath(options.databaseSecretRoot, `${request.tenantProfileId}/${name}`);
+      try {
+        const metadata = await lstat(path);
+        if (
+          !metadata.isFile() ||
+          metadata.isSymbolicLink() ||
+          metadata.size < 20 ||
+          metadata.size > 512
+        )
+          throw new HostAdapterError("UNAVAILABLE");
+        return path;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+        throw error;
+      }
+    };
+    const agentGatewaySecretFile = await optionalAgentSecret("agent-gateway-client-secret");
+    const agentRuntimeSecretFile = await optionalAgentSecret("agent-runtime-client-secret");
+    const openAiApiKeySecretFile = await optionalAgentSecret("openai-api-key");
     return createTenantComposePlan(requestFor(request), manifest, {
       templatePath: options.composeTemplate,
       imageRegistry: options.imageRegistry,
@@ -321,6 +341,9 @@ export async function planForTenant(
       ),
       ...(ycloudConfigured ? { ycloudBindingSecretFile } : {}),
       ...(ycloudApiKeyConfigured ? { ycloudApiKeySecretFile } : {}),
+      ...(agentGatewaySecretFile ? { agentGatewaySecretFile } : {}),
+      ...(agentRuntimeSecretFile ? { agentRuntimeSecretFile } : {}),
+      ...(openAiApiKeySecretFile ? { openAiApiKeySecretFile } : {}),
       crmSessionRedisUrlSecretFile: safeChildPath(
         options.databaseSecretRoot,
         `${request.tenantProfileId}/session-redis-url`,

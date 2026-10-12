@@ -17,6 +17,21 @@ export function createConversationAgentPostgresRepository(
   pool: PostgresPool,
 ): ConversationAgentDispatcher {
   const repository: ConversationAgentDispatcher = {
+    isLeasedExecution: async (inboundMessageId) => {
+      try {
+        const result = (await pool.query(
+          `SELECT 1 FROM conversations.agent_requests AS request
+             JOIN conversations.conversations AS conversation ON conversation.id = request.conversation_id
+            WHERE request.inbound_message_id = $1::uuid AND request.status = 'leased'
+              AND request.lease_expires_at > CURRENT_TIMESTAMP
+              AND conversation.attention_mode = 'agent' AND conversation.status <> 'closed'`,
+          [inboundMessageId],
+        )) as { readonly rowCount: number };
+        return result.rowCount === 1;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
     claimNext: async (input) => {
       let client: PoolClient | undefined;
       try {

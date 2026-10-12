@@ -104,6 +104,9 @@ export interface ComposePolicyOptions {
   readonly iamBootstrapClientSecretFile: string;
   readonly ycloudBindingSecretFile?: string;
   readonly ycloudApiKeySecretFile?: string;
+  readonly agentGatewaySecretFile?: string;
+  readonly agentRuntimeSecretFile?: string;
+  readonly openAiApiKeySecretFile?: string;
   readonly crmSessionRedisUrlSecretFile: string;
 }
 
@@ -434,6 +437,15 @@ export function createTenantComposePlan(
   const ycloudApiKeySecretFile = options.ycloudApiKeySecretFile
     ? requireAbsolutePath(options.ycloudApiKeySecretFile, "ycloudApiKeySecretFile")
     : undefined;
+  const agentGatewaySecretFile = options.agentGatewaySecretFile
+    ? requireAbsolutePath(options.agentGatewaySecretFile, "agentGatewaySecretFile")
+    : undefined;
+  const agentRuntimeSecretFile = options.agentRuntimeSecretFile
+    ? requireAbsolutePath(options.agentRuntimeSecretFile, "agentRuntimeSecretFile")
+    : undefined;
+  const openAiApiKeySecretFile = options.openAiApiKeySecretFile
+    ? requireAbsolutePath(options.openAiApiKeySecretFile, "openAiApiKeySecretFile")
+    : undefined;
   const storageSecretRoot = requireAbsolutePath(
     options.storageSecretRoot,
     "storageSecretRoot",
@@ -502,6 +514,16 @@ export function createTenantComposePlan(
     QCRM_YCLOUD_BINDING_FILE: ycloudBindingSecretFile ? "/run/secrets/qcrm_ycloud_binding" : "",
     QCRM_YCLOUD_API_KEY_SECRET_HOST_FILE: ycloudApiKeySecretFile ?? "/dev/null",
     QCRM_YCLOUD_API_KEY_FILE: ycloudApiKeySecretFile ? "/run/secrets/qcrm_ycloud_api_key" : "",
+    QCRM_AGENT_GATEWAY_SECRET_HOST_FILE: agentGatewaySecretFile ?? "/dev/null",
+    QCRM_AGENT_GATEWAY_SECRET_FILE: agentGatewaySecretFile
+      ? "/run/secrets/qcrm_agent_gateway_client_secret"
+      : "",
+    QCRM_AGENT_RUNTIME_SECRET_HOST_FILE: agentRuntimeSecretFile ?? "/dev/null",
+    QCRM_AGENT_RUNTIME_SECRET_FILE: agentRuntimeSecretFile
+      ? "/run/secrets/qcrm_agent_runtime_client_secret"
+      : "",
+    QCRM_OPENAI_API_KEY_SECRET_HOST_FILE: openAiApiKeySecretFile ?? "/dev/null",
+    QCRM_OPENAI_API_KEY_FILE: openAiApiKeySecretFile ? "/run/secrets/qcrm_openai_api_key" : "",
     QCRM_CRM_WEB_ORIGIN: manifest.identity.crmWebOrigin,
     QCRM_CRM_API_ORIGIN: "http://api:3001",
     QCRM_OIDC_ISSUER: manifest.identity.issuer,

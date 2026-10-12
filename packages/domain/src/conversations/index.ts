@@ -136,6 +136,7 @@ export interface ConversationAgentLease {
 
 /** Durable inbound trigger; outbound insertion is fenced and atomic with completion. */
 export interface ConversationAgentDispatcher {
+  readonly isLeasedExecution: (inboundMessageId: string) => Promise<boolean>;
   readonly claimNext: (input: {
     readonly workerId: string;
     readonly leaseSeconds: number;

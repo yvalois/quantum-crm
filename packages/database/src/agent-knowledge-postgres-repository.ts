@@ -33,6 +33,20 @@ export function createAgentKnowledgePostgresRepository(
   pool: PostgresPool,
 ): AgentKnowledgeRepository {
   const repository: AgentKnowledgeRepository = {
+    bothCatalogsReady: async () => {
+      try {
+        const result = (await pool.query(
+          `SELECT COUNT(DISTINCT source.catalog) = 2 AS ready
+             FROM agents.knowledge_sources AS source
+             JOIN files.files AS file ON file.id = source.file_id
+            WHERE source.active AND source.status = 'ready' AND file.status = 'available'
+              AND source.catalog IN ('individual', 'corporativo')`,
+        )) as { readonly rows: readonly { readonly ready: boolean }[] };
+        return result.rows[0]?.ready === true;
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
     createSource: async (input) => {
       try {
         const result = (await pool.query(

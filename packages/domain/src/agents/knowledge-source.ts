@@ -27,6 +27,7 @@ export interface AgentKnowledgeHit {
 
 /** Public source contract. The agent runtime never receives this repository. */
 export interface AgentKnowledgeRepository {
+  readonly bothCatalogsReady: () => Promise<boolean>;
   readonly createSource: (input: {
     readonly id: string;
     readonly catalog: AgentCatalogKind;

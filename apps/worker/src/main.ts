@@ -2,12 +2,17 @@ import "reflect-metadata";
 
 import type { INestApplicationContext } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { loadServiceConfig, requireDatabaseConfig } from "@quantum-crm/config";
+import { createServiceTokenClient } from "@quantum-crm/auth";
+import { loadServiceConfig, requireDatabaseConfig, requireOidcConfig } from "@quantum-crm/config";
 import { createCrmPostgresDatabase } from "@quantum-crm/database";
 import { createClamAvClient, createS3ObjectStorage } from "@quantum-crm/files-infrastructure";
 import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
 
 import { AppModule } from "./app.module.js";
+import {
+  startConversationAgentLoop,
+  type ConversationAgentLoop,
+} from "./conversation-agent-loop.js";
 import {
   startFileProcessingLoop,
   type FileProcessingLoop,
@@ -56,6 +61,7 @@ async function bootstrap(): Promise<void> {
   let application: INestApplicationContext | undefined;
   let fileProcessingLoop: FileProcessingLoop | undefined;
   let ycloudOutboundLoop: YCloudOutboundLoop | undefined;
+  let conversationAgentLoop: ConversationAgentLoop | undefined;
   try {
     await database.connect();
     application = await NestFactory.createApplicationContext(AppModule, {
@@ -84,6 +90,22 @@ async function bootstrap(): Promise<void> {
         },
       });
     }
+    if (config.agentGatewaySecret && config.database?.tenantId) {
+      conversationAgentLoop = startConversationAgentLoop({
+        repository: database.commercial.conversationAgent,
+        sourcesReady: database.commercial.agentKnowledge.bothCatalogsReady,
+        tokenClient: createServiceTokenClient({
+          issuer: requireOidcConfig(config).issuer,
+          clientId: "quantum-agent-gateway",
+          clientSecret: config.agentGatewaySecret,
+        }),
+        tenantId: config.database.tenantId,
+        pollIntervalMs: 2_000,
+        onError: () => {
+          process.stderr.write('{"level":"error","event":"conversation_agent_attempt_failed"}\n');
+        },
+      });
+    }
     let ready = false;
     const healthServer = createInternalHealthServer({
       serviceName: config.serviceName,
@@ -99,6 +121,7 @@ async function bootstrap(): Promise<void> {
         healthServer,
         fileProcessingLoop,
         ...(ycloudOutboundLoop ? [ycloudOutboundLoop] : []),
+        ...(conversationAgentLoop ? [conversationAgentLoop] : []),
         {
           close: async () => {
             ready = false;
@@ -112,6 +135,7 @@ async function bootstrap(): Promise<void> {
   } catch (error) {
     await fileProcessingLoop?.close();
     await ycloudOutboundLoop?.close();
+    await conversationAgentLoop?.close();
     await application?.close();
     await database.close();
     throw error;

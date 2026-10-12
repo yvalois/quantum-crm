@@ -241,7 +241,8 @@ export function createExternalConversationReceiver(
              (id, contact_id, channel, external_thread_id, assignee_member_id, status,
               attention_mode, subject, last_message_preview, last_message_at, unread_count,
               version, created_at, updated_at)
-             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, NULL, 'open', 'human', $5,
+             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, NULL, 'open',
+                     CASE WHEN $6 = 'inbound' AND NOT $7::boolean THEN 'agent' ELSE 'human' END, $5,
                      NULL, NULL, 0, 1, $4, $4)`,
             [
               conversationId,
@@ -249,6 +250,8 @@ export function createExternalConversationReceiver(
               message.externalThreadId,
               message.occurredAt,
               message.contactDisplayName.slice(0, 240),
+              message.direction.toLowerCase(),
+              message.historical,
             ],
           );
         }
