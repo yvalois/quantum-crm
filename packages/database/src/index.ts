@@ -12,6 +12,7 @@ export {
   createSalesHistoricalImportVerification,
 } from "./sales-historical-import-repository.js";
 export { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
+export { createUnifiedInboxPostgresRepository } from "./unified-inbox-postgres-repository.js";
 export { createGhlImportOperationRepository } from "./ghl-import-operation-repository.js";
 
 export { POSTGRES_DATABASE } from "./database-token.js";
@@ -63,3 +64,4 @@ export {
   TenantDatabaseSecretsProvisioningError,
 } from "./tenant-database-secrets-provisioner.js";
 export { acquireGhlAttachmentImportGuard } from "./ghl-attachment-import-guard.js";
+export { createIamExternalParticipantDirectory } from "./iam-external-participant-directory.js";

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SourceParticipantsSchema } from "../../iam/v1/source-participants.js";
 
 const TimestampSchema = z.string().datetime({ offset: true });
 const SourceTextSchema = z.string().max(200).nullable();
@@ -12,6 +13,7 @@ export const HistoricalConversationPageQuerySchema = z
   })
   .strict();
 export const HistoricalConversationListQuerySchema = HistoricalConversationPageQuerySchema.extend({
+  contactState: z.enum(["ALL", "LINKED", "UNLINKED"]).optional(),
   contactId: z.string().uuid().optional(),
   query: z.string().trim().min(1).max(160).optional(),
 });
@@ -23,6 +25,7 @@ export const HistoricalConversationSchema = z
     sourceThreadPresent: z.boolean(),
     contactId: z.string().uuid().nullable(),
     assigneeMemberId: z.string().uuid().nullable(),
+    sourceParticipants: SourceParticipantsSchema.optional(),
     rawChannel: SourceTextSchema,
     rawStatus: SourceTextSchema,
     subject: z.string().max(16_000).nullable(),

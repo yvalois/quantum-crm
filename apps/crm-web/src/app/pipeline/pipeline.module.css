@@ -8,9 +8,7 @@
   --coral: #bf553c;
   --paper: #fff;
   min-width: 0;
-  background:
-    radial-gradient(circle at 82% -12%, #bde8dc 0, transparent 28rem),
-    linear-gradient(180deg, #f7faf9, #eff5f3);
+  background: #f7f9fb;
   color: var(--ink);
 }
 .workspace {
@@ -22,11 +20,20 @@
   flex-direction: column;
   gap: 1rem;
   margin: 0;
-  padding: clamp(1rem, 2.5vw, 2.3rem);
+  padding: 1.25rem;
+}
+.boardWorkspace {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  gap: 0.8rem;
+}
+.boardWorkspace > :not(.boardViewport, .tableViewport) {
+  flex-shrink: 0;
 }
 .topbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
   padding: 0.2rem 0 0.6rem;
@@ -63,15 +70,15 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.7rem;
-  margin-top: 0.45rem;
+  margin-top: 0;
 }
 .titleRow h1 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2.05rem, 3vw, 3.1rem);
-  font-weight: 650;
-  letter-spacing: -0.055em;
-  line-height: 0.98;
+  font-family: inherit;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
 }
 .pipelinePill {
   border: 1px solid #cfe3df;
@@ -122,7 +129,7 @@
   border: 1px solid var(--mint);
   border-radius: 0.62rem;
   background: var(--mint);
-  box-shadow: 0 0.45rem 1rem #0d7c6e33;
+  box-shadow: none;
   color: #fff;
   font-size: 0.81rem;
   font-weight: 780;
@@ -216,18 +223,19 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  min-height: 4.25rem;
-  border: 1px solid #d8e3e1;
-  border-radius: 0.9rem;
-  background: #ffffffe0;
-  box-shadow: 0 0.6rem 1.35rem #192b2a0c;
-  padding: 0.55rem;
+  min-height: 3.35rem;
+  flex-wrap: wrap;
+  border: 1px solid #dde3e9;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.4rem 0.6rem;
 }
 .pipelineSelectWrap,
 .sortSelect {
   position: relative;
   display: grid;
-  min-width: 11.2rem;
+  min-width: 12rem;
+  max-width: 22rem;
   gap: 0.12rem;
   border-right: 1px solid #e0e9e7;
   padding: 0.15rem 1.8rem 0.15rem 0.3rem;
@@ -370,6 +378,8 @@
   color: var(--mint-deep);
 }
 .utilityPanel {
+  max-height: min(22rem, 45dvh);
+  overflow-y: auto;
   border: 1px solid #cfe1dd;
   border-radius: 0.9rem;
   background: #fbfefd;
@@ -409,7 +419,7 @@
 }
 .filterForm {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
   gap: 0.8rem;
   margin-top: 1.15rem;
@@ -823,43 +833,51 @@
 .boardViewport,
 .tableViewport {
   position: relative;
-  min-height: 25rem;
-  border: 1px solid #d5e2df;
-  border-radius: 1rem;
-  background: #ffffff8a;
-  box-shadow: 0 1rem 2.8rem #162d2b0e;
+  min-height: 14rem;
+  flex: 1;
+  border: 1px solid #dce3e9;
+  border-radius: 0.55rem;
+  background: #f1f4f8;
+  box-shadow: none;
 }
 .boardViewport {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior-x: contain;
 }
 .kanbanBoard {
-  display: grid;
-  grid-auto-columns: minmax(17.25rem, 1fr);
-  grid-auto-flow: column;
+  display: flex;
+  gap: 0.65rem;
   min-width: max-content;
-  min-height: 100%;
-  padding: 0.75rem;
+  height: 100%;
+  padding: 0.6rem;
 }
 .stageColumn {
   position: relative;
   display: flex;
-  width: min(23vw, 22rem);
-  min-width: 17.25rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
   flex-direction: column;
-  padding: 0.8rem;
+  border: 1px solid #dfe5eb;
+  border-radius: 0.5rem;
+  background: #eaf0f5;
+  padding: 0;
 }
 .stageColumn + .stageColumn {
-  border-left: 1px solid #dbe7e4;
+  border-left: 1px solid #dfe5eb;
 }
 .stageColumnDroppable:after {
   position: absolute;
   z-index: 0;
-  inset: 0.4rem;
-  border: 1px dashed #63af9f;
-  border-radius: 0.72rem;
-  background: #daf8ef3b;
+  inset: 0;
+  border: 2px solid #238d79;
+  border-radius: 0.5rem;
+  background: #d2f0e950;
   content: "";
-  opacity: 0;
+  opacity: 1;
   pointer-events: none;
   transition: opacity 0.16s;
 }
@@ -883,10 +901,15 @@
   position: relative;
   z-index: 1;
   justify-content: space-between;
-  gap: 0.8rem;
+  gap: 0.5rem;
+  min-height: 4.35rem;
+  flex: 0 0 auto;
+  border-bottom: 1px solid #dbe2e9;
+  padding: 0.7rem 0.75rem;
 }
 .stageIdentity {
   min-width: 0;
+  flex: 1;
   gap: 0.58rem;
 }
 .stageNumber {
@@ -906,15 +929,15 @@
   overflow: hidden;
   margin: 0;
   color: #274144;
-  font-size: 0.86rem;
-  font-weight: 810;
+  font-size: 0.81rem;
+  font-weight: 750;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .stageHeader p {
-  margin: 0.16rem 0 0;
-  color: #819092;
-  font-size: 0.67rem;
+  margin: 0.35rem 0 0;
+  color: #586c7c;
+  font-size: 0.72rem;
 }
 .stageHeader > strong {
   color: #275359;
@@ -947,24 +970,31 @@
 .cardStack {
   position: relative;
   z-index: 1;
-  display: grid;
-  align-content: start;
-  gap: 0.65rem;
-  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  padding: 0.5rem;
 }
 .dealCard {
+  position: relative;
   display: grid;
-  gap: 0.58rem;
-  border: 1px solid #d8e4e1;
-  border-radius: 0.75rem;
+  flex: 0 0 auto;
+  gap: 0.3rem;
+  border: 1px solid #dbe2e9;
+  border-radius: 0.42rem;
   background: #fff;
-  box-shadow: 0 0.35rem 0.8rem #162e2c0d;
-  cursor: grab;
-  padding: 0.72rem;
+  box-shadow: 0 1px 2px #17304208;
+  cursor: pointer;
+  padding: 0.6rem 0.7rem;
+  touch-action: pan-y;
   transition:
     border-color 0.16s,
     box-shadow 0.16s,
-    transform 0.16s,
     opacity 0.16s;
 }
 .dealCard:hover,
@@ -972,12 +1002,11 @@
   border-color: #8fc5b9;
   box-shadow: 0 0.7rem 1.3rem #144a4019;
   outline: 0;
-  transform: translateY(-2px);
 }
 .dealCardDragging {
   cursor: grabbing;
   opacity: 0.44;
-  transform: rotate(1deg) scale(0.98);
+  outline: 2px solid #238d79;
 }
 .cardTopline {
   justify-content: space-between;
@@ -1031,12 +1060,26 @@
   cursor: pointer;
   font: inherit;
   font-size: 0.88rem;
-  font-weight: 810;
+  font-weight: 750;
   letter-spacing: -0.015em;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 0;
+}
+.dealTitle:after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  content: "";
+}
+.dealTitle:focus-visible {
+  outline: none;
+}
+.dealTitle:focus-visible:after {
+  outline: 2px solid #0d7c6e;
+  outline-offset: 2px;
 }
 .dealTitle:hover,
 .tableTitle:hover {
@@ -1076,16 +1119,21 @@
 }
 .dealValue {
   color: #173d3a;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.16rem;
-  font-weight: 650;
-  letter-spacing: -0.04em;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.dealValue small {
+  color: #6d7e89;
+  font-size: 0.61rem;
+  font-weight: 500;
 }
 .cardFooter {
   justify-content: space-between;
   gap: 0.5rem;
   border-top: 1px solid #edf1f0;
-  padding-top: 0.58rem;
+  padding-top: 0.4rem;
 }
 .ownerIdentity {
   min-width: 0;
@@ -1101,7 +1149,7 @@
 }
 .cardFooter time {
   color: #8a999a;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: inherit;
   font-size: 0.58rem;
   white-space: nowrap;
 }
@@ -1144,11 +1192,12 @@
   font-size: 0.68rem;
 }
 .boardProgress {
-  position: sticky;
+  position: absolute;
+  z-index: 5;
   right: 0.8rem;
   bottom: 0.8rem;
   width: fit-content;
-  margin: -2.6rem 0.8rem 0 auto;
+  margin: 0;
   border: 1px solid #b9dbd2;
   border-radius: 99rem;
   background: #f2fbf8;
@@ -1159,8 +1208,9 @@
   padding: 0.43rem 0.7rem;
 }
 .boardEmptyOverlay {
-  position: sticky;
-  left: 50%;
+  position: absolute;
+  z-index: 5;
+  left: 1rem;
   bottom: 1rem;
   display: grid;
   width: min(25rem, calc(100% - 2rem));
@@ -1692,9 +1742,10 @@
   line-height: 1.45;
 }
 .cardActionRow {
-  position: relative;
-  border-top: 1px solid #edf1f0;
-  padding-top: 0.48rem;
+  position: absolute;
+  z-index: 2;
+  top: 0.43rem;
+  right: 2.25rem;
 }
 .moveMenuButton {
   display: inline-flex;
@@ -1719,8 +1770,10 @@
   position: absolute;
   z-index: 4;
   right: 0;
-  bottom: calc(100% - 0.12rem);
-  width: min(13rem, 100%);
+  top: calc(100% + 0.2rem);
+  width: 13rem;
+  max-height: 18rem;
+  overflow-y: auto;
   border: 1px solid #b9d9d0;
   border-radius: 0.58rem;
   background: #fff;
@@ -1775,6 +1828,209 @@
   border: 0;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+.boardSummary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 1.3rem;
+  min-height: 1.5rem;
+  color: #627181;
+  font-size: 0.73rem;
+}
+.boardSummary strong {
+  color: #263b4a;
+  font-weight: 700;
+}
+.boardSummary small {
+  font-size: 0.68rem;
+}
+.columnWidthControl {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  font-size: 0.68rem;
+}
+.columnWidthControl input {
+  width: 5rem;
+  accent-color: var(--mint);
+}
+.columnWidthControl button {
+  border: 0;
+  background: transparent;
+  color: var(--mint-deep);
+  cursor: pointer;
+  font: inherit;
+}
+.stageIdentity > div {
+  min-width: 0;
+}
+.stageCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  margin-left: 0.25rem;
+  border-radius: 0.3rem;
+  background: #dce5ed;
+  color: #465969;
+  font-size: 0.66rem;
+  font-weight: 600;
+  padding: 0 0.23rem;
+}
+.collapseStage,
+.dragHandle {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: #6d8190;
+  cursor: pointer;
+}
+.collapseStage svg {
+  transform: rotate(90deg);
+}
+.collapseStage:hover,
+.dragHandle:hover {
+  background: #dce9e8;
+  color: var(--mint-deep);
+}
+.dragHandle {
+  position: relative;
+  z-index: 2;
+  cursor: grab;
+  touch-action: none;
+}
+.dragHandle:active {
+  cursor: grabbing;
+}
+.stageCollapsed .stageHeader {
+  flex-direction: column-reverse;
+  border: 0;
+  padding: 0.6rem 0;
+}
+.stageCollapsed .stageIdentity {
+  writing-mode: vertical-rl;
+  margin-top: 0.3rem;
+}
+.stageCollapsed h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-height: 20rem;
+}
+.stageCollapsed .stageCount {
+  writing-mode: horizontal-tb;
+  margin: 0;
+}
+.stageCollapsed .collapseStage svg {
+  transform: rotate(-90deg);
+}
+.addInStage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 0.3rem;
+  min-height: 2.3rem;
+  border: 1px dashed #c4d0da;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #576f7c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.73rem;
+}
+.addInStage:hover {
+  border-color: #8cb7ad;
+  background: #fff;
+  color: var(--mint-deep);
+}
+.dealCardSaving {
+  opacity: 0.65;
+  pointer-events: none;
+}
+.dealCardSaving:before {
+  position: absolute;
+  z-index: 3;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  border: 1px solid #bed7cf;
+  border-radius: 0.25rem;
+  background: #effaf6;
+  color: var(--mint-deep);
+  content: "Guardando…";
+  font-size: 0.65rem;
+  padding: 0.15rem 0.3rem;
+}
+.detailFields {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.existingContactPicker {
+  display: grid;
+  gap: 0.7rem;
+}
+.existingContactPicker > small {
+  color: #617581;
+  font-size: 0.7rem;
+}
+.detailLoadNotice,
+.historyActor {
+  color: #677e87;
+  font-size: 0.72rem;
+}
+.contactLabels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding-top: 0.6rem;
+}
+.contactLabels span {
+  border: 1px solid #d8e1e7;
+  border-radius: 0.3rem;
+  background: #f2f5f8;
+  color: #5b6d7e;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.4rem;
+}
+.pipelineDirectoryRow {
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  padding: 0.15rem;
+}
+.pipelineDirectoryRow > a {
+  display: grid;
+  gap: 0.3rem;
+  text-decoration: none;
+  padding: 0.7rem;
+}
+.pipelineDirectoryRow > a:hover {
+  background: #f1f7f5;
+}
+.pipelineDirectoryRow > a > span {
+  color: var(--mint-deep);
+  font-size: 0.7rem;
+}
+.pipelineDirectoryList .pipelineConfigureButton {
+  display: inline-flex;
+  width: auto;
+  margin: 0 0 0.45rem 0.6rem;
+  border: 1px solid #d5dfdf;
+  border-radius: 0.35rem;
+  background: #fff;
+  font-size: 0.7rem;
+  padding: 0.4rem 0.5rem;
 }
 @keyframes spin {
   to {
@@ -1838,6 +2094,13 @@
   }
 }
 @media (max-width: 900px) {
+  .pipelineShell:global(.crm-shell-stitch) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pipelineShell > :global(.crm-sidebar) {
+    min-width: 0;
+    max-width: 100%;
+  }
   .workspace {
     padding: 1rem;
   }
@@ -1882,7 +2145,7 @@
     padding: 0.75rem;
   }
   .titleRow h1 {
-    font-size: 2rem;
+    font-size: 1.3rem;
   }
   .topActions {
     gap: 0.4rem;
@@ -1986,8 +2249,24 @@
     width: 100%;
   }
   .stageColumn {
-    width: 84vw;
-    min-width: 16rem;
+    max-width: 84vw;
+  }
+  .boardWorkspace {
+    min-height: 38rem;
+    height: calc(100dvh - 4rem);
+  }
+  .boardWorkspace .topbar {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+  .boardWorkspace .topActions {
+    width: auto;
+  }
+  .boardWorkspace .topActions .iconButton {
+    display: none;
+  }
+  .columnWidthControl {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

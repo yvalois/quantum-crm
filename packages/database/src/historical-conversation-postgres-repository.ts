@@ -3,6 +3,7 @@ import {
   HistoricalImportValidationError,
   HistoricalAttachmentConflictError,
   HistoricalConversationNotFoundError,
+  sourceParticipantReferencesFromRow,
   type HistoricalAttachmentRecord,
   type HistoricalAttachmentVerification,
   type CommercialActor,
@@ -15,8 +16,9 @@ import type { PoolClient } from "pg";
 import { withHistoricalImport } from "./historical-import-transaction.js";
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
 
-interface ThreadRow {
+export interface ThreadRow {
   readonly id: string;
+  readonly source_participant_references?: unknown;
   readonly source_system: "GHL";
   readonly source_external_id: string;
   readonly source_thread_present: boolean;
@@ -76,10 +78,24 @@ function attachment(row: AttachmentRow): HistoricalAttachmentRecord {
     size: row.byte_size === null ? null : Number(row.byte_size),
   });
 }
-const threadSelection = `thread.id::text, thread.source_system, thread.source_external_id,
+export const historicalThreadChannelSelection = `COALESCE(NULLIF(thread.raw_channel, ''), (
+    SELECT COALESCE(NULLIF(channel_message.raw_channel, ''), NULLIF(channel_message.raw_type, ''))
+    FROM conversations.historical_messages channel_message
+    WHERE channel_message.thread_id = thread.id
+      AND COALESCE(NULLIF(channel_message.raw_channel, ''), NULLIF(channel_message.raw_type, '')) IS NOT NULL
+    ORDER BY channel_message.source_created_at DESC NULLS LAST, channel_message.id DESC LIMIT 1
+  ))`;
+export const threadSelection = `thread.id::text, thread.source_system, thread.source_external_id,
   thread.source_thread_present, thread.contact_id::text, thread.assignee_member_id::text,
-  thread.raw_channel, thread.raw_status, thread.subject, thread.source_created_at,
-  thread.source_updated_at, thread.message_count, thread.last_message_at, thread.imported_at`;
+  ${historicalThreadChannelSelection} AS raw_channel, thread.raw_status, thread.subject, thread.source_created_at,
+  thread.source_updated_at, thread.message_count, thread.last_message_at, thread.imported_at,
+  (SELECT jsonb_build_object('locationId', source_map.source_location_id,
+    'ownerExternalId', NULLIF(source_map.source_payload->>'assignedTo', ''),
+      'followerExternalIds', COALESCE(NULLIF(source_map.source_payload->'followers', 'null'::jsonb), '[]'::jsonb))
+    FROM conversations.historical_imports source_map WHERE source_map.entity_type = 'thread'
+      AND source_map.source_system = thread.source_system
+      AND source_map.source_location_id = thread.source_location_id
+      AND source_map.external_id = thread.source_external_id) AS source_participant_references`;
 const messageSelection = `message.id::text, message.thread_id::text, message.source_external_id,
   message.raw_channel, message.raw_type, message.raw_direction, message.raw_status,
   message.body, message.attachment_count, message.source_created_at,
@@ -94,7 +110,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 function date(value: Date | string | null): Date | null {
   return value === null ? null : new Date(value);
 }
-function thread(row: ThreadRow): HistoricalThreadRecord {
+export function historicalThreadFromRow(row: ThreadRow): HistoricalThreadRecord {
   return Object.freeze({
     id: row.id,
     source: row.source_system,
@@ -102,6 +118,7 @@ function thread(row: ThreadRow): HistoricalThreadRecord {
     sourceThreadPresent: row.source_thread_present,
     contactId: row.contact_id,
     assigneeMemberId: row.assignee_member_id,
+    ...sourceParticipantReferencesFromRow(row.source_participant_references),
     rawChannel: row.raw_channel,
     rawStatus: row.raw_status,
     subject: row.subject,
@@ -112,6 +129,7 @@ function thread(row: ThreadRow): HistoricalThreadRecord {
     importedAt: new Date(row.imported_at),
   });
 }
+const thread = historicalThreadFromRow;
 function message(row: MessageRow): HistoricalMessageRecord {
   return Object.freeze({
     id: row.id,
@@ -129,7 +147,10 @@ function message(row: MessageRow): HistoricalMessageRecord {
     importedAt: new Date(row.imported_at),
   });
 }
-function access(actor: CommercialActor, placeholder: number): { sql: string; params: string[] } {
+export function historicalConversationAccess(
+  actor: CommercialActor,
+  placeholder: number,
+): { sql: string; params: string[] } {
   if (actor.scope === "PROFILE") return { sql: "TRUE", params: [] };
   const related = "thread.contact_id IS NOT NULL AND thread.source_thread_present = TRUE";
   if (actor.scope === "TEAM")
@@ -144,6 +165,7 @@ function access(actor: CommercialActor, placeholder: number): { sql: string; par
     params: [actor.memberId],
   };
 }
+const access = historicalConversationAccess;
 function encode(value: unknown): string {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
 }
@@ -436,6 +458,8 @@ export function createHistoricalConversationPostgresRepository(
           return `$${params.length}`;
         };
         if (query.contactId) conditions.push(`thread.contact_id = ${bind(query.contactId)}::uuid`);
+        if (query.contactState === "LINKED") conditions.push("thread.contact_id IS NOT NULL");
+        if (query.contactState === "UNLINKED") conditions.push("thread.contact_id IS NULL");
         if (query.query) {
           const search = bind(`%${query.query.replace(/[\\%_]/gu, "\\$&")}%`);
           conditions.push(`(thread.subject ILIKE ${search} OR thread.source_external_id ILIKE ${search}

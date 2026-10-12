@@ -49,6 +49,7 @@ import {
   type CommercialActor,
   type ContactImportPreviewRow,
   type HistoricalContactField,
+  type SourceParticipants,
   type ContactListFilters,
   type IamPermission,
 } from "@quantum-crm/domain";
@@ -87,6 +88,7 @@ function contactResponse(contact: {
   readonly phone: string | null;
   readonly labels: readonly { readonly id: string; readonly name: string }[];
   readonly customFields?: readonly HistoricalContactField[];
+  readonly sourceParticipants?: SourceParticipants;
   readonly source: "MANUAL" | "IMPORT" | "FORM" | "CONVERSATION" | "API" | "MIGRATION" | "OTHER";
   readonly archivedAt: Date | null;
   readonly version: bigint;
@@ -102,6 +104,7 @@ function contactResponse(contact: {
       phone: contact.phone,
       labels: contact.labels,
       customFields: contact.customFields ?? [],
+      ...(contact.sourceParticipants ? { sourceParticipants: contact.sourceParticipants } : {}),
       source: contact.source,
       archivedAt: contact.archivedAt?.toISOString() ?? null,
       version: contact.version.toString(),
@@ -143,6 +146,9 @@ function paginationScope(
 ): Omit<ContactListFilters, "cursor" | "limit"> {
   return Object.freeze({
     ...(filters.q === undefined ? {} : { q: filters.q }),
+    ...(filters.ids === undefined
+      ? {}
+      : { ids: filters.ids, includeArchived: filters.includeArchived }),
     ...(filters.label === undefined ? {} : { label: filters.label }),
     ...(filters.pipelineId === undefined ? {} : { pipelineId: filters.pipelineId }),
     ...(filters.ownerMemberId === undefined ? {} : { ownerMemberId: filters.ownerMemberId }),
@@ -167,6 +173,8 @@ function cursorFingerprint(
         scope: actor.scope,
         filters: {
           q: filters.q,
+          ids: filters.ids,
+          includeArchived: filters.includeArchived,
           label: filters.label,
           pipelineId: filters.pipelineId,
           ownerMemberId: filters.ownerMemberId,
@@ -246,6 +254,9 @@ function contactFilters(
   const parsed = ContactListQuerySchema.safeParse(query);
   if (!parsed.success) throw new BadRequestException();
   const filters: Omit<ContactListFilters, "cursor"> = {
+    ...(parsed.data.ids === undefined
+      ? {}
+      : { ids: [...new Set(parsed.data.ids.split(","))].sort(), includeArchived: true }),
     ...(parsed.data.q === undefined ? {} : { q: parsed.data.q }),
     limit: parsed.data.limit,
     sort: parsed.data.sort,

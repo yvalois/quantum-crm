@@ -5,6 +5,7 @@ import {
   AutomationValidationError,
   ContactValidationError,
   validateHistoricalJson,
+  sourceParticipantReferencesFromRow,
   type AutomationActivationResult,
   type AutomationDefinition,
   type AutomationExecutionResult,
@@ -12,6 +13,7 @@ import {
 } from "@quantum-crm/domain";
 import type {
   ContactRecord,
+  CustomFieldDefinitionRepository,
   HistoricalContactField,
   HistoricalJsonValue,
   ContactBulkActionResponse,
@@ -25,6 +27,7 @@ import type {
   ExternalConversationReceiver,
   ConversationRepository,
   HistoricalConversationRepository,
+  UnifiedInboxRepository,
   CommercialActor,
   Opportunity,
   OpportunityHistoryEntry,
@@ -50,6 +53,8 @@ import {
   createExternalConversationReceiver,
 } from "./conversation-postgres-repository.js";
 import { createHistoricalConversationPostgresRepository } from "./historical-conversation-postgres-repository.js";
+import { createUnifiedInboxPostgresRepository } from "./unified-inbox-postgres-repository.js";
+import { createSettingsCustomFieldPostgresRepository } from "./settings-custom-field-postgres-repository.js";
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
 import { createFormPostgresRepository } from "./form-postgres-repository.js";
 import { createDocumentPostgresRepository } from "./document-postgres-repository.js";
@@ -107,6 +112,7 @@ export class CommercialIdempotencyConflictError extends Error {
 
 interface ContactRow {
   readonly id: string;
+  readonly source_participant_references?: unknown;
   readonly owner_member_id: string | null;
   readonly display_name: string;
   readonly email: string | null;
@@ -161,6 +167,12 @@ function contactSelection(alias: string): string {
       JOIN contacts.labels AS label ON label.id = contact_label.label_id
       WHERE contact_label.contact_id = ${alias}.id
     ), '[]'::jsonb) AS labels,
+    (SELECT jsonb_build_object('locationId', source_map.source_location_id,
+      'ownerExternalId', NULLIF(source_map.source_payload->>'assignedTo', ''),
+      'followerExternalIds', COALESCE(NULLIF(source_map.source_payload->'followers', 'null'::jsonb), '[]'::jsonb))
+      FROM contacts.historical_imports source_map WHERE source_map.entity_type = 'contact'
+        AND source_map.source_system = 'GHL' AND source_map.entity_id = ${alias}.id
+      ORDER BY source_map.imported_at, source_map.external_id LIMIT 1) AS source_participant_references,
     ${alias}.custom_fields, ${alias}.version::text, ${alias}.created_at, ${alias}.updated_at`;
 }
 
@@ -230,6 +242,7 @@ function contactFromRow(row: ContactRow): ContactRecord {
     phone: row.phone,
     labels: contactLabels(row.labels),
     customFields: contactCustomFields(row.custom_fields),
+    ...sourceParticipantReferencesFromRow(row.source_participant_references),
     source: source as ContactRecord["source"],
     archivedAt: row.archived_at == null ? null : new Date(row.archived_at),
     version: BigInt(row.version),
@@ -347,6 +360,8 @@ function contactQueryParts(actor: CommercialActor, filters: ContactListFilters):
     params.push(value);
     return `$${params.length}`;
   };
+  if (filters.ids !== undefined)
+    conditions.push(`contact.id = ANY(${parameter(filters.ids)}::uuid[])`);
   if (filters.q !== undefined) {
     const value = parameter(filters.q);
     conditions.push(
@@ -472,6 +487,7 @@ interface PipelineSnapshotRow extends PipelineRow {
 }
 interface OpportunityRow {
   readonly id: string;
+  readonly source_participant_references?: unknown;
   readonly owner_member_id: string;
   readonly contact_id: string;
   readonly pipeline_id: string;
@@ -503,6 +519,12 @@ interface OpportunityHistoryRow {
   readonly created_at: Date;
 }
 const opportunitySelection = `id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, status, close_reason, closed_at, version::text, created_at, updated_at`;
+const opportunityParticipantSelection = `(SELECT jsonb_build_object('locationId', source_map.source_location_id,
+  'ownerExternalId', NULLIF(source_map.source_payload->>'assignedTo', ''),
+  'followerExternalIds', COALESCE(NULLIF(source_map.source_payload->'followers', 'null'::jsonb), '[]'::jsonb))
+  FROM sales.historical_imports source_map WHERE source_map.entity_type = 'opportunity'
+    AND source_map.source_system = 'GHL' AND source_map.entity_id = opportunity.id
+  ORDER BY source_map.imported_at, source_map.external_id LIMIT 1) AS source_participant_references`;
 const opportunityHistorySelection = `id::text, opportunity_id::text, event_type, actor_member_id::text, previous_stage_id::text, next_stage_id::text, previous_owner_member_id::text, next_owner_member_id::text, previous_status, next_status, previous_amount_minor::text, next_amount_minor::text, note, created_at`;
 function stageFromRow(row: StageRow): PipelineStage {
   return Object.freeze({
@@ -525,6 +547,7 @@ function opportunityFromRow(row: OpportunityRow): Opportunity {
     stageId: row.stage_id,
     title: row.title,
     amountMinor: BigInt(row.amount_minor),
+    ...sourceParticipantReferencesFromRow(row.source_participant_references),
     currency: row.currency,
     status: status as Opportunity["status"],
     closeReason: row.close_reason ?? null,
@@ -688,11 +711,13 @@ function isPipelineSnapshotRow(row: PipelineRow | PipelineSnapshotRow): row is P
 }
 
 export interface CommercialPostgresRepositories {
+  readonly customFieldDefinitions: CustomFieldDefinitionRepository;
   readonly contacts: ContactRepository;
   readonly externalContacts: ExternalContactDirectory;
   readonly conversations: ConversationRepository;
   readonly externalConversations: ExternalConversationReceiver;
   readonly historicalConversations: HistoricalConversationRepository;
+  readonly unifiedInbox: UnifiedInboxRepository;
   readonly sales: SalesRepository;
   readonly tasks: TaskRepository;
   readonly calendar: CalendarRepository;
@@ -1849,7 +1874,7 @@ export function createCommercialPostgresRepositories(
         if (filters.createdTo !== undefined)
           conditions.push(`opportunity.created_at <= ${parameter(filters.createdTo)}::timestamptz`);
         const result = (await pool.query(
-          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE ${conditions.join(" AND ")} ORDER BY opportunity.updated_at DESC, opportunity.id DESC`,
+          `SELECT ${opportunitySelection}, ${opportunityParticipantSelection} FROM sales.opportunities AS opportunity WHERE ${conditions.join(" AND ")} ORDER BY opportunity.updated_at DESC, opportunity.id DESC`,
           params,
         )) as { readonly rows: readonly OpportunityRow[] };
         return Object.freeze(result.rows.map(opportunityFromRow));
@@ -1861,11 +1886,37 @@ export function createCommercialPostgresRepositories(
       try {
         const access = visibility(actor, 2, ["opportunity.owner_member_id"]);
         const result = (await pool.query(
-          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql}`,
+          `SELECT ${opportunitySelection}, ${opportunityParticipantSelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql}`,
           [id, ...access.params],
         )) as { readonly rows: readonly OpportunityRow[] };
         const row = result.rows[0];
         return row ? opportunityFromRow(row) : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    findOpportunityCommandResult: async (input) => {
+      try {
+        const access = visibility(input.actor, 5, ["opportunity.owner_member_id"]);
+        const result = (await pool.query(
+          `SELECT command.payload_hash, command.response
+             FROM sales.command_idempotency AS command
+            WHERE command.actor_member_id = $1::uuid AND command.command = $2
+              AND command.idempotency_key = $3
+              AND EXISTS (SELECT 1 FROM sales.opportunities AS opportunity
+                           WHERE opportunity.id = $4::uuid AND ${access.sql})`,
+          [input.actor.memberId, input.command, input.idempotencyKey, input.id, ...access.params],
+        )) as {
+          readonly rows: readonly {
+            readonly payload_hash: string;
+            readonly response: OpportunityRow;
+          }[];
+        };
+        const previous = result.rows[0];
+        if (!previous) return null;
+        if (previous.payload_hash !== input.payloadHash || previous.response.id !== input.id)
+          throw new CommercialIdempotencyConflictError();
+        return opportunityFromRow(previous.response);
       } catch (error) {
         return fail(error);
       }
@@ -1969,9 +2020,20 @@ export function createCommercialPostgresRepositories(
       let client: PoolClient | undefined;
       try {
         const access = visibility(input.actor, 5, ["opportunity.owner_member_id"]);
-        const readAccess = visibility(input.actor, 3, ["opportunity.owner_member_id"]);
+        const readAccess = visibility(input.actor, 2, ["opportunity.owner_member_id"]);
         client = await pool.connect();
         await client.query("BEGIN");
+        // Lock the authorized resource before checking replay so concurrent retries
+        // observe the first committed result even when the command row did not exist.
+        const beforeResult = await client.query<OpportunityRow>(
+          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${readAccess.sql} FOR UPDATE`,
+          [input.id, ...readAccess.params],
+        );
+        const before = beforeResult.rows[0];
+        if (!before) {
+          await client.query("COMMIT");
+          return null;
+        }
         const replay = await client.query<{
           readonly payload_hash: string;
           readonly response: OpportunityRow;
@@ -1981,17 +2043,12 @@ export function createCommercialPostgresRepositories(
         );
         const previous = replay.rows[0];
         if (previous) {
-          if (previous.payload_hash !== input.payloadHash)
+          if (previous.payload_hash !== input.payloadHash || previous.response.id !== input.id)
             throw new CommercialIdempotencyConflictError();
           await client.query("COMMIT");
           return opportunityFromRow(previous.response);
         }
-        const beforeResult = await client.query<OpportunityRow>(
-          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND opportunity.version = $2::bigint AND ${readAccess.sql} FOR UPDATE`,
-          [input.id, input.expectedVersion.toString(), ...readAccess.params],
-        );
-        const before = beforeResult.rows[0];
-        if (!before) {
+        if (BigInt(before.version) !== input.expectedVersion) {
           await client.query("COMMIT");
           return null;
         }
@@ -2035,9 +2092,18 @@ export function createCommercialPostgresRepositories(
     updateOpportunity: async (input) => {
       let client: PoolClient | undefined;
       try {
-        const access = visibility(input.actor, 3, ["opportunity.owner_member_id"]);
+        const access = visibility(input.actor, 2, ["opportunity.owner_member_id"]);
         client = await pool.connect();
         await client.query("BEGIN");
+        const beforeResult = await client.query<OpportunityRow>(
+          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND ${access.sql} FOR UPDATE`,
+          [input.opportunity.id, ...access.params],
+        );
+        const before = beforeResult.rows[0];
+        if (!before) {
+          await client.query("COMMIT");
+          return null;
+        }
         const replay = await client.query<{
           readonly payload_hash: string;
           readonly response: OpportunityRow;
@@ -2047,17 +2113,15 @@ export function createCommercialPostgresRepositories(
         );
         const previous = replay.rows[0];
         if (previous) {
-          if (previous.payload_hash !== input.payloadHash)
+          if (
+            previous.payload_hash !== input.payloadHash ||
+            previous.response.id !== input.opportunity.id
+          )
             throw new CommercialIdempotencyConflictError();
           await client.query("COMMIT");
           return opportunityFromRow(previous.response);
         }
-        const beforeResult = await client.query<OpportunityRow>(
-          `SELECT ${opportunitySelection} FROM sales.opportunities AS opportunity WHERE opportunity.id = $1::uuid AND opportunity.version = $2::bigint AND ${access.sql} FOR UPDATE`,
-          [input.opportunity.id, input.expectedVersion.toString(), ...access.params],
-        );
-        const before = beforeResult.rows[0];
-        if (!before) {
+        if (BigInt(before.version) !== input.expectedVersion) {
           await client.query("COMMIT");
           return null;
         }
@@ -2602,6 +2666,8 @@ export function createCommercialPostgresRepositories(
     externalContacts,
     externalConversations: createExternalConversationReceiver(pool),
     historicalConversations: createHistoricalConversationPostgresRepository(pool),
+    unifiedInbox: createUnifiedInboxPostgresRepository(pool),
+    customFieldDefinitions: createSettingsCustomFieldPostgresRepository(pool),
     sales,
     tasks,
     calendar: createCalendarPostgresRepository(pool),

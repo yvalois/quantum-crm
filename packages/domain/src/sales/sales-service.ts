@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { IamAuthorizationError, type CommercialActor, type IamPermission } from "../iam/index.js";
+import {
+  IamAuthorizationError,
+  withSourceParticipants,
+  type ExternalParticipantLookup,
+  type CommercialActor,
+  type IamPermission,
+} from "../iam/index.js";
 import {
   type Pipeline,
   type PipelineStage,
@@ -28,6 +34,7 @@ export class SalesService {
     private readonly contacts: SalesContactLookup,
     private readonly members: SalesMemberLookup = { isActive: async () => false },
     private readonly clock: () => Date = () => new Date(),
+    private readonly sourceParticipants?: ExternalParticipantLookup,
   ) {}
   public listPipelines(permissions: readonly IamPermission[]) {
     allow(permissions, "crm:sales:read");
@@ -114,7 +121,9 @@ export class SalesService {
     filters: Parameters<SalesRepository["listOpportunities"]>[1] = {},
   ) {
     allow(permissions, "crm:sales:read");
-    return this.repository.listOpportunities(actor, filters);
+    return this.repository
+      .listOpportunities(actor, filters)
+      .then((records) => withSourceParticipants(records, this.sourceParticipants));
   }
   public listOpportunityHistory(input: {
     readonly actor: CommercialActor;
@@ -123,6 +132,16 @@ export class SalesService {
   }) {
     allow(input.permissions, "crm:sales:read");
     return this.repository.listOpportunityHistory(input.actor, input.opportunityId);
+  }
+  public async getOpportunity(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly opportunityId: string;
+  }) {
+    allow(input.permissions, "crm:sales:read");
+    const opportunity = await this.repository.findOpportunity(input.actor, input.opportunityId);
+    if (!opportunity) throw new SalesNotFoundError();
+    return (await withSourceParticipants([opportunity], this.sourceParticipants))[0]!;
   }
   public createOpportunity(input: {
     readonly actor: CommercialActor;
@@ -191,7 +210,30 @@ export class SalesService {
     allow(input.permissions, "crm:sales:update");
     const current = await this.repository.findOpportunity(input.actor, input.opportunityId);
     if (!current) throw new SalesNotFoundError();
-    if (current.version !== input.expectedVersion) throw new SalesVersionConflictError();
+    if (current.version !== input.expectedVersion) {
+      const replay = await this.repository.findOpportunityCommandResult({
+        actor: input.actor,
+        id: input.opportunityId,
+        command: "sales.opportunity.update",
+        idempotencyKey: input.idempotencyKey,
+        payloadHash: input.payloadHash,
+      });
+      if (replay)
+        return (
+          await withSourceParticipants(
+            [
+              {
+                ...replay,
+                ...(current.sourceParticipantReferences
+                  ? { sourceParticipantReferences: current.sourceParticipantReferences }
+                  : {}),
+              },
+            ],
+            this.sourceParticipants,
+          )
+        )[0]!;
+      throw new SalesVersionConflictError();
+    }
     const ownerMemberId = input.ownerMemberId ?? current.ownerMemberId;
     if (ownerMemberId !== current.ownerMemberId && !(await this.members.isActive(ownerMemberId)))
       throw new SalesValidationError();
@@ -233,7 +275,19 @@ export class SalesService {
       payloadHash: input.payloadHash,
     });
     if (!result) throw new SalesVersionConflictError();
-    return result;
+    return (
+      await withSourceParticipants(
+        [
+          {
+            ...result,
+            ...(current.sourceParticipantReferences
+              ? { sourceParticipantReferences: current.sourceParticipantReferences }
+              : {}),
+          },
+        ],
+        this.sourceParticipants,
+      )
+    )[0]!;
   }
   public async moveOpportunity(input: {
     readonly actor: CommercialActor;
@@ -247,7 +301,30 @@ export class SalesService {
     allow(input.permissions, "crm:sales:move");
     const opportunity = await this.repository.findOpportunity(input.actor, input.opportunityId);
     if (!opportunity) throw new SalesNotFoundError();
-    if (opportunity.version !== input.expectedVersion) throw new SalesVersionConflictError();
+    if (opportunity.version !== input.expectedVersion) {
+      const replay = await this.repository.findOpportunityCommandResult({
+        actor: input.actor,
+        id: input.opportunityId,
+        command: "sales.opportunity.move",
+        idempotencyKey: input.idempotencyKey,
+        payloadHash: input.payloadHash,
+      });
+      if (replay)
+        return (
+          await withSourceParticipants(
+            [
+              {
+                ...replay,
+                ...(opportunity.sourceParticipantReferences
+                  ? { sourceParticipantReferences: opportunity.sourceParticipantReferences }
+                  : {}),
+              },
+            ],
+            this.sourceParticipants,
+          )
+        )[0]!;
+      throw new SalesVersionConflictError();
+    }
     const stage = await this.repository.findStage(input.stageId);
     if (!stage) throw new SalesNotFoundError();
     validateOpportunityMove(opportunity, stage);
@@ -261,6 +338,18 @@ export class SalesService {
       payloadHash: input.payloadHash,
     });
     if (!result) throw new SalesVersionConflictError();
-    return result;
+    return (
+      await withSourceParticipants(
+        [
+          {
+            ...result,
+            ...(opportunity.sourceParticipantReferences
+              ? { sourceParticipantReferences: opportunity.sourceParticipantReferences }
+              : {}),
+          },
+        ],
+        this.sourceParticipants,
+      )
+    )[0]!;
   }
 }

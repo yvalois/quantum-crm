@@ -14,13 +14,16 @@ import {
   handleCrmContactLabelCreate,
   handleCrmContactLabelList,
   handleCrmContactList,
+  handleCrmCustomFieldDefinitionList,
   handleCrmContactUpdate,
   handleCrmAutomationActivate,
   handleCrmAutomationCreate,
   handleCrmFileUploadTransport,
+  handleCrmOpportunityDetail,
   handleCrmOpportunityList,
   handleCrmOpportunityUpdate,
   handleCrmSession,
+  handleCrmUnifiedInboxList,
 } from "./crm-auth-http.js";
 
 const config: CrmWebAuthConfig = {
@@ -74,6 +77,190 @@ function runtime(crmApiFetch: typeof fetch = vi.fn(fetch)): CrmAuthRuntime {
 }
 
 describe("CRM web authentication HTTP boundary", () => {
+  it("forwards one authenticated mixed inbox with filters and opaque pagination", async () => {
+    const contactId = "019b0000-0000-7000-8000-000000000002";
+    const id = "019b0000-0000-7000-8000-000000000001";
+    const timestamp = "2026-10-11T10:00:00.000Z";
+    const payload = {
+      data: [
+        {
+          source: "QUANTUM",
+          conversation: {
+            id,
+            contactId,
+            channel: "WHATSAPP",
+            externalThreadId: null,
+            assigneeMemberId: null,
+            status: "OPEN",
+            attentionMode: "HUMAN",
+            subject: "Solicitud actual",
+            lastMessagePreview: "Consulta sintética",
+            lastMessageAt: timestamp,
+            unreadCount: 1,
+            version: "1",
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        },
+        {
+          source: "GHL",
+          conversation: {
+            id,
+            source: "GHL",
+            sourceExternalId: "synthetic-history-1",
+            sourceThreadPresent: true,
+            contactId,
+            assigneeMemberId: null,
+            rawChannel: "TYPE_WHATSAPP",
+            rawStatus: null,
+            subject: "Consulta anterior",
+            sourceCreatedAt: timestamp,
+            sourceUpdatedAt: null,
+            messageCount: 2,
+            lastMessageAt: timestamp,
+            importedAt: timestamp,
+          },
+        },
+      ],
+      page: { nextCursor: "opaque_next" },
+    };
+    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) =>
+      Response.json(payload),
+    );
+    const response = await handleCrmUnifiedInboxList(
+      new Request(
+        `https://crm.example.test/api/conversations/inbox?limit=30&contactId=${contactId}&query=consulta&contactState=ALL&cursor=opaque_previous`,
+        {
+          headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+        },
+      ),
+      runtime(upstream as typeof fetch),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(payload);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    const endpoint = new URL(String(upstream.mock.calls[0]?.[0]));
+    expect(endpoint.pathname).toBe("/api/v1/conversations/inbox");
+    expect(Object.fromEntries(endpoint.searchParams)).toEqual({
+      limit: "30",
+      contactId,
+      query: "consulta",
+      contactState: "ALL",
+      cursor: "opaque_previous",
+    });
+    expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
+      "Bearer server-only-access-token",
+    );
+  });
+
+  it("forwards every read-only historical channel filter through the authenticated API", async () => {
+    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) =>
+      Response.json({ data: [], page: { nextCursor: null } }),
+    );
+    for (const channel of [
+      "INSTAGRAM",
+      "FACEBOOK",
+      "TIKTOK",
+      "GOOGLE",
+      "CALL",
+      "FORM",
+      "UNKNOWN",
+    ]) {
+      const response = await handleCrmUnifiedInboxList(
+        new Request(`https://crm.example.test/api/conversations/inbox?channel=${channel}`, {
+          headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+        }),
+        runtime(upstream as typeof fetch),
+      );
+      expect(response.status).toBe(200);
+      const endpoint = new URL(String(upstream.mock.calls.at(-1)?.[0]));
+      expect(endpoint.pathname).toBe("/api/v1/conversations/inbox");
+      expect(endpoint.searchParams.get("channel")).toBe(channel);
+    }
+    expect(upstream).toHaveBeenCalledTimes(7);
+  });
+
+  it("rejects foreign selectors and oversized inbox pages before calling the API", async () => {
+    const upstream = vi.fn(fetch);
+    for (const query of ["tenantId=other", "limit=51", "contactState=UNKNOWN", "channel=OTHER"]) {
+      const response = await handleCrmUnifiedInboxList(
+        new Request(`https://crm.example.test/api/conversations/inbox?${query}`, {
+          headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+        }),
+        runtime(upstream),
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("requires the web session and preserves inbox access denial", async () => {
+    const upstream = vi.fn(async () => Response.json({ internal: "not exposed" }, { status: 403 }));
+    const unauthenticated = await handleCrmUnifiedInboxList(
+      new Request("https://crm.example.test/api/conversations/inbox"),
+      runtime(upstream as typeof fetch),
+    );
+    expect(unauthenticated.status).toBe(401);
+    expect(upstream).not.toHaveBeenCalled();
+    const forbidden = await handleCrmUnifiedInboxList(
+      new Request("https://crm.example.test/api/conversations/inbox", {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+    );
+    expect(forbidden.status).toBe(403);
+    expect(await forbidden.text()).not.toContain("not exposed");
+  });
+
+  it("reads the field catalog through the authenticated API and rejects arbitrary query selectors", async () => {
+    const payload = {
+      data: [
+        {
+          id: "019b0000-0000-7000-8000-000000000001",
+          key: "contact.favorite_color",
+          label: "Color favorito",
+          description: "",
+          dataType: "TEXT",
+          model: "contact",
+        },
+      ],
+      page: { nextCursor: null },
+    };
+    const upstream = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) =>
+      Response.json(payload),
+    );
+    const response = await handleCrmCustomFieldDefinitionList(
+      new Request("https://crm.example.test/api/custom-field-definitions?model=contact", {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(payload);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(String(upstream.mock.calls[0]?.[0])).toBe(
+      "http://api:3001/api/v1/custom-field-definitions?model=contact&limit=100",
+    );
+    const rejected = await handleCrmCustomFieldDefinitionList(
+      new Request(
+        "https://crm.example.test/api/custom-field-definitions?model=contact&tenantId=other",
+      ),
+      runtime(upstream as typeof fetch),
+    );
+    expect(rejected.status).toBe(400);
+    expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it("does not expose a field catalog without a web session", async () => {
+    const upstream = vi.fn(async () => Response.json({ data: [], page: { nextCursor: null } }));
+    const response = await handleCrmCustomFieldDefinitionList(
+      new Request("https://crm.example.test/api/custom-field-definitions?model=opportunity"),
+      runtime(upstream as typeof fetch),
+    );
+    expect(response.status).toBe(401);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("transporta una carga firmada solo al almacenamiento hermano autorizado", async () => {
     const upstream = vi.fn(async (url: URL | RequestInfo, init?: RequestInit) => {
       expect(String(url)).toBe("https://storage.example.test/incoming");
@@ -250,7 +437,7 @@ describe("CRM web authentication HTTP boundary", () => {
     );
     const response = await handleCrmContactList(
       new Request(
-        "https://crm.example.test/api/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01",
+        "https://crm.example.test/api/contacts?label=VIP&channel=EMAIL&createdFrom=2026-09-01&ids=019b0000-0000-7000-8000-000000000011",
         { headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` } },
       ),
       runtime(upstream as typeof fetch),
@@ -263,6 +450,7 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(Object.fromEntries(endpoint.searchParams)).toEqual({
       label: "VIP",
       channel: "EMAIL",
+      ids: "019b0000-0000-7000-8000-000000000011",
       archived: "false",
       createdFrom: "2026-09-01",
       limit: "50",
@@ -513,6 +701,80 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(upstream.mock.calls[0]?.[0].toString()).toBe(
       `http://api:3001/api/v1/sales/opportunities?pipelineId=${pipelineId}&status=OPEN&label=VIP`,
     );
+  });
+
+  it("loads a fresh opportunity detail with an opaque version and server-only credentials", async () => {
+    const opportunityId = "01995f7e-7b52-7000-8000-000000000121";
+    const opportunity = {
+      id: opportunityId,
+      ownerMemberId: "01995f7e-7b52-7000-8000-000000000102",
+      contactId: "01995f7e-7b52-7000-8000-000000000122",
+      pipelineId: "01995f7e-7b52-7000-8000-000000000123",
+      stageId: "01995f7e-7b52-7000-8000-000000000124",
+      title: "Synthetic opportunity",
+      amountMinor: "250000000",
+      currency: "COP",
+      status: "OPEN",
+      closeReason: null,
+      closedAt: null,
+      version: "9007199254740993",
+      createdAt: "2026-10-11T15:00:00.000Z",
+      updatedAt: "2026-10-11T16:00:00.000Z",
+    };
+    const upstream = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ data: opportunity }, { headers: { etag: '"9007199254740993"' } }),
+    );
+    const response = await handleCrmOpportunityDetail(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}`, {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+      opportunityId,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: opportunity });
+    expect(response.headers.get("etag")).toBe('"9007199254740993"');
+    const [target, init] = upstream.mock.calls[0]!;
+    expect(target.toString()).toBe(`http://api:3001/api/v1/sales/opportunities/${opportunityId}`);
+    expect(init?.cache).toBe("no-store");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer server-only-access-token");
+  });
+
+  it.each([403, 404])("preserves denied opportunity detail responses (%s)", async (status) => {
+    const opportunityId = "01995f7e-7b52-7000-8000-000000000121";
+    const upstream = vi.fn(async () => new Response(null, { status }));
+    const response = await handleCrmOpportunityDetail(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}`, {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+      opportunityId,
+    );
+    expect(response.status).toBe(status);
+  });
+
+  it("rejects malformed IDs and untrusted detail query parameters before calling upstream", async () => {
+    const upstream = vi.fn(fetch);
+    const invalidId = await handleCrmOpportunityDetail(
+      new Request("https://crm.example.test/api/opportunities/invalid"),
+      runtime(upstream),
+      "invalid",
+    );
+    const opportunityId = "01995f7e-7b52-7000-8000-000000000121";
+    const invalidQuery = await handleCrmOpportunityDetail(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}?tenantId=other`),
+      runtime(upstream),
+      opportunityId,
+    );
+    const missingSession = await handleCrmOpportunityDetail(
+      new Request(`https://crm.example.test/api/opportunities/${opportunityId}`),
+      runtime(upstream),
+      opportunityId,
+    );
+    expect(invalidId.status).toBe(400);
+    expect(invalidQuery.status).toBe(400);
+    expect(missingSession.status).toBe(401);
+    expect(upstream).not.toHaveBeenCalled();
   });
 
   it("updates an opportunity only through a same-origin versioned request", async () => {

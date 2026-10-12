@@ -4,6 +4,8 @@ import type { CalendarEvent, Contact, Opportunity, Task } from "@quantum-crm/con
 import { useEffect, useState } from "react";
 
 import { CrmShell } from "../../crm-shell";
+import { SourceParticipantsCard } from "../../source-participants";
+import { ContactCustomFields } from "../custom-fields";
 
 interface ContactPayload {
   readonly data: Contact;
@@ -139,6 +141,10 @@ export function ContactDetailPanel({
                   </span>
                 </div>
               </div>
+            </section>
+            <section className="member-card">
+              <ContactCustomFields key={contact.id} fields={contact.customFields ?? []} />
+              <SourceParticipantsCard participants={contact.sourceParticipants} kind="contacto" />
             </section>
             <section className="member-card contact-opportunities-card">
               <div className="card-heading">

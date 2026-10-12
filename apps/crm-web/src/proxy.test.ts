@@ -51,8 +51,19 @@ describe("crm-web proxy", () => {
     const policy = proxy(request).headers.get("content-security-policy");
 
     expect(policy).toContain("img-src 'self' blob: data: https://storage.2-25-172-119.nip.io");
+    expect(policy).toContain("media-src 'self' https://storage.2-25-172-119.nip.io");
     expect(policy).toContain("connect-src 'self' https://storage.2-25-172-119.nip.io");
     expect(policy).not.toContain("https://*.nip.io");
+  });
+
+  it("no permite medios externos cuando no existe un origen de almacenamiento verificado", () => {
+    const policy = proxy(new NextRequest("http://localhost:3000/inbox")).headers.get(
+      "content-security-policy",
+    );
+
+    expect(policy?.split("; ").find((directive) => directive.startsWith("media-src"))).toBe(
+      "media-src 'self'",
+    );
   });
 
   it("usa el host publico reenviado cuando Next recibe un host interno", () => {

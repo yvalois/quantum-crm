@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SourceParticipantsSchema } from "../../iam/v1/source-participants.js";
 
 const IdSchema = z.string().uuid();
 const TextSchema = z.string().trim().min(1).max(160);
@@ -32,6 +33,7 @@ export const PipelineSchema = z.object({
 });
 export const OpportunitySchema = z.object({
   id: IdSchema,
+  sourceParticipants: SourceParticipantsSchema.optional(),
   ownerMemberId: IdSchema,
   contactId: IdSchema,
   pipelineId: IdSchema,

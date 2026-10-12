@@ -82,9 +82,10 @@ export class HistoricalConversationsController {
       const parsed = HistoricalConversationListQuerySchema.safeParse(query);
       if (!parsed.success) throw new BadRequestException();
       const auth = identity(request);
-      const { limit, cursor, contactId, query: search } = parsed.data;
+      const { limit, cursor, contactId, contactState, query: search } = parsed.data;
       const result = await this.service.list(auth.actor, auth.permissions, {
         limit,
+        ...(contactState === undefined ? {} : { contactState }),
         ...(cursor === undefined ? {} : { cursor }),
         ...(contactId === undefined ? {} : { contactId }),
         ...(search === undefined ? {} : { query: search }),

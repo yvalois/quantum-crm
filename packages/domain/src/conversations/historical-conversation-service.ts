@@ -1,5 +1,12 @@
 import type { FileOwner } from "@quantum-crm/contracts";
-import { IamAuthorizationError, type CommercialActor, type IamPermission } from "../iam/index.js";
+import {
+  IamAuthorizationError,
+  withSourceParticipants,
+  type ExternalParticipantLookup,
+  type SourceParticipantRecord,
+  type CommercialActor,
+  type IamPermission,
+} from "../iam/index.js";
 import {
   authorizeHistoricalImport,
   HistoricalImportValidationError,
@@ -33,7 +40,8 @@ export interface HistoricalMessageInput {
   readonly sourceUpdatedAt: Date | null;
 }
 
-export interface HistoricalThreadRecord extends Omit<HistoricalThreadInput, "sourceContactId"> {
+export interface HistoricalThreadRecord
+  extends Omit<HistoricalThreadInput, "sourceContactId">, SourceParticipantRecord {
   readonly id: string;
   readonly source: "GHL";
   readonly sourceExternalId: string;
@@ -115,6 +123,7 @@ export interface HistoricalPageQuery {
   readonly cursor?: string;
 }
 export interface HistoricalThreadQuery extends HistoricalPageQuery {
+  readonly contactState?: "ALL" | "LINKED" | "UNLINKED";
   readonly contactId?: string;
   readonly query?: string;
 }
@@ -231,6 +240,7 @@ export class HistoricalConversationService {
     private readonly repository: HistoricalConversationRepository,
     private readonly references: HistoricalConversationReferences,
     private readonly files?: HistoricalAttachmentFiles,
+    private readonly sourceParticipants?: ExternalParticipantLookup,
   ) {}
 
   public async reserveAttachment(
@@ -362,8 +372,14 @@ export class HistoricalConversationService {
   ) {
     read(permissions, query);
     if (query.contactId !== undefined) id(query.contactId);
+    if (
+      query.contactState !== undefined &&
+      !["ALL", "LINKED", "UNLINKED"].includes(query.contactState)
+    )
+      throw new HistoricalImportValidationError();
     if (query.query !== undefined) text(query.query, 160);
-    return this.repository.list(actor, query);
+    const page = await this.repository.list(actor, query);
+    return { ...page, items: await withSourceParticipants(page.items, this.sourceParticipants) };
   }
 
   public async find(
@@ -375,7 +391,7 @@ export class HistoricalConversationService {
     id(threadId);
     const record = await this.repository.find(actor, threadId);
     if (!record) throw new HistoricalConversationNotFoundError();
-    return record;
+    return (await withSourceParticipants([record], this.sourceParticipants))[0]!;
   }
 
   public async messages(

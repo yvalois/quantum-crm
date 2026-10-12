@@ -104,6 +104,25 @@ Un usuario autorizado entra al CRM y opera un tablero Kanban real: selecciona un
 
 ## Evidencia de cierre
 
+### Ampliacion operativa del 2026-10-11
+
+- Alcance vigente: directorio de pipelines enlazado al tablero propio, detalle completo de oportunidad, columnas con desplazamiento independiente y movimiento por puntero, teclado o selector. La configuracion permanece separada del tablero.
+- Se reutilizan los contratos comerciales, contactos y archivos importados; se agrega la lectura individual autorizada de oportunidad y se corrige el replay de movimientos/ediciones concurrentes. Sin migraciones ni cambios de identidad.
+- VPS: `759e9791` acredita 37 pruebas de dominio/BFF y 5 de PostgreSQL real, con dos perfiles sinteticos, concurrencia, idempotencia, alcance y 1127 oportunidades. El formato posterior no cambia esa logica. Typecheck de domain/database/api/crm-web y ESLint afectados aprobados sobre el candidato funcional `0f6fc6f3`.
+- Las interacciones de navegador se ejecutan en el VPS con respuestas sinteticas aisladas en loopback; no se mueven oportunidades reales para probar. Esta evidencia no sustituye la persistencia PostgreSQL anterior ni la inspeccion autenticada posterior al despliegue.
+- Base: PR #125, que contiene la importacion historica ya desplegada. No se elimina ni se repite esa importacion para publicar el tablero.
+- Navegador en VPS: 5/5 escenarios aprobados, incluidos arrastre de raton, selector, movimiento por teclado, apertura de detalle, recuperacion 412, busqueda entre 1127 oportunidades y anchos 1440/1024/390. Se corrigio el minimo automatico del grid solo en el shell de pipelines; movil ya no ensancha la pagina. Los fallos previos de arranque fueron dependencias Chromium/CSP de desarrollo; el bypass existe solo en el navegador sintetico de loopback, sin cambiar la politica del CRM. Se repitieron unicamente los escenarios invalidados.
+- Cierre: candidato funcional `42717655fa14aebb882cc4448cbb561a9f98a097`, siete checks verdes en [PR #126](https://github.com/yvalois/quantum-crm/pull/126). Publicacion en VPS mediante las operaciones existentes de deploy-host, con preflight de perfil/entorno/contenedores/imagenes, exclusion operativa y predecesores retenidos. No se usa ni se modifica el registro de importacion historica para desplegar este bloque.
+- Digests publicados: API `sha256:2fc1a543d416e5eb4299e78b681ff8de7357af50a13b801da1cfea749b7594df` (candidato `0f6fc6f3`, identico codigo API al candidato final); CRM web `sha256:991f0b34a2bf05de426b8b768d758c252030fd09b3f6671411a23c2c392588be` (`42717655`). La imagen API ya construida para comprobar el candidato se reutilizo despues de CI: el unico cambio de runtime posterior fue el CSS movil. No se repitio su build ni las pruebas de servidor verdes.
+- Smoke autenticado en `https://interamerican.2-25-172-119.nip.io/pipeline`: pagina limitada a la altura del viewport en escritorio, tarjetas de 155 px, columnas con scroll propio y ningun contacto pendiente de resolver; el nombre del pipeline abre sus oportunidades y una tarjeta abre detalle autorizado con historial y campos habilitados, sin alertas. Se cerro el detalle sin guardar ni modificar datos reales. Ambos contenedores saludables; recibo operacional `pipeline-publication-42717655.json` dentro de la configuracion protegida del perfil.
+- Los fixtures/capturas son sinteticos y el servidor privado de pruebas quedo detenido. Los cierres documentales posteriores reutilizan esta evidencia sin reconstruir, migrar ni redesplegar. No se declara terminado todo el conjunto `PIPE-*`.
+
+#### Pendientes de estabilizacion posterior
+
+- Persistir preferencias de ancho y plegado entre sesiones y evaluar virtualizacion para volumenes superiores al recorrido verificado. Automatizaciones y capacidades agentivas conservan sus requisitos propietarios.
+
+### Evidencia anterior
+
 - Archivos, commits o PR: candidato `96bfb871be6cccb4e997f72f2ab1da1e49927b94` integrado mediante PR #67 como `43c53089f75163b30664123347e7ac162775a004`; ajuste de vistas Stitch validado sobre `bf3c01ebaa6e7b3f4339df4e72f05d7a3c309438` en `feat/PIPE-01-stitch-views`.
 - Comandos y resultados en el VPS: el candidato integrado aprobo Prettier, ESLint, typecheck de cinco paquetes, 17/17 pruebas afectadas y builds de API/CRM web; GitHub aprobo las siete puertas y genero la candidata `60da35d0-d350-522d-b35a-50f832aa9255` con sus diez artefactos. Para el ajuste visual, Prettier y ESLint afectados, typecheck recursivo de `crm-web` y build de sus cuatro consumidores aprobaron en Node 24; no se repitieron pruebas comerciales porque no cambiaron contratos, dominio, datos ni rutas.
 - Documentacion actualizada: ficha y `estado.md`; el checklist oficial no se cierra hasta desplegar y recorrer el piloto autenticado.

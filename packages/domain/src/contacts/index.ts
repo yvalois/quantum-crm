@@ -1,5 +1,5 @@
 export type { CommercialActor, CommercialScope } from "../iam/index.js";
-import type { CommercialActor } from "../iam/index.js";
+import type { CommercialActor, SourceParticipantRecord } from "../iam/index.js";
 import type { HistoricalContactField } from "./historical-import.js";
 
 export type ContactChannel = "EMAIL" | "PHONE" | "NONE";
@@ -20,6 +20,7 @@ export interface ContactListCursor {
 }
 
 export interface ContactListFilters {
+  readonly ids?: readonly string[];
   readonly q?: string;
   readonly label?: string;
   readonly pipelineId?: string;
@@ -38,7 +39,7 @@ export interface ContactListFilters {
   readonly sort?: ContactListSort;
 }
 
-export interface ContactRecord {
+export interface ContactRecord extends SourceParticipantRecord {
   readonly id: string;
   readonly ownerMemberId: string | null;
   readonly displayName: string;

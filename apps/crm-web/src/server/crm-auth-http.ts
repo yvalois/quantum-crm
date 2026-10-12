@@ -7,11 +7,15 @@ import {
 import { type CrmWebAuthConfig, SecretValue } from "@quantum-crm/config";
 import {
   CreateMemberInvitationSchema,
+  CustomFieldDefinitionListQuerySchema,
+  CustomFieldDefinitionListResponseSchema,
   HistoricalConversationListQuerySchema,
   HistoricalConversationListResponseSchema,
   HistoricalConversationMessageListResponseSchema,
   HistoricalConversationPageQuerySchema,
   HistoricalConversationResponseSchema,
+  UnifiedInboxListQuerySchema,
+  UnifiedInboxListResponseSchema,
   ContactIdSchema,
   ContactBulkActionResponseSchema,
   ContactBulkActionSchema,
@@ -695,6 +699,37 @@ export async function handleCrmOpportunityList(
       signal: AbortSignal.timeout(5_000),
     });
     return commercialResponse(upstream, OpportunityListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+export async function handleCrmOpportunityDetail(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  opportunityId: string,
+): Promise<Response> {
+  if (!ContactIdSchema.safeParse(opportunityId).success) return crmProblem(400, "Invalid request");
+  if (new URL(request.url).search) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(`/api/v1/sales/opportunities/${opportunityId}`, runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    const response = await commercialResponse(upstream, OpportunityResponseSchema);
+    const etag = upstream.headers.get("etag");
+    if (response.ok && etag && /^"[1-9][0-9]*"$/u.test(etag)) response.headers.set("etag", etag);
+    return response;
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }
@@ -2030,6 +2065,26 @@ async function conversationMutation(
   }
 }
 
+export async function handleCrmUnifiedInboxList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const parsed = UnifiedInboxListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const endpoint = new URL("/api/v1/conversations/inbox", runtime.config.crmApiOrigin);
+  for (const [name, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) endpoint.searchParams.set(name, String(value));
+  }
+  return conversationRead(
+    request,
+    runtime,
+    `${endpoint.pathname}${endpoint.search}`,
+    UnifiedInboxListResponseSchema,
+  );
+}
+
 export async function handleCrmHistoricalConversationList(
   request: Request,
   runtime: CrmAuthRuntime,
@@ -2061,6 +2116,26 @@ export async function handleCrmHistoricalConversationGet(
     runtime,
     `/api/v1/historical-conversations/${id}`,
     HistoricalConversationResponseSchema,
+  );
+}
+
+export async function handleCrmCustomFieldDefinitionList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const parsed = CustomFieldDefinitionListQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const endpoint = new URL("/api/v1/custom-field-definitions", runtime.config.crmApiOrigin);
+  for (const [name, value] of Object.entries(parsed.data)) {
+    if (value !== undefined) endpoint.searchParams.set(name, String(value));
+  }
+  return conversationRead(
+    request,
+    runtime,
+    `${endpoint.pathname}${endpoint.search}`,
+    CustomFieldDefinitionListResponseSchema,
   );
 }
 
@@ -2321,6 +2396,7 @@ function memberListQuery(request: Request): URLSearchParams | null {
 function contactListQuery(request: Request): URLSearchParams | null {
   const input = new URL(request.url).searchParams;
   const allowed = new Set([
+    "ids",
     "q",
     "limit",
     "cursor",

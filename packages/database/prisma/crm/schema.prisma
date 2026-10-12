@@ -150,3 +150,30 @@ model IamMemberRole {
   @@map("member_roles")
   @@schema("iam")
 }
+model IamExternalParticipant {
+  sourceSystem String @map("source_system") @db.VarChar(32)
+  sourceLocationId String @map("source_location_id") @db.VarChar(200)
+  externalId String @map("external_id") @db.VarChar(200)
+  displayName String @map("display_name") @db.VarChar(300)
+  actorMemberId String @map("actor_member_id") @db.Uuid
+  importedAt DateTime @default(now()) @map("imported_at") @db.Timestamptz(6)
+
+  @@id([sourceSystem, sourceLocationId, externalId])
+  @@map("external_participants")
+  @@schema("iam")
+}
+
+model IamExternalParticipantImport {
+  operationId String @map("operation_id") @db.Uuid
+  sourceSystem String @map("source_system") @db.VarChar(32)
+  sourceLocationId String @map("source_location_id") @db.VarChar(200)
+  payloadHash String @map("payload_hash") @db.Char(64)
+  total Int
+  created Int
+  actorMemberId String @map("actor_member_id") @db.Uuid
+  importedAt DateTime @default(now()) @map("imported_at") @db.Timestamptz(6)
+
+  @@id([operationId, sourceSystem, sourceLocationId])
+  @@map("external_participant_imports")
+  @@schema("iam")
+}

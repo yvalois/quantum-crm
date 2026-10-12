@@ -17,6 +17,7 @@ import {
   PreconditionFailedException,
   Query,
   Req,
+  Res,
 } from "@nestjs/common";
 import {
   CreateOpportunitySchema,
@@ -39,12 +40,16 @@ import {
   SalesVersionConflictError,
   type CommercialActor,
   type IamPermission,
+  type SourceParticipants,
 } from "@quantum-crm/domain";
 import { CommercialIdempotencyConflictError } from "@quantum-crm/database";
 
 import { crmAuthContext, RequireCrmPermission } from "./crm-security.js";
 
 export const SALES_SERVICE = Symbol("SALES_SERVICE");
+interface HeaderResponse {
+  readonly setHeader: (name: string, value: string) => void;
+}
 const keyPattern = /^[A-Za-z0-9._:-]{8,128}$/u;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 function hash(value: unknown): string {
@@ -98,6 +103,7 @@ function pipelineResponse(value: {
 }
 function opportunityResponse(value: {
   readonly id: string;
+  readonly sourceParticipants?: SourceParticipants;
   readonly ownerMemberId: string;
   readonly contactId: string;
   readonly pipelineId: string;
@@ -115,6 +121,7 @@ function opportunityResponse(value: {
   return {
     id: value.id,
     ownerMemberId: value.ownerMemberId,
+    ...(value.sourceParticipants ? { sourceParticipants: value.sourceParticipants } : {}),
     contactId: value.contactId,
     pipelineId: value.pipelineId,
     stageId: value.stageId,
@@ -213,6 +220,25 @@ export class SalesController {
           opportunityResponse,
         ),
       });
+    } catch (error) {
+      return map(error);
+    }
+  }
+  @Get("opportunities/:opportunityId")
+  @RequireCrmPermission("crm:sales:read")
+  public async detail(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("opportunityId") opportunityId: string,
+    @Res({ passthrough: true }) response: HeaderResponse,
+  ) {
+    if (!uuidPattern.test(opportunityId)) throw new BadRequestException();
+    try {
+      const opportunity = await this.service.getOpportunity({
+        ...identity(request),
+        opportunityId,
+      });
+      response.setHeader("ETag", `"${opportunity.version.toString()}"`);
+      return OpportunityResponseSchema.parse({ data: opportunityResponse(opportunity) });
     } catch (error) {
       return map(error);
     }

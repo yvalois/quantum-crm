@@ -9,6 +9,7 @@ function contentSecurityPolicy(nonce: string, filesOrigin: string | null): strin
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     `style-src 'self' 'nonce-${nonce}'`,
     `img-src 'self' blob: data:${filesSource}`,
+    `media-src 'self'${filesSource}`,
     "font-src 'self'",
     `connect-src 'self'${filesSource}`,
     "object-src 'none'",

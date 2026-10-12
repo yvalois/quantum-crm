@@ -1,22 +1,32 @@
 import { createHash, randomUUID } from "node:crypto";
 import { parseDatabaseConfig } from "@quantum-crm/config";
+import type { UnifiedInboxListQuery } from "@quantum-crm/contracts";
 import {
   acquireGhlAttachmentImportGuard,
   createContactsHistoricalImportPort,
   createCrmPostgresDatabase,
   createGhlImportOperationRepository,
+  createIamExternalParticipantDirectory,
   createHistoricalConversationPostgresRepository,
   createSalesHistoricalImportPort,
   createSettingsHistoricalImportPort,
+  createUnifiedInboxPostgresRepository,
 } from "@quantum-crm/database";
 import {
   HistoricalConversationService,
+  CustomFieldDefinitionService,
+  ContactService,
+  ContactNotFoundError,
+  SalesService,
+  ExternalParticipantConflictError,
+  HistoricalConversationNotFoundError,
   HistoricalAttachmentConflictError,
   FileService,
   FileNotFoundError,
   FileStateConflictError,
   HistoricalImportValidationError,
   IamAuthorizationError,
+  UnifiedInboxService,
   type CommercialActor,
   type HistoricalImportContext,
   type HistoricalImportSource,
@@ -25,7 +35,7 @@ import {
   type HistoricalThreadInput,
 } from "@quantum-crm/domain";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const tenantA = "00000000-0000-4000-8000-00000000000a";
 const tenantB = "00000000-0000-4000-8000-00000000000b";
@@ -169,6 +179,587 @@ afterAll(async () => {
 });
 
 describe("GHL imports against migrated PostgreSQL runtime roles", () => {
+  it("pages one mixed inbox without timestamp-tie loss and applies filters, permissions and profile scope to both sources", async () => {
+    const locationId = randomUUID();
+    const marker = `inbox-${locationId}`;
+    const privateSource = `private-source-${locationId}`;
+    const bodyNeedle = `body-${locationId}-%_`;
+    const teammate = randomUUID();
+    const outsider = randomUUID();
+    const teamId = randomUUID();
+    for (const memberId of [teammate, outsider]) {
+      await poolA.query(
+        `INSERT INTO iam.members(id, oidc_subject, display_name, email, status, commercial_scope)
+         VALUES ($1::uuid, $2, 'Synthetic inbox member', $3, 'active', 'assigned')`,
+        [memberId, `inbox-${memberId}`, `inbox-${memberId}@example.test`],
+      );
+    }
+    await poolA.query("INSERT INTO iam.teams(id, name) VALUES ($1::uuid, $2)", [teamId, marker]);
+    await poolA.query(
+      "INSERT INTO iam.team_members(team_id, member_id) VALUES ($1::uuid, $2::uuid), ($1::uuid, $3::uuid)",
+      [teamId, actor.memberId, teammate],
+    );
+    const contact = await contactsA.importContact({
+      ...context,
+      source: source(locationId, "inbox-contact"),
+      displayName: "Synthetic unified inbox contact",
+      email: null,
+      phone: null,
+      ownerMemberId: actor.memberId,
+      labelIds: [],
+      customFields: [],
+      createdAt: originalAt,
+      updatedAt: originalAt,
+    });
+    const records: {
+      id: string;
+      source: "QUANTUM" | "GHL";
+      label: string;
+      at: string;
+    }[] = [];
+    const pairs = [
+      {
+        label: "own-one",
+        owner: actor.memberId,
+        at: "2035-01-01T00:00:00.123457Z",
+        channel: "email",
+        status: "open",
+      },
+      {
+        label: "own-two",
+        owner: actor.memberId,
+        at: "2035-01-01T00:00:00.123457Z",
+        channel: "email",
+        status: "open",
+      },
+      {
+        label: "team",
+        owner: teammate,
+        at: "2035-01-01T00:00:00.123456Z",
+        channel: "whatsapp",
+        status: "pending",
+      },
+      {
+        label: "outside",
+        owner: outsider,
+        at: "2035-01-01T00:00:01.000000Z",
+        channel: "sms",
+        status: "closed",
+      },
+      {
+        label: "unassigned",
+        owner: null,
+        at: "2034-12-31T00:00:00.000000Z",
+        channel: "email",
+        status: "open",
+      },
+    ] as const;
+    for (const fixture of pairs) {
+      const id = randomUUID();
+      const body = fixture.label === "own-one" ? bodyNeedle : `body-${locationId}-XY`;
+      await poolA.query(
+        `INSERT INTO conversations.conversations
+         (id, contact_id, channel, assignee_member_id, status, attention_mode, subject,
+          last_message_at, created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, 'human', $6,
+          $7::timestamptz, $7::timestamptz, $7::timestamptz)`,
+        [
+          id,
+          contact.id,
+          fixture.channel,
+          fixture.owner,
+          fixture.status,
+          `${marker} ${fixture.label}`,
+          fixture.at,
+        ],
+      );
+      await poolA.query(
+        `INSERT INTO conversations.messages
+         (id, conversation_id, sequence, direction, kind, body, delivery_status, created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, 1, 'inbound', 'text', $3, 'received', $4::timestamptz, $4::timestamptz)`,
+        [randomUUID(), id, body, fixture.at],
+      );
+      records.push({ id, source: "QUANTUM", label: fixture.label, at: fixture.at });
+      const imported = await historyA.importThread({
+        ...context,
+        source: source(locationId, fixture.label, { privateAttribute: privateSource }),
+        thread: {
+          ...orphan(),
+          sourceThreadPresent: true,
+          contactId: contact.id,
+          sourceContactId: privateSource,
+          assigneeMemberId: fixture.owner,
+          rawChannel:
+            fixture.channel === "whatsapp"
+              ? "TYPE_WHATS_APP"
+              : `TYPE_${fixture.channel.toUpperCase()}`,
+          rawStatus: fixture.label === "unassigned" ? "unread" : fixture.status.toUpperCase(),
+          subject: `${marker} ${fixture.label}`,
+          sourceCreatedAt: new Date(fixture.at),
+        },
+      });
+      await historyA.importMessage({
+        ...context,
+        source: source(locationId, `${fixture.label}-message`),
+        threadSourceExternalId: fixture.label,
+        message: { ...message(), body, attachmentCount: 0, sourceCreatedAt: new Date(fixture.at) },
+      });
+      // PostgreSQL timestamps retain microseconds that JavaScript Date cannot represent.
+      await poolA.query(
+        "UPDATE conversations.historical_threads SET last_message_at = $2::timestamptz WHERE id = $1::uuid",
+        [imported.id, fixture.at],
+      );
+      records.push({ id: imported.id, source: "GHL", label: fixture.label, at: fixture.at });
+    }
+    for (const fixture of [
+      { label: "orphan", contactId: null, at: "2035-01-01T00:00:03.000000Z" },
+      { label: "missing-thread", contactId: contact.id, at: "2035-01-01T00:00:02.000000Z" },
+    ]) {
+      const imported = await historyA.importThread({
+        ...context,
+        source: source(locationId, fixture.label, { privateAttribute: privateSource }),
+        thread: {
+          ...orphan(),
+          contactId: fixture.contactId,
+          assigneeMemberId: actor.memberId,
+          subject: `${marker} ${fixture.label}`,
+          sourceUpdatedAt: new Date(fixture.at),
+        },
+      });
+      records.push({ id: imported.id, source: "GHL", label: fixture.label, at: fixture.at });
+    }
+    const inbox = new UnifiedInboxService(createUnifiedInboxPostgresRepository(poolA));
+    const inboxB = new UnifiedInboxService(createUnifiedInboxPostgresRepository(poolB));
+    const query = { limit: 50, contactState: "ALL", query: marker } as const;
+    const key = (item: { source: string; id: string }) => `${item.source}:${item.id}`;
+    const ordered = [...records].sort(
+      (left, right) =>
+        right.at.localeCompare(left.at) ||
+        Number(right.source === "QUANTUM") - Number(left.source === "QUANTUM") ||
+        right.id.localeCompare(left.id),
+    );
+    const expected = (predicate: (item: (typeof records)[number]) => boolean) =>
+      ordered.filter(predicate).map(key);
+    const list = async (
+      filters: Partial<UnifiedInboxListQuery> = {},
+      viewer: CommercialActor = actor,
+    ) =>
+      (await inbox.list(viewer, context.permissions, { ...query, ...filters })).items.map((item) =>
+        key({ source: item.source, id: item.conversation.id }),
+      );
+
+    // Every equal timestamp and source tie crosses a page boundary at limit 1.
+    let cursor: string | undefined;
+    const paged: string[] = [];
+    for (let index = 0; index < records.length; index += 1) {
+      const page = await inbox.list(actor, context.permissions, {
+        ...query,
+        limit: 1,
+        ...(cursor ? { cursor } : {}),
+      });
+      expect(page.items).toHaveLength(1);
+      paged.push(
+        ...page.items.map((item) => key({ source: item.source, id: item.conversation.id })),
+      );
+      expect(page.nextCursor === null).toBe(index === records.length - 1);
+      cursor = page.nextCursor ?? undefined;
+    }
+    expect(paged).toEqual(ordered.map(key));
+    expect(new Set(paged).size).toBe(records.length);
+    expect(await list()).toEqual(paged);
+    expect(await list({ query: bodyNeedle })).toEqual(expected((item) => item.label === "own-one"));
+    expect(await list({ channel: "WHATSAPP", status: "PENDING" })).toEqual(
+      expected((item) => item.label === "team"),
+    );
+    expect(await list({ channel: "EMAIL", status: "OPEN" })).toEqual(
+      expected(
+        (item) =>
+          item.label.startsWith("own-") ||
+          (item.label === "unassigned" && item.source === "QUANTUM"),
+      ),
+    );
+    expect(await list({ unassigned: true })).toEqual(
+      expected((item) => item.label === "unassigned"),
+    );
+    expect(await list({ contactId: contact.id })).toEqual(
+      expected((item) => item.label !== "orphan"),
+    );
+    expect(await list({ contactState: "LINKED" })).toEqual(
+      expected((item) => item.label !== "orphan"),
+    );
+    expect(await list({ contactState: "UNLINKED" })).toEqual(
+      expected((item) => item.label === "orphan"),
+    );
+    expect(await list({ attentionMode: "HUMAN" })).toEqual(
+      expected((item) => item.source === "QUANTUM"),
+    );
+    for (const scope of ["OWN", "ASSIGNED"] as const) {
+      expect(await list({}, { ...actor, scope })).toEqual(
+        expected((item) => item.label.startsWith("own-")),
+      );
+    }
+    expect(await list({}, { ...actor, scope: "TEAM" })).toEqual(
+      expected((item) => item.label.startsWith("own-") || item.label === "team"),
+    );
+    expect(await list({}, { memberId: randomUUID(), scope: "OWN" })).toEqual([]);
+    expect(await list({ contactState: "UNLINKED" }, { ...actor, scope: "TEAM" })).toEqual([]);
+    await expect(inbox.list(actor, [], query)).rejects.toBeInstanceOf(IamAuthorizationError);
+    expect(await inboxB.list(actor, context.permissions, query)).toEqual({
+      items: [],
+      nextCursor: null,
+    });
+    const visible = await inbox.list(actor, context.permissions, query);
+    for (const item of visible.items) {
+      expect(item.conversation).not.toHaveProperty("source_payload");
+      expect(item.conversation).not.toHaveProperty("sourceParticipantReferences");
+      expect(item.conversation).not.toHaveProperty("sourceContactId");
+      expect(item.conversation).not.toHaveProperty("privateAttribute");
+    }
+    expect(
+      JSON.stringify(visible, (_name, value: unknown) =>
+        typeof value === "bigint" ? String(value) : value,
+      ),
+    ).not.toContain(privateSource);
+  });
+
+  it("filters every inbox channel and provider alias, preserves inferred display channels and excludes other channels", async () => {
+    const locationId = randomUUID();
+    const marker = `channels-${locationId}`;
+    const contact = await contactsA.importContact({
+      ...context,
+      source: source(locationId, "channel-contact"),
+      displayName: "Synthetic channel filter contact",
+      email: null,
+      phone: null,
+      ownerMemberId: actor.memberId,
+      labelIds: [],
+      customFields: [],
+      createdAt: originalAt,
+      updatedAt: originalAt,
+    });
+    const groups = [
+      { channel: "EMAIL", rawChannels: ["EMAIL", " type_email "] },
+      { channel: "WHATSAPP", rawChannels: ["WHATSAPP", " type_whats_app "] },
+      { channel: "SMS", rawChannels: ["SMS", " type_mms "] },
+      { channel: "WEBCHAT", rawChannels: ["WEBCHAT", "WEB_CHAT", "LIVECHAT", " type_live_chat "] },
+      { channel: "INSTAGRAM", rawChannels: ["INSTAGRAM", " type_instagram "] },
+      {
+        channel: "FACEBOOK",
+        rawChannels: ["FB", "FACEBOOK", "MESSENGER", " type_facebook_messenger "],
+      },
+      { channel: "TIKTOK", rawChannels: ["TIKTOK", " type_tiktok "] },
+      { channel: "GOOGLE", rawChannels: ["GMB", " type_google_business "] },
+      { channel: "CALL", rawChannels: ["CALL", " type_phone_call "] },
+      { channel: "FORM", rawChannels: ["FORM_SUBMISSION", " type_form_submission "] },
+      { channel: "UNKNOWN", rawChannels: [null, "", "   ", "TYPE_PHONE", "CUSTOM_CHANNEL"] },
+    ] as const;
+    const expected = new Map<string, { channel: string; rawChannel?: string | null }>();
+    for (const group of groups) {
+      for (const rawChannel of group.rawChannels) {
+        const imported = await historyA.importThread({
+          ...context,
+          source: source(locationId, `channel-${expected.size}`),
+          thread: {
+            ...orphan(),
+            sourceThreadPresent: true,
+            contactId: contact.id,
+            assigneeMemberId: actor.memberId,
+            rawChannel,
+            subject: marker,
+          },
+        });
+        expected.set(imported.id, { channel: group.channel, rawChannel: rawChannel || null });
+      }
+    }
+    // The displayed channel comes from the latest message only when the thread has none.
+    for (const fixture of [
+      { rawChannel: null, channel: "INSTAGRAM" },
+      { rawChannel: "TYPE_EMAIL", channel: "EMAIL" },
+      { rawChannel: "CUSTOM_THREAD", channel: "UNKNOWN" },
+    ]) {
+      const externalId = `inferred-${fixture.channel}`;
+      const imported = await historyA.importThread({
+        ...context,
+        source: source(locationId, externalId),
+        thread: { ...orphan(), rawChannel: fixture.rawChannel, subject: marker },
+      });
+      await historyA.importMessage({
+        ...context,
+        source: source(locationId, `${externalId}-message`),
+        threadSourceExternalId: externalId,
+        message: {
+          ...message(),
+          rawChannel: null,
+          rawType: "TYPE_INSTAGRAM",
+          attachmentCount: 0,
+        },
+      });
+      expected.set(imported.id, {
+        channel: fixture.channel,
+        rawChannel: fixture.rawChannel ?? "TYPE_INSTAGRAM",
+      });
+    }
+    for (const channel of ["EMAIL", "WHATSAPP", "WEBCHAT", "SMS"]) {
+      const id = randomUUID();
+      await poolA.query(
+        `INSERT INTO conversations.conversations
+         (id, contact_id, channel, assignee_member_id, subject, status, attention_mode,
+          created_at, updated_at)
+         VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, 'open', 'human', $6, $6)`,
+        [id, contact.id, channel.toLowerCase(), actor.memberId, marker, originalAt],
+      );
+      expected.set(id, { channel });
+    }
+    const inbox = new UnifiedInboxService(createUnifiedInboxPostgresRepository(poolA));
+    const baseQuery = { limit: 50, contactState: "ALL", query: marker } as const;
+    const all = await inbox.list(actor, context.permissions, baseQuery);
+    expect(new Set(all.items.map((item) => item.conversation.id))).toEqual(
+      new Set(expected.keys()),
+    );
+    for (const { channel } of groups) {
+      const page = await inbox.list(actor, context.permissions, { ...baseQuery, channel });
+      expect(page.nextCursor).toBeNull();
+      expect(new Set(page.items.map((item) => item.conversation.id))).toEqual(
+        new Set([...expected].filter(([, item]) => item.channel === channel).map(([id]) => id)),
+      );
+      for (const item of page.items) {
+        if (item.source === "GHL")
+          expect(item.conversation.rawChannel).toBe(expected.get(item.conversation.id)?.rawChannel);
+        else expect(item.conversation.channel).toBe(channel);
+      }
+    }
+    const filter = { ...baseQuery, channel: "INSTAGRAM" } as const;
+    expect(
+      (await inbox.list(actor, context.permissions, { ...filter, attentionMode: "HUMAN" })).items,
+    ).toEqual([]);
+    expect(
+      (await inbox.list({ memberId: randomUUID(), scope: "OWN" }, context.permissions, filter))
+        .items,
+    ).toEqual([]);
+    await expect(inbox.list(actor, [], filter)).rejects.toBeInstanceOf(IamAuthorizationError);
+    const inboxB = new UnifiedInboxService(createUnifiedInboxPostgresRepository(poolB));
+    expect((await inboxB.list(actor, context.permissions, filter)).items).toEqual([]);
+  });
+
+  it("resolves original participants without accounts or effects, isolates sources and replays atomically", async () => {
+    const locationId = randomUUID();
+    const directoryA = createIamExternalParticipantDirectory(poolA);
+    const directoryB = createIamExternalParticipantDirectory(poolB);
+    const authorized: HistoricalImportContext = {
+      ...context,
+      permissions: [...context.permissions, "iam:members:update"],
+    };
+    const input = {
+      operationId: randomUUID(),
+      locationId,
+      participants: [
+        { externalId: "source-advisor", displayName: "Original advisor" },
+        { externalId: "source-follower", displayName: "Original follower" },
+      ],
+    };
+    const before = await poolA.query<{ members: number; outbox: number }>(
+      "SELECT (SELECT count(*)::int FROM iam.members) AS members, (SELECT count(*)::int FROM conversations.outbox) AS outbox",
+    );
+    await expect(directoryA.importDirectory(context, input)).rejects.toBeInstanceOf(
+      IamAuthorizationError,
+    );
+    const results = await Promise.all([
+      directoryA.importDirectory(authorized, input),
+      directoryA.importDirectory(authorized, input),
+    ]);
+    expect(results.map((item) => item.created).sort()).toEqual([0, 2]);
+    await expect(
+      directoryA.importDirectory(authorized, {
+        ...input,
+        participants: [{ externalId: "source-advisor", displayName: "Changed source name" }],
+      }),
+    ).rejects.toBeInstanceOf(ExternalParticipantConflictError);
+    const references = [
+      { locationId, ownerExternalId: "source-advisor", followerExternalIds: ["source-follower"] },
+    ];
+    expect(await directoryA.resolve(references)).toHaveLength(2);
+    expect(await directoryB.resolve(references)).toEqual([]);
+    expect(await directoryA.resolve([{ ...references[0]!, locationId: randomUUID() }])).toEqual([]);
+    const raw = {
+      assignedTo: "source-advisor",
+      followers: ["source-follower"],
+      privateAttribute: "must not escape",
+    };
+    const contact = await contactsA.importContact({
+      ...context,
+      source: source(locationId, "participant-contact", raw),
+      displayName: "Synthetic participant contact",
+      email: null,
+      phone: null,
+      ownerMemberId: actor.memberId,
+      labelIds: [],
+      customFields: [],
+      createdAt: originalAt,
+      updatedAt: originalAt,
+    });
+    const pipeline = await salesA.importPipeline({
+      ...context,
+      source: source(locationId, "participant-pipeline"),
+      name: `Participants ${locationId}`,
+      description: "Synthetic participant pipeline",
+      createdAt: originalAt,
+      stages: [
+        { externalId: "participant-stage", name: "First", description: "", position: 0 },
+        { externalId: "participant-next", name: "Next", description: "", position: 1 },
+      ],
+    });
+    const opportunity = await salesA.importOpportunity({
+      ...context,
+      source: source(locationId, "participant-opportunity", raw),
+      contactId: contact.id,
+      pipelineId: pipeline.id,
+      stageId: pipeline.stages[0]!.id,
+      ownerMemberId: actor.memberId,
+      title: "Synthetic participant opportunity",
+      amountMinor: 0n,
+      currency: "GTQ",
+      status: "OPEN",
+      closeReason: null,
+      closedAt: null,
+      createdAt: originalAt,
+      updatedAt: originalAt,
+    });
+    const thread = await historyA.importThread({
+      ...context,
+      source: source(locationId, "participant-thread", raw),
+      thread: {
+        ...orphan(),
+        sourceThreadPresent: true,
+        contactId: contact.id,
+        assigneeMemberId: actor.memberId,
+      },
+    });
+    const resolve = vi.fn(directoryA.resolve);
+    const contacts = new ContactService(databaseA.commercial.contacts, undefined, { resolve });
+    const sales = new SalesService(
+      databaseA.commercial.sales,
+      { existsFor: async () => true },
+      membersA,
+      undefined,
+      { resolve },
+    );
+    const conversations = new HistoricalConversationService(
+      createHistoricalConversationPostgresRepository(poolA),
+      {
+        contactExistsFor: async () => true,
+        isActiveMember: membersA.isActive,
+      },
+      undefined,
+      { resolve },
+    );
+    const expected = {
+      source: "GHL",
+      owner: { externalId: "source-advisor", displayName: "Original advisor" },
+      followers: [{ externalId: "source-follower", displayName: "Original follower" }],
+    };
+    const contactResult = await contacts.get(actor, ["crm:contacts:read"], contact.id);
+    const opportunityResult = await sales.getOpportunity({
+      actor,
+      permissions: ["crm:sales:read"],
+      opportunityId: opportunity.id,
+    });
+    const threadResult = await conversations.find(actor, context.permissions, thread.id);
+    expect(contactResult).toMatchObject({
+      ownerMemberId: actor.memberId,
+      sourceParticipants: expected,
+    });
+    expect(opportunityResult).toMatchObject({
+      ownerMemberId: actor.memberId,
+      sourceParticipants: expected,
+    });
+    expect(threadResult).toMatchObject({
+      assigneeMemberId: actor.memberId,
+      sourceParticipants: expected,
+    });
+    for (const result of [contactResult, opportunityResult, threadResult]) {
+      expect(result).not.toHaveProperty("sourceParticipantReferences");
+      expect(result).not.toHaveProperty("source_payload");
+      expect(result).not.toHaveProperty("privateAttribute");
+    }
+    resolve.mockClear();
+    expect(() => contacts.get(actor, [], contact.id)).toThrow(IamAuthorizationError);
+    const stranger = { memberId: randomUUID(), scope: "ASSIGNED" as const };
+    await expect(contacts.get(stranger, ["crm:contacts:read"], contact.id)).rejects.toBeInstanceOf(
+      ContactNotFoundError,
+    );
+    await expect(
+      conversations.find(stranger, context.permissions, thread.id),
+    ).rejects.toBeInstanceOf(HistoricalConversationNotFoundError);
+    expect(resolve).not.toHaveBeenCalled();
+    const after = await poolA.query<{ members: number; outbox: number }>(
+      "SELECT (SELECT count(*)::int FROM iam.members) AS members, (SELECT count(*)::int FROM conversations.outbox) AS outbox",
+    );
+    expect(after.rows[0]).toEqual(before.rows[0]);
+    const receipts = await poolA.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM iam.external_participant_imports WHERE operation_id = $1::uuid",
+      [input.operationId],
+    );
+    expect(receipts.rows[0]?.count).toBe(1);
+    await expect(
+      poolA.query(
+        "UPDATE iam.external_participants SET display_name = 'Forbidden' WHERE source_location_id = $1",
+        [locationId],
+      ),
+    ).rejects.toMatchObject({ code: "42501" });
+    expect(
+      await contacts.update({
+        actor,
+        permissions: ["crm:contacts:update"],
+        id: contact.id,
+        expectedVersion: contactResult.version,
+        displayName: "Edited in Quantum",
+      }),
+    ).toMatchObject({ sourceParticipants: expected, ownerMemberId: actor.memberId });
+    const updateInput = {
+      actor,
+      permissions: ["crm:sales:update"] as const,
+      opportunityId: opportunity.id,
+      expectedVersion: opportunityResult.version,
+      title: "Edited in Quantum",
+      idempotencyKey: randomUUID(),
+      payloadHash: "a".repeat(64),
+    };
+    const updatedOpportunity = await sales.updateOpportunity(updateInput);
+    expect(updatedOpportunity).toMatchObject({
+      sourceParticipants: expected,
+      ownerMemberId: actor.memberId,
+    });
+    expect(await sales.updateOpportunity(updateInput)).toMatchObject({
+      sourceParticipants: expected,
+    });
+    const moveInput = {
+      actor,
+      permissions: ["crm:sales:move"] as const,
+      opportunityId: opportunity.id,
+      stageId: pipeline.stages[1]!.id,
+      expectedVersion: updatedOpportunity.version,
+      idempotencyKey: randomUUID(),
+      payloadHash: "b".repeat(64),
+    };
+    expect(await sales.moveOpportunity(moveInput)).toMatchObject({ sourceParticipants: expected });
+    expect(await sales.moveOpportunity(moveInput)).toMatchObject({ sourceParticipants: expected });
+    const emptyFollowers = await contactsA.importContact({
+      ...context,
+      source: source(locationId, "null-followers", { assignedTo: null, followers: null }),
+      displayName: "Synthetic nullable followers",
+      email: null,
+      phone: null,
+      ownerMemberId: null,
+      labelIds: [],
+      customFields: [],
+      createdAt: originalAt,
+      updatedAt: originalAt,
+    });
+    expect(await contacts.get(actor, ["crm:contacts:read"], emptyFollowers.id)).toMatchObject({
+      sourceParticipants: { source: "GHL", owner: null, followers: [] },
+    });
+  });
+
   it("reserves attachments once, audits retries, binds immutable files and authorizes through the scoped historical thread", async () => {
     const locationId = randomUUID();
     const viewer: CommercialActor = { memberId: randomUUID(), scope: "ASSIGNED" };
@@ -391,6 +982,28 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
       section: "contact",
       options: [],
     });
+    // Catalog metadata is visible before any contact has a value, only in its configured profile.
+    const catalogA = new CustomFieldDefinitionService(databaseA.commercial.customFieldDefinitions);
+    const catalogB = new CustomFieldDefinitionService(databaseB.commercial.customFieldDefinitions);
+    expect(
+      (await catalogA.list(["crm:contacts:read"], { model: "contact", limit: 100 })).items,
+    ).toContainEqual({
+      id: custom.id,
+      key: longFieldKey,
+      label: longFieldName,
+      description: "Synthetic field",
+      dataType: "TEXT",
+      model: "contact",
+    });
+    expect(
+      (await catalogB.list(["crm:contacts:read"], { model: "contact", limit: 100 })).items,
+    ).not.toContainEqual(expect.objectContaining({ id: custom.id }));
+    expect(
+      (await catalogA.list(["crm:sales:read"], { model: "opportunity", limit: 100 })).items,
+    ).not.toContainEqual(expect.objectContaining({ id: custom.id }));
+    expect(() => catalogA.list(["crm:sales:read"], { model: "contact", limit: 100 })).toThrow(
+      IamAuthorizationError,
+    );
     const label = await contactsA.importLabel({
       ...context,
       source: source(locationId, "label"),
@@ -548,6 +1161,7 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
     const visible = await historyA.find(actor, context.permissions, thread.id);
     expect(visible).toMatchObject({
       sourceThreadPresent: false,
+      rawChannel: "TYPE_CALL",
       contactId: null,
       sourceCreatedAt: null,
       messageCount: 2,

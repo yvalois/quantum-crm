@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import { IamAuthorizationError, type IamPermission } from "../iam/index.js";
+import {
+  IamAuthorizationError,
+  withSourceParticipants,
+  type ExternalParticipantLookup,
+  type IamPermission,
+} from "../iam/index.js";
 import {
   createContact,
   type CommercialActor,
@@ -48,6 +53,7 @@ export class ContactService {
   public constructor(
     private readonly repository: ContactRepository,
     private readonly clock: () => Date = () => new Date(),
+    private readonly sourceParticipants?: ExternalParticipantLookup,
   ) {}
 
   public list(
@@ -56,7 +62,9 @@ export class ContactService {
     filters?: ContactListFilters,
   ) {
     allow(permissions, "crm:contacts:read");
-    return this.repository.list(actor, filters);
+    return this.repository
+      .list(actor, filters)
+      .then((records) => withSourceParticipants(records, this.sourceParticipants));
   }
   public listPage(
     actor: CommercialActor,
@@ -64,7 +72,10 @@ export class ContactService {
     filters: ContactListFilters,
   ): Promise<ContactPage> {
     allow(permissions, "crm:contacts:read");
-    return this.repository.listPage(actor, filters);
+    return this.repository.listPage(actor, filters).then(async (page) => ({
+      ...page,
+      records: await withSourceParticipants(page.records, this.sourceParticipants),
+    }));
   }
   public get(
     actor: CommercialActor,
@@ -72,9 +83,9 @@ export class ContactService {
     id: string,
   ): Promise<ContactRecord> {
     allow(permissions, "crm:contacts:read");
-    return this.repository.find(actor, id).then((contact) => {
+    return this.repository.find(actor, id).then(async (contact) => {
       if (!contact) throw new ContactNotFoundError();
-      return contact;
+      return (await withSourceParticipants([contact], this.sourceParticipants))[0]!;
     });
   }
   public create(input: {
@@ -208,7 +219,8 @@ export class ContactService {
       candidate.phone !== current.phone ||
       ownerChanged;
     const labelsChanged = labelIds !== undefined && !sameLabelIds(current.labels, labelIds);
-    if (!contactChanged && !labelsChanged) return current;
+    if (!contactChanged && !labelsChanged)
+      return (await withSourceParticipants([current], this.sourceParticipants))[0]!;
     if (ownerChanged) {
       allow(input.permissions, "crm:contacts:assign");
       if (
@@ -225,7 +237,7 @@ export class ContactService {
       ...(labelIds === undefined ? {} : { labelIds }),
     });
     if (!updated) throw new ContactVersionConflictError();
-    return updated;
+    return (await withSourceParticipants([updated], this.sourceParticipants))[0]!;
   }
 
   public async previewImport(

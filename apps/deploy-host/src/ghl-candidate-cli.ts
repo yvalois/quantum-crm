@@ -3,6 +3,7 @@ import {
   deployGhlCandidate,
   ghlCandidateApps,
   runRegisteredGhlImport,
+  runRegisteredGhlParticipants,
   setupGhlIntegrationTest,
   upgradeGhlIntegrationTest,
   tuneRegisteredGhlAttachmentStorage,
@@ -11,9 +12,14 @@ import {
 import { HostAdapterError } from "./host-adapter.js";
 
 // Host bootstrap only. Arguments select fixed operations and registered UUIDs; never commands or paths.
-const [action, first, second, third, ...extra] = process.argv.slice(2);
+const [action, first, second, third, fourth, ...extra] = process.argv.slice(2);
 try {
-  if (extra.length > 0 || !first) throw new HostAdapterError("IDENTITY_MISMATCH");
+  if (
+    extra.length > 0 ||
+    !first ||
+    (fourth !== undefined && action !== "MIGRATE_PARTICIPANTS" && action !== "PARTICIPANTS")
+  )
+    throw new HostAdapterError("IDENTITY_MISMATCH");
   let result: unknown;
   if (action === "TEST_SETUP" && second === undefined && third === undefined) {
     result = await setupGhlIntegrationTest(first);
@@ -30,6 +36,14 @@ try {
     ghlCandidateApps.includes(second as GhlCandidateApp)
   ) {
     result = await buildGhlCandidate(first, second as GhlCandidateApp);
+  } else if ((action === "MIGRATE_PARTICIPANTS" || action === "PARTICIPANTS") && second && third) {
+    result = await runRegisteredGhlParticipants(
+      first,
+      second,
+      third,
+      action === "MIGRATE_PARTICIPANTS",
+      fourth === undefined ? 1 : Number(fourth),
+    );
   } else if (action === "DEPLOY_COMPONENTS" && second && third) {
     result = await deployGhlCandidate(first, second, third);
   } else if (

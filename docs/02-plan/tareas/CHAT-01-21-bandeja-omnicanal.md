@@ -107,11 +107,53 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Evidencia de cierre
 
+### Canales completos CHAT-11 / CHAT-14 — 2026-10-11 (DESPLEGADO)
+
+- Ampliacion aditiva exclusiva del filtro de consulta: Instagram, Messenger/Facebook, TikTok, Google Business, llamadas, formularios y registros sin canal identificado. No habilita canales nuevos de creacion o envio.
+- La consulta SQL filtra con el mismo canal inferido que muestra la lista, conserva aliases del origen, permisos y paginacion. Iconos diferenciados y filtro directo en la bandeja.
+- PR #132, candidato `827f4c9c` (runtime sin diferencias respecto a `7b7098c8`): cinco typechecks, formato/lint, 81 pruebas enfocadas y nueve PostgreSQL reales sobre perfiles sinteticos aprobados en VPS; siete checks CI verdes. Ocho Playwright aprobados: seis inicialmente y dos tras corregir un selector de prueba `getByLabel` por el nombre accesible del combobox. No era intermitencia ni un reintento automatico: solo se repitieron los dos casos afectados por la correccion del test; el resto de evidencia permanece vigente.
+- Iconos Messenger y Google embebidos desde Simple Icons CC0, conservando estilo compacto y etiquetas accesibles; las marcas se comprueban en lista, cabecera y mensaje. Filtros combinados, cursor reiniciado, vacios, consulta nativa/historica y limpieza acreditados; no se amplia envio.
+- API `sha256:c8845494b6c0724a140604a9fd4a3a8fb6b21f81c95c06dbc792861f3d5c8138` y CRM web `sha256:e252f2cf864c1ee97500374457ba68f3b7bf974559ee2bbe82eba14ee4a94644`, un build por imagen. Ambos saludables, predecesores `before-ghl-827f4c9caeb7` conservados y recibo privado `/opt/quantum/config/staging/candidates/827f4c9caeb7b6844734259fe061ade50815b7a8/interamerican-channel-filters.json`.
+- Navegador autenticado: once opciones mas Todos; Facebook/Messenger devuelve 17 filas y 17 logos sin canales mezclados ni alertas; Todos restablece 30 filas. Sin migraciones, reimportaciones ni escrituras comerciales. Next de prueba detenido; capturas exclusivamente sinteticas fuera de Git. Cierre documental reutiliza evidencia y no provoca nuevos builds ni despliegues manuales.
+- Pendientes de estabilizacion posterior: envio externo sigue diferido por el propietario; no se inventan canales para registros sin evidencia.
+
+### Identidad visual propia CHAT-13 / CHAT-14 — 2026-10-11
+
+- Ajuste acotado al frontend: marca TikTok en lista/hilo y textos neutrales en conversaciones, responsables y enlace desde Contactos. Se retiran badges del proveedor anterior; los placeholders exactos del importador se ocultan tambien en la vista previa, sin modificar asuntos ni mensajes escritos por clientes.
+- Icono SVG embebido de [Simple Icons](https://github.com/simple-icons/simple-icons/blob/develop/icons/tiktok.svg), proyecto CC0; sin nueva dependencia ni llamadas externas para renderizarlo. Conserva etiqueta accesible TikTok.
+- Procedencia tecnica, IDs, permisos, archivos, datos y restricciones de envio intactos. No requiere API, migraciones ni reimportacion.
+- PR #131, `5eead687`: formato, ESLint, typecheck CRM y cuatro pruebas de canales aprobadas en VPS; seis Playwright sin reintentos (26 s), incluyendo TikTok en lista/hilo/mensaje, ausencia de marca del proveedor en UI y conservacion de un mensaje sintetico que la menciona. Siete checks CI verdes. No se repiten pruebas ni builds al registrar este cierre documental.
+- CRM desplegado una vez: `sha256:1bd510fe6244387b5dd5d0ee7f87676c88aa82023582051f6abe31632a8e065a`, predecesor `before-ghl-5eead687f908` conservado. API intacta. Recibo privado `/opt/quantum/config/staging/candidates/5eead687f9080e8c0e64a7433f48cf9796c040cb/interamerican-neutral-branding.json`. Smoke autenticado confirma lista, mensajes y contexto sin marca del proveedor ni alertas. Pendientes de estabilizacion posterior sin cambios; envio externo sigue diferido por el propietario.
+
+### Bandeja unica CHAT-11 / CHAT-13 / CHAT-14 — 2026-10-11
+
+- Sustituye la separacion visual activa/GHL: `/inbox` consume `/api/v1/conversations/inbox`, mezcla ambos origenes en una lista y comparte seleccion y ficha. GHL solo identifica procedencia; no se fusionan hilos ni identidades ambiguas.
+- Una consulta PostgreSQL paginada aplica permisos/alcance antes de ordenar globalmente; el cursor conserva microsegundos y desempates por origen/UUID. Busqueda por asunto/contenido, filtros compartidos y compatibilidad de enlaces `contactId`/`history=1`. Se reutilizan las APIs de detalle y archivos verificados.
+- Candidato `e69763a1`: cinco typechecks, ESLint, 75 pruebas enfocadas (incluidas cuatro de arquitectura), ocho PostgreSQL sobre dos perfiles sinteticos y cinco Playwright aprobados en VPS, sin reintentos. E2E cubre escritorio/movil, fuentes mixtas, paginacion, busqueda, seleccion, customs, responsables, descarga y reproduccion real de medios sinteticos.
+- Sin migracion, reimportacion ni escrituras comerciales para verificar. Envio externo sigue diferido expresamente; los controles nativos mantienen intencion durable/QUEUED sin afirmar entrega.
+- PR #130, siete checks CI verdes en `c4bdcc0b`; su diferencia frente a `e69763a1` es exclusivamente documental y reutiliza evidencia. API y CRM publicados una vez por digest en InterAmerican, ambos healthy. Navegador autenticado confirma cero pestanas por origen, ficha y participantes originales, dos paginas de 30 filas sin duplicados, mensajes conservados al paginar, sin errores ni overflow horizontal. Sin capturas ni datos reales en Git.
+- API: `sha256:849139a8e7de532dba9b5b17e9d694f913ef1ce1fe9f4fde4553d575f1b77abf`. CRM: `sha256:3ba37aaa47133f117df7a6e8cfc8a1707afd8f017a50a38812edc90cfa08b57a`. Recibo privado del despliegue: `/opt/quantum/config/staging/candidates/e69763a1cea6da76d56bbc74611eea0646d833ca/interamerican-deployment.json`; predecesores `before-ghl-e69763a1cea6` conservados.
+- Recuperacion: componentes anteriores conservados; rollback de aplicacion sin restaurar ni modificar datos. Los requisitos completos CHAT-11/13/14 permanecen abiertos; este bloque acredita exclusivamente la bandeja unica.
+
+### Identidad y ficha contextual del 2026-10-11
+
+- PR #128, `d3eb5810`: contactos relacionados consultados por IDs acotados bajo permisos y alcance del actor, incluidos archivados. Nombres en listado e hilo y ficha compartida con correo, telefono, etiquetas y customs en bandeja activa e historial, escritorio/movil. Los filtros del historial no modifican asociaciones ni ocultan definitivamente los hilos sin contacto.
+- Cinco typechecks, ESLint, 59 pruebas enfocadas, una integracion PostgreSQL de permisos/aislamiento/archivado y tres Playwright aprobados en VPS; siete checks CI verdes. API/CRM desplegados una vez por digest y healthy, sin migracion. Digests y recibo en `estado.md`.
+- Revision autenticada real confirma nombres, ficha, valores personalizados y conservacion del historial sin correspondencia. Capturas sinteticas fuera de Git. Sin envio de mensajes ni cambios de datos reales para probar.
+- Pendientes de estabilizacion posterior: datos de clientes ausentes en el artefacto de origen requieren recuperacion verificable desde la fuente; no se reconstruyen mediante coincidencias ambiguas.
+
+### Ajuste visual acotado del 2026-10-11
+
+- PR #127, candidato `e8656adb`: cabecera compacta, filtros horizontales, paneles lista/hilo/contexto y scroll independiente; historial GHL con presentacion coherente y mensajes entrantes/salientes diferenciados. Sin modificar envio, proveedores, contratos o identidad.
+- VPS: formato/ESLint/typecheck afectados aprobados; suite `playwright.workspaces.config.ts` 3/3 sin reintentos, incluyendo inbox desktop/390px, borrador sin envio y descarga de adjunto sintetico autorizado. Siete checks CI aprobados; capturas solo sinteticas fuera de Git.
+- CRM web publicado y healthy en InterAmerican; navegador autenticado confirma lista e hilo importado sin overflow horizontal. Digest/recibo en `estado.md`; API no reiniciada, sin migraciones ni cambios de datos.
+- Pendientes de estabilizacion posterior: historial importado permanece de consulta; adaptadores externos y mayor paridad funcional no forman parte de este bloque visual.
+
 ### Extension YCloud para InterAmerican (`CHAT-14` / `CFG-06`, 2026-10-11)
 
 - Canal autorizado: el numero terminado en 4370 queda ligado solo al perfil InterAmerican mediante archivo de secreto montado en su API. El webhook publico atraviesa CRM web sin sesion humana y verifica HMAC sobre el cuerpo original, antiguedad de la firma, WABA y numero antes de tocar datos.
 - Eventos incluidos: entrantes, ecos enviados desde WhatsApp Business App e historial compartido que YCloud entregue. Contactos y conversaciones se resuelven por telefono dentro de la base aislada; el `wamid` y el hilo estable deduplican reintentos. No se genera outbox por mensajes ya enviados desde el telefono.
-- Evidencia tecnica del candidato: en el VPS aprobaron los typechecks afectados, 12 pruebas enfocadas, lint y builds de API, CRM web y deploy-host. La activacion real del endpoint y el smoke de mensaje aun no estan acreditados; por tanto no se marca el bloque terminado.
+- Evidencia técnica: en el VPS aprobaron los typechecks afectados, 12 pruebas enfocadas, lint y builds de API, CRM web y deploy-host. El webhook y secreto se configuraron fuera de Git; se observó el mensaje real «Prueba Quantum» en la bandeja de InterAmerican. Tras integrar las mejoras de CRM y YCloud en el candidato `dbb9c480`, API y CRM web compilaron de nuevo, quedaron saludables y un POST firmado al endpoint público devolvió 201. Navegador autenticado confirmó hilo, ficha y bandeja única. Esta evidencia acredita recepción y visualización, no envío, adjuntos ni recuperación retroactiva.
 - Pendientes de estabilizacion posterior: descarga de medios mediante `files` y ClamAV, adaptador saliente desde el CRM, y determinar si YCloud permite reemitir historial anterior al webhook. La suscripcion `whatsapp.smb.history` sola no garantiza recuperacion retroactiva.
 
 - Archivos, commits o PR: contratos `conversations/v1`, servicio de dominio, repositorio PostgreSQL, migracion `20260930020000_chat_omnichannel_inbox`, controlador API, BFF y ruta visual `/inbox` en `feat/CHAT-01-21-omnichannel-inbox`.

@@ -117,7 +117,7 @@ export class ConversationIdempotencyConflictError extends Error {
   }
 }
 
-interface ConversationRow {
+export interface ConversationRow {
   readonly id: string;
   readonly contact_id: string;
   readonly channel: string;
@@ -167,7 +167,7 @@ interface QuickReplyRow {
   readonly updated_at: Date | string;
 }
 
-const conversationSelection = `conversation.id::text, conversation.contact_id::text,
+export const conversationSelection = `conversation.id::text, conversation.contact_id::text,
   conversation.channel, conversation.external_thread_id, conversation.assignee_member_id::text,
   conversation.status, conversation.attention_mode, conversation.subject,
   conversation.last_message_preview, conversation.last_message_at, conversation.unread_count,
@@ -178,7 +178,7 @@ const messageSelection = `message.id::text, message.conversation_id::text, messa
   message.document_id::text, message.document_snapshot,
   message.created_at, message.updated_at`;
 
-function conversationFromRow(row: ConversationRow): ConversationRecord {
+export function conversationFromRow(row: ConversationRow): ConversationRecord {
   return Object.freeze({
     id: row.id,
     contactId: row.contact_id,
@@ -236,7 +236,10 @@ function replyFromRow(row: QuickReplyRow): QuickReplyRecord {
     updatedAt: new Date(row.updated_at),
   });
 }
-function access(actor: CommercialActor, placeholder: number): { sql: string; params: string[] } {
+export function conversationAccess(
+  actor: CommercialActor,
+  placeholder: number,
+): { sql: string; params: string[] } {
   if (actor.scope === "PROFILE") return { sql: "TRUE", params: [] };
   if (actor.scope === "TEAM")
     return {
@@ -253,6 +256,7 @@ function access(actor: CommercialActor, placeholder: number): { sql: string; par
     params: [actor.memberId],
   };
 }
+const access = conversationAccess;
 function cursor(value: string): { at: Date; id: string } {
   try {
     const decoded = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as {

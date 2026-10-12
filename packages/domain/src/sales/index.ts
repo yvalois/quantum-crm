@@ -1,4 +1,4 @@
-import type { CommercialActor } from "../iam/index.js";
+import type { CommercialActor, SourceParticipantRecord } from "../iam/index.js";
 
 export interface PipelineStage {
   readonly id: string;
@@ -14,7 +14,7 @@ export interface Pipeline {
   readonly stages: readonly PipelineStage[];
   readonly createdAt: Date;
 }
-export interface Opportunity {
+export interface Opportunity extends SourceParticipantRecord {
   readonly id: string;
   readonly ownerMemberId: string;
   readonly contactId: string;
@@ -85,6 +85,13 @@ export interface SalesRepository {
     filters?: OpportunityListFilters,
   ) => Promise<readonly Opportunity[]>;
   readonly findOpportunity: (actor: CommercialActor, id: string) => Promise<Opportunity | null>;
+  readonly findOpportunityCommandResult: (input: {
+    readonly actor: CommercialActor;
+    readonly id: string;
+    readonly command: "sales.opportunity.move" | "sales.opportunity.update";
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) => Promise<Opportunity | null>;
   readonly listOpportunityHistory: (
     actor: CommercialActor,
     id: string,

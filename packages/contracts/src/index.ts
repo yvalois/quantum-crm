@@ -1,4 +1,6 @@
+export * from "./settings/v1/custom-field.js";
 export * from "./conversations/v1/historical-conversation.js";
+export * from "./conversations/v1/unified-inbox.js";
 export { ContactCustomFieldSchema, type ContactCustomFieldValue } from "./contacts/v1/contact.js";
 export {
   CompleteFileUploadSchema,
@@ -511,3 +513,4 @@ export {
   serializeReleaseManifest,
   type ReleaseManifest,
 } from "./releases/v1/release-manifest.js";
+export * from "./iam/v1/source-participants.js";
