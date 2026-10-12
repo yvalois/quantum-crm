@@ -1,10 +1,12 @@
 # Estado del proyecto
 
-Actualizado: 2026-10-11
+Actualizado: 2026-10-12
 
 Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No sustituye el checklist.
 
 ## Resumen
+
+> **USR-01 (2026-10-12): EN_CURSO — alta de asesores de InterAmerican.** La API de GHL confirma cuatro usuarios comerciales de la ubicación autorizada; el CRM tiene el rol `ADVISOR` y su flujo de primer acceso exige contraseña nueva y TOTP. La primera alta creó una invitación, pero `/team` perdió la entrega de la credencial temporal por usar `event.currentTarget` después de una operación asíncrona. Se corrige la pantalla y se habilita una recuperación autorizada de la activación pendiente antes de continuar el lote; no se repiten altas ni se publican secretos en documentación.
 
 > **BASE-02 / CHAT-20 (2026-10-12): EN_CURSO — fidelidad del agente InterAmerican.** El propietario confirmó recepción de las respuestas a «Hola», «Renta de vehículos» y «¿Qué vehículos tienes?», pero el agente volvió a saludar y preguntó «personal o corporativa». La memoria durable y el corte por reinicio ya están desplegados; el defecto es la adaptación genérica del prompt original. El candidato `927d7381` conserva el historial como turnos de usuario/asistente, recupera del export n8n las reglas de continuidad, estilo y renta sin conductor, limita los tipos visibles a cinco, evita clasificar al cliente como pregunta obligatoria y responde solicitudes directas del primer mensaje sin mostrar el menú. En el VPS: formato, lint, 17 pruebas focalizadas y typecheck de `agent-runtime` aprobados. Pendiente: CI, despliegue por digest y verificación de respuesta real en WhatsApp; no se declara terminado.
 
