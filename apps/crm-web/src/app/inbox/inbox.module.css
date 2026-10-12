@@ -1341,6 +1341,13 @@
   background: var(--teal-soft);
 }
 
+.agentResetHint {
+  margin: 0;
+  color: #71858a;
+  font-size: 0.61rem;
+  line-height: 1.4;
+}
+
 .contextFacts {
   display: grid;
   gap: 0.55rem;

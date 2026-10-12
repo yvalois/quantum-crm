@@ -10,6 +10,7 @@ interface RequestRow {
   readonly conversation_id: string;
   readonly question: string;
   readonly lease_generation: string;
+  readonly first_turn: boolean;
 }
 
 /** Owns the WhatsApp agent trigger and its single, fenced outbound effect. */
@@ -53,7 +54,13 @@ export function createConversationAgentPostgresRepository(
         );
         const result = await client.query<RequestRow>(
           `SELECT request.inbound_message_id::text, request.conversation_id::text,
-                  message.body AS question, request.lease_generation::text
+                  message.body AS question, request.lease_generation::text,
+                  NOT EXISTS (
+                    SELECT 1 FROM conversations.agent_requests AS completed
+                     WHERE completed.conversation_id = request.conversation_id
+                       AND completed.status = 'completed'
+                       AND completed.updated_at >= COALESCE(conversation.agent_reset_at, '-infinity'::timestamptz)
+                  ) AS first_turn
              FROM conversations.agent_requests AS request
              JOIN conversations.messages AS message ON message.id = request.inbound_message_id
              JOIN conversations.conversations AS conversation ON conversation.id = request.conversation_id
@@ -91,6 +98,7 @@ export function createConversationAgentPostgresRepository(
           conversationId: row.conversation_id,
           question: row.question,
           generation,
+          firstTurn: row.first_turn,
         });
       } catch {
         await client?.query("ROLLBACK").catch(() => undefined);
@@ -112,6 +120,15 @@ export function createConversationAgentPostgresRepository(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
+        const conversation = await client.query<{
+          attention_mode: string;
+          status: string;
+          channel: string;
+        }>(
+          `SELECT attention_mode, status, channel FROM conversations.conversations
+            WHERE id = $1::uuid FOR UPDATE`,
+          [input.lease.conversationId],
+        );
         const request = await client.query<{
           status: string;
           lease_owner: string | null;
@@ -135,15 +152,6 @@ export function createConversationAgentPostgresRepository(
           await client.query("COMMIT");
           return "STALE";
         }
-        const conversation = await client.query<{
-          attention_mode: string;
-          status: string;
-          channel: string;
-        }>(
-          `SELECT attention_mode, status, channel FROM conversations.conversations
-            WHERE id = $1::uuid FOR UPDATE`,
-          [input.lease.conversationId],
-        );
         const current = conversation.rows[0];
         if (
           !current ||

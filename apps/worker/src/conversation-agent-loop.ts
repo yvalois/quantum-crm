@@ -43,6 +43,7 @@ export async function dispatchAgentRequest(
         tenantId: options.tenantId,
         executionId: lease.inboundMessageId,
         question: lease.question,
+        firstTurn: lease.firstTurn,
       }),
       redirect: "error",
       cache: "no-store",

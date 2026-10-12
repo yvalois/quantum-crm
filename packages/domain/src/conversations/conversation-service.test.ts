@@ -248,6 +248,51 @@ describe("ConversationService", () => {
     );
   });
 
+  it("allows only an authorized reset of an active WhatsApp agent and preserves the mode", async () => {
+    const active = Object.freeze({ ...existing, attentionMode: "AGENT" as const });
+    const store = repository(active);
+    const service = new ConversationService(store, references(), () => now);
+    const reset = {
+      actor,
+      id: active.id,
+      expectedVersion: active.version,
+      resetAgent: true,
+      idempotencyKey: "reset-12345678",
+      payloadHash: "a".repeat(64),
+    };
+    await expect(service.update({ ...reset, permissions: [] })).rejects.toBeInstanceOf(
+      IamAuthorizationError,
+    );
+    expect(store.update).not.toHaveBeenCalled();
+    await service.update({ ...reset, permissions: ["crm:conversations:control-agent"] });
+    expect(store.update).toHaveBeenCalledWith(expect.objectContaining({ resetAgent: true }));
+    expect(store.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ attentionMode: "HUMAN" }),
+    );
+  });
+
+  it("rejects resetting a human or escalated conversation", async () => {
+    for (const record of [
+      existing,
+      { ...existing, attentionMode: "AGENT" as const, status: "ESCALATED" as const },
+    ]) {
+      const store = repository(record);
+      const service = new ConversationService(store, references(), () => now);
+      await expect(
+        service.update({
+          actor,
+          permissions: ["crm:conversations:control-agent"],
+          id: record.id,
+          expectedVersion: record.version,
+          resetAgent: true,
+          idempotencyKey: "reset-12345678",
+          payloadHash: "a".repeat(64),
+        }),
+      ).rejects.toBeInstanceOf(ConversationValidationError);
+      expect(store.update).not.toHaveBeenCalled();
+    }
+  });
+
   it("invalidates a pending agent response when a human takes the conversation", async () => {
     const agentOwned = Object.freeze({
       ...existing,

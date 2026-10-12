@@ -140,6 +140,7 @@ export class ConversationService {
     readonly status?: ConversationStatus;
     readonly attentionMode?: ConversationAttentionMode;
     readonly assigneeMemberId?: string | null;
+    readonly resetAgent?: boolean;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
   }) {
@@ -151,7 +152,7 @@ export class ConversationService {
       )
         throw new ConversationNotFoundError();
     }
-    if (input.attentionMode !== undefined)
+    if (input.attentionMode !== undefined || input.resetAgent)
       allow(input.permissions, "crm:conversations:control-agent");
     if (input.status !== undefined) allow(input.permissions, "crm:conversations:reply");
     const current = await this.repository.find(input.actor, input.id);
@@ -163,6 +164,17 @@ export class ConversationService {
       )
         throw new ConversationValidationError();
       if (input.status === "CLOSED" && input.attentionMode === "AGENT")
+        throw new ConversationValidationError();
+      if (
+        input.resetAgent &&
+        (current.channel !== "WHATSAPP" ||
+          current.attentionMode !== "AGENT" ||
+          current.status === "ESCALATED" ||
+          current.status === "CLOSED" ||
+          input.attentionMode !== undefined ||
+          input.status !== undefined ||
+          input.assigneeMemberId !== undefined)
+      )
         throw new ConversationValidationError();
     }
     const assigneeMemberId =
@@ -178,6 +190,7 @@ export class ConversationService {
       ...(input.status === undefined ? {} : { status: input.status }),
       ...(input.attentionMode === undefined ? {} : { attentionMode: input.attentionMode }),
       ...(assigneeMemberId === undefined ? {} : { assigneeMemberId }),
+      ...(input.resetAgent ? { resetAgent: true } : {}),
       now: this.clock(),
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,

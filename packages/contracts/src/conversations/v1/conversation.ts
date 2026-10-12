@@ -89,6 +89,7 @@ export const ConversationHistoryEntrySchema = z
       "TRANSFERRED",
       "STATUS_CHANGED",
       "ATTENTION_CHANGED",
+      "AGENT_RESET",
       "MESSAGE_ADDED",
       "NOTE_ADDED",
     ]),
@@ -128,6 +129,7 @@ export const UpdateConversationSchema = z
     status: ConversationStatusSchema.optional(),
     attentionMode: ConversationAttentionModeSchema.optional(),
     assigneeMemberId: IdSchema.nullable().optional(),
+    resetAgent: z.literal(true).optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");

@@ -776,6 +776,7 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
              status = COALESCE($2, conversation.status),
              attention_mode = COALESCE($3, conversation.attention_mode),
              assignee_member_id = CASE WHEN $4::boolean THEN $5::uuid ELSE conversation.assignee_member_id END,
+             agent_reset_at = CASE WHEN $7::boolean THEN $6 ELSE conversation.agent_reset_at END,
              version = conversation.version + 1, updated_at = $6
            WHERE conversation.id = $1::uuid
            RETURNING id::text, contact_id::text, channel, external_thread_id,
@@ -788,11 +789,21 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
             input.assigneeMemberId !== undefined,
             input.assigneeMemberId ?? null,
             input.now,
+            input.resetAgent === true,
           ],
         );
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
+        if (input.resetAgent) {
+          await client.query(
+            `UPDATE conversations.agent_requests SET status = 'cancelled', lease_owner = NULL,
+                    lease_expires_at = NULL, updated_at = $2
+               WHERE conversation_id = $1::uuid AND status IN ('pending', 'leased')`,
+            [input.id, input.now],
+          );
+        }
         const events: Array<[string, string | null, string | null]> = [];
+        if (input.resetAgent) events.push(["agent_reset", null, null]);
         if (input.status !== undefined && current.status !== row.status)
           events.push(["status_changed", current.status, row.status]);
         if (input.attentionMode !== undefined && current.attention_mode !== row.attention_mode)

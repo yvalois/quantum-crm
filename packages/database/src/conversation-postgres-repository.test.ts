@@ -30,6 +30,46 @@ const row = Object.freeze({
 });
 
 describe("conversation PostgreSQL repository", () => {
+  it("records an agent reset and cancels pending work atomically without deleting messages", async () => {
+    const active = { ...row, attention_mode: "agent" };
+    const query = vi.fn(async (statement: string, _values?: unknown[]) => {
+      if (statement.includes("SELECT payload_hash, response")) return { rows: [] };
+      if (statement.includes("FOR UPDATE") && statement.includes("conversation.version"))
+        return { rows: [active] };
+      if (statement.includes("UPDATE conversations.conversations conversation SET"))
+        return { rows: [{ ...active, version: "2" }] };
+      return { rows: [], rowCount: 1 };
+    });
+    const client = { query, release: vi.fn() };
+    const pool = { connect: vi.fn(async () => client) } as unknown as PostgresPool;
+    await createConversationPostgresRepository(pool).update({
+      actor: { ...actor, scope: "PROFILE" },
+      id: row.id,
+      expectedVersion: 1n,
+      resetAgent: true,
+      now: new Date("2026-10-12T04:00:00.000Z"),
+      idempotencyKey: "reset-12345678",
+      payloadHash: "a".repeat(64),
+    });
+    const statements = query.mock.calls.map(([statement]) => statement);
+    expect(statements.some((statement) => statement.includes("agent_reset_at = CASE"))).toBe(true);
+    expect(
+      statements.some((statement) =>
+        statement.includes("UPDATE conversations.agent_requests SET status = 'cancelled'"),
+      ),
+    ).toBe(true);
+    expect(
+      query.mock.calls.some(
+        ([statement, values]) =>
+          statement.includes("INSERT INTO conversations.history") && values?.[1] === "agent_reset",
+      ),
+    ).toBe(true);
+    expect(
+      statements.some((statement) => statement.includes("DELETE FROM conversations.messages")),
+    ).toBe(false);
+    expect(statements.at(-1)).toBe("COMMIT");
+  });
+
   it.each([
     { historical: false, expectedMode: "agent", expectedRequest: true },
     { historical: true, expectedMode: "human", expectedRequest: false },

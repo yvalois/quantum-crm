@@ -93,6 +93,7 @@ const historyLabel: Record<ConversationHistoryEntry["eventType"], string> = {
   TRANSFERRED: "Responsable transferido",
   STATUS_CHANGED: "Estado actualizado",
   ATTENTION_CHANGED: "Modo de atención actualizado",
+  AGENT_RESET: "Agente reiniciado",
   MESSAGE_ADDED: "Mensaje registrado",
   NOTE_ADDED: "Nota interna registrada",
 };
@@ -1415,6 +1416,22 @@ export default function InboxPage(): React.JSX.Element {
                       : "Tomar conversación"}
                     <Icon name="arrow" size={15} />
                   </button>
+                  {selected.attentionMode === "AGENT" && selected.channel === "WHATSAPP" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={
+                          saving || selected.status === "CLOSED" || selected.status === "ESCALATED"
+                        }
+                        onClick={() => void update({ resetAgent: true })}
+                      >
+                        Reiniciar agente
+                      </button>
+                      <p className={styles.agentResetHint}>
+                        Conserva el historial. El saludo volverá con el próximo mensaje del cliente.
+                      </p>
+                    </>
+                  )}
                 </section>
 
                 <section className={styles.contextFacts}>
