@@ -63,7 +63,11 @@ export async function sendYCloudText(
     // The provider may have accepted the request before the connection failed.
     return { outcome: "UNKNOWN", errorCode: "DELIVERY_UNCERTAIN" };
   }
-  if (response.status === 429) return { outcome: "RETRY", errorCode: "RATE_LIMIT" };
+  if (response.status === 429) {
+    return lease.attempt >= 5
+      ? { outcome: "FAILED", errorCode: "RATE_LIMIT_EXHAUSTED" }
+      : { outcome: "RETRY", errorCode: "RATE_LIMIT" };
+  }
   if (!response.ok) {
     return {
       outcome: response.status >= 500 ? "UNKNOWN" : "FAILED",

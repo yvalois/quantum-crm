@@ -3,7 +3,11 @@ import { createHmac } from "node:crypto";
 import { SecretValue, type YCloudBindingConfig } from "@quantum-crm/config";
 import { describe, expect, it } from "vitest";
 
-import { parseYCloudMessage, verifyYCloudSignature } from "./ycloud-webhook.controller.js";
+import {
+  parseYCloudMessage,
+  parseYCloudOutboundStatus,
+  verifyYCloudSignature,
+} from "./ycloud-webhook.controller.js";
 
 const binding: YCloudBindingConfig = {
   wabaId: "1234567890123456",
@@ -82,6 +86,35 @@ describe("YCloud webhook", () => {
     expect(
       parseYCloudMessage(
         { type: "whatsapp.smb.history", whatsappInboundMessage: { ...original, wabaId: "other" } },
+        binding,
+      ),
+    ).toBeNull();
+  });
+
+  it("correlates delivery updates only for the bound sender and internal message", () => {
+    const payload = {
+      type: "whatsapp.message.updated",
+      whatsappMessage: {
+        id: "provider-1",
+        externalId: "01995f7e-7b52-7000-8000-000000000402",
+        wabaId: binding.wabaId,
+        from: `+${binding.businessPhone}`,
+        to: "+50255556666",
+        status: "delivered",
+      },
+    };
+    expect(parseYCloudOutboundStatus(payload, binding)).toEqual({
+      messageId: payload.whatsappMessage.externalId,
+      externalThreadId: `ycloud:${binding.wabaId}:50255556666`,
+      externalMessageId: `ycloud:${binding.wabaId}:provider-1`,
+      status: "DELIVERED",
+    });
+    expect(
+      parseYCloudOutboundStatus(
+        {
+          ...payload,
+          whatsappMessage: { ...payload.whatsappMessage, wabaId: "other" },
+        },
         binding,
       ),
     ).toBeNull();

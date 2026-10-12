@@ -103,7 +103,7 @@ export function createConversationOutboundDispatcher(
         const status = outcome === "SENT" ? "sent" : outcome === "RETRY" ? "pending" : "failed";
         const delivery =
           outcome === "SENT"
-            ? "sent"
+            ? "queued"
             : outcome === "UNKNOWN"
               ? "unknown"
               : outcome === "FAILED"
@@ -124,7 +124,9 @@ export function createConversationOutboundDispatcher(
           return false;
         }
         await client.query(
-          `UPDATE conversations.messages SET delivery_status = $2,
+          `UPDATE conversations.messages SET delivery_status = CASE
+                    WHEN $2 = 'queued' AND delivery_status IN ('sent', 'delivered', 'read')
+                      THEN delivery_status ELSE $2 END,
                   external_message_id = COALESCE($3, external_message_id),
                   failure_code = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
           [lease.messageId, delivery, externalMessageId ?? null, errorCode ?? null],
@@ -145,6 +147,37 @@ export function createExternalConversationReceiver(
   pool: PostgresPool,
 ): ExternalConversationReceiver {
   return Object.freeze({
+    reconcileOutbound: async (
+      input: Parameters<ExternalConversationReceiver["reconcileOutbound"]>[0],
+    ) => {
+      try {
+        const result = (await pool.query(
+          `UPDATE conversations.messages AS message SET
+             delivery_status = CASE
+               WHEN message.delivery_status = 'read' THEN 'read'
+               WHEN message.delivery_status = 'delivered' AND $4 IN ('sent', 'failed') THEN 'delivered'
+               ELSE $4 END,
+             external_message_id = COALESCE(message.external_message_id, $3),
+             failure_code = CASE WHEN $4 = 'failed' THEN $5 ELSE NULL END,
+             updated_at = CURRENT_TIMESTAMP
+            FROM conversations.conversations AS conversation
+           WHERE message.id = $1::uuid AND message.conversation_id = conversation.id
+             AND conversation.channel = 'whatsapp' AND conversation.external_thread_id = $2
+             AND message.direction = 'outbound'
+             AND (message.external_message_id IS NULL OR message.external_message_id = $3)`,
+          [
+            input.messageId,
+            input.externalThreadId,
+            input.externalMessageId,
+            input.status.toLowerCase(),
+            input.failureCode ?? null,
+          ],
+        )) as { readonly rowCount: number | null };
+        return (result.rowCount ?? 0) === 1;
+      } catch (error) {
+        return fail(error);
+      }
+    },
     receive: async (message: ExternalConversationMessage) => {
       let client: PoolClient | undefined;
       try {

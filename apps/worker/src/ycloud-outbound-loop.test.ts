@@ -75,4 +75,15 @@ describe("YCloud outbound", () => {
       ),
     ).toEqual({ outcome: "UNKNOWN", errorCode: "DELIVERY_UNCERTAIN" });
   });
+
+  it("limits rate-limit retries", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 429 }));
+    expect(await sendYCloudText({ binding, apiKey: "test", fetcher }, lease)).toEqual({
+      outcome: "RETRY",
+      errorCode: "RATE_LIMIT",
+    });
+    expect(
+      await sendYCloudText({ binding, apiKey: "test", fetcher }, { ...lease, attempt: 5 }),
+    ).toEqual({ outcome: "FAILED", errorCode: "RATE_LIMIT_EXHAUSTED" });
+  });
 });
