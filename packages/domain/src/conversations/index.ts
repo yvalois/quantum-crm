@@ -136,9 +136,23 @@ export interface ConversationAgentLease {
   readonly firstTurn: boolean;
 }
 
+export interface ConversationAgentContextMessage {
+  readonly role: "customer" | "advisor" | "agent";
+  readonly text: string;
+}
+
+export interface ConversationAgentContext {
+  readonly threadId: string;
+  readonly messages: readonly ConversationAgentContextMessage[];
+}
+
 /** Durable inbound trigger; outbound insertion is fenced and atomic with completion. */
 export interface ConversationAgentDispatcher {
   readonly isLeasedExecution: (inboundMessageId: string) => Promise<boolean>;
+  /** Resolve only the current leased execution; never accept a caller-chosen conversation. */
+  readonly contextForExecution: (
+    inboundMessageId: string,
+  ) => Promise<ConversationAgentContext | null>;
   readonly claimNext: (input: {
     readonly workerId: string;
     readonly leaseSeconds: number;

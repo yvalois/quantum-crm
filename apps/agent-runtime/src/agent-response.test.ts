@@ -1,0 +1,105 @@
+import type { AgentConversationContext } from "@quantum-crm/contracts";
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  answerAgentTurn,
+  answerAgentTurnSafely,
+  temporarilyUnavailableAnswer,
+} from "./agent-response.js";
+import { initialGreeting } from "./interamerican-greeting.js";
+
+const threadId = "019b0000-0000-7000-8000-000000000001";
+const source = {
+  id: "019b0000-0000-7000-8000-000000000002",
+  catalog: "individual" as const,
+  page: 2,
+  revision: "rev-1",
+  text: "Renta de vehículos individuales.",
+};
+
+function gateway(messages: AgentConversationContext["messages"]) {
+  return {
+    context: vi.fn(async () => ({ threadId, messages })),
+    search: vi.fn(async () => [source]),
+    answerCatalog: vi.fn(async () => ({
+      text: "Tenemos opciones de renta individual.",
+      sourceIds: [source.id],
+    })),
+    answerConversation: vi.fn(async () => "¿En qué fecha necesitas el vehículo?"),
+  };
+}
+
+describe("InterAmerican agent memory", () => {
+  it("greets the first turn and remembers the selected catalog on a later question", async () => {
+    const first = gateway([]);
+    expect((await answerAgentTurn({ question: "Hola", firstTurn: true }, first)).answer).toBe(
+      initialGreeting,
+    );
+    expect(first.answerConversation).not.toHaveBeenCalled();
+
+    const later = gateway([
+      { role: "customer", text: "Hola" },
+      { role: "agent", text: initialGreeting },
+      { role: "customer", text: "Individual" },
+      { role: "agent", text: "Tenemos opciones de renta individual." },
+    ]);
+    const result = await answerAgentTurn({ question: "¿Qué incluye?", firstTurn: false }, later);
+    expect(later.search).toHaveBeenCalledWith({
+      catalog: "individual",
+      question: "¿Qué incluye?",
+      limit: 8,
+    });
+    expect(later.answerCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        catalog: "individual",
+        history: expect.arrayContaining([{ role: "customer", text: "Individual" }]),
+      }),
+    );
+    expect(result.sourceIds).toEqual([source.id]);
+  });
+
+  it("starts without prior memory after reset while leaving the CRM transcript untouched", async () => {
+    const afterReset = gateway([]);
+    const result = await answerAgentTurn({ question: "Hola", firstTurn: true }, afterReset);
+    expect(result.answer).toBe(initialGreeting);
+    expect(afterReset.context).toHaveBeenCalledOnce();
+    expect(afterReset.answerCatalog).not.toHaveBeenCalled();
+  });
+
+  it("uses only the context returned for this execution", async () => {
+    const current = gateway([{ role: "customer", text: "Necesito un traslado" }]);
+    await answerAgentTurn({ question: "¿Puede ser mañana?", firstTurn: false }, current);
+    expect(current.answerConversation).toHaveBeenCalledWith({
+      question: "¿Puede ser mañana?",
+      history: [{ role: "customer", text: "Necesito un traslado" }],
+    });
+    expect(current.search).not.toHaveBeenCalled();
+  });
+
+  it("answers short replies using conversation memory instead of rejecting them", async () => {
+    const current = gateway([{ role: "customer", text: "Busco un carro individual" }]);
+    await answerAgentTurn({ question: "Sí", firstTurn: false }, current);
+    expect(current.answerConversation).toHaveBeenCalledWith({
+      question: "Sí",
+      history: [{ role: "customer", text: "Busco un carro individual" }],
+    });
+    expect(current.search).not.toHaveBeenCalled();
+  });
+
+  it("answers safely instead of becoming silent when a dependency fails", async () => {
+    const broken = gateway([]);
+    broken.context.mockRejectedValueOnce(new Error("MCP unavailable"));
+    const onFailure = vi.fn();
+    const result = await answerAgentTurnSafely(
+      { question: "Individual", firstTurn: false },
+      broken,
+      onFailure,
+    );
+    expect(result).toEqual({
+      answer: temporarilyUnavailableAnswer,
+      sourceIds: [],
+      grounded: false,
+    });
+    expect(onFailure).toHaveBeenCalledOnce();
+  });
+});

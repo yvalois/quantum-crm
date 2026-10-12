@@ -1,4 +1,5 @@
 import type { ServiceTokenClient } from "@quantum-crm/auth";
+import { AgentConversationContextSchema } from "@quantum-crm/contracts";
 import { z } from "zod";
 
 import type { RagGateway } from "./rag-graph.js";
@@ -17,57 +18,70 @@ const searchResultSchema = z.object({
     .max(8),
 });
 
-export function createMcpCatalogSearch(input: {
+const toolResultSchema = z.object({
+  content: z.array(z.object({ type: z.literal("text"), text: z.string() })).min(1),
+  isError: z.literal(false),
+});
+
+/** A single execution-scoped MCP connection; no caller-chosen conversation ID. */
+export function createMcpAgentClient(input: {
   readonly executionId: string;
   readonly tokenClient: ServiceTokenClient;
   readonly fetcher?: typeof fetch;
-}): RagGateway["search"] {
+}): {
+  readonly context: () => Promise<z.infer<typeof AgentConversationContextSchema>>;
+  readonly search: RagGateway["search"];
+} {
   const endpoint = "http://api:3001/mcp";
-  return async (request) => {
-    const token = await input.tokenClient.issue();
-    const call = async (id: number, method: string, params?: unknown): Promise<unknown> => {
-      const response = await (input.fetcher ?? fetch)(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token.expose()}`,
-          "X-QCRM-Execution-Id": input.executionId,
-          "MCP-Protocol-Version": "2025-03-26",
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ jsonrpc: "2.0", id, method, ...(params ? { params } : {}) }),
-        redirect: "error",
-        cache: "no-store",
-        signal: AbortSignal.timeout(8_000),
-      });
-      if (!response.ok) throw new Error("MCP catalog request failed");
-      const payload = z
-        .object({ jsonrpc: z.literal("2.0"), id: z.literal(id), result: z.unknown() })
-        .parse(await response.json());
-      return payload.result;
-    };
-    const initialized = z.object({ protocolVersion: z.literal("2025-03-26") }).parse(
-      await call(1, "initialize", {
-        protocolVersion: "2025-03-26",
-        capabilities: {},
-        clientInfo: { name: "quantum-agent-runtime", version: "1.0.0" },
-      }),
-    );
-    if (initialized.protocolVersion !== "2025-03-26") throw new Error("MCP version mismatch");
-    const result = z
-      .object({
-        content: z.array(z.object({ type: z.literal("text"), text: z.string() })).min(1),
-        isError: z.literal(false),
-      })
-      .parse(
-        await call(2, "tools/call", {
-          name: "catalog.search.v1",
-          arguments: request,
+  let tokenPromise: ReturnType<ServiceTokenClient["issue"]> | undefined;
+  let nextId = 0;
+  let initialized = false;
+  const call = async (method: string, params?: unknown): Promise<unknown> => {
+    tokenPromise ??= input.tokenClient.issue();
+    const token = await tokenPromise;
+    const id = ++nextId;
+    const response = await (input.fetcher ?? fetch)(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token.expose()}`,
+        "X-QCRM-Execution-Id": input.executionId,
+        "MCP-Protocol-Version": "2025-03-26",
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id, method, ...(params ? { params } : {}) }),
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) throw new Error(`MCP_HTTP_${response.status}`);
+    const payload = z
+      .object({ jsonrpc: z.literal("2.0"), id: z.literal(id), result: z.unknown() })
+      .parse(await response.json());
+    return payload.result;
+  };
+  const tool = async (name: string, args: unknown): Promise<unknown> => {
+    if (!initialized) {
+      z.object({ protocolVersion: z.literal("2025-03-26") }).parse(
+        await call("initialize", {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: { name: "quantum-agent-runtime", version: "1.0.0" },
         }),
       );
-    const sources = searchResultSchema.parse(JSON.parse(result.content[0]!.text)).sources;
-    if (sources.some((source) => source.catalog !== request.catalog))
-      throw new Error("MCP returned a cross-catalog source");
-    return sources;
+      initialized = true;
+    }
+    const result = toolResultSchema.parse(await call("tools/call", { name, arguments: args }));
+    return JSON.parse(result.content[0]!.text) as unknown;
   };
+  return Object.freeze({
+    context: async () =>
+      AgentConversationContextSchema.parse(await tool("conversation.context.v1", {})),
+    search: async (request) => {
+      const sources = searchResultSchema.parse(await tool("catalog.search.v1", request)).sources;
+      if (sources.some((source) => source.catalog !== request.catalog))
+        throw new Error("MCP returned a cross-catalog source");
+      return sources;
+    },
+  });
 }

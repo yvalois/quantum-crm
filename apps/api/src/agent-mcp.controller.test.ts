@@ -11,7 +11,7 @@ const identity = {
   principalType: "service",
   clientId: "quantum-agent-runtime",
   audiences: ["quantum-crm-api"],
-  servicePermissions: ["agents:catalog-search"],
+  servicePermissions: ["agents:catalog-search", "agents:conversation-context"],
 };
 const body = {
   jsonrpc: "2.0",
@@ -39,15 +39,22 @@ function setup(leased: boolean, permissions = identity.servicePermissions) {
       revision: "revision",
     },
   ]);
+  const contextForExecution = vi.fn(async () => ({
+    threadId: "019b0000-0000-7000-8000-000000000003",
+    messages: [{ role: "customer", text: "Busco alquiler individual" }],
+  }));
   const stub = {
-    commercial: { conversationAgent: { isLeasedExecution }, agentKnowledge: { search } },
+    commercial: {
+      conversationAgent: { isLeasedExecution, contextForExecution },
+      agentKnowledge: { search },
+    },
   };
   const database = stub as unknown as CrmPostgresDatabase;
   const controller = new AgentMcpController(
     { verifyAccessToken } as unknown as OidcAccessTokenVerifier,
     database,
   );
-  return { controller, verifyAccessToken, isLeasedExecution, search };
+  return { controller, verifyAccessToken, isLeasedExecution, contextForExecution, search };
 }
 
 describe("agent MCP gateway", () => {
@@ -76,5 +83,49 @@ describe("agent MCP gateway", () => {
       limit: 8,
     });
     expect(result).toMatchObject({ jsonrpc: "2.0", id: 2, result: { isError: false } });
+  });
+
+  it("reads only the conversation bound to the leased execution", async () => {
+    const { controller, contextForExecution } = setup(true);
+    const result = (await controller.call(
+      "Bearer fake.jwt.token",
+      executionId,
+      {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: {
+          name: "conversation.context.v1",
+          arguments: {},
+        },
+      },
+      { setHeader: vi.fn() },
+    )) as { result: { content: Array<{ text: string }> } };
+    expect(contextForExecution).toHaveBeenCalledWith(executionId);
+    expect(JSON.parse(result.result.content[0]!.text)).toEqual({
+      threadId: "019b0000-0000-7000-8000-000000000003",
+      messages: [{ role: "customer", text: "Busco alquiler individual" }],
+    });
+  });
+
+  it("does not let a catalog-only principal read conversation context", async () => {
+    const { controller, contextForExecution } = setup(true, ["agents:catalog-search"]);
+    await expect(
+      controller.call(
+        "Bearer fake.jwt.token",
+        executionId,
+        {
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: {
+            name: "conversation.context.v1",
+            arguments: {},
+          },
+        },
+        { setHeader: vi.fn() },
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(contextForExecution).not.toHaveBeenCalled();
   });
 });

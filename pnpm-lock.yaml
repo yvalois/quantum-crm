@@ -120,6 +120,9 @@ importers:
       "@quantum-crm/config":
         specifier: workspace:*
         version: link:../../packages/config
+      "@quantum-crm/contracts":
+        specifier: workspace:*
+        version: link:../../packages/contracts
       "@quantum-crm/observability":
         specifier: workspace:*
         version: link:../../packages/observability

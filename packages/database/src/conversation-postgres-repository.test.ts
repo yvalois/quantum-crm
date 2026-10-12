@@ -53,6 +53,9 @@ describe("conversation PostgreSQL repository", () => {
     });
     const statements = query.mock.calls.map(([statement]) => statement);
     expect(statements.some((statement) => statement.includes("agent_reset_at = CASE"))).toBe(true);
+    expect(statements.some((statement) => statement.includes("agent_reset_sequence = CASE"))).toBe(
+      true,
+    );
     expect(
       statements.some((statement) =>
         statement.includes("UPDATE conversations.agent_requests SET status = 'cancelled'"),

@@ -1,4 +1,8 @@
 import { END, START, StateGraph, StateSchema } from "@langchain/langgraph";
+import {
+  AgentConversationContextSchema,
+  type AgentConversationContext,
+} from "@quantum-crm/contracts";
 import { z } from "zod";
 
 export const catalogKindSchema = z.enum(["individual", "corporativo"]);
@@ -24,12 +28,14 @@ export interface RagGateway {
     readonly catalog: CatalogKind;
     readonly question: string;
     readonly sources: readonly RagSource[];
+    readonly history: AgentConversationContext["messages"];
   }): Promise<{ readonly text: string; readonly sourceIds: readonly string[] }>;
 }
 
 const ragState = new StateSchema({
   question: z.string(),
   catalog: catalogKindSchema,
+  history: AgentConversationContextSchema.shape.messages,
   sources: z.array(sourceSchema).optional(),
   answer: z.string().optional(),
   citedSourceIds: z.array(z.string()).optional(),
@@ -67,6 +73,7 @@ export function createRagGraph(gateway: RagGateway) {
         catalog: state.catalog,
         question: state.question,
         sources,
+        history: state.history,
       });
       const answer = z.string().trim().min(1).max(4000).parse(generated.text);
       const citedSourceIds = z.array(z.string()).max(8).parse(generated.sourceIds);
@@ -84,11 +91,19 @@ export function createRagGraph(gateway: RagGateway) {
 
 export async function askCatalog(
   gateway: RagGateway,
-  input: { readonly catalog: CatalogKind; readonly question: string },
+  input: {
+    readonly catalog: CatalogKind;
+    readonly question: string;
+    readonly history?: AgentConversationContext["messages"];
+  },
 ): Promise<RagResult> {
   const catalog = catalogKindSchema.parse(input.catalog);
   const question = z.string().trim().min(3).max(2000).parse(input.question);
-  const result = await createRagGraph(gateway).invoke({ catalog, question });
+  const result = await createRagGraph(gateway).invoke({
+    catalog,
+    question,
+    history: input.history ?? [],
+  });
   const cited = new Set(result.citedSourceIds ?? []);
   const sources = (result.sources ?? [])
     .filter((source) => cited.has(source.id))

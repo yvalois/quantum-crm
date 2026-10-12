@@ -676,7 +676,7 @@ const agentServiceClients = [
   {
     clientId: "quantum-agent-runtime",
     audience: "quantum-crm-api",
-    permission: "agents:catalog-search",
+    permission: "agents:catalog-search agents:conversation-context",
     secretName: "agent-runtime-client-secret",
   },
 ] as const;

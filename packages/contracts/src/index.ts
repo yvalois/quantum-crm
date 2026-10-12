@@ -1,3 +1,7 @@
+export {
+  AgentConversationContextSchema,
+  type AgentConversationContext,
+} from "./agents/v1/conversation-context.js";
 export * from "./settings/v1/custom-field.js";
 export * from "./conversations/v1/historical-conversation.js";
 export * from "./conversations/v1/unified-inbox.js";
