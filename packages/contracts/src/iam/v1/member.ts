@@ -120,6 +120,14 @@ export const MemberSchema = z.object({
 });
 
 export const MemberResponseSchema = z.object({ data: MemberSchema });
+export const MemberCapabilitiesResponseSchema = z.object({
+  data: z.object({
+    memberId: MemberIdSchema,
+    canAssignSales: z.boolean(),
+    canAssignConversations: z.boolean(),
+    canManageMembers: z.boolean(),
+  }).strict(),
+}).strict();
 
 export const MemberListResponseSchema = z.object({
   data: z.array(MemberSchema),

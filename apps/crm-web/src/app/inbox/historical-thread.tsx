@@ -56,12 +56,14 @@ export function HistoricalThread({
   contactName,
   assignees,
   csrfToken,
+  canAssign,
   onAssigned,
 }: {
   readonly conversation: HistoricalConversation;
   readonly contactName: string | undefined;
   readonly assignees: readonly TaskAssignee[];
   readonly csrfToken: string | null;
+  readonly canAssign: boolean;
   readonly onAssigned: () => void;
 }): React.JSX.Element {
   const [selected, setSelected] = useState(conversation);
@@ -172,7 +174,7 @@ export function HistoricalThread({
           ) : null}
         </div>
       </header>
-      {assignees.length > 0 ? (
+      {canAssign && assignees.length > 0 ? (
         <label>
           Responsable del chat
           <select

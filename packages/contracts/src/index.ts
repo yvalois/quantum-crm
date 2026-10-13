@@ -126,6 +126,7 @@ export {
   MemberListQuerySchema,
   MemberListResponseSchema,
   MemberResponseSchema,
+  MemberCapabilitiesResponseSchema,
   MemberSchema,
   MemberStatusSchema,
   CommercialScopeSchema,

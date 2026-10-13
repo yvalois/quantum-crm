@@ -27,6 +27,7 @@ import {
   MemberListQuerySchema,
   MemberListResponseSchema,
   MemberResponseSchema,
+  MemberCapabilitiesResponseSchema,
   UpdateMemberSchema,
   type MemberListResponse,
 } from "@quantum-crm/contracts";
@@ -138,6 +139,17 @@ export class MembersController {
       } | null>;
     },
   ) {}
+
+  @Get("self/capabilities")
+  public capabilities(@Req() request: Parameters<typeof crmAuthContext>[0]) {
+    const context = crmAuthContext(request);
+    return MemberCapabilitiesResponseSchema.parse({ data: {
+      memberId: context.principal.id,
+      canAssignSales: context.permissions.includes("crm:sales:assign"),
+      canAssignConversations: context.permissions.includes("crm:conversations:assign"),
+      canManageMembers: context.permissions.includes("iam:members:roles"),
+    } });
+  }
 
   @Get()
   @RequireCrmPermission("iam:members:read")

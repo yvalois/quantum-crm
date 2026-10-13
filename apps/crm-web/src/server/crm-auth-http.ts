@@ -38,6 +38,7 @@ import {
   MemberListQuerySchema,
   MemberListResponseSchema,
   MemberResponseSchema,
+  MemberCapabilitiesResponseSchema,
   UpdateMemberSchema,
   CreateRoleSchema,
   RoleListResponseSchema,
@@ -2608,6 +2609,15 @@ export async function handleCrmSession(
       authenticatedAt: authorized.session.authenticatedAt.toISOString(),
     },
     { headers: crmNoStoreHeaders() },
+  );
+}
+
+export async function handleCrmCapabilities(request: Request, runtime: CrmAuthRuntime) {
+  return conversationRead(
+    request,
+    runtime,
+    "/api/v1/members/self/capabilities",
+    MemberCapabilitiesResponseSchema,
   );
 }
 
