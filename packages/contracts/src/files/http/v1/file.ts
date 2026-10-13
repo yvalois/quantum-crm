@@ -125,6 +125,8 @@ export const FileSchema = z
     sha256: Sha256Base64Schema,
     createdAt: TimestampSchema,
     updatedAt: TimestampSchema,
+    folderId: FileIdSchema.nullable().optional(),
+    tags: z.array(z.string().min(1).max(32)).max(12).optional(),
   })
   .strict();
 
@@ -136,6 +138,10 @@ export const FileListQuerySchema = z
     status: FileStatusSchema.optional(),
     fileClass: FileClassSchema.optional(),
     collection: z.literal("library").optional(),
+    search: z.string().trim().min(1).max(80).optional(),
+    folderId: z.union([FileIdSchema, z.literal("root")]).optional(),
+    tag: z.string().trim().min(1).max(32).optional(),
+    sort: z.enum(["RECENT", "NAME"]).default("RECENT"),
   })
   .strict();
 export const FileListResponseSchema = z
@@ -144,6 +150,50 @@ export const FileListResponseSchema = z
     page: z.object({ nextCursor: z.string().min(1).max(512).nullable() }).strict(),
   })
   .strict();
+
+export const MediaFolderSchema = z
+  .object({
+    id: FileIdSchema,
+    parentId: FileIdSchema.nullable(),
+    name: z.string().min(1).max(80),
+    createdAt: TimestampSchema,
+    updatedAt: TimestampSchema,
+  })
+  .strict();
+export const MediaFolderListResponseSchema = z
+  .object({ data: z.array(MediaFolderSchema).max(500) })
+  .strict();
+export const MediaFolderResponseSchema = z.object({ data: MediaFolderSchema }).strict();
+export const MediaFolderRemovalResponseSchema = z
+  .object({ data: z.object({ removed: z.literal(true) }).strict() })
+  .strict();
+export const CreateMediaFolderSchema = z
+  .object({
+    parentId: FileIdSchema.nullable(),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .regex(/^[^/\\\x00-\x1f]+$/u),
+  })
+  .strict();
+export const RenameMediaFolderSchema = CreateMediaFolderSchema.pick({ name: true });
+export const OrganizeMediaFileSchema = z
+  .object({
+    folderId: FileIdSchema.nullable(),
+    name: z.string().trim().min(1).max(255),
+    tags: z.array(z.string().trim().min(1).max(32)).max(12),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      new Set(value.tags.map((tag) => tag.toLocaleLowerCase("es"))).size === value.tags.length,
+    {
+      path: ["tags"],
+      message: "Tags must be unique",
+    },
+  );
 
 const BrowserPostFieldsSchema = z
   .record(z.string().min(1).max(128), z.string().max(8_192))
@@ -229,6 +279,9 @@ export type FileStatus = z.infer<typeof FileStatusSchema>;
 export type FileOwner = z.infer<typeof FileOwnerSchema>;
 export type FileContract = z.infer<typeof FileSchema>;
 export type FileListQuery = z.infer<typeof FileListQuerySchema>;
+export type MediaFolder = z.infer<typeof MediaFolderSchema>;
+export type CreateMediaFolder = z.infer<typeof CreateMediaFolderSchema>;
+export type OrganizeMediaFile = z.infer<typeof OrganizeMediaFileSchema>;
 export type CreateFileUploadIntent = z.infer<typeof CreateFileUploadIntentSchema>;
 export type CompleteFileUpload = z.infer<typeof CompleteFileUploadSchema>;
 export type FileOperation = z.infer<typeof FileOperationSchema>;

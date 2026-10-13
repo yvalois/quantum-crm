@@ -107,6 +107,13 @@ Un usuario autorizado puede reservar y subir desde Documentos una imagen o ficha
 
 ## Evidencia de cierre
 
+### Extensión 2026-10-13: organización de multimedia
+
+- La búsqueda actual revisa solo la página cargada. Se sustituye por búsqueda paginada en PostgreSQL, con filtros de tipo, carpeta y etiqueta y orden estable.
+- Las carpetas y etiquetas pertenecen al módulo Files y no modifican bucket, object key ni bytes verificados. La migración es aditiva y deja los archivos anteriores en «Sin carpeta».
+- El servidor aplica permiso de lectura/carga, alcance del miembro y relación con archivo y carpeta. Crear carpeta usa idempotencia durable; mover o renombrar un activo solo altera metadatos de biblioteca.
+- Pendiente de evidencia: validación enfocada en VPS, CI, despliegue por digest y prueba autenticada de crear carpeta, mover, buscar y filtrar en InterAmerican.
+
 ### Extensión 2026-10-13: biblioteca multimedia local
 
 - Alcance solicitado: una biblioteca propia del CRM para imágenes, audio, video y documentos; la conexión opcional a Google Drive se pospone por decisión del propietario.

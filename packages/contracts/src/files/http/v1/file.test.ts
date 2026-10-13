@@ -3,16 +3,37 @@ import { describe, expect, it } from "vitest";
 import {
   CompleteFileUploadSchema,
   CreateFileUploadIntentSchema,
+  CreateMediaFolderSchema,
   FileSchema,
   FileOwnerSchema,
   FileListQuerySchema,
   FileUploadIntentResponseSchema,
+  OrganizeMediaFileSchema,
 } from "./file.js";
 
 const fileId = "019b0000-0000-7000-8000-000000000901";
 const sha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 describe("file contracts", () => {
+  it("validates global library search and virtual organization metadata", () => {
+    expect(
+      FileListQuerySchema.parse({ collection: "library", search: "SUV", sort: "NAME" }),
+    ).toMatchObject({ search: "SUV", sort: "NAME" });
+    expect(FileListQuerySchema.safeParse({ search: "x".repeat(81) }).success).toBe(false);
+    expect(
+      CreateMediaFolderSchema.safeParse({ name: "Cotizaciones", parentId: null }).success,
+    ).toBe(true);
+    expect(CreateMediaFolderSchema.safeParse({ name: "../oculto", parentId: null }).success).toBe(
+      false,
+    );
+    expect(
+      OrganizeMediaFileSchema.safeParse({ folderId: fileId, name: "SUV", tags: ["renta"] }).success,
+    ).toBe(true);
+    expect(
+      OrganizeMediaFileSchema.safeParse({ folderId: null, name: "SUV", tags: ["Renta", "renta"] })
+        .success,
+    ).toBe(false);
+  });
   it("accepts a library owner without client-controlled tenant or storage coordinates", () => {
     expect(FileOwnerSchema.safeParse({ kind: "library" }).success).toBe(true);
     expect(FileOwnerSchema.safeParse({ kind: "library", tenantId: fileId }).success).toBe(false);

@@ -40,6 +40,18 @@ export interface FileRecord {
   readonly version: bigint;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+  readonly libraryTitle?: string | null;
+  readonly libraryFolderId?: string | null;
+  readonly libraryTags?: readonly string[];
+}
+
+export interface MediaFolderRecord {
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly ownerMemberId: string;
+  readonly name: string;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
 }
 
 export interface FileOperationRecord {
@@ -65,6 +77,10 @@ export interface FileListFilters {
   readonly status?: FileStatus;
   readonly fileClass?: FileClass;
   readonly collection?: "library";
+  readonly search?: string;
+  readonly folderId?: string | "root";
+  readonly tag?: string;
+  readonly sort?: "RECENT" | "NAME";
 }
 
 export interface FileListPage {
@@ -74,6 +90,28 @@ export interface FileListPage {
 
 export interface FileRepository {
   readonly list: (actor: CommercialActor, filters: FileListFilters) => Promise<FileListPage>;
+  readonly listMediaFolders: (actor: CommercialActor) => Promise<readonly MediaFolderRecord[]>;
+  readonly createMediaFolder: (input: {
+    readonly actor: CommercialActor;
+    readonly id: string;
+    readonly parentId: string | null;
+    readonly name: string;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) => Promise<MediaFolderRecord>;
+  readonly renameMediaFolder: (input: {
+    readonly actor: CommercialActor;
+    readonly folderId: string;
+    readonly name: string;
+  }) => Promise<MediaFolderRecord | null>;
+  readonly deleteMediaFolder: (actor: CommercialActor, folderId: string) => Promise<boolean>;
+  readonly organizeMediaFile: (input: {
+    readonly actor: CommercialActor;
+    readonly fileId: string;
+    readonly folderId: string | null;
+    readonly name: string;
+    readonly tags: readonly string[];
+  }) => Promise<FileRecord | null>;
   readonly find: (actor: CommercialActor, fileId: string) => Promise<FileRecord | null>;
   readonly reserve: (input: {
     readonly file: FileRecord;

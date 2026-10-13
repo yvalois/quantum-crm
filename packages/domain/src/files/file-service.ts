@@ -12,6 +12,7 @@ import {
   type FileStorageAuthorization,
   FileStateConflictError,
   type FileReferenceRecord,
+  FileValidationError,
 } from "./index.js";
 import { createFileReservation, recordFileCompletion } from "./file-state.js";
 
@@ -49,6 +50,72 @@ export class FileService {
     private readonly ownerAuthorization: FileOwnerAuthorization,
     private readonly storageAuthorization: FileStorageAuthorization,
   ) {}
+
+  public async listMediaFolders(actor: CommercialActor, permissions: readonly IamPermission[]) {
+    allow(permissions, "crm:files:read");
+    return this.repository.listMediaFolders(actor);
+  }
+
+  public async createMediaFolder(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly parentId: string | null;
+    readonly name: string;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) {
+    allow(input.permissions, "crm:files:upload");
+    return this.repository.createMediaFolder({
+      actor: input.actor,
+      id: randomUUID(),
+      parentId: input.parentId,
+      name: input.name,
+      idempotencyKey: input.idempotencyKey,
+      payloadHash: input.payloadHash,
+    });
+  }
+
+  public async renameMediaFolder(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly folderId: string;
+    readonly name: string;
+  }) {
+    allow(input.permissions, "crm:files:upload");
+    const folder = await this.repository.renameMediaFolder(input);
+    if (!folder) throw new FileNotFoundError();
+    return folder;
+  }
+
+  public async deleteMediaFolder(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly folderId: string;
+  }) {
+    allow(input.permissions, "crm:files:upload");
+    if (!(await this.repository.deleteMediaFolder(input.actor, input.folderId))) {
+      throw new FileNotFoundError();
+    }
+  }
+
+  public async organizeMediaFile(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly fileId: string;
+    readonly folderId: string | null;
+    readonly name: string;
+    readonly tags: readonly string[];
+  }): Promise<FileRecord> {
+    allow(input.permissions, "crm:files:upload");
+    const file = await this.findAuthorized(input.actor, input.fileId, input.permissions, "write");
+    if (file.owner.kind !== "library") throw new FileValidationError("Not a library file");
+    if (["DELETE_SCHEDULED", "DELETE_PENDING", "DELETED"].includes(file.status)) {
+      throw new FileStateConflictError();
+    }
+    const updated = await this.repository.organizeMediaFile(input);
+    if (!updated) throw new FileNotFoundError();
+    return updated;
+  }
 
   public async list(
     actor: CommercialActor,
