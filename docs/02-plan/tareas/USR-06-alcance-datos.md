@@ -109,6 +109,13 @@ Cada membresía activa tiene un alcance comercial explícito —todos los regist
 
 ## Evidencia de cierre
 
+### Extensión operativa de asesores (2026-10-12, en curso)
+
+- La rama `feat/USR-06-advisor-visibility` añade visibilidad de contactos por chat u oportunidad asignada, permiso separado de asignación comercial, asignación de chats históricos y control de rol/alcance en `/team`.
+- El rol `ADVISOR` conserva forzosamente alcance `ASSIGNED`; la migración aditiva incorpora el permiso de Ventas y normaliza alcances de asesores previamente ampliados, incrementando su revisión de autorización.
+- Evidencia VPS del candidato: cinco typechecks afectados, 83 pruebas focalizadas, lint focalizado y ejecución transaccional reversible de la migración en base sintética. No se marcaron casillas generales de `USR-06`: faltan exportaciones/reportes y auditoría completa.
+- Pendientes de este bloque: CI, migración controlada, despliegue por digest y prueba autenticada de las vistas con un asesor activo. No se presenta como terminado antes de eso.
+
 - Archivos, commits o PR: rama `feat/USR-06-alcance-datos`; documentación `f16e149`; implementación `eaa3668`; protecciones de migración y concurrencia `db15d1f`; correcciones de seguridad/UI `c15543e`; formato `6f7527f`; ajustes de tipos `e1afc9c` y `807df3f`; corrección de desacoplamiento runtime `b8e95b7`; PR #47.
 - Comandos y resultados: en el VPS con Node `24.21.0`, Prettier afectado, typecheck de `packages/database` y seis suites unitarias afectadas (24 casos) aprobaron en `b8e95b7`. La matriz específica de SQL comercial queda pendiente de una base PostgreSQL integrada; el fallo de importación que bloqueaba unit/integration queda corregido.
 - Documentacion actualizada: esta ficha y `docs/04-proceso/estado.md`.

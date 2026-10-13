@@ -82,12 +82,14 @@ describe("CRM web authentication HTTP boundary", () => {
     const upstream = vi.fn(async (url: URL, init?: RequestInit) => {
       expect(url.pathname).toBe("/api/v1/members/self/capabilities");
       expect(init?.headers).toMatchObject({ authorization: "Bearer server-only-access-token" });
-      return Response.json({ data: {
-        memberId: "019b0000-0000-7000-8000-000000000001",
-        canAssignSales: false,
-        canAssignConversations: false,
-        canManageMembers: false,
-      } });
+      return Response.json({
+        data: {
+          memberId: "019b0000-0000-7000-8000-000000000001",
+          canAssignSales: false,
+          canAssignConversations: false,
+          canManageMembers: false,
+        },
+      });
     });
     const response = await handleCrmCapabilities(
       new Request("https://crm.example.test/api/auth/capabilities", {
