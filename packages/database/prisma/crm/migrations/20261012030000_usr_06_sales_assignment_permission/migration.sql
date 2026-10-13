@@ -23,6 +23,17 @@ FROM iam.roles AS role
 WHERE role.code IN ('ADMINISTRATOR', 'SUPERVISOR')
 ON CONFLICT DO NOTHING;
 
+UPDATE iam.members AS member
+   SET commercial_scope = 'assigned'::iam.commercial_scope,
+       authorization_revision = authorization_revision + 1,
+       updated_at = CURRENT_TIMESTAMP
+ WHERE commercial_scope <> 'assigned'::iam.commercial_scope
+   AND EXISTS (
+     SELECT 1 FROM iam.member_roles AS assignment
+     JOIN iam.roles AS role ON role.id = assignment.role_id
+     WHERE assignment.member_id = member.id AND role.code = 'ADVISOR'
+   );
+
 DO $$
 DECLARE runtime_role text := regexp_replace(current_database(), '^qcrm_t_', 'qcrm_r_');
 BEGIN

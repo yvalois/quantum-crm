@@ -349,7 +349,12 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
     findById: async (memberId: string): Promise<IamMember | null> => {
       try {
         const result = (await pool.query(
-          `SELECT ${memberSelection} FROM iam.members WHERE id = $1::uuid`,
+          `SELECT ${memberSelection},
+            (SELECT role.code FROM iam.member_roles AS assignment
+              JOIN iam.roles AS role ON role.id = assignment.role_id
+              WHERE assignment.member_id = iam.members.id
+              ORDER BY role.code LIMIT 1) AS role_code
+           FROM iam.members WHERE id = $1::uuid`,
           [memberId],
         )) as { readonly rows: readonly IamMemberRow[] };
         const row = result.rows[0];
@@ -665,11 +670,18 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
         const updated = (await client.query(
           `
             UPDATE iam.members
-            SET authorization_revision = authorization_revision + 1, updated_at = $2
+            SET authorization_revision = authorization_revision + 1,
+                commercial_scope = CASE $3::text
+                  WHEN 'ADMINISTRATOR' THEN 'profile'::iam.commercial_scope
+                  WHEN 'SUPERVISOR' THEN 'team'::iam.commercial_scope
+                  WHEN 'ADVISOR' THEN 'assigned'::iam.commercial_scope
+                  ELSE commercial_scope
+                END,
+                updated_at = $2
             WHERE id = $1::uuid
             RETURNING ${memberSelection}
           `,
-          [input.memberId, input.now],
+          [input.memberId, input.now, input.roleCode],
         )) as { readonly rows: readonly IamMemberRow[] };
         const row = updated.rows[0];
         if (!row) throw new IamMemberConflictError();

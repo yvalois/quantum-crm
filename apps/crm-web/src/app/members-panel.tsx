@@ -776,6 +776,7 @@ export function MembersPanel(): React.JSX.Element {
                   Alcance de datos
                   <select
                     value={editCommercialScope}
+                    disabled={editRoleCode === "ADVISOR"}
                     onChange={(event) =>
                       setEditCommercialScope(event.target.value as Member["commercialScope"])
                     }
@@ -784,6 +785,7 @@ export function MembersPanel(): React.JSX.Element {
                     <option value="TEAM">Registros del equipo</option>
                     <option value="ASSIGNED">Solo asignados</option>
                   </select>
+                  {editRoleCode === "ADVISOR" ? <small>Los asesores solo pueden acceder a registros asignados.</small> : null}
                 </label>
                 <div className="form-actions">
                   <button
