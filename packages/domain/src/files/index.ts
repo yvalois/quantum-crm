@@ -64,6 +64,7 @@ export interface FileListFilters {
   readonly limit: number;
   readonly status?: FileStatus;
   readonly fileClass?: FileClass;
+  readonly collection?: "library";
 }
 
 export interface FileListPage {

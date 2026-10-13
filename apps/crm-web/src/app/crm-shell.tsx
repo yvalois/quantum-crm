@@ -15,6 +15,7 @@ type NavigationIconName =
   | "catalog"
   | "contacts"
   | "documents"
+  | "media"
   | "forms"
   | "home"
   | "inbox"
@@ -53,6 +54,7 @@ const navigation: readonly NavigationGroup[] = [
       { href: "/forms", icon: "forms", label: "Formularios" },
       { icon: "catalog", label: "Catálogo" },
       { href: "/documents", icon: "documents", label: "Documentos" },
+      { href: "/media", icon: "media", label: "Multimedia" },
       { icon: "automation", label: "Automatizaciones" },
       { icon: "reports", label: "Reportes" },
       { icon: "agent", label: "Agente Quantum" },
@@ -83,6 +85,7 @@ const iconPaths: Readonly<Record<NavigationIconName, readonly string[]>> = {
     "M16 14c2.8 0 4.2 1.5 4.5 4",
   ],
   documents: ["M6 3h8l4 4v14H6z", "M14 3v5h4", "M9 12h6", "M9 16h6"],
+  media: ["M4 5h16v14H4z", "m4 15 3-3 3 2 3-4 3 5", "M16 9h.01"],
   forms: ["M6 3h12v18H6z", "M9 8h6", "M9 12h6", "M9 16h3"],
   home: ["M4 10.5 12 4l8 6.5", "M6.5 9.5V20h11V9.5", "M9.5 20v-6h5v6"],
   inbox: ["M4 5h16v14H4z", "M4 13h4l2 3h4l2-3h4"],

@@ -121,6 +121,7 @@ export class FilesController {
         ...(parsed.data.cursor === undefined ? {} : { cursor: parsed.data.cursor }),
         ...(parsed.data.status === undefined ? {} : { status: parsed.data.status }),
         ...(parsed.data.fileClass === undefined ? {} : { fileClass: parsed.data.fileClass }),
+        ...(parsed.data.collection === undefined ? {} : { collection: parsed.data.collection }),
       };
       const page = await this.service.list(auth.actor, auth.permissions, filters);
       return FileListResponseSchema.parse({

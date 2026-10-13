@@ -5,6 +5,7 @@ import {
   CreateFileUploadIntentSchema,
   FileSchema,
   FileOwnerSchema,
+  FileListQuerySchema,
   FileUploadIntentResponseSchema,
 } from "./file.js";
 
@@ -12,6 +13,15 @@ const fileId = "019b0000-0000-7000-8000-000000000901";
 const sha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 describe("file contracts", () => {
+  it("accepts a library owner without client-controlled tenant or storage coordinates", () => {
+    expect(FileOwnerSchema.safeParse({ kind: "library" }).success).toBe(true);
+    expect(FileOwnerSchema.safeParse({ kind: "library", tenantId: fileId }).success).toBe(false);
+    expect(FileOwnerSchema.safeParse({ kind: "library", objectKey: "objects/x" }).success).toBe(
+      false,
+    );
+    expect(FileListQuerySchema.parse({ collection: "library" }).collection).toBe("library");
+    expect(FileListQuerySchema.safeParse({ collection: "other" }).success).toBe(false);
+  });
   it("restricts historical attachment owners to the conversations module", () => {
     const owner = {
       kind: "existing",

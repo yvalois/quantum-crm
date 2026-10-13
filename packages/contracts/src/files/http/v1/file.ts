@@ -74,7 +74,13 @@ const ClaimedFileOwnerSchema = z
   })
   .strict();
 
-export const FileOwnerSchema = z.union([ExistingFileOwnerSchema, ClaimedFileOwnerSchema]);
+const LibraryFileOwnerSchema = z.object({ kind: z.literal("library") }).strict();
+
+export const FileOwnerSchema = z.union([
+  ExistingFileOwnerSchema,
+  ClaimedFileOwnerSchema,
+  LibraryFileOwnerSchema,
+]);
 
 const MaximumBytesByClass: Readonly<Record<z.infer<typeof FileClassSchema>, number>> = {
   IMAGE: 20 * 1024 * 1024,
@@ -129,6 +135,7 @@ export const FileListQuerySchema = z
     limit: z.coerce.number().int().min(1).max(100).default(25),
     status: FileStatusSchema.optional(),
     fileClass: FileClassSchema.optional(),
+    collection: z.literal("library").optional(),
   })
   .strict();
 export const FileListResponseSchema = z
