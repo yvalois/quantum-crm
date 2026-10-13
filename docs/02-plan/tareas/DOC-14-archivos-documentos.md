@@ -107,6 +107,15 @@ Un usuario autorizado puede reservar y subir desde Documentos una imagen o ficha
 
 ## Evidencia de cierre
 
+### Extensión 2026-10-13: biblioteca multimedia local
+
+- Alcance solicitado: una biblioteca propia del CRM para imágenes, audio, video y documentos; la conexión opcional a Google Drive se pospone por decisión del propietario.
+- Se reutiliza el módulo Files, sus permisos, bucket privado por perfil, scan obligatorio y URLs firmadas breves. El propietario `library` no acepta `tenantId`, buckets ni rutas enviadas por el navegador.
+- Cambio de datos: migración forward-only que amplía la restricción del propietario y añade un índice para listar la biblioteca. No reescribe ni borra archivos existentes.
+- Ruta prevista: `/media`, con carga, filtros, paginación, estados y vista previa/descarga únicamente después de `AVAILABLE`.
+- Verificación: typecheck de cinco paquetes, ESLint afectado y 15 pruebas focalizadas aprobados en VPS; PostgreSQL sintético aceptó la migración aditiva. El contenedor de prueba aislado se retiró sin tocar perfiles ni datos reales.
+- Despliegue: pendiente de matriz CI, digest y recorrido autenticado de `/media` en InterAmerican; no se declara terminada esta extensión.
+
 - Archivos, commits o PR: candidato tecnico `c9a0b9e05d8a85ef93597b3b761f6e3ca6b46347`; integrado en `main` mediante PR `#89`, commit `3d96d3c5846d0a8090b0e289012ac0a404dbbdb0`.
 - Comandos y resultados: en el VPS aprobaron Prettier y ESLint focalizados, typecheck de dominio, base de datos, API y worker, 32 pruebas focalizadas y los builds de API y worker. El recorrido autenticado completo confirmo archivo `AVAILABLE` y vinculado despues de scan ClamAV.
 - Cierre de seguridad del 2026-10-04: el pipeline real del worker, usando ClamAV privado del VPS, llevo la cadena EICAR valida a `REJECTED` con `rejectionCode=MALWARE`; las credenciales S3 del perfil `quantum-demo-jueves` recibieron `PERMISSION_DENIED` al intentar leer el bucket privado de otro perfil. No se promovieron ni persistieron bytes de prueba.

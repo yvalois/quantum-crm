@@ -69,6 +69,28 @@ function service(file: FileRecord | null, ownerAllowed = true): FileService {
 }
 
 describe("file service authorization", () => {
+  it("reserves library media only with upload permission and never exposes pending bytes", async () => {
+    const created = await service(null).reserveUpload({
+      actor,
+      permissions: ["crm:files:upload"],
+      owner: { kind: "library" },
+      fileClass: "IMAGE",
+      originalName: "catalogo.png",
+      declaredMime: "image/png",
+      declaredSize: 512,
+      expectedSha256: sha256,
+      idempotencyKey: "idem-library",
+      payloadHash: "hash-library",
+    });
+    expect(created.file.owner).toEqual({ kind: "library" });
+    await expect(
+      service(created.file).authorizeDownload({
+        actor,
+        permissions: ["crm:files:read", "crm:files:download"],
+        fileId: created.file.id,
+      }),
+    ).rejects.toBeInstanceOf(FileStateConflictError);
+  });
   it("denies upload by default before checking an owner", async () => {
     await expect(
       service(null).reserveUpload({

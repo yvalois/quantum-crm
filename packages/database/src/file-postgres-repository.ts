@@ -14,7 +14,7 @@ import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database
 interface FileRow {
   readonly id: string;
   readonly owner_member_id: string;
-  readonly owner_kind: "existing" | "claim";
+  readonly owner_kind: "existing" | "claim" | "library";
   readonly owner_module: "documents" | "conversations" | "forms" | "catalog" | null;
   readonly owner_type:
     | "commercial_document"
@@ -96,14 +96,16 @@ const referenceSelection = `reference.id::text, reference.file_id::text, referen
 
 function fileFromRow(row: FileRow): FileRecord {
   const owner =
-    row.owner_kind === "claim"
-      ? { kind: "claim" as const, attachmentClaimId: row.attachment_claim_id! }
-      : {
-          kind: "existing" as const,
-          module: row.owner_module!,
-          type: row.owner_type!,
-          id: row.owner_id!,
-        };
+    row.owner_kind === "library"
+      ? { kind: "library" as const }
+      : row.owner_kind === "claim"
+        ? { kind: "claim" as const, attachmentClaimId: row.attachment_claim_id! }
+        : {
+            kind: "existing" as const,
+            module: row.owner_module!,
+            type: row.owner_type!,
+            id: row.owner_id!,
+          };
   return Object.freeze({
     id: row.id,
     status: row.status.toUpperCase() as FileRecord["status"],
@@ -297,6 +299,7 @@ export function createFilePostgresRepository(pool: PostgresPool): FileProcessing
           params.push(filters.fileClass.toLowerCase());
           clauses.push(`file.file_class = $${params.length}`);
         }
+        if (filters.collection === "library") clauses.push("file.owner_kind = 'library'");
         const decoded = cursor(filters.cursor);
         if (filters.cursor && !decoded) throw new DatabaseUnavailableError();
         if (decoded) {

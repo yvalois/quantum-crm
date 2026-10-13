@@ -274,6 +274,7 @@ export class AppModule {
               database.commercial.files,
               {
                 canUseOwner: async (actor, owner) => {
+                  if (owner.kind === "library") return true;
                   if (owner.kind !== "existing") return false;
                   if (owner.module === "conversations" && owner.type === "historical_attachment") {
                     return history.canUseAttachmentOwner(actor, owner.id);
