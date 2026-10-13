@@ -237,8 +237,7 @@ export class SalesService {
       throw new SalesVersionConflictError();
     }
     const ownerMemberId = input.ownerMemberId ?? current.ownerMemberId;
-    if (ownerMemberId !== current.ownerMemberId)
-      allow(input.permissions, "crm:sales:assign");
+    if (ownerMemberId !== current.ownerMemberId) allow(input.permissions, "crm:sales:assign");
     if (ownerMemberId !== current.ownerMemberId && !(await this.members.isActive(ownerMemberId)))
       throw new SalesValidationError();
     const amountMinor = input.amountMinor ?? current.amountMinor;

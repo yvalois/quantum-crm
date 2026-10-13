@@ -176,7 +176,12 @@ export interface HistoricalConversationRepository {
     query: HistoricalThreadQuery,
   ) => Promise<HistoricalPage<HistoricalThreadRecord>>;
   readonly find: (actor: CommercialActor, id: string) => Promise<HistoricalThreadRecord | null>;
-  readonly assign?: (actor: CommercialActor, id: string, expectedAssigneeMemberId: string | null, assigneeMemberId: string) => Promise<HistoricalThreadRecord | null>;
+  readonly assign?: (
+    actor: CommercialActor,
+    id: string,
+    expectedAssigneeMemberId: string | null,
+    assigneeMemberId: string,
+  ) => Promise<HistoricalThreadRecord | null>;
   readonly messages: (
     actor: CommercialActor,
     id: string,
@@ -416,7 +421,10 @@ export class HistoricalConversationService {
       throw new HistoricalImportValidationError();
     if (!this.repository.assign) throw new HistoricalImportValidationError();
     const result = await this.repository.assign(
-      input.actor, input.threadId, input.expectedAssigneeMemberId, input.assigneeMemberId,
+      input.actor,
+      input.threadId,
+      input.expectedAssigneeMemberId,
+      input.assigneeMemberId,
     );
     if (!result) throw new HistoricalConversationNotFoundError();
     return result;

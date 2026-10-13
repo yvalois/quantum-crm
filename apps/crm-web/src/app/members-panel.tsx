@@ -424,7 +424,9 @@ export function MembersPanel(): React.JSX.Element {
           scopeChanged
             ? { commercialScope: editCommercialScope }
             : {
-                ...(editDisplayName !== editingMember.displayName ? { displayName: editDisplayName } : {}),
+                ...(editDisplayName !== editingMember.displayName
+                  ? { displayName: editDisplayName }
+                  : {}),
                 ...(editEmail !== editingMember.email ? { email: editEmail } : {}),
                 ...(roleChanged ? { roleCode: editRoleCode } : {}),
               },
@@ -677,7 +679,9 @@ export function MembersPanel(): React.JSX.Element {
                         <small>
                           Desde {dateLabel(member.createdAt)} <span aria-hidden="true">·</span>{" "}
                           {scopeLabel(member.commercialScope)}
-                          {member.roleCode ? ` · ${roles.find((role) => role.code === member.roleCode)?.displayName ?? member.roleCode}` : ""}
+                          {member.roleCode
+                            ? ` · ${roles.find((role) => role.code === member.roleCode)?.displayName ?? member.roleCode}`
+                            : ""}
                         </small>
                       </div>
                       <span className={`status status-${member.status.toLowerCase()}`}>
@@ -766,9 +770,14 @@ export function MembersPanel(): React.JSX.Element {
                 </label>
                 <label>
                   Rol
-                  <select value={editRoleCode} onChange={(event) => setEditRoleCode(event.target.value)}>
+                  <select
+                    value={editRoleCode}
+                    onChange={(event) => setEditRoleCode(event.target.value)}
+                  >
                     {roles.map((role) => (
-                      <option key={role.code} value={role.code}>{role.displayName}</option>
+                      <option key={role.code} value={role.code}>
+                        {role.displayName}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -785,7 +794,9 @@ export function MembersPanel(): React.JSX.Element {
                     <option value="TEAM">Registros del equipo</option>
                     <option value="ASSIGNED">Solo asignados</option>
                   </select>
-                  {editRoleCode === "ADVISOR" ? <small>Los asesores solo pueden acceder a registros asignados.</small> : null}
+                  {editRoleCode === "ADVISOR" ? (
+                    <small>Los asesores solo pueden acceder a registros asignados.</small>
+                  ) : null}
                 </label>
                 <div className="form-actions">
                   <button

@@ -101,10 +101,12 @@ export const HistoricalConversationListResponseSchema = z
 export const HistoricalConversationResponseSchema = z
   .object({ data: HistoricalConversationSchema })
   .strict();
-export const AssignHistoricalConversationSchema = z.object({
-  assigneeMemberId: z.string().uuid(),
-  expectedAssigneeMemberId: z.string().uuid().nullable(),
-}).strict();
+export const AssignHistoricalConversationSchema = z
+  .object({
+    assigneeMemberId: z.string().uuid(),
+    expectedAssigneeMemberId: z.string().uuid().nullable(),
+  })
+  .strict();
 export const HistoricalConversationMessageListResponseSchema = z
   .object({
     data: z.array(HistoricalConversationMessageSchema),

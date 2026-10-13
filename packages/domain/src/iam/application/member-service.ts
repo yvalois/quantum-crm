@@ -200,8 +200,11 @@ export class IamMemberService {
     }
     const current = await this.repository.findById(input.memberId);
     if (!current) throw new IamMemberNotFoundError();
-    if (current.roleCode === "ADVISOR" &&
-        input.commercialScope !== undefined && input.commercialScope !== "ASSIGNED")
+    if (
+      current.roleCode === "ADVISOR" &&
+      input.commercialScope !== undefined &&
+      input.commercialScope !== "ASSIGNED"
+    )
       throw new IamMemberValidationError();
     let updated = current;
     const updateCommercialScope = this.repository.updateCommercialScope;

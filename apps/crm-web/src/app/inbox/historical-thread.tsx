@@ -93,11 +93,14 @@ export function HistoricalThread({
           expectedAssigneeMemberId: selected.assigneeMemberId,
         }),
       });
-      if (!response.ok) throw new Error(response.status === 403
-        ? "No tienes permiso para asignar este chat."
-        : response.status === 409
-          ? "La asignación cambió. Actualiza el chat e inténtalo de nuevo."
-          : "No se pudo asignar el chat.");
+      if (!response.ok)
+        throw new Error(
+          response.status === 403
+            ? "No tienes permiso para asignar este chat."
+            : response.status === 409
+              ? "La asignación cambió. Actualiza el chat e inténtalo de nuevo."
+              : "No se pudo asignar el chat.",
+        );
       setSelected(HistoricalConversationResponseSchema.parse(await response.json()).data);
       onAssigned();
     } catch (cause) {
@@ -179,7 +182,9 @@ export function HistoricalThread({
           >
             <option value="">Sin asignar</option>
             {assignees.map((member) => (
-              <option key={member.id} value={member.id}>{member.displayName}</option>
+              <option key={member.id} value={member.id}>
+                {member.displayName}
+              </option>
             ))}
           </select>
         </label>

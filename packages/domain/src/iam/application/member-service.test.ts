@@ -474,23 +474,39 @@ describe("IAM member service", () => {
     const repository: IamMemberRepository = {
       list: async () => ({ members: [], nextCursor: null }),
       findById: async () => ({
-        id: targetMemberId, oidcSubject: "advisor", displayName: "Advisor",
-        email: "advisor@example.test", status: "ACTIVE", authorizationRevision: 2n,
-        createdAt: now, updatedAt: now, deactivatedAt: null,
-        commercialScope: "ASSIGNED", roleCode: "ADVISOR",
+        id: targetMemberId,
+        oidcSubject: "advisor",
+        displayName: "Advisor",
+        email: "advisor@example.test",
+        status: "ACTIVE",
+        authorizationRevision: 2n,
+        createdAt: now,
+        updatedAt: now,
+        deactivatedAt: null,
+        commercialScope: "ASSIGNED",
+        roleCode: "ADVISOR",
       }),
       findByOidcSubject: async () => null,
-      createInvitation: async () => { throw new Error("unused"); },
+      createInvitation: async () => {
+        throw new Error("unused");
+      },
       update: async (value) => value,
       updateCommercialScope,
       assignRole: async () => null,
       acceptInvitation: async () => null,
-      bootstrapInitialAdministrator: async ({ member: value }) => ({ member: value, replayed: false }),
+      bootstrapInitialAdministrator: async ({ member: value }) => ({
+        member: value,
+        replayed: false,
+      }),
     };
-    await expect(new IamMemberService(repository, () => now).updateProfile({
-      actor: { memberId: actorId, permissions: ["iam:members:update", "iam:members:roles"] },
-      memberId: targetMemberId, commercialScope: "PROFILE", expectedAuthorizationRevision: 2n,
-    })).rejects.toBeInstanceOf(IamMemberValidationError);
+    await expect(
+      new IamMemberService(repository, () => now).updateProfile({
+        actor: { memberId: actorId, permissions: ["iam:members:update", "iam:members:roles"] },
+        memberId: targetMemberId,
+        commercialScope: "PROFILE",
+        expectedAuthorizationRevision: 2n,
+      }),
+    ).rejects.toBeInstanceOf(IamMemberValidationError);
     expect(updateCommercialScope).not.toHaveBeenCalled();
   });
 });

@@ -321,14 +321,18 @@ describe("historical conversations", () => {
     }));
     const service = new HistoricalConversationService({ ...repository, assign }, references);
     const input = {
-      actor, threadId: "019b0000-0000-7000-8000-000000000002",
-      expectedAssigneeMemberId: null, assigneeMemberId,
+      actor,
+      threadId: "019b0000-0000-7000-8000-000000000002",
+      expectedAssigneeMemberId: null,
+      assigneeMemberId,
     };
-    await expect(service.assign({ ...input, permissions: ["crm:conversations:read"] }))
-      .rejects.toBeInstanceOf(IamAuthorizationError);
+    await expect(
+      service.assign({ ...input, permissions: ["crm:conversations:read"] }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
     expect(assign).not.toHaveBeenCalled();
-    await expect(service.assign({ ...input, permissions: ["crm:conversations:assign"] }))
-      .resolves.toMatchObject({ assigneeMemberId });
+    await expect(
+      service.assign({ ...input, permissions: ["crm:conversations:assign"] }),
+    ).resolves.toMatchObject({ assigneeMemberId });
     expect(assign).toHaveBeenCalledWith(actor, input.threadId, null, assigneeMemberId);
   });
 });
