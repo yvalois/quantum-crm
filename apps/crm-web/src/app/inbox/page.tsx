@@ -1077,6 +1077,9 @@ export default function InboxPage(): React.JSX.Element {
                 key={`GHL:${historicalSelected.id}`}
                 conversation={historicalSelected}
                 contactName={selectedContact?.displayName}
+                assignees={assignees}
+                csrfToken={csrf}
+                onAssigned={() => setListRefresh((value) => value + 1)}
               />
             ) : threadBusy ? (
               <div className={styles.threadEmpty} role="status">

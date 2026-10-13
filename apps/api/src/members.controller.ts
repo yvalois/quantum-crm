@@ -81,6 +81,7 @@ function memberResponse(member: IamMember) {
           : member.commercialScope === "TEAM"
             ? "TEAM"
             : "ASSIGNED",
+      ...(member.roleCode ? { roleCode: member.roleCode } : {}),
     },
   });
 }
@@ -166,6 +167,7 @@ export class MembersController {
             : member.commercialScope === "TEAM"
               ? "TEAM"
               : "ASSIGNED",
+        ...(member.roleCode ? { roleCode: member.roleCode } : {}),
       })),
       page: { nextCursor: result.nextCursor },
     });

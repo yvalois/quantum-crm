@@ -42,6 +42,7 @@ export interface IamMember {
   readonly deactivatedAt: Date | null;
   /** Stored on the membership; omitted by older in-memory callers. */
   readonly commercialScope?: CommercialScope;
+  readonly roleCode?: RoleCode;
 }
 
 export interface IamInvitation {
@@ -66,6 +67,7 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:sales:read",
         "crm:sales:create",
         "crm:sales:update",
+        "crm:sales:assign",
         "crm:sales:move",
         "crm:tasks:read",
         "crm:tasks:create",

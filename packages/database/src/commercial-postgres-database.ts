@@ -109,6 +109,28 @@ function visibility(
   });
 }
 
+/** A contact is visible to an assigned-scope member through their own
+ * assignment, an assigned opportunity, or an assigned conversation. The
+ * related records remain subject to their own repository authorization. */
+function contactVisibility(actor: CommercialActor, memberPlaceholder: number): VisibilityPredicate {
+  const direct = visibility(actor, memberPlaceholder, ["contact.owner_member_id"]);
+  if (actor.scope !== "ASSIGNED" && actor.scope !== "OWN") return direct;
+  const member = `$${memberPlaceholder}::uuid`;
+  return Object.freeze({
+    sql: `(${direct.sql}
+      OR EXISTS (SELECT 1 FROM sales.opportunities AS assigned_opportunity
+        WHERE assigned_opportunity.contact_id = contact.id
+          AND assigned_opportunity.owner_member_id = ${member})
+      OR EXISTS (SELECT 1 FROM conversations.conversations AS assigned_conversation
+        WHERE assigned_conversation.contact_id = contact.id
+          AND assigned_conversation.assignee_member_id = ${member})
+      OR EXISTS (SELECT 1 FROM conversations.historical_threads AS assigned_thread
+        WHERE assigned_thread.contact_id = contact.id
+          AND assigned_thread.assignee_member_id = ${member}))`,
+    params: direct.params,
+  });
+}
+
 export class CommercialIdempotencyConflictError extends Error {
   public constructor() {
     super("Idempotency key was already used with a different request");
@@ -359,7 +381,7 @@ interface ContactQueryParts {
 }
 
 function contactQueryParts(actor: CommercialActor, filters: ContactListFilters): ContactQueryParts {
-  const access = visibility(actor, 1, ["contact.owner_member_id"]);
+  const access = contactVisibility(actor, 1);
   const params: unknown[] = [...access.params];
   const conditions = [access.sql];
   const parameter = (value: unknown): string => {
@@ -829,7 +851,7 @@ export function createCommercialPostgresRepositories(
     },
     find: async (actor, id) => {
       try {
-        const access = visibility(actor, 2, ["contact.owner_member_id"]);
+        const access = contactVisibility(actor, 2);
         const result = (await pool.query(
           `SELECT ${contactSelection("contact")}
              FROM contacts.contacts AS contact
@@ -1056,7 +1078,7 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
-        const access = visibility(input.actor, 8, ["contact.owner_member_id"]);
+        const access = contactVisibility(input.actor, 8);
         const result = (await client.query<{ readonly id: string }>(
           `UPDATE contacts.contacts AS contact
               SET owner_member_id = $2::uuid,
@@ -1156,7 +1178,7 @@ export function createCommercialPostgresRepositories(
         }
         if (target.kind === "IDS") {
           const contactIds = Object.freeze([...new Set(target.contactIds)]);
-          const access = visibility(input.actor, 2, ["contact.owner_member_id"]);
+          const access = contactVisibility(input.actor, 2);
           const visible = await client.query<{ readonly id: string }>(
             `SELECT contact.id::text
                FROM contacts.contacts AS contact
@@ -1473,7 +1495,7 @@ export function createCommercialPostgresRepositories(
           const found = await client.query<ContactRow>(
             `SELECT ${contactSelection("contact")}
                FROM contacts.contacts AS contact
-              WHERE ${visibility(input.actor, 1, ["contact.owner_member_id"]).sql}
+              WHERE ${contactVisibility(input.actor, 1).sql}
                 AND (($2::citext IS NOT NULL AND contact.email = $2::citext)
                   OR ($3::text IS NOT NULL AND contact.phone = $3::text))
               ORDER BY contact.id ASC
@@ -1630,7 +1652,7 @@ export function createCommercialPostgresRepositories(
         const results: AutomationExecutionResult[] = [];
         for (const contactId of [...new Set(input.contactIds)]) {
           const executionId = randomUUID();
-          const contactAccess = visibility(input.actor, 1, ["contact.owner_member_id"]);
+          const contactAccess = contactVisibility(input.actor, 1);
           const contact = await client.query<{
             readonly id: string;
             readonly owner_member_id: string;

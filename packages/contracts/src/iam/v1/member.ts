@@ -26,6 +26,7 @@ export const CrmPermissionCatalog = [
   "crm:sales:read",
   "crm:sales:create",
   "crm:sales:update",
+  "crm:sales:assign",
   "crm:sales:delete",
   "crm:sales:export",
   "crm:sales:configure",
@@ -115,6 +116,7 @@ export const MemberSchema = z.object({
   updatedAt: IsoDateTimeSchema,
   deactivatedAt: IsoDateTimeSchema.nullable(),
   commercialScope: CommercialScopeSchema.default("ASSIGNED"),
+  roleCode: RoleCodeSchema.optional(),
 });
 
 export const MemberResponseSchema = z.object({ data: MemberSchema });

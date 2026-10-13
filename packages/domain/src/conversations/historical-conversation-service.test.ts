@@ -300,4 +300,35 @@ describe("historical conversations", () => {
     ).rejects.toBeInstanceOf(HistoricalConversationNotFoundError);
     expect(repository.list).not.toHaveBeenCalled();
   });
+  it("only permits an authorized operator to assign an imported chat to an active member", async () => {
+    const { repository, references } = setup();
+    const assigneeMemberId = "019b0000-0000-7000-8000-000000000009";
+    const assign = vi.fn(async () => ({
+      id: "019b0000-0000-7000-8000-000000000002",
+      source: "GHL" as const,
+      sourceExternalId: "thread-1",
+      sourceThreadPresent: true,
+      contactId: null,
+      assigneeMemberId,
+      rawChannel: null,
+      rawStatus: null,
+      subject: null,
+      sourceCreatedAt: null,
+      sourceUpdatedAt: null,
+      messageCount: 0,
+      lastMessageAt: null,
+      importedAt: new Date("2026-10-12T00:00:00Z"),
+    }));
+    const service = new HistoricalConversationService({ ...repository, assign }, references);
+    const input = {
+      actor, threadId: "019b0000-0000-7000-8000-000000000002",
+      expectedAssigneeMemberId: null, assigneeMemberId,
+    };
+    await expect(service.assign({ ...input, permissions: ["crm:conversations:read"] }))
+      .rejects.toBeInstanceOf(IamAuthorizationError);
+    expect(assign).not.toHaveBeenCalled();
+    await expect(service.assign({ ...input, permissions: ["crm:conversations:assign"] }))
+      .resolves.toMatchObject({ assigneeMemberId });
+    expect(assign).toHaveBeenCalledWith(actor, input.threadId, null, assigneeMemberId);
+  });
 });

@@ -176,6 +176,7 @@ export interface HistoricalConversationRepository {
     query: HistoricalThreadQuery,
   ) => Promise<HistoricalPage<HistoricalThreadRecord>>;
   readonly find: (actor: CommercialActor, id: string) => Promise<HistoricalThreadRecord | null>;
+  readonly assign?: (actor: CommercialActor, id: string, expectedAssigneeMemberId: string | null, assigneeMemberId: string) => Promise<HistoricalThreadRecord | null>;
   readonly messages: (
     actor: CommercialActor,
     id: string,
@@ -192,6 +193,12 @@ export class HistoricalConversationNotFoundError extends Error {
   public constructor() {
     super("Historical conversation not found");
     this.name = "HistoricalConversationNotFoundError";
+  }
+}
+export class HistoricalAssignmentConflictError extends Error {
+  public constructor() {
+    super("Historical conversation assignment changed");
+    this.name = "HistoricalAssignmentConflictError";
   }
 }
 
@@ -392,6 +399,27 @@ export class HistoricalConversationService {
     const record = await this.repository.find(actor, threadId);
     if (!record) throw new HistoricalConversationNotFoundError();
     return (await withSourceParticipants([record], this.sourceParticipants))[0]!;
+  }
+
+  public async assign(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly threadId: string;
+    readonly expectedAssigneeMemberId: string | null;
+    readonly assigneeMemberId: string;
+  }) {
+    if (!input.permissions.includes("crm:conversations:assign")) throw new IamAuthorizationError();
+    id(input.threadId);
+    id(input.assigneeMemberId);
+    if (input.expectedAssigneeMemberId !== null) id(input.expectedAssigneeMemberId);
+    if (!(await this.references.isActiveMember(input.assigneeMemberId)))
+      throw new HistoricalImportValidationError();
+    if (!this.repository.assign) throw new HistoricalImportValidationError();
+    const result = await this.repository.assign(
+      input.actor, input.threadId, input.expectedAssigneeMemberId, input.assigneeMemberId,
+    );
+    if (!result) throw new HistoricalConversationNotFoundError();
+    return result;
   }
 
   public async messages(

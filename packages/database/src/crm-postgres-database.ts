@@ -75,6 +75,7 @@ interface IamMemberRow {
   readonly updated_at: Date;
   readonly deactivated_at: Date | null;
   readonly commercial_scope?: string;
+  readonly role_code?: string | null;
 }
 
 interface IamInvitationRow {
@@ -177,6 +178,7 @@ function memberFromRow(row: IamMemberRow): IamMember {
     updatedAt: row.updated_at,
     deactivatedAt: row.deactivated_at,
     commercialScope: commercialScope(row.commercial_scope),
+    ...(row.role_code ? { roleCode: row.role_code } : {}),
   });
 }
 
@@ -320,7 +322,11 @@ function createIamMemberRepository(pool: PostgresPool): IamMemberRepository {
       try {
         const result = (await pool.query(
           `
-            SELECT ${memberSelection}
+            SELECT ${memberSelection},
+              (SELECT role.code FROM iam.member_roles AS assignment
+                JOIN iam.roles AS role ON role.id = assignment.role_id
+                WHERE assignment.member_id = iam.members.id
+                ORDER BY role.code LIMIT 1) AS role_code
             FROM iam.members
             WHERE ($1::text IS NULL OR status::text = lower($1::text))
               AND ($2::timestamptz IS NULL OR (created_at, id) > ($2::timestamptz, $3::uuid))

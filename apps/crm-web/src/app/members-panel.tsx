@@ -124,6 +124,7 @@ export function MembersPanel(): React.JSX.Element {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editRoleCode, setEditRoleCode] = useState("ADVISOR");
   const [editCommercialScope, setEditCommercialScope] =
     useState<Member["commercialScope"]>("ASSIGNED");
   const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -394,10 +395,15 @@ export function MembersPanel(): React.JSX.Element {
     event.preventDefault();
     if (!csrfToken || !editingMember) return;
     const scopeChanged = editCommercialScope !== editingMember.commercialScope;
+    const roleChanged = editRoleCode !== (editingMember.roleCode ?? "ADVISOR");
     const profileChanged =
       editDisplayName !== editingMember.displayName || editEmail !== editingMember.email;
-    if (scopeChanged && profileChanged) {
-      setError("Guarda el nombre/correo y el alcance en operaciones separadas.");
+    if (!scopeChanged && !roleChanged && !profileChanged) {
+      setEditingMember(null);
+      return;
+    }
+    if (scopeChanged && (profileChanged || roleChanged)) {
+      setError("Guarda el alcance separado de los datos y el rol.");
       return;
     }
     setSaving(true);
@@ -417,7 +423,11 @@ export function MembersPanel(): React.JSX.Element {
         body: JSON.stringify(
           scopeChanged
             ? { commercialScope: editCommercialScope }
-            : { displayName: editDisplayName, email: editEmail },
+            : {
+                ...(editDisplayName !== editingMember.displayName ? { displayName: editDisplayName } : {}),
+                ...(editEmail !== editingMember.email ? { email: editEmail } : {}),
+                ...(roleChanged ? { roleCode: editRoleCode } : {}),
+              },
         ),
       });
       if (!response.ok) throw new Error(await responseMessage(response));
@@ -481,6 +491,7 @@ export function MembersPanel(): React.JSX.Element {
     setEditingMember(member);
     setEditDisplayName(member.displayName);
     setEditEmail(member.email);
+    setEditRoleCode(member.roleCode ?? "ADVISOR");
     setEditCommercialScope(member.commercialScope);
     setError(null);
     setNotice(null);
@@ -666,6 +677,7 @@ export function MembersPanel(): React.JSX.Element {
                         <small>
                           Desde {dateLabel(member.createdAt)} <span aria-hidden="true">·</span>{" "}
                           {scopeLabel(member.commercialScope)}
+                          {member.roleCode ? ` · ${roles.find((role) => role.code === member.roleCode)?.displayName ?? member.roleCode}` : ""}
                         </small>
                       </div>
                       <span className={`status status-${member.status.toLowerCase()}`}>
@@ -751,6 +763,14 @@ export function MembersPanel(): React.JSX.Element {
                     required
                     maxLength={320}
                   />
+                </label>
+                <label>
+                  Rol
+                  <select value={editRoleCode} onChange={(event) => setEditRoleCode(event.target.value)}>
+                    {roles.map((role) => (
+                      <option key={role.code} value={role.code}>{role.displayName}</option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   Alcance de datos

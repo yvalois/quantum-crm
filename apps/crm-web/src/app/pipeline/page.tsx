@@ -3,7 +3,7 @@
 import { ContactListResponseSchema } from "@quantum-crm/contracts";
 import type {
   Contact,
-  Member,
+  TaskAssignee,
   Opportunity,
   OpportunityHistoryEntry,
   OpportunityStatus,
@@ -216,7 +216,7 @@ export default function PipelinePage(): React.JSX.Element {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<TaskAssignee[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState("");
   const [filters, setFilters] = useState<BoardFilters>(emptyFilters);
   const [draftFilters, setDraftFilters] = useState<BoardFilters>(emptyFilters);
@@ -332,7 +332,7 @@ export default function PipelinePage(): React.JSX.Element {
         setCsrf(session.csrfToken);
         const [pipelineResponse, memberResponse] = await Promise.all([
           fetch("/api/pipeline", { cache: "no-store", credentials: "same-origin" }),
-          fetch("/api/members?limit=100&status=ACTIVE", {
+          fetch("/api/tasks/assignees", {
             cache: "no-store",
             credentials: "same-origin",
           }),
@@ -341,7 +341,8 @@ export default function PipelinePage(): React.JSX.Element {
           if (!response.ok) throw new Error(await responseTitle(response));
         const pipelineData = ((await pipelineResponse.json()) as List<Pipeline>).data;
         setPipelines(pipelineData);
-        if (memberResponse.ok) setMembers(((await memberResponse.json()) as List<Member>).data);
+        if (memberResponse.ok)
+          setMembers(((await memberResponse.json()) as List<TaskAssignee>).data);
         const requestedId = preferredPipelineId ?? selectedPipelineId;
         const nextPipelineId = pipelineData.some((item) => item.id === requestedId)
           ? requestedId

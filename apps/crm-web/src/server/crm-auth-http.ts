@@ -14,6 +14,7 @@ import {
   HistoricalConversationMessageListResponseSchema,
   HistoricalConversationPageQuerySchema,
   HistoricalConversationResponseSchema,
+  AssignHistoricalConversationSchema,
   UnifiedInboxListQuerySchema,
   UnifiedInboxListResponseSchema,
   ContactIdSchema,
@@ -2117,6 +2118,20 @@ export async function handleCrmHistoricalConversationGet(
     `/api/v1/historical-conversations/${id}`,
     HistoricalConversationResponseSchema,
   );
+}
+
+export async function handleCrmHistoricalConversationAssign(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  id: string,
+): Promise<Response> {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  return conversationMutation(request, runtime, {
+    path: `/api/v1/historical-conversations/${id}/assignee`,
+    method: "PATCH",
+    requestSchema: AssignHistoricalConversationSchema,
+    responseSchema: HistoricalConversationResponseSchema,
+  });
 }
 
 export async function handleCrmCustomFieldDefinitionList(

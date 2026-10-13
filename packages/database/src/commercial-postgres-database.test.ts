@@ -94,6 +94,23 @@ function poolWithClientQuery(query: ReturnType<typeof vi.fn>) {
 }
 
 describe("commercial PostgreSQL repositories", () => {
+  it("authorizes assigned contacts through their lead or chat while keeping profile scope unchanged", async () => {
+    const query = vi.fn(async (_text: string, _values?: unknown[]) => ({ rows: [] }));
+    const pool = {
+      query,
+      connect: vi.fn(),
+      end: vi.fn(async () => undefined),
+      on: vi.fn(),
+    } as unknown as PostgresPool;
+    const contacts = createCommercialPostgresRepositories(pool).contacts;
+    await contacts.find({ memberId: actor.memberId, scope: "ASSIGNED" }, contactRow.id);
+    const assignedSql = String(query.mock.calls[0]?.[0]);
+    expect(assignedSql).toContain("assigned_opportunity.owner_member_id = $2::uuid");
+    expect(assignedSql).toContain("assigned_conversation.assignee_member_id = $2::uuid");
+    expect(assignedSql).toContain("assigned_thread.assignee_member_id = $2::uuid");
+    await contacts.find({ memberId: actor.memberId, scope: "PROFILE" }, contactRow.id);
+    expect(String(query.mock.calls[1]?.[0])).not.toContain("assigned_opportunity");
+  });
   it("updates contact data and replaces labels inside one versioned transaction", async () => {
     const ownerMemberId = "019b0000-0000-7000-8000-000000000022";
     const labelId = "019b0000-0000-7000-8000-000000000023";
