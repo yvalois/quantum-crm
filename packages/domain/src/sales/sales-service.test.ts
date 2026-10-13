@@ -197,12 +197,12 @@ describe("sales service", () => {
       { existsFor: async () => true },
       { isActive: async () => true },
     );
-    await expect(service.createOpportunity({
+    expect(() => service.createOpportunity({
       actor, permissions: ["crm:sales:create"], contactId: opportunity.contactId,
       pipelineId: opportunity.pipelineId, stageId: opportunity.stageId,
       ownerMemberId: targetMemberId, title: "New lead", amountMinor: 0n, currency: "COP",
       idempotencyKey: "lead-create-assign", payloadHash: "a".repeat(64),
-    })).rejects.toBeInstanceOf(IamAuthorizationError);
+    })).toThrow(IamAuthorizationError);
     await expect(service.updateOpportunity({
       actor, permissions: ["crm:sales:update"], opportunityId: opportunity.id,
       expectedVersion: opportunity.version, ownerMemberId: targetMemberId,
