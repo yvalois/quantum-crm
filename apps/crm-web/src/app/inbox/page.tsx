@@ -34,6 +34,9 @@ interface SessionPayload {
   readonly authenticated: boolean;
   readonly csrfToken?: string;
 }
+interface CapabilitiesPayload {
+  readonly data: { readonly canAssignConversations: boolean };
+}
 
 interface List<T> {
   readonly data: T[];
@@ -244,6 +247,7 @@ export default function InboxPage(): React.JSX.Element {
   const [items, setItems] = useState<UnifiedInboxItem[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
+  const [canAssignConversations, setCanAssignConversations] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selected, setSelected] = useState<Conversation | null>(null);
@@ -405,21 +409,39 @@ export default function InboxPage(): React.JSX.Element {
           throw new Error("La sesión no es válida.");
         if (controller.signal.aborted) return;
         setCsrf(session.csrfToken);
-        const [contactResponse, assigneeResponse, replyResponse] = await Promise.all([
-          fetch("/api/contacts", { cache: "no-store", credentials: "same-origin", signal }),
-          fetch("/api/tasks/assignees", { cache: "no-store", credentials: "same-origin", signal }),
-          fetch("/api/conversations/quick-replies", {
-            cache: "no-store",
-            credentials: "same-origin",
-            signal,
-          }),
-        ]);
-        for (const response of [contactResponse, assigneeResponse, replyResponse])
+        const [contactResponse, assigneeResponse, replyResponse, capabilitiesResponse] =
+          await Promise.all([
+            fetch("/api/contacts", { cache: "no-store", credentials: "same-origin", signal }),
+            fetch("/api/tasks/assignees", {
+              cache: "no-store",
+              credentials: "same-origin",
+              signal,
+            }),
+            fetch("/api/conversations/quick-replies", {
+              cache: "no-store",
+              credentials: "same-origin",
+              signal,
+            }),
+            fetch("/api/auth/capabilities", {
+              cache: "no-store",
+              credentials: "same-origin",
+              signal,
+            }),
+          ]);
+        for (const response of [
+          contactResponse,
+          assigneeResponse,
+          replyResponse,
+          capabilitiesResponse,
+        ])
           if (!response.ok) throw new Error(await problem(response));
         if (controller.signal.aborted) return;
         setContacts(((await contactResponse.json()) as List<Contact>).data);
         setAssignees(((await assigneeResponse.json()) as List<TaskAssignee>).data);
         setQuickReplies(((await replyResponse.json()) as List<QuickReply>).data);
+        setCanAssignConversations(
+          ((await capabilitiesResponse.json()) as CapabilitiesPayload).data.canAssignConversations,
+        );
       } catch (cause) {
         if (!controller.signal.aborted) {
           setError(cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.");
@@ -1077,6 +1099,10 @@ export default function InboxPage(): React.JSX.Element {
                 key={`GHL:${historicalSelected.id}`}
                 conversation={historicalSelected}
                 contactName={selectedContact?.displayName}
+                assignees={assignees}
+                csrfToken={csrf}
+                canAssign={canAssignConversations}
+                onAssigned={() => setListRefresh((value) => value + 1)}
               />
             ) : threadBusy ? (
               <div className={styles.threadEmpty} role="status">
@@ -1351,23 +1377,27 @@ export default function InboxPage(): React.JSX.Element {
                 />
 
                 <section className={styles.controlSection}>
-                  <label>
-                    Responsable
-                    <select
-                      value={selected.assigneeMemberId ?? ""}
-                      disabled={saving}
-                      onChange={(event) =>
-                        void update({ assigneeMemberId: event.target.value || null })
-                      }
-                    >
-                      <option value="">Sin asignar</option>
-                      {assignees.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.displayName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {canAssignConversations ? (
+                    <label>
+                      Responsable
+                      <select
+                        value={selected.assigneeMemberId ?? ""}
+                        disabled={saving}
+                        onChange={(event) =>
+                          void update({ assigneeMemberId: event.target.value || null })
+                        }
+                      >
+                        <option value="">Sin asignar</option>
+                        {assignees.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.displayName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <p>Responsable: {selectedAssignee?.displayName ?? "Sin asignar"}</p>
+                  )}
                   <label>
                     Estado de conversación
                     <select

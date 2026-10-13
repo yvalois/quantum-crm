@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import {
   HistoricalImportValidationError,
   HistoricalAttachmentConflictError,
+  HistoricalAssignmentConflictError,
   HistoricalConversationNotFoundError,
   sourceParticipantReferencesFromRow,
   type HistoricalAttachmentRecord,
@@ -192,6 +193,7 @@ function fail(error: unknown): never {
   if (
     error instanceof HistoricalImportValidationError ||
     error instanceof HistoricalAttachmentConflictError ||
+    error instanceof HistoricalAssignmentConflictError ||
     error instanceof HistoricalConversationNotFoundError
   )
     throw error;
@@ -493,6 +495,43 @@ export function createHistoricalConversationPostgresRepository(
         return result.rows[0] ? thread(result.rows[0]) : null;
       } catch (error) {
         return fail(error);
+      }
+    },
+    assign: async (actor, id, expectedAssigneeMemberId, assigneeMemberId) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const visible = access(actor, 2);
+        const selected = await client.query<ThreadRow>(
+          `SELECT ${threadSelection} FROM conversations.historical_threads thread
+           WHERE thread.id = $1::uuid AND ${visible.sql} FOR UPDATE OF thread`,
+          [id, ...visible.params],
+        );
+        const current = selected.rows[0];
+        if (!current) {
+          await client.query("COMMIT");
+          return null;
+        }
+        if (current.assignee_member_id === assigneeMemberId) {
+          await client.query("COMMIT");
+          return thread(current);
+        }
+        if (current.assignee_member_id !== expectedAssigneeMemberId)
+          throw new HistoricalAssignmentConflictError();
+        await client.query(
+          `UPDATE conversations.historical_threads
+              SET assignee_member_id = $2::uuid
+            WHERE id = $1::uuid`,
+          [id, assigneeMemberId],
+        );
+        await client.query("COMMIT");
+        return thread({ ...current, assignee_member_id: assigneeMemberId });
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
       }
     },
     messages: async (actor, id, query) => {

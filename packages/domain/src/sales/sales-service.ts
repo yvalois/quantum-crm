@@ -157,6 +157,8 @@ export class SalesService {
     readonly payloadHash: string;
   }) {
     allow(input.permissions, "crm:sales:create");
+    if (input.ownerMemberId && input.ownerMemberId !== input.actor.memberId)
+      allow(input.permissions, "crm:sales:assign");
     if (input.amountMinor < 0n || !/^[A-Z]{3}$/u.test(input.currency))
       throw new SalesValidationError();
     return Promise.all([
@@ -235,6 +237,7 @@ export class SalesService {
       throw new SalesVersionConflictError();
     }
     const ownerMemberId = input.ownerMemberId ?? current.ownerMemberId;
+    if (ownerMemberId !== current.ownerMemberId) allow(input.permissions, "crm:sales:assign");
     if (ownerMemberId !== current.ownerMemberId && !(await this.members.isActive(ownerMemberId)))
       throw new SalesValidationError();
     const amountMinor = input.amountMinor ?? current.amountMinor;

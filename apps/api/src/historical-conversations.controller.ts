@@ -5,6 +5,9 @@ import {
   Get,
   Inject,
   NotFoundException,
+  ConflictException,
+  Patch,
+  Body,
   Param,
   Query,
   Req,
@@ -15,9 +18,11 @@ import {
   HistoricalConversationMessageListResponseSchema,
   HistoricalConversationPageQuerySchema,
   HistoricalConversationResponseSchema,
+  AssignHistoricalConversationSchema,
 } from "@quantum-crm/contracts";
 import {
   HistoricalConversationNotFoundError,
+  HistoricalAssignmentConflictError,
   HistoricalConversationService,
   HistoricalImportValidationError,
   IamAuthorizationError,
@@ -63,6 +68,7 @@ function serialize(record: HistoricalThreadRecord | HistoricalMessageRecord) {
 function map(error: unknown): never {
   if (error instanceof IamAuthorizationError) throw new ForbiddenException();
   if (error instanceof HistoricalConversationNotFoundError) throw new NotFoundException();
+  if (error instanceof HistoricalAssignmentConflictError) throw new ConflictException();
   if (error instanceof HistoricalImportValidationError) throw new BadRequestException();
   throw error;
 }
@@ -134,6 +140,29 @@ export class HistoricalConversationsController {
         data: result.items.map(serialize),
         page: { nextCursor: result.nextCursor },
       });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Patch(":threadId/assignee")
+  @RequireCrmPermission("crm:conversations:assign")
+  public async assign(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("threadId") threadId: string,
+    @Body() body: unknown,
+  ) {
+    try {
+      const parsed = AssignHistoricalConversationSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const auth = identity(request);
+      const result = await this.service.assign({
+        actor: auth.actor,
+        permissions: auth.permissions,
+        threadId,
+        ...parsed.data,
+      });
+      return HistoricalConversationResponseSchema.parse({ data: serialize(result) });
     } catch (error) {
       return map(error);
     }

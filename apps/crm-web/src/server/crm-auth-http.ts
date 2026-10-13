@@ -14,6 +14,7 @@ import {
   HistoricalConversationMessageListResponseSchema,
   HistoricalConversationPageQuerySchema,
   HistoricalConversationResponseSchema,
+  AssignHistoricalConversationSchema,
   UnifiedInboxListQuerySchema,
   UnifiedInboxListResponseSchema,
   ContactIdSchema,
@@ -37,6 +38,7 @@ import {
   MemberListQuerySchema,
   MemberListResponseSchema,
   MemberResponseSchema,
+  MemberCapabilitiesResponseSchema,
   UpdateMemberSchema,
   CreateRoleSchema,
   RoleListResponseSchema,
@@ -2119,6 +2121,20 @@ export async function handleCrmHistoricalConversationGet(
   );
 }
 
+export async function handleCrmHistoricalConversationAssign(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  id: string,
+): Promise<Response> {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  return conversationMutation(request, runtime, {
+    path: `/api/v1/historical-conversations/${id}/assignee`,
+    method: "PATCH",
+    requestSchema: AssignHistoricalConversationSchema,
+    responseSchema: HistoricalConversationResponseSchema,
+  });
+}
+
 export async function handleCrmCustomFieldDefinitionList(
   request: Request,
   runtime: CrmAuthRuntime,
@@ -2593,6 +2609,15 @@ export async function handleCrmSession(
       authenticatedAt: authorized.session.authenticatedAt.toISOString(),
     },
     { headers: crmNoStoreHeaders() },
+  );
+}
+
+export async function handleCrmCapabilities(request: Request, runtime: CrmAuthRuntime) {
+  return conversationRead(
+    request,
+    runtime,
+    "/api/v1/members/self/capabilities",
+    MemberCapabilitiesResponseSchema,
   );
 }
 

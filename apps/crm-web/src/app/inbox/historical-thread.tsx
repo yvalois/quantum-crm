@@ -5,6 +5,7 @@ import {
   HistoricalConversationResponseSchema,
   type HistoricalConversation,
   type HistoricalConversationMessage,
+  type TaskAssignee,
 } from "@quantum-crm/contracts";
 import { useEffect, useState } from "react";
 import styles from "./historical-inbox.module.css";
@@ -53,9 +54,17 @@ async function read(path: string, signal: AbortSignal): Promise<unknown> {
 export function HistoricalThread({
   conversation,
   contactName,
+  assignees,
+  csrfToken,
+  canAssign,
+  onAssigned,
 }: {
   readonly conversation: HistoricalConversation;
   readonly contactName: string | undefined;
+  readonly assignees: readonly TaskAssignee[];
+  readonly csrfToken: string | null;
+  readonly canAssign: boolean;
+  readonly onAssigned: () => void;
 }): React.JSX.Element {
   const [selected, setSelected] = useState(conversation);
   const [messages, setMessages] = useState<HistoricalConversationMessage[]>([]);
@@ -64,7 +73,44 @@ export function HistoricalThread({
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [assigning, setAssigning] = useState(false);
   const cursor = cursors.at(-1) ?? null;
+
+  const assign = async (assigneeMemberId: string): Promise<void> => {
+    if (!csrfToken || !assigneeMemberId) return;
+    setAssigning(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/conversations/historical/${selected.id}/assignee`, {
+        method: "PATCH",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          assigneeMemberId,
+          expectedAssigneeMemberId: selected.assigneeMemberId,
+        }),
+      });
+      if (!response.ok)
+        throw new Error(
+          response.status === 403
+            ? "No tienes permiso para asignar este chat."
+            : response.status === 409
+              ? "La asignación cambió. Actualiza el chat e inténtalo de nuevo."
+              : "No se pudo asignar el chat.",
+        );
+      setSelected(HistoricalConversationResponseSchema.parse(await response.json()).data);
+      onAssigned();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo asignar el chat.");
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -117,7 +163,7 @@ export function HistoricalThread({
           <HistoricalChannelBadge rawChannel={selected.rawChannel} />
         </div>
         <div>
-          <span>Solo lectura</span>
+          <span>Mensajes en consulta</span>
           {selected.contactId ? (
             <a
               className={styles.contactLink}
@@ -128,6 +174,23 @@ export function HistoricalThread({
           ) : null}
         </div>
       </header>
+      {canAssign && assignees.length > 0 ? (
+        <label>
+          Responsable del chat
+          <select
+            value={selected.assigneeMemberId ?? ""}
+            disabled={assigning || !csrfToken}
+            onChange={(event) => void assign(event.target.value)}
+          >
+            <option value="">Sin asignar</option>
+            {assignees.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {!selected.sourceThreadPresent ? (
         <p className={styles.orphan}>
           Se conservan los mensajes de esta conversación, pero su ficha original no está disponible.

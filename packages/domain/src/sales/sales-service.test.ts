@@ -188,6 +188,53 @@ describe("sales service", () => {
       }),
     ).rejects.toBeInstanceOf(SalesValidationError);
   });
+  it("does not let an advisor assign a lead to another member with ordinary edit rights", async () => {
+    const targetMemberId = "019b0000-0000-7000-8000-000000000099";
+    const createOpportunity = vi.fn(
+      async (input: { opportunity: Opportunity }) => input.opportunity,
+    );
+    const updateOpportunity = vi.fn(
+      async (input: { opportunity: Opportunity }) => input.opportunity,
+    );
+    const service = new SalesService(
+      {
+        ...repository,
+        findOpportunity: async () => opportunity,
+        createOpportunity,
+        updateOpportunity,
+      },
+      { existsFor: async () => true },
+      { isActive: async () => true },
+    );
+    expect(() =>
+      service.createOpportunity({
+        actor,
+        permissions: ["crm:sales:create"],
+        contactId: opportunity.contactId,
+        pipelineId: opportunity.pipelineId,
+        stageId: opportunity.stageId,
+        ownerMemberId: targetMemberId,
+        title: "New lead",
+        amountMinor: 0n,
+        currency: "COP",
+        idempotencyKey: "lead-create-assign",
+        payloadHash: "a".repeat(64),
+      }),
+    ).toThrow(IamAuthorizationError);
+    await expect(
+      service.updateOpportunity({
+        actor,
+        permissions: ["crm:sales:update"],
+        opportunityId: opportunity.id,
+        expectedVersion: opportunity.version,
+        ownerMemberId: targetMemberId,
+        idempotencyKey: "lead-update-assign",
+        payloadHash: "b".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+    expect(createOpportunity).not.toHaveBeenCalled();
+    expect(updateOpportunity).not.toHaveBeenCalled();
+  });
   it("requires an active owner and a reason for a lost opportunity", async () => {
     const current = {
       id: "019b0000-0000-7000-8000-000000000010",
@@ -213,7 +260,7 @@ describe("sales service", () => {
     await expect(
       service.updateOpportunity({
         actor,
-        permissions: ["crm:sales:update"],
+        permissions: ["crm:sales:update", "crm:sales:assign"],
         opportunityId: current.id,
         expectedVersion: 1n,
         ownerMemberId: "019b0000-0000-7000-8000-000000000099",

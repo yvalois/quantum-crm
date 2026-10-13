@@ -3,7 +3,7 @@
 import { ContactListResponseSchema } from "@quantum-crm/contracts";
 import type {
   Contact,
-  Member,
+  TaskAssignee,
   Opportunity,
   OpportunityHistoryEntry,
   OpportunityStatus,
@@ -21,6 +21,9 @@ import { useBoardDrag } from "./use-board-drag";
 interface SessionPayload {
   readonly authenticated: boolean;
   readonly csrfToken?: string;
+}
+interface CapabilitiesPayload {
+  readonly data: { readonly canAssignSales: boolean };
 }
 
 interface List<T> {
@@ -216,7 +219,8 @@ export default function PipelinePage(): React.JSX.Element {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<TaskAssignee[]>([]);
+  const [canAssignSales, setCanAssignSales] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState("");
   const [filters, setFilters] = useState<BoardFilters>(emptyFilters);
   const [draftFilters, setDraftFilters] = useState<BoardFilters>(emptyFilters);
@@ -330,18 +334,23 @@ export default function PipelinePage(): React.JSX.Element {
         if (!session.authenticated || !session.csrfToken)
           throw new Error("La sesión no es válida.");
         setCsrf(session.csrfToken);
-        const [pipelineResponse, memberResponse] = await Promise.all([
+        const [pipelineResponse, memberResponse, capabilitiesResponse] = await Promise.all([
           fetch("/api/pipeline", { cache: "no-store", credentials: "same-origin" }),
-          fetch("/api/members?limit=100&status=ACTIVE", {
+          fetch("/api/tasks/assignees", {
             cache: "no-store",
             credentials: "same-origin",
           }),
+          fetch("/api/auth/capabilities", { cache: "no-store", credentials: "same-origin" }),
         ]);
-        for (const response of [pipelineResponse])
+        for (const response of [pipelineResponse, capabilitiesResponse])
           if (!response.ok) throw new Error(await responseTitle(response));
+        setCanAssignSales(
+          ((await capabilitiesResponse.json()) as CapabilitiesPayload).data.canAssignSales,
+        );
         const pipelineData = ((await pipelineResponse.json()) as List<Pipeline>).data;
         setPipelines(pipelineData);
-        if (memberResponse.ok) setMembers(((await memberResponse.json()) as List<Member>).data);
+        if (memberResponse.ok)
+          setMembers(((await memberResponse.json()) as List<TaskAssignee>).data);
         const requestedId = preferredPipelineId ?? selectedPipelineId;
         const nextPipelineId = pipelineData.some((item) => item.id === requestedId)
           ? requestedId
@@ -1119,22 +1128,24 @@ export default function PipelinePage(): React.JSX.Element {
                   ))}
                 </select>
               </label>
-              <label>
-                Responsable
-                <select
-                  value={draftFilters.ownerMemberId}
-                  onChange={(event) =>
-                    setDraftFilters({ ...draftFilters, ownerMemberId: event.target.value })
-                  }
-                >
-                  <option value="">Todos los responsables</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {canAssignSales ? (
+                <label>
+                  Responsable
+                  <select
+                    value={draftFilters.ownerMemberId}
+                    onChange={(event) =>
+                      setDraftFilters({ ...draftFilters, ownerMemberId: event.target.value })
+                    }
+                  >
+                    <option value="">Todos los responsables</option>
+                    {members.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label>
                 Estado
                 <select
@@ -1836,17 +1847,19 @@ export default function PipelinePage(): React.JSX.Element {
                   ))}
                 </select>
               </label>
-              <label>
-                Responsable
-                <select name="ownerMemberId" defaultValue="">
-                  <option value="">Asignar según la política del equipo</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {canAssignSales ? (
+                <label>
+                  Responsable
+                  <select name="ownerMemberId" defaultValue="">
+                    <option value="">Asignar según la política del equipo</option>
+                    {members.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <div className={styles.drawerActions}>
                 <button
                   className={styles.textButton}
@@ -2011,21 +2024,23 @@ export default function PipelinePage(): React.JSX.Element {
                       />
                     </label>
                   </div>
-                  <label>
-                    Responsable
-                    <select name="ownerMemberId" defaultValue={editor.ownerMemberId}>
-                      {!memberById.has(editor.ownerMemberId) ? (
-                        <option value={editor.ownerMemberId}>
-                          Responsable actual (no disponible en el directorio)
-                        </option>
-                      ) : null}
-                      {members.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.displayName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {canAssignSales ? (
+                    <label>
+                      Responsable
+                      <select name="ownerMemberId" defaultValue={editor.ownerMemberId}>
+                        {!memberById.has(editor.ownerMemberId) ? (
+                          <option value={editor.ownerMemberId}>
+                            Responsable actual (no disponible en el directorio)
+                          </option>
+                        ) : null}
+                        {members.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.displayName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   <label>
                     Estado comercial
                     <select name="status" defaultValue={editor.status}>
