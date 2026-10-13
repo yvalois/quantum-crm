@@ -1199,7 +1199,7 @@ Dependencias: Contactos, oportunidades, catálogo, plantillas, agentes e integra
   - [ ] Conservar las condiciones de la versión enviada.
 
 - [ ] **DOC-14 — Adjuntar imágenes, fichas técnicas y otros documentos.**
-  - [ ] Biblioteca multimedia local: subir, filtrar, previsualizar y descargar archivos verificados desde el CRM.
+  - [x] Biblioteca multimedia local: subir, filtrar, previsualizar y descargar archivos verificados desde el CRM.
   - [ ] Adjuntar documentos y fichas técnicas.
   - [ ] Insertar imágenes en el contenido o como adjuntos.
   - [ ] Permitir acceso a los archivos autorizados desde el documento compartido.
