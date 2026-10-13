@@ -38,6 +38,18 @@ function pendingFile(): FileRecord {
 function service(file: FileRecord | null, ownerAllowed = true): FileService {
   const repository: FileRepository = {
     list: async () => ({ items: file ? [file] : [], nextCursor: null }),
+    listMediaFolders: async () => [],
+    createMediaFolder: async ({ id, actor: creator, parentId, name }) => ({
+      id,
+      ownerMemberId: creator.memberId,
+      parentId,
+      name,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
+    renameMediaFolder: async () => null,
+    deleteMediaFolder: async () => false,
+    organizeMediaFile: async () => file,
     find: async () => file,
     reserve: async ({ file: reserved }) => ({ file: reserved, replayed: false }),
     requestCompletion: async ({ file: completed, operation }) => ({
@@ -69,6 +81,38 @@ function service(file: FileRecord | null, ownerAllowed = true): FileService {
 }
 
 describe("file service authorization", () => {
+  it("requires file permissions for folder creation and rejects non-library organization", async () => {
+    await expect(
+      service(null).createMediaFolder({
+        actor,
+        permissions: [],
+        parentId: null,
+        name: "Catálogos",
+        idempotencyKey: "folder-1",
+        payloadHash: "folder-hash",
+      }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+    await expect(
+      service(null).createMediaFolder({
+        actor,
+        permissions: ["crm:files:upload"],
+        parentId: null,
+        name: "Catálogos",
+        idempotencyKey: "folder-1",
+        payloadHash: "folder-hash",
+      }),
+    ).resolves.toMatchObject({ name: "Catálogos", ownerMemberId: actor.memberId });
+    await expect(
+      service(pendingFile()).organizeMediaFile({
+        actor,
+        permissions: ["crm:files:read", "crm:files:upload"],
+        fileId: pendingFile().id,
+        folderId: null,
+        name: "Otro",
+        tags: [],
+      }),
+    ).rejects.toMatchObject({ name: "FileValidationError" });
+  });
   it("reserves library media only with upload permission and never exposes pending bytes", async () => {
     const created = await service(null).reserveUpload({
       actor,

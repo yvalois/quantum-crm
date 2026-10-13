@@ -21,6 +21,7 @@ import {
   CompleteFileUploadSchema,
   CreateFileReferenceSchema,
   CreateFileUploadIntentSchema,
+  CreateMediaFolderSchema,
   FileDownloadAuthorizationResponseSchema,
   FileIdSchema,
   FileListQuerySchema,
@@ -29,6 +30,11 @@ import {
   FileReferenceResponseSchema,
   FileResponseSchema,
   FileUploadIntentResponseSchema,
+  MediaFolderListResponseSchema,
+  MediaFolderRemovalResponseSchema,
+  MediaFolderResponseSchema,
+  OrganizeMediaFileSchema,
+  RenameMediaFolderSchema,
 } from "@quantum-crm/contracts";
 import { CommercialIdempotencyConflictError } from "@quantum-crm/database";
 import {
@@ -74,10 +80,28 @@ function file(record: FileRecord) {
     id: record.id,
     status: record.status,
     fileClass: record.fileClass,
-    name: record.originalName,
+    name: record.libraryTitle ?? record.originalName,
     mimeType: record.observedMime ?? record.declaredMime,
     size: record.observedSize ?? record.declaredSize,
     sha256: record.observedSha256 ?? record.expectedSha256,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    folderId: record.libraryFolderId ?? null,
+    tags: record.libraryTags ?? [],
+  };
+}
+
+function folder(record: {
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly name: string;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}) {
+  return {
+    id: record.id,
+    parentId: record.parentId,
+    name: record.name,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };
@@ -122,12 +146,105 @@ export class FilesController {
         ...(parsed.data.status === undefined ? {} : { status: parsed.data.status }),
         ...(parsed.data.fileClass === undefined ? {} : { fileClass: parsed.data.fileClass }),
         ...(parsed.data.collection === undefined ? {} : { collection: parsed.data.collection }),
+        ...(parsed.data.search === undefined ? {} : { search: parsed.data.search }),
+        ...(parsed.data.folderId === undefined ? {} : { folderId: parsed.data.folderId }),
+        ...(parsed.data.tag === undefined ? {} : { tag: parsed.data.tag }),
+        sort: parsed.data.sort,
       };
       const page = await this.service.list(auth.actor, auth.permissions, filters);
       return FileListResponseSchema.parse({
         data: page.items.map(file),
         page: { nextCursor: page.nextCursor },
       });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Get("library/folders")
+  @RequireCrmPermission("crm:files:read")
+  public async listMediaFolders(@Req() request: Parameters<typeof crmAuthContext>[0]) {
+    try {
+      const auth = identity(request);
+      const folders = await this.service.listMediaFolders(auth.actor, auth.permissions);
+      return MediaFolderListResponseSchema.parse({ data: folders.map(folder) });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Post("library/folders")
+  @RequireCrmPermission("crm:files:upload")
+  public async createMediaFolder(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Headers("idempotency-key") key: string | undefined,
+    @Body() body: unknown,
+  ) {
+    try {
+      const parsed = CreateMediaFolderSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const auth = identity(request);
+      const created = await this.service.createMediaFolder({
+        ...auth,
+        ...parsed.data,
+        idempotencyKey: idempotencyKey(key),
+        payloadHash: payloadHash(parsed.data),
+      });
+      return MediaFolderResponseSchema.parse({ data: folder(created) });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Post("library/folders/:folderId/rename")
+  @RequireCrmPermission("crm:files:upload")
+  public async renameMediaFolder(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("folderId") folderId: string,
+    @Body() body: unknown,
+  ) {
+    if (!FileIdSchema.safeParse(folderId).success) throw new BadRequestException();
+    try {
+      const parsed = RenameMediaFolderSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const auth = identity(request);
+      const updated = await this.service.renameMediaFolder({ ...auth, folderId, ...parsed.data });
+      return MediaFolderResponseSchema.parse({ data: folder(updated) });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Post("library/folders/:folderId/remove")
+  @RequireCrmPermission("crm:files:upload")
+  public async removeMediaFolder(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("folderId") folderId: string,
+  ) {
+    if (!FileIdSchema.safeParse(folderId).success) throw new BadRequestException();
+    try {
+      const auth = identity(request);
+      await this.service.deleteMediaFolder({ ...auth, folderId });
+      return MediaFolderRemovalResponseSchema.parse({ data: { removed: true } });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Post("library/assets/:fileId/organize")
+  @RequireCrmPermission("crm:files:upload")
+  public async organizeMediaFile(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("fileId") fileId: string,
+    @Body() body: unknown,
+  ) {
+    if (!FileIdSchema.safeParse(fileId).success) throw new BadRequestException();
+    try {
+      const parsed = OrganizeMediaFileSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const auth = identity(request);
+      const updated = await this.service.organizeMediaFile({ ...auth, fileId, ...parsed.data });
+      return FileResponseSchema.parse({ data: file(updated) });
     } catch (error) {
       return map(error);
     }

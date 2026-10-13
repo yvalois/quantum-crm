@@ -118,6 +118,7 @@ import {
   CompleteFileUploadSchema,
   CreateFileReferenceSchema,
   CreateFileUploadIntentSchema,
+  CreateMediaFolderSchema,
   FileDownloadAuthorizationResponseSchema,
   FileIdSchema,
   FileListQuerySchema,
@@ -126,6 +127,11 @@ import {
   FileReferenceResponseSchema,
   FileResponseSchema,
   FileUploadIntentResponseSchema,
+  MediaFolderListResponseSchema,
+  MediaFolderRemovalResponseSchema,
+  MediaFolderResponseSchema,
+  OrganizeMediaFileSchema,
+  RenameMediaFolderSchema,
   CloseFormSchema,
   CreateFormSchema,
   FormListResponseSchema,
@@ -1863,6 +1869,75 @@ export async function handleCrmFileList(request: Request, runtime: CrmAuthRuntim
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }
+}
+
+export async function handleCrmMediaFolderList(request: Request, runtime: CrmAuthRuntime) {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/files/library/folders", runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return fileResponse(upstream, MediaFolderListResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmMediaFolderCreate(request: Request, runtime: CrmAuthRuntime) {
+  return fileMutation(request, runtime, {
+    path: "/api/v1/files/library/folders",
+    requestSchema: CreateMediaFolderSchema,
+    responseSchema: MediaFolderResponseSchema,
+  });
+}
+
+export async function handleCrmMediaFolderRename(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  folderId: string,
+) {
+  if (!FileIdSchema.safeParse(folderId).success) return crmProblem(400, "Invalid request");
+  return fileMutation(request, runtime, {
+    path: `/api/v1/files/library/folders/${folderId}/rename`,
+    requestSchema: RenameMediaFolderSchema,
+    responseSchema: MediaFolderResponseSchema,
+  });
+}
+
+export async function handleCrmMediaFolderRemove(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  folderId: string,
+) {
+  if (!FileIdSchema.safeParse(folderId).success) return crmProblem(400, "Invalid request");
+  return fileMutation(request, runtime, {
+    path: `/api/v1/files/library/folders/${folderId}/remove`,
+    responseSchema: MediaFolderRemovalResponseSchema,
+  });
+}
+
+export async function handleCrmMediaFileOrganize(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  fileId: string,
+) {
+  if (!FileIdSchema.safeParse(fileId).success) return crmProblem(400, "Invalid request");
+  return fileMutation(request, runtime, {
+    path: `/api/v1/files/library/assets/${fileId}/organize`,
+    requestSchema: OrganizeMediaFileSchema,
+    responseSchema: FileResponseSchema,
+  });
 }
 
 export async function handleCrmFileUploadIntent(request: Request, runtime: CrmAuthRuntime) {

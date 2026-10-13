@@ -1,10 +1,13 @@
-import type {
-  CommercialActor,
-  FileListFilters,
-  FileOperationRecord,
-  FileRecord,
-  FileReferenceRecord,
-  FileRepository,
+import {
+  FileNotFoundError,
+  FileStateConflictError,
+  type CommercialActor,
+  type FileListFilters,
+  type FileOperationRecord,
+  type FileRecord,
+  type FileReferenceRecord,
+  type FileRepository,
+  type MediaFolderRecord,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
@@ -51,6 +54,19 @@ interface FileRow {
   readonly version: string;
   readonly created_at: Date;
   readonly updated_at: Date;
+  readonly library_folder_id: string | null;
+  readonly library_title: string | null;
+  readonly library_tags: string[];
+  readonly sort_name: string;
+}
+
+interface MediaFolderRow {
+  readonly id: string;
+  readonly parent_id: string | null;
+  readonly owner_member_id: string;
+  readonly name: string;
+  readonly created_at: Date | string;
+  readonly updated_at: Date | string;
 }
 
 interface OperationRow {
@@ -88,7 +104,9 @@ const fileSelection = `file.id::text, file.owner_member_id::text, file.owner_kin
   file.completion_receipt, file.completion_requested_at, file.observed_mime,
   file.observed_size::text, file.observed_sha256, file.scan_verdict, file.scanner_version,
   file.scanner_signatures_updated_at, file.object_key, file.object_version_id,
-  file.rejection_code, file.delete_after, file.version::text, file.created_at, file.updated_at`;
+  file.rejection_code, file.delete_after, file.version::text, file.created_at, file.updated_at,
+  file.library_folder_id::text, file.library_title, file.library_tags,
+  lower(coalesce(file.library_title, file.original_name)) AS sort_name`;
 const operationSelection = `operation.id::text, operation.file_id::text, operation.kind,
   operation.status, operation.generation, operation.created_at, operation.updated_at`;
 const referenceSelection = `reference.id::text, reference.file_id::text, reference.module,
@@ -142,6 +160,20 @@ function fileFromRow(row: FileRow): FileRecord {
     version: BigInt(row.version),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
+    libraryTitle: row.library_title,
+    libraryFolderId: row.library_folder_id,
+    libraryTags: Object.freeze(row.library_tags ?? []),
+  });
+}
+
+function folderFromRow(row: MediaFolderRow): MediaFolderRecord {
+  return Object.freeze({
+    id: row.id,
+    parentId: row.parent_id,
+    ownerMemberId: row.owner_member_id,
+    name: row.name,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
   });
 }
 
@@ -192,26 +224,36 @@ function visibility(
 
 function cursor(
   value: string | undefined,
-): { readonly updatedAt: Date; readonly id: string } | null {
+  sort: "RECENT" | "NAME",
+): { readonly updatedAt: Date; readonly id: string; readonly name: string } | null {
   if (!value) return null;
   try {
     const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as {
       u?: unknown;
       i?: unknown;
+      n?: unknown;
+      s?: unknown;
     };
     if (typeof parsed.u !== "string" || typeof parsed.i !== "string") return null;
+    if (sort === "NAME" && (typeof parsed.n !== "string" || parsed.s !== "NAME")) return null;
+    if (sort === "RECENT" && parsed.s !== undefined && parsed.s !== "RECENT") return null;
     const updatedAt = new Date(parsed.u);
     if (Number.isNaN(updatedAt.getTime())) return null;
-    return { updatedAt, id: parsed.i };
+    return { updatedAt, id: parsed.i, name: typeof parsed.n === "string" ? parsed.n : "" };
   } catch {
     return null;
   }
 }
 
-function encodeCursor(file: FileRecord): string {
-  return Buffer.from(JSON.stringify({ u: file.updatedAt.toISOString(), i: file.id })).toString(
-    "base64url",
-  );
+function encodeCursor(file: FileRow, sort: "RECENT" | "NAME"): string {
+  return Buffer.from(
+    JSON.stringify({
+      u: new Date(file.updated_at).toISOString(),
+      i: file.id,
+      n: file.sort_name,
+      s: sort,
+    }),
+  ).toString("base64url");
 }
 
 async function lock(
@@ -260,7 +302,15 @@ async function remember(
 }
 
 function fail(error: unknown): never {
-  if (error instanceof CommercialIdempotencyConflictError) throw error;
+  if (
+    error instanceof CommercialIdempotencyConflictError ||
+    error instanceof FileNotFoundError ||
+    error instanceof FileStateConflictError
+  )
+    throw error;
+  if (typeof error === "object" && error !== null && "code" in error) {
+    if (error.code === "23505" || error.code === "23503") throw new FileStateConflictError();
+  }
   throw new DatabaseUnavailableError();
 }
 
@@ -288,6 +338,7 @@ export function createFilePostgresRepository(pool: PostgresPool): FileProcessing
   return Object.freeze<FileProcessingRepository>({
     list: async (actor, filters: FileListFilters) => {
       try {
+        const sort = filters.sort ?? "RECENT";
         const visible = visibility(actor, 1);
         const params: unknown[] = [...visible.params];
         const clauses = [visible.sql];
@@ -300,27 +351,188 @@ export function createFilePostgresRepository(pool: PostgresPool): FileProcessing
           clauses.push(`file.file_class = $${params.length}`);
         }
         if (filters.collection === "library") clauses.push("file.owner_kind = 'library'");
-        const decoded = cursor(filters.cursor);
+        if (filters.search) {
+          params.push(filters.search);
+          clauses.push(`(strpos(lower(coalesce(file.library_title, file.original_name)), lower($${params.length})) > 0
+            OR strpos(lower(array_to_string(file.library_tags, ' ')), lower($${params.length})) > 0)`);
+        }
+        if (filters.folderId) {
+          if (filters.folderId === "root") clauses.push("file.library_folder_id IS NULL");
+          else {
+            params.push(filters.folderId);
+            clauses.push(`file.library_folder_id = $${params.length}::uuid`);
+          }
+        }
+        if (filters.tag) {
+          params.push(filters.tag.toLocaleLowerCase("es"));
+          clauses.push(`$${params.length} = ANY(file.library_tags)`);
+        }
+        const decoded = cursor(filters.cursor, sort);
         if (filters.cursor && !decoded) throw new DatabaseUnavailableError();
         if (decoded) {
-          params.push(decoded.updatedAt, decoded.id);
-          clauses.push(
-            `(file.updated_at, file.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`,
-          );
+          if (sort === "NAME") {
+            params.push(decoded.name, decoded.id);
+            clauses.push(`(lower(coalesce(file.library_title, file.original_name)), file.id)
+              > ($${params.length - 1}, $${params.length}::uuid)`);
+          } else {
+            params.push(decoded.updatedAt, decoded.id);
+            clauses.push(`(file.updated_at, file.id) <
+              ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+          }
         }
         params.push(filters.limit + 1);
         const result = (await pool.query(
           `SELECT ${fileSelection} FROM files.files AS file
            WHERE ${clauses.join(" AND ")}
-           ORDER BY file.updated_at DESC, file.id DESC LIMIT $${params.length}`,
+           ORDER BY ${sort === "NAME" ? "sort_name ASC, file.id ASC" : "file.updated_at DESC, file.id DESC"}
+           LIMIT $${params.length}`,
           params,
         )) as { rows: FileRow[] };
         const all = result.rows.map(fileFromRow);
         const items = Object.freeze(all.slice(0, filters.limit));
         return Object.freeze({
           items,
-          nextCursor: all.length > filters.limit ? encodeCursor(items.at(-1)!) : null,
+          nextCursor:
+            all.length > filters.limit ? encodeCursor(result.rows[filters.limit - 1]!, sort) : null,
         });
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    listMediaFolders: async (actor) => {
+      try {
+        const result = (await pool.query(
+          `SELECT folder.id::text, folder.parent_id::text, folder.owner_member_id::text,
+            folder.name, folder.created_at, folder.updated_at
+           FROM files.library_folders AS folder
+           WHERE folder.owner_member_id = $1::uuid OR $2 = 'PROFILE'
+           ORDER BY lower(folder.name), folder.id LIMIT 500`,
+          [actor.memberId, actor.scope],
+        )) as { rows: MediaFolderRow[] };
+        return Object.freeze(result.rows.map(folderFromRow));
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    createMediaFolder: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const principal = `member:${input.actor.memberId}`;
+        await lock(client, principal, "files.folder.create", input.idempotencyKey);
+        const previous = await replay<{ readonly folder: MediaFolderRow }>(
+          client,
+          principal,
+          "files.folder.create",
+          input.idempotencyKey,
+          input.payloadHash,
+        );
+        if (previous) {
+          await client.query("COMMIT");
+          return folderFromRow(previous.folder);
+        }
+        let ownerMemberId = input.actor.memberId;
+        if (input.parentId) {
+          const parent = await client.query<{ readonly owner_member_id: string }>(
+            `SELECT owner_member_id::text FROM files.library_folders
+             WHERE id = $1::uuid
+               AND (owner_member_id = $2::uuid OR $3 = 'PROFILE')`,
+            [input.parentId, input.actor.memberId, input.actor.scope],
+          );
+          if (!parent.rows[0]) throw new FileNotFoundError();
+          ownerMemberId = parent.rows[0].owner_member_id;
+        }
+        const result = await client.query<MediaFolderRow>(
+          `INSERT INTO files.library_folders
+            (id, owner_member_id, parent_id, name, created_at, updated_at)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4, now(), now())
+           RETURNING id::text, parent_id::text, owner_member_id::text,
+             name, created_at, updated_at`,
+          [input.id, ownerMemberId, input.parentId, input.name],
+        );
+        const folder = result.rows[0]!;
+        await remember(
+          client,
+          principal,
+          "files.folder.create",
+          input.idempotencyKey,
+          input.payloadHash,
+          { folder },
+        );
+        await client.query("COMMIT");
+        return folderFromRow(folder);
+      } catch (error) {
+        if (client) await client.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
+    renameMediaFolder: async (input) => {
+      try {
+        const result = (await pool.query(
+          `UPDATE files.library_folders AS folder SET name = $2, updated_at = now()
+           WHERE folder.id = $1::uuid
+             AND (folder.owner_member_id = $3::uuid OR $4 = 'PROFILE')
+           RETURNING folder.id::text, folder.parent_id::text,
+             folder.owner_member_id::text, folder.name, folder.created_at, folder.updated_at`,
+          [input.folderId, input.name, input.actor.memberId, input.actor.scope],
+        )) as { rows: MediaFolderRow[] };
+        return result.rows[0] ? folderFromRow(result.rows[0]) : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    deleteMediaFolder: async (actor, folderId) => {
+      try {
+        const result = (await pool.query(
+          `DELETE FROM files.library_folders AS folder
+           WHERE folder.id = $1::uuid
+             AND (folder.owner_member_id = $2::uuid OR $3 = 'PROFILE')
+             AND NOT EXISTS (SELECT 1 FROM files.library_folders child WHERE child.parent_id = folder.id)
+             AND NOT EXISTS (SELECT 1 FROM files.files file WHERE file.library_folder_id = folder.id)
+           RETURNING folder.id`,
+          [folderId, actor.memberId, actor.scope],
+        )) as { rowCount: number | null };
+        if (result.rowCount) return true;
+        const existing = (await pool.query(
+          `SELECT 1 FROM files.library_folders WHERE id = $1::uuid
+           AND (owner_member_id = $2::uuid OR $3 = 'PROFILE')`,
+          [folderId, actor.memberId, actor.scope],
+        )) as { rowCount: number | null };
+        if (existing.rowCount) throw new FileStateConflictError("Folder is not empty");
+        return false;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    organizeMediaFile: async (input) => {
+      try {
+        const result = (await pool.query(
+          `UPDATE files.files AS file
+           SET library_folder_id = $3::uuid, library_title = $4,
+             library_tags = $5::text[], updated_at = now(), version = version + 1
+           WHERE file.id = $1::uuid AND file.owner_kind = 'library'
+             AND file.status NOT IN ('delete_scheduled', 'delete_pending', 'deleted')
+             AND (file.owner_member_id = $2::uuid OR $6 = 'PROFILE')
+             AND ($3::uuid IS NULL OR EXISTS (
+               SELECT 1 FROM files.library_folders AS folder
+               WHERE folder.id = $3::uuid
+                 AND (folder.owner_member_id = file.owner_member_id OR $6 = 'PROFILE')
+                 AND (folder.owner_member_id = $2::uuid OR $6 = 'PROFILE')
+             ))
+           RETURNING ${fileSelection}`,
+          [
+            input.fileId,
+            input.actor.memberId,
+            input.folderId,
+            input.name,
+            input.tags.map((tag) => tag.toLocaleLowerCase("es")),
+            input.actor.scope,
+          ],
+        )) as { rows: FileRow[] };
+        return result.rows[0] ? fileFromRow(result.rows[0]) : null;
       } catch (error) {
         return fail(error);
       }
