@@ -317,7 +317,7 @@ export default function MediaPage(): React.JSX.Element {
       <div className={styles.page}>
         <header className={styles.header}>
           <div>
-            <p className={styles.eyebrow}>ARCHIVOS · INTERAMERICAN</p>
+            <p className={styles.eyebrow}>ARCHIVOS · QUANTUM CRM</p>
             <h1>Biblioteca multimedia</h1>
             <p>Imágenes, videos, audio y documentos en un solo lugar.</p>
           </div>
