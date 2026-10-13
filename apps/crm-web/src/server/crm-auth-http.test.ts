@@ -23,6 +23,7 @@ import {
   handleCrmOpportunityList,
   handleCrmOpportunityUpdate,
   handleCrmSession,
+  handleCrmCapabilities,
   handleCrmUnifiedInboxList,
 } from "./crm-auth-http.js";
 
@@ -77,6 +78,27 @@ function runtime(crmApiFetch: typeof fetch = vi.fn(fetch)): CrmAuthRuntime {
 }
 
 describe("CRM web authentication HTTP boundary", () => {
+  it("returns only server-derived assignment capabilities for the authenticated member", async () => {
+    const upstream = vi.fn(async (url: URL, init?: RequestInit) => {
+      expect(url.pathname).toBe("/api/v1/members/self/capabilities");
+      expect(init?.headers).toMatchObject({ authorization: "Bearer server-only-access-token" });
+      return Response.json({ data: {
+        memberId: "019b0000-0000-7000-8000-000000000001",
+        canAssignSales: false,
+        canAssignConversations: false,
+        canManageMembers: false,
+      } });
+    });
+    const response = await handleCrmCapabilities(
+      new Request("https://crm.example.test/api/auth/capabilities", {
+        headers: { cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}` },
+      }),
+      runtime(upstream as typeof fetch),
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.canAssignSales).toBe(false);
+    expect(upstream).toHaveBeenCalledOnce();
+  });
   it("forwards one authenticated mixed inbox with filters and opaque pagination", async () => {
     const contactId = "019b0000-0000-7000-8000-000000000002";
     const id = "019b0000-0000-7000-8000-000000000001";
