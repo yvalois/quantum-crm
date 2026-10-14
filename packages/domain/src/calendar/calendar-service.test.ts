@@ -44,6 +44,28 @@ function snapshot(): CalendarSchedulingSnapshot {
 }
 
 describe("calendar availability", () => {
+  it("hides rented intervals when shared item stock or capacity is exhausted", () => {
+    const occupied: CalendarSchedulingSnapshot = {
+      ...snapshot(),
+      capacityLimit: 1,
+      capacityReservations: [
+        {
+          startsAt: new Date("2026-10-05T14:00:00Z"),
+          endsAt: new Date("2026-10-05T15:00:00Z"),
+          quantity: 1,
+        },
+      ],
+    };
+    const starts = calculateAvailableSlots({
+      snapshot: occupied,
+      from: new Date("2026-10-05T13:00:00Z"),
+      to: new Date("2026-10-05T18:00:00Z"),
+    }).map((slot) => slot.startsAt.toISOString());
+    expect(starts).not.toContain("2026-10-05T14:00:00.000Z");
+    expect(starts).not.toContain("2026-10-05T14:30:00.000Z");
+    expect(starts).toContain("2026-10-05T15:00:00.000Z");
+  });
+
   it("generates slots in the configured IANA zone", () => {
     const slots = calculateAvailableSlots({
       snapshot: snapshot(),

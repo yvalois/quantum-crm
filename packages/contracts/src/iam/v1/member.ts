@@ -41,6 +41,9 @@ export const CrmPermissionCatalog = [
   "crm:calendar:create",
   "crm:calendar:update",
   "crm:calendar:configure",
+  "crm:catalog:read",
+  "crm:catalog:write",
+  "crm:catalog:stock",
   "crm:forms:read",
   "crm:forms:write",
   "crm:forms:publish",
@@ -131,6 +134,8 @@ export const MemberCapabilitiesResponseSchema = z
         canManageMembers: z.boolean(),
         canViewAllCalendarEvents: z.boolean(),
         canConfigureCalendar: z.boolean(),
+        canManageCatalog: z.boolean().optional(),
+        canManageCatalogStock: z.boolean().optional(),
       })
       .strict(),
   })

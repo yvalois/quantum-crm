@@ -77,6 +77,9 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:calendar:create",
         "crm:calendar:update",
         "crm:calendar:configure",
+        "crm:catalog:read",
+        "crm:catalog:write",
+        "crm:catalog:stock",
         "crm:automations:read",
         "crm:automations:execute",
         "crm:conversations:read",
@@ -100,6 +103,7 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
       ]);
     case "ADVISOR":
       return Object.freeze([
+        "crm:catalog:read",
         "crm:contacts:read",
         "crm:contacts:create",
         "crm:contacts:update",

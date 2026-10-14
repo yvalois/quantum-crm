@@ -151,6 +151,8 @@ export class MembersController {
         canManageMembers: context.permissions.includes("iam:members:roles"),
         canViewAllCalendarEvents: context.permissions.includes("crm:calendar:read-all"),
         canConfigureCalendar: context.permissions.includes("crm:calendar:configure"),
+        canManageCatalog: context.permissions.includes("crm:catalog:write"),
+        canManageCatalogStock: context.permissions.includes("crm:catalog:stock"),
       },
     });
   }
