@@ -31,7 +31,8 @@
 - [x] Preferencias persistentes validadas con control de concurrencia.
 - [x] Interfaz de indicadores/gráficos con controles de edición y estados vacíos.
 - [x] Pruebas focalizadas en VPS, migración aislada, CI y smoke público de InterAmerican.
-- [ ] Comprobación autenticada de datos y personalización en InterAmerican.
+- [x] Comprobación autenticada de lectura de datos y apertura/cancelación de personalización en InterAmerican.
+- [ ] Comprobación autenticada de guardado de preferencias y responsive.
 
 ## Recuperación
 
@@ -39,4 +40,4 @@ Migración forward-only compatible. Una reversión de aplicación deja la tabla 
 
 ## Evidencia de cierre
 
-VPS, candidato `ac8c2ef1` (2026-10-14): typecheck de contratos, dominio, base, API y CRM web; seis pruebas unitarias focalizadas; ESLint afectado; compilación de API y build de CRM web. PostgreSQL 18 sintético: 34 migraciones aplicadas, tabla reporting utilizable por rol runtime, agregaciones de los cinco dominios con alcances `ASSIGNED` y `PROFILE`, y preferencias con versión optimista. Los siete checks CI del PR #157 pasaron. Imágenes construidas desde el archivo Git del commit exacto. InterAmerican: migración `20261014030000_rep_01_dashboard_preferences` aplicada; API y CRM web `healthy`; readiness 200; `/` sin sesión 307; BFF y API de tablero sin sesión 401. No se insertaron datos ficticios en el perfil. Pendiente: verificar lectura y guardado autenticados con un usuario real; la candidata temporal no equivale a promoción registrada.
+VPS, candidato `ac8c2ef1` (2026-10-14): typecheck de contratos, dominio, base, API y CRM web; seis pruebas unitarias focalizadas; ESLint afectado; compilación de API y build de CRM web. PostgreSQL 18 sintético: 34 migraciones aplicadas, tabla reporting utilizable por rol runtime, agregaciones de los cinco dominios con alcances `ASSIGNED` y `PROFILE`, y preferencias con versión optimista. Los siete checks CI del PR #157 pasaron. Imágenes construidas desde el archivo Git del commit exacto. InterAmerican: migración `20261014030000_rep_01_dashboard_preferences` aplicada; API y CRM web `healthy`; readiness 200; `/` sin sesión 307; BFF y API de tablero sin sesión 401. No se insertaron datos ficticios en el perfil. Revisión autenticada posterior con la candidata visual `6f8b46a4`: cifras reales, gráficos y editor de personalización visibles; se canceló sin guardar. Imagen web healthy y readiness 200. Pendiente: guardar una preferencia con sesión real y verificar responsive; la candidata temporal no equivale a promoción registrada.

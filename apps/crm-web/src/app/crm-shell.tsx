@@ -202,16 +202,13 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
           </button>
         </div>
 
-        <div
-          className="workspace-chip"
-          title={sidebarCollapsed ? "Quantum Demo — Espacio piloto" : undefined}
-        >
+        <div className="workspace-chip" title={sidebarCollapsed ? "Espacio de trabajo" : undefined}>
           <span className="workspace-avatar" aria-hidden="true">
-            QD
+            Q
           </span>
           <span className="workspace-copy">
-            <strong>Quantum Demo</strong>
-            <small>Espacio piloto</small>
+            <strong>Espacio de trabajo</strong>
+            <small>Quantum CRM</small>
           </span>
           <span className="workspace-chevron" aria-hidden="true">
             ⌄
