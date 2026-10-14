@@ -36,6 +36,7 @@ CREATE TABLE catalog.items (
   price numeric(18, 4) NOT NULL DEFAULT 0,
   currency char(3) NOT NULL DEFAULT 'GTQ',
   availability_mode varchar(20) NOT NULL,
+  tracks_stock boolean NOT NULL DEFAULT false,
   capacity integer,
   locks_advisor boolean NOT NULL DEFAULT true,
   active boolean NOT NULL DEFAULT true,
@@ -47,6 +48,7 @@ CREATE TABLE catalog.items (
   CONSTRAINT catalog_item_description_check CHECK (length(description) <= 10000),
   CONSTRAINT catalog_item_price_check CHECK (price >= 0),
   CONSTRAINT catalog_item_mode_check CHECK (availability_mode IN ('unlimited', 'stock', 'interval_capacity')),
+  CONSTRAINT catalog_item_stock_mode_check CHECK (availability_mode <> 'stock' OR tracks_stock),
   CONSTRAINT catalog_item_capacity_check CHECK ((availability_mode = 'interval_capacity' AND capacity > 0) OR (availability_mode <> 'interval_capacity' AND capacity IS NULL)),
   CONSTRAINT catalog_item_version_check CHECK (version > 0)
 );
@@ -144,6 +146,8 @@ DECLARE
   item_mode varchar(20);
   item_kind varchar(16);
   item_active boolean;
+  tracked_stock boolean;
+  stock_on_hand integer;
   used_capacity integer;
 BEGIN
   SELECT catalog_item_id INTO linked_item FROM calendar.calendars WHERE id = NEW.calendar_id;
@@ -152,8 +156,8 @@ BEGIN
     WHERE calendar_event_id = NEW.id AND active;
     RETURN NEW;
   END IF;
-  SELECT capacity, availability_mode, kind, active
-    INTO item_capacity, item_mode, item_kind, item_active
+  SELECT capacity, availability_mode, kind, active, tracks_stock
+    INTO item_capacity, item_mode, item_kind, item_active, tracked_stock
     FROM catalog.items WHERE id = linked_item FOR UPDATE;
   IF item_kind <> 'service' OR NOT item_active OR item_mode = 'stock' THEN
     RAISE EXCEPTION 'Catalog item is not an active schedulable service' USING ERRCODE = '23514';
@@ -170,7 +174,11 @@ BEGIN
     FROM catalog.capacity_reservations
     WHERE item_id = linked_item AND active AND calendar_event_id <> NEW.id
       AND tstzrange(starts_at, ends_at, '[)') && tstzrange(NEW.starts_at, NEW.ends_at, '[)');
-  IF used_capacity + 1 > item_capacity THEN
+  IF tracked_stock THEN
+    SELECT COALESCE(sum(delta), 0)::integer INTO stock_on_hand
+    FROM catalog.stock_movements WHERE item_id = linked_item;
+  END IF;
+  IF used_capacity + 1 > item_capacity OR (tracked_stock AND used_capacity + 1 > stock_on_hand) THEN
     RAISE EXCEPTION 'Catalog interval capacity exhausted' USING ERRCODE = '23P01';
   END IF;
   INSERT INTO catalog.capacity_reservations (calendar_event_id, item_id, starts_at, ends_at, quantity, active)

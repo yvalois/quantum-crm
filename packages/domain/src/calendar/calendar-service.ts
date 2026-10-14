@@ -156,6 +156,7 @@ export function calculateAvailableSlots(input: {
           const busy = input.snapshot.busyEvents.some(
             (event) =>
               event.advisorMemberId === advisorMemberId &&
+              event.locksAdvisor !== false &&
               (event.status === "PENDING" || event.status === "CONFIRMED") &&
               overlaps(
                 occupiedStart,
@@ -164,7 +165,18 @@ export function calculateAvailableSlots(input: {
                 new Date(event.endsAt.getTime() + calendar.bufferAfterMinutes * 60_000),
               ),
           );
-          if (!busy)
+          const reserved =
+            input.snapshot.capacityReservations?.reduce(
+              (quantity, reservation) =>
+                quantity +
+                (overlaps(startsAt, endsAt, reservation.startsAt, reservation.endsAt)
+                  ? reservation.quantity
+                  : 0),
+              0,
+            ) ?? 0;
+          const capacityAvailable =
+            input.snapshot.capacityLimit === undefined || reserved < input.snapshot.capacityLimit;
+          if (!busy && capacityAvailable)
             slots.push(
               Object.freeze({
                 calendarId: calendar.id,
@@ -298,7 +310,7 @@ export class CalendarService {
     readonly permissions: readonly IamPermission[];
     readonly name: string;
     readonly serviceName: string;
-    readonly catalogItemId?: string | null;
+    readonly catalogItemId?: string | null | undefined;
     readonly location: string | null;
     readonly timeZone: string;
     readonly slotDurationMinutes: number;

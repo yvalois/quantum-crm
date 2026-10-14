@@ -220,7 +220,10 @@ export class AppModule {
                 (await database.members.findById(memberId))?.status === "ACTIVE",
             }),
         },
-        { provide: CATALOG_SERVICE, useFactory: () => new CatalogService(database.commercial.catalog) },
+        {
+          provide: CATALOG_SERVICE,
+          useFactory: () => new CatalogService(database.commercial.catalog),
+        },
         {
           provide: DOCUMENT_SERVICE,
           useFactory: () =>

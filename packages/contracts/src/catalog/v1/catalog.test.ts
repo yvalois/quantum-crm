@@ -4,12 +4,19 @@ import {
   CatalogItemListQuerySchema,
   CreateCatalogFieldSchema,
   CreateCatalogItemSchema,
+  UpdateCatalogItemSchema,
 } from "./catalog.js";
 
 describe("catalog contracts", () => {
   const item = {
-    kind: "service", name: "Alquiler SUV", price: "750.00", currency: "GTQ",
-    availabilityMode: "interval_capacity", capacity: 2, locksAdvisor: false,
+    kind: "service",
+    name: "Alquiler SUV",
+    price: "750.00",
+    currency: "GTQ",
+    availabilityMode: "interval_capacity",
+    tracksStock: true,
+    capacity: 2,
+    locksAdvisor: false,
   };
 
   it("supports a service with interval capacity independently of item kind", () => {
@@ -18,17 +25,41 @@ describe("catalog contracts", () => {
   });
 
   it("rejects capacity on a non-capacity item", () => {
-    expect(CreateCatalogItemSchema.safeParse({ ...item, availabilityMode: "stock" }).success).toBe(false);
+    expect(CreateCatalogItemSchema.safeParse({ ...item, availabilityMode: "stock" }).success).toBe(
+      false,
+    );
     expect(CreateCatalogItemSchema.safeParse({ ...item, capacity: null }).success).toBe(false);
+  });
+
+  it("requires tracked stock when stock is the availability mode", () => {
+    expect(
+      CreateCatalogItemSchema.safeParse({
+        ...item,
+        availabilityMode: "stock",
+        capacity: null,
+        tracksStock: false,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a partial update without requiring availability fields again", () => {
+    expect(UpdateCatalogItemSchema.safeParse({ name: "SUV actualizada" }).success).toBe(true);
   });
 
   it("requires custom fields to belong to a type or a single item", () => {
     const field = { key: "modelo", label: "Modelo", valueType: "text" };
     expect(CreateCatalogFieldSchema.safeParse(field).success).toBe(false);
-    expect(CreateCatalogFieldSchema.safeParse({ ...field, itemId: "00000000-0000-4000-8000-000000000001" }).success).toBe(true);
+    expect(
+      CreateCatalogFieldSchema.safeParse({
+        ...field,
+        itemId: "00000000-0000-4000-8000-000000000001",
+      }).success,
+    ).toBe(true);
   });
 
   it("does not interpret the text false as true in filters", () => {
-    expect(CatalogItemListQuerySchema.parse({ includeInactive: "false" }).includeInactive).toBe(false);
+    expect(CatalogItemListQuerySchema.parse({ includeInactive: "false" }).includeInactive).toBe(
+      false,
+    );
   });
 });

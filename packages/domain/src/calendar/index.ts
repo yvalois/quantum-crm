@@ -47,6 +47,7 @@ export interface CalendarEventRecord {
   readonly contactId: string | null;
   readonly opportunityId: string | null;
   readonly advisorMemberId: string;
+  readonly locksAdvisor?: boolean;
   readonly appointmentTypeId?: string | null;
   readonly createdByMemberId: string | null;
   readonly guestName: string | null;
@@ -121,6 +122,12 @@ export interface CalendarSchedulingSnapshot {
   readonly rules: readonly CalendarAvailabilityRuleRecord[];
   readonly exceptions: readonly CalendarAvailabilityExceptionRecord[];
   readonly busyEvents: readonly CalendarEventRecord[];
+  readonly capacityLimit?: number;
+  readonly capacityReservations?: readonly {
+    readonly startsAt: Date;
+    readonly endsAt: Date;
+    readonly quantity: number;
+  }[];
 }
 
 export interface CalendarRepository {
@@ -150,6 +157,7 @@ export interface CalendarRepository {
         CalendarDefinitionRecord,
         | "name"
         | "serviceName"
+        | "catalogItemId"
         | "location"
         | "timeZone"
         | "slotDurationMinutes"

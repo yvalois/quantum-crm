@@ -61,6 +61,7 @@ interface EventRow {
   readonly contact_id: string | null;
   readonly opportunity_id: string | null;
   readonly advisor_member_id: string;
+  readonly locks_advisor: boolean;
   readonly appointment_type_id: string | null;
   readonly created_by_member_id: string | null;
   readonly guest_name: string | null;
@@ -98,7 +99,7 @@ interface HistoryRow {
 }
 
 const calendarSelection = `id::text, name, service_name, catalog_item_id::text, location, time_zone, slot_duration_minutes, buffer_before_minutes, buffer_after_minutes, booking_slug, active, version::text, created_at, updated_at`;
-const eventSelection = `id::text, calendar_id::text, contact_id::text, opportunity_id::text, advisor_member_id::text, appointment_type_id::text, created_by_member_id::text, guest_name, guest_email::text, type, status, origin, title, description, location, starts_at, ends_at, time_zone, version::text, created_at, updated_at`;
+const eventSelection = `id::text, calendar_id::text, contact_id::text, opportunity_id::text, advisor_member_id::text, locks_advisor, appointment_type_id::text, created_by_member_id::text, guest_name, guest_email::text, type, status, origin, title, description, location, starts_at, ends_at, time_zone, version::text, created_at, updated_at`;
 const appointmentTypeSelection = `id::text, name, duration_minutes, created_at`;
 
 async function typedQuery<Row>(
@@ -171,6 +172,7 @@ function eventFromRow(row: EventRow): CalendarEventRecord {
     contactId: row.contact_id,
     opportunityId: row.opportunity_id,
     advisorMemberId: row.advisor_member_id,
+    locksAdvisor: row.locks_advisor,
     appointmentTypeId: row.appointment_type_id,
     createdByMemberId: row.created_by_member_id,
     guestName: row.guest_name,
@@ -767,9 +769,55 @@ export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRe
             LIMIT 5000`,
           params,
         );
+        let capacityLimit: number | undefined;
+        let capacityReservations: { startsAt: Date; endsAt: Date; quantity: number }[] | undefined;
+        if (configuration.calendar.catalogItemId) {
+          const [item] = (
+            await typedQuery<{
+              availability_mode: string;
+              capacity: number | null;
+              tracks_stock: boolean;
+              stock_on_hand: string;
+            }>(
+              pool,
+              `SELECT i.availability_mode, i.capacity, i.tracks_stock,
+                    COALESCE(sum(m.delta), 0)::text AS stock_on_hand
+               FROM catalog.items i LEFT JOIN catalog.stock_movements m ON m.item_id = i.id
+              WHERE i.id = $1::uuid
+              GROUP BY i.id`,
+              [configuration.calendar.catalogItemId],
+            )
+          ).rows;
+          if (!item) throw new DatabaseUnavailableError();
+          if (item.availability_mode === "interval_capacity") {
+            capacityLimit = item.tracks_stock
+              ? Math.min(item.capacity ?? 0, Number(item.stock_on_hand))
+              : (item.capacity ?? 0);
+            const rows = (
+              await typedQuery<{ starts_at: Date; ends_at: Date; quantity: number }>(
+                pool,
+                `SELECT starts_at, ends_at, quantity FROM catalog.capacity_reservations
+                WHERE item_id = $1::uuid AND active
+                  AND starts_at < $3::timestamptz AND ends_at > $2::timestamptz
+                ORDER BY starts_at, calendar_event_id LIMIT 5001`,
+                [configuration.calendar.catalogItemId, from, to],
+              )
+            ).rows;
+            if (rows.length > 5000) capacityLimit = 0;
+            capacityReservations = rows.map((row) => ({
+              startsAt: row.starts_at,
+              endsAt: row.ends_at,
+              quantity: row.quantity,
+            }));
+          }
+        }
         return Object.freeze<CalendarSchedulingSnapshot>({
           ...configuration,
           busyEvents: Object.freeze(busy.rows.map(eventFromRow)),
+          ...(capacityLimit === undefined ? {} : { capacityLimit }),
+          ...(capacityReservations === undefined
+            ? {}
+            : { capacityReservations: Object.freeze(capacityReservations) }),
         });
       } catch (error) {
         return databaseError(error);
