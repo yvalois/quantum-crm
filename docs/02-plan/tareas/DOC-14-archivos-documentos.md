@@ -107,6 +107,13 @@ Un usuario autorizado puede reservar y subir desde Documentos una imagen o ficha
 
 ## Evidencia de cierre
 
+### Extensión 2026-10-13: orden convencional de la biblioteca
+
+- Alcance: `/media` ahora sigue una jerarquía de explorador: ruta, búsqueda y controles, filtros, carpetas del nivel actual y archivos. La subida por arrastre muestra una superposición solo durante el gesto; la acción de subir sigue en el encabezado y en el estado vacío. No se alteraron contratos, permisos ni datos.
+- Verificación: PR #151 integrado (`1f53f997`), siete checks del PR y siete de `main` aprobados. En VPS aprobaron Prettier, ESLint, TypeScript y build de `crm-web`; release escaneada `PASSED`. Imagen web `sha256:e1accd5985caa9aafba30a225eb47f140464206dc832e273e9acfaeb09e755b1` saludable en InterAmerican. Readiness 200 y `/media` sin sesión 307.
+- Recorrido: en navegador autenticado se observaron carpeta y archivo en el nuevo orden, entrada a carpeta desde el área principal y vuelta por la ruta. A 390 px de viewport, el documento midió 375 px, sin desborde horizontal.
+- Pendientes de estabilización posterior: la candidata directa puede ser reemplazada por una promoción oficial posterior; siguen vigentes los demás pendientes de DOC-14. Esta extensión no declara terminado todo DOC-14.
+
 ### Extensión 2026-10-13: calibración visual de la biblioteca
 
 - Alcance: reorganización visual de `/media` sin alterar contratos ni datos. La navegación de carpetas y el área de archivos comparten un contenedor; encabezado, carga y filtros ocupan menos alto, y los textos de navegación son más legibles.
