@@ -23,6 +23,7 @@ import {
   DocumentService,
   FileService,
   FormService,
+  DashboardService,
   type FileStorageAuthorization,
 } from "@quantum-crm/domain";
 
@@ -66,6 +67,7 @@ import { FORM_SERVICE, FormsController } from "./forms.controller.js";
 import { InternalAdministratorsController } from "./internal-administrators.controller.js";
 import { YCLOUD_BINDING, YCloudWebhookController } from "./ycloud-webhook.controller.js";
 import { AgentMcpController } from "./agent-mcp.controller.js";
+import { DASHBOARD_SERVICE, DashboardController } from "./dashboard.controller.js";
 import type { YCloudBindingConfig } from "@quantum-crm/config";
 
 @Module({})
@@ -104,9 +106,11 @@ export class AppModule {
         FormsController,
         YCloudWebhookController,
         AgentMcpController,
+        DashboardController,
       ],
       providers: [
         { provide: POSTGRES_DATABASE, useValue: database },
+        { provide: DASHBOARD_SERVICE, useFactory: () => new DashboardService(database.reporting) },
         { provide: OIDC_ACCESS_TOKEN_VERIFIER, useValue: verifier },
         { provide: CRM_MEMBERSHIPS, useValue: database.memberships },
         { provide: CRM_AUTH_POLICY, useValue: policy },

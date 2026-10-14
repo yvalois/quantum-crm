@@ -1,4 +1,10 @@
 export const packageIdentity = "@quantum-crm/domain" as const;
+export {
+  DashboardService,
+  parseDashboardLayout,
+  type DashboardRepository,
+  type DashboardPreferences,
+} from "./reporting/dashboard-service.js";
 
 export * from "./settings/custom-field-service.js";
 export * from "./iam/index.js";
