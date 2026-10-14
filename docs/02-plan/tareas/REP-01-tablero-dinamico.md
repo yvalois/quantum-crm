@@ -30,7 +30,8 @@
 - [x] Contrato y repositorio de agregación con alcance y período acotado.
 - [x] Preferencias persistentes validadas con control de concurrencia.
 - [x] Interfaz de indicadores/gráficos con controles de edición y estados vacíos.
-- [ ] Pruebas focalizadas en VPS, migración aislada, CI y smoke de InterAmerican.
+- [x] Pruebas focalizadas en VPS, migración aislada, CI y smoke público de InterAmerican.
+- [ ] Comprobación autenticada de datos y personalización en InterAmerican.
 
 ## Recuperación
 
@@ -38,4 +39,4 @@ Migración forward-only compatible. Una reversión de aplicación deja la tabla 
 
 ## Evidencia de cierre
 
-VPS, candidato 2026-10-14: typecheck de contratos, dominio, base, API y CRM web; seis pruebas unitarias focalizadas; ESLint afectado; compilación de API y build de CRM web. PostgreSQL 18 sintético: 34 migraciones aplicadas, tabla reporting utilizable por rol runtime, agregaciones de los cinco dominios con alcances `ASSIGNED` y `PROFILE`, y preferencias con versión optimista. Sin datos reales ni escrituras en InterAmerican durante esta verificación. Pendientes: matriz de CI, despliegue y smoke del perfil.
+VPS, candidato `ac8c2ef1` (2026-10-14): typecheck de contratos, dominio, base, API y CRM web; seis pruebas unitarias focalizadas; ESLint afectado; compilación de API y build de CRM web. PostgreSQL 18 sintético: 34 migraciones aplicadas, tabla reporting utilizable por rol runtime, agregaciones de los cinco dominios con alcances `ASSIGNED` y `PROFILE`, y preferencias con versión optimista. Los siete checks CI del PR #157 pasaron. Imágenes construidas desde el archivo Git del commit exacto. InterAmerican: migración `20261014030000_rep_01_dashboard_preferences` aplicada; API y CRM web `healthy`; readiness 200; `/` sin sesión 307; BFF y API de tablero sin sesión 401. No se insertaron datos ficticios en el perfil. Pendiente: verificar lectura y guardado autenticados con un usuario real; la candidata temporal no equivale a promoción registrada.
