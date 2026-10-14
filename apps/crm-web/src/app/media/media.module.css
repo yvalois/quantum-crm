@@ -645,6 +645,15 @@
   opacity: 0.55;
   cursor: wait;
 }
+@media (max-width: 900px) {
+  .shell:global(.crm-shell-stitch) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .shell > :global(.crm-sidebar) {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
 @media (max-width: 1050px) {
   .workspace {
     grid-template-columns: minmax(172px, 198px) minmax(0, 1fr);
