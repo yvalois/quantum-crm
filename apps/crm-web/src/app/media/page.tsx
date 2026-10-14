@@ -578,9 +578,6 @@ export default function MediaPage(): React.JSX.Element {
                     (folder === "root" ? "Sin carpeta" : "Todos los archivos")}
                 </h2>
               </div>
-              <span>
-                {folders.length} carpeta{folders.length === 1 ? "" : "s"}
-              </span>
             </div>
             <section
               className={`${styles.dropzone} ${dragging ? styles.dragging : ""}`}

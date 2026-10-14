@@ -7,8 +7,8 @@
 .page {
   min-width: 0;
   min-height: 100vh;
-  padding: clamp(24px, 3.5vw, 56px);
-  background: #f5f8f8;
+  padding: clamp(16px, 2.2vw, 32px);
+  background: #f4f7f7;
   color: var(--media-ink);
 }
 .header {
@@ -16,17 +16,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 30px;
+  margin-bottom: 18px;
 }
 .header h1 {
-  margin: 3px 0 7px;
-  font-size: clamp(30px, 3vw, 44px);
+  margin: 3px 0 4px;
+  font-size: clamp(28px, 2.5vw, 34px);
   letter-spacing: -0.045em;
   line-height: 1.08;
 }
 .header p:last-child {
   margin: 0;
   color: var(--media-muted);
+  font-size: 13px;
 }
 .eyebrow {
   margin: 0;
@@ -37,7 +38,7 @@
 }
 .primary {
   flex: none;
-  padding: 13px 19px;
+  padding: 10px 16px;
   border: 1px solid #087f79;
   border-radius: 9px;
   background: #087f79;
@@ -45,7 +46,7 @@
   font: inherit;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(8, 127, 121, 0.15);
+  box-shadow: 0 4px 12px rgba(8, 127, 121, 0.12);
 }
 .primary:hover {
   background: #066b66;
@@ -56,18 +57,19 @@
 }
 .workspace {
   display: grid;
-  grid-template-columns: minmax(205px, 240px) minmax(0, 1fr);
-  gap: clamp(20px, 2.5vw, 34px);
-  align-items: start;
-}
-.folderRail {
-  position: sticky;
-  top: 22px;
-  min-width: 0;
-  padding: 14px 8px;
+  grid-template-columns: minmax(200px, 228px) minmax(0, 1fr);
+  min-height: calc(100dvh - 150px);
   border: 1px solid var(--media-line);
   border-radius: 13px;
   background: #fff;
+  box-shadow: 0 5px 22px rgba(20, 43, 53, 0.035);
+}
+.folderRail {
+  min-width: 0;
+  padding: 18px 10px;
+  border-right: 1px solid var(--media-line);
+  border-radius: 12px 0 0 12px;
+  background: #f9fbfb;
 }
 .folderHeading {
   display: flex;
@@ -96,7 +98,7 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  min-height: 35px;
+  min-height: 38px;
   width: 100%;
   padding: 6px 12px;
   border: 0;
@@ -105,7 +107,7 @@
   color: #5b7180;
   text-align: left;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 .folderButton span:last-child {
@@ -169,18 +171,19 @@
   padding-top: 12px;
   border-top: 1px solid #edf1f2;
   color: #8797a2;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
 }
 .collection {
   min-width: 0;
+  padding: 19px clamp(16px, 2vw, 26px) 28px;
 }
 .collectionHeading {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 15px;
-  margin: 0 0 14px;
+  margin: 0 0 13px;
 }
 .collectionHeading span {
   color: #8a9ba5;
@@ -193,19 +196,14 @@
   font-size: 21px;
   letter-spacing: -0.025em;
 }
-.collectionHeading > span {
-  white-space: nowrap;
-  font-size: 11px;
-  letter-spacing: 0;
-}
 .dropzone {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 24px 28px;
+  gap: 12px;
+  padding: 11px 14px;
   border: 1.5px dashed #a9cacb;
-  border-radius: 13px;
-  background: #eff8f7;
+  border-radius: 9px;
+  background: #f2faf8;
   transition:
     border-color 0.15s,
     background 0.15s;
@@ -218,32 +216,33 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   background: #d6efea;
   color: var(--media-teal);
-  font-size: 29px;
+  font-size: 23px;
 }
 .dropzone strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 .dropzone p {
-  margin: 3px 0 0;
+  margin: 2px 0 0;
   color: #5d7580;
-  font-size: 13px;
+  font-size: 12px;
 }
 .dropzone small {
   margin-left: auto;
   color: #537079;
   white-space: nowrap;
+  font-size: 11px;
 }
 .notice,
 .error {
-  margin: 16px 0 0;
-  padding: 12px 15px;
+  margin: 10px 0 0;
+  padding: 8px 11px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 12px;
 }
 .notice {
   background: #e2f5ee;
@@ -257,15 +256,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
-  margin: 32px 0 14px;
+  gap: 12px;
+  margin: 14px 0 0;
+  border-bottom: 1px solid var(--media-line);
 }
 .finder {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
   gap: 8px;
-  margin: 0 0 14px;
+  margin: 12px 0 10px;
 }
 .finder .search {
   flex: 1 1 260px;
@@ -335,20 +335,22 @@
 }
 .filters button {
   border: 0;
-  border-radius: 7px;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
   color: #65798a;
-  padding: 9px 14px;
+  padding: 9px 12px;
   font: inherit;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 .filters button:hover {
-  background: #e5eeef;
+  background: #f1f7f6;
 }
 .filters .active {
-  background: #dcefeb;
+  border-bottom-color: var(--media-teal);
+  background: transparent;
   color: #075e58;
 }
 .search {
@@ -372,7 +374,7 @@
   font-size: 13px;
 }
 .count {
-  margin: 0 0 15px;
+  margin: 0 0 11px;
   color: var(--media-muted);
   font-size: 12px;
   font-weight: 700;
@@ -645,14 +647,22 @@
 }
 @media (max-width: 1050px) {
   .workspace {
-    grid-template-columns: minmax(175px, 205px) minmax(0, 1fr);
-    gap: 15px;
+    grid-template-columns: minmax(172px, 198px) minmax(0, 1fr);
+  }
+  .dropzone {
+    flex-wrap: wrap;
+  }
+  .dropzone small {
+    margin-left: 48px;
   }
   .assetEditor {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 700px) {
+  .page {
+    padding: 16px 12px;
+  }
   .header,
   .toolbar {
     align-items: stretch;
@@ -663,7 +673,7 @@
     flex-wrap: wrap;
   }
   .dropzone small {
-    margin-left: 0;
+    margin-left: 48px;
   }
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
@@ -671,9 +681,16 @@
   }
   .workspace {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
   .folderRail {
-    position: static;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--media-line);
+    border-radius: 12px 12px 0 0;
+  }
+  .folderHeading {
+    padding-bottom: 6px;
   }
   .folderNav {
     display: flex;
@@ -686,6 +703,12 @@
   }
   .folderHint {
     display: none;
+  }
+  .collection {
+    padding: 15px 12px 22px;
+  }
+  .finder .search {
+    flex-basis: 100%;
   }
   .list .cardBody {
     display: grid;
