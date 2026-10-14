@@ -15644,11 +15644,26 @@ body {
   vector-effect: non-scaling-stroke;
 }
 .report-chart-axis {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  height: 21px;
   color: #8993a4;
   font-size: 11px;
-  padding-left: 38px;
+  margin-left: 38px;
+}
+.report-chart-axis span {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.report-chart-axis span:first-child {
+  transform: none;
+}
+.report-chart-axis span:last-child {
+  transform: translateX(-100%);
+}
+.report-chart-axis span:only-child {
+  transform: translateX(-50%);
 }
 .report-bars {
   display: grid;

@@ -160,8 +160,15 @@ function LineChart({
         </svg>
       </div>
       <div className="report-chart-axis">
-        {(items.length <= 6 ? items : [items[0], items.at(-1)]).map(
-          (item) => item && <span key={item.label}>{item.label}</span>,
+        {items.map((item, index) =>
+          items.length <= 6 || index === 0 || index === items.length - 1 ? (
+            <span
+              key={item.label}
+              style={{ left: `${items.length === 1 ? 50 : (index / (items.length - 1)) * 100}%` }}
+            >
+              {item.label}
+            </span>
+          ) : null,
         )}
       </div>
     </div>
