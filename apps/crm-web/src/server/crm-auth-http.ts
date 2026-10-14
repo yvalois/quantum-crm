@@ -7,6 +7,10 @@ import {
 import { type CrmWebAuthConfig, SecretValue } from "@quantum-crm/config";
 import {
   CreateMemberInvitationSchema,
+  DashboardLayoutSchema,
+  DashboardPeriodSchema,
+  DashboardPreferenceResponseSchema,
+  DashboardSnapshotSchema,
   AdjustCatalogStockSchema,
   CatalogCategoryListResponseSchema,
   CatalogCategoryResponseSchema,
@@ -197,6 +201,64 @@ async function commercialResponse(
     return Response.json(responseSchema.parse(await readBoundedJson(upstream)), {
       headers: crmNoStoreHeaders(),
     });
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmDashboardSnapshot(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const params = new URL(request.url).searchParams;
+  if ([...params.keys()].some((key) => key !== "period") || params.getAll("period").length > 1)
+    return crmProblem(400, "Invalid request");
+  const period = DashboardPeriodSchema.safeParse(params.get("period") ?? "all");
+  if (!period.success) return crmProblem(400, "Invalid request");
+  const target = new URL("/api/v1/reporting/dashboard/snapshot", runtime.config.crmApiOrigin);
+  target.searchParams.set("period", period.data);
+  return calendarRead(request, runtime, target, DashboardSnapshotSchema);
+}
+
+export async function handleCrmDashboardPreferences(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  if (new URL(request.url).search) return crmProblem(400, "Invalid request");
+  return calendarRead(
+    request,
+    runtime,
+    new URL("/api/v1/reporting/dashboard/preferences", runtime.config.crmApiOrigin),
+    DashboardPreferenceResponseSchema,
+  );
+}
+
+export async function handleCrmDashboardPreferencesSave(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  if (new URL(request.url).search) return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  const ifMatch = request.headers.get("if-match");
+  if (!ifMatch || !/^"(0|[1-9][0-9]*)"$/u.test(ifMatch)) return crmProblem(428, "Version required");
+  try {
+    const layout = DashboardLayoutSchema.safeParse(await readBoundedRequestJson(request));
+    if (!layout.success) return crmProblem(400, "Invalid request");
+    const headers = memberMutationHeaders(authorized);
+    headers.set("if-match", ifMatch);
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/reporting/dashboard/preferences", runtime.config.crmApiOrigin),
+      {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(layout.data),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, DashboardPreferenceResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }

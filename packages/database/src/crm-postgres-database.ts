@@ -13,6 +13,8 @@ import type {
   ExternalParticipantDirectory,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
+import type { DashboardRepository } from "@quantum-crm/domain";
+import { createReportingPostgresRepository } from "./reporting-postgres-repository.js";
 import { createIamExternalParticipantDirectory } from "./iam-external-participant-directory.js";
 
 import {
@@ -29,6 +31,7 @@ import {
 } from "./commercial-postgres-database.js";
 
 export interface CrmPostgresDatabase extends PostgresDatabase {
+  readonly reporting: DashboardRepository;
   readonly members: IamMemberRepository;
   readonly roles: IamRoleRepository;
   readonly teams: IamTeamRepository;
@@ -1305,6 +1308,7 @@ export function createCrmPostgresDatabase(
   const pool = createPostgresPool(config, serviceName, poolFactory);
   return Object.freeze({
     ...createPostgresDatabaseFromPool(pool),
+    reporting: createReportingPostgresRepository(pool),
     members: createIamMemberRepository(pool),
     roles: createIamRoleRepository(pool),
     teams: createIamTeamRepository(pool),
