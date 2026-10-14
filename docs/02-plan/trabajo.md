@@ -768,6 +768,7 @@ Dependencias: Contactos, asesores, horarios, tareas y automatizaciones.
   - [ ] Seleccionar el asesor responsable.
   - [ ] Reflejar el evento en su disponibilidad.
   - [ ] Notificar asignación o cambio.
+  - [ ] Restringir en servidor la lectura, historial y modificación del asesor a sus citas asignadas; permitir lectura global solo con permiso explícito.
 
 - [ ] **CAL-04 — Definir fecha, hora, duración, ubicación y descripción.**
   - [ ] Guardar inicio, fin o duración, ubicación y descripción.
@@ -813,6 +814,7 @@ Dependencias: Contactos, asesores, horarios, tareas y automatizaciones.
   - [ ] Crear calendarios con nombre y relación a servicio, sede o equipo.
   - [ ] Asociar asesores y reglas de disponibilidad.
   - [ ] Separar eventos por calendario.
+  - [ ] Permitir al administrador crear tipos de cita reutilizables y seleccionarlos al agendar, sin confundirlos con calendarios.
 
 - [ ] **CAL-13 — Generar enlaces de reserva.**
   - [ ] Generar un enlace asociado al calendario.
@@ -831,6 +833,7 @@ Dependencias: Contactos, asesores, horarios, tareas y automatizaciones.
 - [ ] **CAL-16 — Filtrar por asesor, servicio, estado y fecha.**
   - [ ] Filtrar eventos por asesor, servicio, estado y fecha.
   - [ ] Conservar los filtros al cambiar la vista de agenda.
+  - [ ] Mostrar el filtro por asesor únicamente a quien tenga permiso de consultar todas las citas; aplicar el filtro en la consulta del servidor.
 
 - [ ] **CAL-17 — Estados: pendiente, confirmada, completada, cancelada o no asistió.**
   - [ ] Gestionar pendiente, confirmada, completada, cancelada y no asistió.

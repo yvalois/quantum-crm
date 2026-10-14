@@ -7485,6 +7485,22 @@ body {
   width: min(46rem, 100%);
 }
 
+.calendar-type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-height: 8rem;
+  overflow-y: auto;
+}
+
+.calendar-type-list span {
+  border: 1px solid #dce3ea;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  color: #334155;
+  font-size: 0.75rem;
+}
+
 .modal-title {
   display: flex;
   align-items: flex-start;

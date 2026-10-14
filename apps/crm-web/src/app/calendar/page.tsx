@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  CalendarAppointmentType,
   CalendarDefinition,
   CalendarEvent,
   Contact,
@@ -14,6 +15,12 @@ import { CrmShell } from "../crm-shell";
 interface SessionPayload {
   readonly authenticated: boolean;
   readonly csrfToken?: string;
+}
+
+interface CalendarCapabilities {
+  readonly memberId: string;
+  readonly canViewAllCalendarEvents: boolean;
+  readonly canConfigureCalendar: boolean;
 }
 
 interface List<T> {
@@ -62,12 +69,16 @@ export default function CalendarPage(): React.JSX.Element {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [advisors, setAdvisors] = useState<TaskAssignee[]>([]);
+  const [appointmentTypes, setAppointmentTypes] = useState<CalendarAppointmentType[]>([]);
+  const [capabilities, setCapabilities] = useState<CalendarCapabilities | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showCalendarForm, setShowCalendarForm] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
+  const [showAppointmentTypeForm, setShowAppointmentTypeForm] = useState(false);
+  const [eventDuration, setEventDuration] = useState(30);
   const [showAvailability, setShowAvailability] = useState(false);
   const [rescheduling, setRescheduling] = useState<CalendarEvent | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -82,28 +93,38 @@ export default function CalendarPage(): React.JSX.Element {
     () => new Map(advisors.map((advisor) => [advisor.id, advisor])),
     [advisors],
   );
+  const appointmentTypeById = useMemo(
+    () => new Map(appointmentTypes.map((type) => [type.id, type])),
+    [appointmentTypes],
+  );
 
-  const loadEvents = useCallback(async (selectedCalendarId: string): Promise<void> => {
-    if (!selectedCalendarId) {
-      setEvents([]);
-      return;
-    }
-    const from = new Date();
-    from.setDate(from.getDate() - 14);
-    const to = new Date();
-    to.setDate(to.getDate() + 90);
-    const query = new URLSearchParams({
-      calendarId: selectedCalendarId,
-      from: from.toISOString(),
-      to: to.toISOString(),
-    });
-    const response = await fetch(`/api/calendar/events?${query}`, {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-    if (!response.ok) throw new Error(await responseTitle(response));
-    setEvents(((await response.json()) as List<CalendarEvent>).data);
-  }, []);
+  const loadEvents = useCallback(
+    async (
+      selectedCalendarId: string,
+      selectedAdvisorId = advisorFilter,
+      selectedStatus = statusFilter,
+    ): Promise<void> => {
+      const from = new Date();
+      from.setDate(from.getDate() - 14);
+      const to = new Date();
+      to.setDate(to.getDate() + 90);
+      const query = new URLSearchParams({
+        from: from.toISOString(),
+        to: to.toISOString(),
+      });
+      if (selectedCalendarId) query.set("calendarId", selectedCalendarId);
+      if (selectedAdvisorId && capabilities?.canViewAllCalendarEvents)
+        query.set("advisorMemberId", selectedAdvisorId);
+      if (selectedStatus) query.set("status", selectedStatus);
+      const response = await fetch(`/api/calendar/events?${query}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error(await responseTitle(response));
+      setEvents(((await response.json()) as List<CalendarEvent>).data);
+    },
+    [advisorFilter, statusFilter, capabilities?.canViewAllCalendarEvents],
+  );
 
   const loadWorkspace = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -120,18 +141,28 @@ export default function CalendarPage(): React.JSX.Element {
       const session = (await sessionResponse.json()) as SessionPayload;
       if (!session.authenticated || !session.csrfToken) throw new Error("La sesión no es válida.");
       setCsrf(session.csrfToken);
-      const [calendarResponse, contactResponse, opportunityResponse, advisorResponse] =
-        await Promise.all([
-          fetch("/api/calendar/calendars", { cache: "no-store", credentials: "same-origin" }),
-          fetch("/api/contacts", { cache: "no-store", credentials: "same-origin" }),
-          fetch("/api/opportunities", { cache: "no-store", credentials: "same-origin" }),
-          fetch("/api/tasks/assignees", { cache: "no-store", credentials: "same-origin" }),
-        ]);
+      const [
+        calendarResponse,
+        contactResponse,
+        opportunityResponse,
+        advisorResponse,
+        typeResponse,
+        capabilityResponse,
+      ] = await Promise.all([
+        fetch("/api/calendar/calendars", { cache: "no-store", credentials: "same-origin" }),
+        fetch("/api/contacts", { cache: "no-store", credentials: "same-origin" }),
+        fetch("/api/opportunities", { cache: "no-store", credentials: "same-origin" }),
+        fetch("/api/tasks/assignees", { cache: "no-store", credentials: "same-origin" }),
+        fetch("/api/calendar/appointment-types", { cache: "no-store", credentials: "same-origin" }),
+        fetch("/api/auth/capabilities", { cache: "no-store", credentials: "same-origin" }),
+      ]);
       for (const response of [
         calendarResponse,
         contactResponse,
         opportunityResponse,
         advisorResponse,
+        typeResponse,
+        capabilityResponse,
       ]) {
         if (!response.ok) throw new Error(await responseTitle(response));
       }
@@ -140,9 +171,9 @@ export default function CalendarPage(): React.JSX.Element {
       setContacts(((await contactResponse.json()) as List<Contact>).data);
       setOpportunities(((await opportunityResponse.json()) as List<Opportunity>).data);
       setAdvisors(((await advisorResponse.json()) as List<TaskAssignee>).data);
-      const selected = calendarId || nextCalendars[0]?.id || "";
-      setCalendarId(selected);
-      await loadEvents(selected);
+      setAppointmentTypes(((await typeResponse.json()) as List<CalendarAppointmentType>).data);
+      setCapabilities(((await capabilityResponse.json()) as { data: CalendarCapabilities }).data);
+      await loadEvents(calendarId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cargar la agenda.");
     } finally {
@@ -205,6 +236,29 @@ export default function CalendarPage(): React.JSX.Element {
     }
   }
 
+  async function createAppointmentType(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await mutate("/api/calendar/appointment-types", {
+        name: form.get("name"),
+        durationMinutes: Number(form.get("durationMinutes")),
+      });
+      const created = ((await response.json()) as { data: CalendarAppointmentType }).data;
+      setAppointmentTypes((current) =>
+        [...current, created].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setShowAppointmentTypeForm(false);
+      setNotice(`Tipo de cita «${created.name}» disponible.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible crear el tipo de cita.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveAvailability(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!calendarId) return;
@@ -241,8 +295,9 @@ export default function CalendarPage(): React.JSX.Element {
 
   async function createEvent(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!currentCalendar) return;
     const form = new FormData(event.currentTarget);
+    const selectedCalendar = calendars.find((item) => item.id === String(form.get("calendarId")));
+    if (!selectedCalendar) return;
     const startsAt = new Date(String(form.get("startsAt")));
     const duration = Number(form.get("duration"));
     const endsAt = new Date(startsAt.getTime() + duration * 60_000);
@@ -250,22 +305,27 @@ export default function CalendarPage(): React.JSX.Element {
     setError(null);
     try {
       await mutate("/api/calendar/events", {
-        calendarId: currentCalendar.id,
+        calendarId: selectedCalendar.id,
         ...(form.get("contactId") ? { contactId: form.get("contactId") } : {}),
         ...(form.get("opportunityId") ? { opportunityId: form.get("opportunityId") } : {}),
-        advisorMemberId: form.get("advisorMemberId"),
+        advisorMemberId: capabilities?.canConfigureCalendar
+          ? form.get("advisorMemberId")
+          : capabilities?.memberId,
+        ...(form.get("appointmentTypeId")
+          ? { appointmentTypeId: form.get("appointmentTypeId") }
+          : {}),
         type: form.get("type"),
         title: form.get("title"),
         description: form.get("description"),
         location: String(form.get("location") || "") || null,
         startsAt: startsAt.toISOString(),
         endsAt: endsAt.toISOString(),
-        timeZone: currentCalendar.timeZone,
+        timeZone: selectedCalendar.timeZone,
         origin: "MANUAL",
       });
       setShowEventForm(false);
       setNotice("Cita creada y recordatorios programados.");
-      await loadEvents(currentCalendar.id);
+      await loadEvents(calendarId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible crear la cita.");
     } finally {
@@ -282,7 +342,7 @@ export default function CalendarPage(): React.JSX.Element {
         { status },
         { method: "PATCH", version: item.version },
       );
-      await loadEvents(item.calendarId);
+      await loadEvents(calendarId);
       setNotice(`Cita marcada como ${statusLabels[status].toLowerCase()}.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cambiar el estado.");
@@ -309,7 +369,7 @@ export default function CalendarPage(): React.JSX.Element {
         { method: "PATCH", version: rescheduling.version },
       );
       setRescheduling(null);
-      await loadEvents(rescheduling.calendarId);
+      await loadEvents(calendarId);
       setNotice("Cita reprogramada y recordatorios actualizados.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible reprogramar la cita.");
@@ -334,18 +394,34 @@ export default function CalendarPage(): React.JSX.Element {
             <p>Coordina al equipo, comparte disponibilidad y evita cruces de agenda.</p>
           </div>
           <div className="calendar-header-actions">
-            <button
-              className="secondary-action"
-              type="button"
-              onClick={() => setShowCalendarForm(true)}
-            >
-              Nuevo calendario
-            </button>
+            {capabilities?.canConfigureCalendar ? (
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={() => setShowCalendarForm(true)}
+              >
+                Nuevo calendario
+              </button>
+            ) : null}
+            {capabilities?.canConfigureCalendar ? (
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={() => setShowAppointmentTypeForm(true)}
+              >
+                Tipos de citas
+              </button>
+            ) : null}
             <button
               className="primary-action"
               type="button"
-              onClick={() => setShowEventForm(true)}
-              disabled={!currentCalendar}
+              onClick={() => {
+                setEventDuration(
+                  currentCalendar?.slotDurationMinutes ?? calendars[0]?.slotDurationMinutes ?? 30,
+                );
+                setShowEventForm(true);
+              }}
+              disabled={calendars.length === 0}
             >
               + Nueva cita
             </button>
@@ -373,7 +449,7 @@ export default function CalendarPage(): React.JSX.Element {
                 void loadEvents(event.target.value);
               }}
             >
-              <option value="">Selecciona un calendario</option>
+              <option value="">Todos los calendarios</option>
               {calendars.map((calendar) => (
                 <option key={calendar.id} value={calendar.id}>
                   {calendar.name}
@@ -383,7 +459,13 @@ export default function CalendarPage(): React.JSX.Element {
           </label>
           <label>
             Estado
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <select
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value);
+                void loadEvents(calendarId, advisorFilter, event.target.value);
+              }}
+            >
               <option value="">Todos</option>
               {Object.entries(statusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -392,28 +474,35 @@ export default function CalendarPage(): React.JSX.Element {
               ))}
             </select>
           </label>
-          <label>
-            Asesor
-            <select
-              value={advisorFilter}
-              onChange={(event) => setAdvisorFilter(event.target.value)}
+          {capabilities?.canViewAllCalendarEvents ? (
+            <label>
+              Asesor
+              <select
+                value={advisorFilter}
+                onChange={(event) => {
+                  setAdvisorFilter(event.target.value);
+                  void loadEvents(calendarId, event.target.value, statusFilter);
+                }}
+              >
+                <option value="">Todo el equipo</option>
+                {advisors.map((advisor) => (
+                  <option key={advisor.id} value={advisor.id}>
+                    {advisor.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {capabilities?.canConfigureCalendar ? (
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={() => setShowAvailability(true)}
+              disabled={!currentCalendar}
             >
-              <option value="">Todo el equipo</option>
-              {advisors.map((advisor) => (
-                <option key={advisor.id} value={advisor.id}>
-                  {advisor.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="secondary-action"
-            type="button"
-            onClick={() => setShowAvailability(true)}
-            disabled={!currentCalendar}
-          >
-            Disponibilidad
-          </button>
+              Disponibilidad
+            </button>
+          ) : null}
           {currentCalendar ? (
             <a
               className="booking-link"
@@ -496,8 +585,11 @@ export default function CalendarPage(): React.JSX.Element {
                       {statusLabels[item.status]}
                     </span>
                     <small>
-                      {typeLabels[item.type]} ·{" "}
-                      {item.origin === "BOOKING" ? "Reserva web" : "Interna"}
+                      {item.appointmentTypeId
+                        ? (appointmentTypeById.get(item.appointmentTypeId)?.name ??
+                          typeLabels[item.type])
+                        : typeLabels[item.type]}{" "}
+                      · {item.origin === "BOOKING" ? "Reserva web" : "Interna"}
                     </small>
                   </div>
                   <h3>{item.title}</h3>
@@ -659,7 +751,54 @@ export default function CalendarPage(): React.JSX.Element {
           </div>
         ) : null}
 
-        {showEventForm && currentCalendar ? (
+        {showAppointmentTypeForm ? (
+          <div className="modal-backdrop">
+            <form
+              className="calendar-modal"
+              onSubmit={(event) => void createAppointmentType(event)}
+            >
+              <div className="modal-title">
+                <div>
+                  <span className="eyebrow">CONFIGURACIÓN</span>
+                  <h2>Nuevo tipo de cita</h2>
+                </div>
+                <button type="button" onClick={() => setShowAppointmentTypeForm(false)}>
+                  ×
+                </button>
+              </div>
+              <p>Define los servicios que el equipo puede seleccionar al agendar.</p>
+              {appointmentTypes.length > 0 ? (
+                <div className="calendar-type-list" aria-label="Tipos existentes">
+                  {appointmentTypes.map((type) => (
+                    <span key={type.id}>
+                      {type.name} · {type.durationMinutes} min
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <label>
+                Nombre
+                <input name="name" required maxLength={160} placeholder="Entrega de vehículo" />
+              </label>
+              <label>
+                Duración habitual (minutos)
+                <input
+                  name="durationMinutes"
+                  type="number"
+                  min="5"
+                  max="480"
+                  defaultValue="30"
+                  required
+                />
+              </label>
+              <button className="primary-action" disabled={saving}>
+                {saving ? "Guardando…" : "Crear tipo de cita"}
+              </button>
+            </form>
+          </div>
+        ) : null}
+
+        {showEventForm && calendars.length > 0 ? (
           <div className="modal-backdrop">
             <form
               className="calendar-modal calendar-modal-wide"
@@ -676,6 +815,20 @@ export default function CalendarPage(): React.JSX.Element {
               </div>
               <div className="form-grid-2">
                 <label>
+                  Calendario
+                  <select
+                    name="calendarId"
+                    defaultValue={currentCalendar?.id ?? calendars[0]?.id}
+                    required
+                  >
+                    {calendars.map((calendar) => (
+                      <option key={calendar.id} value={calendar.id}>
+                        {calendar.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
                   Título
                   <input name="title" required placeholder="Reunión de diagnóstico" />
                 </label>
@@ -690,16 +843,36 @@ export default function CalendarPage(): React.JSX.Element {
                   </select>
                 </label>
                 <label>
-                  Asesor
-                  <select name="advisorMemberId" required>
-                    <option value="">Selecciona</option>
-                    {advisors.map((advisor) => (
-                      <option key={advisor.id} value={advisor.id}>
-                        {advisor.displayName}
+                  Tipo de cita configurado
+                  <select
+                    name="appointmentTypeId"
+                    defaultValue=""
+                    onChange={(event) => {
+                      const selected = appointmentTypeById.get(event.target.value);
+                      if (selected) setEventDuration(selected.durationMinutes);
+                    }}
+                  >
+                    <option value="">Sin tipo específico</option>
+                    {appointmentTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name} · {type.durationMinutes} min
                       </option>
                     ))}
                   </select>
                 </label>
+                {capabilities?.canConfigureCalendar ? (
+                  <label>
+                    Asesor
+                    <select name="advisorMemberId" required>
+                      <option value="">Selecciona</option>
+                      {advisors.map((advisor) => (
+                        <option key={advisor.id} value={advisor.id}>
+                          {advisor.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label>
                   Contacto
                   <select name="contactId">
@@ -738,13 +911,14 @@ export default function CalendarPage(): React.JSX.Element {
                     type="number"
                     min="5"
                     max="480"
-                    defaultValue={currentCalendar.slotDurationMinutes}
+                    value={eventDuration}
+                    onChange={(event) => setEventDuration(Number(event.target.value))}
                     required
                   />
                 </label>
                 <label>
                   Ubicación
-                  <input name="location" defaultValue={currentCalendar.location ?? ""} />
+                  <input name="location" defaultValue={currentCalendar?.location ?? ""} />
                 </label>
               </div>
               <label>

@@ -23,6 +23,8 @@ import {
 import {
   CalendarAvailabilityQuerySchema,
   CalendarAvailabilityResponseSchema,
+  CalendarAppointmentTypeListResponseSchema,
+  CalendarAppointmentTypeResponseSchema,
   CalendarConfigurationResponseSchema,
   CalendarEventHistoryListResponseSchema,
   CalendarEventListQuerySchema,
@@ -31,6 +33,7 @@ import {
   CalendarListResponseSchema,
   CalendarResponseSchema,
   CreateCalendarEventSchema,
+  CreateCalendarAppointmentTypeSchema,
   CreateCalendarSchema,
   PublicCalendarAvailabilityQuerySchema,
   PublicCalendarAvailabilityResponseSchema,
@@ -42,6 +45,7 @@ import {
 } from "@quantum-crm/contracts";
 import {
   CalendarNotFoundError,
+  CalendarAppointmentTypeConflictError,
   CalendarService,
   CalendarSlotConflictError,
   CalendarValidationError,
@@ -49,6 +53,7 @@ import {
   IamAuthorizationError,
   type CalendarAvailabilityExceptionRecord,
   type CalendarAvailabilityRuleRecord,
+  type CalendarAppointmentTypeRecord,
   type CalendarDefinitionRecord,
   type CalendarEventHistoryRecord,
   type CalendarEventRecord,
@@ -105,6 +110,9 @@ function event(record: CalendarEventRecord) {
     updatedAt: record.updatedAt.toISOString(),
   };
 }
+function appointmentType(record: CalendarAppointmentTypeRecord) {
+  return { ...record, createdAt: record.createdAt.toISOString() };
+}
 function history(record: CalendarEventHistoryRecord) {
   return { ...record, createdAt: record.createdAt.toISOString() };
 }
@@ -120,6 +128,7 @@ function map(error: unknown): never {
   if (error instanceof CalendarNotFoundError) throw new NotFoundException();
   if (
     error instanceof CalendarSlotConflictError ||
+    error instanceof CalendarAppointmentTypeConflictError ||
     error instanceof CommercialIdempotencyConflictError
   )
     throw new ConflictException();
@@ -131,6 +140,45 @@ function map(error: unknown): never {
 @Controller("api/v1/calendar")
 export class CalendarController {
   public constructor(@Inject(CALENDAR_SERVICE) private readonly service: CalendarService) {}
+
+  @Get("appointment-types")
+  @RequireCrmPermission("crm:calendar:read")
+  public async appointmentTypes(@Req() request: Parameters<typeof crmAuthContext>[0]) {
+    try {
+      const auth = identity(request);
+      return CalendarAppointmentTypeListResponseSchema.parse({
+        data: (await this.service.listAppointmentTypes(auth.permissions)).map(appointmentType),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Post("appointment-types")
+  @RequireCrmPermission("crm:calendar:configure")
+  public async createAppointmentType(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    try {
+      const parsed = CreateCalendarAppointmentTypeSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const auth = identity(request);
+      return CalendarAppointmentTypeResponseSchema.parse({
+        data: appointmentType(
+          await this.service.createAppointmentType({
+            ...auth,
+            ...parsed.data,
+            idempotencyKey: key(idempotencyKey),
+            payloadHash: hash(parsed.data),
+          }),
+        ),
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
 
   @Get("calendars")
   @RequireCrmPermission("crm:calendar:read")
@@ -182,7 +230,9 @@ export class CalendarController {
     try {
       const auth = identity(request);
       return CalendarConfigurationResponseSchema.parse({
-        data: configuration(await this.service.configuration(auth.permissions, calendarId)),
+        data: configuration(
+          await this.service.configuration(auth.actor, auth.permissions, calendarId),
+        ),
       });
     } catch (error) {
       return map(error);
@@ -281,6 +331,7 @@ export class CalendarController {
       if (!parsed.success) throw new BadRequestException();
       const auth = identity(request);
       const slots = await this.service.availability({
+        actor: auth.actor,
         permissions: auth.permissions,
         calendarId: parsed.data.calendarId,
         ...(parsed.data.advisorMemberId === undefined
@@ -365,6 +416,9 @@ export class CalendarController {
               ? {}
               : { opportunityId: payload.opportunityId }),
             advisorMemberId: payload.advisorMemberId,
+            ...(payload.appointmentTypeId === undefined
+              ? {}
+              : { appointmentTypeId: payload.appointmentTypeId }),
             type: payload.type,
             title: payload.title,
             description: payload.description,
@@ -407,6 +461,9 @@ export class CalendarController {
         ...(parsed.data.advisorMemberId === undefined
           ? {}
           : { advisorMemberId: parsed.data.advisorMemberId }),
+        ...(parsed.data.appointmentTypeId === undefined
+          ? {}
+          : { appointmentTypeId: parsed.data.appointmentTypeId }),
         ...(parsed.data.type === undefined ? {} : { type: parsed.data.type }),
         ...(parsed.data.title === undefined ? {} : { title: parsed.data.title }),
         ...(parsed.data.description === undefined ? {} : { description: parsed.data.description }),

@@ -89,6 +89,8 @@ import {
   UpdateConversationSchema,
   CalendarAvailabilityQuerySchema,
   CalendarAvailabilityResponseSchema,
+  CalendarAppointmentTypeListResponseSchema,
+  CalendarAppointmentTypeResponseSchema,
   CalendarConfigurationResponseSchema,
   CalendarEventHistoryListResponseSchema,
   CalendarEventListQuerySchema,
@@ -97,6 +99,7 @@ import {
   CalendarListResponseSchema,
   CalendarResponseSchema,
   CreateCalendarEventSchema,
+  CreateCalendarAppointmentTypeSchema,
   CreateCalendarSchema,
   PublicCalendarAvailabilityQuerySchema,
   PublicCalendarAvailabilityResponseSchema,
@@ -1182,6 +1185,24 @@ export async function handleCrmCalendarList(request: Request, runtime: CrmAuthRu
     new URL("/api/v1/calendar/calendars", runtime.config.crmApiOrigin),
     CalendarListResponseSchema,
   );
+}
+
+export async function handleCrmAppointmentTypeList(request: Request, runtime: CrmAuthRuntime) {
+  return calendarRead(
+    request,
+    runtime,
+    new URL("/api/v1/calendar/appointment-types", runtime.config.crmApiOrigin),
+    CalendarAppointmentTypeListResponseSchema,
+  );
+}
+
+export async function handleCrmAppointmentTypeCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, {
+    path: "/api/v1/calendar/appointment-types",
+    method: "POST",
+    requestSchema: CreateCalendarAppointmentTypeSchema,
+    responseSchema: CalendarAppointmentTypeResponseSchema,
+  });
 }
 
 export async function handleCrmCalendarCreate(request: Request, runtime: CrmAuthRuntime) {

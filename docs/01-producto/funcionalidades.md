@@ -176,7 +176,7 @@ Gestionar citas, disponibilidad y reservas con intervención humana o del agente
 
 - [ ] **CAL-01** — Crear citas, reuniones y eventos.
 - [ ] **CAL-02** — Asociar eventos a contactos y oportunidades.
-- [ ] **CAL-03** — Asignar eventos a asesores.
+- [ ] **CAL-03** — Asignar eventos a asesores; cada asesor consulta solo sus citas asignadas salvo permiso explícito para ver todas.
 - [ ] **CAL-04** — Definir fecha, hora, duración, ubicación y descripción.
 - [ ] **CAL-05** — Configurar horarios de atención y disponibilidad de cada asesor.
 - [ ] **CAL-06** — Evitar reservas en horarios ocupados.
@@ -185,11 +185,11 @@ Gestionar citas, disponibilidad y reservas con intervención humana o del agente
 - [ ] **CAL-09** — Crear eventos manualmente, mediante automatizaciones o desde el agente.
 - [ ] **CAL-10** — Permitir que el agente consulte la disponibilidad antes de ofrecer horarios.
 - [ ] **CAL-11** — Permitir que el agente agende, reprograme o cancele según sus permisos.
-- [ ] **CAL-12** — Crear calendarios diferentes según servicio, sede o equipo.
+- [ ] **CAL-12** — Crear calendarios diferentes según servicio, sede o equipo, y permitir que el administrador configure tipos de cita reutilizables.
 - [ ] **CAL-13** — Generar enlaces de reserva.
 - [ ] **CAL-14** — Definir tiempos de separación entre citas.
 - [ ] **CAL-15** — Mostrar tareas y eventos próximos del contacto.
-- [ ] **CAL-16** — Filtrar por asesor, servicio, estado y fecha.
+- [ ] **CAL-16** — Filtrar por asesor, servicio, estado y fecha; el filtro por asesor aparece solo para quien puede ver todas las citas.
 - [ ] **CAL-17** — Estados: pendiente, confirmada, completada, cancelada o no asistió.
 - [ ] **CAL-18** — Activar automatizaciones según creación, confirmación, reprogramación, cancelación o inasistencia.
 - [ ] **CAL-19** — Sincronizar con calendarios externos.

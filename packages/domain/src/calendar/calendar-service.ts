@@ -236,6 +236,58 @@ export class CalendarService {
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
+  private readActor(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+  ): CommercialActor {
+    return {
+      ...actor,
+      scope: permissions.includes("crm:calendar:read-all") ? "PROFILE" : "ASSIGNED",
+    };
+  }
+
+  private writeActor(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+  ): CommercialActor {
+    return {
+      ...actor,
+      scope: permissions.includes("crm:calendar:configure") ? "PROFILE" : "ASSIGNED",
+    };
+  }
+
+  public async listAppointmentTypes(permissions: readonly IamPermission[]) {
+    allow(permissions, "crm:calendar:read");
+    return this.repository.listAppointmentTypes();
+  }
+
+  public async createAppointmentType(input: {
+    readonly actor: CommercialActor;
+    readonly permissions: readonly IamPermission[];
+    readonly name: string;
+    readonly durationMinutes: number;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) {
+    allow(input.permissions, "crm:calendar:configure");
+    const name = input.name.trim();
+    if (
+      !name ||
+      name.length > 160 ||
+      !Number.isInteger(input.durationMinutes) ||
+      input.durationMinutes < 5 ||
+      input.durationMinutes > 480
+    )
+      throw new CalendarValidationError();
+    return this.repository.createAppointmentType({
+      name,
+      durationMinutes: input.durationMinutes,
+      actorMemberId: input.actor.memberId,
+      idempotencyKey: input.idempotencyKey,
+      payloadHash: input.payloadHash,
+    });
+  }
+
   public async listCalendars(permissions: readonly IamPermission[]) {
     allow(permissions, "crm:calendar:read");
     return this.repository.listCalendars();
@@ -303,11 +355,20 @@ export class CalendarService {
     return result;
   }
 
-  public async configuration(permissions: readonly IamPermission[], calendarId: string) {
+  public async configuration(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    calendarId: string,
+  ) {
     allow(permissions, "crm:calendar:read");
     const result = await this.repository.configuration(calendarId);
     if (!result) throw new CalendarNotFoundError();
-    return result;
+    if (permissions.includes("crm:calendar:read-all")) return result;
+    return {
+      ...result,
+      rules: result.rules.filter((rule) => rule.advisorMemberId === actor.memberId),
+      exceptions: result.exceptions.filter((entry) => entry.advisorMemberId === actor.memberId),
+    };
   }
 
   public async replaceAvailability(input: {
@@ -354,6 +415,7 @@ export class CalendarService {
   }
 
   public async availability(input: {
+    readonly actor: CommercialActor;
     readonly permissions: readonly IamPermission[];
     readonly calendarId: string;
     readonly advisorMemberId?: string;
@@ -362,14 +424,27 @@ export class CalendarService {
     readonly durationMinutes?: number;
   }) {
     allow(input.permissions, "crm:calendar:read");
+    if (
+      !input.permissions.includes("crm:calendar:read-all") &&
+      input.advisorMemberId !== undefined &&
+      input.advisorMemberId !== input.actor.memberId
+    )
+      throw new IamAuthorizationError();
+    const advisorMemberId = input.permissions.includes("crm:calendar:read-all")
+      ? input.advisorMemberId
+      : input.actor.memberId;
     const snapshot = await this.repository.schedulingSnapshot(
       input.calendarId,
       input.from,
       input.to,
-      input.advisorMemberId,
+      advisorMemberId,
     );
     if (!snapshot) throw new CalendarNotFoundError();
-    return calculateAvailableSlots({ ...input, snapshot });
+    return calculateAvailableSlots({
+      ...input,
+      ...(advisorMemberId === undefined ? {} : { advisorMemberId }),
+      snapshot,
+    });
   }
 
   public async publicAvailability(input: {
@@ -400,7 +475,13 @@ export class CalendarService {
     filters: CalendarEventFilters,
   ) {
     allow(permissions, "crm:calendar:read");
-    return this.repository.listEvents(actor, filters);
+    if (
+      filters.advisorMemberId &&
+      !permissions.includes("crm:calendar:read-all") &&
+      filters.advisorMemberId !== actor.memberId
+    )
+      throw new IamAuthorizationError();
+    return this.repository.listEvents(this.readActor(actor, permissions), filters);
   }
 
   private async validateReferences(
@@ -423,6 +504,7 @@ export class CalendarService {
     readonly contactId?: string;
     readonly opportunityId?: string;
     readonly advisorMemberId: string;
+    readonly appointmentTypeId?: string;
     readonly type: CalendarEventRecord["type"];
     readonly title: string;
     readonly description: string;
@@ -435,6 +517,16 @@ export class CalendarService {
     readonly payloadHash: string;
   }) {
     allow(input.permissions, "crm:calendar:create");
+    if (
+      input.advisorMemberId !== input.actor.memberId &&
+      !input.permissions.includes("crm:calendar:configure")
+    )
+      throw new IamAuthorizationError();
+    if (
+      input.appointmentTypeId &&
+      !(await this.repository.findAppointmentType(input.appointmentTypeId))
+    )
+      throw new CalendarNotFoundError();
     await this.validateReferences(input.actor, input);
     if (!(await this.references.isActiveMember(input.advisorMemberId)))
       throw new CalendarNotFoundError();
@@ -451,6 +543,7 @@ export class CalendarService {
         contactId: input.contactId ?? null,
         opportunityId: input.opportunityId ?? null,
         advisorMemberId: input.advisorMemberId,
+        appointmentTypeId: input.appointmentTypeId ?? null,
         createdByMemberId: input.actor.memberId,
         guestName: null,
         guestEmail: null,
@@ -544,9 +637,21 @@ export class CalendarService {
     readonly payloadHash: string;
   }) {
     allow(input.permissions, "crm:calendar:update");
-    const current = await this.repository.findEvent(input.actor, input.id);
+    const actor = this.writeActor(input.actor, input.permissions);
+    const current = await this.repository.findEvent(actor, input.id);
     if (!current) throw new CalendarNotFoundError();
     await this.validateReferences(input.actor, input.patch);
+    if (
+      input.patch.advisorMemberId &&
+      input.patch.advisorMemberId !== current.advisorMemberId &&
+      !input.permissions.includes("crm:calendar:configure")
+    )
+      throw new IamAuthorizationError();
+    if (
+      input.patch.appointmentTypeId &&
+      !(await this.repository.findAppointmentType(input.patch.appointmentTypeId))
+    )
+      throw new CalendarNotFoundError();
     if (
       input.patch.advisorMemberId &&
       !(await this.references.isActiveMember(input.patch.advisorMemberId))
@@ -558,7 +663,7 @@ export class CalendarService {
     if (!validDate(startsAt) || !validDate(endsAt) || startsAt >= endsAt)
       throw new CalendarValidationError();
     const result = await this.repository.updateEvent({
-      actor: input.actor,
+      actor,
       id: input.id,
       patch: input.patch,
       expectedVersion: input.expectedVersion,
@@ -580,11 +685,12 @@ export class CalendarService {
     readonly payloadHash: string;
   }) {
     allow(input.permissions, "crm:calendar:update");
-    const current = await this.repository.findEvent(input.actor, input.id);
+    const actor = this.writeActor(input.actor, input.permissions);
+    const current = await this.repository.findEvent(actor, input.id);
     if (!current) throw new CalendarNotFoundError();
     if (!transitionAllowed(current.status, input.status)) throw new CalendarValidationError();
     const result = await this.repository.updateEventStatus({
-      actor: input.actor,
+      actor,
       id: input.id,
       status: input.status,
       expectedVersion: input.expectedVersion,
@@ -602,7 +708,8 @@ export class CalendarService {
     eventId: string,
   ) {
     allow(permissions, "crm:calendar:read");
-    if (!(await this.repository.findEvent(actor, eventId))) throw new CalendarNotFoundError();
-    return this.repository.history(actor, eventId);
+    const reader = this.readActor(actor, permissions);
+    if (!(await this.repository.findEvent(reader, eventId))) throw new CalendarNotFoundError();
+    return this.repository.history(reader, eventId);
   }
 }
