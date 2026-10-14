@@ -14947,7 +14947,10 @@ body {
 }
 .catalog-heading h1 {
   margin: 5px 0 6px;
-  font: 700 clamp(30px, 3vw, 38px) / 1.1 "Instrument Sans", "Aptos", sans-serif;
+  font:
+    700 clamp(30px, 3vw, 38px) / 1.1 "Instrument Sans",
+    "Aptos",
+    sans-serif;
   letter-spacing: -0.045em;
 }
 .catalog-heading p {
@@ -15074,7 +15077,10 @@ body {
 }
 .catalog-table-head,
 .catalog-row {
-  grid-template-columns: minmax(190px, 2fr) minmax(110px, 1fr) minmax(150px, 1.3fr) minmax(105px, 0.8fr);
+  grid-template-columns: minmax(190px, 2fr) minmax(110px, 1fr) minmax(150px, 1.3fr) minmax(
+      105px,
+      0.8fr
+    );
   min-width: 650px;
 }
 .catalog-table-head {
@@ -15108,7 +15114,10 @@ body {
   padding: 50px 24px;
 }
 .catalog-empty strong {
-  font: 700 21px / 1.2 "Instrument Sans", "Aptos", sans-serif;
+  font:
+    700 21px / 1.2 "Instrument Sans",
+    "Aptos",
+    sans-serif;
   letter-spacing: -0.025em;
 }
 .catalog-empty p {

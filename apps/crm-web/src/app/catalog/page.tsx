@@ -566,11 +566,13 @@ export default function CatalogPage() {
           </div>
         </section>
         <nav className="catalog-navigation" aria-label="Secciones del catálogo">
-          {([
-            ["items", "Artículos", items.length],
-            ["categories", "Categorías", categories.length],
-            ["types", "Tipos", types.length],
-          ] as const).map(([section, label, count]) => (
+          {(
+            [
+              ["items", "Artículos", items.length],
+              ["categories", "Categorías", categories.length],
+              ["types", "Tipos", types.length],
+            ] as const
+          ).map(([section, label, count]) => (
             <button
               key={section}
               aria-current={view === section ? "page" : undefined}
@@ -583,183 +585,189 @@ export default function CatalogPage() {
         </nav>
         {view === "items" ? (
           <>
-        <section className="catalog-toolbar">
-          <div className="catalog-tabs" aria-label="Tipo de ítem">
-            {(["all", "product", "service"] as const).map((filter) => (
-              <button
-                key={filter}
-                className={kind === filter ? "active" : ""}
-                onClick={() => setKind(filter)}
-              >
-                {filter === "all" ? "Todos" : filter === "product" ? "Productos" : "Servicios"}
-              </button>
-            ))}
-          </div>
-          <input
-            aria-label="Buscar en catálogo"
-            placeholder="Buscar por nombre o código"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <select
-            aria-label="Filtrar categoría"
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
-          >
-            <option value="">Todas las categorías</option>
-            {categories
-              .filter((category) => category.active)
-              .map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-          </select>
-        </section>
-        <div className="catalog-layout">
-          <section className="catalog-list" aria-label="Ítems del catálogo">
-            {loading ? (
-              <div className="catalog-empty">Cargando catálogo…</div>
-            ) : visible.length === 0 ? (
-              <div className="catalog-empty">
-                <strong>
-                  {items.length ? "No hay coincidencias" : "Tu catálogo empieza aquí"}
-                </strong>
-                <p>
-                  {items.length
-                    ? "Prueba otro filtro o búsqueda."
-                    : "Crea un producto o servicio y define cómo se controla su disponibilidad."}
-                </p>
-                {capabilities.canManageCatalog && !items.length && (
-                  <button className="catalog-primary" onClick={() => openItem()}>
-                    Crear primer ítem
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="catalog-table">
-                <div className="catalog-table-head">
-                  <span>Ítem</span>
-                  <span>Categoría</span>
-                  <span>Disponibilidad</span>
-                  <span>Precio</span>
-                </div>
-                {visible.map((item) => (
+            <section className="catalog-toolbar">
+              <div className="catalog-tabs" aria-label="Tipo de ítem">
+                {(["all", "product", "service"] as const).map((filter) => (
                   <button
-                    key={item.id}
-                    className={`catalog-row ${selectedId === item.id ? "selected" : ""}`}
-                    onClick={() => setSelectedId(item.id)}
+                    key={filter}
+                    className={kind === filter ? "active" : ""}
+                    onClick={() => setKind(filter)}
                   >
-                    <span>
-                      <span className="catalog-item-icon">
-                        {item.kind === "product" ? "P" : "S"}
-                      </span>
-                      <span>
-                        <strong>{item.name}</strong>
-                        <small>
-                          {item.kind === "product" ? "Producto" : "Servicio"}
-                          {item.sku ? ` · ${item.sku}` : ""}
-                          {!item.active ? " · Inactivo" : ""}
-                        </small>
-                      </span>
-                    </span>
-                    <span>
-                      {categories.find((category) => category.id === item.categoryId)?.name ??
-                        "Sin categoría"}
-                    </span>
-                    <span>
-                      {item.availabilityMode === "stock"
-                        ? `${item.stockOnHand} unidades`
-                        : item.availabilityMode === "interval_capacity"
-                          ? `${item.capacity} cupos simultáneos${item.tracksStock ? ` · ${item.stockOnHand} en stock` : ""}`
-                          : modeLabel[item.availabilityMode]}
-                    </span>
-                    <span>
-                      {new Intl.NumberFormat("es-GT", {
-                        style: "currency",
-                        currency: item.currency,
-                      }).format(Number(item.price))}
-                    </span>
+                    {filter === "all" ? "Todos" : filter === "product" ? "Productos" : "Servicios"}
                   </button>
                 ))}
               </div>
-            )}
-          </section>
-          {selected && (
-          <aside className="catalog-detail" aria-label={`Detalle de ${selected.name}`}>
-            <button
-              className="catalog-detail-close"
-              aria-label="Cerrar ficha"
-              onClick={() => setSelectedId(null)}
-            >
-              ×
-            </button>
-            <div className="catalog-detail-heading">
-              <div>
-                <span className="catalog-kicker">
-                  FICHA DEL {selected.kind === "product" ? "PRODUCTO" : "SERVICIO"}
-                </span>
-                <h2>{selected.name}</h2>
-                <p>{selected.description || "Sin descripción"}</p>
-              </div>
-              <div className="catalog-detail-actions">
-                {capabilities.canManageCatalog && (
-                  <button onClick={() => openItem(selected)}>Editar ficha</button>
-                )}
-                {capabilities.canManageCatalog && (
-                  <button onClick={() => setDialog("field")}>+ Campo</button>
-                )}
-                {capabilities.canManageCatalogStock && selected.tracksStock && (
-                  <button onClick={() => setDialog("stock")}>Movimiento de stock</button>
-                )}
-                {capabilities.canManageCatalog &&
-                  selected.kind === "service" &&
-                  selected.availabilityMode !== "stock" && (
-                    <button onClick={() => setDialog("calendar")}>+ Calendario</button>
-                  )}
-              </div>
-            </div>
-            <div className="catalog-detail-grid">
-              <div>
-                <small>Disponibilidad</small>
-                <strong>{modeLabel[selected.availabilityMode]}</strong>
-                <p>
-                  {selected.availabilityMode === "stock"
-                    ? `${selected.stockOnHand} unidades disponibles`
-                    : selected.availabilityMode === "interval_capacity"
-                      ? `${selected.capacity} unidades simultáneas por período${selected.tracksStock ? ` · ${selected.stockOnHand} en stock` : ""}`
-                      : "No requiere control de cupos"}
-                </p>
-              </div>
-              <div>
-                <small>Calendarios vinculados</small>
-                <strong>
-                  {calendars.filter((calendar) => calendar.catalogItemId === selected.id).length}
-                </strong>
-                {calendars
-                  .filter((calendar) => calendar.catalogItemId === selected.id)
-                  .map((calendar) => (
-                    <a key={calendar.id} href="/calendar">
-                      {calendar.name}
-                    </a>
+              <input
+                aria-label="Buscar en catálogo"
+                placeholder="Buscar por nombre o código"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              <select
+                aria-label="Filtrar categoría"
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+              >
+                <option value="">Todas las categorías</option>
+                {categories
+                  .filter((category) => category.active)
+                  .map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
                   ))}
-              </div>
-              <div>
-                <small>Características</small>
-                <strong>{fields.length}</strong>
-                {fields.map((field) => (
-                  <p key={field.id}>
-                    {field.label}: {String(selected.fields[field.id] ?? "—")}
-                  </p>
-                ))}
-              </div>
+              </select>
+            </section>
+            <div className="catalog-layout">
+              <section className="catalog-list" aria-label="Ítems del catálogo">
+                {loading ? (
+                  <div className="catalog-empty">Cargando catálogo…</div>
+                ) : visible.length === 0 ? (
+                  <div className="catalog-empty">
+                    <strong>
+                      {items.length ? "No hay coincidencias" : "Tu catálogo empieza aquí"}
+                    </strong>
+                    <p>
+                      {items.length
+                        ? "Prueba otro filtro o búsqueda."
+                        : "Crea un producto o servicio y define cómo se controla su disponibilidad."}
+                    </p>
+                    {capabilities.canManageCatalog && !items.length && (
+                      <button className="catalog-primary" onClick={() => openItem()}>
+                        Crear primer ítem
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="catalog-table">
+                    <div className="catalog-table-head">
+                      <span>Ítem</span>
+                      <span>Categoría</span>
+                      <span>Disponibilidad</span>
+                      <span>Precio</span>
+                    </div>
+                    {visible.map((item) => (
+                      <button
+                        key={item.id}
+                        className={`catalog-row ${selectedId === item.id ? "selected" : ""}`}
+                        onClick={() => setSelectedId(item.id)}
+                      >
+                        <span>
+                          <span className="catalog-item-icon">
+                            {item.kind === "product" ? "P" : "S"}
+                          </span>
+                          <span>
+                            <strong>{item.name}</strong>
+                            <small>
+                              {item.kind === "product" ? "Producto" : "Servicio"}
+                              {item.sku ? ` · ${item.sku}` : ""}
+                              {!item.active ? " · Inactivo" : ""}
+                            </small>
+                          </span>
+                        </span>
+                        <span>
+                          {categories.find((category) => category.id === item.categoryId)?.name ??
+                            "Sin categoría"}
+                        </span>
+                        <span>
+                          {item.availabilityMode === "stock"
+                            ? `${item.stockOnHand} unidades`
+                            : item.availabilityMode === "interval_capacity"
+                              ? `${item.capacity} cupos simultáneos${item.tracksStock ? ` · ${item.stockOnHand} en stock` : ""}`
+                              : modeLabel[item.availabilityMode]}
+                        </span>
+                        <span>
+                          {new Intl.NumberFormat("es-GT", {
+                            style: "currency",
+                            currency: item.currency,
+                          }).format(Number(item.price))}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+              {selected && (
+                <aside className="catalog-detail" aria-label={`Detalle de ${selected.name}`}>
+                  <button
+                    className="catalog-detail-close"
+                    aria-label="Cerrar ficha"
+                    onClick={() => setSelectedId(null)}
+                  >
+                    ×
+                  </button>
+                  <div className="catalog-detail-heading">
+                    <div>
+                      <span className="catalog-kicker">
+                        FICHA DEL {selected.kind === "product" ? "PRODUCTO" : "SERVICIO"}
+                      </span>
+                      <h2>{selected.name}</h2>
+                      <p>{selected.description || "Sin descripción"}</p>
+                    </div>
+                    <div className="catalog-detail-actions">
+                      {capabilities.canManageCatalog && (
+                        <button onClick={() => openItem(selected)}>Editar ficha</button>
+                      )}
+                      {capabilities.canManageCatalog && (
+                        <button onClick={() => setDialog("field")}>+ Campo</button>
+                      )}
+                      {capabilities.canManageCatalogStock && selected.tracksStock && (
+                        <button onClick={() => setDialog("stock")}>Movimiento de stock</button>
+                      )}
+                      {capabilities.canManageCatalog &&
+                        selected.kind === "service" &&
+                        selected.availabilityMode !== "stock" && (
+                          <button onClick={() => setDialog("calendar")}>+ Calendario</button>
+                        )}
+                    </div>
+                  </div>
+                  <div className="catalog-detail-grid">
+                    <div>
+                      <small>Disponibilidad</small>
+                      <strong>{modeLabel[selected.availabilityMode]}</strong>
+                      <p>
+                        {selected.availabilityMode === "stock"
+                          ? `${selected.stockOnHand} unidades disponibles`
+                          : selected.availabilityMode === "interval_capacity"
+                            ? `${selected.capacity} unidades simultáneas por período${selected.tracksStock ? ` · ${selected.stockOnHand} en stock` : ""}`
+                            : "No requiere control de cupos"}
+                      </p>
+                    </div>
+                    <div>
+                      <small>Calendarios vinculados</small>
+                      <strong>
+                        {
+                          calendars.filter((calendar) => calendar.catalogItemId === selected.id)
+                            .length
+                        }
+                      </strong>
+                      {calendars
+                        .filter((calendar) => calendar.catalogItemId === selected.id)
+                        .map((calendar) => (
+                          <a key={calendar.id} href="/calendar">
+                            {calendar.name}
+                          </a>
+                        ))}
+                    </div>
+                    <div>
+                      <small>Características</small>
+                      <strong>{fields.length}</strong>
+                      {fields.map((field) => (
+                        <p key={field.id}>
+                          {field.label}: {String(selected.fields[field.id] ?? "—")}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </aside>
+              )}
             </div>
-          </aside>
-        )}
-        </div>
           </>
         ) : (
-          <section className="catalog-taxonomy" aria-label={view === "categories" ? "Categorías" : "Tipos"}>
+          <section
+            className="catalog-taxonomy"
+            aria-label={view === "categories" ? "Categorías" : "Tipos"}
+          >
             <div className="catalog-taxonomy-heading">
               <div>
                 <h2>{view === "categories" ? "Categorías" : "Tipos de artículo"}</h2>
@@ -774,13 +782,16 @@ export default function CatalogPage() {
                   className="catalog-primary"
                   onClick={() => setDialog(view === "categories" ? "category" : "type")}
                 >
-                  <span aria-hidden="true">+</span> {view === "categories" ? "Nueva categoría" : "Nuevo tipo"}
+                  <span aria-hidden="true">+</span>{" "}
+                  {view === "categories" ? "Nueva categoría" : "Nuevo tipo"}
                 </button>
               )}
             </div>
             {(view === "categories" ? categories : types).length === 0 ? (
               <div className="catalog-taxonomy-empty">
-                <strong>{view === "categories" ? "Aún no hay categorías" : "Aún no hay tipos"}</strong>
+                <strong>
+                  {view === "categories" ? "Aún no hay categorías" : "Aún no hay tipos"}
+                </strong>
                 <p>Créalo cuando lo necesites; puedes empezar a agregar artículos sin este paso.</p>
               </div>
             ) : (
@@ -794,7 +805,9 @@ export default function CatalogPage() {
                           setView("items");
                         }}
                       >
-                        <span className="catalog-taxonomy-icon" aria-hidden="true">C</span>
+                        <span className="catalog-taxonomy-icon" aria-hidden="true">
+                          C
+                        </span>
                         <span>
                           <strong>{category.name}</strong>
                           <small>
@@ -811,7 +824,9 @@ export default function CatalogPage() {
                     ))
                   : types.map((type) => (
                       <div className="catalog-taxonomy-type" key={type.id}>
-                        <span className="catalog-taxonomy-icon" aria-hidden="true">T</span>
+                        <span className="catalog-taxonomy-icon" aria-hidden="true">
+                          T
+                        </span>
                         <span>
                           <strong>{type.name}</strong>
                           <small>{type.description || "Sin descripción"}</small>
