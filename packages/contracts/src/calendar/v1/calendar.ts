@@ -52,6 +52,7 @@ export const CalendarDefinitionSchema = z
     id: IdSchema,
     name: z.string().trim().min(1).max(160),
     serviceName: z.string().trim().min(1).max(160),
+    catalogItemId: IdSchema.nullable().optional(),
     location: z.string().trim().min(1).max(500).nullable(),
     timeZone: TimeZoneSchema,
     slotDurationMinutes: z.number().int().min(5).max(480),
@@ -69,6 +70,7 @@ export const CreateCalendarSchema = z
   .object({
     name: z.string().trim().min(1).max(160),
     serviceName: z.string().trim().min(1).max(160),
+    catalogItemId: IdSchema.nullable().optional(),
     location: z.string().trim().min(1).max(500).nullable().optional(),
     timeZone: TimeZoneSchema,
     slotDurationMinutes: z.number().int().min(5).max(480).default(30),

@@ -8,6 +8,7 @@ export interface CalendarDefinitionRecord {
   readonly id: string;
   readonly name: string;
   readonly serviceName: string;
+  readonly catalogItemId?: string | null;
   readonly location: string | null;
   readonly timeZone: string;
   readonly slotDurationMinutes: number;

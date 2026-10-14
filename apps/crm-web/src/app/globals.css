@@ -14450,3 +14450,91 @@ body {
     flex-direction: column;
   }
 }
+.catalog-page {
+  min-height: 100%;
+  padding: clamp(24px, 3vw, 46px);
+  background: #f6f8fa;
+  color: #132331;
+}
+.catalog-heading, .catalog-toolbar, .catalog-layout, .catalog-detail-heading, .catalog-modal-head, .catalog-form footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.catalog-heading { margin-bottom: 30px; align-items: flex-end; }
+.catalog-kicker { display: block; color: #008f89; font-size: 10px; font-weight: 800; letter-spacing: .2em; }
+.catalog-heading h1 { margin: 8px 0 4px; font: 700 clamp(30px, 3.5vw, 44px)/1.05 Georgia, serif; }
+.catalog-heading p, .catalog-detail-heading p { margin: 0; color: #718391; font-size: 14px; }
+.catalog-page button, .catalog-page input, .catalog-page textarea, .catalog-page select { font: inherit; }
+.catalog-page button { cursor: pointer; }
+.catalog-primary { border: 1px solid #008e87; background: #008e87; color: white; padding: 11px 17px; border-radius: 8px; font-weight: 700 !important; }
+.catalog-primary:hover { background: #00736e; }
+.catalog-primary:disabled { opacity: .55; cursor: wait; }
+.catalog-notice, .catalog-error { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px 15px; border-radius: 8px; font-size: 13px; }
+.catalog-notice { background: #e5f7f3; color: #086862; border: 1px solid #9fded2; }
+.catalog-error { background: #fff0f0; color: #ab3333; border: 1px solid #edbcbc; }
+.catalog-notice button { border: 0; background: transparent; color: inherit; font-size: 20px; }
+.catalog-toolbar { justify-content: flex-start; margin-bottom: 16px; flex-wrap: wrap; }
+.catalog-tabs { display: flex; padding: 3px; gap: 2px; border: 1px solid #dde5e8; border-radius: 9px; background: white; }
+.catalog-tabs button { border: 0; border-radius: 6px; background: transparent; padding: 9px 15px; color: #536673; font-size: 13px; font-weight: 700; }
+.catalog-tabs button.active { background: #e5f6f3; color: #007b74; }
+.catalog-toolbar > input, .catalog-toolbar > select { height: 40px; border: 1px solid #dbe3e8; background: white; border-radius: 8px; padding: 0 12px; font-size: 13px; color: #1d3442; }
+.catalog-toolbar > input { flex: 1 1 260px; max-width: 420px; }
+.catalog-toolbar > select { min-width: 200px; }
+.catalog-layout { align-items: flex-start; gap: 18px; }
+.catalog-list { flex: 1; min-width: 0; overflow: hidden; border: 1px solid #dfe7eb; border-radius: 12px; background: white; }
+.catalog-table { overflow-x: auto; }
+.catalog-table-head, .catalog-row { min-width: 690px; display: grid; grid-template-columns: minmax(210px, 2fr) minmax(120px, 1fr) minmax(150px, 1fr) 125px; align-items: center; gap: 14px; }
+.catalog-table-head { padding: 13px 20px; color: #768997; text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 800; background: #f9fbfc; border-bottom: 1px solid #e7edef; }
+.catalog-row { width: 100%; padding: 15px 20px; border: 0; border-bottom: 1px solid #eef1f3; background: white; text-align: left; color: #243846; font-size: 13px; }
+.catalog-row:hover, .catalog-row.selected { background: #f0f9f7; }
+.catalog-row > span:first-child { display: flex; align-items: center; gap: 10px; }
+.catalog-row strong, .catalog-row small { display: block; }
+.catalog-row strong { font-size: 14px; }
+.catalog-row small { margin-top: 3px; color: #7a8a94; font-size: 11px; }
+.catalog-item-icon { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 8px; background: #d9f3ee; color: #00877f; font-weight: 800; }
+.catalog-side { width: 225px; flex: 0 0 225px; background: white; border: 1px solid #dfe7eb; border-radius: 12px; padding: 18px; }
+.catalog-side-title { color: #6e8290; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .13em; }
+.catalog-side-group { padding-top: 18px; margin-top: 18px; border-top: 1px solid #edf1f3; }
+.catalog-side-group h3 { display: flex; justify-content: space-between; margin: 0 0 12px; font-size: 13px; }
+.catalog-side-group h3 span { color: #8b9da8; }
+.catalog-side-group > button, .catalog-side-group > span { display: block; width: 100%; border: 0; background: transparent; color: #536a77; padding: 7px 0; text-align: left; font-size: 12px; }
+.catalog-side-group > button:hover, .catalog-side-group > button.catalog-link { color: #008e87; }
+.catalog-empty { padding: 60px 30px; text-align: center; color: #6f8390; }
+.catalog-empty strong { color: #1d3542; font: 700 22px Georgia, serif; }
+.catalog-empty p { margin: 10px 0 20px; font-size: 13px; }
+.catalog-detail { margin-top: 18px; padding: 24px; background: white; border: 1px solid #dfe7eb; border-radius: 12px; }
+.catalog-detail-heading { align-items: flex-start; }
+.catalog-detail-heading h2 { margin: 7px 0; font-size: 23px; }
+.catalog-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.catalog-detail-actions button { border: 1px solid #d7e1e5; border-radius: 7px; background: white; padding: 9px 11px; color: #1d5e5d; font-size: 12px; font-weight: 700; }
+.catalog-detail-actions button:hover { background: #e8f5f2; }
+.catalog-detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 25px; border-top: 1px solid #edf1f3; padding-top: 20px; }
+.catalog-detail-grid > div { min-width: 0; }
+.catalog-detail-grid small, .catalog-detail-grid strong, .catalog-detail-grid a { display: block; }
+.catalog-detail-grid small { color: #7e919c; text-transform: uppercase; font-weight: 800; letter-spacing: .12em; font-size: 10px; }
+.catalog-detail-grid strong { margin-top: 8px; }
+.catalog-detail-grid p, .catalog-detail-grid a { margin: 5px 0; color: #607681; font-size: 12px; }
+.catalog-modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(5 18 27 / 65%); }
+.catalog-modal { width: min(700px, 100%); max-height: min(90vh, 950px); overflow-y: auto; background: white; border-radius: 14px; box-shadow: 0 25px 70px rgb(0 0 0 / 25%); }
+.catalog-modal-head { position: sticky; z-index: 1; top: 0; background: white; border-bottom: 1px solid #edf1f3; padding: 18px 24px; }
+.catalog-modal-head h2 { margin: 0; font-size: 21px; }
+.catalog-modal-head button { border: 0; background: transparent; font-size: 26px; color: #738793; }
+.catalog-modal > .catalog-error { margin: 15px 24px 0; }
+.catalog-form { padding: 24px; display: grid; gap: 16px; }
+.catalog-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.catalog-form-grid .full { grid-column: 1 / -1; }
+.catalog-form label { display: grid; gap: 7px; color: #4e626d; font-size: 12px; font-weight: 700; }
+.catalog-form input:not([type="checkbox"]), .catalog-form select, .catalog-form textarea { width: 100%; min-height: 39px; padding: 9px 10px; border: 1px solid #d1dde2; border-radius: 7px; color: #203642; background: white; font-size: 13px; }
+.catalog-form input:focus, .catalog-form select:focus, .catalog-form textarea:focus { outline: 2px solid #8cd7cb; outline-offset: 1px; }
+.catalog-form label.catalog-field-check { display: flex; align-items: center; gap: 8px; }
+.catalog-form label small { font-weight: 400; color: #8798a2; }
+.catalog-options { display: grid; gap: 7px; padding: 6px 0; }
+.catalog-options label { display: flex; align-items: center; gap: 6px; }
+.catalog-custom-fields { border-top: 1px solid #e5ebee; padding-top: 16px; }
+.catalog-custom-fields h3 { margin: 0 0 15px; font-size: 14px; }
+.catalog-form footer { justify-content: flex-end; border-top: 1px solid #e5ebee; padding-top: 18px; }
+.catalog-form footer button:not(.catalog-primary) { border: 1px solid #d1dde2; border-radius: 7px; padding: 10px 15px; color: #4c626e; background: white; }
+@media (max-width: 980px) { .catalog-layout { flex-direction: column; } .catalog-side { width: 100%; flex: auto; } .catalog-detail-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .catalog-page { padding: 18px; } .catalog-heading { align-items: flex-start; flex-direction: column; } .catalog-toolbar > input, .catalog-toolbar > select { max-width: none; width: 100%; } .catalog-detail-heading { flex-direction: column; } .catalog-detail-grid, .catalog-form-grid { grid-template-columns: 1fr; } }

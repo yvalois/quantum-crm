@@ -19,6 +19,7 @@ import {
   TaskService,
   AutomationService,
   CalendarService,
+  CatalogService,
   DocumentService,
   FileService,
   FormService,
@@ -58,6 +59,7 @@ import {
   HistoricalConversationsController,
 } from "./historical-conversations.controller.js";
 import { CALENDAR_SERVICE, CalendarController } from "./calendar.controller.js";
+import { CATALOG_SERVICE, CatalogController } from "./catalog.controller.js";
 import { DOCUMENT_SERVICE, DocumentsController } from "./documents.controller.js";
 import { FILE_SERVICE, FilesController } from "./files.controller.js";
 import { FORM_SERVICE, FormsController } from "./forms.controller.js";
@@ -96,6 +98,7 @@ export class AppModule {
         ConversationsController,
         HistoricalConversationsController,
         CalendarController,
+        CatalogController,
         DocumentsController,
         FilesController,
         FormsController,
@@ -217,6 +220,7 @@ export class AppModule {
                 (await database.members.findById(memberId))?.status === "ACTIVE",
             }),
         },
+        { provide: CATALOG_SERVICE, useFactory: () => new CatalogService(database.commercial.catalog) },
         {
           provide: DOCUMENT_SERVICE,
           useFactory: () =>

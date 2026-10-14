@@ -44,6 +44,7 @@ import type {
   TaskRepository,
   TaskStatus,
   CalendarRepository,
+  CatalogRepository,
   FormRepository,
   DocumentRepository,
   AgentKnowledgeRepository,
@@ -60,6 +61,7 @@ import { createHistoricalConversationPostgresRepository } from "./historical-con
 import { createUnifiedInboxPostgresRepository } from "./unified-inbox-postgres-repository.js";
 import { createSettingsCustomFieldPostgresRepository } from "./settings-custom-field-postgres-repository.js";
 import { createCalendarPostgresRepository } from "./calendar-postgres-repository.js";
+import { createCatalogPostgresRepository } from "./catalog-postgres-repository.js";
 import { createFormPostgresRepository } from "./form-postgres-repository.js";
 import { createDocumentPostgresRepository } from "./document-postgres-repository.js";
 import { createAgentKnowledgePostgresRepository } from "./agent-knowledge-postgres-repository.js";
@@ -751,6 +753,7 @@ export interface CommercialPostgresRepositories {
   readonly sales: SalesRepository;
   readonly tasks: TaskRepository;
   readonly calendar: CalendarRepository;
+  readonly catalog: CatalogRepository;
   readonly forms: FormRepository;
   readonly documents: DocumentRepository;
   readonly agentKnowledge: AgentKnowledgeRepository;
@@ -2704,6 +2707,7 @@ export function createCommercialPostgresRepositories(
     sales,
     tasks,
     calendar: createCalendarPostgresRepository(pool),
+    catalog: createCatalogPostgresRepository(pool),
     forms: createFormPostgresRepository(pool),
     documents: createDocumentPostgresRepository(pool),
     agentKnowledge: createAgentKnowledgePostgresRepository(pool),

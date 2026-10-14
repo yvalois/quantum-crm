@@ -298,6 +298,7 @@ export class CalendarService {
     readonly permissions: readonly IamPermission[];
     readonly name: string;
     readonly serviceName: string;
+    readonly catalogItemId?: string | null;
     readonly location: string | null;
     readonly timeZone: string;
     readonly slotDurationMinutes: number;
@@ -314,6 +315,7 @@ export class CalendarService {
         id: randomUUID(),
         name: input.name.trim(),
         serviceName: input.serviceName.trim(),
+        catalogItemId: input.catalogItemId ?? null,
         location: input.location?.trim() || null,
         timeZone: input.timeZone,
         slotDurationMinutes: input.slotDurationMinutes,

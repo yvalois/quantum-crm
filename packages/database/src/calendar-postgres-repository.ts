@@ -22,6 +22,7 @@ interface CalendarRow {
   readonly id: string;
   readonly name: string;
   readonly service_name: string;
+  readonly catalog_item_id: string | null;
   readonly location: string | null;
   readonly time_zone: string;
   readonly slot_duration_minutes: number;
@@ -96,7 +97,7 @@ interface HistoryRow {
   readonly created_at: Date;
 }
 
-const calendarSelection = `id::text, name, service_name, location, time_zone, slot_duration_minutes, buffer_before_minutes, buffer_after_minutes, booking_slug, active, version::text, created_at, updated_at`;
+const calendarSelection = `id::text, name, service_name, catalog_item_id::text, location, time_zone, slot_duration_minutes, buffer_before_minutes, buffer_after_minutes, booking_slug, active, version::text, created_at, updated_at`;
 const eventSelection = `id::text, calendar_id::text, contact_id::text, opportunity_id::text, advisor_member_id::text, appointment_type_id::text, created_by_member_id::text, guest_name, guest_email::text, type, status, origin, title, description, location, starts_at, ends_at, time_zone, version::text, created_at, updated_at`;
 const appointmentTypeSelection = `id::text, name, duration_minutes, created_at`;
 
@@ -113,6 +114,7 @@ function calendarFromRow(row: CalendarRow): CalendarDefinitionRecord {
     id: row.id,
     name: row.name,
     serviceName: row.service_name,
+    catalogItemId: row.catalog_item_id,
     location: row.location,
     timeZone: row.time_zone,
     slotDurationMinutes: row.slot_duration_minutes,
@@ -530,15 +532,16 @@ export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRe
         }
         const result = await client.query<CalendarRow>(
           `INSERT INTO calendar.calendars
-             (id, name, service_name, location, time_zone, slot_duration_minutes,
+             (id, name, service_name, catalog_item_id, location, time_zone, slot_duration_minutes,
               buffer_before_minutes, buffer_after_minutes, booking_slug, active,
               version, created_at, updated_at)
-           VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, true, 1, $10, $10)
+           VALUES ($1::uuid, $2, $3, $4::uuid, $5, $6, $7, $8, $9, $10, true, 1, $11, $11)
            RETURNING ${calendarSelection}`,
           [
             input.calendar.id,
             input.calendar.name,
             input.calendar.serviceName,
+            input.calendar.catalogItemId ?? null,
             input.calendar.location,
             input.calendar.timeZone,
             input.calendar.slotDurationMinutes,
@@ -590,6 +593,7 @@ export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRe
           `UPDATE calendar.calendars
               SET name = CASE WHEN $3::boolean THEN $4 ELSE name END,
                   service_name = CASE WHEN $5::boolean THEN $6 ELSE service_name END,
+                  catalog_item_id = CASE WHEN $20::boolean THEN $21::uuid ELSE catalog_item_id END,
                   location = CASE WHEN $7::boolean THEN $8 ELSE location END,
                   time_zone = CASE WHEN $9::boolean THEN $10 ELSE time_zone END,
                   slot_duration_minutes = CASE WHEN $11::boolean THEN $12 ELSE slot_duration_minutes END,
@@ -620,6 +624,8 @@ export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRe
             patch.active !== undefined,
             patch.active ?? null,
             input.now,
+            patch.catalogItemId !== undefined,
+            patch.catalogItemId ?? null,
           ],
         );
         const row = result.rows[0];

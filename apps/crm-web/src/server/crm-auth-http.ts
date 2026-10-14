@@ -7,6 +7,21 @@ import {
 import { type CrmWebAuthConfig, SecretValue } from "@quantum-crm/config";
 import {
   CreateMemberInvitationSchema,
+  AdjustCatalogStockSchema,
+  CatalogCategoryListResponseSchema,
+  CatalogCategoryResponseSchema,
+  CatalogFieldListResponseSchema,
+  CatalogFieldResponseSchema,
+  CatalogItemListQuerySchema,
+  CatalogItemListResponseSchema,
+  CatalogItemResponseSchema,
+  CatalogTypeListResponseSchema,
+  CatalogTypeResponseSchema,
+  CreateCatalogCategorySchema,
+  CreateCatalogFieldSchema,
+  CreateCatalogItemSchema,
+  CreateCatalogTypeSchema,
+  UpdateCatalogItemSchema,
   CustomFieldDefinitionListQuerySchema,
   CustomFieldDefinitionListResponseSchema,
   HistoricalConversationListQuerySchema,
@@ -1109,6 +1124,54 @@ function appendParsedQuery(target: URL, data: Readonly<Record<string, unknown>>)
   for (const [name, value] of Object.entries(data)) {
     if (value !== undefined) target.searchParams.set(name, String(value));
   }
+}
+
+export async function handleCrmCatalogList(request: Request, runtime: CrmAuthRuntime) {
+  const parsed = CatalogItemListQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  if (!parsed.success) return crmProblem(400, "Invalid request");
+  const target = new URL("/api/v1/catalog/items", runtime.config.crmApiOrigin);
+  appendParsedQuery(target, parsed.data);
+  return calendarRead(request, runtime, target, CatalogItemListResponseSchema);
+}
+export async function handleCrmCatalogCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, { path: "/api/v1/catalog/items", method: "POST", requestSchema: CreateCatalogItemSchema, responseSchema: CatalogItemResponseSchema });
+}
+export async function handleCrmCatalogItem(request: Request, runtime: CrmAuthRuntime, id: string) {
+  if (!uuidPattern.test(id)) return crmProblem(400, "Invalid request");
+  return calendarRead(request, runtime, new URL(`/api/v1/catalog/items/${id}`, runtime.config.crmApiOrigin), CatalogItemResponseSchema);
+}
+export async function handleCrmCatalogUpdate(request: Request, runtime: CrmAuthRuntime, id: string) {
+  if (!uuidPattern.test(id)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, { path: `/api/v1/catalog/items/${id}`, method: "PATCH", requestSchema: UpdateCatalogItemSchema, responseSchema: CatalogItemResponseSchema, requireVersion: true });
+}
+export async function handleCrmCatalogStock(request: Request, runtime: CrmAuthRuntime, id: string) {
+  if (!uuidPattern.test(id)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, { path: `/api/v1/catalog/items/${id}/stock-movements`, method: "POST", requestSchema: AdjustCatalogStockSchema, responseSchema: CatalogItemResponseSchema });
+}
+export async function handleCrmCatalogCategories(request: Request, runtime: CrmAuthRuntime) {
+  return calendarRead(request, runtime, new URL("/api/v1/catalog/categories", runtime.config.crmApiOrigin), CatalogCategoryListResponseSchema);
+}
+export async function handleCrmCatalogCategoryCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, { path: "/api/v1/catalog/categories", method: "POST", requestSchema: CreateCatalogCategorySchema, responseSchema: CatalogCategoryResponseSchema });
+}
+export async function handleCrmCatalogTypes(request: Request, runtime: CrmAuthRuntime) {
+  return calendarRead(request, runtime, new URL("/api/v1/catalog/types", runtime.config.crmApiOrigin), CatalogTypeListResponseSchema);
+}
+export async function handleCrmCatalogTypeCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, { path: "/api/v1/catalog/types", method: "POST", requestSchema: CreateCatalogTypeSchema, responseSchema: CatalogTypeResponseSchema });
+}
+export async function handleCrmCatalogFields(request: Request, runtime: CrmAuthRuntime) {
+  const source = new URL(request.url);
+  const target = new URL("/api/v1/catalog/fields", runtime.config.crmApiOrigin);
+  for (const key of ["itemTypeId", "itemId"]) {
+    const value = source.searchParams.get(key);
+    if (value && !uuidPattern.test(value)) return crmProblem(400, "Invalid request");
+    if (value) target.searchParams.set(key, value);
+  }
+  return calendarRead(request, runtime, target, CatalogFieldListResponseSchema);
+}
+export async function handleCrmCatalogFieldCreate(request: Request, runtime: CrmAuthRuntime) {
+  return calendarMutation(request, runtime, { path: "/api/v1/catalog/fields", method: "POST", requestSchema: CreateCatalogFieldSchema, responseSchema: CatalogFieldResponseSchema });
 }
 
 async function calendarRead(
