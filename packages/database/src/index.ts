@@ -16,6 +16,7 @@ export { createUnifiedInboxPostgresRepository } from "./unified-inbox-postgres-r
 export { createGhlImportOperationRepository } from "./ghl-import-operation-repository.js";
 
 export { POSTGRES_DATABASE } from "./database-token.js";
+export { createReportingPostgresRepository } from "./reporting-postgres-repository.js";
 
 export {
   createPostgresDatabase,

@@ -81,7 +81,7 @@ interface VisibilityPredicate {
  * The scope is resolved from the authenticated membership in the database;
  * the client never supplies a scope or a team identifier.
  */
-function visibility(
+export function visibility(
   actor: CommercialActor,
   memberPlaceholder: number,
   recordMembers: readonly string[],
@@ -114,7 +114,7 @@ function visibility(
 /** A contact is visible to an assigned-scope member through their own
  * assignment, an assigned opportunity, or an assigned conversation. The
  * related records remain subject to their own repository authorization. */
-function contactVisibility(actor: CommercialActor, memberPlaceholder: number): VisibilityPredicate {
+export function contactVisibility(actor: CommercialActor, memberPlaceholder: number): VisibilityPredicate {
   const direct = visibility(actor, memberPlaceholder, ["contact.owner_member_id"]);
   if (actor.scope !== "ASSIGNED" && actor.scope !== "OWN") return direct;
   const member = `$${memberPlaceholder}::uuid`;
