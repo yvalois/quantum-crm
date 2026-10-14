@@ -114,7 +114,10 @@ export function visibility(
 /** A contact is visible to an assigned-scope member through their own
  * assignment, an assigned opportunity, or an assigned conversation. The
  * related records remain subject to their own repository authorization. */
-export function contactVisibility(actor: CommercialActor, memberPlaceholder: number): VisibilityPredicate {
+export function contactVisibility(
+  actor: CommercialActor,
+  memberPlaceholder: number,
+): VisibilityPredicate {
   const direct = visibility(actor, memberPlaceholder, ["contact.owner_member_id"]);
   if (actor.scope !== "ASSIGNED" && actor.scope !== "OWN") return direct;
   const member = `$${memberPlaceholder}::uuid`;
