@@ -133,28 +133,36 @@ function LineChart({
   }));
   return (
     <div className="report-line-chart">
-      <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Tendencia: ${items.map((item) => `${item.label} ${item.value}`).join(", ")}`}
-      >
-        <line x1="0" x2="100" y1="86" y2="86" className="report-chart-grid" />
-        <line x1="0" x2="100" y1="51" y2="51" className="report-chart-grid" />
-        <line x1="0" x2="100" y1="16" y2="16" className="report-chart-grid" />
-        <polyline
-          points={coordinates.map((item) => `${item.x},${item.y}`).join(" ")}
-          className="report-chart-line"
-        />
-        {coordinates.map((item) => (
-          <circle key={item.label} cx={item.x} cy={item.y} r="1.2" className="report-chart-point">
-            <title>{`${item.label}: ${item.value}`}</title>
-          </circle>
-        ))}
-      </svg>
+      <div className="report-line-plot">
+        <div className="report-line-scale" aria-hidden="true">
+          <span>{max}</span>
+          <span>{Math.round(max / 2)}</span>
+          <span>0</span>
+        </div>
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`Tendencia: ${items.map((item) => `${item.label} ${item.value}`).join(", ")}`}
+        >
+          <line x1="0" x2="100" y1="86" y2="86" className="report-chart-grid" />
+          <line x1="0" x2="100" y1="51" y2="51" className="report-chart-grid" />
+          <line x1="0" x2="100" y1="16" y2="16" className="report-chart-grid" />
+          <polyline
+            points={coordinates.map((item) => `${item.x},${item.y}`).join(" ")}
+            className="report-chart-line"
+          />
+          {coordinates.map((item) => (
+            <circle key={item.label} cx={item.x} cy={item.y} r="1.2" className="report-chart-point">
+              <title>{`${item.label}: ${item.value}`}</title>
+            </circle>
+          ))}
+        </svg>
+      </div>
       <div className="report-chart-axis">
-        <span>{items[0]?.label}</span>
-        <span>{items.at(-1)?.label}</span>
+        {(items.length <= 6 ? items : [items[0], items.at(-1)]).map(
+          (item) => item && <span key={item.label}>{item.label}</span>,
+        )}
       </div>
     </div>
   );
@@ -325,7 +333,9 @@ function DashboardWidget({
                 onChange({ ...widget, width: event.target.value as Widget["width"] })
               }
             >
-              <option value="half">Media fila</option>
+              <option value="half">
+                {widget.chart === "number" ? "Tarjeta compacta" : "Media fila"}
+              </option>
               <option value="full">Fila completa</option>
             </select>
           </label>
