@@ -7,8 +7,7 @@
 .page {
   min-width: 0;
   min-height: 100vh;
-  padding: clamp(16px, 2.2vw, 32px);
-  background: #f4f7f7;
+  background: #fff;
   color: var(--media-ink);
 }
 .header {
@@ -16,11 +15,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 18px;
+  padding: 20px clamp(20px, 2.3vw, 34px);
+  border-bottom: 1px solid var(--media-line);
 }
 .header h1 {
-  margin: 3px 0 4px;
-  font-size: clamp(28px, 2.5vw, 34px);
+  margin: 0 0 3px;
+  font-size: clamp(24px, 2vw, 29px);
   letter-spacing: -0.045em;
   line-height: 1.08;
 }
@@ -28,13 +28,6 @@
   margin: 0;
   color: var(--media-muted);
   font-size: 13px;
-}
-.eyebrow {
-  margin: 0;
-  color: var(--media-teal);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
 }
 .primary {
   flex: none;
@@ -57,19 +50,15 @@
 }
 .workspace {
   display: grid;
-  grid-template-columns: minmax(200px, 228px) minmax(0, 1fr);
-  min-height: calc(100dvh - 150px);
-  border: 1px solid var(--media-line);
-  border-radius: 13px;
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+  min-height: calc(100dvh - 102px);
   background: #fff;
-  box-shadow: 0 5px 22px rgba(20, 43, 53, 0.035);
 }
 .folderRail {
   min-width: 0;
-  padding: 18px 10px;
+  padding: 20px 10px;
   border-right: 1px solid var(--media-line);
-  border-radius: 12px 0 0 12px;
-  background: #f9fbfb;
+  background: #fbfcfc;
 }
 .folderHeading {
   display: flex;
@@ -175,67 +164,62 @@
   line-height: 1.45;
 }
 .collection {
+  position: relative;
   min-width: 0;
-  padding: 19px clamp(16px, 2vw, 26px) 28px;
+  padding: 22px clamp(20px, 2.3vw, 34px) 32px;
 }
 .collectionHeading {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 15px;
-  margin: 0 0 13px;
+  margin: 0 0 18px;
 }
-.collectionHeading span {
-  color: #8a9ba5;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-}
-.collectionHeading h2 {
-  margin: 3px 0 0;
-  font-size: 21px;
-  letter-spacing: -0.025em;
-}
-.dropzone {
+.breadcrumb {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  border: 1.5px dashed #a9cacb;
-  border-radius: 9px;
-  background: #f2faf8;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-.dragging {
-  border-color: #087f79;
-  background: #ddf5f1;
-}
-.dropIcon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #d6efea;
-  color: var(--media-teal);
-  font-size: 23px;
-}
-.dropzone strong {
-  font-size: 13px;
-}
-.dropzone p {
-  margin: 2px 0 0;
-  color: #5d7580;
+  gap: 4px;
+  color: #8a9ba5;
   font-size: 12px;
 }
-.dropzone small {
-  margin-left: auto;
-  color: #537079;
-  white-space: nowrap;
-  font-size: 11px;
+.breadcrumb button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #527682;
+  font: inherit;
+  cursor: pointer;
+}
+.breadcrumb button:hover {
+  color: var(--media-teal);
+  text-decoration: underline;
+}
+.collectionHeading h2 {
+  margin: 7px 0 0;
+  font-size: 22px;
+  letter-spacing: -0.025em;
+}
+.dropOverlay {
+  position: absolute;
+  z-index: 5;
+  inset: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed var(--media-teal);
+  border-radius: 12px;
+  background: rgba(232, 249, 245, 0.96);
+  color: #075e58;
+  pointer-events: none;
+}
+.dropOverlay span {
+  font-size: 34px;
+}
+.dropOverlay small {
+  color: #456c70;
 }
 .notice,
 .error {
@@ -257,7 +241,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin: 14px 0 0;
+  margin: 0 0 24px;
   border-bottom: 1px solid var(--media-line);
 }
 .finder {
@@ -265,7 +249,7 @@
   flex-wrap: wrap;
   align-items: stretch;
   gap: 8px;
-  margin: 12px 0 10px;
+  margin: 0 0 10px;
 }
 .finder .search {
   flex: 1 1 260px;
@@ -374,11 +358,63 @@
   font-size: 13px;
 }
 .count {
-  margin: 0 0 11px;
+  margin: 0;
   color: var(--media-muted);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+.folderSection {
+  margin: 0 0 26px;
+}
+.folderSection h3,
+.filesHeading h3 {
+  margin: 0;
+  color: #213640;
+  font-size: 14px;
+  font-weight: 800;
+}
+.folderTiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 11px;
+}
+.folderTiles button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  min-height: 51px;
+  padding: 10px 13px;
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  background: #fff;
+  color: #28414d;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.folderTiles button:hover {
+  border-color: #8ac7c1;
+  background: #f5faf9;
+}
+.folderTiles button span {
+  color: #0c8a82;
+  font-size: 23px;
+}
+.folderTiles button strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.filesHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
 }
 .grid {
   display: grid;
@@ -503,6 +539,18 @@
 .empty p {
   margin: 0;
   color: var(--media-muted);
+}
+.empty button {
+  margin-top: 18px;
+  padding: 9px 14px;
+  border: 1px solid var(--media-teal);
+  border-radius: 7px;
+  background: var(--media-teal);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 .more {
   display: block;
@@ -658,31 +706,18 @@
   .workspace {
     grid-template-columns: minmax(172px, 198px) minmax(0, 1fr);
   }
-  .dropzone {
-    flex-wrap: wrap;
-  }
-  .dropzone small {
-    margin-left: 48px;
-  }
   .assetEditor {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 700px) {
-  .page {
-    padding: 16px 12px;
-  }
   .header,
   .toolbar {
     align-items: stretch;
     flex-direction: column;
   }
-  .dropzone {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-  .dropzone small {
-    margin-left: 48px;
+  .header {
+    padding: 16px 14px;
   }
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
@@ -696,7 +731,6 @@
     padding: 10px 12px;
     border-right: 0;
     border-bottom: 1px solid var(--media-line);
-    border-radius: 12px 12px 0 0;
   }
   .folderHeading {
     padding-bottom: 6px;
@@ -714,7 +748,10 @@
     display: none;
   }
   .collection {
-    padding: 15px 12px 22px;
+    padding: 18px 14px 24px;
+  }
+  .folderTiles {
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
   }
   .finder .search {
     flex-basis: 100%;
