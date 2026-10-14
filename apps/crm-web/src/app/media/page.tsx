@@ -139,6 +139,7 @@ function MediaPreview({ file, csrf }: { readonly file: FileContract; readonly cs
 
 export default function MediaPage(): React.JSX.Element {
   const input = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
   const [csrf, setCsrf] = useState<string | null>(null);
   const [items, setItems] = useState<FileContract[]>([]);
   const [filter, setFilter] = useState<Filter>("ALL");
@@ -433,6 +434,17 @@ export default function MediaPage(): React.JSX.Element {
 
   const visible = items;
   const selectedFolder = folders.find((item) => item.id === folder);
+  const folderPath: MediaFolder[] = [];
+  let ancestor = selectedFolder;
+  while (ancestor && folderPath.length < folders.length) {
+    folderPath.unshift(ancestor);
+    ancestor = folders.find((item) => item.id === ancestor?.parentId);
+  }
+  const currentFolders =
+    folder === "root"
+      ? []
+      : folders.filter((item) => item.parentId === (selectedFolder?.id ?? null));
+  const showFolders = filter === "ALL" && !query && !tag && currentFolders.length > 0;
   function folderButtons(parentId: string | null, depth = 0): React.JSX.Element[] {
     return folders
       .filter((item) => item.parentId === parentId)
@@ -455,9 +467,8 @@ export default function MediaPage(): React.JSX.Element {
       <div className={styles.page}>
         <header className={styles.header}>
           <div>
-            <p className={styles.eyebrow}>ARCHIVOS · QUANTUM CRM</p>
             <h1>Biblioteca multimedia</h1>
-            <p>Imágenes, videos, audio y documentos en un solo lugar.</p>
+            <p>Organiza y encuentra los archivos de tu empresa.</p>
           </div>
           <button
             className={styles.primary}
@@ -569,41 +580,47 @@ export default function MediaPage(): React.JSX.Element {
               Las carpetas organizan los archivos; no cambian sus originales.
             </p>
           </aside>
-          <section className={styles.collection} aria-label="Archivos de multimedia">
+          <section
+            className={styles.collection}
+            aria-label="Archivos de multimedia"
+            onDragEnter={(event) => {
+              if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+              event.preventDefault();
+              dragDepth.current += 1;
+              setDragging(true);
+            }}
+            onDragOver={(event) => {
+              if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault();
+            }}
+            onDragLeave={() => {
+              dragDepth.current = Math.max(0, dragDepth.current - 1);
+              if (dragDepth.current === 0) setDragging(false);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              dragDepth.current = 0;
+              setDragging(false);
+              if (event.dataTransfer.files.length) void upload(event.dataTransfer.files);
+            }}
+          >
             <div className={styles.collectionHeading}>
               <div>
-                <span>UBICACIÓN</span>
+                <nav className={styles.breadcrumb} aria-label="Ruta de carpetas">
+                  <button type="button" onClick={() => setFolder("all")}>Biblioteca</button>
+                  {folder === "root" && <span> / Sin carpeta</span>}
+                  {folderPath.map((item) => (
+                    <span key={item.id}>
+                      <span aria-hidden="true"> / </span>
+                      <button type="button" onClick={() => setFolder(item.id)}>{item.name}</button>
+                    </span>
+                  ))}
+                </nav>
                 <h2>
                   {selectedFolder?.name ??
                     (folder === "root" ? "Sin carpeta" : "Todos los archivos")}
                 </h2>
               </div>
             </div>
-            <section
-              className={`${styles.dropzone} ${dragging ? styles.dragging : ""}`}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(event) => {
-                event.preventDefault();
-                setDragging(false);
-                void upload(event.dataTransfer.files);
-              }}
-              aria-label="Arrastra archivos aquí para subirlos"
-            >
-              <span className={styles.dropIcon} aria-hidden="true">
-                ↑
-              </span>
-              <div>
-                <strong>Arrastra tus archivos aquí</strong>
-                <p>
-                  o usa «Subir archivos». JPG, PNG, WebP, MP4, WebM, MP3, OGG, WAV, PDF, TXT y CSV.
-                </p>
-              </div>
-              <small>Imágenes hasta 20 MB · Otros hasta 48 MB</small>
-            </section>
             {progress && (
               <p className={styles.notice} role="status">
                 {progress}
@@ -614,22 +631,6 @@ export default function MediaPage(): React.JSX.Element {
                 {error}
               </p>
             )}
-            <div className={styles.toolbar}>
-              <div className={styles.filters} role="group" aria-label="Tipo de archivo">
-                {filters.map((option) => (
-                  <button
-                    type="button"
-                    key={option.key}
-                    className={filter === option.key ? styles.active : ""}
-                    onClick={() => {
-                      setFilter(option.key);
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className={styles.finder}>
               <label className={styles.search}>
                 <span aria-hidden="true">⌕</span>
@@ -699,12 +700,42 @@ export default function MediaPage(): React.JSX.Element {
                 </button>
               </div>
             </div>
+            <div className={styles.toolbar}>
+              <div className={styles.filters} role="group" aria-label="Tipo de archivo">
+                {filters.map((option) => (
+                  <button
+                    type="button"
+                    key={option.key}
+                    className={filter === option.key ? styles.active : ""}
+                    onClick={() => setFilter(option.key)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {showFolders && (
+              <section className={styles.folderSection} aria-label="Carpetas de esta ubicación">
+                <h3>Carpetas</h3>
+                <div className={styles.folderTiles}>
+                  {currentFolders.map((item) => (
+                    <button key={item.id} type="button" onClick={() => setFolder(item.id)}>
+                      <span aria-hidden="true">▣</span>
+                      <strong title={item.name}>{item.name}</strong>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+            <div className={styles.filesHeading}>
+              <h3>Archivos</h3>
             <div className={styles.count}>
               {busy
                 ? "Cargando archivos…"
                 : `${visible.length} archivo${visible.length === 1 ? "" : "s"} mostrado${visible.length === 1 ? "" : "s"}${cursor ? " · hay más resultados" : ""}`}
             </div>
-            {!busy && visible.length === 0 && (
+            </div>
+            {!busy && visible.length === 0 && !showFolders && (
               <div className={styles.empty}>
                 <span aria-hidden="true">▧</span>
                 <h2>
@@ -717,6 +748,11 @@ export default function MediaPage(): React.JSX.Element {
                     ? "Prueba otro nombre o filtro."
                     : "Sube tu primer archivo para verlo aquí después de la validación."}
                 </p>
+                {!query && !tag && filter === "ALL" && (
+                  <button type="button" onClick={() => input.current?.click()} disabled={!csrf || uploading}>
+                    Subir archivos
+                  </button>
+                )}
               </div>
             )}
             <div className={`${styles.grid} ${view === "list" ? styles.list : ""}`}>
@@ -764,6 +800,13 @@ export default function MediaPage(): React.JSX.Element {
               >
                 Cargar más archivos
               </button>
+            )}
+            {dragging && (
+              <div className={styles.dropOverlay} aria-hidden="true">
+                <span>↑</span>
+                <strong>Suelta los archivos para subirlos</strong>
+                <small>Imágenes hasta 20 MB · Otros archivos hasta 48 MB</small>
+              </div>
             )}
           </section>
         </div>
