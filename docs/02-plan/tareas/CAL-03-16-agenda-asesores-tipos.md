@@ -37,10 +37,10 @@ Un asesor ve y opera sus citas asignadas. Una persona con `crm:calendar:read-all
 
 ## Plan de implementación
 
-- [ ] Cambiar contratos, permisos y migración aditiva sin ampliar acceso por defecto.
-- [ ] Aplicar alcance en todos los endpoints internos de calendario y evitar autoasignación ajena.
-- [ ] Crear/listar tipos y vincularlos a citas con idempotencia.
-- [ ] Adaptar calendario web y filtros al permiso real.
+- [x] Cambiar contratos, permisos y migración aditiva sin ampliar acceso por defecto.
+- [x] Aplicar alcance en todos los endpoints internos de calendario y evitar autoasignación ajena.
+- [x] Crear/listar tipos y vincularlos a citas con idempotencia.
+- [x] Adaptar calendario web y filtros al permiso real.
 - [ ] Probar denegaciones, aislamiento, migración, flujo web y despliegue en VPS.
 
 ## Riesgos y verificación
@@ -52,4 +52,4 @@ Un asesor ve y opera sus citas asignadas. Una persona con `crm:calendar:read-all
 
 ## Evidencia de cierre
 
-Pendiente de registrar sin declarar terminado antes de la comprobación extremo a extremo.
+Commit funcional `8a370b6b` validado en el VPS: Prettier y ESLint de archivos afectados, typecheck de cinco paquetes, 53 pruebas focalizadas y 32 migraciones ejecutadas con éxito en una base PostgreSQL sintética nueva. No se ha desplegado en InterAmerican; falta CI, migración controlada, smoke autenticado y comprobar recuperación externa antes de modificar el perfil con datos reales.
