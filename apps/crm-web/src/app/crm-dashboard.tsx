@@ -44,7 +44,17 @@ const chartNames: Record<Chart, string> = {
   line: "Línea",
   donut: "Circular",
 };
-const accents = ["#087f81", "#6e63cb", "#e3a447", "#4d96cf", "#bd6a9c", "#697f91", "#9aaf69"];
+const accents = ["#5749d7", "#258b9a", "#dd9d48", "#7695ce", "#ba779c", "#718297", "#9cac72"];
+const channelNames: Record<string, string> = {
+  WHATSAPP: "WhatsApp",
+  FACEBOOK: "Facebook",
+  INSTAGRAM: "Instagram",
+  TIKTOK: "TikTok",
+  CALL: "Llamadas",
+  FORM_SUBMISSION: "Formularios",
+  EMAIL: "Correo",
+  SMS: "SMS",
+};
 
 function chartsFor(metric: Metric): readonly Chart[] {
   if (metric === "contacts") return ["number", "line"];
@@ -85,18 +95,28 @@ function chartItems(
   snapshot: DashboardSnapshot,
   metric: Metric,
 ): readonly { label: string; value: number }[] {
-  if (metric === "contacts") return snapshot.contactsTrend;
+  if (metric === "contacts")
+    return snapshot.contactsTrend.map((item) => ({
+      ...item,
+      label: new Intl.DateTimeFormat("es-CO", { month: "short", year: "numeric", timeZone: "UTC" })
+        .format(new Date(`${item.label}-01T00:00:00Z`))
+        .replace(" de ", " "),
+    }));
   if (metric === "openOpportunities") return snapshot.opportunityStages;
-  if (metric === "conversations") return snapshot.conversationChannels;
+  if (metric === "conversations")
+    return snapshot.conversationChannels.map((item) => ({
+      ...item,
+      label: channelNames[item.label] ?? item.label.replaceAll("_", " ").toLowerCase(),
+    }));
   return [];
 }
 
 function chartLabel(metric: Metric): string {
   return metric === "contacts"
-    ? "Evolución mensual"
+    ? "Contactos por mes"
     : metric === "openOpportunities"
-      ? "Por etapa"
-      : "Por canal";
+      ? "Oportunidades por etapa"
+      : "Conversaciones por canal";
 }
 
 function LineChart({
@@ -127,7 +147,9 @@ function LineChart({
           className="report-chart-line"
         />
         {coordinates.map((item) => (
-          <circle key={item.label} cx={item.x} cy={item.y} r="1.2" className="report-chart-point" />
+          <circle key={item.label} cx={item.x} cy={item.y} r="1.2" className="report-chart-point">
+            <title>{`${item.label}: ${item.value}`}</title>
+          </circle>
         ))}
       </svg>
       <div className="report-chart-axis">
@@ -171,8 +193,10 @@ function BarChart({
 
 function DonutChart({
   items,
+  metric,
 }: {
   readonly items: readonly { label: string; value: number }[];
+  readonly metric: Metric;
 }): React.JSX.Element {
   if (!items.length) return <p className="report-no-data">Aún no hay datos para este período.</p>;
   const top = items.slice(0, 6);
@@ -194,7 +218,7 @@ function DonutChart({
       >
         <span>
           {new Intl.NumberFormat("es-CO").format(total)}
-          <small>hilos</small>
+          <small>{metric === "conversations" ? "hilos" : "oportunidades"}</small>
         </span>
       </div>
       <div className="report-donut-legend">
@@ -228,27 +252,32 @@ function DashboardWidget({
   const value = metricValue(snapshot, widget.metric);
   const items = chartItems(snapshot, widget.metric);
   return (
-    <article className={`report-widget report-widget-${widget.width}`}>
+    <article
+      className={`report-widget report-widget-${widget.width} report-widget-${widget.chart} report-metric-${widget.metric}`}
+      title={widget.chart === "number" ? metricDescriptions[widget.metric] : undefined}
+    >
       <div className="report-widget-head">
         <div>
-          <p>{widget.chart === "number" ? "INDICADOR" : chartLabel(widget.metric).toUpperCase()}</p>
-          <h2>{metricNames[widget.metric]}</h2>
+          {widget.chart !== "number" && <p>ANÁLISIS</p>}
+          <h2>
+            {widget.chart === "number" ? metricNames[widget.metric] : chartLabel(widget.metric)}
+          </h2>
         </div>
         {editing && (
           <div className="report-widget-order">
             <button
               type="button"
               onClick={() => onMove(-1)}
-              aria-label={`Mover ${metricNames[widget.metric]} arriba`}
+              aria-label={`Mover ${metricNames[widget.metric]} antes`}
             >
-              ↑
+              ←
             </button>
             <button
               type="button"
               onClick={() => onMove(1)}
-              aria-label={`Mover ${metricNames[widget.metric]} abajo`}
+              aria-label={`Mover ${metricNames[widget.metric]} después`}
             >
-              ↓
+              →
             </button>
             <button
               type="button"
@@ -265,12 +294,11 @@ function DashboardWidget({
       ) : widget.chart === "number" ? (
         <>
           <strong className="report-big-value">{value}</strong>
-          <p className="report-widget-description">{metricDescriptions[widget.metric]}</p>
         </>
       ) : widget.chart === "line" ? (
         <LineChart items={items} />
       ) : widget.chart === "donut" ? (
-        <DonutChart items={items} />
+        <DonutChart items={items} metric={widget.metric} />
       ) : (
         <BarChart items={items} />
       )}
@@ -430,9 +458,8 @@ export function CrmDashboard(): React.JSX.Element {
       <section className="crm-content report-page" aria-busy={loading}>
         <header className="report-header">
           <div>
-            <p className="eyebrow">INTELIGENCIA COMERCIAL</p>
-            <h1>Centro de mando</h1>
-            <p>Lo que está pasando en tu negocio, con números completos y a tu alcance.</p>
+            <h1>Resumen</h1>
+            <p>Contactos, conversaciones y oportunidades de tu equipo.</p>
           </div>
           <div className="report-header-actions">
             <button
