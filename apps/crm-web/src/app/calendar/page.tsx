@@ -8,9 +8,17 @@ import type {
   Opportunity,
   TaskAssignee,
 } from "@quantum-crm/contracts";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
+import {
+  calendarDays,
+  calendarRange,
+  dayEventSegments,
+  localDayKey,
+  moveCalendar,
+  type CalendarView,
+} from "./calendar-view-model";
 
 interface SessionPayload {
   readonly authenticated: boolean;
@@ -42,6 +50,32 @@ const typeLabels: Record<CalendarEvent["type"], string> = {
 };
 
 const weekdayLabels = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"] as const;
+
+const calendarWeekdayLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] as const;
+const calendarHours = Array.from({ length: 24 }, (_, hour) => hour);
+const hourHeight = 64;
+
+function formatHour(value: Date): string {
+  return new Intl.DateTimeFormat("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(value);
+}
+
+function formatCalendarTitle(days: Date[], view: CalendarView): string {
+  if (view === "month") {
+    return new Intl.DateTimeFormat("es-CO", { month: "long", year: "numeric" }).format(
+      days[Math.floor(days.length / 2)]!,
+    );
+  }
+  const first = days[0]!;
+  const last = days[6]!;
+  const month = new Intl.DateTimeFormat("es-CO", { month: "long" }).format(last);
+  return first.getMonth() === last.getMonth()
+    ? `${first.getDate()}–${last.getDate()} de ${month} de ${last.getFullYear()}`
+    : `${new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" }).format(first)} – ${new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric" }).format(last)}`;
+}
 
 async function responseTitle(response: Response): Promise<string> {
   const body: unknown = await response.json().catch(() => null);
@@ -83,6 +117,13 @@ export default function CalendarPage(): React.JSX.Element {
   const [rescheduling, setRescheduling] = useState<CalendarEvent | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [advisorFilter, setAdvisorFilter] = useState("");
+  const [viewDate, setViewDate] = useState(() => new Date());
+  const [viewMode, setViewMode] = useState<CalendarView>("week");
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [draftStart, setDraftStart] = useState(suggestedStart);
+  const weekScrollRef = useRef<HTMLDivElement>(null);
+  const eventRequestRef = useRef(0);
 
   const currentCalendar = calendars.find((calendar) => calendar.id === calendarId) ?? null;
   const contactById = useMemo(
@@ -97,6 +138,7 @@ export default function CalendarPage(): React.JSX.Element {
     () => new Map(appointmentTypes.map((type) => [type.id, type])),
     [appointmentTypes],
   );
+  const viewDays = useMemo(() => calendarDays(viewDate, viewMode), [viewDate, viewMode]);
 
   const loadEvents = useCallback(
     async (
@@ -104,10 +146,8 @@ export default function CalendarPage(): React.JSX.Element {
       selectedAdvisorId = advisorFilter,
       selectedStatus = statusFilter,
     ): Promise<void> => {
-      const from = new Date();
-      from.setDate(from.getDate() - 14);
-      const to = new Date();
-      to.setDate(to.getDate() + 90);
+      const request = ++eventRequestRef.current;
+      const { from, to } = calendarRange(viewDate, viewMode);
       const query = new URLSearchParams({
         from: from.toISOString(),
         to: to.toISOString(),
@@ -116,14 +156,23 @@ export default function CalendarPage(): React.JSX.Element {
       if (selectedAdvisorId && capabilities?.canViewAllCalendarEvents)
         query.set("advisorMemberId", selectedAdvisorId);
       if (selectedStatus) query.set("status", selectedStatus);
-      const response = await fetch(`/api/calendar/events?${query}`, {
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      if (!response.ok) throw new Error(await responseTitle(response));
-      setEvents(((await response.json()) as List<CalendarEvent>).data);
+      setEventsLoading(true);
+      try {
+        const response = await fetch(`/api/calendar/events?${query}`, {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error(await responseTitle(response));
+        const loaded = ((await response.json()) as List<CalendarEvent>).data;
+        if (request === eventRequestRef.current) setEvents(loaded);
+      } catch (cause) {
+        if (request === eventRequestRef.current)
+          setError(cause instanceof Error ? cause.message : "No fue posible cargar las citas.");
+      } finally {
+        if (request === eventRequestRef.current) setEventsLoading(false);
+      }
     },
-    [advisorFilter, statusFilter, capabilities?.canViewAllCalendarEvents],
+    [advisorFilter, statusFilter, capabilities?.canViewAllCalendarEvents, viewDate, viewMode],
   );
 
   const loadWorkspace = useCallback(async (): Promise<void> => {
@@ -173,17 +222,26 @@ export default function CalendarPage(): React.JSX.Element {
       setAdvisors(((await advisorResponse.json()) as List<TaskAssignee>).data);
       setAppointmentTypes(((await typeResponse.json()) as List<CalendarAppointmentType>).data);
       setCapabilities(((await capabilityResponse.json()) as { data: CalendarCapabilities }).data);
-      await loadEvents(calendarId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cargar la agenda.");
     } finally {
       setLoading(false);
     }
-  }, [calendarId, loadEvents]);
+  }, []);
 
   useEffect(() => {
     void loadWorkspace();
-  }, []);
+  }, [loadWorkspace]);
+
+  useEffect(() => {
+    if (capabilities) void loadEvents(calendarId);
+  }, [calendarId, capabilities, loadEvents]);
+
+  useEffect(() => {
+    if (viewMode === "week" && weekScrollRef.current) {
+      weekScrollRef.current.scrollTop = 7 * hourHeight;
+    }
+  }, [viewMode]);
 
   async function mutate(
     url: string,
@@ -293,6 +351,18 @@ export default function CalendarPage(): React.JSX.Element {
     }
   }
 
+  function openEventForm(startsAt?: Date): void {
+    if (calendars.length === 0) {
+      if (capabilities?.canConfigureCalendar) setShowCalendarForm(true);
+      return;
+    }
+    setEventDuration(
+      currentCalendar?.slotDurationMinutes ?? calendars[0]?.slotDurationMinutes ?? 30,
+    );
+    setDraftStart(startsAt ? toLocalInput(startsAt.toISOString()) : suggestedStart());
+    setShowEventForm(true);
+  }
+
   async function createEvent(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -343,6 +413,7 @@ export default function CalendarPage(): React.JSX.Element {
         { method: "PATCH", version: item.version },
       );
       await loadEvents(calendarId);
+      setSelectedEvent(null);
       setNotice(`Cita marcada como ${statusLabels[status].toLowerCase()}.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cambiar el estado.");
@@ -369,6 +440,7 @@ export default function CalendarPage(): React.JSX.Element {
         { method: "PATCH", version: rescheduling.version },
       );
       setRescheduling(null);
+      setSelectedEvent(null);
       await loadEvents(calendarId);
       setNotice("Cita reprogramada y recordatorios actualizados.");
     } catch (cause) {
@@ -415,15 +487,10 @@ export default function CalendarPage(): React.JSX.Element {
             <button
               className="primary-action"
               type="button"
-              onClick={() => {
-                setEventDuration(
-                  currentCalendar?.slotDurationMinutes ?? calendars[0]?.slotDurationMinutes ?? 30,
-                );
-                setShowEventForm(true);
-              }}
-              disabled={calendars.length === 0}
+              onClick={() => openEventForm()}
+              disabled={calendars.length === 0 && !capabilities?.canConfigureCalendar}
             >
-              + Nueva cita
+              {calendars.length === 0 ? "Configurar calendario" : "+ Nueva cita"}
             </button>
           </div>
         </header>
@@ -446,7 +513,6 @@ export default function CalendarPage(): React.JSX.Element {
               value={calendarId}
               onChange={(event) => {
                 setCalendarId(event.target.value);
-                void loadEvents(event.target.value);
               }}
             >
               <option value="">Todos los calendarios</option>
@@ -463,7 +529,6 @@ export default function CalendarPage(): React.JSX.Element {
               value={statusFilter}
               onChange={(event) => {
                 setStatusFilter(event.target.value);
-                void loadEvents(calendarId, advisorFilter, event.target.value);
               }}
             >
               <option value="">Todos</option>
@@ -481,7 +546,6 @@ export default function CalendarPage(): React.JSX.Element {
                 value={advisorFilter}
                 onChange={(event) => {
                   setAdvisorFilter(event.target.value);
-                  void loadEvents(calendarId, event.target.value, statusFilter);
                 }}
               >
                 <option value="">Todo el equipo</option>
@@ -514,6 +578,271 @@ export default function CalendarPage(): React.JSX.Element {
             </a>
           ) : null}
         </section>
+
+        <section className="calendar-board" aria-label="Agenda visual">
+          <div className="calendar-board-toolbar">
+            <div className="calendar-board-title">
+              <span className="eyebrow">AGENDA DEL EQUIPO</span>
+              <h2>{formatCalendarTitle(viewDays, viewMode)}</h2>
+              <p>
+                {eventsLoading
+                  ? "Actualizando citas…"
+                  : `${visibleEvents.length} citas en este periodo`}
+              </p>
+            </div>
+            <div className="calendar-board-controls">
+              <div className="calendar-date-navigation" aria-label="Navegar fechas">
+                <button type="button" onClick={() => setViewDate(new Date())}>
+                  Hoy
+                </button>
+                <button
+                  type="button"
+                  aria-label="Periodo anterior"
+                  onClick={() => setViewDate((current) => moveCalendar(current, viewMode, -1))}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  aria-label="Periodo siguiente"
+                  onClick={() => setViewDate((current) => moveCalendar(current, viewMode, 1))}
+                >
+                  ›
+                </button>
+              </div>
+              <div className="calendar-view-switch" aria-label="Vista del calendario">
+                <button
+                  type="button"
+                  aria-pressed={viewMode === "week"}
+                  onClick={() => setViewMode("week")}
+                >
+                  Semana
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={viewMode === "month"}
+                  onClick={() => setViewMode("month")}
+                >
+                  Mes
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {!loading && calendars.length === 0 ? (
+            <div className="calendar-setup-callout" role="status">
+              <span aria-hidden="true">▦</span>
+              <div>
+                <strong>Tu agenda está lista para configurarse</strong>
+                <p>
+                  {capabilities?.canConfigureCalendar
+                    ? "Crea el primer calendario para habilitar citas y enlaces de reserva. La cuadrícula seguirá visible mientras lo configuras."
+                    : "Un administrador debe crear el primer calendario antes de que puedas agendar citas."}
+                </p>
+              </div>
+              {capabilities?.canConfigureCalendar ? (
+                <button type="button" onClick={() => setShowCalendarForm(true)}>
+                  Crear calendario
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {viewMode === "week" ? (
+            <div className="calendar-week-scroll" ref={weekScrollRef}>
+              <div className="calendar-week-grid">
+                <div className="calendar-week-corner">HORA</div>
+                {viewDays.map((day) => {
+                  const dayKey = localDayKey(day);
+                  return (
+                    <div
+                      key={dayKey}
+                      className={`calendar-week-day-heading${dayKey === localDayKey(new Date()) ? " is-today" : ""}`}
+                    >
+                      <span>{calendarWeekdayLabels[(day.getDay() + 6) % 7]}</span>
+                      <strong>{day.getDate()}</strong>
+                    </div>
+                  );
+                })}
+                <div className="calendar-hour-axis" aria-hidden="true">
+                  {calendarHours.map((hour) => (
+                    <span key={hour} style={{ top: hour * hourHeight }}>
+                      {String(hour).padStart(2, "0")}:00
+                    </span>
+                  ))}
+                </div>
+                {viewDays.map((day) => {
+                  const dayKey = localDayKey(day);
+                  const isToday = dayKey === localDayKey(new Date());
+                  const now = new Date();
+                  return (
+                    <div key={dayKey} className={`calendar-day-track${isToday ? " is-today" : ""}`}>
+                      {calendarHours.map((hour) => {
+                        const startsAt = new Date(day);
+                        startsAt.setHours(hour, 0, 0, 0);
+                        return (
+                          <button
+                            key={hour}
+                            className="calendar-hour-slot"
+                            type="button"
+                            style={{ top: hour * hourHeight, height: hourHeight }}
+                            aria-label={`Agendar el ${new Intl.DateTimeFormat("es-CO", { dateStyle: "full" }).format(day)} a las ${String(hour).padStart(2, "0")}:00`}
+                            disabled={calendars.length === 0 && !capabilities?.canConfigureCalendar}
+                            onClick={() => openEventForm(startsAt)}
+                          />
+                        );
+                      })}
+                      {isToday ? (
+                        <div
+                          className="calendar-now-line"
+                          aria-hidden="true"
+                          style={{ top: (now.getHours() + now.getMinutes() / 60) * hourHeight }}
+                        />
+                      ) : null}
+                      {dayEventSegments(visibleEvents, day).map((segment) => (
+                        <button
+                          key={segment.event.id}
+                          className={`calendar-event-block calendar-event-block-${segment.event.status.toLowerCase()}`}
+                          type="button"
+                          title={`${segment.event.title} · ${formatHour(new Date(segment.event.startsAt))}`}
+                          style={{
+                            top: (segment.startMinute / 60) * hourHeight + 2,
+                            height: Math.max(
+                              22,
+                              ((segment.endMinute - segment.startMinute) / 60) * hourHeight - 4,
+                            ),
+                            left: `${(segment.column / segment.columns) * 100}%`,
+                            width: `calc(${100 / segment.columns}% - 4px)`,
+                          }}
+                          onClick={() => setSelectedEvent(segment.event)}
+                        >
+                          <time dateTime={segment.event.startsAt}>
+                            {formatHour(new Date(segment.event.startsAt))}
+                          </time>
+                          <strong>{segment.event.title}</strong>
+                          <small>
+                            {advisorById.get(segment.event.advisorMemberId)?.displayName}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="calendar-month-wrap">
+              <div className="calendar-month-weekdays" aria-hidden="true">
+                {calendarWeekdayLabels.map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
+              </div>
+              <div className="calendar-month-grid">
+                {viewDays.map((day) => {
+                  const segments = dayEventSegments(visibleEvents, day);
+                  const dayKey = localDayKey(day);
+                  return (
+                    <div
+                      key={dayKey}
+                      className={`calendar-month-day${day.getMonth() !== viewDate.getMonth() ? " is-outside" : ""}${dayKey === localDayKey(new Date()) ? " is-today" : ""}`}
+                    >
+                      <button
+                        className="calendar-month-date"
+                        type="button"
+                        aria-label={`Ver semana del ${new Intl.DateTimeFormat("es-CO", { dateStyle: "full" }).format(day)}`}
+                        onClick={() => {
+                          setViewDate(day);
+                          setViewMode("week");
+                        }}
+                      >
+                        {day.getDate()}
+                      </button>
+                      <div className="calendar-month-events">
+                        {segments.slice(0, 3).map((segment) => (
+                          <button
+                            key={segment.event.id}
+                            type="button"
+                            className={`calendar-month-event calendar-event-block-${segment.event.status.toLowerCase()}`}
+                            onClick={() => setSelectedEvent(segment.event)}
+                          >
+                            <span>{formatHour(new Date(segment.event.startsAt))}</span>{" "}
+                            {segment.event.title}
+                          </button>
+                        ))}
+                        {segments.length > 3 ? (
+                          <button
+                            type="button"
+                            className="calendar-month-more"
+                            onClick={() => {
+                              setViewDate(day);
+                              setViewMode("week");
+                            }}
+                          >
+                            +{segments.length - 3} más
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {selectedEvent ? (
+          <aside className="calendar-event-detail" aria-label="Detalle de la cita">
+            <div>
+              <span
+                className={`calendar-status calendar-status-${selectedEvent.status.toLowerCase()}`}
+              >
+                {statusLabels[selectedEvent.status]}
+              </span>
+              <h2>{selectedEvent.title}</h2>
+              <p>
+                {new Intl.DateTimeFormat("es-CO", { dateStyle: "full", timeStyle: "short" }).format(
+                  new Date(selectedEvent.startsAt),
+                )}
+                {" · "}
+                {advisorById.get(selectedEvent.advisorMemberId)?.displayName ?? "Asesor"}
+              </p>
+              <p>
+                {selectedEvent.guestName ??
+                  (selectedEvent.contactId
+                    ? contactById.get(selectedEvent.contactId)?.displayName
+                    : null) ??
+                  "Sin contacto asociado"}
+                {selectedEvent.location ? ` · ${selectedEvent.location}` : ""}
+              </p>
+            </div>
+            <div className="calendar-event-detail-actions">
+              <button type="button" onClick={() => setRescheduling(selectedEvent)}>
+                Reprogramar
+              </button>
+              <select
+                aria-label={`Estado de ${selectedEvent.title}`}
+                value={selectedEvent.status}
+                disabled={saving}
+                onChange={(event) =>
+                  void changeStatus(selectedEvent, event.target.value as CalendarEvent["status"])
+                }
+              >
+                {Object.entries(statusLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                aria-label="Cerrar detalle"
+                onClick={() => setSelectedEvent(null)}
+              >
+                ×
+              </button>
+            </div>
+          </aside>
+        ) : null}
 
         <section className="calendar-summary">
           <article>
@@ -548,13 +877,13 @@ export default function CalendarPage(): React.JSX.Element {
             </div>
             <small>{visibleEvents.length} eventos</small>
           </div>
-          {loading ? (
+          {loading || eventsLoading ? (
             <div className="dashboard-empty">
               <span>◌</span>
               <p>Cargando agenda…</p>
             </div>
           ) : null}
-          {!loading && visibleEvents.length === 0 ? (
+          {!loading && !eventsLoading && visibleEvents.length === 0 ? (
             <div className="dashboard-empty">
               <span>▦</span>
               <strong>Aún no hay citas</strong>
@@ -897,12 +1226,7 @@ export default function CalendarPage(): React.JSX.Element {
                 </label>
                 <label>
                   Inicio
-                  <input
-                    name="startsAt"
-                    type="datetime-local"
-                    defaultValue={suggestedStart()}
-                    required
-                  />
+                  <input name="startsAt" type="datetime-local" defaultValue={draftStart} required />
                 </label>
                 <label>
                   Duración (min)
