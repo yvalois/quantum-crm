@@ -44,7 +44,7 @@ const chartNames: Record<Chart, string> = {
   line: "Línea",
   donut: "Circular",
 };
-const accents = ["#5749d7", "#258b9a", "#dd9d48", "#7695ce", "#ba779c", "#718297", "#9cac72"];
+const accents = ["#13a87c", "#3c7fba", "#dc9a36", "#7685a6", "#bc718b", "#718297", "#9cac72"];
 const channelNames: Record<string, string> = {
   WHATSAPP: "WhatsApp",
   FACEBOOK: "Facebook",
@@ -145,9 +145,19 @@ function LineChart({
           role="img"
           aria-label={`Tendencia: ${items.map((item) => `${item.label} ${item.value}`).join(", ")}`}
         >
+          <defs>
+            <linearGradient id="report-trend-fill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#54d5bd" stopOpacity="0.24" />
+              <stop offset="100%" stopColor="#54d5bd" stopOpacity="0" />
+            </linearGradient>
+          </defs>
           <line x1="0" x2="100" y1="86" y2="86" className="report-chart-grid" />
           <line x1="0" x2="100" y1="51" y2="51" className="report-chart-grid" />
           <line x1="0" x2="100" y1="16" y2="16" className="report-chart-grid" />
+          <polygon
+            points={`0,86 ${coordinates.map((item) => `${item.x},${item.y}`).join(" ")} 100,86`}
+            fill="url(#report-trend-fill)"
+          />
           <polyline
             points={coordinates.map((item) => `${item.x},${item.y}`).join(" ")}
             className="report-chart-line"
@@ -266,6 +276,10 @@ function DashboardWidget({
 }): React.JSX.Element {
   const value = metricValue(snapshot, widget.metric);
   const items = chartItems(snapshot, widget.metric);
+  const leadingItem = items.reduce<(typeof items)[number] | null>(
+    (leading, item) => (!leading || item.value > leading.value ? item : leading),
+    null,
+  );
   return (
     <article
       className={`report-widget report-widget-${widget.width} report-widget-${widget.chart} report-metric-${widget.metric}`}
@@ -273,7 +287,9 @@ function DashboardWidget({
     >
       <div className="report-widget-head">
         <div>
-          {widget.chart !== "number" && <p>ANÁLISIS</p>}
+          {widget.chart !== "number" && (
+            <p>{widget.chart === "line" ? "EVOLUCIÓN" : "DISTRIBUCIÓN"}</p>
+          )}
           <h2>
             {widget.chart === "number" ? metricNames[widget.metric] : chartLabel(widget.metric)}
           </h2>
@@ -309,9 +325,18 @@ function DashboardWidget({
       ) : widget.chart === "number" ? (
         <>
           <strong className="report-big-value">{value}</strong>
+          <span className="report-kpi-context">{metricDescriptions[widget.metric]}</span>
         </>
       ) : widget.chart === "line" ? (
-        <LineChart items={items} />
+        <>
+          {leadingItem && (
+            <p className="report-chart-summary">
+              Mayor actividad: <strong>{leadingItem.label}</strong> ·{" "}
+              {leadingItem.value.toLocaleString("es-CO")}
+            </p>
+          )}
+          <LineChart items={items} />
+        </>
       ) : widget.chart === "donut" ? (
         <DonutChart items={items} metric={widget.metric} />
       ) : (
@@ -362,6 +387,8 @@ export function CrmDashboard(): React.JSX.Element {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newMetric, setNewMetric] = useState<Metric>("contacts");
+  const numberWidgets = layout?.widgets.filter((widget) => widget.chart === "number") ?? [];
+  const analysisWidgets = layout?.widgets.filter((widget) => widget.chart !== "number") ?? [];
 
   async function refresh(period: DashboardPeriod): Promise<void> {
     setLoading(true);
@@ -448,8 +475,15 @@ export function CrmDashboard(): React.JSX.Element {
       if (!current) return current;
       const widgets = [...current.widgets];
       const from = widgets.findIndex((item) => item.id === id);
-      const to = from + delta;
-      if (from < 0 || to < 0 || to >= widgets.length) return current;
+      const selected = widgets[from];
+      if (!selected) return current;
+      const group = widgets.filter(
+        (item) => (item.chart === "number") === (selected.chart === "number"),
+      );
+      const groupPosition = group.findIndex((item) => item.id === id);
+      const target = group[groupPosition + delta];
+      if (!target) return current;
+      const to = widgets.findIndex((item) => item.id === target.id);
       const [item] = widgets.splice(from, 1);
       if (item) widgets.splice(to, 0, item);
       return { ...current, widgets };
@@ -475,8 +509,9 @@ export function CrmDashboard(): React.JSX.Element {
       <section className="crm-content report-page" aria-busy={loading}>
         <header className="report-header">
           <div>
+            <span className="report-eyebrow">CENTRO DE TRABAJO</span>
             <h1>Resumen</h1>
-            <p>Contactos, conversaciones y oportunidades de tu equipo.</p>
+            <p>La actividad comercial de tu equipo, en un solo lugar.</p>
           </div>
           <div className="report-header-actions">
             <button
@@ -522,7 +557,7 @@ export function CrmDashboard(): React.JSX.Element {
         </header>
         <div className="report-toolbar">
           <div>
-            <span className="report-live-dot" />{" "}
+            <span className="report-live-dot" />
             {snapshot
               ? `Actualizado ${new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(snapshot.generatedAt))}`
               : "Cargando datos"}
@@ -594,32 +629,78 @@ export function CrmDashboard(): React.JSX.Element {
           <p className="report-loading">Preparando tus indicadores…</p>
         ) : null}
         {snapshot && layout && (
-          <div className="report-grid">
-            {layout.widgets.map((widget) => (
-              <DashboardWidget
-                key={widget.id}
-                widget={widget}
-                snapshot={snapshot}
-                editing={editing}
-                onChange={(next) => updateWidget(widget.id, () => next)}
-                onRemove={() =>
-                  setLayout(
-                    (current) =>
-                      current && {
-                        ...current,
-                        widgets: current.widgets.filter((item) => item.id !== widget.id),
-                      },
-                  )
-                }
-                onMove={(delta) => moveWidget(widget.id, delta)}
-              />
-            ))}
+          <>
+            {numberWidgets.length > 0 && (
+              <section className="report-section" aria-labelledby="report-pulse-title">
+                <div className="report-section-heading">
+                  <div>
+                    <span>01 / PULSO COMERCIAL</span>
+                    <h2 id="report-pulse-title">Indicadores clave</h2>
+                  </div>
+                  <p>Datos del período seleccionado</p>
+                </div>
+                <div className="report-grid report-kpi-grid">
+                  {numberWidgets.map((widget) => (
+                    <DashboardWidget
+                      key={widget.id}
+                      widget={widget}
+                      snapshot={snapshot}
+                      editing={editing}
+                      onChange={(next) => updateWidget(widget.id, () => next)}
+                      onRemove={() =>
+                        setLayout((current) =>
+                          current
+                            ? {
+                                ...current,
+                                widgets: current.widgets.filter((item) => item.id !== widget.id),
+                              }
+                            : current,
+                        )
+                      }
+                      onMove={(delta) => moveWidget(widget.id, delta)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+            {analysisWidgets.length > 0 && (
+              <section className="report-section" aria-labelledby="report-analysis-title">
+                <div className="report-section-heading">
+                  <div>
+                    <span>02 / ANÁLISIS</span>
+                    <h2 id="report-analysis-title">Entiende lo que está pasando</h2>
+                  </div>
+                </div>
+                <div className="report-grid report-analysis-grid">
+                  {analysisWidgets.map((widget) => (
+                    <DashboardWidget
+                      key={widget.id}
+                      widget={widget}
+                      snapshot={snapshot}
+                      editing={editing}
+                      onChange={(next) => updateWidget(widget.id, () => next)}
+                      onRemove={() =>
+                        setLayout((current) =>
+                          current
+                            ? {
+                                ...current,
+                                widgets: current.widgets.filter((item) => item.id !== widget.id),
+                              }
+                            : current,
+                        )
+                      }
+                      onMove={(delta) => moveWidget(widget.id, delta)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
             {layout.widgets.length === 0 && (
               <div className="report-empty">
                 Este tablero está vacío. Pulsa «Personalizar» para agregar un indicador.
               </div>
             )}
-          </div>
+          </>
         )}
         <p className="report-footnote">
           Las cifras se calculan en el servidor según tus permisos y asignaciones. El período se
