@@ -48,6 +48,7 @@ interface Capabilities {
   readonly canManageCatalogStock?: boolean;
 }
 type KindFilter = "all" | CatalogItem["kind"];
+type CatalogView = "items" | "categories" | "types";
 
 const modeLabel: Record<CatalogItem["availabilityMode"], string> = {
   unlimited: "Sin límite",
@@ -97,6 +98,7 @@ export default function CatalogPage() {
   const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [kind, setKind] = useState<KindFilter>("all");
+  const [view, setView] = useState<CatalogView>("items");
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [draft, setDraft] = useState(initialDraft);
@@ -523,13 +525,13 @@ export default function CatalogPage() {
       <main className="catalog-page">
         <header className="catalog-heading">
           <div>
-            <span className="catalog-kicker">VENTAS Y SERVICIOS</span>
+            <span className="catalog-kicker">GESTIÓN COMERCIAL</span>
             <h1>Catálogo</h1>
-            <p>Todo lo que ofreces, con sus características y disponibilidad en un solo lugar.</p>
+            <p>Organiza lo que vendes, alquilas y agendas desde un mismo lugar.</p>
           </div>
           {capabilities.canManageCatalog && (
             <button className="catalog-primary" onClick={() => openItem()}>
-              + Nuevo ítem
+              <span aria-hidden="true">+</span> Nuevo artículo
             </button>
           )}
         </header>
@@ -546,6 +548,41 @@ export default function CatalogPage() {
             {error}
           </div>
         )}
+        <section className="catalog-overview" aria-label="Resumen del catálogo">
+          <div>
+            <span>Artículos</span>
+            <strong>{items.length}</strong>
+            <small>Productos y servicios</small>
+          </div>
+          <div>
+            <span>Productos</span>
+            <strong>{items.filter((item) => item.kind === "product").length}</strong>
+            <small>Bienes del catálogo</small>
+          </div>
+          <div>
+            <span>Servicios</span>
+            <strong>{items.filter((item) => item.kind === "service").length}</strong>
+            <small>Agendables o sin agenda</small>
+          </div>
+        </section>
+        <nav className="catalog-navigation" aria-label="Secciones del catálogo">
+          {([
+            ["items", "Artículos", items.length],
+            ["categories", "Categorías", categories.length],
+            ["types", "Tipos", types.length],
+          ] as const).map(([section, label, count]) => (
+            <button
+              key={section}
+              aria-current={view === section ? "page" : undefined}
+              className={view === section ? "active" : ""}
+              onClick={() => setView(section)}
+            >
+              {label} <span>{count}</span>
+            </button>
+          ))}
+        </nav>
+        {view === "items" ? (
+          <>
         <section className="catalog-toolbar">
           <div className="catalog-tabs" aria-label="Tipo de ítem">
             {(["all", "product", "service"] as const).map((filter) => (
@@ -648,42 +685,15 @@ export default function CatalogPage() {
               </div>
             )}
           </section>
-          <aside className="catalog-side">
-            <div className="catalog-side-title">
-              <span>Organización</span>
-            </div>
-            <div className="catalog-side-group">
-              <h3>
-                Categorías <span>{categories.length}</span>
-              </h3>
-              {categories.slice(0, 8).map((category) => (
-                <button key={category.id} onClick={() => setCategoryFilter(category.id)}>
-                  {category.name}
-                </button>
-              ))}
-              {capabilities.canManageCatalog && (
-                <button className="catalog-link" onClick={() => setDialog("category")}>
-                  + Crear categoría
-                </button>
-              )}
-            </div>
-            <div className="catalog-side-group">
-              <h3>
-                Tipos <span>{types.length}</span>
-              </h3>
-              {types.slice(0, 8).map((type) => (
-                <span key={type.id}>{type.name}</span>
-              ))}
-              {capabilities.canManageCatalog && (
-                <button className="catalog-link" onClick={() => setDialog("type")}>
-                  + Crear tipo
-                </button>
-              )}
-            </div>
-          </aside>
-        </div>
-        {selected && (
-          <section className="catalog-detail">
+          {selected && (
+          <aside className="catalog-detail" aria-label={`Detalle de ${selected.name}`}>
+            <button
+              className="catalog-detail-close"
+              aria-label="Cerrar ficha"
+              onClick={() => setSelectedId(null)}
+            >
+              ×
+            </button>
             <div className="catalog-detail-heading">
               <div>
                 <span className="catalog-kicker">
@@ -744,6 +754,75 @@ export default function CatalogPage() {
                 ))}
               </div>
             </div>
+          </aside>
+        )}
+        </div>
+          </>
+        ) : (
+          <section className="catalog-taxonomy" aria-label={view === "categories" ? "Categorías" : "Tipos"}>
+            <div className="catalog-taxonomy-heading">
+              <div>
+                <h2>{view === "categories" ? "Categorías" : "Tipos de artículo"}</h2>
+                <p>
+                  {view === "categories"
+                    ? "Agrupa tu oferta para encontrarla más rápido. Puedes crear categorías dentro de otras."
+                    : "Define familias de artículos y reutiliza sus características."}
+                </p>
+              </div>
+              {capabilities.canManageCatalog && (
+                <button
+                  className="catalog-primary"
+                  onClick={() => setDialog(view === "categories" ? "category" : "type")}
+                >
+                  <span aria-hidden="true">+</span> {view === "categories" ? "Nueva categoría" : "Nuevo tipo"}
+                </button>
+              )}
+            </div>
+            {(view === "categories" ? categories : types).length === 0 ? (
+              <div className="catalog-taxonomy-empty">
+                <strong>{view === "categories" ? "Aún no hay categorías" : "Aún no hay tipos"}</strong>
+                <p>Créalo cuando lo necesites; puedes empezar a agregar artículos sin este paso.</p>
+              </div>
+            ) : (
+              <div className="catalog-taxonomy-list">
+                {view === "categories"
+                  ? categories.map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => {
+                          setCategoryFilter(category.id);
+                          setView("items");
+                        }}
+                      >
+                        <span className="catalog-taxonomy-icon" aria-hidden="true">C</span>
+                        <span>
+                          <strong>{category.name}</strong>
+                          <small>
+                            {category.parentId
+                              ? `Dentro de ${categories.find((parent) => parent.id === category.parentId)?.name ?? "otra categoría"}`
+                              : "Categoría principal"}
+                          </small>
+                        </span>
+                        <span className="catalog-taxonomy-count">
+                          {items.filter((item) => item.categoryId === category.id).length} artículos
+                        </span>
+                        <span aria-hidden="true">→</span>
+                      </button>
+                    ))
+                  : types.map((type) => (
+                      <div className="catalog-taxonomy-type" key={type.id}>
+                        <span className="catalog-taxonomy-icon" aria-hidden="true">T</span>
+                        <span>
+                          <strong>{type.name}</strong>
+                          <small>{type.description || "Sin descripción"}</small>
+                        </span>
+                        <span className="catalog-taxonomy-count">
+                          {items.filter((item) => item.itemTypeId === type.id).length} artículos
+                        </span>
+                      </div>
+                    ))}
+              </div>
+            )}
           </section>
         )}
         {dialog && (

@@ -14929,3 +14929,408 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Catalog workspace: use the full CRM canvas, not the narrow auth-page main. */
+.crm-shell-stitch > .catalog-page {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: clamp(24px, 2.5vw, 40px);
+  background: #f7f9fa;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+}
+
+.catalog-heading {
+  align-items: center;
+  margin-bottom: 26px;
+}
+.catalog-heading h1 {
+  margin: 5px 0 6px;
+  font: 700 clamp(30px, 3vw, 38px) / 1.1 "Instrument Sans", "Aptos", sans-serif;
+  letter-spacing: -0.045em;
+}
+.catalog-heading p {
+  max-width: 640px;
+  line-height: 1.5;
+}
+.catalog-kicker {
+  color: #18817d;
+  letter-spacing: 0.14em;
+}
+.catalog-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  white-space: nowrap;
+  box-shadow: 0 5px 14px rgb(0 122 115 / 14%);
+}
+.catalog-primary > span {
+  font-size: 20px;
+  line-height: 0.8;
+  font-weight: 400;
+}
+.catalog-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.catalog-overview > div {
+  display: grid;
+  gap: 3px;
+  min-height: 104px;
+  padding: 17px 20px;
+  border: 1px solid #dfe7e8;
+  border-radius: 11px;
+  background: #fff;
+}
+.catalog-overview span {
+  color: #536976;
+  font-size: 12px;
+  font-weight: 700;
+}
+.catalog-overview strong {
+  color: #162b34;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.catalog-overview small {
+  color: #82939b;
+  font-size: 11px;
+}
+.catalog-navigation {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid #dce5e7;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+.catalog-navigation button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 43px;
+  flex: 0 0 auto;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #617683;
+  font-size: 13px;
+  font-weight: 700;
+}
+.catalog-navigation button.active {
+  border-bottom-color: #008e87;
+  color: #006f6a;
+}
+.catalog-navigation button span {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 20px;
+  background: #edf2f3;
+  color: #637983;
+  font-size: 10px;
+}
+.catalog-navigation button.active span {
+  background: #daf1ed;
+  color: #006f6a;
+}
+.catalog-toolbar {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.catalog-toolbar > input {
+  flex: 1 1 280px;
+  max-width: none;
+}
+.catalog-toolbar > select {
+  flex: 0 1 220px;
+}
+.catalog-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.catalog-layout:has(.catalog-detail) {
+  grid-template-columns: minmax(0, 1fr) minmax(315px, 350px);
+}
+.catalog-list,
+.catalog-detail,
+.catalog-taxonomy {
+  border-color: #dce5e7;
+  border-radius: 11px;
+  box-shadow: 0 1px 2px rgb(19 43 52 / 3%);
+}
+.catalog-list {
+  min-height: 300px;
+}
+.catalog-table-head,
+.catalog-row {
+  grid-template-columns: minmax(190px, 2fr) minmax(110px, 1fr) minmax(150px, 1.3fr) minmax(105px, 0.8fr);
+  min-width: 650px;
+}
+.catalog-table-head {
+  padding: 15px 20px;
+  background: #fbfcfc;
+}
+.catalog-row {
+  min-height: 68px;
+  transition: background 140ms ease;
+}
+.catalog-row:last-child {
+  border-bottom: 0;
+}
+.catalog-row > span:last-child,
+.catalog-table-head > span:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.catalog-item-icon {
+  flex-basis: 38px;
+  width: 38px;
+  height: 38px;
+  background: #e7f4f1;
+  border: 1px solid #cfe9e3;
+}
+.catalog-empty {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 340px;
+  padding: 50px 24px;
+}
+.catalog-empty strong {
+  font: 700 21px / 1.2 "Instrument Sans", "Aptos", sans-serif;
+  letter-spacing: -0.025em;
+}
+.catalog-empty p {
+  max-width: 420px;
+  line-height: 1.5;
+}
+.catalog-detail {
+  position: sticky;
+  top: 16px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 23px;
+}
+.catalog-detail-close {
+  position: absolute;
+  top: 14px;
+  right: 15px;
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border: 0;
+  border-radius: 6px;
+  background: #f0f4f5;
+  color: #627b85;
+  font-size: 20px;
+}
+.catalog-detail-heading {
+  display: block;
+  padding-right: 18px;
+}
+.catalog-detail-heading h2 {
+  margin: 7px 0 6px;
+  font-size: 22px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.catalog-detail-heading p {
+  line-height: 1.5;
+}
+.catalog-detail-actions {
+  justify-content: flex-start;
+  margin-top: 18px;
+}
+.catalog-detail-grid {
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin-top: 20px;
+  padding-top: 0;
+}
+.catalog-detail-grid > div {
+  padding: 17px 0;
+  border-bottom: 1px solid #edf1f2;
+}
+.catalog-detail-grid > div:last-child {
+  border-bottom: 0;
+}
+.catalog-taxonomy {
+  min-height: 300px;
+  padding: 25px;
+  border: 1px solid #dce5e7;
+  background: #fff;
+}
+.catalog-taxonomy-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 22px;
+}
+.catalog-taxonomy-heading h2 {
+  margin: 0 0 6px;
+  color: #162b34;
+  font-size: 21px;
+  letter-spacing: -0.025em;
+}
+.catalog-taxonomy-heading p {
+  margin: 0;
+  color: #6d818b;
+  font-size: 13px;
+}
+.catalog-taxonomy-empty {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 210px;
+  border-top: 1px solid #e9eeef;
+  text-align: center;
+}
+.catalog-taxonomy-empty strong {
+  color: #203741;
+  font-size: 17px;
+}
+.catalog-taxonomy-empty p {
+  color: #748993;
+  font-size: 13px;
+}
+.catalog-taxonomy-list {
+  border-top: 1px solid #e9eeef;
+}
+.catalog-taxonomy-list > button,
+.catalog-taxonomy-type {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto 14px;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 66px;
+  padding: 12px 8px;
+  border: 0;
+  border-bottom: 1px solid #edf1f2;
+  background: #fff;
+  color: #243b45;
+  text-align: left;
+}
+.catalog-taxonomy-list > button:hover {
+  background: #f3faf8;
+}
+.catalog-taxonomy-type {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+.catalog-taxonomy-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #e7f4f1;
+  color: #007d76;
+  font-size: 13px;
+  font-weight: 800;
+}
+.catalog-taxonomy-list strong,
+.catalog-taxonomy-list small {
+  display: block;
+}
+.catalog-taxonomy-list strong {
+  font-size: 13px;
+}
+.catalog-taxonomy-list small,
+.catalog-taxonomy-count {
+  color: #78909a;
+  font-size: 11px;
+}
+.catalog-taxonomy-list small {
+  margin-top: 3px;
+}
+.catalog-modal {
+  width: min(760px, 100%);
+}
+.catalog-page button:focus-visible,
+.catalog-page a:focus-visible {
+  outline: 2px solid #007f78;
+  outline-offset: 2px;
+}
+@media (max-width: 1280px) {
+  .catalog-layout:has(.catalog-detail) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .catalog-detail {
+    position: relative;
+    top: auto;
+  }
+}
+@media (max-width: 720px) {
+  .crm-shell-stitch > .catalog-page {
+    padding: 20px 16px 40px;
+  }
+  .catalog-heading,
+  .catalog-taxonomy-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .catalog-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .catalog-overview > div {
+    min-height: 92px;
+    padding: 13px 10px;
+  }
+  .catalog-overview small {
+    display: none;
+  }
+  .catalog-overview strong {
+    font-size: 23px;
+  }
+  .catalog-toolbar > input,
+  .catalog-toolbar > select {
+    flex-basis: 100%;
+  }
+  .catalog-table {
+    overflow-x: visible;
+  }
+  .catalog-table-head {
+    display: none;
+  }
+  .catalog-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-width: 0;
+    gap: 5px 12px;
+    padding: 14px;
+  }
+  .catalog-row > span:nth-child(2) {
+    display: none;
+  }
+  .catalog-row > span:nth-child(3) {
+    grid-column: 1 / -1;
+    color: #65808a;
+    font-size: 11px;
+  }
+  .catalog-row > span:nth-child(4) {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 12px;
+  }
+  .catalog-taxonomy-count {
+    display: none;
+  }
+  .catalog-taxonomy-list > button,
+  .catalog-taxonomy-type {
+    grid-template-columns: 40px minmax(0, 1fr) 14px;
+  }
+}
