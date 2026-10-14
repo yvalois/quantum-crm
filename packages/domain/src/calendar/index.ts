@@ -46,6 +46,7 @@ export interface CalendarEventRecord {
   readonly contactId: string | null;
   readonly opportunityId: string | null;
   readonly advisorMemberId: string;
+  readonly appointmentTypeId?: string | null;
   readonly createdByMemberId: string | null;
   readonly guestName: string | null;
   readonly guestEmail: string | null;
@@ -89,6 +90,7 @@ export interface CalendarEventPatch {
   readonly contactId?: string | null;
   readonly opportunityId?: string | null;
   readonly advisorMemberId?: string;
+  readonly appointmentTypeId?: string | null;
   readonly type?: CalendarEventType;
   readonly title?: string;
   readonly description?: string;
@@ -96,6 +98,13 @@ export interface CalendarEventPatch {
   readonly startsAt?: Date;
   readonly endsAt?: Date;
   readonly timeZone?: string;
+}
+
+export interface CalendarAppointmentTypeRecord {
+  readonly id: string;
+  readonly name: string;
+  readonly durationMinutes: number;
+  readonly createdAt: Date;
 }
 
 export interface AvailableCalendarSlot {
@@ -114,6 +123,15 @@ export interface CalendarSchedulingSnapshot {
 }
 
 export interface CalendarRepository {
+  readonly listAppointmentTypes: () => Promise<readonly CalendarAppointmentTypeRecord[]>;
+  readonly findAppointmentType: (id: string) => Promise<CalendarAppointmentTypeRecord | null>;
+  readonly createAppointmentType: (input: {
+    readonly name: string;
+    readonly durationMinutes: number;
+    readonly actorMemberId: string;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) => Promise<CalendarAppointmentTypeRecord>;
   readonly listCalendars: () => Promise<readonly CalendarDefinitionRecord[]>;
   readonly findCalendar: (id: string) => Promise<CalendarDefinitionRecord | null>;
   readonly findCalendarBySlug: (slug: string) => Promise<CalendarDefinitionRecord | null>;
@@ -236,6 +254,13 @@ export class CalendarSlotConflictError extends Error {
   public constructor() {
     super("Calendar slot is not available");
     this.name = "CalendarSlotConflictError";
+  }
+}
+
+export class CalendarAppointmentTypeConflictError extends Error {
+  public constructor() {
+    super("Appointment type name already exists");
+    this.name = "CalendarAppointmentTypeConflictError";
   }
 }
 

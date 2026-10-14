@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   CalendarAvailabilityQuerySchema,
+  CalendarAppointmentTypeSchema,
   CalendarEventSchema,
+  CreateCalendarAppointmentTypeSchema,
   CreateCalendarEventSchema,
   PublicCalendarBookingSchema,
   ReplaceCalendarAvailabilitySchema,
@@ -12,6 +14,28 @@ const calendarId = "019b0000-0000-7000-8000-000000000101";
 const advisorMemberId = "019b0000-0000-7000-8000-000000000102";
 
 describe("calendar contracts", () => {
+  it("accepts bounded reusable appointment types", () => {
+    expect(
+      CreateCalendarAppointmentTypeSchema.safeParse({
+        name: "Entrega de vehículo",
+        durationMinutes: 45,
+      }).success,
+    ).toBe(true);
+    expect(
+      CreateCalendarAppointmentTypeSchema.safeParse({
+        name: "Sin duración",
+        durationMinutes: 0,
+      }).success,
+    ).toBe(false);
+    expect(
+      CalendarAppointmentTypeSchema.safeParse({
+        id: calendarId,
+        name: "Entrega de vehículo",
+        durationMinutes: 45,
+        createdAt: "2026-10-01T12:00:00Z",
+      }).success,
+    ).toBe(true);
+  });
   it("accepts a bounded availability query and rejects ranges over 31 days", () => {
     expect(
       CalendarAvailabilityQuerySchema.safeParse({
@@ -83,6 +107,7 @@ describe("calendar contracts", () => {
         contactId: null,
         opportunityId: null,
         advisorMemberId,
+        appointmentTypeId: calendarId,
         createdByMemberId: null,
         guestName: "Cliente",
         guestEmail: "cliente@example.com",
@@ -99,6 +124,6 @@ describe("calendar contracts", () => {
         createdAt: "2026-10-01T12:00:00Z",
         updatedAt: "2026-10-01T12:00:00Z",
       }),
-    ).toMatchObject({ origin: "BOOKING", status: "CONFIRMED" });
+    ).toMatchObject({ origin: "BOOKING", status: "CONFIRMED", appointmentTypeId: calendarId });
   });
 });

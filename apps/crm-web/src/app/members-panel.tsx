@@ -64,6 +64,7 @@ const permissionAreaLabels: Record<string, string> = {
 
 const permissionActionLabels: Record<string, string> = {
   read: "Ver",
+  "read-all": "Ver todas las citas",
   create: "Crear",
   update: "Editar",
   delete: "Eliminar",

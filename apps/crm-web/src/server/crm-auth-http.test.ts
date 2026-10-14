@@ -88,6 +88,8 @@ describe("CRM web authentication HTTP boundary", () => {
           canAssignSales: false,
           canAssignConversations: false,
           canManageMembers: false,
+          canViewAllCalendarEvents: false,
+          canConfigureCalendar: false,
         },
       });
     });

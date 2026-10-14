@@ -28,6 +28,25 @@ export const CalendarEventStatusSchema = z.enum([
 ]);
 export const CalendarEventOriginSchema = z.enum(["MANUAL", "AUTOMATION", "AGENT", "BOOKING"]);
 
+export const CalendarAppointmentTypeSchema = z
+  .object({
+    id: IdSchema,
+    name: z.string().trim().min(1).max(160),
+    durationMinutes: z.number().int().min(5).max(480),
+    createdAt: TimestampSchema,
+  })
+  .strict();
+export const CreateCalendarAppointmentTypeSchema = CalendarAppointmentTypeSchema.pick({
+  name: true,
+  durationMinutes: true,
+});
+export const CalendarAppointmentTypeResponseSchema = z
+  .object({ data: CalendarAppointmentTypeSchema })
+  .strict();
+export const CalendarAppointmentTypeListResponseSchema = z
+  .object({ data: z.array(CalendarAppointmentTypeSchema) })
+  .strict();
+
 export const CalendarDefinitionSchema = z
   .object({
     id: IdSchema,
@@ -141,6 +160,7 @@ export const CalendarEventSchema = z
     contactId: NullableIdSchema,
     opportunityId: NullableIdSchema,
     advisorMemberId: IdSchema,
+    appointmentTypeId: NullableIdSchema.optional(),
     createdByMemberId: NullableIdSchema,
     guestName: z.string().trim().min(1).max(160).nullable(),
     guestEmail: z.string().email().max(320).nullable(),
@@ -169,6 +189,7 @@ export const CreateCalendarEventSchema = z
     contactId: IdSchema.optional(),
     opportunityId: IdSchema.optional(),
     advisorMemberId: IdSchema,
+    appointmentTypeId: IdSchema.optional(),
     type: CalendarEventTypeSchema.default("APPOINTMENT"),
     title: z.string().trim().min(1).max(200),
     description: z.string().trim().max(4_000).default(""),
@@ -189,6 +210,7 @@ export const UpdateCalendarEventSchema = z
     contactId: NullableIdSchema.optional(),
     opportunityId: NullableIdSchema.optional(),
     advisorMemberId: IdSchema.optional(),
+    appointmentTypeId: NullableIdSchema.optional(),
     type: CalendarEventTypeSchema.optional(),
     title: z.string().trim().min(1).max(200).optional(),
     description: z.string().trim().max(4_000).optional(),
@@ -335,6 +357,7 @@ export const CalendarAvailabilityResponseSchema = z
   .strict();
 
 export type CalendarDefinition = z.infer<typeof CalendarDefinitionSchema>;
+export type CalendarAppointmentType = z.infer<typeof CalendarAppointmentTypeSchema>;
 export type CalendarEvent = z.infer<typeof CalendarEventSchema>;
 export type CalendarEventStatus = z.infer<typeof CalendarEventStatusSchema>;
 export type CalendarEventType = z.infer<typeof CalendarEventTypeSchema>;

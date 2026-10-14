@@ -37,6 +37,7 @@ export const CrmPermissionCatalog = [
   "crm:tasks:delete",
   "crm:tasks:export",
   "crm:calendar:read",
+  "crm:calendar:read-all",
   "crm:calendar:create",
   "crm:calendar:update",
   "crm:calendar:configure",
@@ -128,6 +129,8 @@ export const MemberCapabilitiesResponseSchema = z
         canAssignSales: z.boolean(),
         canAssignConversations: z.boolean(),
         canManageMembers: z.boolean(),
+        canViewAllCalendarEvents: z.boolean(),
+        canConfigureCalendar: z.boolean(),
       })
       .strict(),
   })

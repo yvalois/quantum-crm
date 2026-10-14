@@ -149,6 +149,8 @@ export class MembersController {
         canAssignSales: context.permissions.includes("crm:sales:assign"),
         canAssignConversations: context.permissions.includes("crm:conversations:assign"),
         canManageMembers: context.permissions.includes("iam:members:roles"),
+        canViewAllCalendarEvents: context.permissions.includes("crm:calendar:read-all"),
+        canConfigureCalendar: context.permissions.includes("crm:calendar:configure"),
       },
     });
   }

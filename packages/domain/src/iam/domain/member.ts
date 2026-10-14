@@ -73,6 +73,7 @@ export function permissionsForInitialRole(roleCode: InitialRoleCode): readonly I
         "crm:tasks:create",
         "crm:tasks:update",
         "crm:calendar:read",
+        "crm:calendar:read-all",
         "crm:calendar:create",
         "crm:calendar:update",
         "crm:calendar:configure",

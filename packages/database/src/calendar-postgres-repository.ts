@@ -1,6 +1,7 @@
 import type {
   CalendarAvailabilityExceptionRecord,
   CalendarAvailabilityRuleRecord,
+  CalendarAppointmentTypeRecord,
   CalendarDefinitionRecord,
   CalendarEventHistoryRecord,
   CalendarEventRecord,
@@ -8,7 +9,10 @@ import type {
   CalendarSchedulingSnapshot,
   CommercialActor,
 } from "@quantum-crm/domain";
-import { CalendarSlotConflictError } from "@quantum-crm/domain";
+import {
+  CalendarAppointmentTypeConflictError,
+  CalendarSlotConflictError,
+} from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
 import { CommercialIdempotencyConflictError } from "./commercial-postgres-database.js";
@@ -56,6 +60,7 @@ interface EventRow {
   readonly contact_id: string | null;
   readonly opportunity_id: string | null;
   readonly advisor_member_id: string;
+  readonly appointment_type_id: string | null;
   readonly created_by_member_id: string | null;
   readonly guest_name: string | null;
   readonly guest_email: string | null;
@@ -73,6 +78,13 @@ interface EventRow {
   readonly updated_at: Date;
 }
 
+interface AppointmentTypeRow {
+  readonly id: string;
+  readonly name: string;
+  readonly duration_minutes: number;
+  readonly created_at: Date;
+}
+
 interface HistoryRow {
   readonly id: string;
   readonly event_id: string;
@@ -85,7 +97,8 @@ interface HistoryRow {
 }
 
 const calendarSelection = `id::text, name, service_name, location, time_zone, slot_duration_minutes, buffer_before_minutes, buffer_after_minutes, booking_slug, active, version::text, created_at, updated_at`;
-const eventSelection = `id::text, calendar_id::text, contact_id::text, opportunity_id::text, advisor_member_id::text, created_by_member_id::text, guest_name, guest_email::text, type, status, origin, title, description, location, starts_at, ends_at, time_zone, version::text, created_at, updated_at`;
+const eventSelection = `id::text, calendar_id::text, contact_id::text, opportunity_id::text, advisor_member_id::text, appointment_type_id::text, created_by_member_id::text, guest_name, guest_email::text, type, status, origin, title, description, location, starts_at, ends_at, time_zone, version::text, created_at, updated_at`;
+const appointmentTypeSelection = `id::text, name, duration_minutes, created_at`;
 
 async function typedQuery<Row>(
   client: Pick<PostgresPool, "query">,
@@ -156,6 +169,7 @@ function eventFromRow(row: EventRow): CalendarEventRecord {
     contactId: row.contact_id,
     opportunityId: row.opportunity_id,
     advisorMemberId: row.advisor_member_id,
+    appointmentTypeId: row.appointment_type_id,
     createdByMemberId: row.created_by_member_id,
     guestName: row.guest_name,
     guestEmail: row.guest_email,
@@ -171,6 +185,15 @@ function eventFromRow(row: EventRow): CalendarEventRecord {
     version: BigInt(row.version),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
+  });
+}
+
+function appointmentTypeFromRow(row: AppointmentTypeRow): CalendarAppointmentTypeRecord {
+  return Object.freeze({
+    id: row.id,
+    name: row.name,
+    durationMinutes: row.duration_minutes,
+    createdAt: new Date(row.created_at),
   });
 }
 
@@ -200,18 +223,8 @@ function access(
   readonly params: readonly string[];
 } {
   if (actor.scope === "PROFILE") return { sql: "TRUE", params: [] };
-  if (actor.scope === "TEAM")
-    return {
-      sql: `EXISTS (
-        SELECT 1 FROM iam.team_members viewer_team
-        JOIN iam.team_members event_team ON event_team.team_id = viewer_team.team_id
-        WHERE viewer_team.member_id = $${memberPlaceholder}::uuid
-          AND event_team.member_id IN (event.advisor_member_id, event.created_by_member_id)
-      )`,
-      params: [actor.memberId],
-    };
   return {
-    sql: `(event.advisor_member_id = $${memberPlaceholder}::uuid OR event.created_by_member_id = $${memberPlaceholder}::uuid)`,
+    sql: `event.advisor_member_id = $${memberPlaceholder}::uuid`,
     params: [actor.memberId],
   };
 }
@@ -219,11 +232,21 @@ function access(
 function databaseError(error: unknown): never {
   if (
     error instanceof CommercialIdempotencyConflictError ||
-    error instanceof CalendarSlotConflictError
+    error instanceof CalendarSlotConflictError ||
+    error instanceof CalendarAppointmentTypeConflictError
   )
     throw error;
   if (typeof error === "object" && error !== null && "code" in error && error.code === "23P01")
     throw new CalendarSlotConflictError();
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505" &&
+    "constraint" in error &&
+    error.constraint === "calendar_appointment_type_name_unique"
+  )
+    throw new CalendarAppointmentTypeConflictError();
   throw new DatabaseUnavailableError();
 }
 
@@ -382,6 +405,76 @@ async function scheduleEffects(
 
 export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRepository {
   return Object.freeze<CalendarRepository>({
+    listAppointmentTypes: async () => {
+      try {
+        const result = await typedQuery<AppointmentTypeRow>(
+          pool,
+          `SELECT ${appointmentTypeSelection} FROM calendar.appointment_types ORDER BY name, id LIMIT 500`,
+        );
+        return Object.freeze(result.rows.map(appointmentTypeFromRow));
+      } catch (error) {
+        return databaseError(error);
+      }
+    },
+    findAppointmentType: async (id) => {
+      try {
+        const result = await typedQuery<AppointmentTypeRow>(
+          pool,
+          `SELECT ${appointmentTypeSelection} FROM calendar.appointment_types WHERE id = $1::uuid`,
+          [id],
+        );
+        return result.rows[0] ? appointmentTypeFromRow(result.rows[0]) : null;
+      } catch (error) {
+        return databaseError(error);
+      }
+    },
+    createAppointmentType: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        const principalKey = `member:${input.actorMemberId}`;
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await lockCommand(
+          client,
+          principalKey,
+          "calendar.appointment-type.create",
+          input.idempotencyKey,
+        );
+        const previous = await replay<AppointmentTypeRow>(
+          client,
+          principalKey,
+          "calendar.appointment-type.create",
+          input.idempotencyKey,
+          input.payloadHash,
+        );
+        if (previous) {
+          await client.query("COMMIT");
+          return appointmentTypeFromRow(previous);
+        }
+        const result = await client.query<AppointmentTypeRow>(
+          `INSERT INTO calendar.appointment_types (name, duration_minutes, created_by_member_id)
+           VALUES ($1, $2, $3::uuid) RETURNING ${appointmentTypeSelection}`,
+          [input.name, input.durationMinutes, input.actorMemberId],
+        );
+        const row = result.rows[0];
+        if (!row) throw new DatabaseUnavailableError();
+        await remember(
+          client,
+          principalKey,
+          "calendar.appointment-type.create",
+          input.idempotencyKey,
+          input.payloadHash,
+          row,
+        );
+        await client.query("COMMIT");
+        return appointmentTypeFromRow(row);
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return databaseError(error);
+      } finally {
+        client?.release();
+      }
+    },
     listCalendars: async () => {
       try {
         const result = await typedQuery<CalendarRow>(
@@ -749,11 +842,11 @@ export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRe
         await lockSlot(client, input.event);
         const result = await client.query<EventRow>(
           `INSERT INTO calendar.events
-             (id, calendar_id, contact_id, opportunity_id, advisor_member_id,
+             (id, calendar_id, contact_id, opportunity_id, advisor_member_id, appointment_type_id,
               created_by_member_id, guest_name, guest_email, type, status, origin,
               title, description, location, starts_at, ends_at, time_zone, version,
               created_at, updated_at)
-           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $19::uuid, $6::uuid,
                    $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 1, $18, $18)
            RETURNING ${eventSelection}`,
           [
@@ -775,6 +868,7 @@ export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRe
             input.event.endsAt,
             input.event.timeZone,
             input.event.createdAt,
+            input.event.appointmentTypeId ?? null,
           ],
         );
         const row = result.rows[0];
@@ -857,6 +951,7 @@ export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRe
                   starts_at = CASE WHEN $17::boolean THEN $18::timestamptz ELSE starts_at END,
                   ends_at = CASE WHEN $19::boolean THEN $20::timestamptz ELSE ends_at END,
                   time_zone = CASE WHEN $21::boolean THEN $22 ELSE time_zone END,
+                  appointment_type_id = CASE WHEN $24::boolean THEN $25::uuid ELSE appointment_type_id END,
                   version = version + 1,
                   updated_at = $23
             WHERE id = $1::uuid AND version = $2::bigint
@@ -885,6 +980,8 @@ export function createCalendarPostgresRepository(pool: PostgresPool): CalendarRe
             patch.timeZone !== undefined,
             patch.timeZone ?? null,
             input.now,
+            patch.appointmentTypeId !== undefined,
+            patch.appointmentTypeId ?? null,
           ],
         );
         const row = result.rows[0];
