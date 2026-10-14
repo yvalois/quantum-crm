@@ -6,6 +6,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  Header,
   Headers,
   Inject,
   NotFoundException,
@@ -22,6 +23,7 @@ import {
 } from "@nestjs/common";
 import {
   CreateMemberInvitationSchema,
+  InvitationActivationDeliverySchema,
   InvitationResponseSchema,
   MemberIdSchema,
   MemberListQuerySchema,
@@ -41,6 +43,7 @@ import {
   type IamMember,
   type IamPermission,
 } from "@quantum-crm/domain";
+import { IamMemberConflictError } from "@quantum-crm/database";
 
 import {
   crmAuthContext,
@@ -122,6 +125,17 @@ export class MembersController {
     @Inject(IAM_INVITATION_ACTIVATION_REPOSITORY)
     @Optional()
     private readonly activations?: {
+      reserveReissue(input: {
+        readonly memberId: string;
+        readonly actorMemberId: string;
+        readonly requestKey: string;
+        readonly now: Date;
+      }): Promise<{
+        readonly invitationId: string;
+        readonly email: string;
+        readonly displayName: string;
+        readonly generation: number;
+      } | null>;
       recordIssued(input: {
         readonly invitationId: string;
         readonly oidcSubject: string;
@@ -327,6 +341,60 @@ export class MembersController {
       });
     } catch (error) {
       return mapMemberError(error);
+    }
+  }
+
+  @Post(":memberId/invitation/reissue")
+  @RequireCrmPermission("iam:members:update")
+  @Header("Cache-Control", "no-store, max-age=0")
+  public async reissueInvitation(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("memberId") memberId: string,
+    @Headers("idempotency-key") requestKey: string | undefined,
+  ) {
+    if (!requestKey || !/^[A-Za-z0-9._:-]{8,128}$/u.test(requestKey))
+      throw new BadRequestException();
+    const parsedMemberId = MemberIdSchema.parse(memberId);
+    if (!this.activationIssuer || !this.activations) throw new ServiceUnavailableException();
+    let reservation;
+    try {
+      reservation = await this.activations.reserveReissue({
+        memberId: parsedMemberId,
+        actorMemberId: actor(request).memberId,
+        requestKey,
+        now: new Date(),
+      });
+    } catch (error) {
+      if (error instanceof IamMemberConflictError) throw new ConflictException();
+      throw error;
+    }
+    if (!reservation) throw new ConflictException("La invitación no se puede reemitir ahora.");
+    try {
+      const issued = await this.activationIssuer.issue({
+        invitationId: reservation.invitationId,
+        email: reservation.email,
+        displayName: reservation.displayName,
+        generation: reservation.generation,
+      });
+      const recorded = await this.activations.recordIssued({
+        invitationId: reservation.invitationId,
+        oidcSubject: issued.subject,
+        generation: issued.generation,
+        expiresAt: new Date(issued.expiresAt),
+        now: new Date(),
+      });
+      if (!recorded || recorded.replayed) throw new ConflictException();
+      return InvitationActivationDeliverySchema.parse({
+        url: issued.url,
+        temporaryPassword: issued.temporaryPassword,
+        expiresAt: issued.expiresAt,
+      });
+    } catch (error) {
+      if (error instanceof MemberActivationIssuerError) {
+        if (error.reason === "TARGET_CONFLICT") throw new ConflictException();
+        throw new ServiceUnavailableException();
+      }
+      throw error;
     }
   }
 }

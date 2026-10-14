@@ -12,6 +12,19 @@ export interface IamInvitationActivation {
 }
 
 export interface IamInvitationActivationRepository {
+  /** Claims a new generation before calling Keycloak. A pending claim fences
+   * concurrent calls and an old request key can never mint another password. */
+  reserveReissue(input: {
+    readonly memberId: string;
+    readonly actorMemberId: string;
+    readonly requestKey: string;
+    readonly now: Date;
+  }): Promise<{
+    readonly invitationId: string;
+    readonly email: string;
+    readonly displayName: string;
+    readonly generation: number;
+  } | null>;
   /**
    * Records one Keycloak action generation after its user has been reconciled.
    * Replaying the same generation and subject returns the prior record; a

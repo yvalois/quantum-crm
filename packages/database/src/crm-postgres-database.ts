@@ -92,6 +92,7 @@ interface IamInvitationRow {
   readonly activation_generation?: number;
   readonly activation_issued_at?: Date | null;
   readonly activation_expires_at?: Date | null;
+  readonly reissue_reserved_generation?: number | null;
 }
 
 interface IamRoleRow {
@@ -1018,6 +1019,81 @@ function createIamInvitationActivationRepository(
   pool: PostgresPool,
 ): IamInvitationActivationRepository {
   return Object.freeze<IamInvitationActivationRepository>({
+    reserveReissue: async (input) => {
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(input.memberId) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(input.actorMemberId) ||
+        !/^[A-Za-z0-9._:-]{8,128}$/u.test(input.requestKey) ||
+        !(input.now instanceof Date) ||
+        Number.isNaN(input.now.getTime())
+      ) throw new IamMemberConflictError();
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const found = (await client.query(
+          `SELECT invitation.id::text, invitation.status::text, invitation.expires_at,
+                  invitation.activation_generation, invitation.activation_subject,
+                  invitation.reissue_request_key, invitation.reissue_reserved_generation,
+                  invitation.reissue_reserved_at, member.email, member.display_name
+           FROM iam.invitations AS invitation
+           JOIN iam.members AS member ON member.id = invitation.member_id
+           WHERE invitation.member_id = $1::uuid AND member.status = 'invited'
+           ORDER BY invitation.created_at DESC LIMIT 1 FOR UPDATE OF invitation`,
+          [input.memberId],
+        )) as { readonly rows: readonly {
+          readonly id: string; readonly status: string; readonly expires_at: Date;
+          readonly activation_generation: number; readonly activation_subject: string | null;
+          readonly reissue_request_key: string | null;
+          readonly reissue_reserved_generation: number | null;
+          readonly reissue_reserved_at: Date | null;
+          readonly email: string; readonly display_name: string;
+        }[] };
+        const row = found.rows[0];
+        if (
+          !row || !["pending", "expired"].includes(row.status) ||
+          row.activation_generation < 1 || !row.activation_subject ||
+          row.reissue_request_key === input.requestKey ||
+          (row.reissue_reserved_at !== null &&
+            input.now.getTime() - row.reissue_reserved_at.getTime() < 30_000)
+        ) {
+          await client.query("ROLLBACK");
+          return null;
+        }
+        const generation = Math.max(
+          row.activation_generation,
+          row.reissue_reserved_generation ?? 0,
+        ) + 1;
+        const nextExpiry = row.expires_at.getTime() - input.now.getTime() < 20 * 60_000
+          ? new Date(input.now.getTime() + 72 * 60 * 60_000)
+          : row.expires_at;
+        await client.query(
+          `UPDATE iam.invitations SET reissue_request_key = $2,
+             reissue_reserved_generation = $3, reissue_reserved_at = $4,
+             status = 'pending', expires_at = $5
+           WHERE id = $1::uuid`,
+          [row.id, input.requestKey, generation, input.now, nextExpiry],
+        );
+        await client.query(
+          `INSERT INTO iam.invitation_reissue_events
+            (invitation_id, actor_member_id, request_key, generation)
+           VALUES ($1::uuid, $2::uuid, $3, $4)`,
+          [row.id, input.actorMemberId, input.requestKey, generation],
+        );
+        await client.query("COMMIT");
+        return Object.freeze({
+          invitationId: row.id, email: row.email,
+          displayName: row.display_name, generation,
+        });
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        if (error instanceof IamMemberConflictError || isUniqueViolation(error))
+          throw new IamMemberConflictError();
+        throw new DatabaseUnavailableError();
+      } finally {
+        client?.release();
+      }
+    },
     recordIssued: async (input) => {
       if (!validInvitationActivationInput(input)) throw new IamMemberConflictError();
       let client: PoolClient | undefined;
@@ -1029,7 +1105,8 @@ function createIamInvitationActivationRepository(
             SELECT invitation.id::text, invitation.member_id::text, invitation.status::text,
                    invitation.expires_at, invitation.accepted_at, invitation.created_at,
                    invitation.activation_subject, invitation.activation_generation,
-                   invitation.activation_issued_at, invitation.activation_expires_at
+                   invitation.activation_issued_at, invitation.activation_expires_at,
+                   invitation.reissue_reserved_generation
             FROM iam.invitations AS invitation
             WHERE invitation.id = $1::uuid
             FOR UPDATE
@@ -1063,7 +1140,9 @@ function createIamInvitationActivationRepository(
           });
         }
         if (
-          input.generation !== currentGeneration + 1 ||
+          (currentGeneration === 0
+            ? input.generation !== 1
+            : input.generation !== invitation.reissue_reserved_generation) ||
           (invitation.activation_subject !== null &&
             invitation.activation_subject !== input.oidcSubject)
         ) {
@@ -1073,7 +1152,8 @@ function createIamInvitationActivationRepository(
           `
             UPDATE iam.invitations
             SET activation_subject = $2, activation_generation = $3,
-                activation_issued_at = $4, activation_expires_at = $5
+                activation_issued_at = $4, activation_expires_at = $5,
+                reissue_reserved_generation = NULL, reissue_reserved_at = NULL
             WHERE id = $1::uuid
             RETURNING id::text, member_id::text, status::text, expires_at, accepted_at, created_at,
                       activation_subject, activation_generation, activation_issued_at,
@@ -1083,6 +1163,14 @@ function createIamInvitationActivationRepository(
         )) as { readonly rows: readonly IamInvitationRow[] };
         const row = recorded.rows[0];
         if (!row) throw new IamMemberConflictError();
+        if (currentGeneration > 0) {
+          await client.query(
+            `UPDATE iam.invitation_reissue_events
+             SET state = 'issued', issued_at = $3
+             WHERE invitation_id = $1::uuid AND generation = $2 AND state = 'reserved'`,
+            [input.invitationId, input.generation, input.now],
+          );
+        }
         await client.query("COMMIT");
         return Object.freeze({ activation: invitationActivationFromRow(row), replayed: false });
       } catch (error) {

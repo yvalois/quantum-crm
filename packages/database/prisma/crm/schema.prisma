@@ -95,6 +95,9 @@ model IamInvitation {
   activationGeneration  Int                 @default(0) @map("activation_generation")
   activationIssuedAt    DateTime?           @map("activation_issued_at") @db.Timestamptz(6)
   activationExpiresAt   DateTime?           @map("activation_expires_at") @db.Timestamptz(6)
+  reissueRequestKey     String?             @map("reissue_request_key") @db.VarChar(128)
+  reissueReservedGeneration Int?            @map("reissue_reserved_generation")
+  reissueReservedAt     DateTime?           @map("reissue_reserved_at") @db.Timestamptz(6)
   status                IamInvitationStatus @default(PENDING)
   expiresAt             DateTime            @map("expires_at") @db.Timestamptz(6)
   acceptedAt            DateTime?           @map("accepted_at") @db.Timestamptz(6)
@@ -108,6 +111,23 @@ model IamInvitation {
   @@index([activationSubject], map: "iam_invitations_activation_subject_idx")
   @@index([status, expiresAt, activationGeneration], map: "iam_invitations_pending_activation_idx")
   @@map("invitations")
+  @@schema("iam")
+}
+
+model IamInvitationReissueEvent {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  invitationId   String   @map("invitation_id") @db.Uuid
+  actorMemberId  String   @map("actor_member_id") @db.Uuid
+  requestKey     String   @map("request_key") @db.VarChar(128)
+  generation     Int
+  state          String   @default("reserved") @db.VarChar(12)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  issuedAt       DateTime? @map("issued_at") @db.Timestamptz(6)
+
+  @@unique([invitationId, generation])
+  @@unique([actorMemberId, requestKey])
+  @@index([invitationId, createdAt(sort: Desc)], map: "iam_invitation_reissue_events_invitation_idx")
+  @@map("invitation_reissue_events")
   @@schema("iam")
 }
 
