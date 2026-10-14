@@ -112,3 +112,10 @@ Una empresa configura calendarios y disponibilidad por asesor, consulta horarios
 - Documentacion actualizada: ficha y estado; checklist final queda pendiente hasta desplegar el candidato.
 - Desviaciones del plan: la primera imagen PostgreSQL usada por el arnes desechable tenia un entrypoint de plataforma y se sustituyo por la imagen PostgreSQL oficial ya presente; no afecto codigo, datos ni evidencia final.
 - Pendientes o decisiones nuevas: CI, despliegue por digest y smoke del perfil sintetico; adaptadores reales de recordatorios, tools MCP del agente, consumidores de automatizaciones y proveedor externo para `CAL-19` permanecen en sus bloques propietarios.
+
+### Correccion visual de agenda (2026-10-14)
+
+- La ruta autenticada `/calendar` no mostraba un calendario reconocible cuando no habia citas: solo filtros, contadores y una lista vacia. El ajuste `8b2a175132cb4eb941ceb33764b44057dd8a6ecd` agrega semana horaria y mes navegables, ubica eventos por fecha y hora, y muestra una invitacion a crear el primer calendario sin ocultar la cuadricula.
+- Evidencia enfocada en VPS: ESLint, typecheck y 3 pruebas del modelo de semana/mes y solapamientos aprobados; build de produccion de `crm-web` aprobado. Se desplego la candidata temporal solo para InterAmerican, con contenedor healthy, y se comprobaron en navegador autenticado las vistas Semana y Mes.
+- No se cambiaron API, persistencia, permisos ni datos. InterAmerican tiene cero calendarios y citas actualmente; no se presentan como verificados el alta de una cita real ni la disposicion visual de eventos reales.
+- Pendientes de estabilizacion posterior: completar PR/CI y promocion registrada; validar la colocacion de citas reales tras configurar el primer calendario.
