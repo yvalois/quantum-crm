@@ -107,6 +107,13 @@ Un usuario autorizado puede reservar y subir desde Documentos una imagen o ficha
 
 ## Evidencia de cierre
 
+### Extensión 2026-10-13: calibración visual de la biblioteca
+
+- Alcance: reorganización visual de `/media` sin alterar contratos ni datos. La navegación de carpetas y el área de archivos comparten un contenedor; encabezado, carga y filtros ocupan menos alto, y los textos de navegación son más legibles.
+- Validación: PR #148 (`00a04c74`) y corrección móvil PR #149 (`67ed602e`) aprobaron siete checks cada uno. En VPS pasaron Prettier, ESLint, typecheck y build afectados del primer candidato, y Prettier y build del ajuste solo CSS. Release final `67ed602e` con scan `PASSED`; `crm-web` quedó `healthy` por `sha256:bdb5e2becf6bb9f15df575ae5a4f4f522fe0ea327f60466646997a4673b9cfab`.
+- Recorrido: navegador autenticado de InterAmerican mostró el archivo sintético en la primera pantalla de escritorio y confirmó cambio a vista de lista; a 390 px de ventana, el documento midió 375 px sin desborde horizontal. Readiness público 200 y `/media` sin sesión 307.
+- Desviación: el primer despliegue expuso un desborde móvil del shell, reparado antes del cierre. Se mantiene la excepción temporal de candidata directa; una promoción oficial posterior puede reemplazar este digest. No se marca terminado todo `DOC-14`.
+
 ### Extensión 2026-10-13: organización de multimedia
 
 - La búsqueda actual revisa solo la página cargada. Se sustituye por búsqueda paginada en PostgreSQL, con filtros de tipo, carpeta y etiqueta y orden estable.
