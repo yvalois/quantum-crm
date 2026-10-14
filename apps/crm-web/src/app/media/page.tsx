@@ -606,12 +606,16 @@ export default function MediaPage(): React.JSX.Element {
             <div className={styles.collectionHeading}>
               <div>
                 <nav className={styles.breadcrumb} aria-label="Ruta de carpetas">
-                  <button type="button" onClick={() => setFolder("all")}>Biblioteca</button>
+                  <button type="button" onClick={() => setFolder("all")}>
+                    Biblioteca
+                  </button>
                   {folder === "root" && <span> / Sin carpeta</span>}
                   {folderPath.map((item) => (
                     <span key={item.id}>
                       <span aria-hidden="true"> / </span>
-                      <button type="button" onClick={() => setFolder(item.id)}>{item.name}</button>
+                      <button type="button" onClick={() => setFolder(item.id)}>
+                        {item.name}
+                      </button>
                     </span>
                   ))}
                 </nav>
@@ -729,11 +733,11 @@ export default function MediaPage(): React.JSX.Element {
             )}
             <div className={styles.filesHeading}>
               <h3>Archivos</h3>
-            <div className={styles.count}>
-              {busy
-                ? "Cargando archivos…"
-                : `${visible.length} archivo${visible.length === 1 ? "" : "s"} mostrado${visible.length === 1 ? "" : "s"}${cursor ? " · hay más resultados" : ""}`}
-            </div>
+              <div className={styles.count}>
+                {busy
+                  ? "Cargando archivos…"
+                  : `${visible.length} archivo${visible.length === 1 ? "" : "s"} mostrado${visible.length === 1 ? "" : "s"}${cursor ? " · hay más resultados" : ""}`}
+              </div>
             </div>
             {!busy && visible.length === 0 && !showFolders && (
               <div className={styles.empty}>
@@ -749,7 +753,11 @@ export default function MediaPage(): React.JSX.Element {
                     : "Sube tu primer archivo para verlo aquí después de la validación."}
                 </p>
                 {!query && !tag && filter === "ALL" && (
-                  <button type="button" onClick={() => input.current?.click()} disabled={!csrf || uploading}>
+                  <button
+                    type="button"
+                    onClick={() => input.current?.click()}
+                    disabled={!csrf || uploading}
+                  >
                     Subir archivos
                   </button>
                 )}
