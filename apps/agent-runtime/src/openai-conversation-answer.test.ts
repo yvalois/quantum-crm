@@ -3,6 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createOpenAiConversationAnswer } from "./openai-conversation-answer.js";
 
+const pendingHandoff = {
+  requested: false,
+  route: "normal",
+  dataComplete: false,
+  requirements: "pendientes",
+  evidence: "",
+  exceptionReason: "",
+  questionPending: true,
+  nonCompliancePending: false,
+};
+
 describe("OpenAI conversational answer", () => {
   it("includes only the bounded thread history and does not store the request", async () => {
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
@@ -22,7 +33,13 @@ describe("OpenAI conversational answer", () => {
             {
               type: "message",
               content: [
-                { type: "output_text", text: JSON.stringify({ answer: "¿Desde dónde saldrías?" }) },
+                {
+                  type: "output_text",
+                  text: JSON.stringify({
+                    answer: "¿Desde dónde saldrías?",
+                    handoff: pendingHandoff,
+                  }),
+                },
               ],
             },
           ],
@@ -36,7 +53,7 @@ describe("OpenAI conversational answer", () => {
         question: "¿Y mañana?",
         history: [{ role: "customer", text: "Necesito un traslado" }],
       }),
-    ).toBe("¿Desde dónde saldrías?");
+    ).toEqual({ answer: "¿Desde dónde saldrías?", handoffRequested: false });
   });
 
   it("continues a persistent chat without repeating an OpenAI greeting", async () => {
@@ -61,6 +78,7 @@ describe("OpenAI conversational answer", () => {
                   text: JSON.stringify({
                     answer:
                       "¡Hola! Tenemos Sedán, SUV, Pick up, Microbús y Panel de carga. ¿Cuál te interesa?",
+                    handoff: pendingHandoff,
                   }),
                 },
               ],
@@ -81,7 +99,10 @@ describe("OpenAI conversational answer", () => {
           { role: "agent", text: "¿Qué tipo de vehículo te interesa?" },
         ],
       }),
-    ).toBe("Tenemos Sedán, SUV, Pick up, Microbús y Panel de carga. ¿Cuál te interesa?");
+    ).toEqual({
+      answer: "Tenemos Sedán, SUV, Pick up, Microbús y Panel de carga. ¿Cuál te interesa?",
+      handoffRequested: false,
+    });
   });
 
   it("allows a brief reply greeting when the customer greets again", async () => {
@@ -98,7 +119,10 @@ describe("OpenAI conversational answer", () => {
                   content: [
                     {
                       type: "output_text",
-                      text: JSON.stringify({ answer: "¡Hola! ¿Qué tipo de vehículo necesitas?" }),
+                      text: JSON.stringify({
+                        answer: "¡Hola! ¿Qué tipo de vehículo necesitas?",
+                        handoff: pendingHandoff,
+                      }),
                     },
                   ],
                 },
@@ -108,9 +132,10 @@ describe("OpenAI conversational answer", () => {
           ),
       ),
     });
-    expect(await answer({ question: "Hola, sigo interesado", history: [] })).toBe(
-      "¡Hola! ¿Qué tipo de vehículo necesitas?",
-    );
+    expect(await answer({ question: "Hola, sigo interesado", history: [] })).toEqual({
+      answer: "¡Hola! ¿Qué tipo de vehículo necesitas?",
+      handoffRequested: false,
+    });
   });
 
   it("does not duplicate the application-owned greeting on a direct first message", async () => {
@@ -126,7 +151,10 @@ describe("OpenAI conversational answer", () => {
               content: [
                 {
                   type: "output_text",
-                  text: JSON.stringify({ answer: "¡Hola! ¿Qué tipo de vehículo te interesa?" }),
+                  text: JSON.stringify({
+                    answer: "¡Hola! ¿Qué tipo de vehículo te interesa?",
+                    handoff: pendingHandoff,
+                  }),
                 },
               ],
             },
@@ -138,6 +166,6 @@ describe("OpenAI conversational answer", () => {
     const answer = createOpenAiConversationAnswer({ apiKey: new SecretValue("test"), fetcher });
     expect(
       await answer({ question: "Hola, quiero rentar un carro", history: [], firstTurn: true }),
-    ).toBe("¿Qué tipo de vehículo te interesa?");
+    ).toEqual({ answer: "¿Qué tipo de vehículo te interesa?", handoffRequested: false });
   });
 });

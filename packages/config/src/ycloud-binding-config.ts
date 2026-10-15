@@ -10,6 +10,7 @@ export interface YCloudBindingConfig {
   readonly wabaId: string;
   readonly businessPhone: string;
   readonly signingSecret: SecretValue;
+  readonly advisorRouting?: "interamerican-v54";
 }
 
 const bindingSchema = z
@@ -17,6 +18,7 @@ const bindingSchema = z
     wabaId: z.string().regex(/^[0-9]{5,30}$/u),
     businessPhone: z.string().regex(/^[0-9]{8,20}$/u),
     signingSecret: z.string().min(24).max(512),
+    advisorRouting: z.literal("interamerican-v54").optional(),
   })
   .strict();
 
@@ -39,6 +41,7 @@ export function parseYCloudBindingConfig(
       wabaId: parsed.wabaId,
       businessPhone: parsed.businessPhone,
       signingSecret: new SecretValue(parsed.signingSecret),
+      ...(parsed.advisorRouting ? { advisorRouting: parsed.advisorRouting } : {}),
     });
   } catch {
     throw new ConfigurationError(serviceName, [ycloudBindingEnvironmentKey]);

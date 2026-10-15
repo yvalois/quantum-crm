@@ -92,4 +92,32 @@ describe("conversation agent dispatch", () => {
       code: "AGENT_UNAVAILABLE",
     });
   });
+
+  it("passes a validated handoff proposal to the fenced completion", async () => {
+    const complete = vi.fn(async () => "COMPLETED" as const);
+    await dispatchAgentRequest(
+      {
+        repository: { complete, fail: vi.fn() } as unknown as ConversationAgentDispatcher,
+        sourcesReady: async () => true,
+        tokenClient: { issue: async () => new SecretValue("fake-service-token") },
+        tenantId: "019b0000-0000-7000-8000-000000000003",
+        pollIntervalMs: 2_000,
+        fetcher: vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                answer: "Validaremos disponibilidad.",
+                sourceIds: [],
+                grounded: false,
+                handoffRequested: true,
+              }),
+              { status: 200 },
+            ),
+        ),
+      },
+      lease,
+      "test-worker",
+    );
+    expect(complete).toHaveBeenCalledWith(expect.objectContaining({ handoffRequested: true }));
+  });
 });

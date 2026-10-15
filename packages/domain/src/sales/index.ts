@@ -67,6 +67,11 @@ export interface SalesMemberLookup {
 }
 
 export interface SalesRepository {
+  /** Resolve only a previously imported pipeline/stage pair owned by sales. */
+  readonly resolveImportedStage?: (input: {
+    readonly pipelineExternalId: string;
+    readonly stageExternalId: string;
+  }) => Promise<{ readonly pipelineId: string; readonly stageId: string } | null>;
   readonly listPipelines: () => Promise<readonly Pipeline[]>;
   readonly createPipeline: (input: {
     readonly pipeline: Pipeline;

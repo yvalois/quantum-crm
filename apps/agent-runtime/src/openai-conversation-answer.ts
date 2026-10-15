@@ -2,6 +2,12 @@ import type { SecretValue } from "@quantum-crm/config";
 import type { AgentConversationContext } from "@quantum-crm/contracts";
 import { z } from "zod";
 
+import {
+  confirmedAdvisorHandoff,
+  handoffDecisionInstructions,
+  handoffJsonSchema,
+  handoffSchema,
+} from "./interamerican-handoff.js";
 import { interAmericanConversationPolicy } from "./interamerican-policy.js";
 
 const responseSchema = z.object({
@@ -14,6 +20,11 @@ const responseSchema = z.object({
   ),
 });
 
+export interface ConversationAnswer {
+  readonly answer: string;
+  readonly handoffRequested: boolean;
+}
+
 /** Conversational turn without a selected catalog; never invents commercial facts. */
 export function createOpenAiConversationAnswer(options: {
   readonly apiKey: SecretValue;
@@ -23,8 +34,9 @@ export function createOpenAiConversationAnswer(options: {
   readonly question: string;
   readonly history: AgentConversationContext["messages"];
   readonly firstTurn?: boolean;
-}) => Promise<string> {
+}) => Promise<ConversationAnswer> {
   return async (input) => {
+    const policy = `${interAmericanConversationPolicy}\n\n${handoffDecisionInstructions}`;
     const response = await (options.fetcher ?? fetch)("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -37,8 +49,8 @@ export function createOpenAiConversationAnswer(options: {
         store: false,
         max_output_tokens: 1600,
         instructions: input.firstTurn
-          ? `${interAmericanConversationPolicy}\n\nLa primera presentación de Alex la agrega la aplicación a esta respuesta. No inicies tu texto con saludo ni presentación; responde directamente la solicitud.`
-          : interAmericanConversationPolicy,
+          ? `${policy}\n\nLa primera presentación de Alex la agrega la aplicación a esta respuesta. No inicies tu texto con saludo ni presentación; responde directamente la solicitud.`
+          : policy,
         input: [
           ...input.history.map((message) => ({
             role: message.role === "customer" ? "user" : "assistant",
@@ -53,8 +65,8 @@ export function createOpenAiConversationAnswer(options: {
             strict: true,
             schema: {
               type: "object",
-              properties: { answer: { type: "string" } },
-              required: ["answer"],
+              properties: { answer: { type: "string" }, handoff: handoffJsonSchema },
+              required: ["answer", "handoff"],
               additionalProperties: false,
             },
           },
@@ -70,9 +82,10 @@ export function createOpenAiConversationAnswer(options: {
       .filter((content) => content.type === "output_text")
       .map((content) => content.text ?? "")
       .join("");
-    const answer = z
-      .object({ answer: z.string().trim().min(1).max(2_000) })
-      .parse(JSON.parse(text)).answer;
+    const parsed = z
+      .object({ answer: z.string().trim().min(1).max(2_000), handoff: handoffSchema })
+      .parse(JSON.parse(text));
+    const answer = parsed.answer;
     const customerGreeted =
       /^(?:[¡!¿?\s]*)(?:hola|buen(?:os|as)(?:\s+d[ií]as|\s+tardes|\s+noches)?|hi|hello)\b/iu.test(
         input.question,
@@ -85,6 +98,9 @@ export function createOpenAiConversationAnswer(options: {
             .replace(/^gracias por (?:escribir(?:nos)?|preguntar)[.!?,:\s-]*/iu, "")
             .trim();
     if (!continuation) throw new Error("Conversation answer contained only a greeting");
-    return continuation;
+    return {
+      answer: continuation,
+      handoffRequested: confirmedAdvisorHandoff(parsed.handoff, input.history, input.question),
+    };
   };
 }

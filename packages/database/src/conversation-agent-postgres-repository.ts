@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { ConversationAgentDispatcher } from "@quantum-crm/domain";
+import { agentRoutingPrincipalId, type ConversationAgentDispatcher } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
 import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database.js";
@@ -184,11 +184,13 @@ export function createConversationAgentPostgresRepository(
         client = await pool.connect();
         await client.query("BEGIN");
         const conversation = await client.query<{
+          contact_id: string;
+          assignee_member_id: string | null;
           attention_mode: string;
           status: string;
           channel: string;
         }>(
-          `SELECT attention_mode, status, channel FROM conversations.conversations
+          `SELECT contact_id::text, assignee_member_id::text, attention_mode, status, channel FROM conversations.conversations
             WHERE id = $1::uuid FOR UPDATE`,
           [input.lease.conversationId],
         );
@@ -231,6 +233,15 @@ export function createConversationAgentPostgresRepository(
           await client.query("COMMIT");
           return "CANCELLED";
         }
+        const handoff =
+          input.handoffRequested === true && current.assignee_member_id !== null
+            ? await client.query(
+                `SELECT 1 FROM conversations.advisor_route_assignments
+                  WHERE contact_id = $1::uuid AND advisor_member_id = $2::uuid LIMIT 1`,
+                [current.contact_id, current.assignee_member_id],
+              )
+            : null;
+        const handoffConfirmed = handoff?.rowCount === 1;
         const sequence = await client.query<{ sequence: string }>(
           `SELECT COALESCE(MAX(sequence), 0) + 1 AS sequence FROM conversations.messages
             WHERE conversation_id = $1::uuid`,
@@ -252,9 +263,27 @@ export function createConversationAgentPostgresRepository(
         await client.query(
           `UPDATE conversations.conversations SET last_message_preview = left($2, 280),
                   last_message_at = CURRENT_TIMESTAMP, version = version + 1,
+                  attention_mode = CASE WHEN $3::boolean THEN 'human' ELSE attention_mode END,
+                  status = CASE WHEN $3::boolean THEN 'escalated' ELSE status END,
                   updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
-          [input.lease.conversationId, input.answer],
+          [input.lease.conversationId, input.answer, handoffConfirmed],
         );
+        if (handoffConfirmed) {
+          await client.query(
+            `INSERT INTO conversations.history
+               (conversation_id, event_type, actor_member_id, previous_value, next_value, created_at)
+             VALUES ($1::uuid, 'attention_changed', $2::uuid, 'agent', 'human', CURRENT_TIMESTAMP),
+                    ($1::uuid, 'status_changed', $2::uuid, $3, 'escalated', CURRENT_TIMESTAMP)`,
+            [input.lease.conversationId, agentRoutingPrincipalId, current.status],
+          );
+          await client.query(
+            `UPDATE conversations.agent_requests SET status = 'cancelled', lease_owner = NULL,
+                    lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP
+              WHERE conversation_id = $1::uuid AND inbound_message_id <> $2::uuid
+                AND status IN ('pending', 'leased')`,
+            [input.lease.conversationId, input.lease.inboundMessageId],
+          );
+        }
         await client.query(
           `UPDATE conversations.agent_requests SET status = 'completed', response_message_id = $2::uuid,
                   source_ids = $3::jsonb,

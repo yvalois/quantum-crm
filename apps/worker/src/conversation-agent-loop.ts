@@ -8,6 +8,7 @@ const agentResultSchema = z.object({
   answer: z.string().trim().min(1).max(4_000),
   sourceIds: z.array(z.string().uuid()).max(8),
   grounded: z.boolean(),
+  handoffRequested: z.boolean().optional(),
 });
 
 export interface ConversationAgentLoop {
@@ -56,6 +57,7 @@ export async function dispatchAgentRequest(
       workerId,
       answer: result.answer,
       sourceIds: result.sourceIds,
+      ...(result.handoffRequested ? { handoffRequested: true } : {}),
     });
     if (persisted === "STALE") throw new Error("Agent request lease lost");
   } catch (error) {

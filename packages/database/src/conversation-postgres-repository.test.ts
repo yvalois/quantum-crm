@@ -30,6 +30,31 @@ const row = Object.freeze({
 });
 
 describe("conversation PostgreSQL repository", () => {
+  it("reserves one advisor per contact and does not advance the turn on replay", async () => {
+    let saved: string | null = null;
+    let turn = 0;
+    const query = vi.fn(async (statement: string, values?: unknown[]) => {
+      if (statement.includes("SELECT advisor_member_id::text"))
+        return { rows: saved ? [{ advisor_member_id: saved }] : [] };
+      if (statement.includes("UPDATE conversations.advisor_route_turn"))
+        return { rows: [{ turn: String(++turn) }] };
+      if (statement.includes("INSERT INTO conversations.advisor_route_assignments"))
+        saved = values?.[1] as string;
+      return { rows: [] };
+    });
+    const client = { query, release: vi.fn() };
+    const pool = { connect: vi.fn(async () => client) } as unknown as PostgresPool;
+    const receiver = createExternalConversationReceiver(pool);
+    const input = {
+      contactId,
+      eligibleMemberIds: [actor.memberId, row.id] as const,
+      previousMemberId: null,
+    };
+    expect(await receiver.reserveAdvisor(input)).toBe(actor.memberId);
+    expect(await receiver.reserveAdvisor(input)).toBe(actor.memberId);
+    expect(turn).toBe(1);
+  });
+
   it("records an agent reset and cancels pending work atomically without deleting messages", async () => {
     const active = { ...row, attention_mode: "agent" };
     const query = vi.fn(async (statement: string, _values?: unknown[]) => {
@@ -79,9 +104,8 @@ describe("conversation PostgreSQL repository", () => {
   ])(
     "sets new inbound WhatsApp threads to $expectedMode when historical=$historical",
     async ({ historical, expectedRequest }) => {
-      const query = vi.fn(async (statement: string) => {
-        if (statement.includes("SELECT id::text FROM conversations.conversations"))
-          return { rows: [] };
+      const query = vi.fn(async (statement: string, _values?: unknown[]) => {
+        if (statement.includes("SELECT id::text, assignee_member_id::text")) return { rows: [] };
         if (statement.includes("SELECT id::text FROM conversations.messages")) return { rows: [] };
         if (statement.includes("COALESCE(MAX(sequence)")) return { rows: [{ sequence: "1" }] };
         return { rows: [], rowCount: 1 };
@@ -104,12 +128,44 @@ describe("conversation PostgreSQL repository", () => {
         sql.includes("INSERT INTO conversations.conversations"),
       );
       expect(insert?.[0]).toContain("CASE WHEN $6 = 'inbound' AND NOT $7::boolean THEN 'agent'");
-      expect(insert?.[1]?.slice(-2)).toEqual(["inbound", historical]);
+      expect(insert?.[1]?.slice(-3)).toEqual(["inbound", historical, null]);
       expect(
         query.mock.calls.some(([sql]) => sql.includes("INSERT INTO conversations.agent_requests")),
       ).toBe(expectedRequest);
     },
   );
+
+  it("stores the routed owner with the first inbound message and records its agent actor", async () => {
+    const query = vi.fn(async (statement: string, _values?: unknown[]) => {
+      if (statement.includes("SELECT id::text, assignee_member_id::text")) return { rows: [] };
+      if (statement.includes("SELECT id::text FROM conversations.messages")) return { rows: [] };
+      if (statement.includes("COALESCE(MAX(sequence)")) return { rows: [{ sequence: "1" }] };
+      return { rows: [], rowCount: 1 };
+    });
+    const pool = {
+      connect: vi.fn(async () => ({ query, release: vi.fn() })),
+    } as unknown as PostgresPool;
+    await createExternalConversationReceiver(pool).receive({
+      externalThreadId: "ycloud:1234567890123456:50255556666",
+      externalMessageId: "first-1",
+      contactId,
+      contactDisplayName: "Cliente",
+      direction: "INBOUND",
+      kind: "TEXT",
+      body: "Quiero un SUV",
+      occurredAt: new Date("2026-10-12T01:00:00.000Z"),
+      historical: false,
+      assigneeMemberId: actor.memberId,
+    });
+    expect(
+      query.mock.calls
+        .find(([sql]) => sql.includes("INSERT INTO conversations.conversations"))?.[1]
+        ?.at(-1),
+    ).toBe(actor.memberId);
+    expect(
+      query.mock.calls.some(([sql]) => sql.includes("INSERT INTO conversations.history")),
+    ).toBe(true);
+  });
 
   it("keeps the contact filter inside the authorized conversation query", async () => {
     const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [row] }));

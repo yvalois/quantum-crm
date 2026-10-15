@@ -2,6 +2,8 @@ import type { ConversationDocumentSnapshot } from "@quantum-crm/contracts";
 import type { CommercialActor } from "../iam/index.js";
 
 export type ConversationChannel = "EMAIL" | "WHATSAPP" | "WEBCHAT" | "SMS";
+/** Audit identity of the profile-scoped agent, deliberately not a human member. */
+export const agentRoutingPrincipalId = "00000000-0000-7000-8000-000000000007";
 export type ConversationStatus = "OPEN" | "PENDING" | "ESCALATED" | "CLOSED";
 export type ConversationAttentionMode = "AGENT" | "HUMAN";
 export type ConversationMessageKind = "TEXT" | "IMAGE" | "AUDIO" | "DOCUMENT" | "SYSTEM";
@@ -91,11 +93,22 @@ export interface ExternalConversationMessage {
   readonly body: string;
   readonly occurredAt: Date;
   readonly historical: boolean;
+  readonly assigneeMemberId?: string;
 }
 
 /** Writes one verified provider message, including the thread, atomically and idempotently. */
 export interface ExternalConversationReceiver {
+  readonly findThreadAssignment: (externalThreadId: string) => Promise<{
+    readonly contactId: string;
+    readonly assigneeMemberId: string | null;
+  } | null>;
   readonly receive: (message: ExternalConversationMessage) => Promise<"CREATED" | "DUPLICATE">;
+  /** A contact keeps one authorized advisor; a new contact consumes one serialized turn. */
+  readonly reserveAdvisor: (input: {
+    readonly contactId: string;
+    readonly eligibleMemberIds: readonly [string, string];
+    readonly previousMemberId: string | null;
+  }) => Promise<string>;
   readonly reconcileOutbound: (input: {
     readonly messageId: string;
     readonly externalThreadId: string;
@@ -162,6 +175,7 @@ export interface ConversationAgentDispatcher {
     readonly workerId: string;
     readonly answer: string;
     readonly sourceIds: readonly string[];
+    readonly handoffRequested?: boolean;
   }) => Promise<"COMPLETED" | "CANCELLED" | "STALE">;
   readonly fail: (input: {
     readonly lease: ConversationAgentLease;

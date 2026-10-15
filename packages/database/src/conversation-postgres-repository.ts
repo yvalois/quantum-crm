@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 
+import { agentRoutingPrincipalId } from "@quantum-crm/domain";
 import type {
   CommercialActor,
   ConversationHistoryRecord,
@@ -161,6 +162,77 @@ export function createExternalConversationReceiver(
   pool: PostgresPool,
 ): ExternalConversationReceiver {
   return Object.freeze({
+    findThreadAssignment: async (externalThreadId: string) => {
+      try {
+        const result = (await pool.query(
+          `SELECT contact_id::text, assignee_member_id::text
+             FROM conversations.conversations
+            WHERE channel = 'whatsapp' AND external_thread_id = $1 LIMIT 1`,
+          [externalThreadId],
+        )) as {
+          readonly rows: readonly { contact_id: string; assignee_member_id: string | null }[];
+        };
+        const row = result.rows[0];
+        return row ? { contactId: row.contact_id, assigneeMemberId: row.assignee_member_id } : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    reserveAdvisor: async (
+      input: Parameters<ExternalConversationReceiver["reserveAdvisor"]>[0],
+    ) => {
+      if (
+        input.eligibleMemberIds.length !== 2 ||
+        input.eligibleMemberIds[0] === input.eligibleMemberIds[1]
+      )
+        throw new DatabaseUnavailableError();
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `advisor-route:${input.contactId}`,
+        ]);
+        const saved = await client.query<{ advisor_member_id: string }>(
+          `SELECT advisor_member_id::text FROM conversations.advisor_route_assignments
+            WHERE contact_id = $1::uuid FOR UPDATE`,
+          [input.contactId],
+        );
+        if (saved.rows[0]) {
+          const advisorId = saved.rows[0].advisor_member_id;
+          if (!input.eligibleMemberIds.includes(advisorId)) throw new DatabaseUnavailableError();
+          await client.query("COMMIT");
+          return advisorId;
+        }
+        let advisorId: string;
+        let source: "previous_advisor" | "round_robin";
+        if (input.previousMemberId && input.eligibleMemberIds.includes(input.previousMemberId)) {
+          advisorId = input.previousMemberId;
+          source = "previous_advisor";
+        } else {
+          const turn = await client.query<{ turn: string }>(
+            `UPDATE conversations.advisor_route_turn SET turn = turn + 1
+              WHERE singleton = true RETURNING turn::text`,
+          );
+          const number = turn.rows[0]?.turn;
+          if (!number) throw new DatabaseUnavailableError();
+          advisorId = input.eligibleMemberIds[Number((BigInt(number) - 1n) % 2n)]!;
+          source = "round_robin";
+        }
+        await client.query(
+          `INSERT INTO conversations.advisor_route_assignments
+            (contact_id, advisor_member_id, source) VALUES ($1::uuid, $2::uuid, $3)`,
+          [input.contactId, advisorId, source],
+        );
+        await client.query("COMMIT");
+        return advisorId;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
     reconcileOutbound: async (
       input: Parameters<ExternalConversationReceiver["reconcileOutbound"]>[0],
     ) => {
@@ -228,8 +300,8 @@ export function createExternalConversationReceiver(
         await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
           `external-thread:${message.externalThreadId}`,
         ]);
-        const existing = await client.query<{ id: string }>(
-          `SELECT id::text FROM conversations.conversations
+        const existing = await client.query<{ id: string; assignee_member_id: string | null }>(
+          `SELECT id::text, assignee_member_id::text FROM conversations.conversations
            WHERE channel = 'whatsapp' AND external_thread_id = $1 FOR UPDATE`,
           [message.externalThreadId],
         );
@@ -241,7 +313,7 @@ export function createExternalConversationReceiver(
              (id, contact_id, channel, external_thread_id, assignee_member_id, status,
               attention_mode, subject, last_message_preview, last_message_at, unread_count,
               version, created_at, updated_at)
-             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, NULL, 'open',
+             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, $8::uuid, 'open',
                      CASE WHEN $6 = 'inbound' AND NOT $7::boolean THEN 'agent' ELSE 'human' END, $5,
                      NULL, NULL, 0, 1, $4, $4)`,
             [
@@ -252,6 +324,7 @@ export function createExternalConversationReceiver(
               message.contactDisplayName.slice(0, 240),
               message.direction.toLowerCase(),
               message.historical,
+              message.assigneeMemberId ?? null,
             ],
           );
         }
@@ -260,6 +333,28 @@ export function createExternalConversationReceiver(
            WHERE conversation_id = $1::uuid AND external_message_id = $2`,
           [conversationId, message.externalMessageId],
         );
+        if (
+          existing.rows[0]?.assignee_member_id &&
+          message.assigneeMemberId &&
+          existing.rows[0].assignee_member_id !== message.assigneeMemberId
+        )
+          throw new DatabaseUnavailableError();
+        if (existing.rows[0] && message.assigneeMemberId && !existing.rows[0].assignee_member_id) {
+          await client.query(
+            `UPDATE conversations.conversations
+                SET assignee_member_id = $2::uuid, version = version + 1,
+                    updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid AND assignee_member_id IS NULL`,
+            [conversationId, message.assigneeMemberId],
+          );
+        }
+        if (message.assigneeMemberId && !existing.rows[0]?.assignee_member_id) {
+          await client.query(
+            `INSERT INTO conversations.history
+               (conversation_id, event_type, actor_member_id, previous_value, next_value, created_at)
+             VALUES ($1::uuid, 'assigned', $2::uuid, NULL, $3::uuid::text, CURRENT_TIMESTAMP)`,
+            [conversationId, agentRoutingPrincipalId, message.assigneeMemberId],
+          );
+        }
         if (duplicate.rows[0]) {
           await client.query("COMMIT");
           return "DUPLICATE" as const;

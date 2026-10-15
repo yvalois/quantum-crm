@@ -2,6 +2,7 @@ import type { AgentConversationContext } from "@quantum-crm/contracts";
 
 import { briefIntroduction, initialGreeting } from "./interamerican-greeting.js";
 import { askCatalog, type CatalogKind, type RagGateway } from "./rag-graph.js";
+import type { ConversationAnswer } from "./openai-conversation-answer.js";
 
 export const temporarilyUnavailableAnswer =
   "Ahora mismo no pude consultar la información con seguridad. Por favor, intenta de nuevo en unos minutos.";
@@ -10,6 +11,7 @@ export interface AgentResponse {
   readonly answer: string;
   readonly sourceIds: readonly string[];
   readonly grounded: boolean;
+  readonly handoffRequested?: boolean;
 }
 
 function catalogFor(text: string): CatalogKind | null {
@@ -41,6 +43,7 @@ function asksOnlyForGeneralHelp(question: string): boolean {
 }
 
 function asksForCatalogFact(question: string): boolean {
+  if (/^(?:s[ií]|confirmo|cumplo|acepto|de acuerdo)\b/iu.test(question.trim())) return false;
   return /\b(precio|tarifa|cobertura|seguro|requisito|dep[oó]sito|deducible|kilometraje|combustible|pago|anticipo|incluye|incluido|horario|restricci[oó]n|condici[oó]n)\b/iu.test(
     question,
   );
@@ -57,7 +60,7 @@ export async function answerAgentTurn(
       readonly question: string;
       readonly history: AgentConversationContext["messages"];
       readonly firstTurn: boolean;
-    }) => Promise<string>;
+    }) => Promise<ConversationAnswer>;
   },
 ): Promise<AgentResponse> {
   const context = await gateway.context();
@@ -65,16 +68,19 @@ export async function answerAgentTurn(
   const firstTurn = input.firstTurn && context.messages.length === 0;
   if (!catalog && firstTurn && asksOnlyForGeneralHelp(input.question))
     return { answer: initialGreeting, sourceIds: [], grounded: false };
-  if (!catalog || !asksForCatalogFact(input.question) || input.question.trim().length < 3)
+  if (!catalog || !asksForCatalogFact(input.question) || input.question.trim().length < 3) {
+    const turn = await gateway.answerConversation({
+      question: input.question,
+      history: context.messages,
+      firstTurn,
+    });
     return {
-      answer: `${firstTurn ? briefIntroduction : ""}${await gateway.answerConversation({
-        question: input.question,
-        history: context.messages,
-        firstTurn,
-      })}`,
+      answer: `${firstTurn ? briefIntroduction : ""}${turn.answer}`,
       sourceIds: [],
       grounded: false,
+      ...(turn.handoffRequested ? { handoffRequested: true } : {}),
     };
+  }
   const result = await askCatalog(
     { search: gateway.search, answer: gateway.answerCatalog },
     { catalog, question: input.question, history: context.messages },

@@ -1762,6 +1762,26 @@ export function createCommercialPostgresRepositories(
   });
 
   const sales: SalesRepository = Object.freeze<SalesRepository>({
+    resolveImportedStage: async (input) => {
+      try {
+        const result = (await pool.query(
+          `SELECT imported.entity_id::text AS pipeline_id, stage.id::text AS stage_id
+             FROM sales.historical_imports AS imported
+             CROSS JOIN LATERAL jsonb_array_elements(imported.source_payload->'stages') AS source_stage
+             JOIN sales.pipeline_stages AS stage
+               ON stage.pipeline_id = imported.entity_id AND stage.name = source_stage->>'name'
+            WHERE imported.source_system = 'GHL' AND imported.entity_type = 'pipeline'
+              AND imported.external_id = $1 AND source_stage->>'id' = $2
+            LIMIT 1`,
+          [input.pipelineExternalId, input.stageExternalId],
+        )) as { readonly rows: readonly { pipeline_id: string; stage_id: string }[] };
+        return result.rows[0]
+          ? { pipelineId: result.rows[0].pipeline_id, stageId: result.rows[0].stage_id }
+          : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
     listPipelines: async () => {
       try {
         const result = (await pool.query(
