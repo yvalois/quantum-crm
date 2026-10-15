@@ -174,13 +174,12 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
     <main className={shellClassName}>
       <aside className="crm-sidebar" aria-label="Navegación principal">
         <div className="sidebar-brand-row">
-          <a className="brand" href="/" aria-label="Quantum CRM, resumen">
-            <span className="brand-mark" aria-hidden="true">
-              Q
-            </span>
+          <a className="brand" href="/" aria-label="Business Assistant, resumen">
+            <span className="brand-mark" aria-hidden="true" />
             <span className="brand-copy">
-              <strong>Quantum</strong>
-              <small>CRM</small>
+              <strong>Business</strong>
+              <span>Assistant</span>
+              <small>Powered by Quantum Aviv</small>
             </span>
           </a>
           <button
@@ -200,19 +199,6 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
               <path d="m14 7-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-        </div>
-
-        <div className="workspace-chip" title={sidebarCollapsed ? "Espacio de trabajo" : undefined}>
-          <span className="workspace-avatar" aria-hidden="true">
-            Q
-          </span>
-          <span className="workspace-copy">
-            <strong>Espacio de trabajo</strong>
-            <small>Quantum CRM</small>
-          </span>
-          <span className="workspace-chevron" aria-hidden="true">
-            ⌄
-          </span>
         </div>
 
         <nav>

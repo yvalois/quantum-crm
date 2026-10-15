@@ -6354,14 +6354,14 @@ body {
   top: 0;
   z-index: 30;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-  gap: 0.75rem;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 0.8rem;
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
-  border-right: 1px solid rgb(148 163 184 / 0.12);
-  background: var(--quantum-night);
-  padding: 0.9rem 0.75rem 0.75rem;
+  border-right: 1px solid rgb(41 199 200 / 0.16);
+  background: #071424;
+  padding: 1rem 0.75rem 0.75rem;
   color: #e2e8f0;
 }
 
@@ -6369,43 +6369,59 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.25rem;
   min-width: 0;
+  border-bottom: 1px solid rgb(155 204 215 / 0.12);
+  padding-bottom: 0.85rem;
 }
 
 .crm-shell-stitch .brand {
-  gap: 0.7rem;
+  gap: 0.55rem;
   min-width: 0;
-  padding: 0.15rem 0.35rem;
+  padding: 0.1rem 0;
 }
 
 .crm-shell-stitch .brand-mark {
   flex: 0 0 auto;
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid rgb(129 140 248 / 0.46);
-  border-radius: 0.55rem;
-  background: linear-gradient(145deg, #4f46e5, #3730a3);
-  box-shadow: 0 0.45rem 1.2rem rgb(49 46 129 / 0.35);
-  font-size: 0.9rem;
-  letter-spacing: -0.04em;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid rgb(39 232 223 / 0.32);
+  border-radius: 0.7rem;
+  background-color: #061822;
+  background-image: url("/business-assistant-brand.jpeg");
+  background-repeat: no-repeat;
+  background-size: 176px 96px;
+  background-position: -22px -22px;
+  box-shadow: 0 0 1rem rgb(20 233 220 / 0.13);
 }
 
 .brand-copy {
-  display: flex;
-  align-items: baseline;
-  gap: 0.42rem;
+  display: grid;
+  min-width: 0;
+  line-height: 1;
 }
 
 .brand-copy strong {
-  font-size: 1.08rem;
+  font-size: 0.98rem;
+  font-weight: 780;
+  letter-spacing: -0.045em;
+}
+
+.brand-copy > span {
+  margin-top: 0.13rem;
+  color: #f5fbff;
+  font-size: 0.96rem;
+  font-weight: 450;
   letter-spacing: -0.035em;
 }
 
 .brand-copy small {
-  color: #818cf8;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  margin-top: 0.4rem;
+  color: #72cfcf;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
 }
 
 .sidebar-collapse {
@@ -6546,10 +6562,10 @@ body {
 }
 
 .crm-shell-stitch .crm-sidebar nav a[aria-current="page"] {
-  border-color: rgb(129 140 248 / 0.18);
-  background: rgb(79 70 229 / 0.2);
+  border-color: rgb(39 232 223 / 0.2);
+  background: rgb(13 178 184 / 0.15);
   color: #fff;
-  box-shadow: inset 3px 0 #818cf8;
+  box-shadow: inset 3px 0 #27e8df;
 }
 
 .crm-shell-stitch .crm-sidebar nav .nav-icon {
@@ -6572,7 +6588,7 @@ body {
 
 .crm-shell-stitch .crm-sidebar nav a[aria-current="page"] .nav-icon,
 .crm-shell-stitch .crm-sidebar nav a:hover .nav-icon {
-  color: #c7d2fe;
+  color: #70eee7;
 }
 
 .crm-shell-stitch .crm-sidebar nav .nav-label {
@@ -6608,9 +6624,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  border: 1px solid rgb(14 165 233 / 0.16);
+  border: 1px solid rgb(39 232 223 / 0.16);
   border-radius: 0.7rem;
-  background: rgb(14 165 233 / 0.06);
+  background: rgb(39 232 223 / 0.055);
   padding: 0.65rem 0.75rem;
 }
 
@@ -6668,6 +6684,11 @@ body {
   gap: 0.45rem;
 }
 
+.sidebar-collapsed .crm-shell-stitch .brand,
+.sidebar-collapsed .brand {
+  padding: 0;
+}
+
 .sidebar-collapsed .brand-copy,
 .sidebar-collapsed .workspace-copy,
 .sidebar-collapsed .workspace-chevron,
@@ -6718,7 +6739,7 @@ body {
 }
 
 .sidebar-collapsed .crm-sidebar nav a[aria-current="page"] {
-  box-shadow: inset 2px 0 #818cf8;
+  box-shadow: inset 2px 0 #27e8df;
 }
 
 .sidebar-collapsed .sidebar-environment {
@@ -7201,7 +7222,10 @@ body {
     display: none !important;
   }
 
-  .sidebar-collapsed .brand-copy,
+  .sidebar-collapsed .brand-copy {
+    display: grid;
+  }
+
   .sidebar-collapsed .nav-label {
     display: flex;
   }
