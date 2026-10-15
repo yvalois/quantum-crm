@@ -8,6 +8,8 @@ import type {
   ConversationMessage,
   DocumentBlock,
   DocumentTemplate,
+  FileContract,
+  FormContract,
   QuickReply,
   TaskAssignee,
   HistoricalConversation,
@@ -20,6 +22,7 @@ import {
   CommercialAdvisorListResponseSchema,
   MemberListResponseSchema,
   UnifiedInboxListResponseSchema,
+  FormListResponseSchema,
 } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -33,6 +36,8 @@ import {
 import { HistoricalChannelBadge } from "./historical-channel-badge";
 import { SourceParticipantsCard } from "../source-participants";
 import { ConversationContactCard, useConversationContacts } from "./conversation-contact";
+import { ConversationMedia } from "./conversation-media";
+import { uploadConversationFile } from "./conversation-upload";
 import styles from "./inbox.module.css";
 
 interface SessionPayload {
@@ -64,6 +69,7 @@ type IconName =
   | "inbox"
   | "message"
   | "note"
+  | "attach"
   | "search"
   | "send"
   | "spark"
@@ -165,6 +171,7 @@ function Icon({
         <path {...common} d="M8 9h8M8 13h5" />
       </>
     ),
+    attach: <path {...common} d="M8 12.5 14.5 6a3 3 0 0 1 4.3 4.2l-8.5 8.6a5 5 0 0 1-7.1-7.1l8.5-8.5" />,
     search: (
       <>
         <circle {...common} cx="10.7" cy="10.7" r="5.7" />
@@ -284,6 +291,11 @@ export default function InboxPage(): React.JSX.Element {
   const [view, setView] = useState<InboxView>("ALL");
   const [mode, setMode] = useState<ComposerMode>("message");
   const [draft, setDraft] = useState("");
+  const [pendingMedia, setPendingMedia] = useState<FileContract | null>(null);
+  const [showFormPicker, setShowFormPicker] = useState(false);
+  const [availableForms, setAvailableForms] = useState<FormContract[]>([]);
+  const [mediaProgress, setMediaProgress] = useState<string | null>(null);
+  const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -428,6 +440,9 @@ export default function InboxPage(): React.JSX.Element {
     setMessages([]);
     setHistory([]);
     setDraft("");
+    setPendingMedia(null);
+    setShowFormPicker(false);
+    setMediaProgress(null);
     setError(null);
     setHistoricalSelected(item.source === "GHL" ? item.conversation : null);
     setThreadBusy(false);
@@ -767,7 +782,7 @@ export default function InboxPage(): React.JSX.Element {
 
   async function send(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!selected || !draft.trim() || (mode === "message" && composerBlocked)) return;
+    if (!selected || (!draft.trim() && !pendingMedia) || (mode === "message" && composerBlocked)) return;
     setSaving(true);
     setError(null);
     try {
@@ -782,13 +797,91 @@ export default function InboxPage(): React.JSX.Element {
       }
       await mutate(
         `/api/conversations/${selected.id}/${mode === "note" ? "notes" : "messages"}`,
-        mode === "note" ? { body: draft } : { body: draft, kind: "TEXT" },
+        mode === "note"
+          ? { body: draft }
+          : pendingMedia
+            ? {
+                body: draft.trim() || pendingMedia.name,
+                kind: pendingMedia.fileClass,
+                fileId: pendingMedia.id,
+              }
+            : { body: draft, kind: "TEXT" },
         { version },
       );
       setDraft("");
+      setPendingMedia(null);
       await refreshConversation(selected.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible guardar el mensaje.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function selectMedia(file: File | undefined): Promise<void> {
+    if (!file || !selected || !csrf || saving) return;
+    const conversationId = selected.id;
+    setSaving(true);
+    setError(null);
+    setMediaProgress(`Preparando ${file.name}…`);
+    try {
+      const uploaded = await uploadConversationFile({
+        file, conversationId, csrf, progress: setMediaProgress,
+      });
+      if (selectionRef.current !== `QUANTUM:${conversationId}`) return;
+      setPendingMedia(uploaded);
+      setMediaProgress(null);
+    } catch (cause) {
+      setMediaProgress(null);
+      setError(cause instanceof Error ? cause.message : "No se pudo adjuntar el archivo.");
+    } finally {
+      setSaving(false);
+      if (mediaInputRef.current) mediaInputRef.current.value = "";
+    }
+  }
+
+  async function openFormPicker(): Promise<void> {
+    setError(null);
+    try {
+      const response = await fetch("/api/forms", { cache: "no-store", credentials: "same-origin" });
+      if (!response.ok) throw new Error(await problem(response));
+      setAvailableForms(FormListResponseSchema.parse(await response.json()).data.filter(
+        (form) => form.status === "PUBLISHED" &&
+          (!form.closesAt || new Date(form.closesAt).getTime() > Date.now()),
+      ));
+      setShowFormPicker(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible abrir los formularios.");
+    }
+  }
+
+  async function sendForm(form: FormContract): Promise<void> {
+    if (!selected) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const shareResponse = await mutate(`/api/forms/${form.id}/conversation-shares`, {
+        conversationId: selected.id,
+      });
+      const share = (await shareResponse.json()) as {
+        data: { id: string; slug: string; expiresAt: string };
+      };
+      let version = selected.version;
+      if (selected.attentionMode === "AGENT") {
+        const taken = await mutate(`/api/conversations/${selected.id}`,
+          { attentionMode: "HUMAN" }, { method: "PATCH", version });
+        version = ((await taken.json()) as { data: Conversation }).data.version;
+      }
+      const link = new URL(`/f/${share.data.slug}`, window.location.origin);
+      link.searchParams.set("ref", share.data.id);
+      await mutate(`/api/conversations/${selected.id}/messages`, {
+        kind: "TEXT",
+        body: `${form.title}: ${link.toString()}`,
+      }, { version });
+      setShowFormPicker(false);
+      await refreshConversation(selected.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible enviar el formulario.");
     } finally {
       setSaving(false);
     }
@@ -1512,6 +1605,7 @@ export default function InboxPage(): React.JSX.Element {
                                 </div>
                               </div>
                             ) : null}
+                            {item.fileId ? <ConversationMedia message={item} csrf={csrf} /> : null}
                             <p>{item.body}</p>
                             <footer>
                               <span>{deliveryLabel[item.deliveryStatus]}</span>
@@ -1541,7 +1635,7 @@ export default function InboxPage(): React.JSX.Element {
                         type="button"
                         role="tab"
                         aria-selected={mode === "note"}
-                        onClick={() => setMode("note")}
+                        onClick={() => { setMode("note"); setPendingMedia(null); }}
                       >
                         <Icon name="note" size={15} /> Nota interna
                       </button>
@@ -1592,6 +1686,27 @@ export default function InboxPage(): React.JSX.Element {
                     </div>
                   ) : (
                     <>
+                      {pendingMedia && mode === "message" ? (
+                        <div className={styles.pendingMedia}>
+                          <Icon name={pendingMedia.fileClass === "DOCUMENT" ? "document" : "attach"} size={17} />
+                          <span><strong>{pendingMedia.name}</strong><small>Validado y listo para enviar</small></span>
+                          <button type="button" aria-label="Quitar adjunto" onClick={() => setPendingMedia(null)}>
+                            <Icon name="close" size={15} />
+                          </button>
+                        </div>
+                      ) : null}
+                      {mediaProgress ? <p className={styles.mediaProgress} role="status">{mediaProgress}</p> : null}
+                      {showFormPicker ? (
+                        <div className={styles.formPicker} role="region" aria-label="Formularios publicados">
+                          <div><strong>Enviar formulario</strong><button type="button" onClick={() => setShowFormPicker(false)}>Cerrar</button></div>
+                          {availableForms.length ? availableForms.map((form) => (
+                            <button type="button" key={form.id} disabled={saving || Boolean(composerBlocked)}
+                              onClick={() => void sendForm(form)}>
+                              <strong>{form.title}</strong><span>{form.description || "Formulario publicado"}</span>
+                            </button>
+                          )) : <p>No hay formularios publicados y vigentes.</p>}
+                        </div>
+                      ) : null}
                       <textarea
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
@@ -1604,14 +1719,33 @@ export default function InboxPage(): React.JSX.Element {
                       />
                       <footer className={styles.composerFooter}>
                         <div className={styles.composerTools}>
+                          {mode === "message" && selected.channel === "WHATSAPP" ? (
+                            <>
+                              <input ref={mediaInputRef} className="sr-only" type="file"
+                                accept="image/jpeg,image/png,audio/mpeg,audio/ogg,application/pdf,text/plain"
+                                onChange={(event) => void selectMedia(event.currentTarget.files?.[0])} />
+                              <button className={styles.toolButton} type="button"
+                                disabled={saving || !csrf || Boolean(messageBlocked) || Boolean(whatsappWindowClosed)}
+                                onClick={() => mediaInputRef.current?.click()}>
+                                <Icon name="attach" size={16} /> Adjuntar
+                              </button>
+                            </>
+                          ) : null}
                           <button
                             className={styles.toolButton}
                             type="button"
-                            disabled={saving || !csrf || Boolean(messageBlocked)}
+                          disabled={saving || !csrf || Boolean(messageBlocked) || Boolean(whatsappWindowClosed)}
                             onClick={() => void openDocumentComposer()}
                           >
                             <Icon name="document" size={16} /> Documento
                           </button>
+                          {mode === "message" && selected.channel === "WHATSAPP" ? (
+                            <button className={styles.toolButton} type="button"
+                              disabled={saving || !csrf || Boolean(messageBlocked) || Boolean(whatsappWindowClosed)}
+                              onClick={() => void openFormPicker()}>
+                              Formulario
+                            </button>
+                          ) : null}
                           <label className={styles.quickReplySelect}>
                             <span className="sr-only">Insertar respuesta rápida</span>
                             <select
@@ -1645,7 +1779,7 @@ export default function InboxPage(): React.JSX.Element {
                         </div>
                         <button
                           className={styles.sendButton}
-                          disabled={saving || !draft.trim()}
+                          disabled={saving || (!draft.trim() && !pendingMedia)}
                           type="submit"
                         >
                           {mode === "note" ? "Guardar nota" : "Enviar"}

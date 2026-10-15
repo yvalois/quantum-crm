@@ -193,7 +193,8 @@ export class AppModule {
         },
         {
           provide: CONVERSATION_SERVICE,
-          useFactory: () =>
+          inject: [FILE_SERVICE],
+          useFactory: (files: FileService) =>
             new ConversationService(database.commercial.conversations, {
               contactExistsFor: async (actor, contactId) =>
                 (await database.commercial.contacts.find(actor, contactId)) !== null,
@@ -212,6 +213,16 @@ export class AppModule {
                 await isAssignableCommercialMember(database, memberId),
               documentFor: async (actor, documentId) =>
                 database.commercial.documents.find(actor, documentId),
+              mediaFor: async (actor, permissions, fileId) => {
+                const file = await files.get(actor, permissions, fileId);
+                return {
+                  id: file.id,
+                  status: file.status,
+                  fileClass: file.fileClass,
+                  mimeType: file.observedMime ?? file.declaredMime,
+                  size: file.observedSize ?? file.declaredSize,
+                };
+              },
             }),
         },
         {
@@ -318,6 +329,9 @@ export class AppModule {
                   if (owner.kind !== "existing") return false;
                   if (owner.module === "conversations" && owner.type === "historical_attachment") {
                     return history.canUseAttachmentOwner(actor, owner.id);
+                  }
+                  if (owner.module === "conversations" && owner.type === "conversation") {
+                    return (await database.commercial.conversations.find(actor, owner.id)) !== null;
                   }
                   if (owner.module === "forms" && owner.type === "form_response") {
                     const upload = await database.commercial.forms.findResponseForOwner(

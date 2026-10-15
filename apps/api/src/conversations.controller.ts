@@ -41,6 +41,8 @@ import {
   ConversationValidationError,
   ConversationVersionConflictError,
   ConversationWindowClosedError,
+  FileNotFoundError,
+  FileStateConflictError,
   IamAuthorizationError,
   type CommercialActor,
   type ConversationHistoryRecord,
@@ -114,6 +116,8 @@ function map(error: unknown): never {
   if (error instanceof IamAuthorizationError) throw new ForbiddenException();
   if (error instanceof ConversationIdempotencyConflictError) throw new ConflictException();
   if (error instanceof ConversationNotFoundError) throw new NotFoundException();
+  if (error instanceof FileNotFoundError) throw new NotFoundException();
+  if (error instanceof FileStateConflictError) throw new ConflictException();
   if (error instanceof ConversationVersionConflictError) throw new PreconditionFailedException();
   if (error instanceof ConversationWindowClosedError)
     throw new ConflictException(
@@ -346,6 +350,7 @@ export class ConversationsController {
             expectedVersion,
             body: parsed.data.body,
             kind: parsed.data.kind,
+            ...(parsed.data.fileId === undefined ? {} : { fileId: parsed.data.fileId }),
             ...(parsed.data.documentId === undefined ? {} : { documentId: parsed.data.documentId }),
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash({

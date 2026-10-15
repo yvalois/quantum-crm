@@ -341,6 +341,8 @@ export {
   FormFieldSchema,
   FormFieldTypeSchema,
   FormListResponseSchema,
+  CreateFormConversationShareSchema,
+  FormConversationShareResponseSchema,
   FormResponseListQuerySchema,
   FormResponseSchema,
   FormSchema,

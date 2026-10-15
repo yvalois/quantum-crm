@@ -253,7 +253,13 @@ export default function PublicFormPage(): React.JSX.Element {
       const response = await fetch(`/api/public-forms/${encodeURIComponent(slug)}`, {
         method: "POST",
         headers: { "content-type": "application/json", "idempotency-key": key.current },
-        body: JSON.stringify({ answers, pendingImageFieldIds }),
+        body: JSON.stringify({
+          answers,
+          pendingImageFieldIds,
+          ...(new URLSearchParams(window.location.search).get("ref")
+            ? { conversationShareId: new URLSearchParams(window.location.search).get("ref") }
+            : {}),
+        }),
         cache: "no-store",
       });
       if (!response.ok) throw new Error(await responseTitle(response));

@@ -5,6 +5,8 @@ import type {
   ConversationOutboundDispatcher,
   ConversationOutboundLease,
 } from "@quantum-crm/domain";
+import { FileNotFoundError, FileStateConflictError, FileValidationError } from "@quantum-crm/domain";
+import type { OutboundMedia } from "@quantum-crm/files-infrastructure";
 
 export interface YCloudOutboundOptions {
   readonly repository: ConversationOutboundDispatcher;
@@ -13,6 +15,7 @@ export interface YCloudOutboundOptions {
   readonly pollIntervalMs: number;
   readonly workerId?: string;
   readonly fetcher?: typeof fetch;
+  readonly mediaFor?: (lease: ConversationOutboundLease) => Promise<OutboundMedia>;
   readonly onError?: (error: unknown) => void;
 }
 
@@ -29,17 +32,72 @@ interface SendResult {
 const threadPattern = /^ycloud:([0-9]{5,30}):([0-9]{8,20})$/u;
 
 export async function sendYCloudText(
-  options: Pick<YCloudOutboundOptions, "binding" | "apiKey" | "fetcher">,
+  options: Pick<YCloudOutboundOptions, "binding" | "apiKey" | "fetcher" | "mediaFor">,
   lease: ConversationOutboundLease,
 ): Promise<SendResult> {
   const match = threadPattern.exec(lease.externalThreadId);
   if (
     !match ||
     match[1] !== options.binding.wabaId ||
-    lease.kind !== "TEXT" ||
+    !["TEXT", "IMAGE", "AUDIO", "DOCUMENT"].includes(lease.kind) ||
     lease.body.length > 4096
   ) {
     return { outcome: "FAILED", errorCode: "UNSUPPORTED_MESSAGE" };
+  }
+  let content: Record<string, unknown> = { type: "text", text: { body: lease.body } };
+  if (lease.kind !== "TEXT") {
+    if (!lease.fileId || !options.mediaFor) {
+      return { outcome: "FAILED", errorCode: "MEDIA_MISSING" };
+    }
+    let media: OutboundMedia;
+    try {
+      media = await options.mediaFor(lease);
+    } catch (error) {
+      if (error instanceof FileNotFoundError || error instanceof FileStateConflictError ||
+          error instanceof FileValidationError) {
+        return { outcome: "FAILED", errorCode: "MEDIA_NOT_AVAILABLE" };
+      }
+      return lease.attempt >= 5
+        ? { outcome: "FAILED", errorCode: "MEDIA_READ_EXHAUSTED" }
+        : { outcome: "RETRY", errorCode: "MEDIA_READ_FAILED" };
+    }
+    const file = new FormData();
+    file.append("file", new Blob([new Uint8Array(media.bytes)], { type: media.mimeType }), media.filename);
+    let uploaded: Response;
+    try {
+      uploaded = await (options.fetcher ?? fetch)(
+        `https://api.ycloud.com/v2/whatsapp/media/${encodeURIComponent(`+${options.binding.businessPhone}`)}/upload`,
+        { method: "POST", headers: { "X-API-Key": options.apiKey }, body: file, signal: AbortSignal.timeout(15_000) },
+      );
+    } catch {
+      return lease.attempt >= 5
+        ? { outcome: "FAILED", errorCode: "MEDIA_UPLOAD_EXHAUSTED" }
+        : { outcome: "RETRY", errorCode: "MEDIA_UPLOAD_FAILED" };
+    }
+    if (!uploaded.ok) {
+      if (uploaded.status >= 500 || uploaded.status === 429) {
+        return lease.attempt >= 5
+          ? { outcome: "FAILED", errorCode: "MEDIA_UPLOAD_EXHAUSTED" }
+          : { outcome: "RETRY", errorCode: "MEDIA_UPLOAD_FAILED" };
+      }
+      return { outcome: "FAILED", errorCode: "MEDIA_REJECTED" };
+    }
+    let mediaId: string | undefined;
+    try {
+      const payload: unknown = await uploaded.json();
+      if (payload && typeof payload === "object" && "id" in payload &&
+          typeof payload.id === "string" && payload.id.length <= 400) mediaId = payload.id;
+    } catch { /* invalid provider response */ }
+    if (!mediaId) return { outcome: "FAILED", errorCode: "INVALID_MEDIA_RESPONSE" };
+    const mediaType = lease.kind.toLowerCase();
+    content = {
+      type: mediaType,
+      [mediaType]: {
+        id: mediaId,
+        ...(lease.kind === "AUDIO" ? {} : { caption: lease.body }),
+        ...(lease.kind === "DOCUMENT" ? { filename: media.filename } : {}),
+      },
+    };
   }
   let response: Response;
   try {
@@ -53,8 +111,7 @@ export async function sendYCloudText(
       body: JSON.stringify({
         from: `+${options.binding.businessPhone}`,
         to: `+${match[2]}`,
-        type: "text",
-        text: { body: lease.body },
+        ...content,
         externalId: lease.messageId,
       }),
       signal: AbortSignal.timeout(15_000),

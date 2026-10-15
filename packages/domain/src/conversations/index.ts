@@ -38,6 +38,7 @@ export interface ConversationMessageRecord {
   readonly externalMessageId: string | null;
   readonly deliveryStatus: ConversationDeliveryStatus;
   readonly failureCode: string | null;
+  readonly fileId: string | null;
   readonly documentId: string | null;
   readonly documentSnapshot: ConversationDocumentSnapshot | null;
   readonly createdAt: Date;
@@ -116,9 +117,11 @@ export interface ExternalConversationReceiver {
 export interface ConversationOutboundLease {
   readonly outboxId: string;
   readonly messageId: string;
+  readonly conversationId: string;
   readonly externalThreadId: string;
   readonly body: string;
   readonly kind: ConversationMessageKind;
+  readonly fileId: string | null;
   readonly attempt: number;
 }
 

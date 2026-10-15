@@ -84,6 +84,7 @@ export const ConversationMessageSchema = z
     externalMessageId: z.string().trim().min(1).max(512).nullable(),
     deliveryStatus: ConversationDeliveryStatusSchema,
     failureCode: z.string().trim().min(1).max(120).nullable(),
+    fileId: IdSchema.nullable(),
     documentId: IdSchema.nullable(),
     documentSnapshot: ConversationDocumentSnapshotSchema.nullable(),
     createdAt: TimestampSchema,
@@ -154,12 +155,13 @@ export const SendConversationMessageSchema = z
   .object({
     body: BodySchema,
     kind: ConversationMessageKindSchema.default("TEXT"),
+    fileId: IdSchema.optional(),
     documentId: IdSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
-    if (value.kind === "DOCUMENT" && value.documentId === undefined) {
-      context.addIssue({ code: "custom", path: ["documentId"], message: "Document is required" });
+    if (value.kind === "DOCUMENT" && value.documentId === undefined && value.fileId === undefined) {
+      context.addIssue({ code: "custom", path: ["fileId"], message: "Document or file is required" });
     }
     if (value.kind !== "DOCUMENT" && value.documentId !== undefined) {
       context.addIssue({
@@ -167,6 +169,12 @@ export const SendConversationMessageSchema = z
         path: ["documentId"],
         message: "Document is not allowed",
       });
+    }
+    if (["IMAGE", "AUDIO"].includes(value.kind) && value.fileId === undefined) {
+      context.addIssue({ code: "custom", path: ["fileId"], message: "Media file is required" });
+    }
+    if (["TEXT", "SYSTEM"].includes(value.kind) && value.fileId !== undefined) {
+      context.addIssue({ code: "custom", path: ["fileId"], message: "Media file is not allowed" });
     }
   });
 export const CreateConversationNoteSchema = z.object({ body: BodySchema }).strict();

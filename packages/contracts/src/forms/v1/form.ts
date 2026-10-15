@@ -159,8 +159,14 @@ export const SubmitFormResponseSchema = z
   .object({
     answers: z.record(UuidSchema, FormAnswerValueSchema),
     pendingImageFieldIds: z.array(UuidSchema).max(10).default([]),
+    conversationShareId: UuidSchema.optional(),
   })
   .strict();
+
+export const CreateFormConversationShareSchema = z.object({ conversationId: UuidSchema }).strict();
+export const FormConversationShareResponseSchema = z.object({
+  data: z.object({ id: UuidSchema, slug: FormSchema.shape.slug, expiresAt: IsoDateTimeSchema }).strict(),
+}).strict();
 
 /** Metadata accepted before an image is sent through the secure files pipeline. */
 export const PublicFormImageUploadIntentSchema = z
@@ -187,6 +193,7 @@ export const SubmittedFormResponseSchema = z.object({
   formId: UuidSchema,
   formRevision: z.number().int().positive(),
   contactId: UuidSchema.nullable(),
+  conversationId: UuidSchema.nullable(),
   answers: z.record(UuidSchema, FormAnswerValueSchema),
   submittedAt: IsoDateTimeSchema,
 });
