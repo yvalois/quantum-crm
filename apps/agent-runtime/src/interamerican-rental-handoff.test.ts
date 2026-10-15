@@ -32,21 +32,33 @@ describe("V54.84 rental handoff without classified customer type", () => {
 
   it("does not bypass particular requirements, a driver service, or a pending requirements question", () => {
     const base = { language: "es" as const, firstTurn: false };
-    expect(unclassifiedRentalHandoff({ ...base, question: "Soy particular, SUV tres días", history: [] })).toBeNull();
-    expect(unclassifiedRentalHandoff({ ...base, question: "SUV con conductor tres días", history: [] })).toBeNull();
-    expect(unclassifiedRentalHandoff({
-      ...base,
-      question: "SUV tres días",
-      history: [{ role: "agent", text: "¿Cumples con los requisitos?" }],
-    })).toBeNull();
+    expect(
+      unclassifiedRentalHandoff({
+        ...base,
+        question: "Soy particular, SUV tres días",
+        history: [],
+      }),
+    ).toBeNull();
+    expect(
+      unclassifiedRentalHandoff({ ...base, question: "SUV con conductor tres días", history: [] }),
+    ).toBeNull();
+    expect(
+      unclassifiedRentalHandoff({
+        ...base,
+        question: "SUV tres días",
+        history: [{ role: "agent", text: "¿Cumples con los requisitos?" }],
+      }),
+    ).toBeNull();
   });
 
   it("answers policy questions through the full prompt instead of auto-handoff", () => {
-    expect(unclassifiedRentalHandoff({
-      question: "¿Qué cobertura incluye un SUV por tres días?",
-      history: [],
-      language: "es",
-      firstTurn: true,
-    })).toBeNull();
+    expect(
+      unclassifiedRentalHandoff({
+        question: "¿Qué cobertura incluye un SUV por tres días?",
+        history: [],
+        language: "es",
+        firstTurn: true,
+      }),
+    ).toBeNull();
   });
 });
