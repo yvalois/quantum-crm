@@ -9,6 +9,23 @@ const memberId = "01999abc-7def-7000-8000-000000000001";
 const invitationId = "01999abc-7def-7000-8000-000000000002";
 
 describe("member invitation reissue", () => {
+  it("exposes pipeline management only from the server-granted configure permission", () => {
+    const controller = new MembersController({} as IamMemberService, {} as never, {} as never);
+    const capabilities = (permissions: string[]) =>
+      controller.capabilities({
+        headers: {},
+        [CRM_AUTH_CONTEXT]: { principal: { id: memberId }, permissions },
+      } as never);
+    expect(capabilities(["crm:sales:assign"]).data).toMatchObject({
+      canAssignSales: true,
+      canConfigureSales: false,
+    });
+    expect(capabilities(["crm:sales:configure"]).data).toMatchObject({
+      canAssignSales: false,
+      canConfigureSales: true,
+    });
+  });
+
   it("reserves a generation and returns the new access only once", async () => {
     const reserveReissue = vi.fn(async () => ({
       invitationId,

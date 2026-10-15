@@ -27,7 +27,7 @@ interface SessionPayload {
   readonly csrfToken?: string;
 }
 interface CapabilitiesPayload {
-  readonly data: { readonly canAssignSales: boolean };
+  readonly data: { readonly canAssignSales: boolean; readonly canConfigureSales?: boolean };
 }
 
 interface List<T> {
@@ -225,6 +225,7 @@ export default function PipelinePage(): React.JSX.Element {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [members, setMembers] = useState<TaskAssignee[]>([]);
   const [canAssignSales, setCanAssignSales] = useState(false);
+  const [canConfigureSales, setCanConfigureSales] = useState(false);
   const [selectedPipelineId, setSelectedPipelineId] = useState("");
   const [filters, setFilters] = useState<BoardFilters>(emptyFilters);
   const [draftFilters, setDraftFilters] = useState<BoardFilters>(emptyFilters);
@@ -348,9 +349,9 @@ export default function PipelinePage(): React.JSX.Element {
         ]);
         for (const response of [pipelineResponse, capabilitiesResponse])
           if (!response.ok) throw new Error(await responseTitle(response));
-        setCanAssignSales(
-          ((await capabilitiesResponse.json()) as CapabilitiesPayload).data.canAssignSales,
-        );
+        const capabilities = ((await capabilitiesResponse.json()) as CapabilitiesPayload).data;
+        setCanAssignSales(capabilities.canAssignSales);
+        setCanConfigureSales(capabilities.canConfigureSales === true);
         const pipelineData = ((await pipelineResponse.json()) as List<Pipeline>).data;
         setPipelines(pipelineData);
         if (memberResponse.ok)
@@ -964,6 +965,11 @@ export default function PipelinePage(): React.JSX.Element {
             </div>
           </div>
           <div className={styles.topActions}>
+            {canConfigureSales ? (
+              <a className={styles.secondaryButton} href="/pipelines">
+                Administrar pipelines
+              </a>
+            ) : null}
             <button
               className={styles.iconButton}
               type="button"

@@ -16,6 +16,8 @@ export interface Pipeline {
 }
 export interface Opportunity extends SourceParticipantRecord {
   readonly id: string;
+  /** Opaque conversation ID owned by sales for an agent-created lead. */
+  readonly sourceConversationId?: string | null;
   readonly ownerMemberId: string;
   readonly contactId: string;
   readonly pipelineId: string;
@@ -51,6 +53,7 @@ export interface OpportunityHistoryEntry {
 }
 export interface OpportunityListFilters {
   readonly contactId?: string | undefined;
+  readonly sourceConversationId?: string | undefined;
   readonly pipelineId?: string | undefined;
   readonly stageId?: string | undefined;
   readonly ownerMemberId?: string | undefined;

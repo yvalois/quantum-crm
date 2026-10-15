@@ -162,6 +162,7 @@ export class MembersController {
       data: {
         memberId: context.principal.id,
         canAssignSales: context.permissions.includes("crm:sales:assign"),
+        canConfigureSales: context.permissions.includes("crm:sales:configure"),
         canAssignContacts: context.permissions.includes("crm:contacts:assign"),
         canAssignConversations: context.permissions.includes("crm:conversations:assign"),
         canConfigureAgent: context.permissions.includes("crm:conversations:configure"),

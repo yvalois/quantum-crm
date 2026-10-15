@@ -87,6 +87,7 @@ describe("CRM web authentication HTTP boundary", () => {
         data: {
           memberId: "019b0000-0000-7000-8000-000000000001",
           canAssignSales: false,
+          canConfigureSales: false,
           canAssignContacts: false,
           canAssignConversations: false,
           canConfigureAgent: false,
@@ -105,6 +106,7 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).data).toMatchObject({
       canAssignSales: false,
+      canConfigureSales: false,
       canAssignContacts: false,
     });
     expect(upstream).toHaveBeenCalledOnce();

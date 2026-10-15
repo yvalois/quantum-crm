@@ -44,3 +44,7 @@ La evidencia precisa de commits, resultados, digests y prueba real está en [`es
 ## Recuperación y pendientes
 
 El esquema es aditivo y la política puede desactivarse retirando `advisorRouting` del binding privado y recreando el worker. El rollback de imagen no restaura datos. Pendientes de estabilización posterior: promoción registrada y respaldo cifrado externo/restauración verificada, pospuestos para el entorno de desarrollo por decisión del propietario.
+
+## Corrección de vinculación por conversación (2026-10-15)
+
+Se detectó una ambigüedad: el pase automático toma la oportunidad abierta más reciente del contacto. Si hay varias, esa heurística no identifica la oportunidad de este chat. La corrección añade una referencia opcional y única a la conversación en la oportunidad, propiedad de `sales`. Al primer pase se reutiliza una sola oportunidad abierta sin vínculo; si hay varias, se crea una nueva para evitar escoger una arbitraria. Los reintentos consultan primero el vínculo estable. La migración es aditiva y forward-only; el índice único impide duplicar el vínculo. Se comprobarán reintento, varios leads del contacto y alcance de asesor en VPS. No se aplica a InterAmerican sin el respaldo externo y la restauración verificada requeridos.

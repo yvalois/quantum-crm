@@ -65,7 +65,14 @@ export async function routeInterAmericanAdvisor(
   )
     .slice()
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || a.id.localeCompare(b.id));
-  const opportunity = opportunities.find((item) => item.status === "OPEN") ?? null;
+  const linkedOpportunity =
+    opportunities.find((item) => item.sourceConversationId === conversation.id) ?? null;
+  const unlinkedOpen = opportunities.filter(
+    (item) => item.status === "OPEN" && !item.sourceConversationId,
+  );
+  // Never infer a chat's lead from "most recently updated" when a contact has
+  // multiple open opportunities. In that case create a separately linked lead.
+  const opportunity = linkedOpportunity ?? (unlinkedOpen.length === 1 ? unlinkedOpen[0]! : null);
   const previousOpportunity = opportunities.find((item) => advisorIds.includes(item.ownerMemberId));
   const previousMemberId =
     conversation.assigneeMemberId ??
@@ -93,18 +100,22 @@ export async function routeInterAmericanAdvisor(
     if (!updated) throw new Error("Contact owner changed during routing");
   }
   if (opportunity) {
-    if (opportunity.ownerMemberId !== advisorId) {
+    if (
+      opportunity.ownerMemberId !== advisorId ||
+      opportunity.sourceConversationId !== conversation.id
+    ) {
       const updated = await database.commercial.sales.updateOpportunity({
         actor,
         opportunity: {
           ...opportunity,
           ownerMemberId: advisorId,
+          sourceConversationId: conversation.id,
           version: opportunity.version + 1n,
           updatedAt: new Date(),
         },
         expectedVersion: opportunity.version,
         idempotencyKey: `agent-route-${opportunity.id}-${opportunity.version}`,
-        payloadHash: hash(`${opportunity.id}:${advisorId}`),
+        payloadHash: hash(`${opportunity.id}:${advisorId}:${conversation.id}`),
       });
       if (!updated) throw new Error("Opportunity owner changed during routing");
     }
@@ -114,6 +125,7 @@ export async function routeInterAmericanAdvisor(
       actor,
       opportunity: {
         id: randomUUID(),
+        sourceConversationId: conversation.id,
         contactId,
         ownerMemberId: advisorId,
         pipelineId: stage.pipelineId,
@@ -128,8 +140,10 @@ export async function routeInterAmericanAdvisor(
         createdAt: now,
         updatedAt: now,
       },
-      idempotencyKey: `agent-route-${contactId}-${opportunities[0]?.id ?? "initial"}`,
-      payloadHash: hash(`${contactId}:${stage.pipelineId}:${stage.stageId}:${advisorId}`),
+      idempotencyKey: `agent-route-${conversation.id}`,
+      payloadHash: hash(
+        `${conversation.id}:${contactId}:${stage.pipelineId}:${stage.stageId}:${advisorId}`,
+      ),
     });
   }
   if (conversation.assigneeMemberId !== advisorId) {
