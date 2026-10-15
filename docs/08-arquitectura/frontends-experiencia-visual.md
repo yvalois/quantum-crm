@@ -90,6 +90,7 @@ Pantallas complementarias:
 ## Direccion visual
 
 - `crm-web`: shell de productividad claro, denso cuando la tarea lo requiere y centrado en el trabajo diario.
+- En `crm-web`, la marca visible del sidebar para el piloto es **Business Assistant**: símbolo del arte facilitado por el propietario, texto legible en ancho normal y marca compacta al contraer. El arte conserva su fondo original oscuro; esta adaptación no cambia la identidad de la plataforma Quantum Admin.
 - `portal-web`: interfaz calida, simple, responsive y adaptable a la marca de cada empresa.
 - `admin-web`: control plane grafito con acentos cian, ambar y rojo reservado para riesgo o fallo.
 - Tipografia de interfaz: Instrument Sans; IBM Plex Mono solo para identificadores, digests, auditoria y datos tecnicos.
