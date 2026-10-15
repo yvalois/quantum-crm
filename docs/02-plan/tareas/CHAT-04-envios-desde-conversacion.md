@@ -51,7 +51,7 @@ Migración forward-only por el migrador controlado; rollback de aplicación no r
 
 ## Evidencia y desviaciones del candidato (2026-10-15)
 
-- En curso: grabador de voz del navegador en el compositor WhatsApp con límite de dos minutos, detener/cancelar, carga y escaneo como archivo `audio/webm`, y remux sin recodificación a OGG/Opus en el worker antes de YCloud. Su implementación requiere validar el contenedor real, el build del worker con FFmpeg fijado y una entrega autenticada; no está publicada ni se considera terminada.
+- Candidato `da235bd6`: grabador de voz del navegador en el compositor WhatsApp con límite de dos minutos, detener/cancelar, carga y escaneo como archivo `audio/webm`, y remux sin recodificación a OGG/Opus en el worker antes de YCloud. En VPS aprobaron formato, lint, tipos de dominio/worker/CRM, 26 pruebas enfocadas y builds de CRM/worker; un WebM sintético produjo OGG/Opus usando FFmpeg `8.1.2-r0`. No se verificó el envío real ni se publicó en InterAmerican: faltan CI, despliegue, smoke autenticado y recuperación externa verificada antes de las migraciones.
 
 - En el VPS de pruebas se aprobaron typecheck de contratos, dominio, base, Files, API, worker y CRM; 47 pruebas enfocadas; lint de los archivos TS afectados; build de API, worker, CRM web y sus dependencias. Las migraciones `20261015050000` y `20261015060000` se ejecutaron sobre PostgreSQL 18 efímero con esquemas sintéticos, no sobre InterAmerican.
 - El envío multimedia usa Files `AVAILABLE`, checksum y versión inmutable antes de subir a YCloud. El archivo de un chat no se puede usar desde otro chat; el resultado incierto del proveedor no se reintenta para evitar duplicados. No hay todavía prueba de entrega real.
