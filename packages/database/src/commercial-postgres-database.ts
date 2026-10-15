@@ -27,6 +27,7 @@ import type {
   ExternalConversationReceiver,
   ConversationOutboundDispatcher,
   ConversationAgentDispatcher,
+  InboundMediaDispatcher,
   AgentControlRepository,
   ConversationRepository,
   HistoricalConversationRepository,
@@ -67,6 +68,7 @@ import { createFormPostgresRepository } from "./form-postgres-repository.js";
 import { createDocumentPostgresRepository } from "./document-postgres-repository.js";
 import { createAgentKnowledgePostgresRepository } from "./agent-knowledge-postgres-repository.js";
 import { createConversationAgentPostgresRepository } from "./conversation-agent-postgres-repository.js";
+import { createConversationInboundMediaPostgresRepository } from "./conversation-inbound-media-postgres-repository.js";
 import { createAgentControlPostgresRepository } from "./agent-control-postgres-repository.js";
 import {
   createFilePostgresRepository,
@@ -755,6 +757,7 @@ export interface CommercialPostgresRepositories {
   readonly externalConversations: ExternalConversationReceiver;
   readonly conversationOutbound: ConversationOutboundDispatcher;
   readonly conversationAgent: ConversationAgentDispatcher;
+  readonly inboundMedia: InboundMediaDispatcher;
   readonly agentControl: AgentControlRepository;
   readonly historicalConversations: HistoricalConversationRepository;
   readonly unifiedInbox: UnifiedInboxRepository;
@@ -2757,6 +2760,7 @@ export function createCommercialPostgresRepositories(
     externalConversations: createExternalConversationReceiver(pool),
     conversationOutbound: createConversationOutboundDispatcher(pool),
     conversationAgent: createConversationAgentPostgresRepository(pool),
+    inboundMedia: createConversationInboundMediaPostgresRepository(pool),
     agentControl: createAgentControlPostgresRepository(pool),
     historicalConversations: createHistoricalConversationPostgresRepository(pool),
     unifiedInbox: createUnifiedInboxPostgresRepository(pool),

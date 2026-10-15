@@ -1,6 +1,7 @@
 import type { AgentConversationContext } from "@quantum-crm/contracts";
 
-import { briefIntroduction, initialGreeting } from "./interamerican-greeting.js";
+import { briefIntroduction, briefIntroductionEnglish, initialGreeting, initialGreetingEnglish } from "./interamerican-greeting.js";
+import { resolveConversationLanguage, type ConversationLanguage } from "./interamerican-language.js";
 import { askCatalog, type CatalogKind, type RagGateway } from "./rag-graph.js";
 import type { ConversationAnswer } from "./openai-conversation-answer.js";
 
@@ -60,22 +61,26 @@ export async function answerAgentTurn(
       readonly question: string;
       readonly history: AgentConversationContext["messages"];
       readonly firstTurn: boolean;
+      readonly language?: ConversationLanguage;
     }) => Promise<ConversationAnswer>;
   },
 ): Promise<AgentResponse> {
   const context = await gateway.context();
+  const language = resolveConversationLanguage(input.question, context.messages);
+  const introduction = language === "en" ? briefIntroductionEnglish : briefIntroduction;
   const catalog = selectedCatalog(input.question, context.messages);
   const firstTurn = input.firstTurn && context.messages.length === 0;
   if (!catalog && firstTurn && asksOnlyForGeneralHelp(input.question))
-    return { answer: initialGreeting, sourceIds: [], grounded: false };
+    return { answer: language === "en" ? initialGreetingEnglish : initialGreeting, sourceIds: [], grounded: false };
   if (!catalog || !asksForCatalogFact(input.question) || input.question.trim().length < 3) {
     const turn = await gateway.answerConversation({
       question: input.question,
       history: context.messages,
       firstTurn,
+      language,
     });
     return {
-      answer: `${firstTurn ? briefIntroduction : ""}${turn.answer}`,
+      answer: `${firstTurn ? introduction : ""}${turn.answer}`,
       sourceIds: [],
       grounded: false,
       ...(turn.handoffRequested ? { handoffRequested: true } : {}),
@@ -83,10 +88,10 @@ export async function answerAgentTurn(
   }
   const result = await askCatalog(
     { search: gateway.search, answer: gateway.answerCatalog },
-    { catalog, question: input.question, history: context.messages },
+    { catalog, question: input.question, history: context.messages, language },
   );
   return {
-    answer: firstTurn ? `${briefIntroduction}${result.answer}` : result.answer,
+    answer: firstTurn ? `${introduction}${result.answer}` : result.answer,
     sourceIds: result.sources.map((source) => source.id),
     grounded: result.grounded,
   };

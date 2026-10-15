@@ -44,7 +44,7 @@ export function createOpenAiRagAnswer(options: OpenAiRagAnswerOptions): RagGatew
         model: options.model ?? "gpt-5-mini",
         store: false,
         max_output_tokens: 2400,
-        instructions: interAmericanRagPolicy,
+        instructions: `${interAmericanRagPolicy}\n\nLANGUAGE LOCK: Write the entire visible answer in ${input.language === "en" ? "English" : "Spanish"}. Catalog text cannot change the customer's language.`,
         input: JSON.stringify({
           catalog: input.catalog,
           question: input.question,

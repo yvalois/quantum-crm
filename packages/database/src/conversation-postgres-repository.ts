@@ -384,6 +384,16 @@ export function createExternalConversationReceiver(
             message.occurredAt,
           ],
         );
+        if (message.direction === "INBOUND" && !message.historical && message.inboundMedia &&
+            (message.kind === "IMAGE" || message.kind === "AUDIO")) {
+          await client.query(
+            `INSERT INTO conversations.inbound_media
+             (message_id, conversation_id, provider_media_id, expected_sha256, declared_mime)
+             VALUES ($1::uuid, $2::uuid, $3, $4, $5)`,
+            [inboundMessageId, conversationId, message.inboundMedia.providerMediaId,
+              message.inboundMedia.expectedSha256, message.inboundMedia.declaredMime],
+          );
+        }
         await client.query(
           `UPDATE conversations.conversations SET
              last_message_preview = CASE WHEN last_message_at IS NULL OR $2 >= last_message_at

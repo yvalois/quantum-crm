@@ -94,6 +94,11 @@ export interface ExternalConversationMessage {
   readonly body: string;
   readonly occurredAt: Date;
   readonly historical: boolean;
+  readonly inboundMedia?: {
+    readonly providerMediaId: string;
+    readonly expectedSha256: string;
+    readonly declaredMime: string;
+  };
 }
 
 /** Writes one verified provider message, including the thread, atomically and idempotently. */
@@ -145,6 +150,26 @@ export interface ConversationAgentLease {
   readonly question: string;
   readonly generation: bigint;
   readonly firstTurn: boolean;
+}
+
+export interface InboundMediaLease {
+  readonly messageId: string;
+  readonly conversationId: string;
+  readonly providerMediaId: string;
+  readonly expectedSha256: string;
+  readonly declaredMime: string;
+  readonly kind: "IMAGE" | "AUDIO";
+  readonly caption: string;
+  readonly fileId: string | null;
+  readonly generation: bigint;
+}
+
+export interface InboundMediaDispatcher {
+  readonly claimNext: (workerId: string) => Promise<InboundMediaLease | null>;
+  readonly bindFile: (lease: InboundMediaLease, workerId: string, fileId: string) => Promise<boolean>;
+  readonly waitForScan: (lease: InboundMediaLease, workerId: string) => Promise<boolean>;
+  readonly complete: (lease: InboundMediaLease, workerId: string, fileId: string, analysis: string) => Promise<boolean>;
+  readonly fail: (lease: InboundMediaLease, workerId: string, code: string, retry: boolean) => Promise<boolean>;
 }
 
 export interface ConversationAgentContextMessage {

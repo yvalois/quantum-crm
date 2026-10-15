@@ -119,4 +119,26 @@ describe("YCloud webhook", () => {
       ),
     ).toBeNull();
   });
+
+  it("captures only signed inbound image and audio references for later scanning", () => {
+    const message = {
+      id: "provider-media-1", wabaId: binding.wabaId, from: "+50255556666",
+      to: `+${binding.businessPhone}`, sendTime: "2026-10-15T16:00:00.000Z",
+      type: "audio", audio: { id: "712063723747110", sha256: Buffer.alloc(32, 1).toString("base64"), mime_type: "audio/ogg; codecs=opus" },
+    };
+    const inbound = parseYCloudMessage({ type: "whatsapp.inbound_message.received", whatsappInboundMessage: message }, binding);
+    expect(inbound).toMatchObject({ kind: "AUDIO", body: "Audio", inboundMedia: {
+      providerMediaId: "712063723747110", declaredMime: "audio/ogg",
+    } });
+    const image = parseYCloudMessage({ type: "whatsapp.inbound_message.received", whatsappInboundMessage: {
+      ...message, type: "image", image: { id: "592623615738103", sha256: Buffer.alloc(32, 2).toString("base64"), mime_type: "image/jpeg", caption: "This model" },
+    } }, binding);
+    expect(image).toMatchObject({ kind: "IMAGE", body: "This model", inboundMedia: { declaredMime: "image/jpeg" } });
+    const history = parseYCloudMessage({ type: "whatsapp.smb.history", whatsappInboundMessage: message }, binding);
+    expect(history?.inboundMedia).toBeUndefined();
+    const malformed = parseYCloudMessage({ type: "whatsapp.inbound_message.received", whatsappInboundMessage: {
+      ...message, audio: { ...message.audio, id: "../../private" },
+    } }, binding);
+    expect(malformed?.inboundMedia).toBeUndefined();
+  });
 });

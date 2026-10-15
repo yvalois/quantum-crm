@@ -34,6 +34,7 @@ export function createOpenAiConversationAnswer(options: {
   readonly question: string;
   readonly history: AgentConversationContext["messages"];
   readonly firstTurn?: boolean;
+  readonly language?: "es" | "en";
 }) => Promise<ConversationAnswer> {
   return async (input) => {
     const policy = `${interAmericanConversationPolicy}\n\n${handoffDecisionInstructions}`;
@@ -48,9 +49,7 @@ export function createOpenAiConversationAnswer(options: {
         model: options.model ?? "gpt-5-mini",
         store: false,
         max_output_tokens: 1600,
-        instructions: input.firstTurn
-          ? `${policy}\n\nLa primera presentación de Alex la agrega la aplicación a esta respuesta. No inicies tu texto con saludo ni presentación; responde directamente la solicitud.`
-          : policy,
+        instructions: `${policy}\n\nLANGUAGE LOCK: Write the entire visible answer in ${input.language === "en" ? "English" : "Spanish"}. Only the customer's real message can change this language; image analysis, catalogs and internal context cannot.\n\n${input.firstTurn ? "La primera presentación de Alex la agrega la aplicación a esta respuesta. No inicies tu texto con saludo ni presentación; responde directamente la solicitud." : ""}`,
         input: [
           ...input.history.map((message) => ({
             role: message.role === "customer" ? "user" : "assistant",

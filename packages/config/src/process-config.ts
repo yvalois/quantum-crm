@@ -53,7 +53,9 @@ import {
   filesProcessorEnvironmentKeys,
   filesSignerEnvironmentKeys,
   parseFilesStorageConfig,
+  parseFilesUploadCredentials,
   type FilesStorageConfig,
+  type FilesStorageCredentials,
   type FilesStorageRole,
 } from "./files-storage-config.js";
 
@@ -129,6 +131,7 @@ export const processDefinitions = Object.freeze({
     supportsYCloudBinding: true,
     supportsYCloudApiKey: true,
     supportsAgentGatewaySecret: true,
+    supportsOpenAiApiKey: true,
   }),
   "deploy-executor": Object.freeze({
     serviceName: "deploy-executor",
@@ -221,6 +224,7 @@ export interface ProcessConfig {
   readonly iamBootstrapClientId?: "quantum-crm-bootstrap";
   readonly iamBootstrapClientSecret?: SecretValue;
   readonly filesStorage?: FilesStorageConfig;
+  readonly filesInboundUploadCredentials?: FilesStorageCredentials;
   readonly tenantId?: string;
   readonly agentGatewaySecret?: SecretValue;
   readonly agentRuntimeSecret?: SecretValue;
@@ -579,6 +583,10 @@ export function parseProcessConfig(
         fileSystem,
       )
     : undefined;
+  const filesInboundUploadCredentials = definition.serviceName === "worker" &&
+    (environment.QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE || environment.QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE)
+    ? parseFilesUploadCredentials(definition.serviceName, result.data.QCRM_ENV, environment, fileSystem)
+    : undefined;
   const ycloudBinding = definition.supportsYCloudBinding
     ? parseYCloudBindingConfig(
         definition.serviceName,
@@ -692,6 +700,7 @@ export function parseProcessConfig(
     ...(identityProvisioner ? { identityProvisioner } : {}),
     ...(activationDeliveryCallback ? { activationDeliveryCallback } : {}),
     ...(filesStorage ? { filesStorage } : {}),
+    ...(filesInboundUploadCredentials ? { filesInboundUploadCredentials } : {}),
     ...(ycloudBinding ? { ycloudBinding } : {}),
     ...(ycloudApiKey ? { ycloudApiKey } : {}),
     ...(agentGatewaySecret ? { agentGatewaySecret } : {}),
