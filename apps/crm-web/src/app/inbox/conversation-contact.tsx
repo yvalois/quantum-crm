@@ -199,7 +199,11 @@ export function ConversationContactCard({
                     ownerName
                   )}
                   {ownerBusy ? <span className={styles.ownerHint}>Guardando…</span> : null}
-                  {ownerError ? <span className={styles.ownerError} role="alert">{ownerError}</span> : null}
+                  {ownerError ? (
+                    <span className={styles.ownerError} role="alert">
+                      {ownerError}
+                    </span>
+                  ) : null}
                 </dd>
               </div>
               <div>

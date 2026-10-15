@@ -207,8 +207,12 @@
   margin-top: 0.35rem;
   font-size: 0.72rem;
 }
-.ownerHint { color: #60707f; }
-.ownerError { color: #ad2c3a; }
+.ownerHint {
+  color: #60707f;
+}
+.ownerError {
+  color: #ad2c3a;
+}
 .open {
   margin: 0.95rem 0 0.15rem;
   font-size: 0.76rem;

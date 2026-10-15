@@ -381,7 +381,9 @@ async function workspaceFixture(
         return;
       }
       if (path === "/api/auth/capabilities") {
-        await respond({ data: { canAssignContacts: true, canAssignConversations: true, canConfigureAgent: true } });
+        await respond({
+          data: { canAssignContacts: true, canAssignConversations: true, canConfigureAgent: true },
+        });
         return;
       }
       if (path === "/api/conversations/agent-control") {
@@ -811,7 +813,9 @@ test("contact owner and binary custom field update directly from the conversatio
   await expect(choices.getByRole("button", { name: "Si" })).toBeVisible();
   await expect(choices.getByRole("button", { name: "No" })).toBeVisible();
   await choices.getByRole("button", { name: "No" }).click();
-  await expect(card.getByRole("button", { name: "Asesor de Ventas: No. Cambiar valor" })).toBeVisible();
+  await expect(
+    card.getByRole("button", { name: "Asesor de Ventas: No. Cambiar valor" }),
+  ).toBeVisible();
   expect(writes).toEqual([
     { ownerMemberId: null },
     { ownerMemberId: memberId },
