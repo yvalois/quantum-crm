@@ -213,8 +213,14 @@ export class AppModule {
                 await isAssignableCommercialMember(database, memberId),
               documentFor: async (actor, documentId) =>
                 database.commercial.documents.find(actor, documentId),
-              mediaFor: async (actor, permissions, fileId) => {
+              mediaFor: async (actor, permissions, fileId, conversationId) => {
                 const file = await files.get(actor, permissions, fileId);
+                if (file.owner.kind !== "library" &&
+                    !(file.owner.kind === "existing" &&
+                      file.owner.module === "conversations" &&
+                      file.owner.type === "conversation" && file.owner.id === conversationId)) {
+                  return null;
+                }
                 return {
                   id: file.id,
                   status: file.status,

@@ -551,7 +551,8 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
       try {
         const result = (await pool.query(
           `SELECT response.id::text, response.form_id::text, response.form_revision,
-                  response.contact_id::text, response.answers, response.submitted_at,
+                  response.contact_id::text, response.conversation_id::text,
+                  response.answers, response.submitted_at,
                   version.definition AS published_definition
              FROM forms.responses AS response
              JOIN forms.forms AS form ON form.id = response.form_id

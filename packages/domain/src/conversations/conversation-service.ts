@@ -45,6 +45,7 @@ export interface ConversationReferences {
     actor: CommercialActor,
     permissions: readonly IamPermission[],
     fileId: string,
+    conversationId: string,
   ) => Promise<{
     readonly id: string;
     readonly status: string;
@@ -271,7 +272,9 @@ export class ConversationService {
       throw new ConversationValidationError();
     }
     if (input.fileId) {
-      const media = await this.references.mediaFor?.(input.actor, input.permissions, input.fileId);
+      const media = await this.references.mediaFor?.(
+        input.actor, input.permissions, input.fileId, current.id,
+      );
       const expectedClass =
         input.kind === "IMAGE" ? "IMAGE" : input.kind === "AUDIO" ? "AUDIO" : "DOCUMENT";
       const acceptedMime =

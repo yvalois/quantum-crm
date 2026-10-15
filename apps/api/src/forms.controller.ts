@@ -403,7 +403,9 @@ export class FormsController {
             slug,
             answers: parsed.data.answers,
             pendingImageFieldIds: parsed.data.pendingImageFieldIds,
-            conversationShareId: parsed.data.conversationShareId,
+            ...(parsed.data.conversationShareId
+              ? { conversationShareId: parsed.data.conversationShareId }
+              : {}),
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash(parsed.data),
           }),

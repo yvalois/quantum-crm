@@ -12,9 +12,11 @@ const binding: YCloudBindingConfig = {
 const lease: ConversationOutboundLease = {
   outboxId: "01995f7e-7b52-7000-8000-000000000401",
   messageId: "01995f7e-7b52-7000-8000-000000000402",
+  conversationId: "01995f7e-7b52-7000-8000-000000000403",
   externalThreadId: "ycloud:1234567890123456:50255556666",
   body: "Hola",
   kind: "TEXT",
+  fileId: null,
   attempt: 1,
 };
 
@@ -85,5 +87,28 @@ describe("YCloud outbound", () => {
     expect(
       await sendYCloudText({ binding, apiKey: "test", fetcher }, { ...lease, attempt: 5 }),
     ).toEqual({ outcome: "FAILED", errorCode: "RATE_LIMIT_EXHAUSTED" });
+  });
+
+  it("uploads validated media and sends the returned media ID", async () => {
+    const mediaFor = vi.fn(async () => ({
+      bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png", filename: "foto.png",
+    }));
+    const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("/media/")) {
+        expect(init?.body).toBeInstanceOf(FormData);
+        return new Response(JSON.stringify({ id: "media-123" }), { status: 200 });
+      }
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        type: "image", image: { id: "media-123", caption: "Hola" },
+        externalId: lease.messageId,
+      });
+      return new Response(JSON.stringify({ id: "msg-456" }), { status: 200 });
+    });
+    const result = await sendYCloudText({ binding, apiKey: "test", fetcher, mediaFor }, {
+      ...lease, kind: "IMAGE", fileId: "01995f7e-7b52-7000-8000-000000000404",
+    });
+    expect(result).toMatchObject({ outcome: "SENT" });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(mediaFor).toHaveBeenCalledOnce();
   });
 });

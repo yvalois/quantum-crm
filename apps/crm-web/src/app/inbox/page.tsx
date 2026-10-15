@@ -988,31 +988,6 @@ export default function InboxPage(): React.JSX.Element {
     }
   }
 
-  async function queuePreparedDocument(): Promise<void> {
-    if (!selected || !preparedDocument) return;
-    setSaving(true);
-    setError(null);
-    try {
-      if (!(await updatePreparedBlocks(preparedDocument.blocks))) return;
-      await mutate(
-        `/api/conversations/${selected.id}/messages`,
-        {
-          body: `Documento preparado: ${preparedDocument.title}`,
-          kind: "DOCUMENT",
-          documentId: preparedDocument.id,
-        },
-        { version: selected.version },
-      );
-      setShowDocumentComposer(false);
-      setPreparedDocument(null);
-      await refreshConversation(selected.id);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No fue posible encolar el documento.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function update(patch: Record<string, unknown>): Promise<void> {
     if (!selected) return;
     setSaving(true);
@@ -1737,7 +1712,7 @@ export default function InboxPage(): React.JSX.Element {
                           disabled={saving || !csrf || Boolean(messageBlocked) || Boolean(whatsappWindowClosed)}
                             onClick={() => void openDocumentComposer()}
                           >
-                            <Icon name="document" size={16} /> Documento
+                            <Icon name="document" size={16} /> Crear borrador
                           </button>
                           {mode === "message" && selected.channel === "WHATSAPP" ? (
                             <button className={styles.toolButton} type="button"
@@ -2248,7 +2223,7 @@ export default function InboxPage(): React.JSX.Element {
                   Documento para {selectedContact?.displayName ?? "el contacto"}
                 </span>
                 <h2 id="document-composer-title">
-                  {preparedDocument ? "Revisa lo que se enviará" : "Elegir una plantilla"}
+                  {preparedDocument ? "Revisa el borrador" : "Elegir una plantilla"}
                 </h2>
               </div>
               <button
@@ -2267,8 +2242,8 @@ export default function InboxPage(): React.JSX.Element {
             {preparedDocument ? (
               <>
                 <p className={styles.documentIntro}>
-                  Los valores e imágenes autorizados por la plantilla pueden ajustarse antes de
-                  dejar el documento en cola.
+                  Puedes ajustar y guardar este borrador. El envío directo requiere un PDF fiel
+                  al diseño y todavía no está disponible.
                 </p>
                 <div className={styles.documentFields}>
                   {preparedDocument.blocks.map((block) => {
@@ -2337,9 +2312,9 @@ export default function InboxPage(): React.JSX.Element {
                     className={styles.primaryButton}
                     type="button"
                     disabled={saving}
-                    onClick={() => void queuePreparedDocument()}
+                    onClick={() => window.location.assign("/documents")}
                   >
-                    Encolar documento <Icon name="arrow" size={16} />
+                    Ver documentos <Icon name="arrow" size={16} />
                   </button>
                 </footer>
               </>

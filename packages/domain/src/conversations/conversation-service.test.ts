@@ -253,7 +253,15 @@ describe("ConversationService", () => {
 
   it("binds a server-owned document snapshot to a document message", async () => {
     const store = repository();
-    const refs = { ...references(), documentFor: vi.fn(async () => document) };
+    const fileId = "019b0000-0000-7000-8000-000000000012";
+    const refs = {
+      ...references(),
+      documentFor: vi.fn(async () => document),
+      mediaFor: vi.fn(async () => ({
+        id: fileId, status: "AVAILABLE", fileClass: "DOCUMENT",
+        mimeType: "application/pdf", size: 1000,
+      })),
+    };
     const service = new ConversationService(store, refs, () => now);
     await service.send({
       actor,
@@ -263,6 +271,7 @@ describe("ConversationService", () => {
       body: "Documento preparado: Oferta piloto",
       kind: "DOCUMENT",
       documentId: document.id,
+      fileId,
       idempotencyKey: "document-12345678",
       payloadHash: "1".repeat(64),
     });
@@ -271,6 +280,7 @@ describe("ConversationService", () => {
         message: expect.objectContaining({
           kind: "DOCUMENT",
           documentId: document.id,
+          fileId,
           documentSnapshot: expect.objectContaining({
             id: document.id,
             title: document.title,
@@ -279,6 +289,21 @@ describe("ConversationService", () => {
         }),
       }),
     );
+    expect(refs.mediaFor).toHaveBeenCalledWith(actor,
+      ["crm:conversations:reply"], fileId, existing.id);
+  });
+
+  it("does not queue a WhatsApp template without a deliverable PDF", async () => {
+    const store = repository();
+    const service = new ConversationService(store,
+      { ...references(), documentFor: vi.fn(async () => document) }, () => now);
+    await expect(service.send({
+      actor, permissions: ["crm:conversations:reply"],
+      conversationId: existing.id, expectedVersion: existing.version,
+      body: "Documento", kind: "DOCUMENT", documentId: document.id,
+      idempotencyKey: "document-12345679", payloadHash: "3".repeat(64),
+    })).rejects.toBeInstanceOf(ConversationValidationError);
+    expect(store.append).not.toHaveBeenCalled();
   });
 
   it("rejects a document from another contact", async () => {
