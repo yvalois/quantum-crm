@@ -22,12 +22,14 @@
 
 ## Verificacion y evidencia
 
-- Pruebas del dominio, configuracion, enlace Admin y validacion de rutas.
-- Typecheck, lint, build y comprobacion enfocada en VPS del commit candidato.
-- DNS, certificado, salud, redireccion al login y callback correcto en ambos hosts.
+- [PR #171](https://github.com/yvalois/quantum-crm/pull/171), candidato `072ec18e`: siete checks CI verdes; 23 pruebas enfocadas de dominio, configuracion, enlace Admin y ruta Caddy en VPS.
+- ESLint, Prettier y builds de `deploy-host`, `deploy-executor` y `admin-web` y dependencias aprobaron en VPS. Las tres imagenes del candidato estan activas.
+- DNS comodin, TLS valido, readiness `200`, redireccion al login y callback OIDC correcto en ambos hosts; el webhook viejo no redirige.
 - Un perfil nuevo de prueba debe comprobar la ruta automatica antes de marcar completa la subtarea global de `ADM-17`.
 
 ## Pendientes de estabilizacion posterior
 
 - Reemplazar overrides directos por promocion registrada e inventario recuperable.
+- Migrar de forma controlada el hostname registrado de InterAmerican, aun `nip.io`, antes de reconciliar su ruta.
+- Probar login autenticado en Admin y CRM y el primer perfil nuevo.
 - Conciliar URL del webhook del proveedor y estado de certificados en la interfaz administrativa.
