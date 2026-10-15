@@ -6382,16 +6382,25 @@ body {
 }
 
 .crm-shell-stitch .brand-mark {
+  position: relative;
   flex: 0 0 auto;
   width: 3rem;
   height: 3rem;
+  overflow: hidden;
   border: 1px solid rgb(39 232 223 / 0.32);
   border-radius: 0.7rem;
-  background-color: #061822;
-  background-repeat: no-repeat;
-  background-size: 176px 96px;
-  background-position: -22px -22px;
+  background: #061822;
   box-shadow: 0 0 1rem rgb(20 233 220 / 0.13);
+}
+
+.brand-artwork {
+  position: absolute;
+  top: -22px;
+  left: -22px;
+  display: block;
+  width: 176px;
+  height: 96px;
+  max-width: none;
 }
 
 .brand-copy {

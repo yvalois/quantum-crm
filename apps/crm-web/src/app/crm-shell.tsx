@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
 
@@ -177,11 +178,16 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
       <aside className="crm-sidebar" aria-label="Navegación principal">
         <div className="sidebar-brand-row">
           <a className="brand" href="/" aria-label="Business Assistant, resumen">
-            <span
-              className="brand-mark"
-              aria-hidden="true"
-              style={{ backgroundImage: `url(${brandArtwork.src})` }}
-            />
+            <span className="brand-mark" aria-hidden="true">
+              <Image
+                className="brand-artwork"
+                src={brandArtwork}
+                alt=""
+                width={176}
+                height={96}
+                unoptimized
+              />
+            </span>
             <span className="brand-copy">
               <strong>Business</strong>
               <span>Assistant</span>

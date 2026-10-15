@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Quantum CRM",
-  description: "Interfaz interna del CRM",
+  title: "Business Assistant",
+  description: "CRM Business Assistant, powered by Quantum Aviv",
 };
 
 // The proxy generates a per-request CSP nonce. Next.js requires this route
