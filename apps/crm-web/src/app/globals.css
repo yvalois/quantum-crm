@@ -6366,73 +6366,42 @@ body {
 }
 
 .sidebar-brand-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.25rem;
+  position: relative;
+  display: block;
   min-width: 0;
   border-bottom: 1px solid rgb(155 204 215 / 0.12);
   padding-bottom: 0.85rem;
 }
 
 .crm-shell-stitch .brand {
-  gap: 0.55rem;
+  display: block;
+  width: 100%;
   min-width: 0;
-  padding: 0.1rem 0;
+  padding: 0;
 }
 
 .crm-shell-stitch .brand-mark {
-  position: relative;
-  flex: 0 0 auto;
-  width: 3rem;
-  height: 3rem;
-  overflow: hidden;
-  border: 1px solid rgb(39 232 223 / 0.32);
-  border-radius: 0.7rem;
-  background: #061822;
-  box-shadow: 0 0 1rem rgb(20 233 220 / 0.13);
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .brand-artwork {
-  position: absolute;
-  top: -22px;
-  left: -22px;
   display: block;
-  width: 176px;
-  height: 96px;
-  max-width: none;
-}
-
-.brand-copy {
-  display: grid;
-  min-width: 0;
-  line-height: 1;
-}
-
-.brand-copy strong {
-  font-size: 0.98rem;
-  font-weight: 780;
-  letter-spacing: -0.045em;
-}
-
-.brand-copy > span {
-  margin-top: 0.13rem;
-  color: #f5fbff;
-  font-size: 0.96rem;
-  font-weight: 450;
-  letter-spacing: -0.035em;
-}
-
-.brand-copy small {
-  margin-top: 0.4rem;
-  color: #72cfcf;
-  font-size: 0.48rem;
-  font-weight: 700;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
 }
 
 .sidebar-collapse {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: grid;
   flex: 0 0 auto;
   width: 1.9rem;
@@ -6692,12 +6661,20 @@ body {
   gap: 0.45rem;
 }
 
+.sidebar-collapsed .brand {
+  width: 3rem;
+}
+
+.sidebar-collapsed .sidebar-collapse {
+  position: static;
+  justify-self: center;
+}
+
 .sidebar-collapsed .crm-shell-stitch .brand,
 .sidebar-collapsed .brand {
   padding: 0;
 }
 
-.sidebar-collapsed .brand-copy,
 .sidebar-collapsed .workspace-copy,
 .sidebar-collapsed .workspace-chevron,
 .sidebar-collapsed .nav-group > p,
@@ -7221,6 +7198,10 @@ body {
     margin-bottom: 0.65rem;
   }
 
+  .crm-shell-stitch .brand {
+    max-width: 14rem;
+  }
+
   .workspace-chip,
   .sidebar-environment,
   .crm-shell-stitch .sidebar-footer,
@@ -7228,10 +7209,6 @@ body {
   .nav-group > p,
   .nav-pending {
     display: none !important;
-  }
-
-  .sidebar-collapsed .brand-copy {
-    display: grid;
   }
 
   .sidebar-collapsed .nav-label {

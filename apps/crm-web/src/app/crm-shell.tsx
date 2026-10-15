@@ -183,15 +183,10 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
                 className="brand-artwork"
                 src={brandArtwork}
                 alt=""
-                width={176}
-                height={96}
+                width={1600}
+                height={870}
                 unoptimized
               />
-            </span>
-            <span className="brand-copy">
-              <strong>Business</strong>
-              <span>Assistant</span>
-              <small>Powered by Quantum Aviv</small>
             </span>
           </a>
           <button
