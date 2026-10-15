@@ -1,11 +1,6 @@
 import type { AgentConversationContext } from "@quantum-crm/contracts";
 
-import {
-  briefIntroduction,
-  briefIntroductionEnglish,
-  initialGreeting,
-  initialGreetingEnglish,
-} from "./interamerican-greeting.js";
+import { initialGreeting, initialGreetingEnglish } from "./interamerican-greeting.js";
 import {
   resolveConversationLanguage,
   type ConversationLanguage,
@@ -75,7 +70,6 @@ export async function answerAgentTurn(
 ): Promise<AgentResponse> {
   const context = await gateway.context();
   const language = resolveConversationLanguage(input.question, context.messages);
-  const introduction = language === "en" ? briefIntroductionEnglish : briefIntroduction;
   const catalog = selectedCatalog(input.question, context.messages);
   const firstTurn = input.firstTurn && context.messages.length === 0;
   if (!catalog && firstTurn && asksOnlyForGeneralHelp(input.question))
@@ -92,7 +86,7 @@ export async function answerAgentTurn(
       language,
     });
     return {
-      answer: `${firstTurn ? introduction : ""}${turn.answer}`,
+      answer: turn.answer,
       sourceIds: [],
       grounded: false,
       ...(turn.handoffRequested ? { handoffRequested: true } : {}),
@@ -103,7 +97,7 @@ export async function answerAgentTurn(
     { catalog, question: input.question, history: context.messages, language },
   );
   return {
-    answer: firstTurn ? `${introduction}${result.answer}` : result.answer,
+    answer: result.answer,
     sourceIds: result.sources.map((source) => source.id),
     grounded: result.grounded,
   };

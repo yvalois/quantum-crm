@@ -19,9 +19,10 @@ describe("OpenAI conversational answer", () => {
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       expect(body.store).toBe(false);
-      expect(body.instructions).toContain("Continúa la conversación usando el historial");
-      expect(body.instructions).toContain("particular/empresa");
-      expect(body.instructions).toContain("🚗 Sedán");
+      expect(body.instructions).toContain("# Rol");
+      expect(body.instructions).toContain("# Requisitos exactos para renta particular sin conductor");
+      expect(body.instructions).toContain("# Continuidad cuando cambia el idioma");
+      expect(body.instructions).not.toContain("{{ $json.");
       expect(body.input).toEqual([
         { role: "user", content: "Necesito un traslado" },
         { role: "user", content: "¿Y mañana?" },
@@ -36,7 +37,7 @@ describe("OpenAI conversational answer", () => {
                 {
                   type: "output_text",
                   text: JSON.stringify({
-                    answer: "¿Desde dónde saldrías?",
+                    mensaje: "¿Desde dónde saldrías?",
                     handoff: pendingHandoff,
                   }),
                 },
@@ -76,7 +77,7 @@ describe("OpenAI conversational answer", () => {
                 {
                   type: "output_text",
                   text: JSON.stringify({
-                    answer:
+                    mensaje:
                       "¡Hola! Tenemos Sedán, SUV, Pick up, Microbús y Panel de carga. ¿Cuál te interesa?",
                     handoff: pendingHandoff,
                   }),
@@ -120,7 +121,7 @@ describe("OpenAI conversational answer", () => {
                     {
                       type: "output_text",
                       text: JSON.stringify({
-                        answer: "¡Hola! ¿Qué tipo de vehículo necesitas?",
+                        mensaje: "¡Hola! ¿Qué tipo de vehículo necesitas?",
                         handoff: pendingHandoff,
                       }),
                     },
@@ -138,10 +139,10 @@ describe("OpenAI conversational answer", () => {
     });
   });
 
-  it("does not duplicate the application-owned greeting on a direct first message", async () => {
+  it("keeps the original prompt's direct-request introduction", async () => {
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
-      expect(body.instructions).toContain("la agrega la aplicación");
+      expect(body.instructions).toContain("Primer mensaje con solicitud directa en español");
       return new Response(
         JSON.stringify({
           status: "completed",
@@ -152,7 +153,7 @@ describe("OpenAI conversational answer", () => {
                 {
                   type: "output_text",
                   text: JSON.stringify({
-                    answer: "¡Hola! ¿Qué tipo de vehículo te interesa?",
+                    mensaje: "¡Hola! Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo te interesa?",
                     handoff: pendingHandoff,
                   }),
                 },
@@ -166,6 +167,6 @@ describe("OpenAI conversational answer", () => {
     const answer = createOpenAiConversationAnswer({ apiKey: new SecretValue("test"), fetcher });
     expect(
       await answer({ question: "Hola, quiero rentar un carro", history: [], firstTurn: true }),
-    ).toEqual({ answer: "¿Qué tipo de vehículo te interesa?", handoffRequested: false });
+    ).toEqual({ answer: "¡Hola! Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo te interesa?", handoffRequested: false });
   });
 });

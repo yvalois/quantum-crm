@@ -37,7 +37,7 @@ describe("OpenAI RAG answer adapter", () => {
                 {
                   type: "output_text",
                   text: JSON.stringify({
-                    answer: "Incluye cobertura básica.",
+                    mensaje: "Incluye cobertura básica.",
                     sourceIds: ["individual-p2-a"],
                   }),
                 },

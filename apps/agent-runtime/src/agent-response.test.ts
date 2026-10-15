@@ -26,7 +26,7 @@ function gateway(messages: AgentConversationContext["messages"]) {
       sourceIds: [source.id],
     })),
     answerConversation: vi.fn(async () => ({
-      answer: "¿En qué fecha necesitas el vehículo?",
+      answer: "Hola 👋 Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿En qué fecha necesitas el vehículo?",
       handoffRequested: false,
     })),
   };
