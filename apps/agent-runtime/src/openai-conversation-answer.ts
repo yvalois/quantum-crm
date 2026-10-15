@@ -90,7 +90,7 @@ export function createOpenAiConversationAnswer(options: {
         input.question,
       );
     const continuation =
-      customerGreeted && !input.firstTurn
+      input.firstTurn || customerGreeted
         ? answer
         : answer
             .replace(/^\s*[¡!]?hola(?:\s+de nuevo)?[!¡.,:\s-]*/iu, "")
