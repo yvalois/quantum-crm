@@ -27,6 +27,7 @@ import type {
   ExternalConversationReceiver,
   ConversationOutboundDispatcher,
   ConversationAgentDispatcher,
+  AgentControlRepository,
   ConversationRepository,
   HistoricalConversationRepository,
   UnifiedInboxRepository,
@@ -66,6 +67,7 @@ import { createFormPostgresRepository } from "./form-postgres-repository.js";
 import { createDocumentPostgresRepository } from "./document-postgres-repository.js";
 import { createAgentKnowledgePostgresRepository } from "./agent-knowledge-postgres-repository.js";
 import { createConversationAgentPostgresRepository } from "./conversation-agent-postgres-repository.js";
+import { createAgentControlPostgresRepository } from "./agent-control-postgres-repository.js";
 import {
   createFilePostgresRepository,
   type FileProcessingRepository,
@@ -751,6 +753,7 @@ export interface CommercialPostgresRepositories {
   readonly externalConversations: ExternalConversationReceiver;
   readonly conversationOutbound: ConversationOutboundDispatcher;
   readonly conversationAgent: ConversationAgentDispatcher;
+  readonly agentControl: AgentControlRepository;
   readonly historicalConversations: HistoricalConversationRepository;
   readonly unifiedInbox: UnifiedInboxRepository;
   readonly sales: SalesRepository;
@@ -2724,6 +2727,7 @@ export function createCommercialPostgresRepositories(
     externalConversations: createExternalConversationReceiver(pool),
     conversationOutbound: createConversationOutboundDispatcher(pool),
     conversationAgent: createConversationAgentPostgresRepository(pool),
+    agentControl: createAgentControlPostgresRepository(pool),
     historicalConversations: createHistoricalConversationPostgresRepository(pool),
     unifiedInbox: createUnifiedInboxPostgresRepository(pool),
     customFieldDefinitions: createSettingsCustomFieldPostgresRepository(pool),

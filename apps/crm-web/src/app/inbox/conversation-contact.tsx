@@ -73,64 +73,77 @@ export function ConversationContactCard({
   readonly error: string | null;
 }): React.JSX.Element {
   return (
-    <section className={styles.card} aria-label="Ficha del cliente" aria-busy={loading}>
-      <h3>Ficha del cliente</h3>
-      {loading ? (
-        <p role="status">Cargando contacto…</p>
-      ) : error ? (
-        <p role="alert">{error}</p>
-      ) : contact ? (
-        <>
-          <h2>{contact.displayName}</h2>
-          <dl className={styles.facts}>
-            <div>
-              <dt>Correo</dt>
-              <dd>
-                {contact.email ? (
-                  <a href={`mailto:${contact.email}`}>{contact.email}</a>
-                ) : (
-                  "Sin correo"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>Teléfono</dt>
-              <dd>
-                {contact.phone ? (
-                  <a href={`tel:${contact.phone}`}>{contact.phone}</a>
-                ) : (
-                  "Sin teléfono"
-                )}
-              </dd>
-            </div>
-          </dl>
-          <a className={styles.open} href={`/contacts?contact=${encodeURIComponent(contact.id)}`}>
-            Abrir ficha completa
-          </a>
-          <details open>
-            <summary>
-              Etiquetas <span>{contact.labels.length}</span>
-            </summary>
-            {contact.labels.length ? (
-              <ul className={styles.tags}>
-                {contact.labels.map((label) => (
-                  <li key={label.id}>{label.name}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>Sin etiquetas</p>
-            )}
-          </details>
-          <ContactCustomFields key={contact.id} fields={contact.customFields} />
-          <SourceParticipantsCard participants={contact.sourceParticipants} kind="contacto" />
-        </>
-      ) : (
-        <p>
-          {linked
-            ? "El contacto no está disponible con tus permisos actuales."
-            : "Esta conversación no tiene un contacto vinculado; no hay nombre ni campos confirmados que mostrar."}
-        </p>
-      )}
-    </section>
+    <details className={styles.card} aria-label="Ficha del cliente" aria-busy={loading} open>
+      <summary className={styles.heading}>
+        <span className={styles.headingText}>
+          <span>Ficha del cliente</span>
+          <strong>{contact?.displayName ?? "Datos del contacto"}</strong>
+        </span>
+        <span className={styles.chevron} aria-hidden="true">
+          ⌄
+        </span>
+      </summary>
+      <div className={styles.content}>
+        {loading ? (
+          <p role="status">Cargando contacto…</p>
+        ) : error ? (
+          <p role="alert">{error}</p>
+        ) : contact ? (
+          <>
+            <dl className={styles.facts}>
+              <div>
+                <dt>Correo</dt>
+                <dd>
+                  {contact.email ? (
+                    <a href={`mailto:${contact.email}`}>{contact.email}</a>
+                  ) : (
+                    "Sin correo"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Teléfono</dt>
+                <dd>
+                  {contact.phone ? (
+                    <a href={`tel:${contact.phone}`}>{contact.phone}</a>
+                  ) : (
+                    "Sin teléfono"
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <a className={styles.open} href={`/contacts?contact=${encodeURIComponent(contact.id)}`}>
+              Abrir ficha completa
+            </a>
+            <details open>
+              <summary>
+                Etiquetas <span>{contact.labels.length}</span>
+              </summary>
+              {contact.labels.length ? (
+                <ul className={styles.tags}>
+                  {contact.labels.map((label) => (
+                    <li key={label.id}>{label.name}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Sin etiquetas</p>
+              )}
+            </details>
+            <ContactCustomFields
+              key={contact.id}
+              fields={contact.customFields}
+              initiallyIncludeEmpty
+            />
+            <SourceParticipantsCard participants={contact.sourceParticipants} kind="contacto" />
+          </>
+        ) : (
+          <p>
+            {linked
+              ? "El contacto no está disponible con tus permisos actuales."
+              : "Esta conversación no tiene un contacto vinculado; no hay nombre ni campos confirmados que mostrar."}
+          </p>
+        )}
+      </div>
+    </details>
   );
 }

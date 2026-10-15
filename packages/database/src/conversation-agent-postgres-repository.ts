@@ -25,7 +25,8 @@ export function createConversationAgentPostgresRepository(
              JOIN conversations.conversations AS conversation ON conversation.id = request.conversation_id
             WHERE request.inbound_message_id = $1::uuid AND request.status = 'leased'
               AND request.lease_expires_at > CURRENT_TIMESTAMP
-              AND conversation.attention_mode = 'agent' AND conversation.status <> 'closed'`,
+              AND conversation.attention_mode = 'agent' AND conversation.status <> 'closed'
+              AND (SELECT enabled FROM conversations.agent_control WHERE id = 1)`,
           [inboundMessageId],
         )) as { readonly rowCount: number };
         return result.rowCount === 1;
@@ -45,6 +46,7 @@ export function createConversationAgentPostgresRepository(
                 AND request.lease_expires_at > CURRENT_TIMESTAMP
                 AND conversation.attention_mode = 'agent' AND conversation.status <> 'closed'
                 AND conversation.channel = 'whatsapp'
+                AND (SELECT enabled FROM conversations.agent_control WHERE id = 1)
            )
            SELECT execution.id::text AS thread_id, prior.direction,
                   prior.author_member_id IS NOT NULL AS from_advisor, prior.body
@@ -110,6 +112,12 @@ export function createConversationAgentPostgresRepository(
               AND request.status IN ('pending', 'leased')
               AND (conversation.attention_mode <> 'agent' OR conversation.status = 'closed')`,
         );
+        await client.query(
+          `UPDATE conversations.agent_requests SET status = 'cancelled', lease_owner = NULL,
+                  lease_expires_at = NULL, updated_at = CURRENT_TIMESTAMP
+            WHERE status IN ('pending', 'leased')
+              AND NOT (SELECT enabled FROM conversations.agent_control WHERE id = 1)`,
+        );
         const result = await client.query<RequestRow>(
           `SELECT request.inbound_message_id::text, request.conversation_id::text,
                   message.body AS question, request.lease_generation::text,
@@ -128,6 +136,7 @@ export function createConversationAgentPostgresRepository(
               AND request.attempts < 5
               AND conversation.attention_mode = 'agent'
               AND conversation.status <> 'closed'
+              AND (SELECT enabled FROM conversations.agent_control WHERE id = 1)
               AND NOT EXISTS (
                 SELECT 1 FROM conversations.agent_requests AS other
                  WHERE other.conversation_id = request.conversation_id
@@ -183,6 +192,9 @@ export function createConversationAgentPostgresRepository(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
+        const control = await client.query<{ enabled: boolean }>(
+          "SELECT enabled FROM conversations.agent_control WHERE id = 1 FOR UPDATE",
+        );
         const conversation = await client.query<{
           contact_id: string;
           assignee_member_id: string | null;
@@ -219,6 +231,7 @@ export function createConversationAgentPostgresRepository(
         }
         const current = conversation.rows[0];
         if (
+          !control.rows[0]?.enabled ||
           !current ||
           current.attention_mode !== "agent" ||
           current.status === "closed" ||

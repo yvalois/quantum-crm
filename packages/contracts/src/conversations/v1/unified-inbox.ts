@@ -32,6 +32,7 @@ export const UnifiedInboxListQuerySchema = z
     channel: UnifiedInboxChannelSchema.optional(),
     status: ConversationStatusSchema.optional(),
     attentionMode: ConversationAttentionModeSchema.optional(),
+    assigneeMemberId: z.string().uuid().optional(),
     unassigned: z
       .union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")])
       .optional(),

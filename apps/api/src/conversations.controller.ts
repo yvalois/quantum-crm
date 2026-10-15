@@ -174,6 +174,9 @@ export class ConversationsController {
             ...actor,
             contactId: parsed.data.contactId,
             channel: parsed.data.channel,
+            ...(parsed.data.assigneeMemberId === undefined
+              ? {}
+              : { assigneeMemberId: parsed.data.assigneeMemberId }),
             initialMessage: parsed.data.initialMessage,
             ...(parsed.data.subject === undefined ? {} : { subject: parsed.data.subject }),
             idempotencyKey: key(idempotencyKey),

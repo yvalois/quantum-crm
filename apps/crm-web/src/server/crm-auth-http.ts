@@ -36,6 +36,8 @@ import {
   AssignHistoricalConversationSchema,
   UnifiedInboxListQuerySchema,
   UnifiedInboxListResponseSchema,
+  AgentControlResponseSchema,
+  UpdateAgentControlSchema,
   ContactIdSchema,
   ContactBulkActionResponseSchema,
   ContactBulkActionSchema,
@@ -2359,6 +2361,26 @@ export async function handleCrmUnifiedInboxList(
     `${endpoint.pathname}${endpoint.search}`,
     UnifiedInboxListResponseSchema,
   );
+}
+
+export async function handleCrmAgentControlGet(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  return conversationRead(request, runtime, "/api/v1/agent-control", AgentControlResponseSchema);
+}
+
+export async function handleCrmAgentControlSet(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  return conversationMutation(request, runtime, {
+    path: "/api/v1/agent-control",
+    method: "PATCH",
+    requestSchema: UpdateAgentControlSchema,
+    responseSchema: AgentControlResponseSchema,
+    requireVersion: true,
+  });
 }
 
 export async function handleCrmHistoricalConversationList(

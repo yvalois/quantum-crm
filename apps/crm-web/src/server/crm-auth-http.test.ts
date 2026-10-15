@@ -88,6 +88,7 @@ describe("CRM web authentication HTTP boundary", () => {
           memberId: "019b0000-0000-7000-8000-000000000001",
           canAssignSales: false,
           canAssignConversations: false,
+          canConfigureAgent: false,
           canManageMembers: false,
           canViewAllCalendarEvents: false,
           canConfigureCalendar: false,

@@ -262,6 +262,8 @@ export {
 } from "./sales/v1/sales.js";
 export {
   ConversationAttentionModeSchema,
+  AgentControlResponseSchema,
+  UpdateAgentControlSchema,
   ConversationChannelSchema,
   ConversationDeliveryStatusSchema,
   ConversationHistoryEntrySchema,

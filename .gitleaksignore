@@ -17,3 +17,7 @@ ee62db7e53b929478bfc975c8e7c21f396a86935:packages/platform-domain/src/deployment
 ee62db7e53b929478bfc975c8e7c21f396a86935:packages/platform-domain/src/deployments/platform-foundation-promotion.test.ts:generic-api-key:24
 ee62db7e53b929478bfc975c8e7c21f396a86935:apps/deploy-executor/src/platform-foundation-promotion-executor.test.ts:generic-api-key:16
 ee62db7e53b929478bfc975c8e7c21f396a86935:apps/deploy-executor/src/activation-delivery-executor.test.ts:generic-api-key:30
+
+# Falso positivo de CHAT-11: clave de idempotencia ficticia en una prueba.
+# La fixture se corrigio sin reescribir el commit ya publicado.
+17d113037862d2ba1d9f1fd3e7cf1410621a8b75:packages/domain/src/conversations/conversation-service.test.ts:generic-api-key:206

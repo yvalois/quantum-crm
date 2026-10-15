@@ -15,6 +15,8 @@ import type {
 } from "@quantum-crm/contracts";
 import {
   ConversationThreadResponseSchema,
+  ConversationListResponseSchema,
+  AgentControlResponseSchema,
   UnifiedInboxListResponseSchema,
 } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -35,7 +37,7 @@ interface SessionPayload {
   readonly csrfToken?: string;
 }
 interface CapabilitiesPayload {
-  readonly data: { readonly canAssignConversations: boolean };
+  readonly data: { readonly canAssignConversations: boolean; readonly canConfigureAgent: boolean };
 }
 
 interface List<T> {
@@ -237,8 +239,6 @@ function sameDay(left: ConversationMessage, right: ConversationMessage | undefin
 function availabilityMessage(selected: Conversation | null): string | null {
   if (!selected) return null;
   if (selected.status === "CLOSED") return "Esta conversación está cerrada. Ábrela para responder.";
-  if (selected.attentionMode === "AGENT")
-    return "El agente está atendiendo esta conversación. Tómala para escribir como equipo.";
   return null;
 }
 
@@ -248,6 +248,11 @@ export default function InboxPage(): React.JSX.Element {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
   const [canAssignConversations, setCanAssignConversations] = useState(false);
+  const [canConfigureAgent, setCanConfigureAgent] = useState(false);
+  const [agentControl, setAgentControl] = useState<{
+    enabled: boolean;
+    version: string;
+  } | null>(null);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selected, setSelected] = useState<Conversation | null>(null);
@@ -258,6 +263,7 @@ export default function InboxPage(): React.JSX.Element {
   const [channel, setChannel] = useState("");
   const [status, setStatus] = useState("");
   const [attention, setAttention] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
   const [contactState, setContactState] = useState("ALL");
   const [contactId, setContactId] = useState<string | null>(null);
   const [appliedFilters, setAppliedFilters] = useState("");
@@ -409,39 +415,51 @@ export default function InboxPage(): React.JSX.Element {
           throw new Error("La sesión no es válida.");
         if (controller.signal.aborted) return;
         setCsrf(session.csrfToken);
-        const [contactResponse, assigneeResponse, replyResponse, capabilitiesResponse] =
-          await Promise.all([
-            fetch("/api/contacts", { cache: "no-store", credentials: "same-origin", signal }),
-            fetch("/api/tasks/assignees", {
-              cache: "no-store",
-              credentials: "same-origin",
-              signal,
-            }),
-            fetch("/api/conversations/quick-replies", {
-              cache: "no-store",
-              credentials: "same-origin",
-              signal,
-            }),
-            fetch("/api/auth/capabilities", {
-              cache: "no-store",
-              credentials: "same-origin",
-              signal,
-            }),
-          ]);
+        const [
+          contactResponse,
+          assigneeResponse,
+          replyResponse,
+          capabilitiesResponse,
+          agentResponse,
+        ] = await Promise.all([
+          fetch("/api/contacts", { cache: "no-store", credentials: "same-origin", signal }),
+          fetch("/api/tasks/assignees", {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal,
+          }),
+          fetch("/api/conversations/quick-replies", {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal,
+          }),
+          fetch("/api/auth/capabilities", {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal,
+          }),
+          fetch("/api/conversations/agent-control", {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal,
+          }),
+        ]);
         for (const response of [
           contactResponse,
           assigneeResponse,
           replyResponse,
           capabilitiesResponse,
+          agentResponse,
         ])
           if (!response.ok) throw new Error(await problem(response));
         if (controller.signal.aborted) return;
         setContacts(((await contactResponse.json()) as List<Contact>).data);
         setAssignees(((await assigneeResponse.json()) as List<TaskAssignee>).data);
         setQuickReplies(((await replyResponse.json()) as List<QuickReply>).data);
-        setCanAssignConversations(
-          ((await capabilitiesResponse.json()) as CapabilitiesPayload).data.canAssignConversations,
-        );
+        const capabilities = ((await capabilitiesResponse.json()) as CapabilitiesPayload).data;
+        setCanAssignConversations(capabilities.canAssignConversations);
+        setCanConfigureAgent(capabilities.canConfigureAgent);
+        setAgentControl(AgentControlResponseSchema.parse(await agentResponse.json()).data);
       } catch (cause) {
         if (!controller.signal.aborted) {
           setError(cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.");
@@ -564,16 +582,86 @@ export default function InboxPage(): React.JSX.Element {
     }
   }
 
+  async function continueHistoricalWhatsApp(body: string): Promise<void> {
+    const contact = selectedContact;
+    if (!historicalSelected?.contactId || !contact?.phone)
+      throw new Error("Este historial necesita un contacto con teléfono para iniciar WhatsApp.");
+    setSaving(true);
+    setError(null);
+    try {
+      const search = new URLSearchParams({
+        contactId: contact.id,
+        channel: "WHATSAPP",
+        limit: "100",
+      });
+      const response = await fetch(`/api/conversations?${search}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error(await problem(response));
+      const existing = ConversationListResponseSchema.parse(await response.json()).data.find(
+        (item) => /^ycloud:[0-9]{5,30}:[0-9]{8,20}$/u.test(item.externalThreadId ?? ""),
+      );
+      let conversation: Conversation;
+      if (existing) {
+        conversation = existing;
+        const patch: Record<string, unknown> = {};
+        if (conversation.attentionMode === "AGENT") patch.attentionMode = "HUMAN";
+        if (conversation.status === "CLOSED") patch.status = "OPEN";
+        if (Object.keys(patch).length > 0) {
+          const changed = await mutate(`/api/conversations/${conversation.id}`, patch, {
+            method: "PATCH",
+            version: conversation.version,
+          });
+          conversation = ((await changed.json()) as { data: Conversation }).data;
+        }
+        await mutate(
+          `/api/conversations/${conversation.id}/messages`,
+          { body, kind: "TEXT" },
+          { version: conversation.version },
+        );
+      } else {
+        const created = await mutate("/api/conversations", {
+          contactId: contact.id,
+          channel: "WHATSAPP",
+          initialMessage: body,
+          ...(canAssignConversations && historicalSelected.assigneeMemberId
+            ? { assigneeMemberId: historicalSelected.assigneeMemberId }
+            : {}),
+        });
+        conversation = ((await created.json()) as { data: Conversation }).data;
+      }
+      clearFilters();
+      chooseConversation({ source: "QUANTUM", conversation });
+      setListRefresh((value) => value + 1);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "No se pudo enviar por WhatsApp.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function send(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!selected || !draft.trim() || (mode === "message" && messageBlocked)) return;
     setSaving(true);
     setError(null);
     try {
+      let version = selected.version;
+      if (mode === "message" && selected.attentionMode === "AGENT") {
+        const taken = await mutate(
+          `/api/conversations/${selected.id}`,
+          { attentionMode: "HUMAN" },
+          { method: "PATCH", version },
+        );
+        version = ((await taken.json()) as { data: Conversation }).data.version;
+      }
       await mutate(
         `/api/conversations/${selected.id}/${mode === "note" ? "notes" : "messages"}`,
         mode === "note" ? { body: draft } : { body: draft, kind: "TEXT" },
-        { version: selected.version },
+        { version },
       );
       setDraft("");
       await refreshConversation(selected.id);
@@ -729,6 +817,26 @@ export default function InboxPage(): React.JSX.Element {
     }
   }
 
+  async function setAgentEnabled(enabled: boolean): Promise<void> {
+    if (!agentControl || !canConfigureAgent) return;
+    if (!enabled && !window.confirm("¿Pausar el agente en todos los chats hasta que lo reactives?"))
+      return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await mutate(
+        "/api/conversations/agent-control",
+        { enabled },
+        { method: "PATCH", version: agentControl.version },
+      );
+      setAgentControl(AgentControlResponseSchema.parse(await response.json()).data);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo cambiar el estado del agente.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function chooseView(nextView: InboxView): void {
     setView(nextView);
     setStatus("");
@@ -751,6 +859,7 @@ export default function InboxPage(): React.JSX.Element {
     if (channel) filters.set("channel", channel);
     if (status) filters.set("status", status);
     if (attention) filters.set("attentionMode", attention);
+    if (canAssignConversations && assigneeFilter) filters.set("assigneeMemberId", assigneeFilter);
     setAppliedFilters(filters.toString());
     setListCursors([null]);
   }
@@ -769,6 +878,7 @@ export default function InboxPage(): React.JSX.Element {
     setChannel("");
     setStatus("");
     setAttention("");
+    setAssigneeFilter("");
     setContactState("ALL");
     setContactId(null);
     setView("ALL");
@@ -789,8 +899,23 @@ export default function InboxPage(): React.JSX.Element {
             </div>
           </div>
           <div className={styles.topbarActions}>
+            {canConfigureAgent && agentControl ? (
+              <button
+                className={styles.outlineButton}
+                type="button"
+                disabled={saving}
+                aria-pressed={!agentControl.enabled}
+                onClick={() => void setAgentEnabled(!agentControl.enabled)}
+              >
+                <Icon name="agent" size={16} />
+                {agentControl.enabled ? "Pausar agente en todos los chats" : "Reactivar agente"}
+              </button>
+            ) : null}
             <span className={styles.liveSignal}>
-              <span aria-hidden="true" /> Actualizado al abrir
+              <span aria-hidden="true" />
+              {agentControl?.enabled === false
+                ? "Agente pausado globalmente"
+                : "Actualizado al abrir"}
             </span>
             <button
               className={styles.primaryButton}
@@ -906,6 +1031,31 @@ export default function InboxPage(): React.JSX.Element {
                 <option value="UNLINKED">Sin contacto vinculado</option>
               </select>
             </label>
+            {canAssignConversations ? (
+              <label className={styles.contactFilter}>
+                Asesor responsable
+                <select
+                  aria-label="Filtrar conversaciones por asesor"
+                  value={assigneeFilter}
+                  onChange={(event) => {
+                    const memberId = event.target.value;
+                    setAssigneeFilter(memberId);
+                    const filters = new URLSearchParams(appliedFilters);
+                    if (memberId) filters.set("assigneeMemberId", memberId);
+                    else filters.delete("assigneeMemberId");
+                    setAppliedFilters(filters.toString());
+                    setListCursors([null]);
+                  }}
+                >
+                  <option value="">Todos los asesores</option>
+                  {assignees.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {contactId ? (
               <button
                 className={styles.clearContactFilter}
@@ -1103,6 +1253,10 @@ export default function InboxPage(): React.JSX.Element {
                 csrfToken={csrf}
                 canAssign={canAssignConversations}
                 onAssigned={() => setListRefresh((value) => value + 1)}
+                canContinueWhatsApp={/^[0-9]{8,20}$/u.test(
+                  selectedContact?.phone?.replace(/\D/gu, "") ?? "",
+                )}
+                onContinueWhatsApp={continueHistoricalWhatsApp}
               />
             ) : threadBusy ? (
               <div className={styles.threadEmpty} role="status">
@@ -1129,6 +1283,25 @@ export default function InboxPage(): React.JSX.Element {
                     </div>
                   </div>
                   <div className={styles.threadActions}>
+                    {selected.channel === "WHATSAPP" && selected.status !== "CLOSED" ? (
+                      <button
+                        className={styles.outlineButton}
+                        type="button"
+                        disabled={
+                          saving ||
+                          (selected.attentionMode === "HUMAN" && selected.status === "ESCALATED")
+                        }
+                        onClick={() =>
+                          void update({
+                            attentionMode: selected.attentionMode === "AGENT" ? "HUMAN" : "AGENT",
+                          })
+                        }
+                      >
+                        {selected.attentionMode === "AGENT"
+                          ? "Pausar agente en este chat"
+                          : "Reactivar agente en este chat"}
+                      </button>
+                    ) : null}
                     <span className={cx(styles.statusTag, statusClass[selected.status])}>
                       {statusLabel[selected.status]}
                     </span>
@@ -1313,8 +1486,11 @@ export default function InboxPage(): React.JSX.Element {
                       </footer>
                       {mode === "message" ? (
                         <p className={styles.composerNotice}>
-                          El envío externo está pendiente de conexión del canal. Los mensajes
-                          preparados quedan en cola.
+                          {selected.attentionMode === "AGENT"
+                            ? "Al enviar, tomarás este chat y el agente quedará pausado aquí."
+                            : selected.channel === "WHATSAPP"
+                              ? "El mensaje se enviará por el WhatsApp conectado; revisa su estado de entrega."
+                              : "El mensaje quedará registrado; confirma que el canal esté conectado."}
                         </p>
                       ) : null}
                     </>

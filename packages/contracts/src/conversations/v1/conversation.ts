@@ -22,6 +22,18 @@ export const ConversationDocumentSnapshotSchema = z
 export const ConversationChannelSchema = z.enum(["EMAIL", "WHATSAPP", "WEBCHAT", "SMS"]);
 export const ConversationStatusSchema = z.enum(["OPEN", "PENDING", "ESCALATED", "CLOSED"]);
 export const ConversationAttentionModeSchema = z.enum(["AGENT", "HUMAN"]);
+export const AgentControlResponseSchema = z
+  .object({
+    data: z
+      .object({
+        enabled: z.boolean(),
+        version: VersionSchema,
+        updatedAt: TimestampSchema,
+      })
+      .strict(),
+  })
+  .strict();
+export const UpdateAgentControlSchema = z.object({ enabled: z.boolean() }).strict();
 export const ConversationMessageDirectionSchema = z.enum(["INBOUND", "OUTBOUND", "INTERNAL"]);
 export const ConversationMessageKindSchema = z.enum([
   "TEXT",
@@ -119,6 +131,7 @@ export const CreateConversationSchema = z
   .object({
     contactId: IdSchema,
     channel: ConversationChannelSchema,
+    assigneeMemberId: IdSchema.optional(),
     subject: z.string().trim().min(1).max(240).optional(),
     initialMessage: BodySchema,
   })

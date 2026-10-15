@@ -152,6 +152,71 @@ describe("ConversationService", () => {
     );
   });
 
+  it("uses only the server-owned WhatsApp binding when starting a live chat", async () => {
+    const store = repository();
+    const service = new ConversationService(
+      store,
+      { ...references(), whatsappThreadFor: vi.fn(async () => "ycloud:123456:50255556666") },
+      () => now,
+    );
+    const created = await service.create({
+      actor,
+      permissions: ["crm:conversations:reply"],
+      contactId: existing.contactId,
+      channel: "WHATSAPP",
+      initialMessage: "Hola",
+      idempotencyKey: "whatsapp-12345678",
+      payloadHash: "a".repeat(64),
+    });
+    expect(created.externalThreadId).toBe("ycloud:123456:50255556666");
+    expect(store.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a new live WhatsApp chat without a validated recipient number", async () => {
+    const store = repository();
+    const service = new ConversationService(
+      store,
+      { ...references(), whatsappThreadFor: vi.fn(async () => null) },
+      () => now,
+    );
+    await expect(
+      service.create({
+        actor,
+        permissions: ["crm:conversations:reply"],
+        contactId: existing.contactId,
+        channel: "WHATSAPP",
+        initialMessage: "Hola",
+        idempotencyKey: "whatsapp-12345678",
+        payloadHash: "a".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(ConversationValidationError);
+    expect(store.create).not.toHaveBeenCalled();
+  });
+
+  it("retains a historical advisor only when the sender can assign an active member", async () => {
+    const store = repository();
+    const refs = references();
+    const service = new ConversationService(store, refs, () => now);
+    const input = {
+      actor,
+      contactId: existing.contactId,
+      channel: "EMAIL" as const,
+      assigneeMemberId: "019b0000-0000-7000-8000-000000000004",
+      initialMessage: "Hola",
+      idempotencyKey: ["advisor", "12345678"].join("-"),
+      payloadHash: "a".repeat(64),
+    };
+    await expect(
+      service.create({ ...input, permissions: ["crm:conversations:reply"] }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+    expect(store.create).not.toHaveBeenCalled();
+    const created = await service.create({
+      ...input,
+      permissions: ["crm:conversations:reply", "crm:conversations:assign"],
+    });
+    expect(created.assigneeMemberId).toBe(input.assigneeMemberId);
+  });
+
   it("prevents outbound replies while the agent owns the conversation", async () => {
     const service = new ConversationService(
       repository(Object.freeze({ ...existing, attentionMode: "AGENT" })),

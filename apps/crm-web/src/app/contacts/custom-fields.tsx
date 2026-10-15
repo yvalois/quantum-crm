@@ -76,16 +76,18 @@ export function CustomFields({
   loading = false,
   error = null,
   title = "Campos personalizados",
+  initiallyIncludeEmpty = false,
 }: {
   readonly fields: Contact["customFields"];
   readonly definitions: readonly CustomFieldDefinition[];
   readonly loading?: boolean;
   readonly error?: string | null;
   readonly title?: string;
+  readonly initiallyIncludeEmpty?: boolean;
 }): React.JSX.Element {
   const searchId = useId();
   const [query, setQuery] = useState("");
-  const [includeEmpty, setIncludeEmpty] = useState(false);
+  const [includeEmpty, setIncludeEmpty] = useState(initiallyIncludeEmpty);
   const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
   const savedIds = new Set(fields.map((field) => field.fieldId));
   const rows = [
@@ -174,10 +176,19 @@ export function CustomFields({
 export function ContactCustomFields({
   fields,
   title,
+  initiallyIncludeEmpty,
 }: {
   readonly fields: Contact["customFields"];
   readonly title?: string;
+  readonly initiallyIncludeEmpty?: boolean;
 }): React.JSX.Element {
   const catalog = useCustomFieldDefinitions("contact");
-  return <CustomFields fields={fields} {...catalog} {...(title ? { title } : {})} />;
+  return (
+    <CustomFields
+      fields={fields}
+      {...catalog}
+      {...(title ? { title } : {})}
+      {...(initiallyIncludeEmpty === undefined ? {} : { initiallyIncludeEmpty })}
+    />
+  );
 }

@@ -116,6 +116,9 @@ describe("conversation PostgreSQL repository", () => {
       ),
     ).toBe(true);
     expect(
+      statements.some((statement) => statement.includes("UPDATE conversations.outbox AS outbox")),
+    ).toBe(true);
+    expect(
       query.mock.calls.some(
         ([statement, values]) =>
           statement.includes("INSERT INTO conversations.history") && values?.[1] === "agent_reset",

@@ -1,8 +1,62 @@
 .card {
   min-width: 0;
-  padding: 1rem;
+  margin: 0 0 0.75rem;
+  border: 1px solid #d9e6e4;
+  border-radius: 0.7rem;
+  background: #fff;
   color: #253b48;
   font-size: 0.8rem;
+  box-shadow: 0 1px 3px rgb(23 48 53 / 0.035);
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  cursor: pointer;
+  list-style: none;
+}
+.heading::-webkit-details-marker {
+  display: none;
+}
+.headingText {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+.headingText > span {
+  color: #087d77;
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.headingText strong {
+  overflow-wrap: anywhere;
+  font-size: 0.83rem;
+}
+.chevron {
+  color: #607b7e;
+  font-size: 1.25rem;
+  transition: transform 0.15s ease;
+}
+.card[open] .chevron {
+  transform: rotate(180deg);
+}
+.content {
+  padding: 0 0.85rem 0.85rem;
+  border-top: 1px solid #edf1f1;
+}
+.card .content > p:first-child {
+  margin-top: 0.8rem;
+}
+.heading:focus-visible {
+  outline: 2px solid #087d77;
+  outline-offset: -3px;
+}
+.heading:hover {
+  background: #f7fbfa;
 }
 .card h3 {
   margin: 0 0 1rem;

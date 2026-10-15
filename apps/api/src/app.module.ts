@@ -10,6 +10,7 @@ import {
   ContactService,
   CustomFieldDefinitionService,
   ConversationService,
+  AgentControlService,
   HistoricalConversationService,
   UnifiedInboxService,
   IamMemberService,
@@ -54,6 +55,7 @@ import { AcceptMemberInvitationController } from "./accept-member-invitation.con
 import { BootstrapServiceGuard, BOOTSTRAP_SERVICE_POLICY } from "./bootstrap-service-security.js";
 import { AUTOMATION_SERVICE, AutomationsController } from "./automations.controller.js";
 import { CONVERSATION_SERVICE, ConversationsController } from "./conversations.controller.js";
+import { AGENT_CONTROL_SERVICE, AgentControlController } from "./agent-control.controller.js";
 import { UNIFIED_INBOX_SERVICE, UnifiedInboxController } from "./unified-inbox.controller.js";
 import {
   HISTORICAL_CONVERSATION_SERVICE,
@@ -98,6 +100,7 @@ export class AppModule {
         AutomationsController,
         UnifiedInboxController,
         ConversationsController,
+        AgentControlController,
         HistoricalConversationsController,
         CalendarController,
         CatalogController,
@@ -183,6 +186,17 @@ export class AppModule {
             new ConversationService(database.commercial.conversations, {
               contactExistsFor: async (actor, contactId) =>
                 (await database.commercial.contacts.find(actor, contactId)) !== null,
+              ...(ycloudBinding
+                ? {
+                    whatsappThreadFor: async (actor, contactId) => {
+                      const contact = await database.commercial.contacts.find(actor, contactId);
+                      const phone = contact?.phone?.replace(/\D/gu, "") ?? "";
+                      return /^[0-9]{8,20}$/u.test(phone)
+                        ? `ycloud:${ycloudBinding.wabaId}:${phone}`
+                        : null;
+                    },
+                  }
+                : {}),
               isActiveMember: async (memberId) =>
                 (await database.members.findById(memberId))?.status === "ACTIVE",
               documentFor: async (actor, documentId) =>
@@ -196,6 +210,10 @@ export class AppModule {
               database.commercial.unifiedInbox,
               database.externalParticipants,
             ),
+        },
+        {
+          provide: AGENT_CONTROL_SERVICE,
+          useFactory: () => new AgentControlService(database.commercial.agentControl),
         },
         {
           provide: HISTORICAL_CONVERSATION_SERVICE,
