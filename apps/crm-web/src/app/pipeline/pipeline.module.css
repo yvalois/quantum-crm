@@ -172,6 +172,7 @@
   border-color: #a7d3ca;
   background: var(--mint-pale);
   color: var(--mint-deep);
+  text-decoration: none;
 }
 .iconButton {
   width: 2.6rem;

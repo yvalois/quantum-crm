@@ -130,6 +130,7 @@ export const MemberCapabilitiesResponseSchema = z
       .object({
         memberId: MemberIdSchema,
         canAssignSales: z.boolean(),
+        canConfigureSales: z.boolean().optional(),
         canAssignContacts: z.boolean().optional(),
         canAssignConversations: z.boolean(),
         canConfigureAgent: z.boolean(),

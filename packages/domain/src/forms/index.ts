@@ -30,6 +30,7 @@ export interface SubmittedFormRecord {
   readonly formId: string;
   readonly formRevision: number;
   readonly contactId: string | null;
+  readonly conversationId: string | null;
   readonly answers: Readonly<Record<string, FormAnswerValue>>;
   readonly submittedAt: Date;
 }
@@ -38,6 +39,18 @@ export interface FormRepository {
   readonly list: () => Promise<readonly FormRecord[]>;
   readonly find: (id: string) => Promise<FormRecord | null>;
   readonly findPublishedBySlug: (slug: string) => Promise<PublishedFormRecord | null>;
+  readonly prepareConversationShare: (input: {
+    readonly id: string;
+    readonly formId: string;
+    readonly formRevision: number;
+    readonly slug: string;
+    readonly contactId: string;
+    readonly conversationId: string;
+    readonly actorMemberId: string;
+    readonly expiresAt: Date;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) => Promise<{ readonly id: string; readonly slug: string; readonly expiresAt: Date }>;
   readonly create: (input: {
     readonly form: FormRecord;
     readonly actorMemberId: string;
@@ -74,6 +87,7 @@ export interface FormRepository {
   readonly submit: (input: {
     readonly submission: SubmittedFormRecord;
     readonly slug: string;
+    readonly conversationShareId?: string;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
     readonly now: Date;

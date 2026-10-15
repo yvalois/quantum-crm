@@ -35,4 +35,10 @@ describe("file content validation", () => {
       detectAllowedMime("DOCUMENT", "text/plain", new Uint8Array([0x00, 0x01, 0x02])),
     ).toThrow(FileValidationError);
   });
+
+  it("recognizes browser-recorded WebM audio only when declared as audio", () => {
+    const header = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]);
+    expect(detectAllowedMime("AUDIO", "audio/webm", header)).toBe("audio/webm");
+    expect(() => detectAllowedMime("AUDIO", "audio/ogg", header)).toThrow(FileValidationError);
+  });
 });

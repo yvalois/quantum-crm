@@ -1,8 +1,9 @@
-import type {
-  FormRecord,
-  FormRepository,
-  PublishedFormRecord,
-  SubmittedFormRecord,
+import {
+  FormValidationError,
+  type FormRecord,
+  type FormRepository,
+  type PublishedFormRecord,
+  type SubmittedFormRecord,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
@@ -33,6 +34,7 @@ interface ResponseRow {
   readonly form_id: string;
   readonly form_revision: number;
   readonly contact_id: string | null;
+  readonly conversation_id: string | null;
   readonly answers: unknown;
   readonly submitted_at: Date;
 }
@@ -43,7 +45,8 @@ interface IdempotencyRow<Row> {
 
 const selection = `id::text, slug, title, description, status, definition, theme,
   published_revision, closes_at, version::text, created_at, updated_at`;
-const responseSelection = `id::text, form_id::text, form_revision, contact_id::text, answers, submitted_at`;
+const responseSelection = `id::text, form_id::text, form_revision, contact_id::text,
+  conversation_id::text, answers, submitted_at`;
 
 function form(row: FormRow): FormRecord {
   const status = row.status.toUpperCase() as FormRecord["status"];
@@ -72,6 +75,7 @@ function submission(row: ResponseRow): SubmittedFormRecord {
     formId: row.form_id,
     formRevision: row.form_revision,
     contactId: row.contact_id,
+    conversationId: row.conversation_id,
     answers: row.answers as SubmittedFormRecord["answers"],
     submittedAt: new Date(row.submitted_at),
   });
@@ -79,6 +83,7 @@ function submission(row: ResponseRow): SubmittedFormRecord {
 
 function fail(error: unknown): never {
   if (error instanceof CommercialIdempotencyConflictError) throw error;
+  if (error instanceof FormValidationError) throw error;
   throw new DatabaseUnavailableError();
 }
 
@@ -167,6 +172,64 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
         return published;
       } catch (error) {
         return fail(error);
+      }
+    },
+    prepareConversationShare: async (input) => {
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const principal = `member:${input.actorMemberId}`;
+        const found = await previous<{ id: string; slug: string; expiresAt: string }>(
+          client,
+          principal,
+          "forms.conversation-share",
+          input.idempotencyKey,
+          input.payloadHash,
+        );
+        if (found) {
+          await client.query("COMMIT");
+          return { id: found.id, slug: found.slug, expiresAt: new Date(found.expiresAt) };
+        }
+        const current = (await client.query(
+          `SELECT slug FROM forms.forms WHERE id = $1::uuid AND status = 'published'
+             AND published_revision = $2 AND (closes_at IS NULL OR closes_at > CURRENT_TIMESTAMP)
+             FOR SHARE`,
+          [input.formId, input.formRevision],
+        )) as { readonly rows: readonly { slug: string }[] };
+        if (current.rows[0]?.slug !== input.slug)
+          throw new FormValidationError("Form is not published");
+        await client.query(
+          `INSERT INTO forms.conversation_shares
+           (id, form_id, form_revision, contact_id, conversation_id,
+            created_by_member_id, expires_at)
+           VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5::uuid, $6::uuid, $7)`,
+          [
+            input.id,
+            input.formId,
+            input.formRevision,
+            input.contactId,
+            input.conversationId,
+            input.actorMemberId,
+            input.expiresAt,
+          ],
+        );
+        const saved = { id: input.id, slug: input.slug, expiresAt: input.expiresAt.toISOString() };
+        await remember(
+          client,
+          principal,
+          "forms.conversation-share",
+          input.idempotencyKey,
+          input.payloadHash,
+          saved,
+        );
+        await client.query("COMMIT");
+        return { id: saved.id, slug: saved.slug, expiresAt: new Date(saved.expiresAt) };
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
       }
     },
     create: async (input) => {
@@ -420,20 +483,45 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
         ) {
           throw new DatabaseUnavailableError();
         }
+        const share = input.conversationShareId
+          ? ((await client.query(
+              `SELECT contact_id::text, conversation_id::text FROM forms.conversation_shares
+                WHERE id = $1::uuid AND form_id = $2::uuid AND form_revision = $3
+                  AND expires_at > $4 AND response_id IS NULL FOR UPDATE`,
+              [
+                input.conversationShareId,
+                input.submission.formId,
+                input.submission.formRevision,
+                input.now,
+              ],
+            )) as { readonly rows: readonly { contact_id: string; conversation_id: string }[] })
+          : null;
+        if (input.conversationShareId && !share?.rows[0]) {
+          throw new FormValidationError("Form link expired or already used");
+        }
         const result = (await client.query(
-          `INSERT INTO forms.responses (id, form_id, form_revision, contact_id, answers, submitted_at)
-           VALUES ($1::uuid, $2::uuid, $3, NULL, $4::jsonb, $5)
+          `INSERT INTO forms.responses
+             (id, form_id, form_revision, contact_id, conversation_id, answers, submitted_at)
+           VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5::uuid, $6::jsonb, $7)
            RETURNING ${responseSelection}`,
           [
             input.submission.id,
             input.submission.formId,
             input.submission.formRevision,
+            share?.rows[0]?.contact_id ?? null,
+            share?.rows[0]?.conversation_id ?? null,
             JSON.stringify(input.submission.answers),
             input.submission.submittedAt,
           ],
         )) as { readonly rows: readonly ResponseRow[] };
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
+        if (input.conversationShareId) {
+          await client.query(
+            `UPDATE forms.conversation_shares SET response_id = $2::uuid WHERE id = $1::uuid`,
+            [input.conversationShareId, row.id],
+          );
+        }
         await client.query(
           `INSERT INTO forms.outbox (response_id, event_type, payload, occurred_at)
            VALUES ($1::uuid, 'forms.response.submitted.v1', $2::jsonb, $3)`,
@@ -443,6 +531,8 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
               responseId: row.id,
               formId: row.form_id,
               formRevision: row.form_revision,
+              contactId: row.contact_id,
+              conversationId: row.conversation_id,
             }),
             input.now,
           ],
@@ -483,7 +573,8 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
       try {
         const result = (await pool.query(
           `SELECT response.id::text, response.form_id::text, response.form_revision,
-                  response.contact_id::text, response.answers, response.submitted_at,
+                  response.contact_id::text, response.conversation_id::text,
+                  response.answers, response.submitted_at,
                   version.definition AS published_definition
              FROM forms.responses AS response
              JOIN forms.forms AS form ON form.id = response.form_id

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { CreateFormSchema, FormDefinitionSchema, SubmitFormResponseSchema } from "./form.js";
+import {
+  CreateFormConversationShareSchema,
+  CreateFormSchema,
+  FormDefinitionSchema,
+  SubmitFormResponseSchema,
+} from "./form.js";
 
 const sectionId = "019b0000-0000-7000-8000-000000000101";
 const firstId = "019b0000-0000-7000-8000-000000000102";
@@ -60,5 +65,20 @@ describe("form contracts", () => {
     expect(SubmitFormResponseSchema.safeParse({ answers: { unknown: "value" } }).success).toBe(
       false,
     );
+  });
+
+  it("accepts only a typed conversation share reference", () => {
+    expect(CreateFormConversationShareSchema.safeParse({ conversationId: firstId }).success).toBe(
+      true,
+    );
+    expect(
+      CreateFormConversationShareSchema.safeParse({ conversationId: "another-profile" }).success,
+    ).toBe(false);
+    expect(
+      SubmitFormResponseSchema.safeParse({ answers: {}, conversationShareId: secondId }).success,
+    ).toBe(true);
+    expect(
+      SubmitFormResponseSchema.safeParse({ answers: {}, conversationShareId: "wrong" }).success,
+    ).toBe(false);
   });
 });

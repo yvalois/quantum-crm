@@ -40,6 +40,19 @@ export interface ConversationReferences {
     actor: CommercialActor,
     documentId: string,
   ) => Promise<CommercialDocumentRecord | null>;
+  /** Files owns validation and access; conversations retains only the stable file ID. */
+  readonly mediaFor?: (
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    fileId: string,
+    conversationId: string,
+  ) => Promise<{
+    readonly id: string;
+    readonly status: string;
+    readonly fileClass: string;
+    readonly mimeType: string;
+    readonly size: number;
+  } | null>;
 }
 
 function documentSnapshot(document: CommercialDocumentRecord): ConversationDocumentSnapshot {
@@ -149,6 +162,7 @@ export class ConversationService {
         externalMessageId: null,
         deliveryStatus: "QUEUED",
         failureCode: null,
+        fileId: null,
         documentId: null,
         documentSnapshot: null,
         createdAt: now,
@@ -233,6 +247,7 @@ export class ConversationService {
     readonly expectedVersion: bigint;
     readonly body: string;
     readonly kind: ConversationMessageKind;
+    readonly fileId?: string;
     readonly documentId?: string;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
@@ -243,13 +258,46 @@ export class ConversationService {
     if (current.attentionMode !== "HUMAN" || current.status === "CLOSED")
       throw new ConversationValidationError();
     let attachedDocument: CommercialDocumentRecord | null = null;
-    if (input.kind === "DOCUMENT") {
-      if (!input.documentId || !this.references.documentFor)
+    if (input.documentId) {
+      if (input.kind !== "DOCUMENT" || !this.references.documentFor)
         throw new ConversationValidationError();
       attachedDocument = await this.references.documentFor(input.actor, input.documentId);
       if (!attachedDocument || attachedDocument.contactId !== current.contactId)
         throw new ConversationNotFoundError();
-    } else if (input.documentId !== undefined) {
+    } else if (input.kind === "DOCUMENT" && !input.fileId) {
+      throw new ConversationValidationError();
+    }
+    if (attachedDocument && !input.fileId && current.channel === "WHATSAPP") {
+      // The template instance has no deliverable PDF yet. Never queue an undeliverable message.
+      throw new ConversationValidationError();
+    }
+    if (input.fileId) {
+      const media = await this.references.mediaFor?.(
+        input.actor,
+        input.permissions,
+        input.fileId,
+        current.id,
+      );
+      const expectedClass =
+        input.kind === "IMAGE" ? "IMAGE" : input.kind === "AUDIO" ? "AUDIO" : "DOCUMENT";
+      const acceptedMime =
+        input.kind === "IMAGE"
+          ? ["image/jpeg", "image/png"]
+          : input.kind === "AUDIO"
+            ? ["audio/mpeg", "audio/ogg", "audio/webm"]
+            : ["application/pdf", "text/plain"];
+      const maxBytes =
+        input.kind === "IMAGE" ? 5_000_000 : input.kind === "AUDIO" ? 16_000_000 : 50_000_000;
+      if (
+        !media ||
+        media.status !== "AVAILABLE" ||
+        media.fileClass !== expectedClass ||
+        !acceptedMime.includes(media.mimeType) ||
+        media.size > maxBytes ||
+        !["IMAGE", "AUDIO", "DOCUMENT"].includes(input.kind)
+      )
+        throw new ConversationValidationError();
+    } else if (["IMAGE", "AUDIO"].includes(input.kind)) {
       throw new ConversationValidationError();
     }
     const now = this.clock();
@@ -267,6 +315,7 @@ export class ConversationService {
         externalMessageId: null,
         deliveryStatus: "QUEUED",
         failureCode: null,
+        fileId: input.fileId ?? null,
         documentId: attachedDocument?.id ?? null,
         documentSnapshot: attachedDocument ? documentSnapshot(attachedDocument) : null,
         createdAt: now,
@@ -306,6 +355,7 @@ export class ConversationService {
         externalMessageId: null,
         deliveryStatus: "NOT_APPLICABLE",
         failureCode: null,
+        fileId: null,
         documentId: null,
         documentSnapshot: null,
         createdAt: now,

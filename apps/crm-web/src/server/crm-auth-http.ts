@@ -160,8 +160,10 @@ import {
   OrganizeMediaFileSchema,
   RenameMediaFolderSchema,
   CloseFormSchema,
+  CreateFormConversationShareSchema,
   CreateFormSchema,
   FormListResponseSchema,
+  FormConversationShareResponseSchema,
   FormResponseListQuerySchema,
   FormResponseSchema,
   PublicFormResponseSchema,
@@ -1695,6 +1697,20 @@ export async function handleCrmFormGet(request: Request, runtime: CrmAuthRuntime
     new URL(`/api/v1/forms/${formId}`, runtime.config.crmApiOrigin),
     FormResponseSchema,
   );
+}
+
+export async function handleCrmFormConversationShare(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  formId: string,
+) {
+  if (!uuidPattern.test(formId)) return crmProblem(400, "Invalid request");
+  return calendarMutation(request, runtime, {
+    path: `/api/v1/forms/${formId}/conversation-shares`,
+    method: "POST",
+    requestSchema: CreateFormConversationShareSchema,
+    responseSchema: FormConversationShareResponseSchema,
+  });
 }
 
 export async function handleCrmFormUpdate(

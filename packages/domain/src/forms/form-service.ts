@@ -249,10 +249,49 @@ export class FormService {
     return published;
   }
 
+  public async prepareConversationShare(input: {
+    readonly actorMemberId: string;
+    readonly permissions: readonly IamPermission[];
+    readonly formId: string;
+    readonly conversationId: string;
+    readonly contactId: string;
+    readonly idempotencyKey: string;
+    readonly payloadHash: string;
+  }) {
+    allow(input.permissions, "crm:forms:read");
+    allow(input.permissions, "crm:conversations:reply");
+    const form = await this.repository.find(input.formId);
+    if (!form) throw new FormNotFoundError();
+    if (
+      form.status !== "PUBLISHED" ||
+      !form.publishedRevision ||
+      (form.closesAt && form.closesAt <= this.clock())
+    )
+      throw new FormClosedError();
+    return this.repository.prepareConversationShare({
+      id: randomUUID(),
+      formId: form.id,
+      formRevision: form.publishedRevision,
+      slug: form.slug,
+      contactId: input.contactId,
+      conversationId: input.conversationId,
+      actorMemberId: input.actorMemberId,
+      expiresAt: new Date(
+        Math.min(
+          this.clock().getTime() + 30 * 24 * 60 * 60 * 1000,
+          form.closesAt?.getTime() ?? Number.MAX_SAFE_INTEGER,
+        ),
+      ),
+      idempotencyKey: input.idempotencyKey,
+      payloadHash: input.payloadHash,
+    });
+  }
+
   public async submit(input: {
     readonly slug: string;
     readonly answers: Readonly<Record<string, FormAnswerValue>>;
     readonly pendingImageFieldIds?: readonly string[];
+    readonly conversationShareId?: string;
     readonly idempotencyKey: string;
     readonly payloadHash: string;
   }) {
@@ -269,10 +308,12 @@ export class FormService {
         formId: published.form.id,
         formRevision: published.revision,
         contactId: null,
+        conversationId: null,
         answers,
         submittedAt,
       }),
       slug: input.slug,
+      ...(input.conversationShareId ? { conversationShareId: input.conversationShareId } : {}),
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,
       now: submittedAt,

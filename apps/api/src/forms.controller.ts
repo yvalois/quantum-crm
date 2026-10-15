@@ -24,6 +24,7 @@ import {
 import {
   CloseFormSchema,
   CompleteFileUploadSchema,
+  CreateFormConversationShareSchema,
   CreateFormSchema,
   FileOperationResponseSchema,
   FileResponseSchema,
@@ -31,6 +32,7 @@ import {
   FormListResponseSchema,
   FormResponseListQuerySchema,
   FormResponseSchema,
+  FormConversationShareResponseSchema,
   PublicFormResponseSchema,
   PublicFormImageUploadIntentSchema,
   PublishFormSchema,
@@ -44,6 +46,8 @@ import {
   FormNotFoundError,
   type FormRecord,
   FormService,
+  ConversationService,
+  ConversationNotFoundError,
   FormValidationError,
   FormVersionConflictError,
   FileService,
@@ -56,6 +60,7 @@ import { CommercialIdempotencyConflictError } from "@quantum-crm/database";
 
 import { CrmPublicRoute, crmAuthContext, RequireCrmPermission } from "./crm-security.js";
 import { FILE_SERVICE } from "./files.controller.js";
+import { CONVERSATION_SERVICE } from "./conversations.controller.js";
 
 export const FORM_SERVICE = Symbol("FORM_SERVICE");
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -131,6 +136,7 @@ export class FormsController {
   public constructor(
     @Inject(FORM_SERVICE) private readonly service: FormService,
     @Inject(FILE_SERVICE) private readonly files: FileService,
+    @Inject(CONVERSATION_SERVICE) private readonly conversations: ConversationService,
   ) {}
 
   private async imageUpload(slug: string, responseId: string, fieldId: string) {
@@ -342,6 +348,45 @@ export class FormsController {
     }
   }
 
+  @Post(":formId/conversation-shares")
+  @RequireCrmPermission("crm:forms:read")
+  public async conversationShare(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("formId") formId: string,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() body: unknown,
+  ) {
+    if (!uuidPattern.test(formId)) throw new BadRequestException();
+    try {
+      const parsed = CreateFormConversationShareSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const context = crmAuthContext(request);
+      const actor = { memberId: context.principal.id, scope: context.commercialScope } as const;
+      const granted = context.permissions as readonly IamPermission[];
+      const thread = await this.conversations
+        .thread(actor, granted, parsed.data.conversationId)
+        .catch((error: unknown) => {
+          if (error instanceof ConversationNotFoundError) throw new NotFoundException();
+          throw error;
+        });
+      if (thread.conversation.channel !== "WHATSAPP") throw new BadRequestException();
+      const result = await this.service.prepareConversationShare({
+        actorMemberId: actor.memberId,
+        permissions: granted,
+        formId,
+        conversationId: thread.conversation.id,
+        contactId: thread.conversation.contactId,
+        idempotencyKey: key(idempotencyKey),
+        payloadHash: hash({ formId, conversationId: parsed.data.conversationId }),
+      });
+      return FormConversationShareResponseSchema.parse({
+        data: { ...result, expiresAt: result.expiresAt.toISOString() },
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
   @Post("public/:slug/responses")
   @CrmPublicRoute()
   public async submit(
@@ -359,6 +404,9 @@ export class FormsController {
             slug,
             answers: parsed.data.answers,
             pendingImageFieldIds: parsed.data.pendingImageFieldIds,
+            ...(parsed.data.conversationShareId
+              ? { conversationShareId: parsed.data.conversationShareId }
+              : {}),
             idempotencyKey: key(idempotencyKey),
             payloadHash: hash(parsed.data),
           }),

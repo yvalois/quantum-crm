@@ -373,7 +373,11 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
-  packages/files-infrastructure: {}
+  packages/files-infrastructure:
+    dependencies:
+      "@quantum-crm/domain":
+        specifier: workspace:*
+        version: link:../domain
 
   packages/observability:
     dependencies:

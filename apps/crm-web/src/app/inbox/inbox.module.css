@@ -1135,6 +1135,75 @@
   font-size: 0.55rem;
 }
 
+.messageImage {
+  display: block;
+  width: auto;
+  max-width: min(100%, 24rem);
+  max-height: 22rem;
+  object-fit: contain;
+  border-radius: 0.42rem;
+  margin-bottom: 0.4rem;
+}
+
+.messageAudio {
+  display: block;
+  width: min(100%, 19rem);
+  margin-bottom: 0.35rem;
+}
+
+.messageFile {
+  display: inline-flex;
+  margin-bottom: 0.35rem;
+  color: var(--teal-deep);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mediaUnavailable,
+.mediaProgress {
+  color: var(--muted);
+  font-size: 0.69rem;
+}
+
+.pendingMedia {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+  border: 1px solid #b6d9d1;
+  border-radius: 0.6rem;
+  background: #eff9f5;
+  padding: 0.5rem 0.62rem;
+  color: var(--teal-deep);
+}
+
+.pendingMedia span {
+  min-width: 0;
+  flex: 1;
+}
+.pendingMedia strong,
+.pendingMedia small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pendingMedia strong {
+  font-size: 0.72rem;
+}
+.pendingMedia small {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+.pendingMedia button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
 .composer {
   border-top: 1px solid var(--line);
   background: #fff;
@@ -1217,6 +1286,41 @@
   margin-top: 0.55rem;
 }
 
+.formPicker {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 14rem;
+  overflow: auto;
+  margin-bottom: 0.7rem;
+  padding: 0.65rem;
+  border: 1px solid #cddedc;
+  border-radius: 0.7rem;
+  background: #f7fbfa;
+}
+
+.formPicker > div,
+.formPicker > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.formPicker > button {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #dce8e6;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #17393b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.formPicker > button span {
+  color: #647a7e;
+  font-size: 0.75rem;
+}
+
 .composerTools {
   min-width: 0;
   gap: 0.35rem;
@@ -1229,6 +1333,56 @@
   color: #5d7479;
   padding-inline: 0.5rem;
   font-size: 0.62rem;
+}
+
+.voiceRecorder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.voiceRecording {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #e8b6b0;
+  border-radius: 0.45rem;
+  background: #fff7f5;
+  color: #8a352d;
+  padding: 0.22rem 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
+.voiceRecording button {
+  min-height: 1.55rem;
+  border: 0;
+  border-radius: 0.32rem;
+  background: #fff;
+  color: inherit;
+  padding: 0.2rem 0.38rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.voiceRecording button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.recordingDot {
+  width: 0.48rem;
+  height: 0.48rem;
+  flex: none;
+  border-radius: 50%;
+  background: #d34c40;
+  box-shadow: 0 0 0 0.2rem rgb(211 76 64 / 0.14);
+}
+
+.recordingError {
+  color: #9b3e36;
+  font-size: 0.65rem;
 }
 
 .quickReplySelect {

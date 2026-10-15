@@ -20,9 +20,11 @@ import { DatabaseUnavailableError, type PostgresPool } from "./postgres-database
 interface OutboundRow {
   readonly outbox_id: string;
   readonly message_id: string;
+  readonly conversation_id: string;
   readonly external_thread_id: string | null;
   readonly body: string;
   readonly kind: string;
+  readonly file_id: string | null;
   readonly attempts: number;
   readonly window_open: boolean;
 }
@@ -54,7 +56,9 @@ export function createConversationOutboundDispatcher(
         );
         const result = await client.query<OutboundRow>(
           `SELECT outbox.id::text AS outbox_id, message.id::text AS message_id,
-                  conversation.external_thread_id, message.body, message.kind, outbox.attempts,
+                  message.conversation_id::text,
+                  conversation.external_thread_id, message.body, message.kind,
+                  message.file_id::text, outbox.attempts,
                   EXISTS (SELECT 1 FROM conversations.messages inbound
                     WHERE inbound.conversation_id = conversation.id AND inbound.direction = 'inbound'
                       AND inbound.created_at > CURRENT_TIMESTAMP - interval '24 hours'
@@ -99,9 +103,11 @@ export function createConversationOutboundDispatcher(
         return Object.freeze({
           outboxId: row.outbox_id,
           messageId: row.message_id,
+          conversationId: row.conversation_id,
           externalThreadId: row.external_thread_id ?? "",
           body: row.body,
           kind: row.kind.toUpperCase() as "TEXT" | "IMAGE" | "AUDIO" | "DOCUMENT" | "SYSTEM",
+          fileId: row.file_id,
           attempt,
         });
       } catch (error) {
@@ -450,6 +456,7 @@ interface MessageRow {
   readonly external_message_id: string | null;
   readonly delivery_status: string;
   readonly failure_code: string | null;
+  readonly file_id: string | null;
   readonly document_id: string | null;
   readonly document_snapshot: ConversationMessageRecord["documentSnapshot"];
   readonly created_at: Date | string;
@@ -481,7 +488,7 @@ export const conversationSelection = `conversation.id::text, conversation.contac
 const messageSelection = `message.id::text, message.conversation_id::text, message.sequence::text,
   message.direction, message.kind, message.author_member_id::text, message.body,
   message.external_message_id, message.delivery_status, message.failure_code,
-  message.document_id::text, message.document_snapshot,
+  message.file_id::text, message.document_id::text, message.document_snapshot,
   message.created_at, message.updated_at`;
 
 export function conversationFromRow(row: ConversationRow): ConversationRecord {
@@ -515,6 +522,7 @@ function messageFromRow(row: MessageRow): ConversationMessageRecord {
     deliveryStatus:
       row.delivery_status.toUpperCase() as ConversationMessageRecord["deliveryStatus"],
     failureCode: row.failure_code,
+    fileId: row.file_id,
     documentId: row.document_id,
     documentSnapshot: row.document_snapshot,
     createdAt: new Date(row.created_at),
@@ -804,9 +812,9 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
         await client.query(
           `INSERT INTO conversations.messages
            (id, conversation_id, sequence, direction, kind, author_member_id, body,
-            external_message_id, delivery_status, failure_code, document_id, document_snapshot,
+            external_message_id, delivery_status, failure_code, file_id, document_id, document_snapshot,
             created_at, updated_at)
-           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, $6::uuid, $7, $8, $9, $10, $11::uuid, $12::jsonb, $13, $14)`,
+           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, $6::uuid, $7, $8, $9, $10, $11::uuid, $12::uuid, $13::jsonb, $14, $15)`,
           [
             input.message.id,
             input.message.conversationId,
@@ -818,6 +826,7 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
             input.message.externalMessageId,
             input.message.deliveryStatus.toLowerCase(),
             input.message.failureCode,
+            input.message.fileId,
             input.message.documentId,
             input.message.documentSnapshot === null
               ? null
@@ -1020,12 +1029,12 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
         const result = await client.query<MessageRow>(
           `INSERT INTO conversations.messages
            (id, conversation_id, sequence, direction, kind, author_member_id, body,
-            external_message_id, delivery_status, failure_code, document_id, document_snapshot,
+            external_message_id, delivery_status, failure_code, file_id, document_id, document_snapshot,
             created_at, updated_at)
-           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, $6::uuid, $7, $8, $9, $10, $11::uuid, $12::jsonb, $13, $14)
+           VALUES ($1::uuid, $2::uuid, $3::bigint, $4, $5, $6::uuid, $7, $8, $9, $10, $11::uuid, $12::uuid, $13::jsonb, $14, $15)
            RETURNING id::text, conversation_id::text, sequence::text, direction, kind,
              author_member_id::text, body, external_message_id, delivery_status, failure_code,
-             document_id::text, document_snapshot,
+             file_id::text, document_id::text, document_snapshot,
              created_at, updated_at`,
           [
             input.message.id,
@@ -1038,6 +1047,7 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
             input.message.externalMessageId,
             input.message.deliveryStatus.toLowerCase(),
             input.message.failureCode,
+            input.message.fileId,
             input.message.documentId,
             input.message.documentSnapshot === null
               ? null

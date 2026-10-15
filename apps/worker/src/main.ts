@@ -5,7 +5,12 @@ import { NestFactory } from "@nestjs/core";
 import { createServiceTokenClient } from "@quantum-crm/auth";
 import { loadServiceConfig, requireDatabaseConfig, requireOidcConfig } from "@quantum-crm/config";
 import { createCrmPostgresDatabase } from "@quantum-crm/database";
-import { createClamAvClient, createS3ObjectStorage } from "@quantum-crm/files-infrastructure";
+import { agentRoutingPrincipalId } from "@quantum-crm/domain";
+import {
+  createClamAvClient,
+  createS3ObjectStorage,
+  readAvailableOutboundMedia,
+} from "@quantum-crm/files-infrastructure";
 import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
 
 import { AppModule } from "./app.module.js";
@@ -85,6 +90,14 @@ async function bootstrap(): Promise<void> {
         repository: database.commercial.conversationOutbound,
         binding: config.ycloudBinding,
         apiKey: config.ycloudApiKey.expose(),
+        mediaFor: (lease) =>
+          readAvailableOutboundMedia({
+            files: database.commercial.files,
+            storage,
+            actor: { memberId: agentRoutingPrincipalId, scope: "PROFILE" },
+            fileId: lease.fileId ?? "",
+            conversationId: lease.conversationId,
+          }),
         pollIntervalMs: 2_000,
         onError: () => {
           process.stderr.write('{"level":"error","event":"ycloud_outbound_attempt_failed"}\n');

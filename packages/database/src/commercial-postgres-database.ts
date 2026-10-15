@@ -522,6 +522,7 @@ interface PipelineSnapshotRow extends PipelineRow {
 }
 interface OpportunityRow {
   readonly id: string;
+  readonly source_conversation_id?: string | null;
   readonly source_participant_references?: unknown;
   readonly owner_member_id: string;
   readonly contact_id: string;
@@ -553,7 +554,7 @@ interface OpportunityHistoryRow {
   readonly note: string | null;
   readonly created_at: Date;
 }
-const opportunitySelection = `id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, status, close_reason, closed_at, version::text, created_at, updated_at`;
+const opportunitySelection = `id::text, source_conversation_id::text, owner_member_id::text, contact_id::text, pipeline_id::text, stage_id::text, title, amount_minor::text, currency::text, status, close_reason, closed_at, version::text, created_at, updated_at`;
 const opportunityParticipantSelection = `(SELECT jsonb_build_object('locationId', source_map.source_location_id,
   'ownerExternalId', NULLIF(source_map.source_payload->>'assignedTo', ''),
   'followerExternalIds', COALESCE(NULLIF(source_map.source_payload->'followers', 'null'::jsonb), '[]'::jsonb))
@@ -576,6 +577,7 @@ function opportunityFromRow(row: OpportunityRow): Opportunity {
     throw new DatabaseUnavailableError();
   return Object.freeze({
     id: row.id,
+    sourceConversationId: row.source_conversation_id ?? null,
     ownerMemberId: row.owner_member_id,
     contactId: row.contact_id,
     pipelineId: row.pipeline_id,
@@ -1932,6 +1934,10 @@ export function createCommercialPostgresRepositories(
         };
         if (filters.contactId !== undefined)
           conditions.push(`opportunity.contact_id = ${parameter(filters.contactId)}::uuid`);
+        if (filters.sourceConversationId !== undefined)
+          conditions.push(
+            `opportunity.source_conversation_id = ${parameter(filters.sourceConversationId)}::uuid`,
+          );
         if (filters.pipelineId !== undefined)
           conditions.push(`opportunity.pipeline_id = ${parameter(filters.pipelineId)}::uuid`);
         if (filters.stageId !== undefined)
@@ -2053,7 +2059,7 @@ export function createCommercialPostgresRepositories(
           return opportunityFromRow(previous.response);
         }
         const inserted = await client.query<OpportunityRow>(
-          `INSERT INTO sales.opportunities (id, owner_member_id, contact_id, pipeline_id, stage_id, title, amount_minor, currency, status, close_reason, closed_at, version, created_at, updated_at) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6, $7::bigint, $8, $9, $10, $11, $12::bigint, $13, $14) RETURNING ${opportunitySelection}`,
+          `INSERT INTO sales.opportunities (id, source_conversation_id, owner_member_id, contact_id, pipeline_id, stage_id, title, amount_minor, currency, status, close_reason, closed_at, version, created_at, updated_at) VALUES ($1::uuid, $15::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6, $7::bigint, $8, $9, $10, $11, $12::bigint, $13, $14) RETURNING ${opportunitySelection}`,
           [
             input.opportunity.id,
             input.opportunity.ownerMemberId,
@@ -2069,6 +2075,7 @@ export function createCommercialPostgresRepositories(
             input.opportunity.version.toString(),
             input.opportunity.createdAt,
             input.opportunity.updatedAt,
+            input.opportunity.sourceConversationId ?? null,
           ],
         );
         const row = inserted.rows[0];
@@ -2210,6 +2217,7 @@ export function createCommercialPostgresRepositories(
           `UPDATE sales.opportunities AS opportunity
               SET owner_member_id = $2::uuid, title = $3, amount_minor = $4::bigint,
                   currency = $5, status = $6, close_reason = $7, closed_at = $8,
+                  source_conversation_id = COALESCE($11::uuid, opportunity.source_conversation_id),
                   version = version + 1, updated_at = $9
             WHERE opportunity.id = $1::uuid AND opportunity.version = $10::bigint
             RETURNING ${opportunitySelection}`,
@@ -2224,6 +2232,7 @@ export function createCommercialPostgresRepositories(
             input.opportunity.closedAt,
             input.opportunity.updatedAt,
             input.expectedVersion.toString(),
+            input.opportunity.sourceConversationId ?? null,
           ],
         );
         const row = result.rows[0];

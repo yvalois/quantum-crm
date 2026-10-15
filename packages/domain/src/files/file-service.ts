@@ -39,6 +39,13 @@ function allowOwner(
       access === "read" ? "crm:conversations:read" : "crm:conversations:configure",
     );
   }
+  if (
+    owner.kind === "existing" &&
+    owner.module === "conversations" &&
+    owner.type === "conversation"
+  ) {
+    allow(permissions, access === "read" ? "crm:conversations:read" : "crm:conversations:reply");
+  }
   if (owner.kind === "existing" && owner.module === "agents") {
     allow(permissions, "crm:documents:templates");
   }

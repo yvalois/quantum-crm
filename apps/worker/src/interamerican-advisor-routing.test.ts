@@ -13,6 +13,8 @@ function database(
     previousOwner?: string;
     previousStatus?: "OPEN" | "WON";
     existingThreadOwner?: string | null;
+    linkedConversationId?: string | null;
+    anotherOpenOpportunity?: boolean;
   } = {},
 ) {
   const contact = {
@@ -37,6 +39,7 @@ function database(
         {
           id: "019b0000-0000-7000-8000-000000000004",
           contactId,
+          sourceConversationId: input.linkedConversationId ?? null,
           ownerMemberId: input.previousOwner,
           status: input.previousStatus ?? "OPEN",
           version: 1n,
@@ -44,6 +47,17 @@ function database(
         },
       ]
     : [];
+  if (input.anotherOpenOpportunity) {
+    opportunity.push({
+      id: "019b0000-0000-7000-8000-000000000006",
+      contactId,
+      sourceConversationId: null,
+      ownerMemberId: julioId,
+      status: "OPEN",
+      version: 1n,
+      updatedAt: new Date("2026-10-14T19:00:00Z"),
+    });
+  }
   const reserveAdvisor = vi.fn(
     async (route: { previousMemberId: string | null }) => route.previousMemberId ?? carlosId,
   );
@@ -82,7 +96,7 @@ function database(
 
 describe("InterAmerican advisor routing", () => {
   it("keeps the previous authorized advisor on chat, contact and open opportunity", async () => {
-    const { db, mock } = database({ previousOwner: julioId });
+    const { db, mock } = database({ previousOwner: julioId, linkedConversationId: conversationId });
     expect(await routeInterAmericanAdvisor(db, { conversationId })).toBe(julioId);
     expect(mock.commercial.externalConversations.reserveAdvisor).toHaveBeenCalledWith(
       expect.objectContaining({ previousMemberId: julioId }),
@@ -111,7 +125,31 @@ describe("InterAmerican advisor routing", () => {
     await routeInterAmericanAdvisor(db, { conversationId });
     expect(mock.commercial.sales.createOpportunity).toHaveBeenCalledWith(
       expect.objectContaining({
-        idempotencyKey: `agent-route-${contactId}-019b0000-0000-7000-8000-000000000004`,
+        idempotencyKey: `agent-route-${conversationId}`,
+        opportunity: expect.objectContaining({ sourceConversationId: conversationId }),
+      }),
+    );
+  });
+
+  it("links the sole open opportunity to the conversation before handoff", async () => {
+    const { db, mock } = database({ previousOwner: carlosId });
+    await routeInterAmericanAdvisor(db, { conversationId });
+    expect(mock.commercial.sales.updateOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunity: expect.objectContaining({ sourceConversationId: conversationId }),
+      }),
+    );
+    expect(mock.commercial.sales.createOpportunity).not.toHaveBeenCalled();
+  });
+
+  it("does not steal an arbitrary opportunity when the contact has multiple open leads", async () => {
+    const { db, mock } = database({ previousOwner: julioId, anotherOpenOpportunity: true });
+    await routeInterAmericanAdvisor(db, { conversationId });
+    expect(mock.commercial.sales.updateOpportunity).not.toHaveBeenCalled();
+    expect(mock.commercial.sales.createOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: `agent-route-${conversationId}`,
+        opportunity: expect.objectContaining({ sourceConversationId: conversationId }),
       }),
     );
   });
