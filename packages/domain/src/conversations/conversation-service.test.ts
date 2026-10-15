@@ -6,6 +6,7 @@ import {
   ConversationService,
   ConversationValidationError,
   ConversationVersionConflictError,
+  ConversationWindowClosedError,
   type ConversationRecord,
   type ConversationRepository,
 } from "./index.js";
@@ -37,6 +38,7 @@ function repository(record: ConversationRecord | null = existing): ConversationR
   return {
     list: vi.fn(async () => ({ items: record ? [record] : [], nextCursor: null })),
     find: vi.fn(async () => record),
+    markRead: vi.fn(async () => record && { ...record, unreadCount: 0 }),
     thread: vi.fn(async () =>
       record ? { conversation: record, messages: [], history: [] } : null,
     ),
@@ -152,24 +154,25 @@ describe("ConversationService", () => {
     );
   });
 
-  it("uses only the server-owned WhatsApp binding when starting a live chat", async () => {
+  it("refuses free-form WhatsApp initiation without an inbound customer window", async () => {
     const store = repository();
     const service = new ConversationService(
       store,
       { ...references(), whatsappThreadFor: vi.fn(async () => "ycloud:123456:50255556666") },
       () => now,
     );
-    const created = await service.create({
-      actor,
-      permissions: ["crm:conversations:reply"],
-      contactId: existing.contactId,
-      channel: "WHATSAPP",
-      initialMessage: "Hola",
-      idempotencyKey: "whatsapp-12345678",
-      payloadHash: "a".repeat(64),
-    });
-    expect(created.externalThreadId).toBe("ycloud:123456:50255556666");
-    expect(store.create).toHaveBeenCalledTimes(1);
+    await expect(
+      service.create({
+        actor,
+        permissions: ["crm:conversations:reply"],
+        contactId: existing.contactId,
+        channel: "WHATSAPP",
+        initialMessage: "Hola",
+        idempotencyKey: "whatsapp-12345678",
+        payloadHash: "a".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(ConversationWindowClosedError);
+    expect(store.create).not.toHaveBeenCalled();
   });
 
   it("refuses a new live WhatsApp chat without a validated recipient number", async () => {
@@ -189,8 +192,19 @@ describe("ConversationService", () => {
         idempotencyKey: "whatsapp-12345678",
         payloadHash: "a".repeat(64),
       }),
-    ).rejects.toBeInstanceOf(ConversationValidationError);
+    ).rejects.toBeInstanceOf(ConversationWindowClosedError);
     expect(store.create).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges a visible thread without requiring reply permission", async () => {
+    const store = repository({ ...existing, unreadCount: 3 });
+    const service = new ConversationService(store, references(), () => now);
+    const marked = await service.markRead(actor, ["crm:conversations:read"], existing.id, 12n);
+    expect(marked.unreadCount).toBe(0);
+    expect(store.markRead).toHaveBeenCalledWith(actor, existing.id, 12n);
+    await expect(service.markRead(actor, [], existing.id, 12n)).rejects.toBeInstanceOf(
+      IamAuthorizationError,
+    );
   });
 
   it("retains a historical advisor only when the sender can assign an active member", async () => {

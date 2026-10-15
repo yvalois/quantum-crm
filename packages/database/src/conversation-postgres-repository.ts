@@ -1,16 +1,17 @@
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 
-import type {
-  CommercialActor,
-  ConversationHistoryRecord,
-  ConversationMessageRecord,
-  ConversationRecord,
-  ConversationRepository,
-  ExternalConversationReceiver,
-  ExternalConversationMessage,
-  ConversationOutboundDispatcher,
-  QuickReplyRecord,
+import {
+  ConversationWindowClosedError,
+  type CommercialActor,
+  type ConversationHistoryRecord,
+  type ConversationMessageRecord,
+  type ConversationRecord,
+  type ConversationRepository,
+  type ExternalConversationReceiver,
+  type ExternalConversationMessage,
+  type ConversationOutboundDispatcher,
+  type QuickReplyRecord,
 } from "@quantum-crm/domain";
 import type { PoolClient } from "pg";
 
@@ -23,6 +24,7 @@ interface OutboundRow {
   readonly body: string;
   readonly kind: string;
   readonly attempts: number;
+  readonly window_open: boolean;
 }
 
 /** An expired, uncertain lease is never sent again without reconciliation. */
@@ -52,7 +54,11 @@ export function createConversationOutboundDispatcher(
         );
         const result = await client.query<OutboundRow>(
           `SELECT outbox.id::text AS outbox_id, message.id::text AS message_id,
-                  conversation.external_thread_id, message.body, message.kind, outbox.attempts
+                  conversation.external_thread_id, message.body, message.kind, outbox.attempts,
+                  EXISTS (SELECT 1 FROM conversations.messages inbound
+                    WHERE inbound.conversation_id = conversation.id AND inbound.direction = 'inbound'
+                      AND inbound.created_at > CURRENT_TIMESTAMP - interval '24 hours'
+                      AND inbound.created_at <= CURRENT_TIMESTAMP) AS window_open
              FROM conversations.outbox AS outbox
              JOIN conversations.messages AS message ON message.id = outbox.message_id
              JOIN conversations.conversations AS conversation ON conversation.id = message.conversation_id
@@ -63,6 +69,22 @@ export function createConversationOutboundDispatcher(
         );
         const row = result.rows[0];
         if (!row) {
+          await client.query("COMMIT");
+          return null;
+        }
+        if (!row.window_open) {
+          await client.query(
+            `UPDATE conversations.outbox SET status = 'failed', next_attempt_at = 'infinity',
+                    last_error_code = 'WHATSAPP_WINDOW_CLOSED', updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1::uuid`,
+            [row.outbox_id],
+          );
+          await client.query(
+            `UPDATE conversations.messages SET delivery_status = 'failed',
+                    failure_code = 'WHATSAPP_WINDOW_CLOSED', updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1::uuid`,
+            [row.message_id],
+          );
           await client.query("COMMIT");
           return null;
         }
@@ -566,6 +588,7 @@ function nextCursor(row: ConversationRow | undefined): string | null {
 }
 function fail(error: unknown): never {
   if (error instanceof ConversationIdempotencyConflictError) throw error;
+  if (error instanceof ConversationWindowClosedError) throw error;
   throw new DatabaseUnavailableError();
 }
 async function lock(
@@ -676,6 +699,24 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
           `SELECT ${conversationSelection} FROM conversations.conversations conversation
            WHERE conversation.id = $1::uuid AND ${visible.sql}`,
           [id, ...visible.params],
+        )) as { rows: ConversationRow[] };
+        return result.rows[0] ? conversationFromRow(result.rows[0]) : null;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    markRead: async (actor, id, throughSequence) => {
+      try {
+        const visible = access(actor, 2);
+        const through = 2 + visible.params.length;
+        const result = (await pool.query(
+          `UPDATE conversations.conversations conversation SET unread_count =
+             (SELECT count(*)::int FROM conversations.messages message
+              WHERE message.conversation_id = conversation.id AND message.direction = 'inbound'
+                AND message.sequence > $${through}::bigint)
+           WHERE conversation.id = $1::uuid AND ${visible.sql}
+           RETURNING ${conversationSelection}`,
+          [id, ...visible.params, throughSequence.toString()],
         )) as { rows: ConversationRow[] };
         return result.rows[0] ? conversationFromRow(result.rows[0]) : null;
       } catch (error) {
@@ -957,6 +998,18 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
         if (!conversation) {
           await client.query("ROLLBACK");
           return null;
+        }
+        if (conversation.channel === "whatsapp" && input.message.direction === "OUTBOUND") {
+          const window = await client.query<{ open: boolean }>(
+            `SELECT EXISTS (
+               SELECT 1 FROM conversations.messages inbound
+               WHERE inbound.conversation_id = $1::uuid AND inbound.direction = 'inbound'
+                 AND inbound.created_at > CURRENT_TIMESTAMP - interval '24 hours'
+                 AND inbound.created_at <= CURRENT_TIMESTAMP
+             ) AS open`,
+            [input.conversationId],
+          );
+          if (!window.rows[0]?.open) throw new ConversationWindowClosedError();
         }
         const sequenceResult = await client.query<{ sequence: string }>(
           `SELECT COALESCE(MAX(sequence), 0) + 1 AS sequence FROM conversations.messages WHERE conversation_id = $1::uuid`,

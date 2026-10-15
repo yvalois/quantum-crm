@@ -107,6 +107,13 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Evidencia de cierre
 
+### Lectura de bandeja y ventana WhatsApp CHAT-11 / CHAT-15 / CHAT-05 — 2026-10-15
+
+- PR #166, candidato `acdec11e`: reconocimiento idempotente del chat actual hasta la última secuencia vista, con permiso y alcance de servidor; el total importado se rotula como historial y no como no leído. No se atribuye estado de lectura actual a datos históricos.
+- Compositor con vencimiento desde el último mensaje entrante del cliente, bloqueo de texto libre fuera de 24 horas y notas internas intactas. La API valida el plazo antes de persistir y el worker lo valida otra vez antes de YCloud; un intento ya en cola fuera de plazo se marca fallido sin envío.
+- VPS: 64 pruebas afectadas, tipos, formato y lint aprobados; siete checks CI verdes. API, worker y CRM web desplegados por digest, saludables. En sesión de InterAmerican se reconocieron 19 entradas del chat de prueba propio, ausencia de badge después de recargar, aviso de ventana cerrada en otro chat y distinción del historial importado. No se emitieron mensajes.
+- Pendientes de estabilización posterior: lectura individual por miembro, plantillas aprobadas `CHAT-05` para iniciar fuera de ventana y promoción registrada en vez de candidata directa.
+
 ### Canales completos CHAT-11 / CHAT-14 — 2026-10-11 (DESPLEGADO)
 
 - Ampliacion aditiva exclusiva del filtro de consulta: Instagram, Messenger/Facebook, TikTok, Google Business, llamadas, formularios y registros sin canal identificado. No habilita canales nuevos de creacion o envio.

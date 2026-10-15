@@ -146,6 +146,9 @@ export const UpdateConversationSchema = z
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");
+export const MarkConversationReadSchema = z
+  .object({ throughSequence: z.string().regex(/^(0|[1-9][0-9]*)$/u) })
+  .strict();
 
 export const SendConversationMessageSchema = z
   .object({

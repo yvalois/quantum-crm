@@ -105,6 +105,7 @@ import {
   ConversationThreadResponseSchema,
   CreateConversationNoteSchema,
   CreateConversationSchema,
+  MarkConversationReadSchema,
   CreateQuickReplySchema,
   QuickReplyListResponseSchema,
   QuickReplyResponseSchema,
@@ -2309,7 +2310,7 @@ async function conversationMutation(
   runtime: CrmAuthRuntime,
   input: {
     readonly path: string;
-    readonly method: "POST" | "PATCH";
+    readonly method: "POST" | "PATCH" | "PUT";
     readonly requestSchema: { safeParse(input: unknown): { success: boolean; data?: unknown } };
     readonly responseSchema: { parse(input: unknown): unknown };
     readonly requireVersion?: boolean;
@@ -2532,6 +2533,20 @@ export async function handleCrmConversationUpdate(
     requestSchema: UpdateConversationSchema,
     responseSchema: ConversationResponseSchema,
     requireVersion: true,
+  });
+}
+
+export async function handleCrmConversationMarkRead(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  id: string,
+) {
+  if (!conversationId(id)) return crmProblem(400, "Invalid request");
+  return conversationMutation(request, runtime, {
+    path: `/api/v1/conversations/${id}/read`,
+    method: "PUT",
+    requestSchema: MarkConversationReadSchema,
+    responseSchema: ConversationResponseSchema,
   });
 }
 

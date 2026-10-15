@@ -14,12 +14,14 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   PreconditionFailedException,
   Query,
   Req,
 } from "@nestjs/common";
 import {
   ConversationListQuerySchema,
+  MarkConversationReadSchema,
   ConversationListResponseSchema,
   ConversationMessageResponseSchema,
   ConversationResponseSchema,
@@ -38,6 +40,7 @@ import {
   ConversationService,
   ConversationValidationError,
   ConversationVersionConflictError,
+  ConversationWindowClosedError,
   IamAuthorizationError,
   type CommercialActor,
   type ConversationHistoryRecord,
@@ -112,6 +115,10 @@ function map(error: unknown): never {
   if (error instanceof ConversationIdempotencyConflictError) throw new ConflictException();
   if (error instanceof ConversationNotFoundError) throw new NotFoundException();
   if (error instanceof ConversationVersionConflictError) throw new PreconditionFailedException();
+  if (error instanceof ConversationWindowClosedError)
+    throw new ConflictException(
+      "La ventana de 24 horas de WhatsApp está cerrada. Espera un mensaje del cliente o usa una plantilla aprobada.",
+    );
   if (error instanceof ConversationValidationError) throw new BadRequestException();
   throw error;
 }
@@ -243,6 +250,32 @@ export class ConversationsController {
           messages: result.messages.map(message),
           history: result.history.map(history),
         },
+      });
+    } catch (error) {
+      return map(error);
+    }
+  }
+
+  @Put(":conversationId/read")
+  @RequireCrmPermission("crm:conversations:read")
+  public async markRead(
+    @Req() request: Parameters<typeof crmAuthContext>[0],
+    @Param("conversationId") conversationId: string,
+    @Body() body: unknown,
+  ) {
+    try {
+      const parsed = MarkConversationReadSchema.safeParse(body);
+      if (!parsed.success) throw new BadRequestException();
+      const actor = identity(request);
+      return ConversationResponseSchema.parse({
+        data: conversation(
+          await this.service.markRead(
+            actor.actor,
+            actor.permissions,
+            id(conversationId),
+            BigInt(parsed.data.throughSequence),
+          ),
+        ),
       });
     } catch (error) {
       return map(error);
