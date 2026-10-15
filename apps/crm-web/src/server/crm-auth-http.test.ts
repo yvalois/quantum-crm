@@ -249,6 +249,7 @@ describe("CRM web authentication HTTP boundary", () => {
           label: "Color favorito",
           description: "",
           dataType: "TEXT",
+          options: [],
           model: "contact",
         },
       ],

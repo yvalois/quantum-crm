@@ -8,6 +8,7 @@ export const CustomFieldDefinitionSchema = z
     label: z.string().min(1).max(1000),
     description: z.string().max(100_000),
     dataType: z.string().min(1).max(100),
+    options: z.array(z.string().max(1000)).max(500),
     model: CustomFieldModelSchema,
   })
   .strict();

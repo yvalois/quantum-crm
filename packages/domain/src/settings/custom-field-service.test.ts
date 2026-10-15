@@ -8,7 +8,7 @@ import {
 describe("custom field definition catalog", () => {
   it("requires the owning model read permission before consulting settings", async () => {
     const list = vi.fn(async () => ({ items: [], nextCursor: null }));
-    const service = new CustomFieldDefinitionService({ list });
+    const service = new CustomFieldDefinitionService({ list, find: async () => null });
     expect(() => service.list([], { model: "contact", limit: 100 })).toThrow(IamAuthorizationError);
     expect(() => service.list(["crm:sales:read"], { model: "contact", limit: 100 })).toThrow(
       IamAuthorizationError,
@@ -24,7 +24,7 @@ describe("custom field definition catalog", () => {
 
   it("rejects unbounded pages and malformed cursors", () => {
     const list = vi.fn(async () => ({ items: [], nextCursor: null }));
-    const service = new CustomFieldDefinitionService({ list });
+    const service = new CustomFieldDefinitionService({ list, find: async () => null });
     for (const limit of [0, 101, 1.5, NaN])
       expect(() => service.list(["crm:contacts:read"], { model: "contact", limit })).toThrow(
         CustomFieldDefinitionValidationError,

@@ -50,6 +50,17 @@ describe("contact update contract", () => {
     expect(UpdateContactSchema.safeParse({}).success).toBe(false);
   });
 
+  it("accepts a single bounded custom-field edit without trusting client metadata", () => {
+    const fieldId = "019b0000-0000-7000-8000-000000000011";
+    expect(UpdateContactSchema.parse({ customField: { fieldId, value: "Si" } })).toEqual({
+      customField: { fieldId, value: "Si" },
+    });
+    expect(
+      UpdateContactSchema.safeParse({ customField: { fieldId, value: "Si", dataType: "TEXT" } })
+        .success,
+    ).toBe(false);
+  });
+
   it("keeps update validation strict for malformed channels and unknown fields", () => {
     expect(UpdateContactSchema.safeParse({ email: "not-an-email" }).success).toBe(false);
     expect(UpdateContactSchema.safeParse({ phone: "  " }).success).toBe(false);

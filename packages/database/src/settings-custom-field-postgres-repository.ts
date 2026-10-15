@@ -12,6 +12,7 @@ interface DefinitionRow {
   readonly name: string;
   readonly description: string;
   readonly data_type: string;
+  readonly options: unknown;
 }
 
 function decodeCursor(value: string, model: CustomFieldModel): string {
@@ -42,7 +43,7 @@ export function createSettingsCustomFieldPostgresRepository(
       const after = query.cursor ? decodeCursor(query.cursor, query.model) : null;
       try {
         const result = (await pool.query(
-          `SELECT id::text, field_key, name, description, data_type
+          `SELECT id::text, field_key, name, description, data_type, options
            FROM settings.custom_field_definitions
            WHERE section = $1 AND ($2::uuid IS NULL OR id > $2::uuid)
            ORDER BY id ASC LIMIT $3`,
@@ -56,6 +57,9 @@ export function createSettingsCustomFieldPostgresRepository(
           label: row.name,
           description: row.description,
           dataType: row.data_type,
+          options: Array.isArray(row.options)
+            ? row.options.filter((option): option is string => typeof option === "string")
+            : [],
           model: query.model,
         }));
         return {
@@ -67,6 +71,31 @@ export function createSettingsCustomFieldPostgresRepository(
                 )
               : null,
         };
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
+    },
+    find: async (model, id) => {
+      try {
+        const result = (await pool.query(
+          `SELECT id::text, field_key, name, description, data_type, options
+           FROM settings.custom_field_definitions WHERE section = $1 AND id = $2::uuid`,
+          [model, id],
+        )) as { readonly rows: readonly DefinitionRow[] };
+        const row = result.rows[0];
+        return row
+          ? {
+              id: row.id,
+              key: row.field_key,
+              label: row.name,
+              description: row.description,
+              dataType: row.data_type,
+              options: Array.isArray(row.options)
+                ? row.options.filter((option): option is string => typeof option === "string")
+                : [],
+              model,
+            }
+          : null;
       } catch {
         throw new DatabaseUnavailableError();
       }

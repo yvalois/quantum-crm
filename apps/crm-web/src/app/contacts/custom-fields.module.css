@@ -72,6 +72,55 @@
   font-size: 0.75rem;
   line-height: 1.5;
 }
+.editButton {
+  border: 0;
+  padding: 0.2rem 0;
+  background: none;
+  color: #087d77;
+  font: inherit;
+  cursor: pointer;
+}
+.editor {
+  display: grid;
+  gap: 0.55rem;
+}
+.editor > input,
+.editor > select,
+.editor > textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid #cbdad8;
+  border-radius: 6px;
+  padding: 0.5rem;
+  background: #fff;
+  color: #253b48;
+  font: inherit;
+}
+.optionList {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+.optionList label {
+  display: flex;
+  align-items: start;
+  gap: 0.4rem;
+}
+.editActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.editActions button {
+  border: 1px solid #cbdad8;
+  border-radius: 5px;
+  padding: 0.35rem 0.55rem;
+  background: #fff;
+  color: #075e59;
+  cursor: pointer;
+}
 .controls input:focus-visible,
 .panel summary:focus-visible {
   outline: 2px solid #087d77;

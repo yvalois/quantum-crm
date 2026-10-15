@@ -142,6 +142,11 @@ export interface ContactRepository {
     readonly contact: ContactRecord;
     readonly actor: CommercialActor;
     readonly expectedVersion: bigint;
+    /** Single-field mutation preserves all other raw JSON values, including quarantined file references. */
+    readonly customFieldChange?: {
+      readonly id: string;
+      readonly field: HistoricalContactField | null;
+    };
     /** Undefined retains labels; an empty list intentionally clears them. */
     readonly labelIds?: readonly string[];
   }) => Promise<ContactRecord | null>;
@@ -229,6 +234,7 @@ export function updateContact(input: {
   readonly ownerMemberId?: string | null;
   /** Label names are hydrated by the repository after its atomic replacement. */
   readonly labelIds?: readonly string[];
+  readonly customFields?: readonly HistoricalContactField[];
   readonly now: Date;
 }): ContactRecord {
   if (
@@ -236,7 +242,8 @@ export function updateContact(input: {
       input.email === undefined &&
       input.phone === undefined &&
       input.ownerMemberId === undefined &&
-      input.labelIds === undefined) ||
+      input.labelIds === undefined &&
+      input.customFields === undefined) ||
     Number.isNaN(input.now.getTime())
   )
     throw new ContactValidationError();
@@ -250,6 +257,9 @@ export function updateContact(input: {
       ? {}
       : { phone: input.phone === null ? null : text(input.phone, 40) }),
     ...(input.ownerMemberId === undefined ? {} : { ownerMemberId: input.ownerMemberId }),
+    ...(input.customFields === undefined
+      ? {}
+      : { customFields: Object.freeze([...input.customFields]) }),
     version: input.contact.version + 1n,
     updatedAt: input.now,
   });

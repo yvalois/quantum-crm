@@ -346,4 +346,66 @@ describe("contact service", () => {
     ).resolves.toBe(contact);
     expect(update).not.toHaveBeenCalled();
   });
+
+  it("validates imported select options and edits only one custom field under contact scope", async () => {
+    const fieldId = "019b0000-0000-7000-8000-000000000023";
+    const update = vi.fn(
+      async (input: Parameters<ContactRepository["update"]>[0]) => input.contact,
+    );
+    const repository: ContactRepository = {
+      list: async () => [],
+      listPage: async () => emptyPage,
+      find: async () => contact,
+      listLabels: async () => [],
+      createLabel: async () => ({ id: fieldId, name: "VIP" }),
+      canAssignOwner: async () => true,
+      create: async (input) => input.contact,
+      update,
+      bulk: async () => emptyBulk,
+      importRows: async () => ({ rows: [], created: 0, updated: 0, errors: 0 }),
+    };
+    const find = vi.fn(async () => ({
+      id: fieldId,
+      key: "contact.asesor_de_ventas",
+      label: "Asesor de Ventas",
+      dataType: "SINGLE_OPTIONS",
+      options: ["Si", "No"],
+    }));
+    const service = new ContactService(repository, undefined, undefined, { find });
+    const request = {
+      actor,
+      id: contact.id,
+      expectedVersion: 1n,
+      customField: { fieldId, value: "Si" },
+    } as const;
+    await expect(service.update({ ...request, permissions: [] })).rejects.toThrow(
+      IamAuthorizationError,
+    );
+    await expect(
+      service.update({
+        ...request,
+        customField: { fieldId, value: "Tal vez" },
+        permissions: ["crm:contacts:update"],
+      }),
+    ).rejects.toThrow("Invalid contact");
+    expect(update).not.toHaveBeenCalled();
+    await service.update({ ...request, permissions: ["crm:contacts:update"] });
+    expect(find).toHaveBeenCalledWith("contact", fieldId);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor,
+        expectedVersion: 1n,
+        customFieldChange: {
+          id: fieldId,
+          field: {
+            fieldId,
+            key: "contact.asesor_de_ventas",
+            label: "Asesor de Ventas",
+            dataType: "SINGLE_OPTIONS",
+            value: "Si",
+          },
+        },
+      }),
+    );
+  });
 });

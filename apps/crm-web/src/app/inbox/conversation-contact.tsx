@@ -1,6 +1,11 @@
 "use client";
 
-import { ContactListResponseSchema, type Contact } from "@quantum-crm/contracts";
+import {
+  ContactListResponseSchema,
+  ContactResponseSchema,
+  type Contact,
+  type ContactCustomFieldValue,
+} from "@quantum-crm/contracts";
 import { useEffect, useState } from "react";
 import { ContactCustomFields } from "../contacts/custom-fields";
 import { SourceParticipantsCard } from "../source-participants";
@@ -66,14 +71,50 @@ export function ConversationContactCard({
   linked,
   loading,
   error,
+  csrfToken,
+  onSaved,
+  onCollapse,
 }: {
   readonly contact: Contact | undefined;
   readonly linked: boolean;
   readonly loading: boolean;
   readonly error: string | null;
+  readonly csrfToken: string | null;
+  readonly onSaved: (contact: Contact) => void;
+  readonly onCollapse: () => void;
 }): React.JSX.Element {
+  async function saveField(fieldId: string, value: ContactCustomFieldValue): Promise<void> {
+    if (!contact || !csrfToken) throw new Error("No hay una sesión activa para guardar.");
+    const response = await fetch(`/api/contacts/${contact.id}`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "content-type": "application/json",
+        "x-csrf-token": csrfToken,
+        "if-match": `"${contact.version}"`,
+      },
+      body: JSON.stringify({ customField: { fieldId, value } }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      if (response.status === 409)
+        throw new Error("Este contacto cambió. Vuelve a abrir el chat antes de guardar.");
+      if (response.status === 403) throw new Error("No tienes permiso para editar este contacto.");
+      throw new Error("No se pudo guardar el campo personalizado.");
+    }
+    onSaved(ContactResponseSchema.parse(await response.json()).data);
+  }
   return (
-    <details className={styles.card} aria-label="Ficha del cliente" aria-busy={loading} open>
+    <details
+      className={styles.card}
+      aria-label="Ficha del cliente"
+      aria-busy={loading}
+      open
+      onToggle={(event) => {
+        if (!event.currentTarget.open) onCollapse();
+      }}
+    >
       <summary className={styles.heading}>
         <span className={styles.headingText}>
           <span>Ficha del cliente</span>
@@ -133,6 +174,7 @@ export function ConversationContactCard({
               key={contact.id}
               fields={contact.customFields}
               initiallyIncludeEmpty
+              onSave={saveField}
             />
             <SourceParticipantsCard participants={contact.sourceParticipants} kind="contacto" />
           </>
