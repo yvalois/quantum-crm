@@ -12,6 +12,7 @@ import { expect, test, type Page } from "@playwright/test";
 const origin = "http://127.0.0.1:3107";
 const timestamp = "2026-10-11T15:00:00.000Z";
 const memberId = "019b0000-0000-7000-8000-000000000001";
+const invitedMemberId = "019b0000-0000-7000-8000-000000000111";
 const conversationId = "019b0000-0000-7000-8000-000000000002";
 const historicalId = "019b0000-0000-7000-8000-000000000003";
 const fileId = "019b0000-0000-7000-8000-000000000004";
@@ -208,7 +209,7 @@ const historical: HistoricalConversation = {
   sourceExternalId: "synthetic-thread",
   sourceThreadPresent: true,
   contactId: primaryContact.id,
-  assigneeMemberId: memberId,
+  assigneeMemberId: invitedMemberId,
   rawChannel: "Email",
   rawStatus: "closed",
   subject: "Historial sintético conservado",
@@ -372,6 +373,14 @@ async function workspaceFixture(
         await respond({ authenticated: true, csrfToken: "synthetic-csrf-token" });
         return;
       }
+      if (path === "/api/auth/capabilities") {
+        await respond({ data: { canAssignConversations: true, canConfigureAgent: true } });
+        return;
+      }
+      if (path === "/api/conversations/agent-control") {
+        await respond({ data: { enabled: true, version: "1", updatedAt: timestamp } });
+        return;
+      }
       if (path === "/api/custom-field-definitions") {
         expect(url.searchParams.get("model")).toBe("contact");
         expect(url.searchParams.get("limit")).toBe("100");
@@ -422,7 +431,25 @@ async function workspaceFixture(
         });
         return;
       }
-      if (path === "/api/members" || path === "/api/tasks/assignees") {
+      if (path === "/api/members") {
+        await respond({
+          data: [
+            { id: memberId, displayName: "María Asesora Sintética", status: "ACTIVE" },
+            { id: invitedMemberId, displayName: "Julio Asesor Invitado", status: "INVITED" },
+          ].map((member) => ({
+            ...member,
+            email: `${member.id}@example.test`,
+            authorizationRevision: "1",
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            deactivatedAt: null,
+            commercialScope: "ASSIGNED",
+          })),
+          page: { nextCursor: null },
+        });
+        return;
+      }
+      if (path === "/api/tasks/assignees") {
         await respond({
           data: [
             {
@@ -692,12 +719,20 @@ test("active inbox preserves thread, draft composer and contact context at both 
   await list.locator('[data-source="QUANTUM"]').click();
   await expect(thread.getByText(message.body, { exact: true })).toBeVisible();
   await expect(context.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
+  await expect(thread.getByText("Asesor del chat:")).toBeVisible();
+  await expect(thread.getByText("María Asesora Sintética", { exact: true })).toBeVisible();
   await expect(context.getByText("Sedán sintético", { exact: true })).toBeVisible();
   await expect(context.getByText("Cliente frecuente", { exact: true })).toBeVisible();
+  await expect(context.getByText("Preferencia sin completar", { exact: true })).toHaveCount(0);
+  await thread.getByRole("button", { name: "Cerrar ficha" }).click();
+  await expect(context).toHaveCount(0);
+  await thread.getByRole("button", { name: "Ver ficha del contacto" }).click();
+  await expect(context.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
   const draft = thread.getByPlaceholder("Responder por Correo…");
   await draft.fill("Borrador sintético sin enviar");
   await expect(thread.getByRole("button", { name: "Enviar", exact: true })).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath("inbox-desktop.png") });
+  await thread.getByRole("button", { name: "Cerrar ficha" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await thread.scrollIntoViewIfNeeded();
   await expect(draft).toHaveValue("Borrador sintético sin enviar");
@@ -870,11 +905,15 @@ test("imported history remains read only and downloads only the verified synthet
   const fixture = await workspaceFixture(page);
   await page.goto("/inbox");
   await page.locator(`[data-source="GHL"][data-conversation-id="${historicalId}"]`).click();
+  await expect(page.getByRole("region", { name: "Mensajes históricos" })).toContainText(
+    "Julio Asesor Invitado",
+  );
   const card = page.getByRole("region", { name: "Ficha del cliente" });
   await expect(card.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
   await expect(card.getByText("Vehículo preferido", { exact: true })).toBeVisible();
   await expect(card.getByText("Sedán sintético", { exact: true })).toBeVisible();
   await expect(card.getByText("Cliente frecuente", { exact: true })).toBeVisible();
+  await card.getByText("Responsables originales", { exact: true }).click();
   const originalContact = card.getByRole("region", { name: "Responsables originales de contacto" });
   await expect(
     originalContact.getByText("Lucía Propietaria Sintética", { exact: true }),
@@ -882,6 +921,7 @@ test("imported history remains read only and downloads only the verified synthet
   await expect(
     originalContact.getByText("Mateo Seguidor Sintético", { exact: true }),
   ).toBeVisible();
+  await page.getByText("Participantes originales", { exact: true }).click();
   const originalThread = page.getByRole("region", {
     name: "Responsables originales de conversación",
   });

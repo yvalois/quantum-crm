@@ -71,17 +71,17 @@ export function ConversationContactCard({
   linked,
   loading,
   error,
+  ownerName,
   csrfToken,
   onSaved,
-  onCollapse,
 }: {
   readonly contact: Contact | undefined;
   readonly linked: boolean;
   readonly loading: boolean;
   readonly error: string | null;
+  readonly ownerName: string;
   readonly csrfToken: string | null;
   readonly onSaved: (contact: Contact) => void;
-  readonly onCollapse: () => void;
 }): React.JSX.Element {
   async function saveField(fieldId: string, value: ContactCustomFieldValue): Promise<void> {
     if (!contact || !csrfToken) throw new Error("No hay una sesión activa para guardar.");
@@ -106,24 +106,18 @@ export function ConversationContactCard({
     onSaved(ContactResponseSchema.parse(await response.json()).data);
   }
   return (
-    <details
-      className={styles.card}
-      aria-label="Ficha del cliente"
-      aria-busy={loading}
-      open
-      onToggle={(event) => {
-        if (!event.currentTarget.open) onCollapse();
-      }}
-    >
-      <summary className={styles.heading}>
+    <section className={styles.card} aria-label="Ficha del cliente" aria-busy={loading}>
+      <div className={styles.heading}>
         <span className={styles.headingText}>
-          <span>Ficha del cliente</span>
-          <strong>{contact?.displayName ?? "Datos del contacto"}</strong>
+          <span>Ficha del contacto</span>
+          <h3>{contact?.displayName ?? "Datos del contacto"}</h3>
         </span>
-        <span className={styles.chevron} aria-hidden="true">
-          ⌄
-        </span>
-      </summary>
+        {contact ? (
+          <span className={styles.contactInitials} aria-hidden="true">
+            {contact.displayName.slice(0, 2).toUpperCase()}
+          </span>
+        ) : null}
+      </div>
       <div className={styles.content}>
         {loading ? (
           <p role="status">Cargando contacto…</p>
@@ -132,6 +126,10 @@ export function ConversationContactCard({
         ) : contact ? (
           <>
             <dl className={styles.facts}>
+              <div>
+                <dt>Responsable del contacto</dt>
+                <dd>{ownerName}</dd>
+              </div>
               <div>
                 <dt>Correo</dt>
                 <dd>
@@ -156,27 +154,27 @@ export function ConversationContactCard({
             <a className={styles.open} href={`/contacts?contact=${encodeURIComponent(contact.id)}`}>
               Abrir ficha completa
             </a>
-            <details open>
-              <summary>
-                Etiquetas <span>{contact.labels.length}</span>
-              </summary>
-              {contact.labels.length ? (
+            {contact.labels.length ? (
+              <div className={styles.labels}>
+                <strong>Etiquetas</strong>
                 <ul className={styles.tags}>
                   {contact.labels.map((label) => (
                     <li key={label.id}>{label.name}</li>
                   ))}
                 </ul>
-              ) : (
-                <p>Sin etiquetas</p>
-              )}
-            </details>
+              </div>
+            ) : null}
             <ContactCustomFields
               key={contact.id}
               fields={contact.customFields}
-              initiallyIncludeEmpty
               onSave={saveField}
             />
-            <SourceParticipantsCard participants={contact.sourceParticipants} kind="contacto" />
+            {contact.sourceParticipants ? (
+              <details className={styles.sourceDetails}>
+                <summary>Responsables originales</summary>
+                <SourceParticipantsCard participants={contact.sourceParticipants} kind="contacto" />
+              </details>
+            ) : null}
           </>
         ) : (
           <p>
@@ -186,6 +184,6 @@ export function ConversationContactCard({
           </p>
         )}
       </div>
-    </details>
+    </section>
   );
 }

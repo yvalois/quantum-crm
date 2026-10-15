@@ -180,6 +180,24 @@
   font-weight: 600;
   font-size: 13px;
 }
+.header .advisorLine {
+  color: #526a70;
+  font-size: 12px;
+}
+.advisorLine strong {
+  color: #087d77;
+}
+.workspace .contactToggle {
+  border: 1px solid #a6d4ca;
+  border-radius: 0.55rem;
+  background: #e8f7f3;
+  color: #076a61;
+  font-size: 12px;
+  font-weight: 800;
+}
+.workspace .contactToggle:hover {
+  background: #d7efe8;
+}
 .orphan,
 .attachment {
   color: #805c25;

@@ -55,18 +55,22 @@ export function HistoricalThread({
   conversation,
   contactName,
   assignees,
+  memberNames,
   csrfToken,
   canAssign,
   onAssigned,
+  onOpenContact,
   canContinueWhatsApp,
   onContinueWhatsApp,
 }: {
   readonly conversation: HistoricalConversation;
   readonly contactName: string | undefined;
   readonly assignees: readonly TaskAssignee[];
+  readonly memberNames: ReadonlyMap<string, string>;
   readonly csrfToken: string | null;
   readonly canAssign: boolean;
-  readonly onAssigned: () => void;
+  readonly onAssigned: (conversation: HistoricalConversation) => void;
+  readonly onOpenContact: () => void;
   readonly canContinueWhatsApp: boolean;
   readonly onContinueWhatsApp: (body: string) => Promise<void>;
 }): React.JSX.Element {
@@ -125,8 +129,9 @@ export function HistoricalThread({
               ? "La asignación cambió. Actualiza el chat e inténtalo de nuevo."
               : "No se pudo asignar el chat.",
         );
-      setSelected(HistoricalConversationResponseSchema.parse(await response.json()).data);
-      onAssigned();
+      const updated = HistoricalConversationResponseSchema.parse(await response.json()).data;
+      setSelected(updated);
+      onAssigned(updated);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo asignar el chat.");
     } finally {
@@ -178,6 +183,17 @@ export function HistoricalThread({
       <header className={styles.header}>
         <div>
           <h2>{historicalThreadTitle(selected, contactName)}</h2>
+          <p className={styles.advisorLine}>
+            Asesor del chat:{" "}
+            <strong>
+              {selected.assigneeMemberId
+                ? (assignees.find((member) => member.id === selected.assigneeMemberId)
+                    ?.displayName ??
+                  memberNames.get(selected.assigneeMemberId) ??
+                  "Cuenta no activa")
+                : "Sin asignar"}
+            </strong>
+          </p>
           <p>
             {selected.messageCount} mensajes ·{" "}
             {selected.rawStatus || "Estado original no informado"}
@@ -185,7 +201,9 @@ export function HistoricalThread({
           <HistoricalChannelBadge rawChannel={selected.rawChannel} />
         </div>
         <div>
-          <span>Mensajes en consulta</span>
+          <button type="button" className={styles.contactToggle} onClick={onOpenContact}>
+            Ver ficha del contacto
+          </button>
           {selected.contactId ? (
             <a
               className={styles.contactLink}
@@ -205,6 +223,13 @@ export function HistoricalThread({
             onChange={(event) => void assign(event.target.value)}
           >
             <option value="">Sin asignar</option>
+            {selected.assigneeMemberId &&
+            !assignees.some((member) => member.id === selected.assigneeMemberId) ? (
+              <option value={selected.assigneeMemberId} disabled>
+                {memberNames.get(selected.assigneeMemberId) ?? "Cuenta no activa"} (no disponible
+                para nuevas asignaciones)
+              </option>
+            ) : null}
             {assignees.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.displayName}

@@ -261,9 +261,10 @@
 
 .inboxFrame {
   display: grid;
+  position: relative;
   min-width: 0;
   min-height: 0;
-  grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr) 15rem;
+  grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr) 19.5rem;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   border: 0;
@@ -913,6 +914,44 @@
   white-space: nowrap;
 }
 
+.threadIdentity .threadAdvisor {
+  color: #526a70;
+  font-size: 0.72rem;
+}
+.threadAdvisor strong {
+  color: #087d77;
+  font-weight: 800;
+}
+
+.contactAction,
+.contextClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid #a6d4ca;
+  border-radius: 0.55rem;
+  background: #e8f7f3;
+  color: #076a61;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.contactAction {
+  min-height: 2.1rem;
+  padding: 0.38rem 0.65rem;
+}
+.contactAction:hover,
+.contextClose:hover {
+  background: #d7efe8;
+}
+.contactAction:focus-visible,
+.contextClose:focus-visible {
+  outline: 2px solid #087d77;
+  outline-offset: 2px;
+}
+
 .threadActions {
   flex: none;
   flex-wrap: wrap;
@@ -1238,14 +1277,66 @@
 .contextPanel {
   border-left: 1px solid var(--line);
   overflow-y: auto;
-  background: #fbfdfc;
-  padding: 0.85rem;
+  background: #f7faf9;
+  padding: 0 0.9rem 1rem;
   scrollbar-color: #cbdad8 transparent;
 }
 
 .contextHeader {
   justify-content: space-between;
   gap: 0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -0.9rem 0.8rem;
+  border-bottom: 1px solid #dce8e7;
+  background: #f7faf9;
+  padding: 0.85rem 0.9rem;
+}
+.contextHeader h2 {
+  margin: 0.2rem 0 0;
+  color: #20363b;
+  font-size: 0.92rem;
+}
+.contextClose {
+  width: 2rem;
+  height: 2rem;
+  background: #fff;
+}
+.advisorCard {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #b7ded4;
+  border-left: 3px solid #087d77;
+  border-radius: 0.65rem;
+  background: #eaf7f2;
+  padding: 0.72rem 0.85rem;
+}
+.advisorCard span {
+  color: #52766f;
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+.advisorCard strong {
+  color: #163e39;
+  font-size: 0.91rem;
+  overflow-wrap: anywhere;
+}
+.advisorCard small {
+  color: #7b6844;
+  line-height: 1.35;
+}
+.secondaryDetails {
+  margin: 0.8rem 0;
+  border-top: 1px solid #dde8e7;
+  padding-top: 0.75rem;
+}
+.secondaryDetails summary {
+  cursor: pointer;
+  color: #405d5b;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .contextHeader .iconButton {
@@ -1625,14 +1716,10 @@
 
 @media (max-width: 1420px) {
   .inboxFrame {
-    grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr) 13rem;
+    grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr) 18.5rem;
   }
   .contextCollapsed {
     grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
-  }
-
-  .assigneeTag {
-    display: none;
   }
 }
 
@@ -1646,10 +1733,14 @@
   }
 
   .contextPanel {
-    display: block;
-    grid-column: 1 / -1;
-    max-height: 20rem;
-    border-top: 1px solid var(--line);
+    position: absolute;
+    z-index: 4;
+    top: 2.65rem;
+    right: 0;
+    bottom: 0;
+    width: min(22rem, 100%);
+    max-height: none;
+    box-shadow: -0.8rem 0 2rem rgb(20 45 48 / 0.13);
   }
 }
 
@@ -1732,9 +1823,14 @@
     height: 34rem;
   }
   .contextPanel {
-    flex: none;
+    position: fixed;
+    z-index: 30;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(24rem, 100vw);
     max-height: none;
-    overflow: visible;
+    overflow-y: auto;
   }
 
   .messageBubble {
