@@ -1145,6 +1145,39 @@
   margin-bottom: 0.4rem;
 }
 
+.messageImageButton {
+  display: block;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.messageImageDialog {
+  max-width: min(94vw, 72rem);
+  max-height: 94vh;
+  border: 0;
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 0.7rem;
+}
+
+.messageImageDialog::backdrop {
+  background: rgb(9 22 27 / 0.85);
+}
+
+.messageImageDialog button {
+  display: block;
+  margin: 0 0 0.5rem auto;
+}
+
+.messageImageDialog img {
+  display: block;
+  max-width: 90vw;
+  max-height: calc(94vh - 3rem);
+  object-fit: contain;
+}
+
 .messageAudio {
   display: block;
   width: min(100%, 19rem);
@@ -1616,13 +1649,6 @@
 
 .attentionCard button:hover:not(:disabled) {
   background: var(--teal-soft);
-}
-
-.agentResetHint {
-  margin: 0;
-  color: #71858a;
-  font-size: 0.61rem;
-  line-height: 1.4;
 }
 
 .contextFacts {

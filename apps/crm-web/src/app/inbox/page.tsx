@@ -50,6 +50,7 @@ interface CapabilitiesPayload {
     readonly canAssignContacts?: boolean;
     readonly canAssignConversations: boolean;
     readonly canConfigureAgent: boolean;
+    readonly canControlAgent?: boolean;
   };
 }
 
@@ -112,7 +113,7 @@ const historyLabel: Record<ConversationHistoryEntry["eventType"], string> = {
   TRANSFERRED: "Responsable transferido",
   STATUS_CHANGED: "Estado actualizado",
   ATTENTION_CHANGED: "Modo de atención actualizado",
-  AGENT_RESET: "Agente reiniciado",
+  AGENT_RESET: "Memoria de conversación reiniciada",
   MESSAGE_ADDED: "Mensaje registrado",
   NOTE_ADDED: "Nota interna registrada",
 };
@@ -268,6 +269,7 @@ export default function InboxPage(): React.JSX.Element {
   const [canAssignConversations, setCanAssignConversations] = useState(false);
   const [canAssignContacts, setCanAssignContacts] = useState(false);
   const [canConfigureAgent, setCanConfigureAgent] = useState(false);
+  const [canControlAgent, setCanControlAgent] = useState(false);
   const [agentControl, setAgentControl] = useState<{
     enabled: boolean;
     version: string;
@@ -557,6 +559,7 @@ export default function InboxPage(): React.JSX.Element {
         setCanAssignConversations(capabilities.canAssignConversations);
         setCanAssignContacts(Boolean(capabilities.canAssignContacts));
         setCanConfigureAgent(capabilities.canConfigureAgent);
+        setCanControlAgent(capabilities.canControlAgent === true);
         setAgentControl(AgentControlResponseSchema.parse(await agentResponse.json()).data);
         if (capabilities.canAssignConversations || capabilities.canAssignContacts) {
           void (async () => {
@@ -1022,6 +1025,17 @@ export default function InboxPage(): React.JSX.Element {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function resetConversation(): Promise<void> {
+    if (!selected || !canControlAgent) return;
+    if (
+      !window.confirm(
+        "¿Reiniciar la conversación? El agente olvidará el contexto anterior en este chat. Los mensajes seguirán visibles y no se reenviará nada.",
+      )
+    )
+      return;
+    await update({ resetAgent: true });
   }
 
   async function setAgentEnabled(enabled: boolean): Promise<void> {
@@ -1541,6 +1555,17 @@ export default function InboxPage(): React.JSX.Element {
                           : "Reactivar agente en este chat"}
                       </button>
                     ) : null}
+                    {selected.channel === "WHATSAPP" && canControlAgent ? (
+                      <button
+                        className={styles.outlineButton}
+                        type="button"
+                        disabled={saving}
+                        onClick={() => void resetConversation()}
+                        title="Borra la memoria del agente en este chat; conserva los mensajes"
+                      >
+                        Reiniciar conversación
+                      </button>
+                    ) : null}
                     <span className={cx(styles.statusTag, statusClass[selected.status])}>
                       {statusLabel[selected.status]}
                     </span>
@@ -1597,7 +1622,15 @@ export default function InboxPage(): React.JSX.Element {
                                 </div>
                               </div>
                             ) : null}
-                            {item.fileId ? <ConversationMedia message={item} csrf={csrf} /> : null}
+                            {item.fileId ? (
+                              <ConversationMedia message={item} csrf={csrf} />
+                            ) : item.direction === "INBOUND" &&
+                              (item.kind === "IMAGE" || item.kind === "AUDIO") ? (
+                              <p className={styles.mediaUnavailable}>
+                                {item.kind === "IMAGE" ? "Imagen" : "Audio"} pendiente o no
+                                disponible.
+                              </p>
+                            ) : null}
                             <p>{item.body}</p>
                             <footer>
                               <span>{deliveryLabel[item.deliveryStatus]}</span>
@@ -2045,26 +2078,6 @@ export default function InboxPage(): React.JSX.Element {
                         : "Tomar conversación"}
                       <Icon name="arrow" size={15} />
                     </button>
-                    {selected.attentionMode === "AGENT" && selected.channel === "WHATSAPP" && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={
-                            saving ||
-                            selected.status === "CLOSED" ||
-                            selected.status === "ESCALATED"
-                          }
-                          onClick={() => void update({ resetAgent: true })}
-                        >
-                          Reiniciar agente
-                        </button>
-                        <p className={styles.agentResetHint}>
-                          Borra el contexto que usa el agente en este chat, pero conserva el
-                          historial visible. El próximo mensaje inicia una conversación nueva con
-                          Alex.
-                        </p>
-                      </>
-                    )}
                   </section>
 
                   <section className={styles.contextFacts}>

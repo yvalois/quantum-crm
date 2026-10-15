@@ -428,25 +428,24 @@ describe("ConversationService", () => {
     );
   });
 
-  it("rejects resetting a human or escalated conversation", async () => {
+  it("resets agent memory without changing a human or escalated conversation", async () => {
     for (const record of [
       existing,
       { ...existing, attentionMode: "AGENT" as const, status: "ESCALATED" as const },
     ]) {
       const store = repository(record);
       const service = new ConversationService(store, references(), () => now);
-      await expect(
-        service.update({
-          actor,
-          permissions: ["crm:conversations:control-agent"],
-          id: record.id,
-          expectedVersion: record.version,
-          resetAgent: true,
-          idempotencyKey: "reset-12345678",
-          payloadHash: "a".repeat(64),
-        }),
-      ).rejects.toBeInstanceOf(ConversationValidationError);
-      expect(store.update).not.toHaveBeenCalled();
+      await service.update({
+        actor,
+        permissions: ["crm:conversations:control-agent"],
+        id: record.id,
+        expectedVersion: record.version,
+        resetAgent: true,
+        idempotencyKey: "reset-12345678",
+        payloadHash: "a".repeat(64),
+      });
+      expect(store.update).toHaveBeenCalledWith(expect.objectContaining({ resetAgent: true }));
+      expect(vi.mocked(store.update).mock.calls[0]?.[0]).not.toHaveProperty("attentionMode");
     }
   });
 

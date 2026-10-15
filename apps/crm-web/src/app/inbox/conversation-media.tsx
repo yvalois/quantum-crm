@@ -1,6 +1,9 @@
 "use client";
 
-import type { ConversationMessage } from "@quantum-crm/contracts";
+import {
+  FileDownloadAuthorizationResponseSchema,
+  type ConversationMessage,
+} from "@quantum-crm/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import styles from "./inbox.module.css";
@@ -15,6 +18,7 @@ export function ConversationMedia({
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const mediaRetry = useRef(0);
+  const imageDialog = useRef<HTMLDialogElement>(null);
   const fileId = message.fileId;
   const authorize = useCallback(async () => {
     if (!fileId || !csrf) return;
@@ -30,8 +34,15 @@ export function ConversationMedia({
       body: "{}",
     });
     if (!response.ok) throw new Error("Archivo no disponible");
-    const payload = (await response.json()) as { readonly data: { readonly url: string } };
-    setUrl(payload.data.url);
+    const payload = FileDownloadAuthorizationResponseSchema.parse(await response.json());
+    if (Date.parse(payload.data.expiresAt) <= Date.now()) throw new Error("Acceso vencido");
+    const source = new URL(payload.data.url);
+    if (
+      source.protocol !== "https:" &&
+      !(source.protocol === "http:" && source.origin === window.location.origin)
+    )
+      throw new Error("Origen de archivo no permitido");
+    setUrl(source.href);
     setError(false);
   }, [fileId, csrf]);
 
@@ -51,11 +62,40 @@ export function ConversationMedia({
   };
 
   if (!fileId) return null;
-  if (error) return <p className={styles.mediaUnavailable}>No se puede abrir este archivo.</p>;
+  if (error)
+    return (
+      <div className={styles.mediaUnavailable} role="alert">
+        <span>No se puede abrir este archivo.</span>{" "}
+        <button type="button" onClick={() => void authorize().catch(() => setError(true))}>
+          Reintentar
+        </button>
+      </div>
+    );
   if (!url) return <p className={styles.mediaUnavailable}>Preparando archivo…</p>;
   if (message.kind === "IMAGE") {
     return (
-      <img className={styles.messageImage} src={url} alt={message.body} onError={retryMedia} />
+      <>
+        <button
+          className={styles.messageImageButton}
+          type="button"
+          onClick={() => imageDialog.current?.showModal()}
+          aria-label="Ampliar imagen"
+        >
+          <img
+            className={styles.messageImage}
+            src={url}
+            alt={message.body || "Imagen de la conversación"}
+            referrerPolicy="no-referrer"
+            onError={retryMedia}
+          />
+        </button>
+        <dialog className={styles.messageImageDialog} ref={imageDialog}>
+          <button type="button" onClick={() => imageDialog.current?.close()}>
+            Cerrar imagen
+          </button>
+          <img src={url} alt={message.body || "Imagen de la conversación"} onError={retryMedia} />
+        </dialog>
+      </>
     );
   }
   if (message.kind === "AUDIO") {
@@ -64,7 +104,8 @@ export function ConversationMedia({
         className={styles.messageAudio}
         controls
         src={url}
-        preload="none"
+        preload="metadata"
+        aria-label="Reproducir audio de la conversación"
         onError={retryMedia}
       />
     );
