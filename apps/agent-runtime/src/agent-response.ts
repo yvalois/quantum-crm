@@ -10,6 +10,7 @@ import {
   resolveConversationLanguage,
   type ConversationLanguage,
 } from "./interamerican-language.js";
+import { unclassifiedRentalHandoff } from "./interamerican-rental-handoff.js";
 import { askCatalog, type CatalogKind, type RagGateway } from "./rag-graph.js";
 import type { ConversationAnswer } from "./openai-conversation-answer.js";
 
@@ -92,6 +93,15 @@ export async function answerAgentTurn(
   const language = resolveConversationLanguage(input.question, context.messages);
   const catalog = selectedCatalog(input.question, context.messages);
   const firstTurn = input.firstTurn && context.messages.length === 0;
+  const rentalHandoff = unclassifiedRentalHandoff({
+    question: input.question,
+    history: context.messages,
+    language,
+    firstTurn,
+  });
+  if (rentalHandoff) {
+    return { answer: rentalHandoff, sourceIds: [], grounded: false, handoffRequested: true };
+  }
   if (!catalog && firstTurn && asksOnlyForGeneralHelp(input.question))
     return {
       answer: language === "en" ? initialGreetingEnglish : initialGreeting,

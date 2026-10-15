@@ -33,6 +33,17 @@ function gateway(messages: AgentConversationContext["messages"]) {
 }
 
 describe("InterAmerican agent memory", () => {
+  it("routes an unclassified SUV rental without asking particular requirements", async () => {
+    const current = gateway([]);
+    const result = await answerAgentTurn(
+      { question: "Hola, quiero rentar un SUV por tres días", firstTurn: true },
+      current,
+    );
+    expect(result.handoffRequested).toBe(true);
+    expect(result.answer).toContain("Voy a validar la disponibilidad");
+    expect(current.answerConversation).not.toHaveBeenCalled();
+  });
+
   it("greets the first turn and remembers the selected catalog on a later question", async () => {
     const first = gateway([]);
     expect((await answerAgentTurn({ question: "Hola", firstTurn: true }, first)).answer).toBe(
