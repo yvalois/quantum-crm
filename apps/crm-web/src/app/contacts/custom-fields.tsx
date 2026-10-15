@@ -73,10 +73,12 @@ function fieldValue(value: ContactCustomFieldValue): string {
 function FieldEditor({
   definition,
   value,
+  displayValue,
   onSave,
 }: {
   readonly definition: CustomFieldDefinition;
   readonly value: ContactCustomFieldValue;
+  readonly displayValue: string;
   readonly onSave: (fieldId: string, value: ContactCustomFieldValue) => Promise<void>;
 }): React.JSX.Element {
   const [editing, setEditing] = useState(false);
@@ -84,43 +86,60 @@ function FieldEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const type = definition.dataType.toUpperCase();
+  const options = definition.options;
+  const single = type === "SINGLE_OPTIONS" || type === "RADIO";
+  async function save(next: ContactCustomFieldValue): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      await onSave(definition.id, next);
+      setEditing(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo guardar.");
+    } finally {
+      setBusy(false);
+    }
+  }
   if (type === "FILE_UPLOAD")
     return (
       <p>
-        Este adjunto requiere la carga segura de archivos; no se puede sustituir desde este control.
+        {displayValue}. Este adjunto requiere la carga segura de archivos; no se puede sustituir
+        desde este control.
       </p>
     );
   if (!editing)
     return (
       <button
         type="button"
-        className={styles.editButton}
+        className={styles.valueButton}
+        aria-label={`${definition.label}: ${displayValue}. Cambiar valor`}
         onClick={() => {
           setDraft(value);
           setError(null);
           setEditing(true);
         }}
       >
-        Editar
+        {displayValue}
       </button>
     );
-  const options = definition.options;
   const multi = type === "MULTIPLE_OPTIONS" || type === "CHECKBOX";
   return (
     <div className={styles.editor}>
-      {type === "SINGLE_OPTIONS" || type === "RADIO" ? (
-        <select
-          aria-label={definition.label}
-          value={typeof draft === "string" ? draft : ""}
-          onChange={(event) => setDraft(event.target.value || null)}
-        >
-          <option value="">Sin valor</option>
+      {single ? (
+        <div className={styles.optionList} role="group" aria-label={definition.label}>
           {options.map((option) => (
-            <option key={option} value={option}>
+            <button
+              key={option}
+              type="button"
+              disabled={busy}
+              className={draft === option ? styles.selectedOption : styles.optionButton}
+              aria-pressed={draft === option}
+              onClick={() => void save(option)}
+            >
               {option}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       ) : multi ? (
         <div className={styles.optionList} role="group" aria-label={definition.label}>
           {options.map((option) => {
@@ -196,26 +215,15 @@ function FieldEditor({
       )}
       {error ? <p role="alert">{error}</p> : null}
       <div className={styles.editActions}>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            setError(null);
-            void onSave(definition.id, draft)
-              .then(() => setEditing(false))
-              .catch((cause: unknown) =>
-                setError(cause instanceof Error ? cause.message : "No se pudo guardar."),
-              )
-              .finally(() => setBusy(false));
-          }}
-        >
-          Guardar
-        </button>
+        {!single ? (
+          <button type="button" disabled={busy} onClick={() => void save(draft)}>
+            Guardar
+          </button>
+        ) : null}
         <button type="button" disabled={busy} onClick={() => setEditing(false)}>
           Cancelar
         </button>
-        <button type="button" disabled={busy} onClick={() => setDraft(null)}>
+        <button type="button" disabled={busy} onClick={() => void save(null)}>
           Limpiar valor
         </button>
       </div>
@@ -315,17 +323,19 @@ export function CustomFields({
               {field.description ? (
                 <dd className={styles.description}>{field.description}</dd>
               ) : null}
-              <dd className={field.saved ? undefined : styles.empty}>{field.text}</dd>
               {onSave && field.definition ? (
                 <dd>
                   <FieldEditor
                     key={`${field.id}:${JSON.stringify(field.value)}`}
                     definition={field.definition}
                     value={field.value}
+                    displayValue={field.text}
                     onSave={onSave}
                   />
                 </dd>
-              ) : null}
+              ) : (
+                <dd className={field.saved ? undefined : styles.empty}>{field.text}</dd>
+              )}
             </div>
           ))}
         </dl>

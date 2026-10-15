@@ -38,7 +38,11 @@ interface SessionPayload {
   readonly csrfToken?: string;
 }
 interface CapabilitiesPayload {
-  readonly data: { readonly canAssignConversations: boolean; readonly canConfigureAgent: boolean };
+  readonly data: {
+    readonly canAssignContacts: boolean;
+    readonly canAssignConversations: boolean;
+    readonly canConfigureAgent: boolean;
+  };
 }
 
 interface List<T> {
@@ -250,6 +254,7 @@ export default function InboxPage(): React.JSX.Element {
   const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
   const [memberNames, setMemberNames] = useState<Map<string, string>>(new Map());
   const [canAssignConversations, setCanAssignConversations] = useState(false);
+  const [canAssignContacts, setCanAssignContacts] = useState(false);
   const [canConfigureAgent, setCanConfigureAgent] = useState(false);
   const [agentControl, setAgentControl] = useState<{
     enabled: boolean;
@@ -488,9 +493,10 @@ export default function InboxPage(): React.JSX.Element {
         setQuickReplies(((await replyResponse.json()) as List<QuickReply>).data);
         const capabilities = ((await capabilitiesResponse.json()) as CapabilitiesPayload).data;
         setCanAssignConversations(capabilities.canAssignConversations);
+        setCanAssignContacts(capabilities.canAssignContacts);
         setCanConfigureAgent(capabilities.canConfigureAgent);
         setAgentControl(AgentControlResponseSchema.parse(await agentResponse.json()).data);
-        if (capabilities.canAssignConversations) {
+        if (capabilities.canAssignConversations || capabilities.canAssignContacts) {
           void (async () => {
             const names = new Map<string, string>();
             let cursor: string | null = null;
@@ -1611,6 +1617,8 @@ export default function InboxPage(): React.JSX.Element {
                   <ConversationContactCard
                     contact={selectedContact}
                     ownerName={contactOwnerName}
+                    canAssignOwner={canAssignContacts}
+                    assignees={assignees}
                     csrfToken={csrf}
                     onSaved={(contact) =>
                       setEditedContacts((previous) => new Map(previous).set(contact.id, contact))
@@ -1669,6 +1677,8 @@ export default function InboxPage(): React.JSX.Element {
                   <ConversationContactCard
                     contact={selectedContact}
                     ownerName={contactOwnerName}
+                    canAssignOwner={canAssignContacts}
+                    assignees={assignees}
                     csrfToken={csrf}
                     onSaved={(contact) =>
                       setEditedContacts((previous) => new Map(previous).set(contact.id, contact))

@@ -146,6 +146,13 @@ function contact(index: number, displayName: string): Contact {
         dataType: "TEXT",
         value: "Sedán sintético",
       },
+      {
+        fieldId: "019b0000-0000-7000-8000-000000000096",
+        key: "sales_advisor",
+        label: "Asesor de Ventas",
+        dataType: "SINGLE_OPTIONS",
+        value: "Si",
+      },
     ],
     source: "MIGRATION",
     sourceParticipants: {
@@ -374,7 +381,7 @@ async function workspaceFixture(
         return;
       }
       if (path === "/api/auth/capabilities") {
-        await respond({ data: { canAssignConversations: true, canConfigureAgent: true } });
+        await respond({ data: { canAssignContacts: true, canAssignConversations: true, canConfigureAgent: true } });
         return;
       }
       if (path === "/api/conversations/agent-control") {
@@ -387,12 +394,22 @@ async function workspaceFixture(
         await respond({
           data: [
             {
+              id: "019b0000-0000-7000-8000-000000000096",
+              key: "sales_advisor",
+              label: "Asesor de Ventas",
+              description: "Selección binaria sintética",
+              dataType: "SINGLE_OPTIONS",
+              model: "contact",
+              options: ["Si", "No"],
+            },
+            {
               id: "019b0000-0000-7000-8000-000000000098",
               key: "vehicle",
               label: "Vehículo preferido",
               description: "Preferencia sintética",
               dataType: "TEXT",
               model: "contact",
+              options: [],
             },
             {
               id: "019b0000-0000-7000-8000-000000000097",
@@ -401,6 +418,7 @@ async function workspaceFixture(
               description: "Campo sintético vacío",
               dataType: "TEXT",
               model: "contact",
+              options: [],
             },
           ],
           page: { nextCursor: null },
@@ -743,6 +761,62 @@ test("active inbox preserves thread, draft composer and contact context at both 
   await page.screenshot({ path: testInfo.outputPath("inbox-mobile.png") });
   expect(fixture.writes).toEqual([]);
   expect(fixture.unexpected).toEqual([]);
+});
+
+test("contact owner and binary custom field update directly from the conversation card", async ({
+  page,
+}) => {
+  await workspaceFixture(page);
+  let current: Contact = primaryContact;
+  const writes: Record<string, unknown>[] = [];
+  await page.route("**/api/contacts/*", async (route) => {
+    const request = route.request();
+    if (request.method() !== "PATCH") return route.fallback();
+    expect(request.headers()["x-csrf-token"]).toBe("synthetic-csrf-token");
+    expect(request.headers()["if-match"]).toBe(`"${current.version}"`);
+    const patch = request.postDataJSON() as Record<string, unknown>;
+    writes.push(patch);
+    current = {
+      ...current,
+      ...(Object.hasOwn(patch, "ownerMemberId")
+        ? { ownerMemberId: patch.ownerMemberId as string | null }
+        : {}),
+      ...(patch.customField
+        ? {
+            customFields: current.customFields.map((field) =>
+              field.fieldId === (patch.customField as { fieldId: string }).fieldId
+                ? { ...field, value: (patch.customField as { value: string }).value }
+                : field,
+            ),
+          }
+        : {}),
+      version: String(Number(current.version) + 1),
+    };
+    await route.fulfill({ json: { data: current } });
+  });
+
+  await page.goto("/inbox");
+  await page.locator(`[data-source="QUANTUM"][data-conversation-id="${conversationId}"]`).click();
+  const card = page.getByRole("region", { name: "Ficha del cliente" });
+  const owner = card.getByRole("combobox", { name: "Responsable del contacto" });
+  await expect(owner).toHaveValue(memberId);
+  await owner.selectOption("");
+  await expect(owner).toHaveValue("");
+  await owner.selectOption(memberId);
+  await expect(owner).toHaveValue(memberId);
+
+  await card.getByRole("button", { name: "Asesor de Ventas: Si. Cambiar valor" }).click();
+  const choices = card.getByRole("group", { name: "Asesor de Ventas" });
+  await expect(choices.getByRole("button")).toHaveCount(2);
+  await expect(choices.getByRole("button", { name: "Si" })).toBeVisible();
+  await expect(choices.getByRole("button", { name: "No" })).toBeVisible();
+  await choices.getByRole("button", { name: "No" }).click();
+  await expect(card.getByRole("button", { name: "Asesor de Ventas: No. Cambiar valor" })).toBeVisible();
+  expect(writes).toEqual([
+    { ownerMemberId: null },
+    { ownerMemberId: memberId },
+    { customField: { fieldId: "019b0000-0000-7000-8000-000000000096", value: "No" } },
+  ]);
 });
 
 test("one inbox preserves mixed pagination, shared search, selection and legacy contact links", async ({

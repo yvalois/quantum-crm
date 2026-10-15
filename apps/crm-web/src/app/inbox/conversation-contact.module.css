@@ -186,6 +186,29 @@
   font-size: 0.83rem;
   color: #20363b;
 }
+.ownerSelect {
+  width: 100%;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #cbdad8;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: #20363b;
+  font: inherit;
+  cursor: pointer;
+}
+.ownerSelect:focus-visible {
+  outline: 2px solid #087d77;
+  outline-offset: 2px;
+}
+.ownerHint,
+.ownerError {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+}
+.ownerHint { color: #60707f; }
+.ownerError { color: #ad2c3a; }
 .open {
   margin: 0.95rem 0 0.15rem;
   font-size: 0.76rem;
