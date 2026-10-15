@@ -161,6 +161,24 @@ describe("unified inbox postgres repository", () => {
       31,
     ]);
   });
+  it("filters native and imported chats by the same advisor without bypassing the actor scope", async () => {
+    const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
+    await createUnifiedInboxPostgresRepository(poolWith(query)).list(
+      { ...actor, scope: "OWN" },
+      { limit: 30, contactState: "ALL", assigneeMemberId: native.quantum.assignee_member_id },
+    );
+    const statement = query.mock.calls[0]?.[0] ?? "";
+    expect(statement).toContain("conversation.assignee_member_id = $1::uuid");
+    expect(statement).toContain("thread.assignee_member_id = $2::uuid");
+    expect(statement).toContain("conversation.assignee_member_id = $3::uuid");
+    expect(statement).toContain("thread.assignee_member_id = $3::uuid");
+    expect(query.mock.calls[0]?.[1]).toEqual([
+      actor.memberId,
+      actor.memberId,
+      native.quantum.assignee_member_id,
+      31,
+    ]);
+  });
   it("includes missing and unrecognized historical channels in UNKNOWN without interpolating aliases", async () => {
     const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [] }));
     await createUnifiedInboxPostgresRepository(poolWith(query)).list(actor, {

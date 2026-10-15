@@ -51,15 +51,15 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Impacto tecnico
 
-| Area | Impacto previsto |
-|---|---|
-| Aplicaciones y modulos | `api`, `crm-web`, `worker`; nuevo modulo `conversations` dentro de `domain` |
-| Contratos y eventos | HTTP v1, estados de mensajes y eventos de conversacion versionados |
-| Datos y migraciones | schema `conversations` con conversaciones, mensajes, asignaciones, respuestas rapidas e historial |
-| Permisos y aislamiento | permisos de lectura, respuesta, asignacion y control de agente; alcance de datos aplicado en servidor |
-| Configuracion y secretos | sin secretos de proveedor en esta rebanada base |
-| Observabilidad y operacion | correlacion, fallos seguros, outbox y estado desconocido visible |
-| Documentacion | ficha, estado, checklist y contratos afectados |
+| Area                       | Impacto previsto                                                                                      |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Aplicaciones y modulos     | `api`, `crm-web`, `worker`; nuevo modulo `conversations` dentro de `domain`                           |
+| Contratos y eventos        | HTTP v1, estados de mensajes y eventos de conversacion versionados                                    |
+| Datos y migraciones        | schema `conversations` con conversaciones, mensajes, asignaciones, respuestas rapidas e historial     |
+| Permisos y aislamiento     | permisos de lectura, respuesta, asignacion y control de agente; alcance de datos aplicado en servidor |
+| Configuracion y secretos   | sin secretos de proveedor en esta rebanada base                                                       |
+| Observabilidad y operacion | correlacion, fallos seguros, outbox y estado desconocido visible                                      |
+| Documentacion              | ficha, estado, checklist y contratos afectados                                                        |
 
 ## Plan de implementacion
 
@@ -72,13 +72,13 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 
 ## Riesgos y mitigaciones
 
-| Riesgo | Mitigacion | Verificacion |
-|---|---|---|
-| Respuestas simultaneas de humano e IA | revision optimista y comprobacion del modo justo antes de publicar | carrera controlada y respuesta tardia rechazada |
-| Mensaje duplicado por webhook o reintento | clave unica por perfil, canal e ID externo; idempotencia durable | mismo evento repetido converge |
-| Acceso a conversaciones ajenas | AuthContext, alcance comercial y filtros server-side | dos perfiles y usuario fuera de alcance |
-| Confundir nota interna con mensaje externo | tipos y comandos separados; el puerto de canal nunca recibe notas | prueba de contrato y API |
-| Estado externo incierto | estado `UNKNOWN`/`FAILED` observable y conciliacion antes de repetir | prueba de fallo posterior al envio |
+| Riesgo                                     | Mitigacion                                                           | Verificacion                                    |
+| ------------------------------------------ | -------------------------------------------------------------------- | ----------------------------------------------- |
+| Respuestas simultaneas de humano e IA      | revision optimista y comprobacion del modo justo antes de publicar   | carrera controlada y respuesta tardia rechazada |
+| Mensaje duplicado por webhook o reintento  | clave unica por perfil, canal e ID externo; idempotencia durable     | mismo evento repetido converge                  |
+| Acceso a conversaciones ajenas             | AuthContext, alcance comercial y filtros server-side                 | dos perfiles y usuario fuera de alcance         |
+| Confundir nota interna con mensaje externo | tipos y comandos separados; el puerto de canal nunca recibe notas    | prueba de contrato y API                        |
+| Estado externo incierto                    | estado `UNKNOWN`/`FAILED` observable y conciliacion antes de repetir | prueba de fallo posterior al envio              |
 
 ## Criterios de aceptacion
 
@@ -162,3 +162,11 @@ Un usuario autorizado opera una bandeja real con conversaciones y mensajes persi
 - Documentacion actualizada: alcance de plantillas `DOC-15`, checklist de trabajo, ficha y estado oficial.
 - Desviaciones del plan: no se afirma entrega externa. Correo, WhatsApp, SMS y chat web registran intencion durable en outbox y muestran `QUEUED` hasta disponer de credenciales y adaptadores reales.
 - Pendientes o decisiones nuevas: adaptadores reales de entrada/salida, deduplicacion de webhooks por ID externo, reintento/conciliacion del proveedor, adjuntos generales mediante `files` y resumen LangGraph/MCP. No se afirma entrega externa antes de configurar el proveedor.
+
+## Extensión CHAT-11 / CHAT-13 / CHAT-20 — bandeja operativa de InterAmerican (2026-10-14)
+
+El bloque solicitado tras integrar #161 reutiliza la bandeja unificada, los contactos importados, YCloud y el control `attentionMode` existentes. El filtro por asesor opera sobre chats actuales e importados bajo el alcance comercial ya autorizado. La ficha se pliega y muestra valores y definiciones de campos personalizados; no inventa valores faltantes. Un envío humano toma el chat activo antes de responder. Para un historial importado con teléfono, la acción indica explícitamente que continúa por el WhatsApp conectado y conserva el historial anterior. La pausa global persiste en la base del perfil hasta reactivación administrativa, mientras la pausa por chat conserva su modo propio; ambas cancelan ejecuciones pendientes y salidas del agente aún no reclamadas.
+
+La migración `20261015030000_chat_20_global_agent_control` es aditiva y crea el interruptor y su auditoría dentro del perfil. El API exige `crm:conversations:configure` para cambiarlo y versión esperada; el worker revalida el interruptor al reclamar y completar. La recepción toma un lock compartido antes del chat para serializarla con una pausa. El envío de un historial a WhatsApp valida el contacto y construye la identidad del hilo solo desde el binding privado del servidor. No se modifica el prompt ni la memoria del agente.
+
+Verificación enfocada: permisos y concurrencia del control, filtro para ambas fuentes sin ampliar alcance, cancelación de solicitudes/salidas pendientes, creación con número validado y asesor autorizado, tipos/estática, migración PostgreSQL sintética y flujo autenticado en el VPS. La evidencia de cierre se registra en [`estado.md`](../../04-proceso/estado.md); las casillas globales de CHAT-02/11/13/20 siguen abiertas mientras queden variantes sin demostrar. **Pendientes de estabilización posterior:** reconciliar en una sola representación visual los mensajes antiguos y el hilo WhatsApp actual, y probar entrega fuera de la ventana habilitada por el proveedor.

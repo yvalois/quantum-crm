@@ -8,6 +8,8 @@ describe("conversation agent PostgreSQL repository", () => {
     "only switches to a human when the routed advisor is still confirmed (receipt=%s)",
     async (hasReceipt) => {
       const query = vi.fn(async (statement: string, _values?: unknown[]) => {
+        if (statement.includes("SELECT enabled FROM conversations.agent_control"))
+          return { rows: [{ enabled: true }] };
         if (statement.includes("SELECT contact_id::text, assignee_member_id::text"))
           return {
             rows: [

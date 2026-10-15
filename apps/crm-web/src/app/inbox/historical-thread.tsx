@@ -7,7 +7,7 @@ import {
   type HistoricalConversationMessage,
   type TaskAssignee,
 } from "@quantum-crm/contracts";
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import styles from "./historical-inbox.module.css";
 import { HistoricalAttachment } from "./historical-attachment";
 import { HistoricalChannelBadge } from "./historical-channel-badge";
@@ -58,6 +58,8 @@ export function HistoricalThread({
   csrfToken,
   canAssign,
   onAssigned,
+  canContinueWhatsApp,
+  onContinueWhatsApp,
 }: {
   readonly conversation: HistoricalConversation;
   readonly contactName: string | undefined;
@@ -65,6 +67,8 @@ export function HistoricalThread({
   readonly csrfToken: string | null;
   readonly canAssign: boolean;
   readonly onAssigned: () => void;
+  readonly canContinueWhatsApp: boolean;
+  readonly onContinueWhatsApp: (body: string) => Promise<void>;
 }): React.JSX.Element {
   const [selected, setSelected] = useState(conversation);
   const [messages, setMessages] = useState<HistoricalConversationMessage[]>([]);
@@ -74,7 +78,25 @@ export function HistoricalThread({
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [assigning, setAssigning] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const cursor = cursors.at(-1) ?? null;
+
+  const send = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!draft.trim() || !canContinueWhatsApp) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await onContinueWhatsApp(draft.trim());
+      setDraft("");
+    } catch (cause) {
+      setSendError(cause instanceof Error ? cause.message : "No se pudo enviar el mensaje.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   const assign = async (assigneeMemberId: string): Promise<void> => {
     if (!csrfToken || !assigneeMemberId) return;
@@ -268,9 +290,31 @@ export function HistoricalThread({
           Siguientes
         </button>
       </nav>
-      <p className={styles.readOnly}>
-        Envío pendiente de conexión del canal. Este historial se conserva en consulta.
-      </p>
+      {canContinueWhatsApp ? (
+        <form className={styles.liveComposer} onSubmit={(event) => void send(event)}>
+          <label htmlFor="historical-whatsapp-reply">Continuar por WhatsApp</label>
+          <textarea
+            id="historical-whatsapp-reply"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            maxLength={4096}
+            placeholder="Escribe tu mensaje…"
+          />
+          <div>
+            <span>
+              Usará el número WhatsApp conectado a Quantum. El historial anterior se conserva.
+            </span>
+            <button type="submit" disabled={sending || !draft.trim()}>
+              {sending ? "Enviando…" : "Enviar mensaje"}
+            </button>
+          </div>
+          {sendError ? <p role="alert">{sendError}</p> : null}
+        </form>
+      ) : (
+        <p className={styles.readOnly}>
+          Para responder desde Quantum, vincula este historial a un contacto con teléfono válido.
+        </p>
+      )}
     </section>
   );
 }

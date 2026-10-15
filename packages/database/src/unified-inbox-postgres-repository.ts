@@ -126,6 +126,11 @@ export function createUnifiedInboxPostgresRepository(pool: PostgresPool): Unifie
           native.push(`conversation.attention_mode = ${bind(query.attentionMode.toLowerCase())}`);
           historical.push("FALSE");
         }
+        if (query.assigneeMemberId) {
+          const assignee = bind(query.assigneeMemberId);
+          native.push(`conversation.assignee_member_id = ${assignee}::uuid`);
+          historical.push(`thread.assignee_member_id = ${assignee}::uuid`);
+        }
         if (query.unassigned === true) {
           native.push("conversation.assignee_member_id IS NULL");
           historical.push("thread.assignee_member_id IS NULL");

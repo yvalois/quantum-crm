@@ -28,6 +28,11 @@ function body(value: string): string {
 
 export interface ConversationReferences {
   readonly contactExistsFor: (actor: CommercialActor, contactId: string) => Promise<boolean>;
+  /** Only a server-owned channel binding may construct the outbound thread identity. */
+  readonly whatsappThreadFor?: (
+    actor: CommercialActor,
+    contactId: string,
+  ) => Promise<string | null>;
   readonly isActiveMember: (memberId: string) => Promise<boolean>;
   /** Resolves a document through its owning module and returns the server-owned snapshot source. */
   readonly documentFor?: (
@@ -80,6 +85,7 @@ export class ConversationService {
     readonly permissions: readonly IamPermission[];
     readonly contactId: string;
     readonly channel: ConversationChannel;
+    readonly assigneeMemberId?: string;
     readonly subject?: string;
     readonly initialMessage: string;
     readonly idempotencyKey: string;
@@ -88,16 +94,27 @@ export class ConversationService {
     allow(input.permissions, "crm:conversations:reply");
     if (!(await this.references.contactExistsFor(input.actor, input.contactId)))
       throw new ConversationNotFoundError();
+    if (input.assigneeMemberId && input.assigneeMemberId !== input.actor.memberId) {
+      allow(input.permissions, "crm:conversations:assign");
+      if (!(await this.references.isActiveMember(input.assigneeMemberId)))
+        throw new ConversationNotFoundError();
+    }
     const now = this.clock();
     const content = body(input.initialMessage);
     const subject = input.subject?.trim() || null;
     if (subject && subject.length > 240) throw new ConversationValidationError();
+    const externalThreadId =
+      input.channel === "WHATSAPP" && this.references.whatsappThreadFor
+        ? await this.references.whatsappThreadFor(input.actor, input.contactId)
+        : null;
+    if (input.channel === "WHATSAPP" && this.references.whatsappThreadFor && !externalThreadId)
+      throw new ConversationValidationError();
     const conversation: ConversationRecord = Object.freeze({
       id: randomUUID(),
       contactId: input.contactId,
       channel: input.channel,
-      externalThreadId: null,
-      assigneeMemberId: input.actor.memberId,
+      externalThreadId,
+      assigneeMemberId: input.assigneeMemberId ?? input.actor.memberId,
       status: "OPEN",
       attentionMode: "HUMAN",
       subject,

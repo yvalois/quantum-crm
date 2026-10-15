@@ -290,6 +290,10 @@ export function createExternalConversationReceiver(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
+        // Serialize an inbound trigger with a profile-wide pause before taking a chat lock.
+        await client.query(
+          "SELECT enabled FROM conversations.agent_control WHERE id = 1 FOR SHARE",
+        );
         await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
           `external-thread:${message.externalThreadId}`,
         ]);
@@ -373,7 +377,8 @@ export function createExternalConversationReceiver(
             `INSERT INTO conversations.agent_requests (inbound_message_id, conversation_id)
              SELECT $1::uuid, conversation.id FROM conversations.conversations AS conversation
               WHERE conversation.id = $2::uuid AND conversation.attention_mode = 'agent'
-                AND conversation.status <> 'closed' AND conversation.channel = 'whatsapp'`,
+                AND conversation.status <> 'closed' AND conversation.channel = 'whatsapp'
+                AND (SELECT enabled FROM conversations.agent_control WHERE id = 1)`,
             [inboundMessageId, conversationId],
           );
         }
@@ -863,11 +868,25 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
         );
         const row = result.rows[0];
         if (!row) throw new DatabaseUnavailableError();
-        if (input.resetAgent) {
+        if (input.resetAgent || input.attentionMode === "HUMAN") {
           await client.query(
             `UPDATE conversations.agent_requests SET status = 'cancelled', lease_owner = NULL,
                     lease_expires_at = NULL, updated_at = $2
                WHERE conversation_id = $1::uuid AND status IN ('pending', 'leased')`,
+            [input.id, input.now],
+          );
+          await client.query(
+            `WITH cancelled AS (
+               UPDATE conversations.outbox AS outbox SET status = 'cancelled',
+                      next_attempt_at = 'infinity', updated_at = $2
+                 FROM conversations.agent_requests AS request
+                WHERE request.conversation_id = $1::uuid
+                  AND request.response_message_id = outbox.message_id
+                  AND outbox.status = 'pending'
+               RETURNING outbox.message_id
+             ) UPDATE conversations.messages SET delivery_status = 'failed',
+                     failure_code = 'AGENT_PAUSED', updated_at = $2
+               WHERE id IN (SELECT message_id FROM cancelled)`,
             [input.id, input.now],
           );
         }
