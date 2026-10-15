@@ -168,7 +168,7 @@ function contact(index: number, displayName: string): Contact {
 const contacts = [
   contact(1, "Andrea Sintética"),
   contact(2, "Bruno Sintético"),
-  contact(3, "Última Sintética"),
+  { ...contact(3, "Última Sintética"), ownerMemberId: invitedMemberId },
 ] as const;
 const primaryContact = contacts[0];
 const conversation: Conversation = {
@@ -687,6 +687,7 @@ test("contacts retain server pagination, search and contact detail on desktop an
   const detail = page.getByRole("complementary", { name: "Ficha de Última Sintética" });
   await expect(detail).toBeVisible();
   await expect(detail.getByRole("heading", { name: "Última Sintética" })).toBeVisible();
+  await expect(detail.getByText("Julio Asesor Invitado", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cerrar ficha" }).click();
   await expect(detail).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });

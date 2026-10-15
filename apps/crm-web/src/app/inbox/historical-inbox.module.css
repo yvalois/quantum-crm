@@ -198,6 +198,37 @@
 .workspace .contactToggle:hover {
   background: #d7efe8;
 }
+.assigneeControl {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #e1e7ec;
+  background: #fff;
+  color: #526573;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.assigneeControl select {
+  width: min(100%, 18rem);
+  min-width: 0;
+  border: 1px solid #d2dfe1;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #20363b;
+  padding: 0.42rem 0.55rem;
+  font: inherit;
+}
+@media (max-width: 600px) {
+  .assigneeControl {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .assigneeControl select {
+    width: 100%;
+  }
+}
 .orphan,
 .attachment {
   color: #805c25;

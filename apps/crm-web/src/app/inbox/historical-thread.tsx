@@ -215,7 +215,7 @@ export function HistoricalThread({
         </div>
       </header>
       {canAssign && assignees.length > 0 ? (
-        <label>
+        <label className={styles.assigneeControl}>
           Responsable del chat
           <select
             value={selected.assigneeMemberId ?? ""}

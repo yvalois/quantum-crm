@@ -412,6 +412,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
   const [contacts, setContacts] = useState<WorkspaceContact[]>([]);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [members, setMembers] = useState<MemberOption[]>([]);
+  const [memberDirectory, setMemberDirectory] = useState<MemberOption[]>([]);
   const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [labels, setLabels] = useState<ContactLabel[]>([]);
   const [automations, setAutomations] = useState<Automation[]>([]);
@@ -472,17 +473,21 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
       return null;
     return {
       id: contact.ownerMemberId,
-      displayName: contact.owner?.displayName ?? "Responsable actual",
+      displayName:
+        memberDirectory.find((member) => member.id === contact.ownerMemberId)?.displayName ??
+        contact.owner?.displayName ??
+        "Responsable actual",
     };
-  }, [composer, members]);
+  }, [composer, memberDirectory, members]);
   const ownerFor = useCallback(
     (contact: WorkspaceContact): ContactOwner | null =>
+      memberDirectory.find((member) => member.id === contact.ownerMemberId) ??
       contact.owner ??
       members.find((member) => member.id === contact.ownerMemberId) ??
       (contact.ownerMemberId
         ? { id: contact.ownerMemberId, displayName: "Responsable asignado" }
         : null),
-    [members],
+    [memberDirectory, members],
   );
 
   const loadContacts = useCallback(
@@ -632,7 +637,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
         setCsrfToken(session.csrfToken);
         const [memberResponse, pipelineResponse, labelResponse, automationResponse] =
           await Promise.all([
-            fetch("/api/members?limit=100&status=ACTIVE", {
+            fetch("/api/members?limit=100", {
               cache: "no-store",
               credentials: "same-origin",
             }),
@@ -641,10 +646,12 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
             fetch("/api/automations", { cache: "no-store", credentials: "same-origin" }),
           ]);
         if (!mounted) return;
-        if (memberResponse.ok)
-          setMembers(
-            ((await memberResponse.json()) as { readonly data?: MemberOption[] }).data ?? [],
-          );
+        if (memberResponse.ok) {
+          const directory =
+            ((await memberResponse.json()) as { readonly data?: MemberOption[] }).data ?? [];
+          setMemberDirectory(directory);
+          setMembers(directory.filter((member) => member.status === "ACTIVE"));
+        }
         if (pipelineResponse.ok)
           setPipelines(
             ((await pipelineResponse.json()) as { readonly data?: PipelineOption[] }).data ?? [],
