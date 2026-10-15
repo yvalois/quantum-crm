@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
 
+import brandArtwork from "./business-assistant-brand.jpeg";
+
 interface CrmShellProps {
   readonly children: ReactNode;
   readonly className?: string;
@@ -175,7 +177,11 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
       <aside className="crm-sidebar" aria-label="Navegación principal">
         <div className="sidebar-brand-row">
           <a className="brand" href="/" aria-label="Business Assistant, resumen">
-            <span className="brand-mark" aria-hidden="true" />
+            <span
+              className="brand-mark"
+              aria-hidden="true"
+              style={{ backgroundImage: `url(${brandArtwork.src})` }}
+            />
             <span className="brand-copy">
               <strong>Business</strong>
               <span>Assistant</span>
