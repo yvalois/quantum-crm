@@ -20,7 +20,9 @@ describe("OpenAI conversational answer", () => {
       const body = JSON.parse(String(init?.body));
       expect(body.store).toBe(false);
       expect(body.instructions).toContain("# Rol");
-      expect(body.instructions).toContain("# Requisitos exactos para renta particular sin conductor");
+      expect(body.instructions).toContain(
+        "# Requisitos exactos para renta particular sin conductor",
+      );
       expect(body.instructions).toContain("# Continuidad cuando cambia el idioma");
       expect(body.instructions).not.toContain("{{ $json.");
       expect(body.input).toEqual([
@@ -153,7 +155,8 @@ describe("OpenAI conversational answer", () => {
                 {
                   type: "output_text",
                   text: JSON.stringify({
-                    mensaje: "¡Hola! Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo te interesa?",
+                    mensaje:
+                      "¡Hola! Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo te interesa?",
                     handoff: pendingHandoff,
                   }),
                 },
@@ -167,6 +170,10 @@ describe("OpenAI conversational answer", () => {
     const answer = createOpenAiConversationAnswer({ apiKey: new SecretValue("test"), fetcher });
     expect(
       await answer({ question: "Hola, quiero rentar un carro", history: [], firstTurn: true }),
-    ).toEqual({ answer: "¡Hola! Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo te interesa?", handoffRequested: false });
+    ).toEqual({
+      answer:
+        "¡Hola! Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo te interesa?",
+      handoffRequested: false,
+    });
   });
 });

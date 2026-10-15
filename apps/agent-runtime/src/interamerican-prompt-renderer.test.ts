@@ -12,7 +12,10 @@ describe("InterAmerican V54.84 prompt", () => {
   });
 
   it("resolves the n8n transport fields without leaving executable template text", () => {
-    const prompt = renderInterAmericanPrompt({ question: "Quiero un SUV por tres días", language: "es" });
+    const prompt = renderInterAmericanPrompt({
+      question: "Quiero un SUV por tres días",
+      language: "es",
+    });
     expect(prompt).toContain("Quiero un SUV por tres días");
     expect(prompt).toContain("# Saludo inicial y saludo de reentrada");
     expect(prompt).not.toContain("{{ $json.");

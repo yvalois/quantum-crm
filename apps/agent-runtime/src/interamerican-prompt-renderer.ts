@@ -7,14 +7,23 @@ export function renderInterAmericanPrompt(input: {
 }): string {
   const language = input.language ?? "es";
   const replacements = new Map([
-    ["{{ $json.mensaje_cliente_real || $json.mensaje_actual || $json.prompt_usuario_agent || '' }}", input.question],
+    [
+      "{{ $json.mensaje_cliente_real || $json.mensaje_actual || $json.prompt_usuario_agent || '' }}",
+      input.question,
+    ],
     ["{{ $json.es_pauta ? 'sí' : 'no' }}", "no"],
     ["{{ $json.pauta_contexto || '' }}", ""],
-    ["{{ $json.language_instruction || '' }}", language === "en" ? "Reply in English." : "Responde en español."],
+    [
+      "{{ $json.language_instruction || '' }}",
+      language === "en" ? "Reply in English." : "Responde en español.",
+    ],
     ["{{ $json.source_type || 'texto' }}", "texto"],
     ["{{ $json.image_summary || '' }}", ""],
     ["{{ $json.idioma_conversacion_activo || 'auto' }}", language],
-    ["{{ $json.language_lock || 'VISIBLE_REPLY_SAME_AS_REAL_CUSTOMER' }}", "VISIBLE_REPLY_SAME_AS_REAL_CUSTOMER"],
+    [
+      "{{ $json.language_lock || 'VISIBLE_REPLY_SAME_AS_REAL_CUSTOMER' }}",
+      "VISIBLE_REPLY_SAME_AS_REAL_CUSTOMER",
+    ],
   ]);
   return interAmericanOriginalPrompt.replace(/\{\{[^}]+\}\}/gu, (expression) => {
     const value = replacements.get(expression);
