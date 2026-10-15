@@ -95,6 +95,13 @@ describe("InterAmerican agent memory", () => {
     expect(afterReset.answerCatalog).not.toHaveBeenCalled();
   });
 
+  it("uses Alex's original greeting for a transcribed voice greeting after reset", async () => {
+    const afterReset = gateway([]);
+    const result = await answerAgentTurn({ question: "Buenos días.", firstTurn: true }, afterReset);
+    expect(result.answer).toBe(initialGreeting);
+    expect(afterReset.answerConversation).not.toHaveBeenCalled();
+  });
+
   it("uses only the context returned for this execution", async () => {
     const current = gateway([{ role: "customer", text: "Necesito un traslado" }]);
     await answerAgentTurn({ question: "¿Puede ser mañana?", firstTurn: false }, current);

@@ -1650,7 +1650,12 @@ export default function InboxPage(): React.JSX.Element {
                             <span>{authorLabel(item)}</span>
                             <time>{time(item.createdAt)}</time>
                           </div>
-                          <div className={styles.messageBubble}>
+                          <div
+                            className={cx(
+                              styles.messageBubble,
+                              item.kind === "AUDIO" && item.fileId && styles.messageBubbleWithAudio,
+                            )}
+                          >
                             {item.kind === "DOCUMENT" && item.documentSnapshot ? (
                               <div className={styles.documentMessage}>
                                 <span>
@@ -1673,7 +1678,9 @@ export default function InboxPage(): React.JSX.Element {
                                 disponible.
                               </p>
                             ) : null}
-                            <p>{item.body}</p>
+                            {item.kind !== "AUDIO" || !item.fileId || item.body !== "Audio" ? (
+                              <p>{item.body}</p>
+                            ) : null}
                             <footer>
                               <span>{deliveryLabel[item.deliveryStatus]}</span>
                               {item.failureCode ? <span>{item.failureCode}</span> : null}

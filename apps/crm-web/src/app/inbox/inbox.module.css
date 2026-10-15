@@ -1178,10 +1178,59 @@
   object-fit: contain;
 }
 
-.messageAudio {
-  display: block;
-  width: min(100%, 19rem);
-  margin-bottom: 0.35rem;
+.messageBubbleWithAudio {
+  width: min(23rem, 78%);
+  box-sizing: border-box;
+}
+
+.messageAudioPlayer {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.1rem 0 0.3rem;
+}
+
+.messageAudioPlayer audio {
+  display: none;
+}
+
+.messageAudioToggle {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--teal-deep);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.messageAudioTrack {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.12rem;
+  color: #344c51;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.messageAudioTrack input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--teal-deep);
+}
+
+.messageAudioTime {
+  flex: none;
+  color: #657b80;
+  font-size: 0.6rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .messageFile {

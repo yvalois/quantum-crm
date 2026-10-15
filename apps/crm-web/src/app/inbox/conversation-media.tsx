@@ -8,6 +8,82 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import styles from "./inbox.module.css";
 
+function clockTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+}
+
+function ConversationAudio({
+  url,
+  onError,
+}: {
+  readonly url: string;
+  readonly onError: () => void;
+}): React.JSX.Element {
+  const player = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const toggle = async () => {
+    const audio = player.current;
+    if (!audio) return;
+    if (!audio.paused) {
+      audio.pause();
+      return;
+    }
+    try {
+      await audio.play();
+    } catch {
+      onError();
+    }
+  };
+
+  return (
+    <div className={styles.messageAudioPlayer}>
+      <audio
+        ref={player}
+        src={url}
+        preload="metadata"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
+        onDurationChange={(event) => setDuration(event.currentTarget.duration)}
+        onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)}
+        onError={onError}
+      />
+      <button
+        type="button"
+        className={styles.messageAudioToggle}
+        onClick={() => void toggle()}
+        aria-label={playing ? "Pausar audio" : "Reproducir audio"}
+      >
+        {playing ? "Ⅱ" : "▶"}
+      </button>
+      <div className={styles.messageAudioTrack}>
+        <span>Mensaje de voz</span>
+        <input
+          type="range"
+          min="0"
+          max={Number.isFinite(duration) && duration > 0 ? duration : 1}
+          step="0.1"
+          value={Math.min(elapsed, Number.isFinite(duration) && duration > 0 ? duration : 1)}
+          aria-label="Posición del audio"
+          onChange={(event) => {
+            if (!player.current) return;
+            player.current.currentTime = Number(event.target.value);
+            setElapsed(player.current.currentTime);
+          }}
+        />
+      </div>
+      <span className={styles.messageAudioTime}>
+        {clockTime(elapsed)} / {clockTime(duration)}
+      </span>
+    </div>
+  );
+}
+
 export function ConversationMedia({
   message,
   csrf,
@@ -99,16 +175,7 @@ export function ConversationMedia({
     );
   }
   if (message.kind === "AUDIO") {
-    return (
-      <audio
-        className={styles.messageAudio}
-        controls
-        src={url}
-        preload="metadata"
-        aria-label="Reproducir audio de la conversación"
-        onError={retryMedia}
-      />
-    );
+    return <ConversationAudio url={url} onError={retryMedia} />;
   }
   return (
     <a

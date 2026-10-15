@@ -747,7 +747,11 @@ test("an open chat receives new media and replaces pending previews without leav
     { ...audioMessage, fileId: audioFileId },
   ];
   await page.clock.runFor(2_100);
-  await expect(thread.locator("audio[controls]")).toHaveCount(1);
+  await expect(thread.getByRole("button", { name: "Reproducir audio" })).toHaveCount(1);
+  await expect(thread.getByRole("slider", { name: "Posición del audio" })).toHaveCount(1);
+  expect(
+    (await thread.getByRole("slider", { name: "Posición del audio" }).boundingBox())?.width,
+  ).toBeGreaterThan(120);
   await expect(thread.getByText(/pendiente o no disponible/)).toHaveCount(0);
   expect(fixture.authorizations.get(imageFileId)).toBe(1);
   expect(fixture.authorizations.get(audioFileId)).toBe(1);
