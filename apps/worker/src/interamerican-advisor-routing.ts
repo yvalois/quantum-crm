@@ -15,11 +15,21 @@ function hash(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-/** Invoked only after the profile-bound YCloud signature has been verified. */
+/** Called only for a confirmed agent handoff in the bound InterAmerican profile. */
 export async function routeInterAmericanAdvisor(
   database: CrmPostgresDatabase,
-  input: { readonly contactId: string; readonly externalThreadId: string },
+  input: { readonly conversationId: string },
 ): Promise<string | undefined> {
+  const conversation = await database.commercial.conversations.find(actor, input.conversationId);
+  if (
+    !conversation ||
+    conversation.channel !== "WHATSAPP" ||
+    !conversation.externalThreadId ||
+    conversation.attentionMode !== "AGENT" ||
+    conversation.status === "CLOSED"
+  )
+    return undefined;
+  const contactId = conversation.contactId;
   const members: IamMember[] = [];
   let cursor: string | undefined;
   do {
@@ -38,13 +48,9 @@ export async function routeInterAmericanAdvisor(
   if (!pool[0] || !pool[1] || pool[0].id === pool[1].id)
     throw new Error("InterAmerican advisor pool unavailable");
   const advisorIds = [pool[0].id, pool[1].id] as const;
-  const thread = await database.commercial.externalConversations.findThreadAssignment(
-    input.externalThreadId,
-  );
-  if (thread && thread.contactId !== input.contactId)
-    throw new Error("Conversation/contact mismatch");
-  if (thread?.assigneeMemberId && !advisorIds.includes(thread.assigneeMemberId)) return undefined;
-  const contact = await database.commercial.contacts.find(actor, input.contactId);
+  if (conversation.assigneeMemberId && !advisorIds.includes(conversation.assigneeMemberId))
+    return undefined;
+  const contact = await database.commercial.contacts.find(actor, contactId);
   if (!contact || contact.archivedAt) throw new Error("Contact unavailable for routing");
   const stage = await database.commercial.sales.resolveImportedStage?.({
     pipelineExternalId,
@@ -53,7 +59,7 @@ export async function routeInterAmericanAdvisor(
   if (!stage) throw new Error("Imported InterAmerican pipeline unavailable");
   const opportunities = (
     await database.commercial.sales.listOpportunities(actor, {
-      contactId: input.contactId,
+      contactId,
       pipelineId: stage.pipelineId,
     })
   )
@@ -62,14 +68,14 @@ export async function routeInterAmericanAdvisor(
   const opportunity = opportunities.find((item) => item.status === "OPEN") ?? null;
   const previousOpportunity = opportunities.find((item) => advisorIds.includes(item.ownerMemberId));
   const previousMemberId =
-    thread?.assigneeMemberId ??
+    conversation.assigneeMemberId ??
     (previousOpportunity
       ? previousOpportunity.ownerMemberId
       : advisorIds.includes(contact.ownerMemberId ?? "")
         ? contact.ownerMemberId
         : null);
   const advisorId = await database.commercial.externalConversations.reserveAdvisor({
-    contactId: input.contactId,
+    contactId,
     eligibleMemberIds: advisorIds,
     previousMemberId,
   });
@@ -108,7 +114,7 @@ export async function routeInterAmericanAdvisor(
       actor,
       opportunity: {
         id: randomUUID(),
-        contactId: input.contactId,
+        contactId,
         ownerMemberId: advisorId,
         pipelineId: stage.pipelineId,
         stageId: stage.stageId,
@@ -122,9 +128,21 @@ export async function routeInterAmericanAdvisor(
         createdAt: now,
         updatedAt: now,
       },
-      idempotencyKey: `agent-route-${input.contactId}-${opportunities[0]?.id ?? "initial"}`,
-      payloadHash: hash(`${input.contactId}:${stage.pipelineId}:${stage.stageId}:${advisorId}`),
+      idempotencyKey: `agent-route-${contactId}-${opportunities[0]?.id ?? "initial"}`,
+      payloadHash: hash(`${contactId}:${stage.pipelineId}:${stage.stageId}:${advisorId}`),
     });
+  }
+  if (conversation.assigneeMemberId !== advisorId) {
+    const updated = await database.commercial.conversations.update({
+      actor,
+      id: conversation.id,
+      expectedVersion: conversation.version,
+      assigneeMemberId: advisorId,
+      now: new Date(),
+      idempotencyKey: `agent-route-${conversation.id}-${conversation.version}`,
+      payloadHash: hash(`${conversation.id}:${advisorId}`),
+    });
+    if (!updated) throw new Error("Conversation owner changed during routing");
   }
   return advisorId;
 }

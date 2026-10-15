@@ -13,6 +13,7 @@ import {
   startConversationAgentLoop,
   type ConversationAgentLoop,
 } from "./conversation-agent-loop.js";
+import { routeInterAmericanAdvisor } from "./interamerican-advisor-routing.js";
 import {
   startFileProcessingLoop,
   type FileProcessingLoop,
@@ -93,6 +94,16 @@ async function bootstrap(): Promise<void> {
     if (config.agentGatewaySecret && config.database?.tenantId) {
       conversationAgentLoop = startConversationAgentLoop({
         repository: database.commercial.conversationAgent,
+        ...(config.ycloudBinding?.advisorRouting === "interamerican-v54"
+          ? {
+              routeAdvisor: async (lease: { readonly conversationId: string }) =>
+                Boolean(
+                  await routeInterAmericanAdvisor(database, {
+                    conversationId: lease.conversationId,
+                  }),
+                ),
+            }
+          : {}),
         sourcesReady: database.commercial.agentKnowledge.bothCatalogsReady,
         tokenClient: createServiceTokenClient({
           issuer: requireOidcConfig(config).issuer,

@@ -6,7 +6,6 @@ import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/databa
 import type { ConversationMessageKind } from "@quantum-crm/domain";
 
 import { CrmPublicRoute } from "./crm-security.js";
-import { routeInterAmericanAdvisor } from "./interamerican-advisor-routing.js";
 
 export const YCLOUD_BINDING = Symbol("YCLOUD_BINDING");
 
@@ -219,15 +218,6 @@ export class YCloudWebhookController {
       message.phone,
       message.displayName,
     );
-    const advisorId =
-      this.binding.advisorRouting === "interamerican-v54" &&
-      message.direction === "INBOUND" &&
-      !message.historical
-        ? await routeInterAmericanAdvisor(this.database, {
-            contactId: contact.id,
-            externalThreadId: message.externalThreadId,
-          })
-        : undefined;
     await this.database.commercial.externalConversations.receive({
       contactId: contact.id,
       contactDisplayName: contact.displayName,
@@ -238,7 +228,6 @@ export class YCloudWebhookController {
       body: message.body,
       occurredAt: message.occurredAt,
       historical: message.historical,
-      ...(advisorId ? { assigneeMemberId: advisorId } : {}),
     });
     return { received: true };
   }

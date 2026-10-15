@@ -29,6 +29,7 @@ describe("conversation agent dispatch", () => {
   it("persists the cited response once before the outbound worker sends it", async () => {
     const complete = vi.fn(async () => "COMPLETED" as const);
     const fail = vi.fn();
+    const routeAdvisor = vi.fn(async () => true);
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       expect(JSON.parse(String(init?.body))).toEqual({
         tenantId: "019b0000-0000-7000-8000-000000000003",
@@ -49,6 +50,7 @@ describe("conversation agent dispatch", () => {
     await dispatchAgentRequest(
       {
         repository: { complete, fail } as unknown as ConversationAgentDispatcher,
+        routeAdvisor,
         sourcesReady: async () => true,
         tokenClient: { issue: async () => new SecretValue("fake-service-token") },
         tenantId: "019b0000-0000-7000-8000-000000000003",
@@ -65,6 +67,7 @@ describe("conversation agent dispatch", () => {
       sourceIds: ["019b0000-0000-7000-8000-000000000004"],
     });
     expect(fail).not.toHaveBeenCalled();
+    expect(routeAdvisor).not.toHaveBeenCalled();
   });
 
   it("releases a failed execution for a bounded retry", async () => {
@@ -95,9 +98,11 @@ describe("conversation agent dispatch", () => {
 
   it("passes a validated handoff proposal to the fenced completion", async () => {
     const complete = vi.fn(async () => "COMPLETED" as const);
+    const routeAdvisor = vi.fn(async () => true);
     await dispatchAgentRequest(
       {
         repository: { complete, fail: vi.fn() } as unknown as ConversationAgentDispatcher,
+        routeAdvisor,
         sourcesReady: async () => true,
         tokenClient: { issue: async () => new SecretValue("fake-service-token") },
         tenantId: "019b0000-0000-7000-8000-000000000003",
@@ -118,6 +123,7 @@ describe("conversation agent dispatch", () => {
       lease,
       "test-worker",
     );
+    expect(routeAdvisor).toHaveBeenCalledWith(lease);
     expect(complete).toHaveBeenCalledWith(expect.objectContaining({ handoffRequested: true }));
   });
 });

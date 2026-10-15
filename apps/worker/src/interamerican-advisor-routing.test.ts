@@ -6,7 +6,7 @@ import { routeInterAmericanAdvisor } from "./interamerican-advisor-routing.js";
 const contactId = "019b0000-0000-7000-8000-000000000001";
 const carlosId = "019b0000-0000-7000-8000-000000000002";
 const julioId = "019b0000-0000-7000-8000-000000000003";
-const threadId = "ycloud:1234567890123456:50255556666";
+const conversationId = "019b0000-0000-7000-8000-000000000005";
 
 function database(
   input: {
@@ -20,6 +20,16 @@ function database(
     displayName: "Cliente de prueba",
     ownerMemberId: null,
     archivedAt: null,
+    version: 1n,
+  };
+  const conversation = {
+    id: conversationId,
+    contactId,
+    channel: "WHATSAPP",
+    externalThreadId: "ycloud:1234567890123456:50255556666",
+    assigneeMemberId: input.existingThreadOwner ?? null,
+    attentionMode: "AGENT",
+    status: "OPEN",
     version: 1n,
   };
   const opportunity = input.previousOwner
@@ -52,12 +62,11 @@ function database(
     },
     commercial: {
       externalConversations: {
-        findThreadAssignment: vi.fn(async () =>
-          input.existingThreadOwner === undefined
-            ? null
-            : { contactId, assigneeMemberId: input.existingThreadOwner },
-        ),
         reserveAdvisor,
+      },
+      conversations: {
+        find: vi.fn(async () => conversation),
+        update: vi.fn(async () => conversation),
       },
       contacts: { find: vi.fn(async () => contact), update: updateContact },
       sales: {
@@ -74,9 +83,7 @@ function database(
 describe("InterAmerican advisor routing", () => {
   it("keeps the previous authorized advisor on chat, contact and open opportunity", async () => {
     const { db, mock } = database({ previousOwner: julioId });
-    expect(await routeInterAmericanAdvisor(db, { contactId, externalThreadId: threadId })).toBe(
-      julioId,
-    );
+    expect(await routeInterAmericanAdvisor(db, { conversationId })).toBe(julioId);
     expect(mock.commercial.externalConversations.reserveAdvisor).toHaveBeenCalledWith(
       expect.objectContaining({ previousMemberId: julioId }),
     );
@@ -84,13 +91,14 @@ describe("InterAmerican advisor routing", () => {
       expect.objectContaining({ contact: expect.objectContaining({ ownerMemberId: julioId }) }),
     );
     expect(mock.commercial.sales.updateOpportunity).not.toHaveBeenCalled();
+    expect(mock.commercial.conversations.update).toHaveBeenCalledWith(
+      expect.objectContaining({ assigneeMemberId: julioId }),
+    );
   });
 
   it("creates one opportunity in the imported qualified stage when none is open", async () => {
     const { db, mock } = database();
-    expect(await routeInterAmericanAdvisor(db, { contactId, externalThreadId: threadId })).toBe(
-      carlosId,
-    );
+    expect(await routeInterAmericanAdvisor(db, { conversationId })).toBe(carlosId);
     expect(mock.commercial.sales.createOpportunity).toHaveBeenCalledWith(
       expect.objectContaining({
         opportunity: expect.objectContaining({ ownerMemberId: carlosId, currency: "GTQ" }),
@@ -100,7 +108,7 @@ describe("InterAmerican advisor routing", () => {
 
   it("creates a fresh opportunity after the prior one has closed", async () => {
     const { db, mock } = database({ previousOwner: julioId, previousStatus: "WON" });
-    await routeInterAmericanAdvisor(db, { contactId, externalThreadId: threadId });
+    await routeInterAmericanAdvisor(db, { conversationId });
     expect(mock.commercial.sales.createOpportunity).toHaveBeenCalledWith(
       expect.objectContaining({
         idempotencyKey: `agent-route-${contactId}-019b0000-0000-7000-8000-000000000004`,
@@ -110,11 +118,10 @@ describe("InterAmerican advisor routing", () => {
 
   it("preserves a chat manually assigned outside the two-advisor pool", async () => {
     const { db, mock } = database({ existingThreadOwner: "019b0000-0000-7000-8000-000000000099" });
-    expect(
-      await routeInterAmericanAdvisor(db, { contactId, externalThreadId: threadId }),
-    ).toBeUndefined();
+    expect(await routeInterAmericanAdvisor(db, { conversationId })).toBeUndefined();
     expect(mock.commercial.externalConversations.reserveAdvisor).not.toHaveBeenCalled();
     expect(mock.commercial.contacts.update).not.toHaveBeenCalled();
     expect(mock.commercial.sales.createOpportunity).not.toHaveBeenCalled();
+    expect(mock.commercial.conversations.update).not.toHaveBeenCalled();
   });
 });

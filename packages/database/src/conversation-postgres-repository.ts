@@ -1,7 +1,6 @@
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 
-import { agentRoutingPrincipalId } from "@quantum-crm/domain";
 import type {
   CommercialActor,
   ConversationHistoryRecord,
@@ -162,22 +161,6 @@ export function createExternalConversationReceiver(
   pool: PostgresPool,
 ): ExternalConversationReceiver {
   return Object.freeze({
-    findThreadAssignment: async (externalThreadId: string) => {
-      try {
-        const result = (await pool.query(
-          `SELECT contact_id::text, assignee_member_id::text
-             FROM conversations.conversations
-            WHERE channel = 'whatsapp' AND external_thread_id = $1 LIMIT 1`,
-          [externalThreadId],
-        )) as {
-          readonly rows: readonly { contact_id: string; assignee_member_id: string | null }[];
-        };
-        const row = result.rows[0];
-        return row ? { contactId: row.contact_id, assigneeMemberId: row.assignee_member_id } : null;
-      } catch (error) {
-        return fail(error);
-      }
-    },
     reserveAdvisor: async (
       input: Parameters<ExternalConversationReceiver["reserveAdvisor"]>[0],
     ) => {
@@ -310,8 +293,8 @@ export function createExternalConversationReceiver(
         await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
           `external-thread:${message.externalThreadId}`,
         ]);
-        const existing = await client.query<{ id: string; assignee_member_id: string | null }>(
-          `SELECT id::text, assignee_member_id::text FROM conversations.conversations
+        const existing = await client.query<{ id: string }>(
+          `SELECT id::text FROM conversations.conversations
            WHERE channel = 'whatsapp' AND external_thread_id = $1 FOR UPDATE`,
           [message.externalThreadId],
         );
@@ -323,7 +306,7 @@ export function createExternalConversationReceiver(
              (id, contact_id, channel, external_thread_id, assignee_member_id, status,
               attention_mode, subject, last_message_preview, last_message_at, unread_count,
               version, created_at, updated_at)
-             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, $8::uuid, 'open',
+             VALUES ($1::uuid, $2::uuid, 'whatsapp', $3, NULL, 'open',
                      CASE WHEN $6 = 'inbound' AND NOT $7::boolean THEN 'agent' ELSE 'human' END, $5,
                      NULL, NULL, 0, 1, $4, $4)`,
             [
@@ -334,7 +317,6 @@ export function createExternalConversationReceiver(
               message.contactDisplayName.slice(0, 240),
               message.direction.toLowerCase(),
               message.historical,
-              message.assigneeMemberId ?? null,
             ],
           );
         }
@@ -343,28 +325,6 @@ export function createExternalConversationReceiver(
            WHERE conversation_id = $1::uuid AND external_message_id = $2`,
           [conversationId, message.externalMessageId],
         );
-        if (
-          existing.rows[0]?.assignee_member_id &&
-          message.assigneeMemberId &&
-          existing.rows[0].assignee_member_id !== message.assigneeMemberId
-        )
-          throw new DatabaseUnavailableError();
-        if (existing.rows[0] && message.assigneeMemberId && !existing.rows[0].assignee_member_id) {
-          await client.query(
-            `UPDATE conversations.conversations
-                SET assignee_member_id = $2::uuid, version = version + 1,
-                    updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid AND assignee_member_id IS NULL`,
-            [conversationId, message.assigneeMemberId],
-          );
-        }
-        if (message.assigneeMemberId && !existing.rows[0]?.assignee_member_id) {
-          await client.query(
-            `INSERT INTO conversations.history
-               (conversation_id, event_type, actor_member_id, previous_value, next_value, created_at)
-             VALUES ($1::uuid, 'assigned', $2::uuid, NULL, $3::uuid::text, CURRENT_TIMESTAMP)`,
-            [conversationId, agentRoutingPrincipalId, message.assigneeMemberId],
-          );
-        }
         if (duplicate.rows[0]) {
           await client.query("COMMIT");
           return "DUPLICATE" as const;

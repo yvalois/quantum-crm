@@ -157,44 +157,12 @@ describe("conversation PostgreSQL repository", () => {
         sql.includes("INSERT INTO conversations.conversations"),
       );
       expect(insert?.[0]).toContain("CASE WHEN $6 = 'inbound' AND NOT $7::boolean THEN 'agent'");
-      expect(insert?.[1]?.slice(-3)).toEqual(["inbound", historical, null]);
+      expect(insert?.[1]?.slice(-2)).toEqual(["inbound", historical]);
       expect(
         query.mock.calls.some(([sql]) => sql.includes("INSERT INTO conversations.agent_requests")),
       ).toBe(expectedRequest);
     },
   );
-
-  it("stores the routed owner with the first inbound message and records its agent actor", async () => {
-    const query = vi.fn(async (statement: string, _values?: unknown[]) => {
-      if (statement.includes("SELECT id::text, assignee_member_id::text")) return { rows: [] };
-      if (statement.includes("SELECT id::text FROM conversations.messages")) return { rows: [] };
-      if (statement.includes("COALESCE(MAX(sequence)")) return { rows: [{ sequence: "1" }] };
-      return { rows: [], rowCount: 1 };
-    });
-    const pool = {
-      connect: vi.fn(async () => ({ query, release: vi.fn() })),
-    } as unknown as PostgresPool;
-    await createExternalConversationReceiver(pool).receive({
-      externalThreadId: "ycloud:1234567890123456:50255556666",
-      externalMessageId: "first-1",
-      contactId,
-      contactDisplayName: "Cliente",
-      direction: "INBOUND",
-      kind: "TEXT",
-      body: "Quiero un SUV",
-      occurredAt: new Date("2026-10-12T01:00:00.000Z"),
-      historical: false,
-      assigneeMemberId: actor.memberId,
-    });
-    expect(
-      query.mock.calls
-        .find(([sql]) => sql.includes("INSERT INTO conversations.conversations"))?.[1]
-        ?.at(-1),
-    ).toBe(actor.memberId);
-    expect(
-      query.mock.calls.some(([sql]) => sql.includes("INSERT INTO conversations.history")),
-    ).toBe(true);
-  });
 
   it("keeps the contact filter inside the authorized conversation query", async () => {
     const query = vi.fn(async (_statement: string, _values?: unknown[]) => ({ rows: [row] }));

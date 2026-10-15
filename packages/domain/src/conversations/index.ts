@@ -93,15 +93,10 @@ export interface ExternalConversationMessage {
   readonly body: string;
   readonly occurredAt: Date;
   readonly historical: boolean;
-  readonly assigneeMemberId?: string;
 }
 
 /** Writes one verified provider message, including the thread, atomically and idempotently. */
 export interface ExternalConversationReceiver {
-  readonly findThreadAssignment: (externalThreadId: string) => Promise<{
-    readonly contactId: string;
-    readonly assigneeMemberId: string | null;
-  } | null>;
   readonly receive: (message: ExternalConversationMessage) => Promise<"CREATED" | "DUPLICATE">;
   /** A contact keeps one authorized advisor; a new contact consumes one serialized turn. */
   readonly reserveAdvisor: (input: {
