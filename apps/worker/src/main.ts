@@ -165,7 +165,7 @@ async function bootstrap(): Promise<void> {
         onError: (error) => {
           const reason =
             error instanceof ObjectStorageError
-              ? error.code
+              ? error.failure
               : error instanceof Error
                 ? error.name
                 : "UNKNOWN";
