@@ -37,6 +37,8 @@ async function bootstrap(): Promise<void> {
   const database = createPlatformPostgresDatabase(
     requireDatabaseConfig(config),
     config.serviceName,
+    undefined,
+    config.tenantDomainSuffix,
   );
   const adminConnectionUrl = config.database?.adminConnectionUrl?.expose();
   if (!adminConnectionUrl) throw new Error("deploy-executor database admin configuration missing");
