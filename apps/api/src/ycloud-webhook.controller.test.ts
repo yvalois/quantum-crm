@@ -130,6 +130,7 @@ describe("YCloud webhook", () => {
       type: "audio",
       audio: {
         id: "712063723747110",
+        link: "https://api.ycloud.com/v2/whatsapp/media/download/712063723747110?sig=test&payload=test",
         sha256: Buffer.alloc(32, 1).toString("base64"),
         mime_type: "audio/ogg; codecs=opus",
       },
@@ -144,6 +145,7 @@ describe("YCloud webhook", () => {
       inboundMedia: {
         providerMediaId: "712063723747110",
         declaredMime: "audio/ogg",
+        sealedSource: expect.stringMatching(/^v1:/u),
       },
     });
     const image = parseYCloudMessage(
@@ -154,6 +156,7 @@ describe("YCloud webhook", () => {
           type: "image",
           image: {
             id: "592623615738103",
+            link: "https://api.ycloud.com/v2/whatsapp/media/download/592623615738103?sig=test&payload=test",
             sha256: Buffer.alloc(32, 2).toString("base64"),
             mime_type: "image/jpeg",
             caption: "This model",

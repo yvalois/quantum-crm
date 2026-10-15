@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { SecretValue } from "@quantum-crm/config";
 import type { InboundMediaLease } from "@quantum-crm/domain";
+import { openYCloudMediaSource } from "@quantum-crm/files-infrastructure";
 
 export class InboundMediaError extends Error {
   public constructor(
@@ -17,15 +18,26 @@ const maxBytes = { IMAGE: 20_000_000, AUDIO: 25_000_000 } as const;
 export async function downloadInboundMedia(input: {
   readonly lease: InboundMediaLease;
   readonly apiKey: SecretValue;
+  readonly sourceSecret: SecretValue;
   readonly fetcher?: typeof fetch;
 }): Promise<Uint8Array> {
   const { lease } = input;
-  if (!/^[A-Za-z0-9_-]{1,80}$/u.test(lease.providerMediaId))
+  if (!lease.sealedSource || !/^[A-Za-z0-9_-]{1,80}$/u.test(lease.providerMediaId))
     throw new InboundMediaError("SOURCE_UNAVAILABLE");
+  let source: string;
+  try {
+    source = openYCloudMediaSource(
+      lease.sealedSource,
+      lease.providerMediaId,
+      input.sourceSecret.expose(),
+    );
+  } catch {
+    throw new InboundMediaError("SOURCE_UNAVAILABLE");
+  }
   let response: Response;
   try {
     response = await (input.fetcher ?? fetch)(
-      `https://api.ycloud.com/v2/whatsapp/media/download/${lease.providerMediaId}`,
+      source,
       {
         headers: { "X-API-Key": input.apiKey.expose() },
         redirect: "error",

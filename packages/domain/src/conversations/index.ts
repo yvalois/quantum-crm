@@ -98,6 +98,7 @@ export interface ExternalConversationMessage {
     readonly providerMediaId: string;
     readonly expectedSha256: string;
     readonly declaredMime: string;
+    readonly sealedSource: string;
   };
 }
 
@@ -156,6 +157,7 @@ export interface InboundMediaLease {
   readonly messageId: string;
   readonly conversationId: string;
   readonly providerMediaId: string;
+  readonly sealedSource: string | null;
   readonly expectedSha256: string;
   readonly declaredMime: string;
   readonly kind: "IMAGE" | "AUDIO";

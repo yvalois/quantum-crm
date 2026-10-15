@@ -29,3 +29,4 @@ export {
   readAvailableInboundMedia,
   type OutboundMedia,
 } from "./outbound-media.js";
+export { openYCloudMediaSource, sealYCloudMediaSource } from "./ycloud-media-source.js";

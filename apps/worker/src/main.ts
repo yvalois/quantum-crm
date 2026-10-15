@@ -130,6 +130,7 @@ async function bootstrap(): Promise<void> {
         storage,
         actor,
         ycloudApiKey: config.ycloudApiKey,
+        ycloudSourceSecret: config.ycloudBinding.signingSecret,
         openAiApiKey: config.openAiApiKey,
         filesFor: (conversationId) =>
           new FileService(

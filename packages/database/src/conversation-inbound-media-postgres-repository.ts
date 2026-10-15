@@ -7,6 +7,7 @@ interface MediaRow {
   readonly message_id: string;
   readonly conversation_id: string;
   readonly provider_media_id: string;
+  readonly sealed_source: string | null;
   readonly expected_sha256: string;
   readonly declared_mime: string;
   readonly kind: "image" | "audio";
@@ -27,7 +28,7 @@ export function createConversationInboundMediaPostgresRepository(
         await client.query("BEGIN");
         const result = await client.query<MediaRow>(
           `SELECT media.message_id::text, media.conversation_id::text,
-                  media.provider_media_id, media.expected_sha256, media.declared_mime,
+                  media.provider_media_id, media.sealed_source, media.expected_sha256, media.declared_mime,
                   media.file_id::text, media.lease_generation::text, message.kind,
                   message.body AS caption
              FROM conversations.inbound_media AS media
@@ -57,6 +58,7 @@ export function createConversationInboundMediaPostgresRepository(
           messageId: row.message_id,
           conversationId: row.conversation_id,
           providerMediaId: row.provider_media_id,
+          sealedSource: row.sealed_source,
           expectedSha256: row.expected_sha256,
           declaredMime: row.declared_mime,
           kind: row.kind.toUpperCase() as "IMAGE" | "AUDIO",
@@ -74,7 +76,8 @@ export function createConversationInboundMediaPostgresRepository(
     bindFile: async (lease, workerId, fileId) => {
       try {
         const result = (await pool.query(
-          `UPDATE conversations.inbound_media SET file_id = $4::uuid, updated_at = CURRENT_TIMESTAMP
+          `UPDATE conversations.inbound_media SET file_id = $4::uuid, sealed_source = NULL,
+                  updated_at = CURRENT_TIMESTAMP
             WHERE message_id = $1::uuid AND lease_owner = $2 AND lease_generation = $3::bigint
               AND status = 'leased' AND (file_id IS NULL OR file_id = $4::uuid)`,
           [lease.messageId, workerId, lease.generation.toString(), fileId],

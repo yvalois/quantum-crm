@@ -4,6 +4,7 @@ import { Controller, HttpException, Inject, Post, Req } from "@nestjs/common";
 import type { YCloudBindingConfig } from "@quantum-crm/config";
 import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/database";
 import type { ConversationMessageKind } from "@quantum-crm/domain";
+import { sealYCloudMediaSource } from "@quantum-crm/files-infrastructure";
 
 import { CrmPublicRoute } from "./crm-security.js";
 
@@ -61,6 +62,7 @@ export interface ParsedYCloudMessage {
     readonly providerMediaId: string;
     readonly expectedSha256: string;
     readonly declaredMime: string;
+    readonly sealedSource: string;
   };
 }
 
@@ -138,6 +140,7 @@ export function parseYCloudMessage(
   const messageType = string(message.type) ?? "unknown";
   const media = object(message[messageType]);
   const mediaId = string(media?.id);
+  const mediaLink = string(media?.link);
   const mediaChecksum = string(media?.sha256);
   const mediaMime = string(media?.mime_type)?.split(";", 1)[0]?.toLowerCase();
   const caption = string(media?.caption)?.trim();
@@ -177,6 +180,7 @@ export function parseYCloudMessage(
     ["image", "audio"].includes(messageType) &&
     mediaId &&
     /^[A-Za-z0-9_-]{1,80}$/u.test(mediaId) &&
+    mediaLink &&
     mediaChecksum &&
     /^[A-Za-z0-9+/]{43}=$/u.test(mediaChecksum) &&
     mediaMime &&
@@ -189,6 +193,7 @@ export function parseYCloudMessage(
             providerMediaId: mediaId,
             expectedSha256: mediaChecksum,
             declaredMime: mediaMime,
+            sealedSource: sealYCloudMediaSource(mediaLink, mediaId, binding.signingSecret.expose()),
           },
         }
       : {}),

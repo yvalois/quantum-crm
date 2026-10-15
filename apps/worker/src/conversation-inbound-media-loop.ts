@@ -24,6 +24,7 @@ export interface InboundMediaLoopOptions {
   readonly fileRepository: ConstructorParameters<typeof FileService>[0];
   readonly storage: ObjectStorageClient;
   readonly ycloudApiKey: SecretValue;
+  readonly ycloudSourceSecret: SecretValue;
   readonly openAiApiKey: SecretValue;
   readonly actor: Parameters<FileService["get"]>[0];
   readonly pollIntervalMs: number;
@@ -66,6 +67,7 @@ export async function processInboundMedia(
       const bytes = await downloadInboundMedia({
         lease,
         apiKey: options.ycloudApiKey,
+        sourceSecret: options.ycloudSourceSecret,
         ...(options.fetcher ? { fetcher: options.fetcher } : {}),
       });
       const checksum = createHash("sha256").update(bytes).digest("base64");
