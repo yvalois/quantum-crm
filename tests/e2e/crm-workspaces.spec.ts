@@ -288,6 +288,8 @@ async function workspaceFixture(
     readonly channel?: string;
     readonly channelFiltering?: boolean;
     readonly message?: Partial<HistoricalConversationMessage>;
+    readonly activeMessages?: () => readonly ConversationMessage[];
+    readonly expireImageOnce?: boolean;
   } = {},
 ) {
   const queries: URLSearchParams[] = [];
@@ -615,7 +617,9 @@ async function workspaceFixture(
         return;
       }
       if (path === `/api/conversations/${conversationId}`) {
-        await respond({ data: { conversation, messages: [message], history: [] } });
+        await respond({
+          data: { conversation, messages: options.activeMessages?.() ?? [message], history: [] },
+        });
         return;
       }
       if (path === "/api/synthetic-download") {
@@ -630,7 +634,11 @@ async function workspaceFixture(
       if (media && path.startsWith("/api/synthetic-media/")) {
         const mediaId = path.slice("/api/synthetic-media/".length);
         mediaRequests.push(mediaId);
-        if (mediaId === imageFileId && url.searchParams.get("attempt") === "1") {
+        if (
+          mediaId === imageFileId &&
+          url.searchParams.get("attempt") === "1" &&
+          options.expireImageOnce !== false
+        ) {
           await route.fulfill({ status: 403, body: "Synthetic expired media authorization" });
           return;
         }
@@ -682,6 +690,58 @@ async function expectContainedViewport(page: Page): Promise<void> {
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
   ).toBe(true);
 }
+
+test("an open chat receives new media and replaces pending previews without leaving or reloading", async ({
+  page,
+}) => {
+  const media = await syntheticMedia(page);
+  await page.clock.install();
+  let activeMessages: ConversationMessage[] = [message];
+  const fixture = await workspaceFixture(page, media, {
+    activeMessages: () => activeMessages,
+    expireImageOnce: false,
+  });
+  await page.goto("/inbox");
+  await page.locator(`[data-source="QUANTUM"][data-conversation-id="${conversationId}"]`).click();
+  const thread = page.getByRole("region", { name: /Conversaci.n seleccionada/ });
+  await expect(thread.getByText(message.body, { exact: true })).toBeVisible();
+
+  const receivedAt = new Date().toISOString();
+  const imageMessage: ConversationMessage = {
+    ...message,
+    id: "019b0000-0000-7000-8000-000000000031",
+    sequence: "2",
+    kind: "IMAGE",
+    body: "Imagen",
+    fileId: null,
+    createdAt: receivedAt,
+    updatedAt: receivedAt,
+  };
+  activeMessages = [message, imageMessage];
+  await page.clock.runFor(12_100);
+  await expect(thread.getByText(/Imagen pendiente o no disponible/)).toBeVisible();
+
+  const audioMessage: ConversationMessage = {
+    ...imageMessage,
+    id: "019b0000-0000-7000-8000-000000000032",
+    sequence: "3",
+    kind: "AUDIO",
+    body: "Audio",
+    fileId: null,
+  };
+  activeMessages = [message, { ...imageMessage, fileId: imageFileId }, audioMessage];
+  await page.clock.runFor(3_100);
+  await expect(thread.getByRole("button", { name: "Ampliar imagen" })).toBeVisible();
+  await expect(thread.getByText(/Audio pendiente o no disponible/)).toBeVisible();
+
+  activeMessages = [message, { ...imageMessage, fileId: imageFileId }, { ...audioMessage, fileId: audioFileId }];
+  await page.clock.runFor(3_100);
+  await expect(thread.locator("audio[controls]")).toHaveCount(1);
+  await expect(thread.getByText(/pendiente o no disponible/)).toHaveCount(0);
+  expect(fixture.authorizations.get(imageFileId)).toBe(1);
+  expect(fixture.authorizations.get(audioFileId)).toBe(1);
+  expect(fixture.unexpected).toEqual([]);
+});
 
 test("contacts retain server pagination, search and contact detail on desktop and mobile", async ({
   page,

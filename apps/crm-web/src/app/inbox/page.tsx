@@ -317,6 +317,8 @@ export default function InboxPage(): React.JSX.Element {
   const lastModalFocusRef = useRef<HTMLElement | null>(null);
   const selectionRef = useRef<string | null>(null);
   const threadRequestRef = useRef<AbortController | null>(null);
+  const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  const followLatestMessageRef = useRef(true);
   const loadedListQueryRef = useRef<string | null>(null);
   const listCursor = listCursors.at(-1) ?? null;
 
@@ -377,13 +379,14 @@ export default function InboxPage(): React.JSX.Element {
       : null;
 
   const loadThread = useCallback(
-    async (id: string): Promise<void> => {
+    async (id: string, background = false): Promise<void> => {
       const key = `QUANTUM:${id}`;
       if (selectionRef.current !== key) return;
+      if (background && threadRequestRef.current) return;
       threadRequestRef.current?.abort();
       const controller = new AbortController();
       threadRequestRef.current = controller;
-      setThreadBusy(true);
+      if (!background) setThreadBusy(true);
       try {
         const response = await fetch(`/api/conversations/${id}`, {
           cache: "no-store",
@@ -424,13 +427,15 @@ export default function InboxPage(): React.JSX.Element {
           );
         }
       } catch (cause) {
-        if (!controller.signal.aborted && selectionRef.current === key) {
+        if (!background && !controller.signal.aborted && selectionRef.current === key) {
           setError(
             cause instanceof Error ? cause.message : "No fue posible abrir la conversación.",
           );
         }
       } finally {
-        if (!controller.signal.aborted && selectionRef.current === key) setThreadBusy(false);
+        if (threadRequestRef.current === controller) threadRequestRef.current = null;
+        if (!background && !controller.signal.aborted && selectionRef.current === key)
+          setThreadBusy(false);
       }
     },
     [csrf],
@@ -438,6 +443,7 @@ export default function InboxPage(): React.JSX.Element {
 
   function chooseConversation(item: UnifiedInboxItem): void {
     threadRequestRef.current?.abort();
+    followLatestMessageRef.current = true;
     const key = `${item.source}:${item.conversation.id}`;
     selectionRef.current = key;
     setSelectedKey(key);
@@ -614,6 +620,33 @@ export default function InboxPage(): React.JSX.Element {
     }, 20_000);
     return () => window.clearInterval(timer);
   }, [csrf]);
+
+  const hasRecentPendingMedia = messages.some(
+    (message) =>
+      message.direction === "INBOUND" &&
+      (message.kind === "IMAGE" || message.kind === "AUDIO") &&
+      !message.fileId &&
+      Date.now() - Date.parse(message.createdAt) < 2 * 60_000,
+  );
+
+  useEffect(() => {
+    if (!csrf || !selectedKey?.startsWith("QUANTUM:")) return;
+    const id = selectedKey.slice("QUANTUM:".length);
+    const refresh = (): void => {
+      if (document.visibilityState === "visible") void loadThread(id, true);
+    };
+    const timer = window.setInterval(refresh, hasRecentPendingMedia ? 3_000 : 12_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [csrf, hasRecentPendingMedia, loadThread, selectedKey]);
+
+  useEffect(() => {
+    const scroll = messageScrollRef.current;
+    if (scroll && followLatestMessageRef.current) scroll.scrollTop = scroll.scrollHeight;
+  }, [messages, selectedKey]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClockNow(Date.now()), 30_000);
@@ -1580,7 +1613,16 @@ export default function InboxPage(): React.JSX.Element {
                   </div>
                 </header>
 
-                <div className={styles.messageScroll} aria-live="polite">
+                <div
+                  className={styles.messageScroll}
+                  aria-live="polite"
+                  ref={messageScrollRef}
+                  onScroll={(event) => {
+                    const scroll = event.currentTarget;
+                    followLatestMessageRef.current =
+                      scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+                  }}
+                >
                   {messages.length === 0 ? (
                     <div className={styles.messageEmpty}>
                       <span className={styles.emptyIcon}>
