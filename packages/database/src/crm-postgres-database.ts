@@ -1021,12 +1021,17 @@ function createIamInvitationActivationRepository(
   return Object.freeze<IamInvitationActivationRepository>({
     reserveReissue: async (input) => {
       if (
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(input.memberId) ||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(input.actorMemberId) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+          input.memberId,
+        ) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+          input.actorMemberId,
+        ) ||
         !/^[A-Za-z0-9._:-]{8,128}$/u.test(input.requestKey) ||
         !(input.now instanceof Date) ||
         Number.isNaN(input.now.getTime())
-      ) throw new IamMemberConflictError();
+      )
+        throw new IamMemberConflictError();
       let client: PoolClient | undefined;
       try {
         client = await pool.connect();
@@ -1041,18 +1046,26 @@ function createIamInvitationActivationRepository(
            WHERE invitation.member_id = $1::uuid AND member.status = 'invited'
            ORDER BY invitation.created_at DESC LIMIT 1 FOR UPDATE OF invitation`,
           [input.memberId],
-        )) as { readonly rows: readonly {
-          readonly id: string; readonly status: string; readonly expires_at: Date;
-          readonly activation_generation: number; readonly activation_subject: string | null;
-          readonly reissue_request_key: string | null;
-          readonly reissue_reserved_generation: number | null;
-          readonly reissue_reserved_at: Date | null;
-          readonly email: string; readonly display_name: string;
-        }[] };
+        )) as {
+          readonly rows: readonly {
+            readonly id: string;
+            readonly status: string;
+            readonly expires_at: Date;
+            readonly activation_generation: number;
+            readonly activation_subject: string | null;
+            readonly reissue_request_key: string | null;
+            readonly reissue_reserved_generation: number | null;
+            readonly reissue_reserved_at: Date | null;
+            readonly email: string;
+            readonly display_name: string;
+          }[];
+        };
         const row = found.rows[0];
         if (
-          !row || !["pending", "expired"].includes(row.status) ||
-          row.activation_generation < 1 || !row.activation_subject ||
+          !row ||
+          !["pending", "expired"].includes(row.status) ||
+          row.activation_generation < 1 ||
+          !row.activation_subject ||
           row.reissue_request_key === input.requestKey ||
           (row.reissue_reserved_at !== null &&
             input.now.getTime() - row.reissue_reserved_at.getTime() < 30_000)
@@ -1060,13 +1073,12 @@ function createIamInvitationActivationRepository(
           await client.query("ROLLBACK");
           return null;
         }
-        const generation = Math.max(
-          row.activation_generation,
-          row.reissue_reserved_generation ?? 0,
-        ) + 1;
-        const nextExpiry = row.expires_at.getTime() - input.now.getTime() < 20 * 60_000
-          ? new Date(input.now.getTime() + 72 * 60 * 60_000)
-          : row.expires_at;
+        const generation =
+          Math.max(row.activation_generation, row.reissue_reserved_generation ?? 0) + 1;
+        const nextExpiry =
+          row.expires_at.getTime() - input.now.getTime() < 20 * 60_000
+            ? new Date(input.now.getTime() + 72 * 60 * 60_000)
+            : row.expires_at;
         await client.query(
           `UPDATE iam.invitations SET reissue_request_key = $2,
              reissue_reserved_generation = $3, reissue_reserved_at = $4,
@@ -1082,8 +1094,10 @@ function createIamInvitationActivationRepository(
         );
         await client.query("COMMIT");
         return Object.freeze({
-          invitationId: row.id, email: row.email,
-          displayName: row.display_name, generation,
+          invitationId: row.id,
+          email: row.email,
+          displayName: row.display_name,
+          generation,
         });
       } catch (error) {
         await client?.query("ROLLBACK").catch(() => undefined);
@@ -1164,12 +1178,13 @@ function createIamInvitationActivationRepository(
         const row = recorded.rows[0];
         if (!row) throw new IamMemberConflictError();
         if (currentGeneration > 0) {
-          await client.query(
+          const event = await client.query(
             `UPDATE iam.invitation_reissue_events
              SET state = 'issued', issued_at = $3
              WHERE invitation_id = $1::uuid AND generation = $2 AND state = 'reserved'`,
             [input.invitationId, input.generation, input.now],
           );
+          if (event.rowCount !== 1) throw new IamMemberConflictError();
         }
         await client.query("COMMIT");
         return Object.freeze({ activation: invitationActivationFromRow(row), replayed: false });

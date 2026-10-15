@@ -495,7 +495,8 @@ export function MembersPanel(): React.JSX.Element {
       !window.confirm(
         `¿Generar una nueva contraseña para ${member.displayName}? La anterior y su QR dejarán de funcionar. La nueva se mostrará una sola vez.`,
       )
-    ) return;
+    )
+      return;
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -597,7 +598,11 @@ export function MembersPanel(): React.JSX.Element {
         {activationLink ? (
           <section className="feedback feedback-success" role="status">
             <strong>Acceso temporal listo</strong>
-            <button type="button" className="secondary-action" onClick={() => setActivationLink(undefined)}>
+            <button
+              type="button"
+              className="secondary-action"
+              onClick={() => setActivationLink(undefined)}
+            >
               Ocultar acceso
             </button>
             <p>

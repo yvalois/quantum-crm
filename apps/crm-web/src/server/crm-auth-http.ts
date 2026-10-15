@@ -3091,7 +3091,10 @@ export async function handleCrmMemberInvitationReissue(
   if (isResponse(authorized)) return authorized;
   try {
     const upstream = await runtime.crmApiFetch(
-      new URL(`/api/v1/members/${parsedMemberId.data}/invitation/reissue`, runtime.config.crmApiOrigin),
+      new URL(
+        `/api/v1/members/${parsedMemberId.data}/invitation/reissue`,
+        runtime.config.crmApiOrigin,
+      ),
       {
         method: "POST",
         headers: memberMutationHeaders(authorized, requestKey),
@@ -3100,6 +3103,11 @@ export async function handleCrmMemberInvitationReissue(
         signal: AbortSignal.timeout(15_000),
       },
     );
+    if (upstream.status === 409)
+      return crmProblem(
+        409,
+        "No se puede reemitir esta invitación ahora. Espera un momento o actualiza la lista.",
+      );
     return memberMutationResponse(upstream, InvitationActivationDeliverySchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
