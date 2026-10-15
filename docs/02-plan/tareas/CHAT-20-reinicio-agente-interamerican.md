@@ -35,4 +35,4 @@ El cambio de datos es aditivo. Una versión anterior ignora la nueva columna y e
 
 ## Evidencia de cierre
 
-Pendiente.
+El candidato `992e3f4f` del PR #169 pone «Reiniciar conversación» en la cabecera del chat WhatsApp y lo muestra segun `crm:conversations:control-agent`; el servidor vuelve a exigir ese permiso. Admite reiniciar memoria aun si un humano atiende, sin cambiar modo ni borrar mensajes. La operación transaccional existente conserva historial, corta contexto por secuencia y cancela respuestas pendientes; la prueba de dominio cubre modo humano/escalado. En VPS aprobaron 30 pruebas enfocadas y builds; API y web quedaron saludables por digest en InterAmerican. Falta clic autenticado y siguiente turno real para cerrar la comprobacion E2E.
