@@ -1,0 +1,9 @@
+# Mantiene resolubles ambos issuers desde la red OIDC durante la migracion.
+services:
+  edge-proxy:
+    pull_policy: never
+    networks:
+      platform-oidc:
+        aliases:
+          - identity.quantumbusinessassistant.com
+          - identity.2-25-172-119.nip.io

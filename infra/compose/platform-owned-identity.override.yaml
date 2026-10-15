@@ -1,0 +1,5 @@
+# Prevalece sobre los overrides historicos que fijan el origen nip.io.
+services:
+  deploy-executor:
+    environment:
+      QCRM_PLATFORM_IDENTITY_ORIGIN: https://identity.quantumbusinessassistant.com

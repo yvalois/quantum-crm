@@ -10,7 +10,7 @@
 
 ## Resultado esperado
 
-`quantumbusinessassistant.com` abre Quantum Admin. InterAmerican usa `interamerican.quantumbusinessassistant.com`. Al aprovisionar otro perfil, el ejecutor deriva `<slug>.quantumbusinessassistant.com` del slug registrado, no de un hostname recibido del navegador; Caddy conserva una ruta explicita por perfil y emite HTTPS. Los callbacks OIDC coinciden con cada origen.
+`quantumbusinessassistant.com` abre Quantum Admin. InterAmerican usa `interamerican.quantumbusinessassistant.com`. La identidad compartida usa `identity.quantumbusinessassistant.com`; su issuer coincide con Keycloak y los consumidores OIDC. Al aprovisionar otro perfil, el ejecutor deriva `<slug>.quantumbusinessassistant.com` del slug registrado, no de un hostname recibido del navegador; Caddy conserva una ruta explicita por perfil y emite HTTPS. Los callbacks OIDC coinciden con cada origen.
 
 ## Alcance y riesgos
 
@@ -25,6 +25,7 @@
 - [PR #171](https://github.com/yvalois/quantum-crm/pull/171), candidato `072ec18e`: siete checks CI verdes; 23 pruebas enfocadas de dominio, configuracion, enlace Admin y ruta Caddy en VPS.
 - ESLint, Prettier y builds de `deploy-host`, `deploy-executor` y `admin-web` y dependencias aprobaron en VPS. Las tres imagenes del candidato estan activas.
 - DNS comodin, TLS valido, readiness `200`, redireccion al login y callback OIDC correcto en ambos hosts; el webhook viejo no redirige.
+- La identidad se migro en el VPS a `identity.quantumbusinessassistant.com`: issuer OIDC de plataforma y del perfil comprobados por discovery; `/api/auth/login` de Admin y CRM redirige al nuevo host, y ambos readiness siguen en `200`. Keycloak, borde, plataforma y consumidores OIDC activos estan saludables. Se conservaron respaldos de configuracion `.bak-identity-20261015`; el host anterior permanece enrutado temporalmente. No se utilizo el token de activacion compartido en chat.
 - Un perfil nuevo de prueba debe comprobar la ruta automatica antes de marcar completa la subtarea global de `ADM-17`.
 
 ## Pendientes de estabilizacion posterior
@@ -32,4 +33,5 @@
 - Reemplazar overrides directos por promocion registrada e inventario recuperable.
 - Migrar de forma controlada el hostname registrado de InterAmerican, aun `nip.io`, antes de reconciliar su ruta.
 - Probar login autenticado en Admin y CRM y el primer perfil nuevo.
+- Reemitir enlaces de activacion previos a la migracion; comprobar una activacion nueva real sin registrar su token. Retirar el host de identidad `nip.io` cuando no queden enlaces pendientes.
 - Conciliar URL del webhook del proveedor y estado de certificados en la interfaz administrativa.
