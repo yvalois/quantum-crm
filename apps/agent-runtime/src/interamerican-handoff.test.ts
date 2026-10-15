@@ -49,4 +49,21 @@ describe("confirmed advisor handoff", () => {
       ),
     ).toBe(true);
   });
+
+  it("hands off an unclassified rental only after vehicle and period are complete", () => {
+    const unclassified = {
+      ...confirmed,
+      route: "cliente_sin_clasificar" as const,
+      requirements: "no_aplica" as const,
+      evidence: "",
+      exceptionReason: "SUV y período desde mañana hasta el 17 recibidos",
+    };
+    expect(confirmedAdvisorHandoff(unclassified, [], "Desde mañana hasta el 17")).toBe(true);
+    expect(
+      confirmedAdvisorHandoff({ ...unclassified, dataComplete: false }, [], "SUV por favor"),
+    ).toBe(false);
+    expect(
+      confirmedAdvisorHandoff({ ...unclassified, questionPending: true }, [], "Tengo una duda"),
+    ).toBe(false);
+  });
 });
