@@ -13,6 +13,55 @@ const actorId = "01995f7e-7b52-7000-8000-000000000201";
 const now = new Date("2026-09-22T12:00:00.000Z");
 
 describe("IAM member service", () => {
+  it("lists only invited and active advisors to commercial assigners across pages", async () => {
+    const member = (
+      id: string,
+      roleCode: string,
+      status: "INVITED" | "ACTIVE" | "DEACTIVATED",
+    ) => ({
+      id,
+      oidcSubject: null,
+      displayName: id,
+      email: `${id}@example.test`,
+      status,
+      authorizationRevision: 1n,
+      createdAt: now,
+      updatedAt: now,
+      roleCode,
+    });
+    const list = vi.fn(async (input: { readonly cursor?: string }) =>
+      input.cursor
+        ? {
+            members: [
+              member("julio", "ADVISOR", "ACTIVE"),
+              member("old", "ADVISOR", "DEACTIVATED"),
+            ],
+            nextCursor: null,
+          }
+        : {
+            members: [
+              member("admin", "ADMINISTRATOR", "ACTIVE"),
+              member("carlos", "ADVISOR", "INVITED"),
+            ],
+            nextCursor: "next",
+          },
+    );
+    const service = new IamMemberService({ list } as unknown as IamMemberRepository);
+    await expect(
+      service.listCommercialAdvisors({
+        memberId: actorId,
+        permissions: ["crm:contacts:assign"],
+      }),
+    ).resolves.toEqual([
+      { id: "carlos", displayName: "carlos", status: "INVITED" },
+      { id: "julio", displayName: "julio", status: "ACTIVE" },
+    ]);
+    expect(list).toHaveBeenCalledTimes(2);
+    await expect(
+      service.listCommercialAdvisors({ memberId: actorId, permissions: [] }),
+    ).rejects.toBeInstanceOf(IamAuthorizationError);
+  });
+
   it("revokes only a pending invitation and keeps the member record", async () => {
     const member = Object.freeze({
       id: "01995f7e-7b52-7000-8000-000000000202",

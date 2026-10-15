@@ -72,6 +72,16 @@ import { AgentMcpController } from "./agent-mcp.controller.js";
 import { DASHBOARD_SERVICE, DashboardController } from "./dashboard.controller.js";
 import type { YCloudBindingConfig } from "@quantum-crm/config";
 
+async function isAssignableCommercialMember(
+  database: CrmPostgresDatabase,
+  memberId: string,
+): Promise<boolean> {
+  const member = await database.members.findById(memberId);
+  return (
+    member?.status === "ACTIVE" || (member?.status === "INVITED" && member.roleCode === "ADVISOR")
+  );
+}
+
 @Module({})
 export class AppModule {
   public static register(
@@ -157,7 +167,7 @@ export class AppModule {
               },
               {
                 isActive: async (memberId) =>
-                  (await database.members.findById(memberId))?.status === "ACTIVE",
+                  await isAssignableCommercialMember(database, memberId),
               },
               undefined,
               database.externalParticipants,
@@ -199,7 +209,7 @@ export class AppModule {
                   }
                 : {}),
               isActiveMember: async (memberId) =>
-                (await database.members.findById(memberId))?.status === "ACTIVE",
+                await isAssignableCommercialMember(database, memberId),
               documentFor: async (actor, documentId) =>
                 database.commercial.documents.find(actor, documentId),
             }),
@@ -225,7 +235,7 @@ export class AppModule {
                 contactExistsFor: async (actor, contactId) =>
                   (await database.commercial.contacts.find(actor, contactId)) !== null,
                 isActiveMember: async (memberId) =>
-                  (await database.members.findById(memberId))?.status === "ACTIVE",
+                  await isAssignableCommercialMember(database, memberId),
               },
               undefined,
               database.externalParticipants,
@@ -297,7 +307,7 @@ export class AppModule {
                 contactExistsFor: async (actor, contactId) =>
                   (await database.commercial.contacts.find(actor, contactId)) !== null,
                 isActiveMember: async (memberId) =>
-                  (await database.members.findById(memberId))?.status === "ACTIVE",
+                  await isAssignableCommercialMember(database, memberId),
               },
             );
             return new FileService(

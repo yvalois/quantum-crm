@@ -28,6 +28,7 @@ import {
   MemberIdSchema,
   MemberListQuerySchema,
   MemberListResponseSchema,
+  CommercialAdvisorListResponseSchema,
   MemberResponseSchema,
   MemberCapabilitiesResponseSchema,
   UpdateMemberSchema,
@@ -205,6 +206,17 @@ export class MembersController {
       })),
       page: { nextCursor: result.nextCursor },
     });
+  }
+
+  @Get("advisors")
+  public async advisors(@Req() request: Parameters<typeof crmAuthContext>[0]) {
+    try {
+      return CommercialAdvisorListResponseSchema.parse({
+        data: await this.service.listCommercialAdvisors(actor(request)),
+      });
+    } catch (error) {
+      return mapMemberError(error);
+    }
   }
 
   @Post("invitations")

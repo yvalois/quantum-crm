@@ -1,6 +1,11 @@
 "use client";
 
-import type { Automation, Contact, ContactImportPreviewRow } from "@quantum-crm/contracts";
+import {
+  CommercialAdvisorListResponseSchema,
+  type Automation,
+  type Contact,
+  type ContactImportPreviewRow,
+} from "@quantum-crm/contracts";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -13,6 +18,7 @@ import {
 } from "react";
 
 import { CrmShell } from "../crm-shell";
+import { advisorDisplayName } from "../advisor-options";
 import { ContactCustomFields } from "./custom-fields";
 import { SourceParticipantsCard } from "../source-participants";
 import styles from "./contacts-workspace.module.css";
@@ -637,7 +643,7 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
         setCsrfToken(session.csrfToken);
         const [memberResponse, pipelineResponse, labelResponse, automationResponse] =
           await Promise.all([
-            fetch("/api/members?limit=100", {
+            fetch("/api/members/advisors", {
               cache: "no-store",
               credentials: "same-origin",
             }),
@@ -647,10 +653,16 @@ export function ContactsWorkspacePanel(): React.JSX.Element {
           ]);
         if (!mounted) return;
         if (memberResponse.ok) {
-          const directory =
-            ((await memberResponse.json()) as { readonly data?: MemberOption[] }).data ?? [];
+          const directory = CommercialAdvisorListResponseSchema.parse(
+            await memberResponse.json(),
+          ).data;
           setMemberDirectory(directory);
-          setMembers(directory.filter((member) => member.status === "ACTIVE"));
+          setMembers(
+            directory.map((member) => ({
+              ...member,
+              displayName: advisorDisplayName(member),
+            })),
+          );
         }
         if (pipelineResponse.ok)
           setPipelines(

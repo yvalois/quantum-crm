@@ -1,6 +1,9 @@
 "use client";
 
-import { ContactListResponseSchema } from "@quantum-crm/contracts";
+import {
+  ContactListResponseSchema,
+  CommercialAdvisorListResponseSchema,
+} from "@quantum-crm/contracts";
 import type {
   Contact,
   TaskAssignee,
@@ -13,6 +16,7 @@ import { useSearchParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
+import { advisorDisplayName } from "../advisor-options";
 import { ContactCustomFields } from "../contacts/custom-fields";
 import { SourceParticipantsCard } from "../source-participants";
 import styles from "./pipeline.module.css";
@@ -336,7 +340,7 @@ export default function PipelinePage(): React.JSX.Element {
         setCsrf(session.csrfToken);
         const [pipelineResponse, memberResponse, capabilitiesResponse] = await Promise.all([
           fetch("/api/pipeline", { cache: "no-store", credentials: "same-origin" }),
-          fetch("/api/tasks/assignees", {
+          fetch("/api/members/advisors", {
             cache: "no-store",
             credentials: "same-origin",
           }),
@@ -350,7 +354,11 @@ export default function PipelinePage(): React.JSX.Element {
         const pipelineData = ((await pipelineResponse.json()) as List<Pipeline>).data;
         setPipelines(pipelineData);
         if (memberResponse.ok)
-          setMembers(((await memberResponse.json()) as List<TaskAssignee>).data);
+          setMembers(
+            CommercialAdvisorListResponseSchema.parse(await memberResponse.json()).data.map(
+              (member) => ({ id: member.id, displayName: advisorDisplayName(member) }),
+            ),
+          );
         const requestedId = preferredPipelineId ?? selectedPipelineId;
         const nextPipelineId = pipelineData.some((item) => item.id === requestedId)
           ? requestedId

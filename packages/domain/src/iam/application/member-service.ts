@@ -101,6 +101,34 @@ export class IamMemberService {
     );
   }
 
+  /** Narrow advisor directory for commercial assignment, without IAM emails or privileges. */
+  public async listCommercialAdvisors(
+    actor: IamActor,
+  ): Promise<readonly Pick<IamMember, "id" | "displayName" | "status">[]> {
+    if (
+      !actor.permissions.some((permission) =>
+        ["crm:contacts:assign", "crm:conversations:assign", "crm:sales:assign"].includes(
+          permission,
+        ),
+      )
+    )
+      throw new IamAuthorizationError();
+    const advisors: Pick<IamMember, "id" | "displayName" | "status">[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await this.repository.list({ limit: 100, ...(cursor ? { cursor } : {}) });
+      for (const member of page.members) {
+        if (
+          member.roleCode === "ADVISOR" &&
+          (member.status === "INVITED" || member.status === "ACTIVE")
+        )
+          advisors.push({ id: member.id, displayName: member.displayName, status: member.status });
+      }
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    return Object.freeze(advisors);
+  }
+
   public async invite(input: {
     readonly actor: IamActor;
     readonly displayName: string;

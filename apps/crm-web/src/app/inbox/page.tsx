@@ -17,12 +17,14 @@ import {
   ConversationThreadResponseSchema,
   ConversationListResponseSchema,
   AgentControlResponseSchema,
+  CommercialAdvisorListResponseSchema,
   MemberListResponseSchema,
   UnifiedInboxListResponseSchema,
 } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmShell } from "../crm-shell";
+import { advisorDisplayName } from "../advisor-options";
 import {
   HistoricalThread,
   historicalThreadSubject,
@@ -450,38 +452,27 @@ export default function InboxPage(): React.JSX.Element {
           throw new Error("La sesión no es válida.");
         if (controller.signal.aborted) return;
         setCsrf(session.csrfToken);
-        const [
-          contactResponse,
-          assigneeResponse,
-          replyResponse,
-          capabilitiesResponse,
-          agentResponse,
-        ] = await Promise.all([
-          fetch("/api/contacts", { cache: "no-store", credentials: "same-origin", signal }),
-          fetch("/api/tasks/assignees", {
-            cache: "no-store",
-            credentials: "same-origin",
-            signal,
-          }),
-          fetch("/api/conversations/quick-replies", {
-            cache: "no-store",
-            credentials: "same-origin",
-            signal,
-          }),
-          fetch("/api/auth/capabilities", {
-            cache: "no-store",
-            credentials: "same-origin",
-            signal,
-          }),
-          fetch("/api/conversations/agent-control", {
-            cache: "no-store",
-            credentials: "same-origin",
-            signal,
-          }),
-        ]);
+        const [contactResponse, replyResponse, capabilitiesResponse, agentResponse] =
+          await Promise.all([
+            fetch("/api/contacts", { cache: "no-store", credentials: "same-origin", signal }),
+            fetch("/api/conversations/quick-replies", {
+              cache: "no-store",
+              credentials: "same-origin",
+              signal,
+            }),
+            fetch("/api/auth/capabilities", {
+              cache: "no-store",
+              credentials: "same-origin",
+              signal,
+            }),
+            fetch("/api/conversations/agent-control", {
+              cache: "no-store",
+              credentials: "same-origin",
+              signal,
+            }),
+          ]);
         for (const response of [
           contactResponse,
-          assigneeResponse,
           replyResponse,
           capabilitiesResponse,
           agentResponse,
@@ -489,7 +480,6 @@ export default function InboxPage(): React.JSX.Element {
           if (!response.ok) throw new Error(await problem(response));
         if (controller.signal.aborted) return;
         setContacts(((await contactResponse.json()) as List<Contact>).data);
-        setAssignees(((await assigneeResponse.json()) as List<TaskAssignee>).data);
         setQuickReplies(((await replyResponse.json()) as List<QuickReply>).data);
         const capabilities = ((await capabilitiesResponse.json()) as CapabilitiesPayload).data;
         setCanAssignConversations(capabilities.canAssignConversations);
@@ -498,6 +488,18 @@ export default function InboxPage(): React.JSX.Element {
         setAgentControl(AgentControlResponseSchema.parse(await agentResponse.json()).data);
         if (capabilities.canAssignConversations || capabilities.canAssignContacts) {
           void (async () => {
+            const advisorResponse = await fetch("/api/members/advisors", {
+              cache: "no-store",
+              credentials: "same-origin",
+              signal,
+            });
+            if (advisorResponse.ok && !controller.signal.aborted) {
+              setAssignees(
+                CommercialAdvisorListResponseSchema.parse(await advisorResponse.json()).data.map(
+                  (member) => ({ id: member.id, displayName: advisorDisplayName(member) }),
+                ),
+              );
+            }
             const names = new Map<string, string>();
             let cursor: string | null = null;
             do {

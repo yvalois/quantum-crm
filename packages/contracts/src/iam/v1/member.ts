@@ -150,6 +150,16 @@ export const MemberListResponseSchema = z.object({
   }),
 });
 
+export const CommercialAdvisorSchema = z.object({
+  id: MemberIdSchema,
+  displayName: DisplayNameSchema,
+  status: z.enum(["INVITED", "ACTIVE"]),
+});
+export const CommercialAdvisorListResponseSchema = z.object({
+  data: z.array(CommercialAdvisorSchema),
+});
+export type CommercialAdvisor = z.infer<typeof CommercialAdvisorSchema>;
+
 export const MemberListQuerySchema = z.object({
   cursor: z.string().min(1).max(512).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
