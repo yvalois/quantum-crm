@@ -199,8 +199,18 @@ export function createExternalConversationReceiver(
           [input.contactId],
         );
         if (saved.rows[0]) {
-          const advisorId = saved.rows[0].advisor_member_id;
+          let advisorId = saved.rows[0].advisor_member_id;
           if (!input.eligibleMemberIds.includes(advisorId)) throw new DatabaseUnavailableError();
+          if (input.previousMemberId && input.eligibleMemberIds.includes(input.previousMemberId)) {
+            advisorId = input.previousMemberId;
+            if (advisorId !== saved.rows[0].advisor_member_id)
+              await client.query(
+                `UPDATE conversations.advisor_route_assignments
+                    SET advisor_member_id = $2::uuid, source = 'previous_advisor'
+                  WHERE contact_id = $1::uuid`,
+                [input.contactId, advisorId],
+              );
+          }
           await client.query("COMMIT");
           return advisorId;
         }

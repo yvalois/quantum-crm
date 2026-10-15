@@ -55,6 +55,35 @@ describe("conversation PostgreSQL repository", () => {
     expect(turn).toBe(1);
   });
 
+  it("keeps an explicit reassignment inside the authorized advisor pool", async () => {
+    const firstAdvisor = actor.memberId;
+    const secondAdvisor = row.id;
+    const query = vi.fn(async (statement: string) => {
+      if (statement.includes("SELECT advisor_member_id::text"))
+        return { rows: [{ advisor_member_id: firstAdvisor }] };
+      return { rows: [], rowCount: 1 };
+    });
+    const pool = {
+      connect: vi.fn(async () => ({ query, release: vi.fn() })),
+    } as unknown as PostgresPool;
+    const selected = await createExternalConversationReceiver(pool).reserveAdvisor({
+      contactId,
+      eligibleMemberIds: [firstAdvisor, secondAdvisor],
+      previousMemberId: secondAdvisor,
+    });
+    expect(selected).toBe(secondAdvisor);
+    expect(
+      query.mock.calls.some(([statement]) =>
+        statement.includes("UPDATE conversations.advisor_route_assignments"),
+      ),
+    ).toBe(true);
+    expect(
+      query.mock.calls.some(([statement]) =>
+        statement.includes("UPDATE conversations.advisor_route_turn"),
+      ),
+    ).toBe(false);
+  });
+
   it("records an agent reset and cancels pending work atomically without deleting messages", async () => {
     const active = { ...row, attention_mode: "agent" };
     const query = vi.fn(async (statement: string, _values?: unknown[]) => {

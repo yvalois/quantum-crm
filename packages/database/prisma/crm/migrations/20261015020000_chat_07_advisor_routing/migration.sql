@@ -21,5 +21,5 @@ BEGIN
     RAISE EXCEPTION 'CRM migration requires a tenant database identity';
   END IF;
   EXECUTE format('GRANT SELECT, UPDATE (turn) ON conversations.advisor_route_turn TO %I', runtime_role);
-  EXECUTE format('GRANT SELECT, INSERT ON conversations.advisor_route_assignments TO %I', runtime_role);
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE (advisor_member_id, source) ON conversations.advisor_route_assignments TO %I', runtime_role);
 END $$;
