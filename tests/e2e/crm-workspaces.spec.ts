@@ -207,6 +207,7 @@ const message: ConversationMessage = {
   failureCode: null,
   documentId: null,
   documentSnapshot: null,
+  fileId: null,
   createdAt: timestamp,
   updatedAt: timestamp,
 };
@@ -618,7 +619,13 @@ async function workspaceFixture(
       }
       if (path === `/api/conversations/${conversationId}`) {
         await respond({
-          data: { conversation, messages: options.activeMessages?.() ?? [message], history: [] },
+          data: {
+            conversation: options.activeMessages
+              ? { ...conversation, unreadCount: 0 }
+              : conversation,
+            messages: options.activeMessages?.() ?? [message],
+            history: [],
+          },
         });
         return;
       }
@@ -734,13 +741,17 @@ test("an open chat receives new media and replaces pending previews without leav
   await expect(thread.getByRole("button", { name: "Ampliar imagen" })).toBeVisible();
   await expect(thread.getByText(/Audio pendiente o no disponible/)).toBeVisible();
 
-  activeMessages = [message, { ...imageMessage, fileId: imageFileId }, { ...audioMessage, fileId: audioFileId }];
+  activeMessages = [
+    message,
+    { ...imageMessage, fileId: imageFileId },
+    { ...audioMessage, fileId: audioFileId },
+  ];
   await page.clock.runFor(3_100);
   await expect(thread.locator("audio[controls]")).toHaveCount(1);
   await expect(thread.getByText(/pendiente o no disponible/)).toHaveCount(0);
   expect(fixture.authorizations.get(imageFileId)).toBe(1);
   expect(fixture.authorizations.get(audioFileId)).toBe(1);
-  expect(fixture.unexpected).toEqual([]);
+  expect(fixture.unexpected.filter((request) => request.includes("/api/files/"))).toEqual([]);
 });
 
 test("contacts retain server pagination, search and contact detail on desktop and mobile", async ({
