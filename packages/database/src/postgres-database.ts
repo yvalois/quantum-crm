@@ -1839,7 +1839,9 @@ async function resolveProvisioningIdentityContext(
     };
     const row = result.rows[0];
     if (!row) return null;
-    return Object.freeze({ hostname: tenantHttpsHostname(row.slug, row.public_ipv4, tenantDomainSuffix) });
+    return Object.freeze({
+      hostname: tenantHttpsHostname(row.slug, row.public_ipv4, tenantDomainSuffix),
+    });
   } catch (error) {
     if (error instanceof DatabaseUnavailableError) throw error;
     throw new DatabaseUnavailableError();

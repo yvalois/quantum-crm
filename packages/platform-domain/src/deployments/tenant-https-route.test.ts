@@ -16,9 +16,9 @@ describe("tenant HTTPS route domain", () => {
   });
 
   it("derives the owned wildcard hostname without accepting another domain", () => {
-    expect(tenantHttpsHostname("InterAmerican", "2.25.172.119", "quantumbusinessassistant.com")).toBe(
-      "interamerican.quantumbusinessassistant.com",
-    );
+    expect(
+      tenantHttpsHostname("InterAmerican", "2.25.172.119", "quantumbusinessassistant.com"),
+    ).toBe("interamerican.quantumbusinessassistant.com");
     const command = {
       operationId: "01995f7e-7b52-7000-8000-000000000101",
       tenantProfileId,
@@ -31,9 +31,9 @@ describe("tenant HTTPS route domain", () => {
       attempt: 1,
     };
     expect(validateTenantHttpsRouteProvisioningCommand(command).hostname).toBe(command.hostname);
-    expect(() => tenantHttpsHostname("admin", "2.25.172.119", "quantumbusinessassistant.com")).toThrow(
-      new TenantHttpsRouteValidationError("slug"),
-    );
+    expect(() =>
+      tenantHttpsHostname("admin", "2.25.172.119", "quantumbusinessassistant.com"),
+    ).toThrow(new TenantHttpsRouteValidationError("slug"));
     expect(() =>
       validateTenantHttpsRouteProvisioningCommand({
         ...command,
