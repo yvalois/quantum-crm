@@ -33,6 +33,10 @@
 
 El cambio de datos es aditivo. Una versión anterior ignora la nueva columna y el evento se conserva; no se revierte ni se reenvían respuestas de entrega incierta.
 
+## Limpieza visible puntual del chat de prueba (2026-10-15)
+
+El propietario autorizo ocultar tambien el historial visible del chat del numero terminado en 1482. Esta operacion puntual no cambia el boton general «Reiniciar conversacion», que sigue conservando el historial. La migracion aditiva `20261015190000_chat_20_visible_history_reset` filtra mensajes e historial de lectura por corte de secuencia y fecha sin destruir archivos, registros de entrega ni auditoria. En InterAmerican se aplico exactamente a un hilo: corte visible y de memoria 46, cero mensajes anteriores visibles, cero solicitudes pendientes y modo agente intacto. La fecha y el corte quedan persistidos. Pruebas del repositorio y del saludo tras reinicio aprobadas en VPS; quedan pendientes el siguiente turno real y un recorrido autenticado del boton.
+
 ## Evidencia de cierre
 
 El candidato `992e3f4f` del PR #169 pone «Reiniciar conversación» en la cabecera del chat WhatsApp y lo muestra segun `crm:conversations:control-agent`; el servidor vuelve a exigir ese permiso. Admite reiniciar memoria aun si un humano atiende, sin cambiar modo ni borrar mensajes. La operación transaccional existente conserva historial, corta contexto por secuencia y cancela respuestas pendientes; la prueba de dominio cubre modo humano/escalado. En VPS aprobaron 30 pruebas enfocadas y builds; API y web quedaron saludables por digest en InterAmerican. Falta clic autenticado y siguiente turno real para cerrar la comprobacion E2E.
