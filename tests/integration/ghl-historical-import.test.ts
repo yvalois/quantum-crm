@@ -993,6 +993,7 @@ describe("GHL imports against migrated PostgreSQL runtime roles", () => {
       label: longFieldName,
       description: "Synthetic field",
       dataType: "TEXT",
+      options: [],
       model: "contact",
     });
     expect(
