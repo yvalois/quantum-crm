@@ -32,7 +32,7 @@ Antes del cambio, el webhook guardaba etiquetas de medios, solo `TEXT` generaba 
 - [x] Audio e imagen entrantes generan trabajo durable, no respuesta prematura.
 - [x] El worker espera Files `AVAILABLE` antes de llamar OpenAI y de despertar al agente.
 - [x] La respuesta usa transcripcion o descripcion sin perder el idioma del hilo.
-- [ ] La candidata aprueba CI y se despliega por digest en InterAmerican.
+- [x] La candidata aprueba CI y se despliega por digest en InterAmerican.
 - [ ] Audio e imagen reales reciben respuesta correcta de extremo a extremo en el VPS.
 
 ## Recuperacion
@@ -42,5 +42,6 @@ La migracion es aditiva y forward-only. Un rollback de aplicacion requiere compa
 ## Evidencia y pendientes
 
 - Candidato `09f1f114` y correccion `005f9ae4`. En VPS: build afectado de diez proyectos, pruebas enfocadas API 4/4, worker 5/5 y base de datos 2/2, 19 pruebas de arquitectura, Prettier y ESLint aprobados. Migracion aplicada a PostgreSQL 18 aislado con esquema sintetico.
-- No se ha verificado respuesta real a medios de InterAmerican ni se ha desplegado; por tanto el bloque sigue abierto.
+- La candidata tecnica previa al despliegue no incluia una respuesta real a medios de InterAmerican; esa prueba sigue pendiente y por tanto el bloque no se cierra.
+- Actualizacion 2026-10-15: siete checks CI aprobados para `5d252647`. Migracion aditiva aplicada por migrador controlado en InterAmerican; API, worker y agent-runtime saludables por digest. El worker recibe los mounts de YCloud, OpenAI y S3 y el readiness publico respondio `ok`. El flujo real de audio/imagen permanece pendiente de una prueba enviada al numero conectado. Por solicitud expresa del propietario se desplego sin copia cifrada fuera del VPS; se verifico un `pg_dump` previo en el mismo VPS, que no satisface ADR-0015. El disco quedo con 2,2 GiB libres.
 - **Pendientes de estabilizacion posterior:** ampliar formatos compatibles, telemetria de errores por archivo y experiencia visual del adjunto.
