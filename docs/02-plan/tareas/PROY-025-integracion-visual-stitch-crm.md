@@ -102,7 +102,7 @@ Las rutas funcionales de `crm-web` usan de forma consistente el sistema visual *
 
 ## Evidencia de cierre
 
-- Ajuste solicitado el 2026-10-15: el propietario rechazó el recorte del logotipo. El sidebar debe mostrar la imagen original completa (símbolo, nombre y firma), con tamaño proporcional también en móvil y modo contraído. Se reutiliza la imagen existente; no cambian datos, contratos ni permisos. Validación y despliegue del candidato en curso.
+- Ajuste solicitado el 2026-10-15: el propietario rechazó el recorte del logotipo. El candidato `58abe9ed` muestra el JPEG original completo (símbolo, nombre y firma), escalado proporcionalmente también en móvil y modo contraído. No cambian datos, contratos ni permisos. VPS: formato, ESLint, build y tipos verdes; siete checks CI verdes. La imagen `sha256:1d2c06ef92bfc69b0e64dbe22f505a9fcbdc2633677dddf739e885527a991cb2` está healthy en InterAmerican; JPEG HTTP 200 y título «Business Assistant» confirmado. Falta una inspección visual autenticada; no se afirma realizada.
 
 - Corrección posterior `15dd06b8`: la captura real del propietario invalidó la afirmación de que el recorte de marca anterior se veía en pantalla. Se reemplazó el fondo CSS por un `<img>` de Next dentro del marco y se cambió el título de la pestaña a «Business Assistant». VPS: formato, ESLint, build y tipos aprobados; siete checks CI verdes. InterAmerican sirve `crm-web` por `sha256:124e43360b6cd653457a60e426d520697cc2544c8197b3566fac646c55777295` con estado healthy, el JPEG devuelve HTTP 200 y `/signed-out` entrega `<title>Business Assistant`. Falta la inspección visual autenticada del símbolo en el sidebar; no se declara esa prueba como realizada.
 
