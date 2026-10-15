@@ -102,6 +102,8 @@ Las rutas funcionales de `crm-web` usan de forma consistente el sistema visual *
 
 ## Evidencia de cierre
 
+- Corrección posterior `15dd06b8`: la captura real del propietario invalidó la afirmación de que el recorte de marca anterior se veía en pantalla. Se reemplazó el fondo CSS por un `<img>` de Next dentro del marco y se cambió el título de la pestaña a «Business Assistant». VPS: formato, ESLint, build y tipos aprobados; siete checks CI verdes. InterAmerican sirve `crm-web` por `sha256:124e43360b6cd653457a60e426d520697cc2544c8197b3566fac646c55777295` con estado healthy, el JPEG devuelve HTTP 200 y `/signed-out` entrega `<title>Business Assistant`. Falta la inspección visual autenticada del símbolo en el sidebar; no se declara esa prueba como realizada.
+
 - Refinamiento de marca `e2ca60d2` ([PR #168](https://github.com/yvalois/quantum-crm/pull/168)): el sidebar compartido muestra Business Assistant con el símbolo del archivo del propietario, conserva navegación y colapso y elimina el chip duplicado de marca anterior. VPS: formato, ESLint, build de CRM y tipos verdes; siete checks CI verdes; imagen web `sha256:3f70d4a5c3e56af4732c1a3d9bc231557486b26d075629e49b10ce560385924a` saludable en InterAmerican y arte empaquetado servido con HTTP 200. No se modificaron rutas, contratos ni permisos. Pendiente de estabilización posterior: smoke visual autenticado en tamaños escritorio/móvil y promoción registrada tras integrar el PR apilado.
 
 - Archivos, commits o PR: implementacion base `909662b`, integrada en `main` mediante PR #74; refinamiento del sidebar en el candidato `2395632` de la rama `feat/CAL-01-18-calendar-booking` (PR #76). Afecta `crm-shell.tsx` y `globals.css` sin cambiar rutas, contratos ni handlers.
