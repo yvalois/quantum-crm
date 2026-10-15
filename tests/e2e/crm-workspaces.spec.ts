@@ -725,7 +725,7 @@ test("an open chat receives new media and replaces pending previews without leav
     updatedAt: receivedAt,
   };
   activeMessages = [message, imageMessage];
-  await page.clock.runFor(12_100);
+  await page.clock.runFor(4_100);
   await expect(thread.getByText(/Imagen pendiente o no disponible/)).toBeVisible();
 
   const audioMessage: ConversationMessage = {
@@ -737,7 +737,7 @@ test("an open chat receives new media and replaces pending previews without leav
     fileId: null,
   };
   activeMessages = [message, { ...imageMessage, fileId: imageFileId }, audioMessage];
-  await page.clock.runFor(3_100);
+  await page.clock.runFor(2_100);
   await expect(thread.getByRole("button", { name: "Ampliar imagen" })).toBeVisible();
   await expect(thread.getByText(/Audio pendiente o no disponible/)).toBeVisible();
 
@@ -746,7 +746,7 @@ test("an open chat receives new media and replaces pending previews without leav
     { ...imageMessage, fileId: imageFileId },
     { ...audioMessage, fileId: audioFileId },
   ];
-  await page.clock.runFor(3_100);
+  await page.clock.runFor(2_100);
   await expect(thread.locator("audio[controls]")).toHaveCount(1);
   await expect(thread.getByText(/pendiente o no disponible/)).toHaveCount(0);
   expect(fixture.authorizations.get(imageFileId)).toBe(1);

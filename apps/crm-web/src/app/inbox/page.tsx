@@ -635,7 +635,7 @@ export default function InboxPage(): React.JSX.Element {
     const refresh = (): void => {
       if (document.visibilityState === "visible") void loadThread(id, true);
     };
-    const timer = window.setInterval(refresh, hasRecentPendingMedia ? 3_000 : 12_000);
+    const timer = window.setInterval(refresh, hasRecentPendingMedia ? 2_000 : 4_000);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(timer);
