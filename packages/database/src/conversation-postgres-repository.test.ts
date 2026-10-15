@@ -30,6 +30,60 @@ const row = Object.freeze({
 });
 
 describe("conversation PostgreSQL repository", () => {
+  it("reserves one advisor per contact and does not advance the turn on replay", async () => {
+    let saved: string | null = null;
+    let turn = 0;
+    const query = vi.fn(async (statement: string, values?: unknown[]) => {
+      if (statement.includes("SELECT advisor_member_id::text"))
+        return { rows: saved ? [{ advisor_member_id: saved }] : [] };
+      if (statement.includes("UPDATE conversations.advisor_route_turn"))
+        return { rows: [{ turn: String(++turn) }] };
+      if (statement.includes("INSERT INTO conversations.advisor_route_assignments"))
+        saved = values?.[1] as string;
+      return { rows: [] };
+    });
+    const client = { query, release: vi.fn() };
+    const pool = { connect: vi.fn(async () => client) } as unknown as PostgresPool;
+    const receiver = createExternalConversationReceiver(pool);
+    const input = {
+      contactId,
+      eligibleMemberIds: [actor.memberId, row.id] as const,
+      previousMemberId: null,
+    };
+    expect(await receiver.reserveAdvisor(input)).toBe(actor.memberId);
+    expect(await receiver.reserveAdvisor(input)).toBe(actor.memberId);
+    expect(turn).toBe(1);
+  });
+
+  it("keeps an explicit reassignment inside the authorized advisor pool", async () => {
+    const firstAdvisor = actor.memberId;
+    const secondAdvisor = row.id;
+    const query = vi.fn(async (statement: string) => {
+      if (statement.includes("SELECT advisor_member_id::text"))
+        return { rows: [{ advisor_member_id: firstAdvisor }] };
+      return { rows: [], rowCount: 1 };
+    });
+    const pool = {
+      connect: vi.fn(async () => ({ query, release: vi.fn() })),
+    } as unknown as PostgresPool;
+    const selected = await createExternalConversationReceiver(pool).reserveAdvisor({
+      contactId,
+      eligibleMemberIds: [firstAdvisor, secondAdvisor],
+      previousMemberId: secondAdvisor,
+    });
+    expect(selected).toBe(secondAdvisor);
+    expect(
+      query.mock.calls.some(([statement]) =>
+        statement.includes("UPDATE conversations.advisor_route_assignments"),
+      ),
+    ).toBe(true);
+    expect(
+      query.mock.calls.some(([statement]) =>
+        statement.includes("UPDATE conversations.advisor_route_turn"),
+      ),
+    ).toBe(false);
+  });
+
   it("records an agent reset and cancels pending work atomically without deleting messages", async () => {
     const active = { ...row, attention_mode: "agent" };
     const query = vi.fn(async (statement: string, _values?: unknown[]) => {
@@ -79,9 +133,8 @@ describe("conversation PostgreSQL repository", () => {
   ])(
     "sets new inbound WhatsApp threads to $expectedMode when historical=$historical",
     async ({ historical, expectedRequest }) => {
-      const query = vi.fn(async (statement: string) => {
-        if (statement.includes("SELECT id::text FROM conversations.conversations"))
-          return { rows: [] };
+      const query = vi.fn(async (statement: string, _values?: unknown[]) => {
+        if (statement.includes("SELECT id::text, assignee_member_id::text")) return { rows: [] };
         if (statement.includes("SELECT id::text FROM conversations.messages")) return { rows: [] };
         if (statement.includes("COALESCE(MAX(sequence)")) return { rows: [{ sequence: "1" }] };
         return { rows: [], rowCount: 1 };

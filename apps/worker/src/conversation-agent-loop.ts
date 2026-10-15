@@ -8,6 +8,7 @@ const agentResultSchema = z.object({
   answer: z.string().trim().min(1).max(4_000),
   sourceIds: z.array(z.string().uuid()).max(8),
   grounded: z.boolean(),
+  handoffRequested: z.boolean().optional(),
 });
 
 export interface ConversationAgentLoop {
@@ -18,6 +19,7 @@ export interface ConversationAgentLoopOptions {
   readonly repository: ConversationAgentDispatcher;
   readonly tokenClient: ServiceTokenClient;
   readonly sourcesReady: () => Promise<boolean>;
+  readonly routeAdvisor?: (lease: ConversationAgentLease) => Promise<boolean>;
   readonly tenantId: string;
   readonly pollIntervalMs: number;
   readonly workerId?: string;
@@ -51,11 +53,16 @@ export async function dispatchAgentRequest(
     });
     if (!response.ok) throw new Error("Agent runtime unavailable");
     const result = agentResultSchema.parse(await response.json());
+    const routed =
+      result.handoffRequested === true && options.routeAdvisor
+        ? await options.routeAdvisor(lease)
+        : false;
     const persisted = await options.repository.complete({
       lease,
       workerId,
       answer: result.answer,
       sourceIds: result.sourceIds,
+      ...(routed ? { handoffRequested: true } : {}),
     });
     if (persisted === "STALE") throw new Error("Agent request lease lost");
   } catch (error) {

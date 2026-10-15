@@ -25,7 +25,10 @@ function gateway(messages: AgentConversationContext["messages"]) {
       text: "Tenemos opciones de renta individual.",
       sourceIds: [source.id],
     })),
-    answerConversation: vi.fn(async () => "¿En qué fecha necesitas el vehículo?"),
+    answerConversation: vi.fn(async () => ({
+      answer: "¿En qué fecha necesitas el vehículo?",
+      handoffRequested: false,
+    })),
   };
 }
 
@@ -110,6 +113,19 @@ describe("InterAmerican agent memory", () => {
       history: [{ role: "customer", text: "Busco un carro individual" }],
       firstTurn: false,
     });
+    expect(current.search).not.toHaveBeenCalled();
+  });
+
+  it("keeps a requirement confirmation in the conversational handoff path", async () => {
+    const current = gateway([
+      { role: "customer", text: "Quiero rentar un carro individual" },
+      { role: "agent", text: "¿Confirmas que cumples los requisitos?" },
+    ]);
+    await answerAgentTurn(
+      { question: "Sí, confirmo que cumplo los requisitos", firstTurn: false },
+      current,
+    );
+    expect(current.answerConversation).toHaveBeenCalledOnce();
     expect(current.search).not.toHaveBeenCalled();
   });
 

@@ -161,6 +161,71 @@ export function createExternalConversationReceiver(
   pool: PostgresPool,
 ): ExternalConversationReceiver {
   return Object.freeze({
+    reserveAdvisor: async (
+      input: Parameters<ExternalConversationReceiver["reserveAdvisor"]>[0],
+    ) => {
+      if (
+        input.eligibleMemberIds.length !== 2 ||
+        input.eligibleMemberIds[0] === input.eligibleMemberIds[1]
+      )
+        throw new DatabaseUnavailableError();
+      let client: PoolClient | undefined;
+      try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `advisor-route:${input.contactId}`,
+        ]);
+        const saved = await client.query<{ advisor_member_id: string }>(
+          `SELECT advisor_member_id::text FROM conversations.advisor_route_assignments
+            WHERE contact_id = $1::uuid FOR UPDATE`,
+          [input.contactId],
+        );
+        if (saved.rows[0]) {
+          let advisorId = saved.rows[0].advisor_member_id;
+          if (!input.eligibleMemberIds.includes(advisorId)) throw new DatabaseUnavailableError();
+          if (input.previousMemberId && input.eligibleMemberIds.includes(input.previousMemberId)) {
+            advisorId = input.previousMemberId;
+            if (advisorId !== saved.rows[0].advisor_member_id)
+              await client.query(
+                `UPDATE conversations.advisor_route_assignments
+                    SET advisor_member_id = $2::uuid, source = 'previous_advisor'
+                  WHERE contact_id = $1::uuid`,
+                [input.contactId, advisorId],
+              );
+          }
+          await client.query("COMMIT");
+          return advisorId;
+        }
+        let advisorId: string;
+        let source: "previous_advisor" | "round_robin";
+        if (input.previousMemberId && input.eligibleMemberIds.includes(input.previousMemberId)) {
+          advisorId = input.previousMemberId;
+          source = "previous_advisor";
+        } else {
+          const turn = await client.query<{ turn: string }>(
+            `UPDATE conversations.advisor_route_turn SET turn = turn + 1
+              WHERE singleton = true RETURNING turn::text`,
+          );
+          const number = turn.rows[0]?.turn;
+          if (!number) throw new DatabaseUnavailableError();
+          advisorId = input.eligibleMemberIds[Number((BigInt(number) - 1n) % 2n)]!;
+          source = "round_robin";
+        }
+        await client.query(
+          `INSERT INTO conversations.advisor_route_assignments
+            (contact_id, advisor_member_id, source) VALUES ($1::uuid, $2::uuid, $3)`,
+          [input.contactId, advisorId, source],
+        );
+        await client.query("COMMIT");
+        return advisorId;
+      } catch (error) {
+        await client?.query("ROLLBACK").catch(() => undefined);
+        return fail(error);
+      } finally {
+        client?.release();
+      }
+    },
     reconcileOutbound: async (
       input: Parameters<ExternalConversationReceiver["reconcileOutbound"]>[0],
     ) => {
