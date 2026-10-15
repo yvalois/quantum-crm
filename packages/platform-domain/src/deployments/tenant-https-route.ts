@@ -1,6 +1,7 @@
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
-const hostnamePattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[0-9-]+\.nip\.io|quantumbusinessassistant\.com)$/u;
+const hostnamePattern =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[0-9-]+\.nip\.io|quantumbusinessassistant\.com)$/u;
 const networkPrefixPattern = /^[a-z][a-z0-9-]{0,30}$/u;
 const reservedOwnedDomainLabels = new Set(["admin", "api", "identity", "storage", "www"]);
 
@@ -85,9 +86,7 @@ export function tenantHttpsHostname(
     throw new TenantHttpsRouteValidationError("slug");
   }
   const address = ipv4(publicIpv4).replaceAll(".", "-");
-  return domainSuffix
-    ? `${normalizedSlug}.${domainSuffix}`
-    : `${normalizedSlug}.${address}.nip.io`;
+  return domainSuffix ? `${normalizedSlug}.${domainSuffix}` : `${normalizedSlug}.${address}.nip.io`;
 }
 
 export function tenantHttpsEdgeNetworkName(

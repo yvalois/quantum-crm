@@ -434,7 +434,7 @@ export function parseProcessConfig(
     if (configured && configured !== "quantumbusinessassistant.com") {
       throw new ConfigurationError(definition.serviceName, [tenantDomainSuffixEnvironmentKey]);
     }
-    tenantDomainSuffix = configured || undefined;
+    tenantDomainSuffix = configured === "quantumbusinessassistant.com" ? configured : undefined;
   }
 
   let deployHostSocketPath: string | undefined;
