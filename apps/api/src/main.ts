@@ -72,6 +72,8 @@ async function bootstrap(): Promise<void> {
         throw new Error("available file has no immutable object version");
       }
       const expiresAt = new Date(Date.now() + filesConfig.downloadTtlSeconds * 1_000);
+      const disposition =
+        file.fileClass === "IMAGE" || file.fileClass === "AUDIO" ? "inline" : "attachment";
       return Object.freeze({
         method: "GET" as const,
         url: deliveryStorage.presignDownload({
@@ -79,7 +81,7 @@ async function bootstrap(): Promise<void> {
           versionId: file.objectVersionId,
           expiresInSeconds: filesConfig.downloadTtlSeconds,
           responseContentType: file.observedMime ?? file.declaredMime,
-          responseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`,
+          responseContentDisposition: `${disposition}; filename*=UTF-8''${encodeURIComponent(file.originalName)}`,
         }),
         expiresAt,
         objectVersionId: file.objectVersionId,
