@@ -489,6 +489,39 @@ export function MembersPanel(): React.JSX.Element {
     }
   };
 
+  const reissueInvitation = async (member: Member): Promise<void> => {
+    if (
+      !csrfToken ||
+      !window.confirm(
+        `¿Generar una nueva contraseña para ${member.displayName}? La anterior y su QR dejarán de funcionar. La nueva se mostrará una sola vez.`,
+      )
+    )
+      return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    setActivationLink(undefined);
+    try {
+      const response = await fetch(`/api/members/${member.id}/invitation/reissue`, {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: {
+          "idempotency-key": crypto.randomUUID(),
+          "x-csrf-token": csrfToken,
+        },
+      });
+      if (!response.ok) throw new Error(await responseMessage(response));
+      const activation = (await response.json()) as NonNullable<InvitationPayload["activation"]>;
+      setActivationLink(activation);
+      setNotice(`Nuevo acceso de ${member.displayName}. Cópialo ahora; no se guardará.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible reemitir el acceso.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const beginEditing = (member: Member): void => {
     setShowInvite(false);
     setEditingMember(member);
@@ -565,6 +598,13 @@ export function MembersPanel(): React.JSX.Element {
         {activationLink ? (
           <section className="feedback feedback-success" role="status">
             <strong>Acceso temporal listo</strong>
+            <button
+              type="button"
+              className="secondary-action"
+              onClick={() => setActivationLink(undefined)}
+            >
+              Ocultar acceso
+            </button>
             <p>
               Contraseña temporal: <code>{activationLink.temporaryPassword}</code>
             </p>
@@ -702,6 +742,15 @@ export function MembersPanel(): React.JSX.Element {
                               ···
                             </summary>
                             <div>
+                              {member.status === "INVITED" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void reissueInvitation(member)}
+                                  disabled={saving}
+                                >
+                                  Generar nueva contraseña
+                                </button>
+                              ) : null}
                               {member.status === "INVITED" ? (
                                 <button
                                   type="button"

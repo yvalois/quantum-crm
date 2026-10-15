@@ -7,6 +7,7 @@ import {
   handleCrmMemberDeactivation,
   handleCrmMemberInvitation,
   handleCrmMemberInvitationRevocation,
+  handleCrmMemberInvitationReissue,
   handleCrmLogin,
   handleCrmMemberList,
   handleCrmMemberUpdate,
@@ -1025,5 +1026,48 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(new Headers(upstream.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
       "Bearer server-only-access-token",
     );
+  });
+
+  it("forwards one-time reissue only with CSRF and a valid request key", async () => {
+    const memberId = "01995f7e-7b52-7000-8000-000000000102";
+    const upstream = vi.fn(async () =>
+      Response.json({
+        url: "https://identity.example.test/action",
+        temporaryPassword: "Aa9!temporary-password",
+        expiresAt: "2026-10-15T00:30:00.000Z",
+      }),
+    );
+    const requestUrl = `https://crm.example.test/api/members/${memberId}/invitation/reissue`;
+    const denied = await handleCrmMemberInvitationReissue(
+      new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "idempotency-key": "reissue-1",
+        },
+      }),
+      runtime(upstream as typeof fetch),
+      memberId,
+    );
+    expect(denied.status).toBe(403);
+    expect(upstream).not.toHaveBeenCalled();
+    const response = await handleCrmMemberInvitationReissue(
+      new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          cookie: `__Host-qcrm_crm_session=${sessionHandle.expose()}`,
+          origin: config.origin,
+          "idempotency-key": "reissue-1",
+          "x-csrf-token": csrfToken,
+        },
+      }),
+      runtime(upstream as typeof fetch),
+      memberId,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(await response.json()).toMatchObject({ temporaryPassword: "Aa9!temporary-password" });
+    expect(upstream.mock.calls).toHaveLength(1);
   });
 });

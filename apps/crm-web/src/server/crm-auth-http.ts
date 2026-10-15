@@ -53,6 +53,7 @@ import {
   CreatePipelineSchema,
   CreatePipelineStageSchema,
   InvitationResponseSchema,
+  InvitationActivationDeliverySchema,
   MemberIdSchema,
   MemberListQuerySchema,
   MemberListResponseSchema,
@@ -3072,6 +3073,42 @@ export async function handleCrmMemberInvitationRevocation(
       },
     );
     return memberMutationResponse(upstream, InvitationResponseSchema);
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmMemberInvitationReissue(
+  request: Request,
+  runtime: CrmAuthRuntime,
+  memberId: string,
+): Promise<Response> {
+  const parsedMemberId = MemberIdSchema.safeParse(memberId);
+  const requestKey = request.headers.get("idempotency-key");
+  if (!parsedMemberId.success || !requestKey || !idempotencyKeyPattern.test(requestKey))
+    return crmProblem(400, "Invalid request");
+  const authorized = await authorizedMutation(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL(
+        `/api/v1/members/${parsedMemberId.data}/invitation/reissue`,
+        runtime.config.crmApiOrigin,
+      ),
+      {
+        method: "POST",
+        headers: memberMutationHeaders(authorized, requestKey),
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (upstream.status === 409)
+      return crmProblem(
+        409,
+        "No se puede reemitir esta invitación ahora. Espera un momento o actualiza la lista.",
+      );
+    return memberMutationResponse(upstream, InvitationActivationDeliverySchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }

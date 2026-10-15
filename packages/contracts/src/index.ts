@@ -129,6 +129,7 @@ export {
   AcceptInvitationResponseSchema,
   CreateMemberInvitationSchema,
   InvitationResponseSchema,
+  InvitationActivationDeliverySchema,
   InvitationSchema,
   InternalCreateAdministratorSchema,
   InternalAdministratorAccessResponseSchema,
