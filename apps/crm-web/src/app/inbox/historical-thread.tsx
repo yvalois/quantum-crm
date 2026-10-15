@@ -194,10 +194,7 @@ export function HistoricalThread({
                 : "Sin asignar"}
             </strong>
           </p>
-          <p>
-            {selected.messageCount} mensajes ·{" "}
-            {selected.rawStatus || "Estado original no informado"}
-          </p>
+          <p>{selected.messageCount} mensajes del historial · sin estado actual de lectura</p>
           <HistoricalChannelBadge rawChannel={selected.rawChannel} />
         </div>
         <div>
@@ -337,8 +334,9 @@ export function HistoricalThread({
         </form>
       ) : (
         <p className={styles.readOnly}>
-          Este historial no abre una ventana de WhatsApp. Espera un mensaje nuevo del cliente para
-          responder desde su chat actual; fuera de las 24 horas se necesita una plantilla aprobada.
+          {selected.rawChannel?.toUpperCase().includes("WHATSAPP")
+            ? "Este historial no abre una ventana de WhatsApp. Espera un mensaje nuevo del cliente para responder desde su chat actual; fuera de las 24 horas se necesita una plantilla aprobada."
+            : "Este historial es de consulta. Responde desde una conversación actual con un canal conectado."}
         </p>
       )}
     </section>
