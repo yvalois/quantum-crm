@@ -13,6 +13,7 @@ import {
 import {
   createClamAvClient,
   createS3ObjectStorage,
+  ObjectStorageError,
   readAvailableOutboundMedia,
 } from "@quantum-crm/files-infrastructure";
 import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
@@ -161,8 +162,16 @@ async function bootstrap(): Promise<void> {
             },
           ),
         pollIntervalMs: 2_000,
-        onError: () => {
-          process.stderr.write('{"level":"error","event":"inbound_media_attempt_failed"}\n');
+        onError: (error) => {
+          const reason =
+            error instanceof ObjectStorageError
+              ? error.code
+              : error instanceof Error
+                ? error.name
+                : "UNKNOWN";
+          process.stderr.write(
+            JSON.stringify({ level: "error", event: "inbound_media_attempt_failed", reason }) + "\n",
+          );
         },
       } satisfies InboundMediaLoopOptions);
     }
