@@ -94,6 +94,24 @@ function poolWithClientQuery(query: ReturnType<typeof vi.fn>) {
 }
 
 describe("commercial PostgreSQL repositories", () => {
+  it("permits preassignment only to invited advisors with contact-read permission", async () => {
+    const query = vi.fn(async () => ({ rowCount: 1, rows: [{ "?column?": 1 }] }));
+    const pool = {
+      query,
+      connect: vi.fn(),
+      end: vi.fn(async () => undefined),
+      on: vi.fn(),
+    } as unknown as PostgresPool;
+    const contacts = createCommercialPostgresRepositories(pool).contacts;
+    await expect(
+      contacts.canAssignOwner({ memberId: actor.memberId, scope: "PROFILE" }, contactRow.id),
+    ).resolves.toBe(true);
+    const statement = String(query.mock.calls[0]?.[0]);
+    expect(statement).toContain("target.status = 'invited'");
+    expect(statement).toContain("advisor.code = 'ADVISOR'");
+    expect(statement).toContain("permission.permission = 'crm:contacts:read'");
+  });
+
   it("authorizes assigned contacts through their lead or chat while keeping profile scope unchanged", async () => {
     const query = vi.fn(async (_text: string, _values?: unknown[]) => ({ rows: [] }));
     const pool = {

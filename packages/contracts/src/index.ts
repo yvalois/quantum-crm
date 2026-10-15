@@ -138,6 +138,7 @@ export {
   RoleCodeSchema,
   MemberListQuerySchema,
   MemberListResponseSchema,
+  CommercialAdvisorListResponseSchema,
   MemberResponseSchema,
   MemberCapabilitiesResponseSchema,
   MemberSchema,
@@ -169,6 +170,7 @@ export {
   type Member,
   type MemberListQuery,
   type MemberListResponse,
+  type CommercialAdvisor,
   type UpdateMember,
   type CommercialScope,
 } from "./iam/v1/member.js";

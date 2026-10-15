@@ -4,12 +4,33 @@ import {
   AcceptInvitationParamsSchema,
   AcceptInvitationResponseSchema,
   CreateMemberInvitationSchema,
+  CommercialAdvisorListResponseSchema,
   InternalAdministratorAccessResponseSchema,
   InternalCreateAdministratorSchema,
   UpdateMemberSchema,
 } from "./member.js";
 
 describe("member contracts", () => {
+  it("exposes only advisor identity and pending activation status", () => {
+    expect(
+      CommercialAdvisorListResponseSchema.parse({
+        data: [
+          { id: "01995f7e-7b52-7000-8000-000000000202", displayName: "Carlos", status: "INVITED" },
+        ],
+      }),
+    ).toMatchObject({ data: [{ displayName: "Carlos", status: "INVITED" }] });
+    expect(() =>
+      CommercialAdvisorListResponseSchema.parse({
+        data: [
+          {
+            id: "01995f7e-7b52-7000-8000-000000000202",
+            displayName: "Carlos",
+            status: "DEACTIVATED",
+          },
+        ],
+      }),
+    ).toThrow();
+  });
   it("normalizes an invitation email without accepting an empty name", () => {
     expect(
       CreateMemberInvitationSchema.parse({

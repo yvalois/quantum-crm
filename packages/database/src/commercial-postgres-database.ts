@@ -944,7 +944,11 @@ export function createCommercialPostgresRepositories(
             `SELECT 1
                FROM iam.members AS target
               WHERE target.id = $1::uuid
-                AND target.status = 'active'
+                AND (target.status = 'active' OR (target.status = 'invited' AND EXISTS (
+                  SELECT 1 FROM iam.member_roles AS advisor_role
+                  JOIN iam.roles AS advisor ON advisor.id = advisor_role.role_id
+                  WHERE advisor_role.member_id = target.id AND advisor.code = 'ADVISOR'
+                )))
                 AND EXISTS (
                   SELECT 1
                     FROM iam.member_roles AS member_role
@@ -962,7 +966,11 @@ export function createCommercialPostgresRepositories(
             `SELECT 1
                FROM iam.members AS target
               WHERE target.id = $1::uuid
-                AND target.status = 'active'
+                AND (target.status = 'active' OR (target.status = 'invited' AND EXISTS (
+                  SELECT 1 FROM iam.member_roles AS advisor_role
+                  JOIN iam.roles AS advisor ON advisor.id = advisor_role.role_id
+                  WHERE advisor_role.member_id = target.id AND advisor.code = 'ADVISOR'
+                )))
                 AND EXISTS (
                   SELECT 1
                     FROM iam.member_roles AS member_role
@@ -980,7 +988,11 @@ export function createCommercialPostgresRepositories(
           `SELECT 1
              FROM iam.members AS target
             WHERE target.id = $1::uuid
-              AND target.status = 'active'
+              AND (target.status = 'active' OR (target.status = 'invited' AND EXISTS (
+                SELECT 1 FROM iam.member_roles AS advisor_role
+                JOIN iam.roles AS advisor ON advisor.id = advisor_role.role_id
+                WHERE advisor_role.member_id = target.id AND advisor.code = 'ADVISOR'
+              )))
               AND EXISTS (
                 SELECT 1
                   FROM iam.member_roles AS member_role

@@ -425,7 +425,7 @@ Dependencias: Configuración de campos, etiquetas, usuarios y base común.
   - [ ] Conservar etiquetas y descripciones de los campos.
 
 - [ ] **CON-06 — Asignación de contactos a asesores.**
-  - [ ] Seleccionar un asesor activo y autorizado.
+  - [ ] Seleccionar un asesor autorizado, activo o invitado sin acceso hasta su activación.
   - [ ] Actualizar el propietario del contacto.
   - [ ] Aplicar la regla configurada para sus conversaciones sin confundir propietario con seguidor.
 
@@ -502,7 +502,7 @@ Dependencias: Contactos, usuarios y eventos de automatización.
   - [ ] Mostrar la oportunidad en la ficha del contacto.
 
 - [ ] **PIPE-06 — Asignar oportunidades a asesores.**
-  - [ ] Asignar un asesor activo como propietario de la oportunidad.
+  - [ ] Asignar un asesor activo o invitado como propietario de la oportunidad; el invitado no accede hasta activarse.
   - [ ] Coordinar su asignación con la del contacto según la regla elegida.
   - [ ] Evitar registrar al responsable solo como observador.
 

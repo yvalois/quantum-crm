@@ -59,6 +59,7 @@ import {
   MemberIdSchema,
   MemberListQuerySchema,
   MemberListResponseSchema,
+  CommercialAdvisorListResponseSchema,
   MemberResponseSchema,
   MemberCapabilitiesResponseSchema,
   UpdateMemberSchema,
@@ -2969,6 +2970,32 @@ export async function handleCrmMemberList(
     return Response.json(MemberListResponseSchema.parse(await readBoundedJson(upstream)), {
       headers: crmNoStoreHeaders(),
     });
+  } catch {
+    return crmProblem(503, "CRM service temporarily unavailable");
+  }
+}
+
+export async function handleCrmCommercialAdvisorList(
+  request: Request,
+  runtime: CrmAuthRuntime,
+): Promise<Response> {
+  const authorized = await authorizedSession(request, runtime);
+  if (isResponse(authorized)) return authorized;
+  try {
+    const upstream = await runtime.crmApiFetch(
+      new URL("/api/v1/members/advisors", runtime.config.crmApiOrigin),
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${authorized.session.accessToken.expose()}`,
+          "x-correlation-id": authorized.correlationId,
+        },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    return commercialResponse(upstream, CommercialAdvisorListResponseSchema);
   } catch {
     return crmProblem(503, "CRM service temporarily unavailable");
   }
