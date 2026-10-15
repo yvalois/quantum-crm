@@ -258,8 +258,11 @@ describe("ConversationService", () => {
       ...references(),
       documentFor: vi.fn(async () => document),
       mediaFor: vi.fn(async () => ({
-        id: fileId, status: "AVAILABLE", fileClass: "DOCUMENT",
-        mimeType: "application/pdf", size: 1000,
+        id: fileId,
+        status: "AVAILABLE",
+        fileClass: "DOCUMENT",
+        mimeType: "application/pdf",
+        size: 1000,
       })),
     };
     const service = new ConversationService(store, refs, () => now);
@@ -289,20 +292,34 @@ describe("ConversationService", () => {
         }),
       }),
     );
-    expect(refs.mediaFor).toHaveBeenCalledWith(actor,
-      ["crm:conversations:reply"], fileId, existing.id);
+    expect(refs.mediaFor).toHaveBeenCalledWith(
+      actor,
+      ["crm:conversations:reply"],
+      fileId,
+      existing.id,
+    );
   });
 
   it("does not queue a WhatsApp template without a deliverable PDF", async () => {
     const store = repository();
-    const service = new ConversationService(store,
-      { ...references(), documentFor: vi.fn(async () => document) }, () => now);
-    await expect(service.send({
-      actor, permissions: ["crm:conversations:reply"],
-      conversationId: existing.id, expectedVersion: existing.version,
-      body: "Documento", kind: "DOCUMENT", documentId: document.id,
-      idempotencyKey: "document-12345679", payloadHash: "3".repeat(64),
-    })).rejects.toBeInstanceOf(ConversationValidationError);
+    const service = new ConversationService(
+      store,
+      { ...references(), documentFor: vi.fn(async () => document) },
+      () => now,
+    );
+    await expect(
+      service.send({
+        actor,
+        permissions: ["crm:conversations:reply"],
+        conversationId: existing.id,
+        expectedVersion: existing.version,
+        body: "Documento",
+        kind: "DOCUMENT",
+        documentId: document.id,
+        idempotencyKey: "document-12345679",
+        payloadHash: "3".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(ConversationValidationError);
     expect(store.append).not.toHaveBeenCalled();
   });
 

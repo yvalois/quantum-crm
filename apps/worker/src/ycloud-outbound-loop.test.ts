@@ -91,7 +91,9 @@ describe("YCloud outbound", () => {
 
   it("uploads validated media and sends the returned media ID", async () => {
     const mediaFor = vi.fn(async () => ({
-      bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png", filename: "foto.png",
+      bytes: new Uint8Array([1, 2, 3]),
+      mimeType: "image/png",
+      filename: "foto.png",
     }));
     const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       if (String(url).includes("/media/")) {
@@ -99,14 +101,20 @@ describe("YCloud outbound", () => {
         return new Response(JSON.stringify({ id: "media-123" }), { status: 200 });
       }
       expect(JSON.parse(String(init?.body))).toMatchObject({
-        type: "image", image: { id: "media-123", caption: "Hola" },
+        type: "image",
+        image: { id: "media-123", caption: "Hola" },
         externalId: lease.messageId,
       });
       return new Response(JSON.stringify({ id: "msg-456" }), { status: 200 });
     });
-    const result = await sendYCloudText({ binding, apiKey: "test", fetcher, mediaFor }, {
-      ...lease, kind: "IMAGE", fileId: "01995f7e-7b52-7000-8000-000000000404",
-    });
+    const result = await sendYCloudText(
+      { binding, apiKey: "test", fetcher, mediaFor },
+      {
+        ...lease,
+        kind: "IMAGE",
+        fileId: "01995f7e-7b52-7000-8000-000000000404",
+      },
+    );
     expect(result).toMatchObject({ outcome: "SENT" });
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(mediaFor).toHaveBeenCalledOnce();

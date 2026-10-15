@@ -363,7 +363,8 @@ export class FormsController {
       const context = crmAuthContext(request);
       const actor = { memberId: context.principal.id, scope: context.commercialScope } as const;
       const granted = context.permissions as readonly IamPermission[];
-      const thread = await this.conversations.thread(actor, granted, parsed.data.conversationId)
+      const thread = await this.conversations
+        .thread(actor, granted, parsed.data.conversationId)
         .catch((error: unknown) => {
           if (error instanceof ConversationNotFoundError) throw new NotFoundException();
           throw error;

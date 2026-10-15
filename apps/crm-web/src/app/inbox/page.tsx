@@ -171,7 +171,9 @@ function Icon({
         <path {...common} d="M8 9h8M8 13h5" />
       </>
     ),
-    attach: <path {...common} d="M8 12.5 14.5 6a3 3 0 0 1 4.3 4.2l-8.5 8.6a5 5 0 0 1-7.1-7.1l8.5-8.5" />,
+    attach: (
+      <path {...common} d="M8 12.5 14.5 6a3 3 0 0 1 4.3 4.2l-8.5 8.6a5 5 0 0 1-7.1-7.1l8.5-8.5" />
+    ),
     search: (
       <>
         <circle {...common} cx="10.7" cy="10.7" r="5.7" />
@@ -782,7 +784,8 @@ export default function InboxPage(): React.JSX.Element {
 
   async function send(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!selected || (!draft.trim() && !pendingMedia) || (mode === "message" && composerBlocked)) return;
+    if (!selected || (!draft.trim() && !pendingMedia) || (mode === "message" && composerBlocked))
+      return;
     setSaving(true);
     setError(null);
     try {
@@ -826,7 +829,10 @@ export default function InboxPage(): React.JSX.Element {
     setMediaProgress(`Preparando ${file.name}…`);
     try {
       const uploaded = await uploadConversationFile({
-        file, conversationId, csrf, progress: setMediaProgress,
+        file,
+        conversationId,
+        csrf,
+        progress: setMediaProgress,
       });
       if (selectionRef.current !== `QUANTUM:${conversationId}`) return;
       setPendingMedia(uploaded);
@@ -845,10 +851,13 @@ export default function InboxPage(): React.JSX.Element {
     try {
       const response = await fetch("/api/forms", { cache: "no-store", credentials: "same-origin" });
       if (!response.ok) throw new Error(await problem(response));
-      setAvailableForms(FormListResponseSchema.parse(await response.json()).data.filter(
-        (form) => form.status === "PUBLISHED" &&
-          (!form.closesAt || new Date(form.closesAt).getTime() > Date.now()),
-      ));
+      setAvailableForms(
+        FormListResponseSchema.parse(await response.json()).data.filter(
+          (form) =>
+            form.status === "PUBLISHED" &&
+            (!form.closesAt || new Date(form.closesAt).getTime() > Date.now()),
+        ),
+      );
       setShowFormPicker(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible abrir los formularios.");
@@ -868,16 +877,23 @@ export default function InboxPage(): React.JSX.Element {
       };
       let version = selected.version;
       if (selected.attentionMode === "AGENT") {
-        const taken = await mutate(`/api/conversations/${selected.id}`,
-          { attentionMode: "HUMAN" }, { method: "PATCH", version });
+        const taken = await mutate(
+          `/api/conversations/${selected.id}`,
+          { attentionMode: "HUMAN" },
+          { method: "PATCH", version },
+        );
         version = ((await taken.json()) as { data: Conversation }).data.version;
       }
       const link = new URL(`/f/${share.data.slug}`, window.location.origin);
       link.searchParams.set("ref", share.data.id);
-      await mutate(`/api/conversations/${selected.id}/messages`, {
-        kind: "TEXT",
-        body: `${form.title}: ${link.toString()}`,
-      }, { version });
+      await mutate(
+        `/api/conversations/${selected.id}/messages`,
+        {
+          kind: "TEXT",
+          body: `${form.title}: ${link.toString()}`,
+        },
+        { version },
+      );
       setShowFormPicker(false);
       await refreshConversation(selected.id);
     } catch (cause) {
@@ -1610,7 +1626,10 @@ export default function InboxPage(): React.JSX.Element {
                         type="button"
                         role="tab"
                         aria-selected={mode === "note"}
-                        onClick={() => { setMode("note"); setPendingMedia(null); }}
+                        onClick={() => {
+                          setMode("note");
+                          setPendingMedia(null);
+                        }}
                       >
                         <Icon name="note" size={15} /> Nota interna
                       </button>
@@ -1663,23 +1682,55 @@ export default function InboxPage(): React.JSX.Element {
                     <>
                       {pendingMedia && mode === "message" ? (
                         <div className={styles.pendingMedia}>
-                          <Icon name={pendingMedia.fileClass === "DOCUMENT" ? "document" : "attach"} size={17} />
-                          <span><strong>{pendingMedia.name}</strong><small>Validado y listo para enviar</small></span>
-                          <button type="button" aria-label="Quitar adjunto" onClick={() => setPendingMedia(null)}>
+                          <Icon
+                            name={pendingMedia.fileClass === "DOCUMENT" ? "document" : "attach"}
+                            size={17}
+                          />
+                          <span>
+                            <strong>{pendingMedia.name}</strong>
+                            <small>Validado y listo para enviar</small>
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="Quitar adjunto"
+                            onClick={() => setPendingMedia(null)}
+                          >
                             <Icon name="close" size={15} />
                           </button>
                         </div>
                       ) : null}
-                      {mediaProgress ? <p className={styles.mediaProgress} role="status">{mediaProgress}</p> : null}
+                      {mediaProgress ? (
+                        <p className={styles.mediaProgress} role="status">
+                          {mediaProgress}
+                        </p>
+                      ) : null}
                       {showFormPicker ? (
-                        <div className={styles.formPicker} role="region" aria-label="Formularios publicados">
-                          <div><strong>Enviar formulario</strong><button type="button" onClick={() => setShowFormPicker(false)}>Cerrar</button></div>
-                          {availableForms.length ? availableForms.map((form) => (
-                            <button type="button" key={form.id} disabled={saving || Boolean(composerBlocked)}
-                              onClick={() => void sendForm(form)}>
-                              <strong>{form.title}</strong><span>{form.description || "Formulario publicado"}</span>
+                        <div
+                          className={styles.formPicker}
+                          role="region"
+                          aria-label="Formularios publicados"
+                        >
+                          <div>
+                            <strong>Enviar formulario</strong>
+                            <button type="button" onClick={() => setShowFormPicker(false)}>
+                              Cerrar
                             </button>
-                          )) : <p>No hay formularios publicados y vigentes.</p>}
+                          </div>
+                          {availableForms.length ? (
+                            availableForms.map((form) => (
+                              <button
+                                type="button"
+                                key={form.id}
+                                disabled={saving || Boolean(composerBlocked)}
+                                onClick={() => void sendForm(form)}
+                              >
+                                <strong>{form.title}</strong>
+                                <span>{form.description || "Formulario publicado"}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <p>No hay formularios publicados y vigentes.</p>
+                          )}
                         </div>
                       ) : null}
                       <textarea
@@ -1696,12 +1747,26 @@ export default function InboxPage(): React.JSX.Element {
                         <div className={styles.composerTools}>
                           {mode === "message" && selected.channel === "WHATSAPP" ? (
                             <>
-                              <input ref={mediaInputRef} className="sr-only" type="file"
+                              <input
+                                ref={mediaInputRef}
+                                className="sr-only"
+                                type="file"
                                 accept="image/jpeg,image/png,audio/mpeg,audio/ogg,application/pdf,text/plain"
-                                onChange={(event) => void selectMedia(event.currentTarget.files?.[0])} />
-                              <button className={styles.toolButton} type="button"
-                                disabled={saving || !csrf || Boolean(messageBlocked) || Boolean(whatsappWindowClosed)}
-                                onClick={() => mediaInputRef.current?.click()}>
+                                onChange={(event) =>
+                                  void selectMedia(event.currentTarget.files?.[0])
+                                }
+                              />
+                              <button
+                                className={styles.toolButton}
+                                type="button"
+                                disabled={
+                                  saving ||
+                                  !csrf ||
+                                  Boolean(messageBlocked) ||
+                                  Boolean(whatsappWindowClosed)
+                                }
+                                onClick={() => mediaInputRef.current?.click()}
+                              >
                                 <Icon name="attach" size={16} /> Adjuntar
                               </button>
                             </>
@@ -1709,15 +1774,28 @@ export default function InboxPage(): React.JSX.Element {
                           <button
                             className={styles.toolButton}
                             type="button"
-                          disabled={saving || !csrf || Boolean(messageBlocked) || Boolean(whatsappWindowClosed)}
+                            disabled={
+                              saving ||
+                              !csrf ||
+                              Boolean(messageBlocked) ||
+                              Boolean(whatsappWindowClosed)
+                            }
                             onClick={() => void openDocumentComposer()}
                           >
                             <Icon name="document" size={16} /> Crear borrador
                           </button>
                           {mode === "message" && selected.channel === "WHATSAPP" ? (
-                            <button className={styles.toolButton} type="button"
-                              disabled={saving || !csrf || Boolean(messageBlocked) || Boolean(whatsappWindowClosed)}
-                              onClick={() => void openFormPicker()}>
+                            <button
+                              className={styles.toolButton}
+                              type="button"
+                              disabled={
+                                saving ||
+                                !csrf ||
+                                Boolean(messageBlocked) ||
+                                Boolean(whatsappWindowClosed)
+                              }
+                              onClick={() => void openFormPicker()}
+                            >
                               Formulario
                             </button>
                           ) : null}
@@ -2242,8 +2320,8 @@ export default function InboxPage(): React.JSX.Element {
             {preparedDocument ? (
               <>
                 <p className={styles.documentIntro}>
-                  Puedes ajustar y guardar este borrador. El envío directo requiere un PDF fiel
-                  al diseño y todavía no está disponible.
+                  Puedes ajustar y guardar este borrador. El envío directo requiere un PDF fiel al
+                  diseño y todavía no está disponible.
                 </p>
                 <div className={styles.documentFields}>
                   {preparedDocument.blocks.map((block) => {

@@ -5,7 +5,11 @@ import type {
   ConversationOutboundDispatcher,
   ConversationOutboundLease,
 } from "@quantum-crm/domain";
-import { FileNotFoundError, FileStateConflictError, FileValidationError } from "@quantum-crm/domain";
+import {
+  FileNotFoundError,
+  FileStateConflictError,
+  FileValidationError,
+} from "@quantum-crm/domain";
 import type { OutboundMedia } from "@quantum-crm/files-infrastructure";
 
 export interface YCloudOutboundOptions {
@@ -53,8 +57,11 @@ export async function sendYCloudText(
     try {
       media = await options.mediaFor(lease);
     } catch (error) {
-      if (error instanceof FileNotFoundError || error instanceof FileStateConflictError ||
-          error instanceof FileValidationError) {
+      if (
+        error instanceof FileNotFoundError ||
+        error instanceof FileStateConflictError ||
+        error instanceof FileValidationError
+      ) {
         return { outcome: "FAILED", errorCode: "MEDIA_NOT_AVAILABLE" };
       }
       return lease.attempt >= 5
@@ -62,12 +69,21 @@ export async function sendYCloudText(
         : { outcome: "RETRY", errorCode: "MEDIA_READ_FAILED" };
     }
     const file = new FormData();
-    file.append("file", new Blob([new Uint8Array(media.bytes)], { type: media.mimeType }), media.filename);
+    file.append(
+      "file",
+      new Blob([new Uint8Array(media.bytes)], { type: media.mimeType }),
+      media.filename,
+    );
     let uploaded: Response;
     try {
       uploaded = await (options.fetcher ?? fetch)(
         `https://api.ycloud.com/v2/whatsapp/media/${encodeURIComponent(`+${options.binding.businessPhone}`)}/upload`,
-        { method: "POST", headers: { "X-API-Key": options.apiKey }, body: file, signal: AbortSignal.timeout(15_000) },
+        {
+          method: "POST",
+          headers: { "X-API-Key": options.apiKey },
+          body: file,
+          signal: AbortSignal.timeout(15_000),
+        },
       );
     } catch {
       return lease.attempt >= 5
@@ -85,9 +101,17 @@ export async function sendYCloudText(
     let mediaId: string | undefined;
     try {
       const payload: unknown = await uploaded.json();
-      if (payload && typeof payload === "object" && "id" in payload &&
-          typeof payload.id === "string" && payload.id.length <= 400) mediaId = payload.id;
-    } catch { /* invalid provider response */ }
+      if (
+        payload &&
+        typeof payload === "object" &&
+        "id" in payload &&
+        typeof payload.id === "string" &&
+        payload.id.length <= 400
+      )
+        mediaId = payload.id;
+    } catch {
+      /* invalid provider response */
+    }
     if (!mediaId) return { outcome: "FAILED", errorCode: "INVALID_MEDIA_RESPONSE" };
     const mediaType = lease.kind.toLowerCase();
     content = {

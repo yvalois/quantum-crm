@@ -161,7 +161,11 @@ export const SendConversationMessageSchema = z
   .strict()
   .superRefine((value, context) => {
     if (value.kind === "DOCUMENT" && value.documentId === undefined && value.fileId === undefined) {
-      context.addIssue({ code: "custom", path: ["fileId"], message: "Document or file is required" });
+      context.addIssue({
+        code: "custom",
+        path: ["fileId"],
+        message: "Document or file is required",
+      });
     }
     if (value.kind !== "DOCUMENT" && value.documentId !== undefined) {
       context.addIssue({

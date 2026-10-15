@@ -273,7 +273,10 @@ export class ConversationService {
     }
     if (input.fileId) {
       const media = await this.references.mediaFor?.(
-        input.actor, input.permissions, input.fileId, current.id,
+        input.actor,
+        input.permissions,
+        input.fileId,
+        current.id,
       );
       const expectedClass =
         input.kind === "IMAGE" ? "IMAGE" : input.kind === "AUDIO" ? "AUDIO" : "DOCUMENT";
@@ -283,12 +286,17 @@ export class ConversationService {
           : input.kind === "AUDIO"
             ? ["audio/mpeg", "audio/ogg"]
             : ["application/pdf", "text/plain"];
-      const maxBytes = input.kind === "IMAGE" ? 5_000_000 : input.kind === "AUDIO" ? 16_000_000 : 50_000_000;
+      const maxBytes =
+        input.kind === "IMAGE" ? 5_000_000 : input.kind === "AUDIO" ? 16_000_000 : 50_000_000;
       if (
-        !media || media.status !== "AVAILABLE" || media.fileClass !== expectedClass ||
-        !acceptedMime.includes(media.mimeType) || media.size > maxBytes ||
+        !media ||
+        media.status !== "AVAILABLE" ||
+        media.fileClass !== expectedClass ||
+        !acceptedMime.includes(media.mimeType) ||
+        media.size > maxBytes ||
         !["IMAGE", "AUDIO", "DOCUMENT"].includes(input.kind)
-      ) throw new ConversationValidationError();
+      )
+        throw new ConversationValidationError();
     } else if (["IMAGE", "AUDIO"].includes(input.kind)) {
       throw new ConversationValidationError();
     }

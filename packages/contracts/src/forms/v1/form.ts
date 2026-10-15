@@ -164,9 +164,13 @@ export const SubmitFormResponseSchema = z
   .strict();
 
 export const CreateFormConversationShareSchema = z.object({ conversationId: UuidSchema }).strict();
-export const FormConversationShareResponseSchema = z.object({
-  data: z.object({ id: UuidSchema, slug: FormSchema.shape.slug, expiresAt: IsoDateTimeSchema }).strict(),
-}).strict();
+export const FormConversationShareResponseSchema = z
+  .object({
+    data: z
+      .object({ id: UuidSchema, slug: FormSchema.shape.slug, expiresAt: IsoDateTimeSchema })
+      .strict(),
+  })
+  .strict();
 
 /** Metadata accepted before an image is sent through the secure files pipeline. */
 export const PublicFormImageUploadIntentSchema = z

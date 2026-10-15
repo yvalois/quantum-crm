@@ -181,7 +181,11 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
         await client.query("BEGIN");
         const principal = `member:${input.actorMemberId}`;
         const found = await previous<{ id: string; slug: string; expiresAt: string }>(
-          client, principal, "forms.conversation-share", input.idempotencyKey, input.payloadHash,
+          client,
+          principal,
+          "forms.conversation-share",
+          input.idempotencyKey,
+          input.payloadHash,
         );
         if (found) {
           await client.query("COMMIT");
@@ -193,18 +197,32 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
              FOR SHARE`,
           [input.formId, input.formRevision],
         )) as { readonly rows: readonly { slug: string }[] };
-        if (current.rows[0]?.slug !== input.slug) throw new FormValidationError("Form is not published");
+        if (current.rows[0]?.slug !== input.slug)
+          throw new FormValidationError("Form is not published");
         await client.query(
           `INSERT INTO forms.conversation_shares
            (id, form_id, form_revision, contact_id, conversation_id,
             created_by_member_id, expires_at)
            VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5::uuid, $6::uuid, $7)`,
-          [input.id, input.formId, input.formRevision, input.contactId,
-            input.conversationId, input.actorMemberId, input.expiresAt],
+          [
+            input.id,
+            input.formId,
+            input.formRevision,
+            input.contactId,
+            input.conversationId,
+            input.actorMemberId,
+            input.expiresAt,
+          ],
         );
         const saved = { id: input.id, slug: input.slug, expiresAt: input.expiresAt.toISOString() };
-        await remember(client, principal, "forms.conversation-share", input.idempotencyKey,
-          input.payloadHash, saved);
+        await remember(
+          client,
+          principal,
+          "forms.conversation-share",
+          input.idempotencyKey,
+          input.payloadHash,
+          saved,
+        );
         await client.query("COMMIT");
         return { id: saved.id, slug: saved.slug, expiresAt: new Date(saved.expiresAt) };
       } catch (error) {
@@ -466,13 +484,17 @@ export function createFormPostgresRepository(pool: PostgresPool): FormRepository
           throw new DatabaseUnavailableError();
         }
         const share = input.conversationShareId
-          ? (await client.query(
+          ? ((await client.query(
               `SELECT contact_id::text, conversation_id::text FROM forms.conversation_shares
                 WHERE id = $1::uuid AND form_id = $2::uuid AND form_revision = $3
                   AND expires_at > $4 AND response_id IS NULL FOR UPDATE`,
-              [input.conversationShareId, input.submission.formId,
-                input.submission.formRevision, input.now],
-            )) as { readonly rows: readonly { contact_id: string; conversation_id: string }[] }
+              [
+                input.conversationShareId,
+                input.submission.formId,
+                input.submission.formRevision,
+                input.now,
+              ],
+            )) as { readonly rows: readonly { contact_id: string; conversation_id: string }[] })
           : null;
         if (input.conversationShareId && !share?.rows[0]) {
           throw new FormValidationError("Form link expired or already used");

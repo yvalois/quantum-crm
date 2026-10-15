@@ -262,8 +262,12 @@ export class FormService {
     allow(input.permissions, "crm:conversations:reply");
     const form = await this.repository.find(input.formId);
     if (!form) throw new FormNotFoundError();
-    if (form.status !== "PUBLISHED" || !form.publishedRevision ||
-        (form.closesAt && form.closesAt <= this.clock())) throw new FormClosedError();
+    if (
+      form.status !== "PUBLISHED" ||
+      !form.publishedRevision ||
+      (form.closesAt && form.closesAt <= this.clock())
+    )
+      throw new FormClosedError();
     return this.repository.prepareConversationShare({
       id: randomUUID(),
       formId: form.id,
@@ -272,10 +276,12 @@ export class FormService {
       contactId: input.contactId,
       conversationId: input.conversationId,
       actorMemberId: input.actorMemberId,
-      expiresAt: new Date(Math.min(
-        this.clock().getTime() + 30 * 24 * 60 * 60 * 1000,
-        form.closesAt?.getTime() ?? Number.MAX_SAFE_INTEGER,
-      )),
+      expiresAt: new Date(
+        Math.min(
+          this.clock().getTime() + 30 * 24 * 60 * 60 * 1000,
+          form.closesAt?.getTime() ?? Number.MAX_SAFE_INTEGER,
+        ),
+      ),
       idempotencyKey: input.idempotencyKey,
       payloadHash: input.payloadHash,
     });

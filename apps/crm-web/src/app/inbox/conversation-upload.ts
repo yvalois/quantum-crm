@@ -1,6 +1,8 @@
 import type { FileClass, FileContract } from "@quantum-crm/contracts";
 
-const accepted: Readonly<Record<string, { readonly fileClass: FileClass; readonly maxBytes: number }>> = {
+const accepted: Readonly<
+  Record<string, { readonly fileClass: FileClass; readonly maxBytes: number }>
+> = {
   "image/jpeg": { fileClass: "IMAGE", maxBytes: 5_000_000 },
   "image/png": { fileClass: "IMAGE", maxBytes: 5_000_000 },
   "audio/mpeg": { fileClass: "AUDIO", maxBytes: 16_000_000 },
@@ -12,8 +14,12 @@ const accepted: Readonly<Record<string, { readonly fileClass: FileClass; readonl
 async function responseError(response: Response): Promise<Error> {
   const payload: unknown = await response.json().catch(() => null);
   return new Error(
-    payload && typeof payload === "object" && "title" in payload && typeof payload.title === "string"
-      ? payload.title : "No se pudo completar la carga.",
+    payload &&
+      typeof payload === "object" &&
+      "title" in payload &&
+      typeof payload.title === "string"
+      ? payload.title
+      : "No se pudo completar la carga.",
   );
 }
 
@@ -36,10 +42,21 @@ export async function uploadConversationFile(input: {
   }
   const checksum = await digest(input.file);
   const intent = await fetch("/api/files", {
-    method: "POST", credentials: "same-origin", cache: "no-store",
-    headers: { "content-type": "application/json", "x-csrf-token": input.csrf, "idempotency-key": crypto.randomUUID() },
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: {
+      "content-type": "application/json",
+      "x-csrf-token": input.csrf,
+      "idempotency-key": crypto.randomUUID(),
+    },
     body: JSON.stringify({
-      owner: { kind: "existing", module: "conversations", type: "conversation", id: input.conversationId },
+      owner: {
+        kind: "existing",
+        module: "conversations",
+        type: "conversation",
+        id: input.conversationId,
+      },
       fileClass: format.fileClass,
       originalName: input.file.name,
       declaredMime: input.file.type,
@@ -49,25 +66,40 @@ export async function uploadConversationFile(input: {
   });
   if (!intent.ok) throw await responseError(intent);
   const reservation = (await intent.json()) as {
-    readonly data: { readonly file: FileContract; readonly upload: {
-      readonly url: string; readonly fields: Readonly<Record<string, string>>;
-    } };
+    readonly data: {
+      readonly file: FileContract;
+      readonly upload: {
+        readonly url: string;
+        readonly fields: Readonly<Record<string, string>>;
+      };
+    };
   };
   const body = new FormData();
-  for (const [key, value] of Object.entries(reservation.data.upload.fields)) body.append(key, value);
+  for (const [key, value] of Object.entries(reservation.data.upload.fields))
+    body.append(key, value);
   body.append("qcrm-upload-url", reservation.data.upload.url);
   body.append("file", input.file, input.file.name);
   input.progress(`Subiendo ${input.file.name}…`);
   const stored = await fetch("/api/files/upload", {
-    method: "POST", credentials: "same-origin", headers: { "x-csrf-token": input.csrf }, body,
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "x-csrf-token": input.csrf },
+    body,
   });
   const receiptBody = await stored.text();
   if (!stored.ok) throw new Error("El almacenamiento rechazó el archivo.");
-  const versionId = stored.headers.get("x-amz-version-id") ??
+  const versionId =
+    stored.headers.get("x-amz-version-id") ??
     receiptBody.match(/<VersionId>([^<]+)<\/VersionId>/u)?.[1];
   const completed = await fetch(`/api/files/${reservation.data.file.id}/complete`, {
-    method: "POST", credentials: "same-origin", cache: "no-store",
-    headers: { "content-type": "application/json", "x-csrf-token": input.csrf, "idempotency-key": crypto.randomUUID() },
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: {
+      "content-type": "application/json",
+      "x-csrf-token": input.csrf,
+      "idempotency-key": crypto.randomUUID(),
+    },
     body: JSON.stringify({
       checksum,
       ...(versionId ? { versionId } : {}),
@@ -79,7 +111,8 @@ export async function uploadConversationFile(input: {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     await new Promise((resolve) => window.setTimeout(resolve, 2_000));
     const status = await fetch(`/api/files/${reservation.data.file.id}`, {
-      credentials: "same-origin", cache: "no-store",
+      credentials: "same-origin",
+      cache: "no-store",
     });
     if (!status.ok) throw await responseError(status);
     const file = ((await status.json()) as { readonly data: FileContract }).data;

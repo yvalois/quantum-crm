@@ -1179,12 +1179,30 @@
   color: var(--teal-deep);
 }
 
-.pendingMedia span { min-width: 0; flex: 1; }
+.pendingMedia span {
+  min-width: 0;
+  flex: 1;
+}
 .pendingMedia strong,
-.pendingMedia small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pendingMedia strong { font-size: 0.72rem; }
-.pendingMedia small { font-size: 0.6rem; color: var(--muted); }
-.pendingMedia button { border: 0; background: transparent; color: inherit; cursor: pointer; }
+.pendingMedia small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pendingMedia strong {
+  font-size: 0.72rem;
+}
+.pendingMedia small {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+.pendingMedia button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
 
 .composer {
   border-top: 1px solid var(--line);
@@ -1298,7 +1316,10 @@
   cursor: pointer;
 }
 
-.formPicker > button span { color: #647a7e; font-size: 0.75rem; }
+.formPicker > button span {
+  color: #647a7e;
+  font-size: 0.75rem;
+}
 
 .composerTools {
   min-width: 0;

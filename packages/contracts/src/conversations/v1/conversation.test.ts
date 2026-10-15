@@ -58,13 +58,17 @@ describe("conversation contracts", () => {
 
   it("requires a validated file reference for media messages", () => {
     const fileId = "019b0000-0000-7000-8000-000000000004";
-    expect(SendConversationMessageSchema.safeParse({ body: "Foto", kind: "IMAGE", fileId }).success)
-      .toBe(true);
-    expect(SendConversationMessageSchema.safeParse({ body: "Foto", kind: "IMAGE" }).success)
-      .toBe(false);
-    expect(SendConversationMessageSchema.safeParse({ body: "Hola", kind: "TEXT", fileId }).success)
-      .toBe(false);
-    expect(SendConversationMessageSchema.safeParse({ body: "PDF", kind: "DOCUMENT", fileId }).success)
-      .toBe(true);
+    expect(
+      SendConversationMessageSchema.safeParse({ body: "Foto", kind: "IMAGE", fileId }).success,
+    ).toBe(true);
+    expect(SendConversationMessageSchema.safeParse({ body: "Foto", kind: "IMAGE" }).success).toBe(
+      false,
+    );
+    expect(
+      SendConversationMessageSchema.safeParse({ body: "Hola", kind: "TEXT", fileId }).success,
+    ).toBe(false);
+    expect(
+      SendConversationMessageSchema.safeParse({ body: "PDF", kind: "DOCUMENT", fileId }).success,
+    ).toBe(true);
   });
 });

@@ -1700,7 +1700,9 @@ export async function handleCrmFormGet(request: Request, runtime: CrmAuthRuntime
 }
 
 export async function handleCrmFormConversationShare(
-  request: Request, runtime: CrmAuthRuntime, formId: string,
+  request: Request,
+  runtime: CrmAuthRuntime,
+  formId: string,
 ) {
   if (!uuidPattern.test(formId)) return crmProblem(400, "Invalid request");
   return calendarMutation(request, runtime, {

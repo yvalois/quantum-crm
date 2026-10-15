@@ -68,13 +68,17 @@ describe("form contracts", () => {
   });
 
   it("accepts only a typed conversation share reference", () => {
-    expect(CreateFormConversationShareSchema.safeParse({ conversationId: firstId }).success)
-      .toBe(true);
-    expect(CreateFormConversationShareSchema.safeParse({ conversationId: "another-profile" }).success)
-      .toBe(false);
-    expect(SubmitFormResponseSchema.safeParse({ answers: {}, conversationShareId: secondId }).success)
-      .toBe(true);
-    expect(SubmitFormResponseSchema.safeParse({ answers: {}, conversationShareId: "wrong" }).success)
-      .toBe(false);
+    expect(CreateFormConversationShareSchema.safeParse({ conversationId: firstId }).success).toBe(
+      true,
+    );
+    expect(
+      CreateFormConversationShareSchema.safeParse({ conversationId: "another-profile" }).success,
+    ).toBe(false);
+    expect(
+      SubmitFormResponseSchema.safeParse({ answers: {}, conversationShareId: secondId }).success,
+    ).toBe(true);
+    expect(
+      SubmitFormResponseSchema.safeParse({ answers: {}, conversationShareId: "wrong" }).success,
+    ).toBe(false);
   });
 });
