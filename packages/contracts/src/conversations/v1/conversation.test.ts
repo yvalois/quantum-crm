@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ConversationListQuerySchema,
   CreateConversationSchema,
+  MarkConversationReadSchema,
   UpdateConversationSchema,
 } from "./conversation.js";
 
@@ -30,6 +31,13 @@ describe("conversation contracts", () => {
     expect(UpdateConversationSchema.safeParse({ attentionMode: "HUMAN" }).success).toBe(true);
     expect(UpdateConversationSchema.safeParse({ resetAgent: true }).success).toBe(true);
     expect(UpdateConversationSchema.safeParse({ resetAgent: false }).success).toBe(false);
+  });
+
+  it("requires the last displayed sequence when acknowledging incoming messages", () => {
+    expect(MarkConversationReadSchema.safeParse({ throughSequence: "12" }).success).toBe(true);
+    expect(MarkConversationReadSchema.safeParse({ throughSequence: "0" }).success).toBe(true);
+    expect(MarkConversationReadSchema.safeParse({ throughSequence: "-1" }).success).toBe(false);
+    expect(MarkConversationReadSchema.safeParse({}).success).toBe(false);
   });
 
   it("bounds pagination and normalizes query values", () => {

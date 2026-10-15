@@ -282,6 +282,7 @@ export {
   ConversationThreadResponseSchema,
   CreateConversationNoteSchema,
   CreateConversationSchema,
+  MarkConversationReadSchema,
   CreateQuickReplySchema,
   QuickReplyListResponseSchema,
   QuickReplyResponseSchema,

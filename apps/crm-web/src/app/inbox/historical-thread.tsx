@@ -337,7 +337,8 @@ export function HistoricalThread({
         </form>
       ) : (
         <p className={styles.readOnly}>
-          Para responder desde Quantum, vincula este historial a un contacto con teléfono válido.
+          Este historial no abre una ventana de WhatsApp. Espera un mensaje nuevo del cliente para
+          responder desde su chat actual; fuera de las 24 horas se necesita una plantilla aprobada.
         </p>
       )}
     </section>

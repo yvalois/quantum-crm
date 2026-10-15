@@ -14,6 +14,7 @@ import {
   type ConversationStatus,
   ConversationValidationError,
   ConversationVersionConflictError,
+  ConversationWindowClosedError,
   type QuickReplyRecord,
 } from "./index.js";
 
@@ -80,6 +81,18 @@ export class ConversationService {
     return thread;
   }
 
+  public async markRead(
+    actor: CommercialActor,
+    permissions: readonly IamPermission[],
+    conversationId: string,
+    throughSequence: bigint,
+  ) {
+    allow(permissions, "crm:conversations:read");
+    const conversation = await this.repository.markRead(actor, conversationId, throughSequence);
+    if (!conversation) throw new ConversationNotFoundError();
+    return conversation;
+  }
+
   public async create(input: {
     readonly actor: CommercialActor;
     readonly permissions: readonly IamPermission[];
@@ -92,6 +105,9 @@ export class ConversationService {
     readonly payloadHash: string;
   }) {
     allow(input.permissions, "crm:conversations:reply");
+    // A new WhatsApp thread has no verified inbound message; free-form initiation
+    // requires a template, which is a separate CHAT-05 command.
+    if (input.channel === "WHATSAPP") throw new ConversationWindowClosedError();
     if (!(await this.references.contactExistsFor(input.actor, input.contactId)))
       throw new ConversationNotFoundError();
     if (input.assigneeMemberId && input.assigneeMemberId !== input.actor.memberId) {
@@ -103,17 +119,11 @@ export class ConversationService {
     const content = body(input.initialMessage);
     const subject = input.subject?.trim() || null;
     if (subject && subject.length > 240) throw new ConversationValidationError();
-    const externalThreadId =
-      input.channel === "WHATSAPP" && this.references.whatsappThreadFor
-        ? await this.references.whatsappThreadFor(input.actor, input.contactId)
-        : null;
-    if (input.channel === "WHATSAPP" && this.references.whatsappThreadFor && !externalThreadId)
-      throw new ConversationValidationError();
     const conversation: ConversationRecord = Object.freeze({
       id: randomUUID(),
       contactId: input.contactId,
       channel: input.channel,
-      externalThreadId,
+      externalThreadId: null,
       assigneeMemberId: input.assigneeMemberId ?? input.actor.memberId,
       status: "OPEN",
       attentionMode: "HUMAN",

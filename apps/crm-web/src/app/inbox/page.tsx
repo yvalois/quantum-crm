@@ -286,6 +286,7 @@ export default function InboxPage(): React.JSX.Element {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [showFilters, setShowFilters] = useState(false);
   const [contextOpen, setContextOpen] = useState(true);
   const [editedContacts, setEditedContacts] = useState<Map<string, Contact>>(new Map());
@@ -335,35 +336,88 @@ export default function InboxPage(): React.JSX.Element {
       "Cuenta no activa")
     : "Sin asignar";
   const messageBlocked = availabilityMessage(selected);
-  const composerBlocked = mode === "message" ? messageBlocked : null;
+  const lastInboundAt = messages.reduce<number | null>((latest, message) => {
+    if (message.direction !== "INBOUND") return latest;
+    const occurred = Date.parse(message.createdAt);
+    return Number.isFinite(occurred) ? Math.max(latest ?? occurred, occurred) : latest;
+  }, null);
+  const whatsappWindowEndsAt =
+    selected?.channel === "WHATSAPP" && lastInboundAt !== null
+      ? lastInboundAt + 24 * 60 * 60 * 1000
+      : null;
+  const whatsappWindowClosed =
+    selected?.channel === "WHATSAPP" &&
+    (whatsappWindowEndsAt === null || clockNow >= whatsappWindowEndsAt);
+  const windowMinutesRemaining = whatsappWindowEndsAt
+    ? Math.max(0, Math.ceil((whatsappWindowEndsAt - clockNow) / 60_000))
+    : 0;
+  const composerBlocked =
+    mode === "message"
+      ? (messageBlocked ??
+        (whatsappWindowClosed
+          ? "La ventana de 24 horas de WhatsApp está cerrada. Espera un mensaje del cliente o envía una plantilla aprobada cuando esté disponible."
+          : null))
+      : null;
 
-  const loadThread = useCallback(async (id: string): Promise<void> => {
-    const key = `QUANTUM:${id}`;
-    if (selectionRef.current !== key) return;
-    threadRequestRef.current?.abort();
-    const controller = new AbortController();
-    threadRequestRef.current = controller;
-    setThreadBusy(true);
-    try {
-      const response = await fetch(`/api/conversations/${id}`, {
-        cache: "no-store",
-        credentials: "same-origin",
-        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
-      });
-      if (!response.ok) throw new Error(await problem(response));
-      const thread = ConversationThreadResponseSchema.parse(await response.json());
-      if (controller.signal.aborted || selectionRef.current !== key) return;
-      setSelected(thread.data.conversation);
-      setMessages(thread.data.messages);
-      setHistory(thread.data.history);
-    } catch (cause) {
-      if (!controller.signal.aborted && selectionRef.current === key) {
-        setError(cause instanceof Error ? cause.message : "No fue posible abrir la conversación.");
+  const loadThread = useCallback(
+    async (id: string): Promise<void> => {
+      const key = `QUANTUM:${id}`;
+      if (selectionRef.current !== key) return;
+      threadRequestRef.current?.abort();
+      const controller = new AbortController();
+      threadRequestRef.current = controller;
+      setThreadBusy(true);
+      try {
+        const response = await fetch(`/api/conversations/${id}`, {
+          cache: "no-store",
+          credentials: "same-origin",
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+        });
+        if (!response.ok) throw new Error(await problem(response));
+        const thread = ConversationThreadResponseSchema.parse(await response.json());
+        if (controller.signal.aborted || selectionRef.current !== key) return;
+        setSelected(thread.data.conversation);
+        setMessages(thread.data.messages);
+        setHistory(thread.data.history);
+        if (csrf && thread.data.conversation.unreadCount > 0) {
+          const readResponse = await fetch(`/api/conversations/${id}/read`, {
+            method: "PUT",
+            cache: "no-store",
+            credentials: "same-origin",
+            headers: {
+              "content-type": "application/json",
+              "x-csrf-token": csrf,
+              "idempotency-key": crypto.randomUUID(),
+            },
+            body: JSON.stringify({
+              throughSequence: thread.data.messages.at(-1)?.sequence ?? "0",
+            }),
+            signal: controller.signal,
+          });
+          if (!readResponse.ok) throw new Error(await problem(readResponse));
+          const read = ((await readResponse.json()) as { data: Conversation }).data;
+          if (controller.signal.aborted || selectionRef.current !== key) return;
+          setSelected(read);
+          setItems((current) =>
+            current.map((entry) =>
+              entry.source === "QUANTUM" && entry.conversation.id === id
+                ? { ...entry, conversation: read }
+                : entry,
+            ),
+          );
+        }
+      } catch (cause) {
+        if (!controller.signal.aborted && selectionRef.current === key) {
+          setError(
+            cause instanceof Error ? cause.message : "No fue posible abrir la conversación.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted && selectionRef.current === key) setThreadBusy(false);
       }
-    } finally {
-      if (!controller.signal.aborted && selectionRef.current === key) setThreadBusy(false);
-    }
-  }, []);
+    },
+    [csrf],
+  );
 
   function chooseConversation(item: UnifiedInboxItem): void {
     threadRequestRef.current?.abort();
@@ -541,6 +595,11 @@ export default function InboxPage(): React.JSX.Element {
   }, [csrf]);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!showCreate && !showQuickReply && !showDocumentComposer) return;
 
     lastModalFocusRef.current =
@@ -610,7 +669,12 @@ export default function InboxPage(): React.JSX.Element {
       cache: "no-store",
       credentials: "same-origin",
     });
-    if (!response.ok) throw new Error(await problem(response));
+    if (!response.ok)
+      throw new Error(
+        response.status === 409 && (path === "/api/conversations" || path.endsWith("/messages"))
+          ? "La ventana de 24 horas de WhatsApp está cerrada. Espera un mensaje del cliente o usa una plantilla aprobada."
+          : await problem(response),
+      );
     return response;
   }
 
@@ -703,7 +767,7 @@ export default function InboxPage(): React.JSX.Element {
 
   async function send(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!selected || !draft.trim() || (mode === "message" && messageBlocked)) return;
+    if (!selected || !draft.trim() || (mode === "message" && composerBlocked)) return;
     setSaving(true);
     setError(null);
     try {
@@ -1237,6 +1301,7 @@ export default function InboxPage(): React.JSX.Element {
                         className={cx(
                           styles.conversationCard,
                           key === selectedKey && styles.conversationCardActive,
+                          native && native.unreadCount > 0 && styles.conversationCardUnread,
                         )}
                         type="button"
                         aria-current={key === selectedKey ? "true" : undefined}
@@ -1259,7 +1324,7 @@ export default function InboxPage(): React.JSX.Element {
                               (imported
                                 ? historicalThreadSubject(imported.subject)
                                 : item.subject) ??
-                              (imported ? `${imported.messageCount} mensajes` : "Sin mensajes")}
+                              (imported ? "Historial disponible" : "Sin mensajes")}
                           </span>
                           <span className={styles.cardMeta}>
                             {native ? (
@@ -1281,7 +1346,12 @@ export default function InboxPage(): React.JSX.Element {
                               <span className={styles.assigneeTag}>{assigneeName}</span>
                             ) : null}
                             {native && native.unreadCount > 0 ? (
-                              <span className={styles.unreadBadge}>{native.unreadCount}</span>
+                              <span
+                                className={styles.unreadBadge}
+                                aria-label={`${native.unreadCount} mensaje${native.unreadCount === 1 ? "" : "s"} sin leer`}
+                              >
+                                {native.unreadCount}
+                              </span>
                             ) : null}
                           </span>
                         </span>
@@ -1328,9 +1398,7 @@ export default function InboxPage(): React.JSX.Element {
                   setListRefresh((value) => value + 1);
                 }}
                 onOpenContact={() => setContextOpen(true)}
-                canContinueWhatsApp={/^[0-9]{8,20}$/u.test(
-                  selectedContact?.phone?.replace(/\D/gu, "") ?? "",
-                )}
+                canContinueWhatsApp={false}
                 onContinueWhatsApp={continueHistoricalWhatsApp}
               />
             ) : threadBusy ? (
@@ -1483,6 +1551,20 @@ export default function InboxPage(): React.JSX.Element {
                     ) : null}
                   </div>
 
+                  {selected.channel === "WHATSAPP" && mode === "message" ? (
+                    <p
+                      className={cx(
+                        styles.windowNotice,
+                        whatsappWindowClosed && styles.windowNoticeClosed,
+                      )}
+                      role="status"
+                    >
+                      {whatsappWindowClosed
+                        ? "Ventana de 24 horas cerrada · no puedes enviar mensajes libres."
+                        : `Ventana de WhatsApp: quedan ${Math.floor(windowMinutesRemaining / 60)} h ${windowMinutesRemaining % 60} min · vence ${when(new Date(whatsappWindowEndsAt ?? clockNow).toISOString())}.`}
+                    </p>
+                  ) : null}
+
                   {composerBlocked ? (
                     <div className={styles.composerBlocked}>
                       <Icon
@@ -1490,7 +1572,7 @@ export default function InboxPage(): React.JSX.Element {
                         size={18}
                       />
                       <span>{composerBlocked}</span>
-                      {selected.attentionMode === "AGENT" ? (
+                      {selected.attentionMode === "AGENT" && !whatsappWindowClosed ? (
                         <button
                           type="button"
                           onClick={() => void update({ attentionMode: "HUMAN" })}
@@ -1498,7 +1580,7 @@ export default function InboxPage(): React.JSX.Element {
                         >
                           Tomar conversación
                         </button>
-                      ) : (
+                      ) : selected.status === "CLOSED" ? (
                         <button
                           type="button"
                           onClick={() => void update({ status: "OPEN" })}
@@ -1506,7 +1588,7 @@ export default function InboxPage(): React.JSX.Element {
                         >
                           Reabrir
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   ) : (
                     <>
@@ -1900,7 +1982,9 @@ export default function InboxPage(): React.JSX.Element {
                 Canal
                 <select name="channel" defaultValue="EMAIL">
                   <option value="EMAIL">Correo</option>
-                  <option value="WHATSAPP">WhatsApp</option>
+                  <option value="WHATSAPP" disabled>
+                    WhatsApp · requiere un mensaje reciente del cliente
+                  </option>
                   <option value="WEBCHAT">Chat web</option>
                   <option value="SMS">SMS</option>
                 </select>

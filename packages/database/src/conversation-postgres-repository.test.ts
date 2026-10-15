@@ -1,8 +1,9 @@
-import type { CommercialActor } from "@quantum-crm/domain";
+import { ConversationWindowClosedError, type CommercialActor } from "@quantum-crm/domain";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   createConversationPostgresRepository,
+  createConversationOutboundDispatcher,
   createExternalConversationReceiver,
 } from "./conversation-postgres-repository.js";
 import type { PostgresPool } from "./postgres-database.js";
@@ -30,6 +31,90 @@ const row = Object.freeze({
 });
 
 describe("conversation PostgreSQL repository", () => {
+  it("clears only inbound messages shown to the authorized viewer", async () => {
+    const query = vi.fn(async (statement: string, _values?: unknown[]) => {
+      if (statement.includes("UPDATE conversations.conversations conversation SET unread_count"))
+        return { rows: [{ ...row, unread_count: 1 }] };
+      return { rows: [] };
+    });
+    const pool = { query } as unknown as PostgresPool;
+    const marked = await createConversationPostgresRepository(pool).markRead(actor, row.id, 8n);
+    expect(marked?.unreadCount).toBe(1);
+    expect(query.mock.calls[0]?.[0]).toContain("message.sequence > $3::bigint");
+    expect(query.mock.calls[0]?.[1]).toEqual([row.id, actor.memberId, "8"]);
+  });
+
+  it("fails a queued WhatsApp message without a customer window before contacting YCloud", async () => {
+    const query = vi.fn(async (statement: string) => {
+      if (statement.includes("AS window_open"))
+        return {
+          rows: [
+            {
+              outbox_id: row.id,
+              message_id: contactId,
+              external_thread_id: "ycloud:1234567890123456:50255556666",
+              body: "Hola",
+              kind: "text",
+              attempts: 0,
+              window_open: false,
+            },
+          ],
+        };
+      return { rows: [], rowCount: 1 };
+    });
+    const client = { query, release: vi.fn() };
+    const pool = { connect: vi.fn(async () => client) } as unknown as PostgresPool;
+    const lease = await createConversationOutboundDispatcher(pool).claimNext({
+      workerId: actor.memberId,
+      leaseSeconds: 45,
+    });
+    expect(lease).toBeNull();
+    expect(query.mock.calls.some(([sql]) => sql.includes("WHATSAPP_WINDOW_CLOSED"))).toBe(true);
+    expect(query.mock.calls.some(([sql]) => sql.includes("status = 'leased', attempts"))).toBe(
+      false,
+    );
+  });
+
+  it("rejects a human reply atomically when the last customer message is over 24 hours old", async () => {
+    const query = vi.fn(async (statement: string) => {
+      if (statement.includes("SELECT payload_hash, response")) return { rows: [] };
+      if (statement.includes("FOR UPDATE") && statement.includes("conversation.version"))
+        return { rows: [row] };
+      if (statement.includes("AS open")) return { rows: [{ open: false }] };
+      return { rows: [], rowCount: 1 };
+    });
+    const client = { query, release: vi.fn() };
+    const pool = { connect: vi.fn(async () => client) } as unknown as PostgresPool;
+    await expect(
+      createConversationPostgresRepository(pool).append({
+        actor,
+        conversationId: row.id,
+        expectedVersion: 1n,
+        message: {
+          id: contactId,
+          conversationId: row.id,
+          direction: "OUTBOUND",
+          kind: "TEXT",
+          authorMemberId: actor.memberId,
+          body: "Hola",
+          externalMessageId: null,
+          deliveryStatus: "QUEUED",
+          failureCode: null,
+          documentId: null,
+          documentSnapshot: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        idempotencyKey: "window-test-12345678",
+        payloadHash: "a".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(ConversationWindowClosedError);
+    expect(
+      query.mock.calls.some(([sql]) => sql.includes("INSERT INTO conversations.messages")),
+    ).toBe(false);
+    expect(query.mock.calls.some(([sql]) => sql === "ROLLBACK")).toBe(true);
+  });
+
   it("reserves one advisor per contact and does not advance the turn on replay", async () => {
     let saved: string | null = null;
     let turn = 0;

@@ -1,5 +1,7 @@
 # Estado del proyecto
 
+> **CHAT-11 / CHAT-15 / CHAT-05 (2026-10-15): EN_CURSO.** La bandeja distingue mal el total de mensajes importados de los no leídos y el contador de chats actuales no se limpia al abrir; el compositor WhatsApp tampoco informa la ventana de 24 horas desde la última entrada del cliente. Se corrigen la lectura persistente y la advertencia/bloqueo de texto libre al vencer la ventana, conservando notas internas y permisos de servidor. Plantillas aprobadas quedan en `CHAT-05`; no se simula su envío.
+
 Actualizado: 2026-10-15
 
 Este archivo registra trabajo activo, bloqueos y cierres con evidencia. No sustituye el checklist.

@@ -189,6 +189,12 @@ export interface ConversationRepository {
     readonly nextCursor: string | null;
   }>;
   readonly find: (actor: CommercialActor, id: string) => Promise<ConversationRecord | null>;
+  /** Idempotent shared inbox acknowledgement; never changes the commercial version. */
+  readonly markRead: (
+    actor: CommercialActor,
+    id: string,
+    throughSequence: bigint,
+  ) => Promise<ConversationRecord | null>;
   readonly thread: (
     actor: CommercialActor,
     id: string,
@@ -243,6 +249,12 @@ export class ConversationValidationError extends Error {
   public constructor() {
     super("Invalid conversation state");
     this.name = "ConversationValidationError";
+  }
+}
+export class ConversationWindowClosedError extends Error {
+  public constructor() {
+    super("WhatsApp customer service window closed");
+    this.name = "ConversationWindowClosedError";
   }
 }
 export class ConversationVersionConflictError extends Error {
