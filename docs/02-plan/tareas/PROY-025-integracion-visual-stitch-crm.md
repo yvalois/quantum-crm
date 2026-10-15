@@ -102,7 +102,7 @@ Las rutas funcionales de `crm-web` usan de forma consistente el sistema visual *
 
 ## Evidencia de cierre
 
-- Favicon solicitado el 2026-10-15: `apps/crm-web/src/app/icon.png` contiene únicamente el símbolo del arte proporcionado, aislado sobre fondo transparente para la pestaña del navegador. La marca completa del sidebar permanece sin recortar. Pendiente verificar que Next.js publique el enlace y el PNG en InterAmerican.
+- Favicon solicitado el 2026-10-15: `apps/crm-web/src/app/icon.png` contiene únicamente el símbolo del arte proporcionado, aislado sobre fondo transparente para la pestaña del navegador. La marca completa del sidebar permanece sin recortar. El primer smoke detectó que el proxy redirigía `/icon.png` al login pese a que Next.js anunciaba el enlace; se permite exactamente esa ruta sin sesión y se añade regresión que confirma que `/pipelines` sigue protegido. Pendiente validar y desplegar esta corrección.
 
 - Ajuste solicitado el 2026-10-15: el propietario rechazó el recorte del logotipo. El candidato `58abe9ed` muestra el JPEG original completo (símbolo, nombre y firma), escalado proporcionalmente también en móvil y modo contraído. No cambian datos, contratos ni permisos. VPS: formato, ESLint, build y tipos verdes; siete checks CI verdes. La imagen `sha256:1d2c06ef92bfc69b0e64dbe22f505a9fcbdc2633677dddf739e885527a991cb2` está healthy en InterAmerican; JPEG HTTP 200 y título «Business Assistant» confirmado. Falta una inspección visual autenticada; no se afirma realizada.
 

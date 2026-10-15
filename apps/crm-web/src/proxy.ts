@@ -28,7 +28,9 @@ export function proxy(request: NextRequest): NextResponse {
   requestHeaders.set("Content-Security-Policy", csp);
   const hasSession = request.cookies.has(sessionCookieName(request));
   const isPublic =
-    request.nextUrl.pathname === "/signed-out" || request.nextUrl.pathname.startsWith("/f/");
+    request.nextUrl.pathname === "/signed-out" ||
+    request.nextUrl.pathname === "/icon.png" ||
+    request.nextUrl.pathname.startsWith("/f/");
   const response =
     !isPublic && !hasSession
       ? redirectToLogin(request)
