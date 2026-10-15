@@ -70,6 +70,159 @@ function fieldValue(value: ContactCustomFieldValue): string {
   return String(value);
 }
 
+function FieldEditor({
+  definition,
+  value,
+  onSave,
+}: {
+  readonly definition: CustomFieldDefinition;
+  readonly value: ContactCustomFieldValue;
+  readonly onSave: (fieldId: string, value: ContactCustomFieldValue) => Promise<void>;
+}): React.JSX.Element {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<ContactCustomFieldValue>(value);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const type = definition.dataType.toUpperCase();
+  if (type === "FILE_UPLOAD")
+    return (
+      <p>
+        Este adjunto requiere la carga segura de archivos; no se puede sustituir desde este control.
+      </p>
+    );
+  if (!editing)
+    return (
+      <button
+        type="button"
+        className={styles.editButton}
+        onClick={() => {
+          setDraft(value);
+          setError(null);
+          setEditing(true);
+        }}
+      >
+        Editar
+      </button>
+    );
+  const options = definition.options;
+  const multi = type === "MULTIPLE_OPTIONS" || type === "CHECKBOX";
+  return (
+    <div className={styles.editor}>
+      {type === "SINGLE_OPTIONS" || type === "RADIO" ? (
+        <select
+          aria-label={definition.label}
+          value={typeof draft === "string" ? draft : ""}
+          onChange={(event) => setDraft(event.target.value || null)}
+        >
+          <option value="">Sin valor</option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      ) : multi ? (
+        <div className={styles.optionList} role="group" aria-label={definition.label}>
+          {options.map((option) => {
+            const selected = Array.isArray(draft) && draft.includes(option);
+            return (
+              <label key={option}>
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() =>
+                    setDraft(
+                      selected
+                        ? Array.isArray(draft)
+                          ? draft.filter((item) => item !== option)
+                          : []
+                        : [...(Array.isArray(draft) ? draft : []), option],
+                    )
+                  }
+                />
+                {option}
+              </label>
+            );
+          })}
+        </div>
+      ) : type === "DATE" ? (
+        <input
+          aria-label={definition.label}
+          type="date"
+          value={typeof draft === "string" ? draft.slice(0, 10) : ""}
+          onChange={(event) => setDraft(event.target.value || null)}
+        />
+      ) : type === "NUMERICAL" || type === "MONETORY" ? (
+        <input
+          aria-label={definition.label}
+          type="number"
+          step="any"
+          value={typeof draft === "number" ? draft : ""}
+          onChange={(event) =>
+            setDraft(event.target.value === "" ? null : Number(event.target.value))
+          }
+        />
+      ) : type === "LARGE_TEXT" || type === "TEXTBOX_LIST" ? (
+        <textarea
+          aria-label={definition.label}
+          rows={4}
+          value={
+            type === "TEXTBOX_LIST"
+              ? Array.isArray(draft)
+                ? draft.join("\n")
+                : ""
+              : typeof draft === "string"
+                ? draft
+                : ""
+          }
+          onChange={(event) =>
+            setDraft(
+              type === "TEXTBOX_LIST"
+                ? event.target.value
+                    .split("\n")
+                    .map((line) => line.trim())
+                    .filter(Boolean)
+                : event.target.value,
+            )
+          }
+        />
+      ) : (
+        <input
+          aria-label={definition.label}
+          type="text"
+          value={typeof draft === "string" ? draft : ""}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      )}
+      {error ? <p role="alert">{error}</p> : null}
+      <div className={styles.editActions}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setError(null);
+            void onSave(definition.id, draft)
+              .then(() => setEditing(false))
+              .catch((cause: unknown) =>
+                setError(cause instanceof Error ? cause.message : "No se pudo guardar."),
+              )
+              .finally(() => setBusy(false));
+          }}
+        >
+          Guardar
+        </button>
+        <button type="button" disabled={busy} onClick={() => setEditing(false)}>
+          Cancelar
+        </button>
+        <button type="button" disabled={busy} onClick={() => setDraft(null)}>
+          Limpiar valor
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function CustomFields({
   fields,
   definitions,
@@ -77,6 +230,7 @@ export function CustomFields({
   error = null,
   title = "Campos personalizados",
   initiallyIncludeEmpty = false,
+  onSave,
 }: {
   readonly fields: Contact["customFields"];
   readonly definitions: readonly CustomFieldDefinition[];
@@ -84,6 +238,7 @@ export function CustomFields({
   readonly error?: string | null;
   readonly title?: string;
   readonly initiallyIncludeEmpty?: boolean;
+  readonly onSave?: (fieldId: string, value: ContactCustomFieldValue) => Promise<void>;
 }): React.JSX.Element {
   const searchId = useId();
   const [query, setQuery] = useState("");
@@ -101,6 +256,8 @@ export function CustomFields({
           ? "Adjunto pendiente de transferencia y análisis"
           : fieldValue(field.value),
       saved: true,
+      definition: definitionsById.get(field.fieldId),
+      value: field.value,
     })),
     ...definitions
       .filter((definition) => !savedIds.has(definition.id))
@@ -111,6 +268,8 @@ export function CustomFields({
         description: definition.description,
         text: "Sin valor guardado",
         saved: false,
+        definition,
+        value: null,
       })),
   ];
   const search = query.trim().toLocaleLowerCase("es");
@@ -157,6 +316,16 @@ export function CustomFields({
                 <dd className={styles.description}>{field.description}</dd>
               ) : null}
               <dd className={field.saved ? undefined : styles.empty}>{field.text}</dd>
+              {onSave && field.definition ? (
+                <dd>
+                  <FieldEditor
+                    key={`${field.id}:${JSON.stringify(field.value)}`}
+                    definition={field.definition}
+                    value={field.value}
+                    onSave={onSave}
+                  />
+                </dd>
+              ) : null}
             </div>
           ))}
         </dl>
@@ -177,15 +346,18 @@ export function ContactCustomFields({
   fields,
   title,
   initiallyIncludeEmpty,
+  onSave,
 }: {
   readonly fields: Contact["customFields"];
   readonly title?: string;
   readonly initiallyIncludeEmpty?: boolean;
+  readonly onSave?: (fieldId: string, value: ContactCustomFieldValue) => Promise<void>;
 }): React.JSX.Element {
   const catalog = useCustomFieldDefinitions("contact");
   return (
     <CustomFields
       fields={fields}
+      {...(onSave ? { onSave } : {})}
       {...catalog}
       {...(title ? { title } : {})}
       {...(initiallyIncludeEmpty === undefined ? {} : { initiallyIncludeEmpty })}

@@ -138,6 +138,7 @@ export class AppModule {
               database.commercial.contacts,
               undefined,
               database.externalParticipants,
+              database.commercial.customFieldDefinitions,
             ),
         },
         {

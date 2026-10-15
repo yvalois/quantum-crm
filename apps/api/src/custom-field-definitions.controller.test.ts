@@ -24,7 +24,7 @@ describe("CustomFieldDefinitionsController", () => {
   it("requires authenticated model-specific permission without broadening access to values", async () => {
     const list = vi.fn(async () => ({ items: [], nextCursor: null }));
     const controller = new CustomFieldDefinitionsController(
-      new CustomFieldDefinitionService({ list }),
+      new CustomFieldDefinitionService({ list, find: async () => null }),
     );
     await expect(controller.list({ headers: {} }, { model: "contact" })).rejects.toThrow(
       "Unauthorized",
@@ -41,7 +41,7 @@ describe("CustomFieldDefinitionsController", () => {
   it("rejects caller profile selectors, unknown models and invalid page limits", async () => {
     const list = vi.fn(async () => ({ items: [], nextCursor: null }));
     const controller = new CustomFieldDefinitionsController(
-      new CustomFieldDefinitionService({ list }),
+      new CustomFieldDefinitionService({ list, find: async () => null }),
     );
     for (const query of [
       { model: "contact", tenantId: "other" },

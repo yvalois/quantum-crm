@@ -272,6 +272,10 @@
   box-shadow: none;
 }
 
+.contextCollapsed {
+  grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr);
+}
+
 .viewsPanel,
 .listPanel,
 .threadPanel,
@@ -1622,6 +1626,9 @@
 @media (max-width: 1420px) {
   .inboxFrame {
     grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr) 13rem;
+  }
+  .contextCollapsed {
+    grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
   }
 
   .assigneeTag {

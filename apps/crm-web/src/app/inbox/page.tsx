@@ -278,6 +278,8 @@ export default function InboxPage(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [contextOpen, setContextOpen] = useState(true);
+  const [editedContacts, setEditedContacts] = useState<Map<string, Contact>>(new Map());
   const [showCreate, setShowCreate] = useState(false);
   const [showQuickReply, setShowQuickReply] = useState(false);
   const [showDocumentComposer, setShowDocumentComposer] = useState(false);
@@ -288,6 +290,7 @@ export default function InboxPage(): React.JSX.Element {
   const lastModalFocusRef = useRef<HTMLElement | null>(null);
   const selectionRef = useRef<string | null>(null);
   const threadRequestRef = useRef<AbortController | null>(null);
+  const loadedListQueryRef = useRef<string | null>(null);
   const listCursor = listCursors.at(-1) ?? null;
 
   const relatedContacts = useConversationContacts([
@@ -301,7 +304,9 @@ export default function InboxPage(): React.JSX.Element {
     [assignees],
   );
   const activeContactId = selected?.contactId ?? historicalSelected?.contactId;
-  const selectedContact = activeContactId ? contactById.get(activeContactId) : undefined;
+  const selectedContact = activeContactId
+    ? (editedContacts.get(activeContactId) ?? contactById.get(activeContactId))
+    : undefined;
   const selectedAssignee = selected?.assigneeMemberId
     ? assigneeById.get(selected.assigneeMemberId)
     : undefined;
@@ -359,7 +364,12 @@ export default function InboxPage(): React.JSX.Element {
   useEffect(() => {
     if (!csrf) return;
     const controller = new AbortController();
-    setLoading(true);
+    const queryKey = JSON.stringify([appliedFilters, contactId, listCursor]);
+    const background = loadedListQueryRef.current === queryKey;
+    if (!background) {
+      setLoading(true);
+      setItems([]);
+    }
     setListError(null);
     const search = new URLSearchParams(appliedFilters);
     search.set("limit", "30");
@@ -377,18 +387,21 @@ export default function InboxPage(): React.JSX.Element {
         if (controller.signal.aborted) return;
         setItems(result.data);
         setNextCursor(result.page.nextCursor);
+        loadedListQueryRef.current = queryKey;
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) {
-          setItems([]);
-          setNextCursor(null);
+          if (!background) {
+            setItems([]);
+            setNextCursor(null);
+          }
           setListError(
             cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.",
           );
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted && !background) setLoading(false);
       });
     return () => controller.abort();
   }, [csrf, appliedFilters, contactId, listCursor, listRefresh]);
@@ -899,6 +912,14 @@ export default function InboxPage(): React.JSX.Element {
             </div>
           </div>
           <div className={styles.topbarActions}>
+            <button
+              className={styles.outlineButton}
+              type="button"
+              aria-expanded={contextOpen}
+              onClick={() => setContextOpen((value) => !value)}
+            >
+              <Icon name="user" size={16} /> {contextOpen ? "Ocultar ficha" : "Mostrar ficha"}
+            </button>
             {canConfigureAgent && agentControl ? (
               <button
                 className={styles.outlineButton}
@@ -940,7 +961,10 @@ export default function InboxPage(): React.JSX.Element {
           </div>
         ) : null}
 
-        <section className={styles.inboxFrame} aria-label="Bandeja de conversaciones">
+        <section
+          className={cx(styles.inboxFrame, !contextOpen && styles.contextCollapsed)}
+          aria-label="Bandeja de conversaciones"
+        >
           <aside className={styles.viewsPanel} aria-label="Vistas de bandeja">
             <div className={styles.viewsBrand}>
               <span className={styles.viewsBrandIcon}>
@@ -1508,197 +1532,212 @@ export default function InboxPage(): React.JSX.Element {
             )}
           </section>
 
-          <aside className={styles.contextPanel} aria-label="Contexto de conversación">
-            {historicalSelected ? (
-              <>
-                <header className={styles.contextHeader}>
-                  <span className={styles.panelKicker}>Contexto</span>
-                </header>
-                <SourceParticipantsCard
-                  participants={historicalSelected.sourceParticipants}
-                  kind="conversación"
-                />
-                <ConversationContactCard
-                  contact={selectedContact}
-                  linked={Boolean(historicalSelected.contactId)}
-                  loading={Boolean(historicalSelected.contactId) && relatedContacts.loading}
-                  error={historicalSelected.contactId ? relatedContacts.error : null}
-                />
-                <section className={styles.contextFacts}>
-                  <div>
-                    <span>Disponibilidad</span>
-                    <strong>Solo lectura</strong>
-                  </div>
-                  <div>
-                    <span>Estado original</span>
-                    <strong>{historicalSelected.rawStatus || "No informado"}</strong>
-                  </div>
-                  <div>
-                    <span>Última actividad</span>
-                    <strong>{when(historicalSelected.lastMessageAt)}</strong>
-                  </div>
-                </section>
-              </>
-            ) : selected ? (
-              <>
-                <header className={styles.contextHeader}>
-                  <span className={styles.panelKicker}>Contexto</span>
-                </header>
+          {contextOpen ? (
+            <aside className={styles.contextPanel} aria-label="Contexto de conversación">
+              {historicalSelected ? (
+                <>
+                  <header className={styles.contextHeader}>
+                    <span className={styles.panelKicker}>Contexto</span>
+                  </header>
+                  <SourceParticipantsCard
+                    participants={historicalSelected.sourceParticipants}
+                    kind="conversación"
+                  />
+                  <ConversationContactCard
+                    contact={selectedContact}
+                    csrfToken={csrf}
+                    onSaved={(contact) =>
+                      setEditedContacts((previous) => new Map(previous).set(contact.id, contact))
+                    }
+                    onCollapse={() => setContextOpen(false)}
+                    linked={Boolean(historicalSelected.contactId)}
+                    loading={Boolean(historicalSelected.contactId) && relatedContacts.loading}
+                    error={historicalSelected.contactId ? relatedContacts.error : null}
+                  />
+                  <section className={styles.contextFacts}>
+                    <div>
+                      <span>Disponibilidad</span>
+                      <strong>Solo lectura</strong>
+                    </div>
+                    <div>
+                      <span>Estado original</span>
+                      <strong>{historicalSelected.rawStatus || "No informado"}</strong>
+                    </div>
+                    <div>
+                      <span>Última actividad</span>
+                      <strong>{when(historicalSelected.lastMessageAt)}</strong>
+                    </div>
+                  </section>
+                </>
+              ) : selected ? (
+                <>
+                  <header className={styles.contextHeader}>
+                    <span className={styles.panelKicker}>Contexto</span>
+                  </header>
 
-                <ConversationContactCard
-                  contact={selectedContact}
-                  linked={true}
-                  loading={relatedContacts.loading}
-                  error={relatedContacts.error}
-                />
+                  <ConversationContactCard
+                    contact={selectedContact}
+                    csrfToken={csrf}
+                    onSaved={(contact) =>
+                      setEditedContacts((previous) => new Map(previous).set(contact.id, contact))
+                    }
+                    onCollapse={() => setContextOpen(false)}
+                    linked={true}
+                    loading={relatedContacts.loading}
+                    error={relatedContacts.error}
+                  />
 
-                <section className={styles.controlSection}>
-                  {canAssignConversations ? (
+                  <section className={styles.controlSection}>
+                    {canAssignConversations ? (
+                      <label>
+                        Responsable
+                        <select
+                          value={selected.assigneeMemberId ?? ""}
+                          disabled={saving}
+                          onChange={(event) =>
+                            void update({ assigneeMemberId: event.target.value || null })
+                          }
+                        >
+                          <option value="">Sin asignar</option>
+                          {assignees.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.displayName}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <p>Responsable: {selectedAssignee?.displayName ?? "Sin asignar"}</p>
+                    )}
                     <label>
-                      Responsable
+                      Estado de conversación
                       <select
-                        value={selected.assigneeMemberId ?? ""}
+                        value={selected.status}
                         disabled={saving}
-                        onChange={(event) =>
-                          void update({ assigneeMemberId: event.target.value || null })
-                        }
+                        onChange={(event) => void update({ status: event.target.value })}
                       >
-                        <option value="">Sin asignar</option>
-                        {assignees.map((member) => (
-                          <option key={member.id} value={member.id}>
-                            {member.displayName}
-                          </option>
-                        ))}
+                        <option value="OPEN">Abierta</option>
+                        <option value="PENDING">Pendiente</option>
+                        <option value="ESCALATED">Escalada</option>
+                        <option value="CLOSED">Cerrada</option>
                       </select>
                     </label>
-                  ) : (
-                    <p>Responsable: {selectedAssignee?.displayName ?? "Sin asignar"}</p>
-                  )}
-                  <label>
-                    Estado de conversación
-                    <select
-                      value={selected.status}
-                      disabled={saving}
-                      onChange={(event) => void update({ status: event.target.value })}
-                    >
-                      <option value="OPEN">Abierta</option>
-                      <option value="PENDING">Pendiente</option>
-                      <option value="ESCALATED">Escalada</option>
-                      <option value="CLOSED">Cerrada</option>
-                    </select>
-                  </label>
-                </section>
+                  </section>
 
-                <section className={styles.attentionCard}>
-                  <div>
-                    <span className={styles.attentionIcon}>
-                      <Icon
-                        name={selected.attentionMode === "HUMAN" ? "user" : "agent"}
-                        size={17}
-                      />
-                    </span>
+                  <section className={styles.attentionCard}>
                     <div>
-                      <span>Atención actual</span>
-                      <strong>
-                        {selected.attentionMode === "HUMAN" ? "Equipo humano" : "Agente Quantum"}
-                      </strong>
+                      <span className={styles.attentionIcon}>
+                        <Icon
+                          name={selected.attentionMode === "HUMAN" ? "user" : "agent"}
+                          size={17}
+                        />
+                      </span>
+                      <div>
+                        <span>Atención actual</span>
+                        <strong>
+                          {selected.attentionMode === "HUMAN" ? "Equipo humano" : "Agente Quantum"}
+                        </strong>
+                      </div>
                     </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={
-                      saving ||
-                      (selected.attentionMode === "HUMAN" &&
-                        (selected.status === "CLOSED" || selected.status === "ESCALATED"))
-                    }
-                    onClick={() =>
-                      void update({
-                        attentionMode: selected.attentionMode === "HUMAN" ? "AGENT" : "HUMAN",
-                      })
-                    }
-                  >
-                    {selected.attentionMode === "HUMAN"
-                      ? "Entregar al agente"
-                      : "Tomar conversación"}
-                    <Icon name="arrow" size={15} />
-                  </button>
-                  {selected.attentionMode === "AGENT" && selected.channel === "WHATSAPP" && (
-                    <>
-                      <button
-                        type="button"
-                        disabled={
-                          saving || selected.status === "CLOSED" || selected.status === "ESCALATED"
-                        }
-                        onClick={() => void update({ resetAgent: true })}
-                      >
-                        Reiniciar agente
-                      </button>
-                      <p className={styles.agentResetHint}>
-                        Borra el contexto que usa el agente en este chat, pero conserva el historial
-                        visible. El próximo mensaje inicia una conversación nueva con Alex.
-                      </p>
-                    </>
-                  )}
-                </section>
+                    <button
+                      type="button"
+                      disabled={
+                        saving ||
+                        (selected.attentionMode === "HUMAN" &&
+                          (selected.status === "CLOSED" || selected.status === "ESCALATED"))
+                      }
+                      onClick={() =>
+                        void update({
+                          attentionMode: selected.attentionMode === "HUMAN" ? "AGENT" : "HUMAN",
+                        })
+                      }
+                    >
+                      {selected.attentionMode === "HUMAN"
+                        ? "Entregar al agente"
+                        : "Tomar conversación"}
+                      <Icon name="arrow" size={15} />
+                    </button>
+                    {selected.attentionMode === "AGENT" && selected.channel === "WHATSAPP" && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={
+                            saving ||
+                            selected.status === "CLOSED" ||
+                            selected.status === "ESCALATED"
+                          }
+                          onClick={() => void update({ resetAgent: true })}
+                        >
+                          Reiniciar agente
+                        </button>
+                        <p className={styles.agentResetHint}>
+                          Borra el contexto que usa el agente en este chat, pero conserva el
+                          historial visible. El próximo mensaje inicia una conversación nueva con
+                          Alex.
+                        </p>
+                      </>
+                    )}
+                  </section>
 
-                <section className={styles.contextFacts}>
-                  <div>
-                    <span>Canal</span>
-                    <strong>{channelLabel[selected.channel]}</strong>
-                  </div>
-                  <div>
-                    <span>Responsable</span>
-                    <strong>{selectedAssignee?.displayName ?? "Sin asignar"}</strong>
-                  </div>
-                  <div>
-                    <span>Última actividad</span>
-                    <strong>{when(selected.lastMessageAt)}</strong>
-                  </div>
-                </section>
+                  <section className={styles.contextFacts}>
+                    <div>
+                      <span>Canal</span>
+                      <strong>{channelLabel[selected.channel]}</strong>
+                    </div>
+                    <div>
+                      <span>Responsable</span>
+                      <strong>{selectedAssignee?.displayName ?? "Sin asignar"}</strong>
+                    </div>
+                    <div>
+                      <span>Última actividad</span>
+                      <strong>{when(selected.lastMessageAt)}</strong>
+                    </div>
+                  </section>
 
-                <section className={styles.activitySection}>
-                  <div className={styles.sectionHeading}>
-                    <h3>Actividad</h3>
-                    <span>{history.length}</span>
-                  </div>
-                  {history.length ? (
-                    <ol className={styles.activityList}>
-                      {history
-                        .slice(-6)
-                        .reverse()
-                        .map((entry) => (
-                          <li key={entry.id}>
-                            <span />
-                            <div>
-                              <strong>{historyLabel[entry.eventType]}</strong>
-                              <p>
-                                {entry.previousValue && entry.nextValue
-                                  ? `${entry.previousValue} → ${entry.nextValue}`
-                                  : (entry.nextValue ?? entry.previousValue ?? "Registrado")}
-                              </p>
-                              <time>{when(entry.createdAt)}</time>
-                            </div>
-                          </li>
-                        ))}
-                    </ol>
-                  ) : (
-                    <p className={styles.activityEmpty}>Aún no hay actividad adicional.</p>
-                  )}
-                </section>
+                  <section className={styles.activitySection}>
+                    <div className={styles.sectionHeading}>
+                      <h3>Actividad</h3>
+                      <span>{history.length}</span>
+                    </div>
+                    {history.length ? (
+                      <ol className={styles.activityList}>
+                        {history
+                          .slice(-6)
+                          .reverse()
+                          .map((entry) => (
+                            <li key={entry.id}>
+                              <span />
+                              <div>
+                                <strong>{historyLabel[entry.eventType]}</strong>
+                                <p>
+                                  {entry.previousValue && entry.nextValue
+                                    ? `${entry.previousValue} → ${entry.nextValue}`
+                                    : (entry.nextValue ?? entry.previousValue ?? "Registrado")}
+                                </p>
+                                <time>{when(entry.createdAt)}</time>
+                              </div>
+                            </li>
+                          ))}
+                      </ol>
+                    ) : (
+                      <p className={styles.activityEmpty}>Aún no hay actividad adicional.</p>
+                    )}
+                  </section>
 
-                <p className={styles.queueNotice}>
-                  <Icon name="inbox" size={15} />
-                  Los mensajes quedan registrados. La entrega externa se confirmará cuando el
-                  proveedor del canal esté configurado.
-                </p>
-              </>
-            ) : (
-              <div className={styles.contextEmpty}>
-                <Icon name="user" size={22} />
-                <p>Selecciona un hilo para ver el contacto, la asignación y la actividad.</p>
-              </div>
-            )}
-          </aside>
+                  <p className={styles.queueNotice}>
+                    <Icon name="inbox" size={15} />
+                    Los mensajes quedan registrados. La entrega externa se confirmará cuando el
+                    proveedor del canal esté configurado.
+                  </p>
+                </>
+              ) : (
+                <div className={styles.contextEmpty}>
+                  <Icon name="user" size={22} />
+                  <p>Selecciona un hilo para ver el contacto, la asignación y la actividad.</p>
+                </div>
+              )}
+            </aside>
+          ) : null}
         </section>
       </section>
 

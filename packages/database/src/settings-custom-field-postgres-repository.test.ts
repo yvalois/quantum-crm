@@ -11,6 +11,7 @@ const field = {
   name: "Color favorito",
   description: "Preferencia del contacto",
   data_type: "TEXT",
+  options: [],
 };
 
 function poolWith(query: PostgresPool["query"]): PostgresPool {
@@ -36,6 +37,7 @@ describe("settings custom field catalog persistence", () => {
         label: field.name,
         description: field.description,
         dataType: field.data_type,
+        options: [],
         model: "contact",
       },
     ]);

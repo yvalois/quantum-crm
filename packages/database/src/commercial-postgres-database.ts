@@ -1087,13 +1087,19 @@ export function createCommercialPostgresRepositories(
       try {
         client = await pool.connect();
         await client.query("BEGIN");
-        const access = contactVisibility(input.actor, 8);
+        const access = contactVisibility(input.actor, 11);
         const result = (await client.query<{ readonly id: string }>(
           `UPDATE contacts.contacts AS contact
               SET owner_member_id = $2::uuid,
                   display_name = $3,
                   email = $4,
                   phone = $5,
+                  custom_fields = CASE WHEN $8::boolean THEN
+                    (SELECT COALESCE(jsonb_agg(field), '[]'::jsonb)
+                       FROM jsonb_array_elements(contact.custom_fields) AS field
+                      WHERE field->>'fieldId' <> $9::text)
+                    || CASE WHEN $10::jsonb IS NULL THEN '[]'::jsonb ELSE jsonb_build_array($10::jsonb) END
+                  ELSE contact.custom_fields END,
                   version = version + 1,
                   updated_at = $6
             WHERE contact.id = $1::uuid
@@ -1108,6 +1114,9 @@ export function createCommercialPostgresRepositories(
             input.contact.phone,
             input.contact.updatedAt,
             input.expectedVersion.toString(),
+            input.customFieldChange !== undefined,
+            input.customFieldChange?.id ?? null,
+            input.customFieldChange?.field ? JSON.stringify(input.customFieldChange.field) : null,
             ...access.params,
           ],
         )) as { readonly rows: readonly { readonly id: string }[] };

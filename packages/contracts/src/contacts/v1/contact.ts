@@ -173,6 +173,10 @@ export const UpdateContactSchema = z
     ownerMemberId: ContactIdSchema.nullable().optional(),
     /** An empty list intentionally clears every label on the contact. */
     labelIds: z.array(ContactIdSchema).max(40).optional(),
+    customField: z
+      .object({ fieldId: ContactIdSchema, value: ContactCustomFieldValueSchema })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, "At least one contact change is required");

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { ContactCustomFieldValue } from "@quantum-crm/contracts";
 
 import {
   IamAuthorizationError,
@@ -49,11 +50,61 @@ function sameLabelIds(
   return requested.every((labelId) => currentIds.has(labelId));
 }
 
+function validCustomValue(
+  type: string,
+  value: ContactCustomFieldValue,
+  options: readonly string[],
+): boolean {
+  if (value === null) return true;
+  switch (type.toUpperCase()) {
+    case "SINGLE_OPTIONS":
+    case "RADIO":
+      return typeof value === "string" && options.includes(value);
+    case "MULTIPLE_OPTIONS":
+    case "CHECKBOX":
+      return (
+        Array.isArray(value) &&
+        value.every((item) => typeof item === "string" && options.includes(item))
+      );
+    case "NUMERICAL":
+    case "MONETORY":
+      return typeof value === "number" && Number.isFinite(value);
+    case "DATE":
+      return (
+        typeof value === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/u.test(value) &&
+        !Number.isNaN(Date.parse(value))
+      );
+    case "TEXT":
+    case "LARGE_TEXT":
+      return typeof value === "string" && value.length <= 100_000;
+    case "TEXTBOX_LIST":
+      return (
+        Array.isArray(value) &&
+        value.every((item) => typeof item === "string" && item.length <= 1000)
+      );
+    default:
+      return false;
+  }
+}
+
 export class ContactService {
   public constructor(
     private readonly repository: ContactRepository,
     private readonly clock: () => Date = () => new Date(),
     private readonly sourceParticipants?: ExternalParticipantLookup,
+    private readonly customFieldDefinitions?: {
+      readonly find: (
+        model: "contact",
+        id: string,
+      ) => Promise<{
+        readonly id: string;
+        readonly key: string;
+        readonly label: string;
+        readonly dataType: string;
+        readonly options: readonly string[];
+      } | null>;
+    },
   ) {}
 
   public list(
@@ -195,6 +246,7 @@ export class ContactService {
     readonly phone?: string | null;
     readonly ownerMemberId?: string | null;
     readonly labelIds?: readonly string[];
+    readonly customField?: { readonly fieldId: string; readonly value: ContactCustomFieldValue };
     readonly expectedVersion: bigint;
   }): Promise<ContactRecord> {
     allow(input.permissions, "crm:contacts:update");
@@ -203,6 +255,46 @@ export class ContactService {
     if (current.version !== input.expectedVersion) throw new ContactVersionConflictError();
     const labelIds =
       input.labelIds === undefined ? undefined : Object.freeze([...new Set(input.labelIds)]);
+    let customFields: ContactRecord["customFields"] | undefined;
+    let customFieldChange:
+      | {
+          readonly id: string;
+          readonly field: NonNullable<ContactRecord["customFields"]>[number] | null;
+        }
+      | undefined;
+    if (input.customField) {
+      if (!this.customFieldDefinitions) throw new ContactValidationError();
+      const definition = await this.customFieldDefinitions.find(
+        "contact",
+        input.customField.fieldId,
+      );
+      if (
+        !definition ||
+        !validCustomValue(definition.dataType, input.customField.value, definition.options)
+      )
+        throw new ContactValidationError();
+      const retained = (current.customFields ?? []).filter(
+        (field) => field.fieldId !== definition.id,
+      );
+      customFields =
+        input.customField.value === null
+          ? retained
+          : [
+              ...retained,
+              {
+                fieldId: definition.id,
+                key: definition.key,
+                label: definition.label,
+                dataType: definition.dataType,
+                value: input.customField.value,
+              },
+            ];
+      customFieldChange = {
+        id: definition.id,
+        field: input.customField.value === null ? null : customFields.at(-1)!,
+      };
+      if (customFields.length > 500) throw new ContactValidationError();
+    }
     const candidate = updateContact({
       contact: current,
       ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
@@ -210,6 +302,7 @@ export class ContactService {
       ...(input.phone === undefined ? {} : { phone: input.phone }),
       ...(input.ownerMemberId === undefined ? {} : { ownerMemberId: input.ownerMemberId }),
       ...(labelIds === undefined ? {} : { labelIds }),
+      ...(customFields === undefined ? {} : { customFields }),
       now: this.clock(),
     });
     const ownerChanged = candidate.ownerMemberId !== current.ownerMemberId;
@@ -219,7 +312,10 @@ export class ContactService {
       candidate.phone !== current.phone ||
       ownerChanged;
     const labelsChanged = labelIds !== undefined && !sameLabelIds(current.labels, labelIds);
-    if (!contactChanged && !labelsChanged)
+    const customFieldsChanged =
+      customFields !== undefined &&
+      JSON.stringify(customFields) !== JSON.stringify(current.customFields ?? []);
+    if (!contactChanged && !labelsChanged && !customFieldsChanged)
       return (await withSourceParticipants([current], this.sourceParticipants))[0]!;
     if (ownerChanged) {
       allow(input.permissions, "crm:contacts:assign");
@@ -235,6 +331,7 @@ export class ContactService {
       actor: input.actor,
       expectedVersion: input.expectedVersion,
       ...(labelIds === undefined ? {} : { labelIds }),
+      ...(customFieldChange === undefined ? {} : { customFieldChange }),
     });
     if (!updated) throw new ContactVersionConflictError();
     return (await withSourceParticipants([updated], this.sourceParticipants))[0]!;

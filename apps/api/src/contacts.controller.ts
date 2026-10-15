@@ -591,6 +591,7 @@ export class ContactsController {
           ...(payload.phone === undefined ? {} : { phone: payload.phone }),
           ...(payload.ownerMemberId === undefined ? {} : { ownerMemberId: payload.ownerMemberId }),
           ...(payload.labelIds === undefined ? {} : { labelIds: payload.labelIds }),
+          ...(payload.customField === undefined ? {} : { customField: payload.customField }),
           expectedVersion: expectedVersion(ifMatch),
         }),
       );

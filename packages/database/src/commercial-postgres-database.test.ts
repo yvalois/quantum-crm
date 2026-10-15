@@ -157,6 +157,7 @@ describe("commercial PostgreSQL repositories", () => {
     const update = statements.find((text) => text.includes("UPDATE contacts.contacts AS contact"));
     expect(update).toContain("owner_member_id = $2::uuid");
     expect(update).toContain("contact.version = $7::bigint");
+    expect(update).toContain("ELSE contact.custom_fields END");
     expect(statements).toContain("BEGIN");
     expect(statements.some((text) => text.includes("DELETE FROM contacts.contact_labels"))).toBe(
       true,
@@ -194,6 +195,39 @@ describe("commercial PostgreSQL repositories", () => {
     expect(statements.some((text) => text.includes("DELETE FROM contacts.contact_labels"))).toBe(
       false,
     );
+  });
+
+  it("patches one custom field in SQL without replacing unrelated raw file metadata", async () => {
+    const fieldId = "019b0000-0000-7000-8000-000000000091";
+    const field = {
+      fieldId,
+      key: "contact.asesor_de_ventas",
+      label: "Asesor de Ventas",
+      dataType: "SINGLE_OPTIONS",
+      value: "No",
+    };
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("UPDATE contacts.contacts AS contact"))
+        return { rows: [{ id: contactRow.id }] };
+      if (sql.includes("FROM contacts.contacts AS contact") && sql.includes("FOR UPDATE"))
+        return { rows: [{ ...contactRow, version: "2", custom_fields: [field] }] };
+      return { rows: [] };
+    });
+    const { pool } = poolWithClientQuery(query);
+    await createCommercialPostgresRepositories(pool).contacts.update({
+      actor,
+      contact: { ...contactRecord, version: 2n, customFields: [field] },
+      expectedVersion: 1n,
+      customFieldChange: { id: fieldId, field },
+    });
+    const command = query.mock.calls.find(([sql]) =>
+      sql.includes("UPDATE contacts.contacts AS contact"),
+    );
+    expect(command?.[0]).toContain("ELSE contact.custom_fields END");
+    expect(command?.[0]).toContain("jsonb_array_elements(contact.custom_fields)");
+    expect(command?.[1]?.[7]).toBe(true);
+    expect(command?.[1]?.[8]).toBe(fieldId);
+    expect(command?.[1]?.[9]).toBe(JSON.stringify(field));
   });
 
   it("resolves a bulk filter under server-side visibility and replays its compact result", async () => {
