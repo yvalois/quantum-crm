@@ -6354,61 +6354,54 @@ body {
   top: 0;
   z-index: 30;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-  gap: 0.75rem;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 0.8rem;
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
-  border-right: 1px solid rgb(148 163 184 / 0.12);
-  background: var(--quantum-night);
-  padding: 0.9rem 0.75rem 0.75rem;
+  border-right: 1px solid rgb(41 199 200 / 0.16);
+  background: #071424;
+  padding: 1rem 0.75rem 0.75rem;
   color: #e2e8f0;
 }
 
 .sidebar-brand-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  position: relative;
+  display: block;
   min-width: 0;
+  border-bottom: 1px solid rgb(155 204 215 / 0.12);
+  padding-bottom: 0.85rem;
 }
 
 .crm-shell-stitch .brand {
-  gap: 0.7rem;
+  display: block;
+  width: 100%;
   min-width: 0;
-  padding: 0.15rem 0.35rem;
+  padding: 0;
 }
 
 .crm-shell-stitch .brand-mark {
-  flex: 0 0 auto;
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid rgb(129 140 248 / 0.46);
-  border-radius: 0.55rem;
-  background: linear-gradient(145deg, #4f46e5, #3730a3);
-  box-shadow: 0 0.45rem 1.2rem rgb(49 46 129 / 0.35);
-  font-size: 0.9rem;
-  letter-spacing: -0.04em;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.brand-copy {
-  display: flex;
-  align-items: baseline;
-  gap: 0.42rem;
-}
-
-.brand-copy strong {
-  font-size: 1.08rem;
-  letter-spacing: -0.035em;
-}
-
-.brand-copy small {
-  color: #818cf8;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+.brand-artwork {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
 }
 
 .sidebar-collapse {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: grid;
   flex: 0 0 auto;
   width: 1.9rem;
@@ -6546,10 +6539,10 @@ body {
 }
 
 .crm-shell-stitch .crm-sidebar nav a[aria-current="page"] {
-  border-color: rgb(129 140 248 / 0.18);
-  background: rgb(79 70 229 / 0.2);
+  border-color: rgb(39 232 223 / 0.2);
+  background: rgb(13 178 184 / 0.15);
   color: #fff;
-  box-shadow: inset 3px 0 #818cf8;
+  box-shadow: inset 3px 0 #27e8df;
 }
 
 .crm-shell-stitch .crm-sidebar nav .nav-icon {
@@ -6572,7 +6565,7 @@ body {
 
 .crm-shell-stitch .crm-sidebar nav a[aria-current="page"] .nav-icon,
 .crm-shell-stitch .crm-sidebar nav a:hover .nav-icon {
-  color: #c7d2fe;
+  color: #70eee7;
 }
 
 .crm-shell-stitch .crm-sidebar nav .nav-label {
@@ -6608,9 +6601,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  border: 1px solid rgb(14 165 233 / 0.16);
+  border: 1px solid rgb(39 232 223 / 0.16);
   border-radius: 0.7rem;
-  background: rgb(14 165 233 / 0.06);
+  background: rgb(39 232 223 / 0.055);
   padding: 0.65rem 0.75rem;
 }
 
@@ -6668,7 +6661,20 @@ body {
   gap: 0.45rem;
 }
 
-.sidebar-collapsed .brand-copy,
+.sidebar-collapsed .brand {
+  width: 3rem;
+}
+
+.sidebar-collapsed .sidebar-collapse {
+  position: static;
+  justify-self: center;
+}
+
+.sidebar-collapsed .crm-shell-stitch .brand,
+.sidebar-collapsed .brand {
+  padding: 0;
+}
+
 .sidebar-collapsed .workspace-copy,
 .sidebar-collapsed .workspace-chevron,
 .sidebar-collapsed .nav-group > p,
@@ -6718,7 +6724,7 @@ body {
 }
 
 .sidebar-collapsed .crm-sidebar nav a[aria-current="page"] {
-  box-shadow: inset 2px 0 #818cf8;
+  box-shadow: inset 2px 0 #27e8df;
 }
 
 .sidebar-collapsed .sidebar-environment {
@@ -7192,6 +7198,10 @@ body {
     margin-bottom: 0.65rem;
   }
 
+  .crm-shell-stitch .brand {
+    max-width: 14rem;
+  }
+
   .workspace-chip,
   .sidebar-environment,
   .crm-shell-stitch .sidebar-footer,
@@ -7201,7 +7211,6 @@ body {
     display: none !important;
   }
 
-  .sidebar-collapsed .brand-copy,
   .sidebar-collapsed .nav-label {
     display: flex;
   }

@@ -19,6 +19,15 @@ describe("crm-web proxy", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  it("sirve el favicon sin sesion sin abrir otras rutas del CRM", () => {
+    const icon = proxy(new NextRequest("https://crm.example.test/icon.png?icon.test.png"));
+    const protectedPage = proxy(new NextRequest("https://crm.example.test/pipelines"));
+
+    expect(icon.status).toBe(200);
+    expect(icon.headers.get("location")).toBeNull();
+    expect(protectedPage.status).toBe(307);
+  });
+
   it("mantiene protegida la administracion de formularios", () => {
     const response = proxy(new NextRequest("https://crm.example.test/forms"));
 

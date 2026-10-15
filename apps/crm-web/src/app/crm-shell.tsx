@@ -1,7 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
+
+import brandArtwork from "./business-assistant-brand.jpeg";
 
 interface CrmShellProps {
   readonly children: ReactNode;
@@ -174,13 +177,16 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
     <main className={shellClassName}>
       <aside className="crm-sidebar" aria-label="Navegación principal">
         <div className="sidebar-brand-row">
-          <a className="brand" href="/" aria-label="Quantum CRM, resumen">
+          <a className="brand" href="/" aria-label="Business Assistant, resumen">
             <span className="brand-mark" aria-hidden="true">
-              Q
-            </span>
-            <span className="brand-copy">
-              <strong>Quantum</strong>
-              <small>CRM</small>
+              <Image
+                className="brand-artwork"
+                src={brandArtwork}
+                alt=""
+                width={1600}
+                height={870}
+                unoptimized
+              />
             </span>
           </a>
           <button
@@ -200,19 +206,6 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
               <path d="m14 7-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-        </div>
-
-        <div className="workspace-chip" title={sidebarCollapsed ? "Espacio de trabajo" : undefined}>
-          <span className="workspace-avatar" aria-hidden="true">
-            Q
-          </span>
-          <span className="workspace-copy">
-            <strong>Espacio de trabajo</strong>
-            <small>Quantum CRM</small>
-          </span>
-          <span className="workspace-chevron" aria-hidden="true">
-            ⌄
-          </span>
         </div>
 
         <nav>
