@@ -48,7 +48,8 @@ export function createOpenAiConversationAnswer(options: {
       body: JSON.stringify({
         model: options.model ?? "gpt-5-mini",
         store: false,
-        max_output_tokens: 1600,
+        max_output_tokens: 4000,
+        reasoning: { effort: "low" },
         instructions: `${policy}\n\n${handoffDecisionInstructions.replace("answer", "mensaje")}`,
         input: [
           ...input.history.map((message) => ({
@@ -71,7 +72,7 @@ export function createOpenAiConversationAnswer(options: {
           },
         },
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(60_000),
     });
     if (!response.ok) throw new Error("OpenAI conversation answer request failed");
     const payload = responseSchema.parse(await response.json());

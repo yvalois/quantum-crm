@@ -24,6 +24,8 @@ describe("OpenAI RAG answer adapter", () => {
       const body = JSON.parse(String(init?.body));
       expect(body.model).toBe("gpt-5-mini");
       expect(body.store).toBe(false);
+      expect(body.reasoning).toEqual({ effort: "low" });
+      expect(body.max_output_tokens).toBe(4000);
       expect(body.text.format.type).toBe("json_schema");
       expect(JSON.parse(body.input).sources[0].text).toBe("Cobertura básica incluida.");
       expect(JSON.parse(body.input).history[0].text).toBe("Busco alquiler individual");

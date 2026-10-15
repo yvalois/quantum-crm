@@ -19,6 +19,8 @@ describe("OpenAI conversational answer", () => {
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       expect(body.store).toBe(false);
+      expect(body.reasoning).toEqual({ effort: "low" });
+      expect(body.max_output_tokens).toBe(4000);
       expect(body.instructions).toContain("# Rol");
       expect(body.instructions).toContain(
         "# Requisitos exactos para renta particular sin conductor",
