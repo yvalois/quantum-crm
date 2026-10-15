@@ -63,6 +63,23 @@ describe("process configuration", () => {
     }
   });
 
+  it("accepts only the owned wildcard suffix for tenant provisioning", () => {
+    const executor = {
+      serviceName: "deploy-executor",
+      defaultHost: "127.0.0.1",
+      defaultPort: 3102,
+      supportsTenantDomainSuffix: true,
+    } as const;
+    expect(
+      parseProcessConfig(executor, {
+        QCRM_TENANT_DOMAIN_SUFFIX: "quantumbusinessassistant.com",
+      }).tenantDomainSuffix,
+    ).toBe("quantumbusinessassistant.com");
+    expect(() =>
+      parseProcessConfig(executor, { QCRM_TENANT_DOMAIN_SUFFIX: "untrusted.example" }),
+    ).toThrow(new ConfigurationError("deploy-executor", ["QCRM_TENANT_DOMAIN_SUFFIX"]));
+  });
+
   it("rejects an invalid port", () => {
     expect(() => parseProcessConfig(definition, { QCRM_PORT: "0" })).toThrow(
       new ConfigurationError("worker", ["QCRM_PORT"]),
@@ -136,6 +153,7 @@ describe("process configuration", () => {
         database: { target: "platform", requiresTenant: false, requiresAdmin: true },
         requiresTenantSecretDirectory: true,
         requiresTenantConfigurationDirectory: true,
+        supportsTenantDomainSuffix: true,
         requiresStorageAdmin: true,
         requiresDeployHostSocket: true,
         requiresIdentityProvisioner: true,
