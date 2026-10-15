@@ -15,7 +15,8 @@ function validateSource(link: string, mediaId: string): void {
     !url.searchParams.get("sig") ||
     !url.searchParams.get("payload") ||
     [...url.searchParams.keys()].some((key) => key !== "sig" && key !== "payload")
-  ) throw new Error("Invalid YCloud media source");
+  )
+    throw new Error("Invalid YCloud media source");
 }
 
 function key(secret: string): Buffer {
@@ -40,7 +41,9 @@ export function openYCloudMediaSource(sealed: string, mediaId: string, secret: s
   const decipher = createDecipheriv("aes-256-gcm", key(secret), packed.subarray(0, 12));
   decipher.setAAD(Buffer.from(mediaId));
   decipher.setAuthTag(packed.subarray(12, 28));
-  const link = Buffer.concat([decipher.update(packed.subarray(28)), decipher.final()]).toString("utf8");
+  const link = Buffer.concat([decipher.update(packed.subarray(28)), decipher.final()]).toString(
+    "utf8",
+  );
   validateSource(link, mediaId);
   return link;
 }

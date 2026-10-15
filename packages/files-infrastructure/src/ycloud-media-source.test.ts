@@ -15,7 +15,9 @@ describe("YCloud inbound media source", () => {
   });
 
   it("rejects external hosts and mismatched source IDs", () => {
-    expect(() => sealYCloudMediaSource(link.replace("api.ycloud.com", "evil.example"), id, "secret")).toThrow();
+    expect(() =>
+      sealYCloudMediaSource(link.replace("api.ycloud.com", "evil.example"), id, "secret"),
+    ).toThrow();
     expect(() => sealYCloudMediaSource(link, "other", "secret")).toThrow();
   });
 });

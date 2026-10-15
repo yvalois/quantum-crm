@@ -34,7 +34,9 @@ const sourceSecret = new SecretValue("test-source-secret");
 describe("inbound provider media", () => {
   it("downloads only the fixed YCloud endpoint and checks the provider checksum", async () => {
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-      expect(_url).toBe("https://api.ycloud.com/v2/whatsapp/media/download/712063723747110?sig=test&payload=test");
+      expect(_url).toBe(
+        "https://api.ycloud.com/v2/whatsapp/media/download/712063723747110?sig=test&payload=test",
+      );
       expect(init?.headers).toMatchObject({ "X-API-Key": "test-key-not-for-production" });
       expect(init?.redirect).toBe("error");
       return new Response(bytes);
@@ -49,7 +51,12 @@ describe("inbound provider media", () => {
       }),
     ).rejects.toMatchObject({ code: "SOURCE_INTEGRITY" });
     await expect(
-      downloadInboundMedia({ lease: { ...lease, providerMediaId: "../bad" }, apiKey, sourceSecret, fetcher }),
+      downloadInboundMedia({
+        lease: { ...lease, providerMediaId: "../bad" },
+        apiKey,
+        sourceSecret,
+        fetcher,
+      }),
     ).rejects.toBeInstanceOf(InboundMediaError);
   });
 

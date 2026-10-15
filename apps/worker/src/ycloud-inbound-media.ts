@@ -36,15 +36,12 @@ export async function downloadInboundMedia(input: {
   }
   let response: Response;
   try {
-    response = await (input.fetcher ?? fetch)(
-      source,
-      {
-        headers: { "X-API-Key": input.apiKey.expose() },
-        redirect: "error",
-        cache: "no-store",
-        signal: AbortSignal.timeout(30_000),
-      },
-    );
+    response = await (input.fetcher ?? fetch)(source, {
+      headers: { "X-API-Key": input.apiKey.expose() },
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
   } catch {
     throw new InboundMediaError("SOURCE_UNAVAILABLE");
   }
