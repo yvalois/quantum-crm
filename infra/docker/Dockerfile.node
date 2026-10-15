@@ -18,10 +18,12 @@ RUN case "${APP}" in api|admin-api|worker|deploy-executor|deploy-host|agent-runt
     && pnpm --filter "@quantum-crm/${APP}" deploy --prod /runtime
 
 FROM ${NODE_RUNTIME_IMAGE} AS runtime
+ARG APP
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /runtime ./
-RUN apk del --no-network apk-tools zlib \
+RUN if [ "${APP}" = "worker" ]; then apk add --no-cache ffmpeg=8.1.2-r0; fi \
+    && apk del --no-network apk-tools zlib \
     && node --version \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg

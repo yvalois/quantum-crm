@@ -7,6 +7,7 @@ const accepted: Readonly<
   "image/png": { fileClass: "IMAGE", maxBytes: 5_000_000 },
   "audio/mpeg": { fileClass: "AUDIO", maxBytes: 16_000_000 },
   "audio/ogg": { fileClass: "AUDIO", maxBytes: 16_000_000 },
+  "audio/webm": { fileClass: "AUDIO", maxBytes: 16_000_000 },
   "application/pdf": { fileClass: "DOCUMENT", maxBytes: 50_000_000 },
   "text/plain": { fileClass: "DOCUMENT", maxBytes: 50_000_000 },
 };

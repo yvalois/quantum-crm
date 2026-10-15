@@ -38,6 +38,7 @@ import { SourceParticipantsCard } from "../source-participants";
 import { ConversationContactCard, useConversationContacts } from "./conversation-contact";
 import { ConversationMedia } from "./conversation-media";
 import { uploadConversationFile } from "./conversation-upload";
+import { VoiceRecorder } from "./voice-recorder";
 import styles from "./inbox.module.css";
 
 interface SessionPayload {
@@ -1769,6 +1770,16 @@ export default function InboxPage(): React.JSX.Element {
                               >
                                 <Icon name="attach" size={16} /> Adjuntar
                               </button>
+                              <VoiceRecorder
+                                key={selected.id}
+                                disabled={
+                                  saving ||
+                                  !csrf ||
+                                  Boolean(messageBlocked) ||
+                                  Boolean(whatsappWindowClosed)
+                                }
+                                onFile={(file) => void selectMedia(file)}
+                              />
                             </>
                           ) : null}
                           <button

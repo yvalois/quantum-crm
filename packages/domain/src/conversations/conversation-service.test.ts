@@ -300,6 +300,42 @@ describe("ConversationService", () => {
     );
   });
 
+  it("queues only an available browser-recorded audio owned by this conversation", async () => {
+    const store = repository();
+    const fileId = "019b0000-0000-7000-8000-000000000021";
+    const refs = {
+      ...references(),
+      mediaFor: vi.fn(async () => ({
+        id: fileId,
+        status: "AVAILABLE" as const,
+        fileClass: "AUDIO" as const,
+        mimeType: "audio/webm",
+        size: 10_000,
+      })),
+    };
+    const service = new ConversationService(store, refs, () => now);
+    await service.send({
+      actor,
+      permissions: ["crm:conversations:reply"],
+      conversationId: existing.id,
+      expectedVersion: existing.version,
+      body: "Nota de voz",
+      kind: "AUDIO",
+      fileId,
+      idempotencyKey: "audio-12345678",
+      payloadHash: "a".repeat(64),
+    });
+    expect(store.append).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.objectContaining({ kind: "AUDIO", fileId }) }),
+    );
+    expect(refs.mediaFor).toHaveBeenCalledWith(
+      actor,
+      ["crm:conversations:reply"],
+      fileId,
+      existing.id,
+    );
+  });
+
   it("does not queue a WhatsApp template without a deliverable PDF", async () => {
     const store = repository();
     const service = new ConversationService(

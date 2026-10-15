@@ -284,7 +284,7 @@ export class ConversationService {
         input.kind === "IMAGE"
           ? ["image/jpeg", "image/png"]
           : input.kind === "AUDIO"
-            ? ["audio/mpeg", "audio/ogg"]
+            ? ["audio/mpeg", "audio/ogg", "audio/webm"]
             : ["application/pdf", "text/plain"];
       const maxBytes =
         input.kind === "IMAGE" ? 5_000_000 : input.kind === "AUDIO" ? 16_000_000 : 50_000_000;

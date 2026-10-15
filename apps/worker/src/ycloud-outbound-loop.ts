@@ -12,6 +12,8 @@ import {
 } from "@quantum-crm/domain";
 import type { OutboundMedia } from "@quantum-crm/files-infrastructure";
 
+import { transcodeWebmAudio } from "./transcode-webm-audio.js";
+
 export interface YCloudOutboundOptions {
   readonly repository: ConversationOutboundDispatcher;
   readonly binding: YCloudBindingConfig;
@@ -20,6 +22,7 @@ export interface YCloudOutboundOptions {
   readonly workerId?: string;
   readonly fetcher?: typeof fetch;
   readonly mediaFor?: (lease: ConversationOutboundLease) => Promise<OutboundMedia>;
+  readonly convertAudio?: (media: OutboundMedia) => Promise<OutboundMedia>;
   readonly onError?: (error: unknown) => void;
 }
 
@@ -36,7 +39,10 @@ interface SendResult {
 const threadPattern = /^ycloud:([0-9]{5,30}):([0-9]{8,20})$/u;
 
 export async function sendYCloudText(
-  options: Pick<YCloudOutboundOptions, "binding" | "apiKey" | "fetcher" | "mediaFor">,
+  options: Pick<
+    YCloudOutboundOptions,
+    "binding" | "apiKey" | "fetcher" | "mediaFor" | "convertAudio"
+  >,
   lease: ConversationOutboundLease,
 ): Promise<SendResult> {
   const match = threadPattern.exec(lease.externalThreadId);
@@ -56,6 +62,7 @@ export async function sendYCloudText(
     let media: OutboundMedia;
     try {
       media = await options.mediaFor(lease);
+      if (lease.kind === "AUDIO") media = await (options.convertAudio ?? transcodeWebmAudio)(media);
     } catch (error) {
       if (
         error instanceof FileNotFoundError ||
