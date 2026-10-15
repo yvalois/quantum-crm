@@ -74,7 +74,9 @@ describe("InterAmerican agent memory", () => {
       language: "es",
     });
     expect(result.answer).toContain("Soy Alex");
-    expect(result.answer).toContain("Hola 👋 gracias por escribir a InterAmerican Car Rental Guatemala.");
+    expect(result.answer).toContain(
+      "Hola 👋 gracias por escribir a InterAmerican Car Rental Guatemala.",
+    );
     expect(result.answer).not.toBe(initialGreeting);
   });
 
@@ -91,15 +93,20 @@ describe("InterAmerican agent memory", () => {
   it("does not duplicate an introduction or the exact Renting exception", async () => {
     const introduced = gateway([]);
     introduced.answerConversation.mockResolvedValueOnce({
-      answer: "Hola 👋 Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo buscas?",
+      answer:
+        "Hola 👋 Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo buscas?",
       handoffRequested: false,
     });
-    const first = await answerAgentTurn({ question: "Quiero un carro", firstTurn: true }, introduced);
+    const first = await answerAgentTurn(
+      { question: "Quiero un carro", firstTurn: true },
+      introduced,
+    );
     expect(first.answer.match(/Soy Alex/gu)).toHaveLength(1);
 
     const renting = gateway([]);
     renting.answerConversation.mockResolvedValueOnce({
-      answer: "Hola 👋 ¡Gracias por escribir a InterAmerican Car Rental Guatemala! Con gusto le comparto información sobre nuestro servicio de Renting 🚗",
+      answer:
+        "Hola 👋 ¡Gracias por escribir a InterAmerican Car Rental Guatemala! Con gusto le comparto información sobre nuestro servicio de Renting 🚗",
       handoffRequested: false,
     });
     const second = await answerAgentTurn({ question: "Quiero Renting", firstTurn: true }, renting);
