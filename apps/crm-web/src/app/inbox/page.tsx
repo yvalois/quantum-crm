@@ -1031,6 +1031,31 @@ export default function InboxPage(): React.JSX.Element {
                 <option value="UNLINKED">Sin contacto vinculado</option>
               </select>
             </label>
+            {canAssignConversations ? (
+              <label className={styles.contactFilter}>
+                Asesor responsable
+                <select
+                  aria-label="Filtrar conversaciones por asesor"
+                  value={assigneeFilter}
+                  onChange={(event) => {
+                    const memberId = event.target.value;
+                    setAssigneeFilter(memberId);
+                    const filters = new URLSearchParams(appliedFilters);
+                    if (memberId) filters.set("assigneeMemberId", memberId);
+                    else filters.delete("assigneeMemberId");
+                    setAppliedFilters(filters.toString());
+                    setListCursors([null]);
+                  }}
+                >
+                  <option value="">Todos los asesores</option>
+                  {assignees.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {contactId ? (
               <button
                 className={styles.clearContactFilter}
@@ -1084,22 +1109,6 @@ export default function InboxPage(): React.JSX.Element {
                     <option value="AGENT">Agente Quantum</option>
                   </select>
                 </label>
-                {canAssignConversations ? (
-                  <label>
-                    Asesor responsable
-                    <select
-                      value={assigneeFilter}
-                      onChange={(event) => setAssigneeFilter(event.target.value)}
-                    >
-                      <option value="">Todos los asesores</option>
-                      {assignees.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.displayName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
                 <button type="submit">Aplicar filtros</button>
                 <button type="button" onClick={clearFilters}>
                   Limpiar filtros
