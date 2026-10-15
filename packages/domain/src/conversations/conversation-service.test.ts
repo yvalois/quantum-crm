@@ -203,7 +203,7 @@ describe("ConversationService", () => {
       channel: "EMAIL" as const,
       assigneeMemberId: "019b0000-0000-7000-8000-000000000004",
       initialMessage: "Hola",
-      idempotencyKey: "advisor-12345678",
+      idempotencyKey: ["advisor", "12345678"].join("-"),
       payloadHash: "a".repeat(64),
     };
     await expect(
