@@ -72,13 +72,25 @@
   font-size: 0.75rem;
   line-height: 1.5;
 }
-.editButton {
-  border: 0;
-  padding: 0.2rem 0;
-  background: none;
-  color: #087d77;
+.valueButton {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  padding: 0.3rem 0.4rem;
+  margin: -0.3rem -0.4rem;
+  background: transparent;
+  color: #253b48;
   font: inherit;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   cursor: pointer;
+}
+.valueButton:hover,
+.valueButton:focus-visible {
+  border-color: #b5d9d4;
+  background: #edf8f5;
+  outline: none;
 }
 .editor {
   display: grid;
@@ -107,6 +119,29 @@
   display: flex;
   align-items: start;
   gap: 0.4rem;
+}
+.optionButton,
+.selectedOption {
+  width: 100%;
+  border: 1px solid #cbdad8;
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  background: #fff;
+  color: #253b48;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.selectedOption {
+  border-color: #087d77;
+  background: #e8f6f2;
+  font-weight: 700;
+}
+.optionButton:hover,
+.optionButton:focus-visible,
+.selectedOption:focus-visible {
+  outline: 2px solid #087d77;
+  outline-offset: 1px;
 }
 .editActions {
   display: flex;

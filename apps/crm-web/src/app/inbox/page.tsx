@@ -17,6 +17,7 @@ import {
   ConversationThreadResponseSchema,
   ConversationListResponseSchema,
   AgentControlResponseSchema,
+  MemberListResponseSchema,
   UnifiedInboxListResponseSchema,
 } from "@quantum-crm/contracts";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -37,7 +38,11 @@ interface SessionPayload {
   readonly csrfToken?: string;
 }
 interface CapabilitiesPayload {
-  readonly data: { readonly canAssignConversations: boolean; readonly canConfigureAgent: boolean };
+  readonly data: {
+    readonly canAssignContacts?: boolean;
+    readonly canAssignConversations: boolean;
+    readonly canConfigureAgent: boolean;
+  };
 }
 
 interface List<T> {
@@ -247,7 +252,9 @@ export default function InboxPage(): React.JSX.Element {
   const [items, setItems] = useState<UnifiedInboxItem[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [assignees, setAssignees] = useState<TaskAssignee[]>([]);
+  const [memberNames, setMemberNames] = useState<Map<string, string>>(new Map());
   const [canAssignConversations, setCanAssignConversations] = useState(false);
+  const [canAssignContacts, setCanAssignContacts] = useState(false);
   const [canConfigureAgent, setCanConfigureAgent] = useState(false);
   const [agentControl, setAgentControl] = useState<{
     enabled: boolean;
@@ -310,6 +317,21 @@ export default function InboxPage(): React.JSX.Element {
   const selectedAssignee = selected?.assigneeMemberId
     ? assigneeById.get(selected.assigneeMemberId)
     : undefined;
+  const selectedAssigneeName = selected?.assigneeMemberId
+    ? (selectedAssignee?.displayName ??
+      memberNames.get(selected.assigneeMemberId) ??
+      "Cuenta no activa")
+    : "Sin asignar";
+  const historicalAssigneeName = historicalSelected?.assigneeMemberId
+    ? (assigneeById.get(historicalSelected.assigneeMemberId)?.displayName ??
+      memberNames.get(historicalSelected.assigneeMemberId) ??
+      "Cuenta no activa")
+    : "Sin asignar";
+  const contactOwnerName = selectedContact?.ownerMemberId
+    ? (assigneeById.get(selectedContact.ownerMemberId)?.displayName ??
+      memberNames.get(selectedContact.ownerMemberId) ??
+      "Cuenta no activa")
+    : "Sin asignar";
   const messageBlocked = availabilityMessage(selected);
   const composerBlocked = mode === "message" ? messageBlocked : null;
 
@@ -471,8 +493,29 @@ export default function InboxPage(): React.JSX.Element {
         setQuickReplies(((await replyResponse.json()) as List<QuickReply>).data);
         const capabilities = ((await capabilitiesResponse.json()) as CapabilitiesPayload).data;
         setCanAssignConversations(capabilities.canAssignConversations);
+        setCanAssignContacts(Boolean(capabilities.canAssignContacts));
         setCanConfigureAgent(capabilities.canConfigureAgent);
         setAgentControl(AgentControlResponseSchema.parse(await agentResponse.json()).data);
+        if (capabilities.canAssignConversations || capabilities.canAssignContacts) {
+          void (async () => {
+            const names = new Map<string, string>();
+            let cursor: string | null = null;
+            do {
+              const params = new URLSearchParams({ limit: "100" });
+              if (cursor) params.set("cursor", cursor);
+              const response = await fetch(`/api/members?${params}`, {
+                cache: "no-store",
+                credentials: "same-origin",
+                signal,
+              });
+              if (!response.ok) return;
+              const page = MemberListResponseSchema.parse(await response.json());
+              for (const member of page.data) names.set(member.id, member.displayName);
+              cursor = page.page.nextCursor;
+            } while (cursor && names.size < 1000);
+            if (!controller.signal.aborted) setMemberNames(names);
+          })().catch(() => undefined);
+        }
       } catch (cause) {
         if (!controller.signal.aborted) {
           setError(cause instanceof Error ? cause.message : "No fue posible cargar la bandeja.");
@@ -1179,8 +1222,9 @@ export default function InboxPage(): React.JSX.Element {
                     const title = imported
                       ? historicalThreadTitle(imported, contact?.displayName)
                       : (contact?.displayName ?? item.subject ?? "Contacto vinculado");
-                    const assignee = native?.assigneeMemberId
-                      ? assigneeById.get(native.assigneeMemberId)
+                    const assignedId = native?.assigneeMemberId ?? imported?.assigneeMemberId;
+                    const assigneeName = assignedId
+                      ? (assigneeById.get(assignedId)?.displayName ?? memberNames.get(assignedId))
                       : undefined;
                     return (
                       <button
@@ -1231,8 +1275,8 @@ export default function InboxPage(): React.JSX.Element {
                                 ) : null}
                               </>
                             ) : null}
-                            {assignee ? (
-                              <span className={styles.assigneeTag}>{assignee.displayName}</span>
+                            {assigneeName ? (
+                              <span className={styles.assigneeTag}>{assigneeName}</span>
                             ) : null}
                             {native && native.unreadCount > 0 ? (
                               <span className={styles.unreadBadge}>{native.unreadCount}</span>
@@ -1274,9 +1318,14 @@ export default function InboxPage(): React.JSX.Element {
                 conversation={historicalSelected}
                 contactName={selectedContact?.displayName}
                 assignees={assignees}
+                memberNames={memberNames}
                 csrfToken={csrf}
                 canAssign={canAssignConversations}
-                onAssigned={() => setListRefresh((value) => value + 1)}
+                onAssigned={(conversation) => {
+                  setHistoricalSelected(conversation);
+                  setListRefresh((value) => value + 1);
+                }}
+                onOpenContact={() => setContextOpen(true)}
                 canContinueWhatsApp={/^[0-9]{8,20}$/u.test(
                   selectedContact?.phone?.replace(/\D/gu, "") ?? "",
                 )}
@@ -1303,10 +1352,21 @@ export default function InboxPage(): React.JSX.Element {
                         ) : null}
                       </span>
                       <h2>{selectedContact?.displayName ?? "Contacto"}</h2>
-                      <p>{selected.subject ?? "Conversación sin asunto"}</p>
+                      <p className={styles.threadAdvisor}>
+                        Asesor del chat: <strong>{selectedAssigneeName}</strong>
+                      </p>
                     </div>
                   </div>
                   <div className={styles.threadActions}>
+                    <button
+                      className={styles.contactAction}
+                      type="button"
+                      aria-expanded={contextOpen}
+                      onClick={() => setContextOpen((value) => !value)}
+                    >
+                      <Icon name="user" size={15} />{" "}
+                      {contextOpen ? "Cerrar ficha" : "Ver ficha del contacto"}
+                    </button>
                     {selected.channel === "WHATSAPP" && selected.status !== "CLOSED" ? (
                       <button
                         className={styles.outlineButton}
@@ -1537,23 +1597,43 @@ export default function InboxPage(): React.JSX.Element {
               {historicalSelected ? (
                 <>
                   <header className={styles.contextHeader}>
-                    <span className={styles.panelKicker}>Contexto</span>
+                    <div>
+                      <span className={styles.panelKicker}>Contacto</span>
+                      <h2>Información y seguimiento</h2>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.contextClose}
+                      onClick={() => setContextOpen(false)}
+                      aria-label="Cerrar ficha del contacto"
+                    >
+                      <Icon name="close" size={16} />
+                    </button>
                   </header>
-                  <SourceParticipantsCard
-                    participants={historicalSelected.sourceParticipants}
-                    kind="conversación"
-                  />
+                  <section className={styles.advisorCard} aria-label="Asesor responsable">
+                    <span>Asesor responsable del chat</span>
+                    <strong>{historicalAssigneeName}</strong>
+                  </section>
                   <ConversationContactCard
                     contact={selectedContact}
+                    ownerName={contactOwnerName}
+                    canAssignOwner={canAssignContacts}
+                    assignees={assignees}
                     csrfToken={csrf}
                     onSaved={(contact) =>
                       setEditedContacts((previous) => new Map(previous).set(contact.id, contact))
                     }
-                    onCollapse={() => setContextOpen(false)}
                     linked={Boolean(historicalSelected.contactId)}
                     loading={Boolean(historicalSelected.contactId) && relatedContacts.loading}
                     error={historicalSelected.contactId ? relatedContacts.error : null}
                   />
+                  <details className={styles.secondaryDetails}>
+                    <summary>Participantes originales</summary>
+                    <SourceParticipantsCard
+                      participants={historicalSelected.sourceParticipants}
+                      kind="conversación"
+                    />
+                  </details>
                   <section className={styles.contextFacts}>
                     <div>
                       <span>Disponibilidad</span>
@@ -1572,16 +1652,37 @@ export default function InboxPage(): React.JSX.Element {
               ) : selected ? (
                 <>
                   <header className={styles.contextHeader}>
-                    <span className={styles.panelKicker}>Contexto</span>
+                    <div>
+                      <span className={styles.panelKicker}>Contacto</span>
+                      <h2>Información y seguimiento</h2>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.contextClose}
+                      onClick={() => setContextOpen(false)}
+                      aria-label="Cerrar ficha del contacto"
+                    >
+                      <Icon name="close" size={16} />
+                    </button>
                   </header>
+
+                  <section className={styles.advisorCard} aria-label="Asesor responsable">
+                    <span>Asesor responsable del chat</span>
+                    <strong>{selectedAssigneeName}</strong>
+                    {selected.assigneeMemberId && !selectedAssignee ? (
+                      <small>Cuenta no disponible para nuevas asignaciones</small>
+                    ) : null}
+                  </section>
 
                   <ConversationContactCard
                     contact={selectedContact}
+                    ownerName={contactOwnerName}
+                    canAssignOwner={canAssignContacts}
+                    assignees={assignees}
                     csrfToken={csrf}
                     onSaved={(contact) =>
                       setEditedContacts((previous) => new Map(previous).set(contact.id, contact))
                     }
-                    onCollapse={() => setContextOpen(false)}
                     linked={true}
                     loading={relatedContacts.loading}
                     error={relatedContacts.error}
@@ -1599,6 +1700,11 @@ export default function InboxPage(): React.JSX.Element {
                           }
                         >
                           <option value="">Sin asignar</option>
+                          {selected.assigneeMemberId && !selectedAssignee ? (
+                            <option value={selected.assigneeMemberId} disabled>
+                              {selectedAssigneeName} (no disponible para nuevas asignaciones)
+                            </option>
+                          ) : null}
                           {assignees.map((member) => (
                             <option key={member.id} value={member.id}>
                               {member.displayName}
@@ -1607,7 +1713,7 @@ export default function InboxPage(): React.JSX.Element {
                         </select>
                       </label>
                     ) : (
-                      <p>Responsable: {selectedAssignee?.displayName ?? "Sin asignar"}</p>
+                      <p>Responsable: {selectedAssigneeName}</p>
                     )}
                     <label>
                       Estado de conversación
@@ -1686,7 +1792,7 @@ export default function InboxPage(): React.JSX.Element {
                     </div>
                     <div>
                       <span>Responsable</span>
-                      <strong>{selectedAssignee?.displayName ?? "Sin asignar"}</strong>
+                      <strong>{selectedAssigneeName}</strong>
                     </div>
                     <div>
                       <span>Última actividad</span>

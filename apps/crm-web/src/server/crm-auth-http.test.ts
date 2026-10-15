@@ -87,6 +87,7 @@ describe("CRM web authentication HTTP boundary", () => {
         data: {
           memberId: "019b0000-0000-7000-8000-000000000001",
           canAssignSales: false,
+          canAssignContacts: false,
           canAssignConversations: false,
           canConfigureAgent: false,
           canManageMembers: false,
@@ -102,7 +103,10 @@ describe("CRM web authentication HTTP boundary", () => {
       runtime(upstream as typeof fetch),
     );
     expect(response.status).toBe(200);
-    expect((await response.json()).data.canAssignSales).toBe(false);
+    expect((await response.json()).data).toMatchObject({
+      canAssignSales: false,
+      canAssignContacts: false,
+    });
     expect(upstream).toHaveBeenCalledOnce();
   });
   it("forwards one authenticated mixed inbox with filters and opaque pagination", async () => {

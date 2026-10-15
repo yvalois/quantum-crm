@@ -127,3 +127,108 @@
   overflow-wrap: anywhere;
   max-width: 100%;
 }
+
+.card {
+  margin: 0 0 0.8rem;
+  border-color: #dce8e7;
+  border-radius: 0.85rem;
+  box-shadow: 0 0.3rem 1rem rgb(17 48 51 / 0.045);
+}
+.heading {
+  cursor: default;
+  padding: 0.95rem 1rem;
+}
+.heading:hover {
+  background: transparent;
+}
+.headingText {
+  gap: 0.28rem;
+}
+.headingText > span {
+  color: #6a8084;
+}
+.headingText h3 {
+  margin: 0;
+  color: #172f35;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+.contactInitials {
+  display: grid;
+  flex: none;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #e2f4ef;
+  color: #087d77;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.content {
+  padding: 0.8rem 1rem 1rem;
+}
+.facts {
+  display: grid;
+  gap: 0.7rem;
+}
+.facts > div {
+  margin: 0;
+}
+.facts dt {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+}
+.facts dd {
+  margin-top: 0.18rem;
+  font-size: 0.83rem;
+  color: #20363b;
+}
+.ownerSelect {
+  width: 100%;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #cbdad8;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: #20363b;
+  font: inherit;
+  cursor: pointer;
+}
+.ownerSelect:focus-visible {
+  outline: 2px solid #087d77;
+  outline-offset: 2px;
+}
+.ownerHint,
+.ownerError {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+}
+.ownerHint {
+  color: #60707f;
+}
+.ownerError {
+  color: #ad2c3a;
+}
+.open {
+  margin: 0.95rem 0 0.15rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.labels {
+  border-top: 1px solid #e9efef;
+  margin-top: 0.7rem;
+  padding-top: 0.85rem;
+}
+.labels > strong {
+  font-size: 0.72rem;
+}
+.tags {
+  margin: 0.6rem 0 0;
+}
+.card .sourceDetails {
+  border-top: 1px solid #e9efef;
+}

@@ -12,6 +12,7 @@ import { expect, test, type Page } from "@playwright/test";
 const origin = "http://127.0.0.1:3107";
 const timestamp = "2026-10-11T15:00:00.000Z";
 const memberId = "019b0000-0000-7000-8000-000000000001";
+const invitedMemberId = "019b0000-0000-7000-8000-000000000111";
 const conversationId = "019b0000-0000-7000-8000-000000000002";
 const historicalId = "019b0000-0000-7000-8000-000000000003";
 const fileId = "019b0000-0000-7000-8000-000000000004";
@@ -145,6 +146,13 @@ function contact(index: number, displayName: string): Contact {
         dataType: "TEXT",
         value: "Sedán sintético",
       },
+      {
+        fieldId: "019b0000-0000-7000-8000-000000000096",
+        key: "sales_advisor",
+        label: "Asesor de Ventas",
+        dataType: "SINGLE_OPTIONS",
+        value: "Si",
+      },
     ],
     source: "MIGRATION",
     sourceParticipants: {
@@ -167,7 +175,7 @@ function contact(index: number, displayName: string): Contact {
 const contacts = [
   contact(1, "Andrea Sintética"),
   contact(2, "Bruno Sintético"),
-  contact(3, "Última Sintética"),
+  { ...contact(3, "Última Sintética"), ownerMemberId: invitedMemberId },
 ] as const;
 const primaryContact = contacts[0];
 const conversation: Conversation = {
@@ -208,7 +216,7 @@ const historical: HistoricalConversation = {
   sourceExternalId: "synthetic-thread",
   sourceThreadPresent: true,
   contactId: primaryContact.id,
-  assigneeMemberId: memberId,
+  assigneeMemberId: invitedMemberId,
   rawChannel: "Email",
   rawStatus: "closed",
   subject: "Historial sintético conservado",
@@ -372,11 +380,30 @@ async function workspaceFixture(
         await respond({ authenticated: true, csrfToken: "synthetic-csrf-token" });
         return;
       }
+      if (path === "/api/auth/capabilities") {
+        await respond({
+          data: { canAssignContacts: true, canAssignConversations: true, canConfigureAgent: true },
+        });
+        return;
+      }
+      if (path === "/api/conversations/agent-control") {
+        await respond({ data: { enabled: true, version: "1", updatedAt: timestamp } });
+        return;
+      }
       if (path === "/api/custom-field-definitions") {
         expect(url.searchParams.get("model")).toBe("contact");
         expect(url.searchParams.get("limit")).toBe("100");
         await respond({
           data: [
+            {
+              id: "019b0000-0000-7000-8000-000000000096",
+              key: "sales_advisor",
+              label: "Asesor de Ventas",
+              description: "Selección binaria sintética",
+              dataType: "SINGLE_OPTIONS",
+              model: "contact",
+              options: ["Si", "No"],
+            },
             {
               id: "019b0000-0000-7000-8000-000000000098",
               key: "vehicle",
@@ -384,6 +411,7 @@ async function workspaceFixture(
               description: "Preferencia sintética",
               dataType: "TEXT",
               model: "contact",
+              options: [],
             },
             {
               id: "019b0000-0000-7000-8000-000000000097",
@@ -392,6 +420,7 @@ async function workspaceFixture(
               description: "Campo sintético vacío",
               dataType: "TEXT",
               model: "contact",
+              options: [],
             },
           ],
           page: { nextCursor: null },
@@ -422,7 +451,25 @@ async function workspaceFixture(
         });
         return;
       }
-      if (path === "/api/members" || path === "/api/tasks/assignees") {
+      if (path === "/api/members") {
+        await respond({
+          data: [
+            { id: memberId, displayName: "María Asesora Sintética", status: "ACTIVE" },
+            { id: invitedMemberId, displayName: "Julio Asesor Invitado", status: "INVITED" },
+          ].map((member) => ({
+            ...member,
+            email: `${member.id}@example.test`,
+            authorizationRevision: "1",
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            deactivatedAt: null,
+            commercialScope: "ASSIGNED",
+          })),
+          page: { nextCursor: null },
+        });
+        return;
+      }
+      if (path === "/api/tasks/assignees") {
         await respond({
           data: [
             {
@@ -660,6 +707,7 @@ test("contacts retain server pagination, search and contact detail on desktop an
   const detail = page.getByRole("complementary", { name: "Ficha de Última Sintética" });
   await expect(detail).toBeVisible();
   await expect(detail.getByRole("heading", { name: "Última Sintética" })).toBeVisible();
+  await expect(detail.getByText("Julio Asesor Invitado", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cerrar ficha" }).click();
   await expect(detail).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -692,12 +740,20 @@ test("active inbox preserves thread, draft composer and contact context at both 
   await list.locator('[data-source="QUANTUM"]').click();
   await expect(thread.getByText(message.body, { exact: true })).toBeVisible();
   await expect(context.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
+  await expect(thread.getByText("Asesor del chat:")).toBeVisible();
+  await expect(thread.getByText("María Asesora Sintética", { exact: true })).toBeVisible();
   await expect(context.getByText("Sedán sintético", { exact: true })).toBeVisible();
   await expect(context.getByText("Cliente frecuente", { exact: true })).toBeVisible();
+  await expect(context.getByText("Preferencia sin completar", { exact: true })).toHaveCount(0);
+  await thread.getByRole("button", { name: "Cerrar ficha" }).click();
+  await expect(context).toHaveCount(0);
+  await thread.getByRole("button", { name: "Ver ficha del contacto" }).click();
+  await expect(context.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
   const draft = thread.getByPlaceholder("Responder por Correo…");
   await draft.fill("Borrador sintético sin enviar");
   await expect(thread.getByRole("button", { name: "Enviar", exact: true })).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath("inbox-desktop.png") });
+  await thread.getByRole("button", { name: "Cerrar ficha" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await thread.scrollIntoViewIfNeeded();
   await expect(draft).toHaveValue("Borrador sintético sin enviar");
@@ -707,6 +763,64 @@ test("active inbox preserves thread, draft composer and contact context at both 
   await page.screenshot({ path: testInfo.outputPath("inbox-mobile.png") });
   expect(fixture.writes).toEqual([]);
   expect(fixture.unexpected).toEqual([]);
+});
+
+test("contact owner and binary custom field update directly from the conversation card", async ({
+  page,
+}) => {
+  await workspaceFixture(page);
+  let current: Contact = primaryContact;
+  const writes: Record<string, unknown>[] = [];
+  await page.route("**/api/contacts/*", async (route) => {
+    const request = route.request();
+    if (request.method() !== "PATCH") return route.fallback();
+    expect(request.headers()["x-csrf-token"]).toBe("synthetic-csrf-token");
+    expect(request.headers()["if-match"]).toBe(`"${current.version}"`);
+    const patch = request.postDataJSON() as Record<string, unknown>;
+    writes.push(patch);
+    current = {
+      ...current,
+      ...(Object.hasOwn(patch, "ownerMemberId")
+        ? { ownerMemberId: patch.ownerMemberId as string | null }
+        : {}),
+      ...(patch.customField
+        ? {
+            customFields: current.customFields.map((field) =>
+              field.fieldId === (patch.customField as { fieldId: string }).fieldId
+                ? { ...field, value: (patch.customField as { value: string }).value }
+                : field,
+            ),
+          }
+        : {}),
+      version: String(Number(current.version) + 1),
+    };
+    await route.fulfill({ json: { data: current } });
+  });
+
+  await page.goto("/inbox");
+  await page.locator(`[data-source="QUANTUM"][data-conversation-id="${conversationId}"]`).click();
+  const card = page.getByRole("region", { name: "Ficha del cliente" });
+  const owner = card.getByRole("combobox", { name: "Responsable del contacto" });
+  await expect(owner).toHaveValue(memberId);
+  await owner.selectOption("");
+  await expect(owner).toHaveValue("");
+  await owner.selectOption(memberId);
+  await expect(owner).toHaveValue(memberId);
+
+  await card.getByRole("button", { name: "Asesor de Ventas: Si. Cambiar valor" }).click();
+  const choices = card.getByRole("group", { name: "Asesor de Ventas" });
+  await expect(choices.getByRole("button")).toHaveCount(2);
+  await expect(choices.getByRole("button", { name: "Si" })).toBeVisible();
+  await expect(choices.getByRole("button", { name: "No" })).toBeVisible();
+  await choices.getByRole("button", { name: "No" }).click();
+  await expect(
+    card.getByRole("button", { name: "Asesor de Ventas: No. Cambiar valor" }),
+  ).toBeVisible();
+  expect(writes).toEqual([
+    { ownerMemberId: null },
+    { ownerMemberId: memberId },
+    { customField: { fieldId: "019b0000-0000-7000-8000-000000000096", value: "No" } },
+  ]);
 });
 
 test("one inbox preserves mixed pagination, shared search, selection and legacy contact links", async ({
@@ -870,11 +984,15 @@ test("imported history remains read only and downloads only the verified synthet
   const fixture = await workspaceFixture(page);
   await page.goto("/inbox");
   await page.locator(`[data-source="GHL"][data-conversation-id="${historicalId}"]`).click();
+  await expect(page.getByRole("region", { name: "Mensajes históricos" })).toContainText(
+    "Julio Asesor Invitado",
+  );
   const card = page.getByRole("region", { name: "Ficha del cliente" });
   await expect(card.getByRole("heading", { name: "Andrea Sintética" })).toBeVisible();
   await expect(card.getByText("Vehículo preferido", { exact: true })).toBeVisible();
   await expect(card.getByText("Sedán sintético", { exact: true })).toBeVisible();
   await expect(card.getByText("Cliente frecuente", { exact: true })).toBeVisible();
+  await card.getByText("Responsables originales", { exact: true }).click();
   const originalContact = card.getByRole("region", { name: "Responsables originales de contacto" });
   await expect(
     originalContact.getByText("Lucía Propietaria Sintética", { exact: true }),
@@ -882,6 +1000,7 @@ test("imported history remains read only and downloads only the verified synthet
   await expect(
     originalContact.getByText("Mateo Seguidor Sintético", { exact: true }),
   ).toBeVisible();
+  await page.getByText("Participantes originales", { exact: true }).click();
   const originalThread = page.getByRole("region", {
     name: "Responsables originales de conversación",
   });
