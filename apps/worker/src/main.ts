@@ -170,7 +170,8 @@ async function bootstrap(): Promise<void> {
                 ? error.name
                 : "UNKNOWN";
           process.stderr.write(
-            JSON.stringify({ level: "error", event: "inbound_media_attempt_failed", reason }) + "\n",
+            JSON.stringify({ level: "error", event: "inbound_media_attempt_failed", reason }) +
+              "\n",
           );
         },
       } satisfies InboundMediaLoopOptions);
