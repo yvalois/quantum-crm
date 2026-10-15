@@ -127,6 +127,7 @@ describe("process configuration", () => {
         supportsAgentGatewaySecret: true,
         supportsYCloudBinding: true,
         supportsYCloudApiKey: true,
+        supportsOpenAiApiKey: true,
       },
       "deploy-executor": {
         serviceName: "deploy-executor",

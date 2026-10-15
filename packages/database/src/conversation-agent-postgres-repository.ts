@@ -53,13 +53,19 @@ export function createConversationAgentPostgresRepository(
              FROM execution
              LEFT JOIN LATERAL (
                SELECT message.direction, message.author_member_id,
-                      left(message.body, 1200) AS body, message.sequence
+                      left(CASE WHEN media.status = 'completed'
+                        THEN CASE WHEN message.kind = 'audio' THEN media.analysis
+                          ELSE concat('Image caption: ', CASE WHEN message.body = 'Imagen' THEN '' ELSE left(message.body, 500) END,
+                                      '; internal visual description: ', media.analysis) END
+                        ELSE message.body END, 1200) AS body, message.sequence
                  FROM conversations.messages AS message
+                 LEFT JOIN conversations.inbound_media AS media ON media.message_id = message.id
                 WHERE message.conversation_id = execution.id
                   AND message.sequence > execution.agent_reset_sequence
                   AND message.sequence < execution.sequence
                   AND message.direction IN ('inbound', 'outbound')
-                  AND message.kind = 'text' AND length(trim(message.body)) > 0
+                  AND (message.kind = 'text' OR media.status = 'completed')
+                  AND length(trim(message.body)) > 0
                   AND (message.direction = 'inbound' OR message.delivery_status <> 'failed')
                 ORDER BY message.sequence DESC LIMIT 100
              ) AS prior ON true
@@ -120,7 +126,11 @@ export function createConversationAgentPostgresRepository(
         );
         const result = await client.query<RequestRow>(
           `SELECT request.inbound_message_id::text, request.conversation_id::text,
-                  message.body AS question, request.lease_generation::text,
+                  left(CASE WHEN media.status = 'completed'
+                    THEN CASE WHEN message.kind = 'audio' THEN media.analysis
+                      ELSE concat('Image caption: ', CASE WHEN message.body = 'Imagen' THEN '' ELSE left(message.body, 500) END,
+                                  '; internal visual description: ', media.analysis) END
+                    ELSE message.body END, 2000) AS question, request.lease_generation::text,
                   NOT EXISTS (
                     SELECT 1 FROM conversations.agent_requests AS completed
                      WHERE completed.conversation_id = request.conversation_id
@@ -129,6 +139,7 @@ export function createConversationAgentPostgresRepository(
                   ) AS first_turn
              FROM conversations.agent_requests AS request
              JOIN conversations.messages AS message ON message.id = request.inbound_message_id
+             LEFT JOIN conversations.inbound_media AS media ON media.message_id = message.id
              JOIN conversations.conversations AS conversation ON conversation.id = request.conversation_id
             WHERE (request.status = 'pending' OR
                    (request.status = 'leased' AND request.lease_expires_at < CURRENT_TIMESTAMP))
@@ -137,6 +148,13 @@ export function createConversationAgentPostgresRepository(
               AND conversation.attention_mode = 'agent'
               AND conversation.status <> 'closed'
               AND (SELECT enabled FROM conversations.agent_control WHERE id = 1)
+              AND NOT EXISTS (
+                SELECT 1 FROM conversations.inbound_media AS earlier_media
+                JOIN conversations.messages AS earlier_message ON earlier_message.id = earlier_media.message_id
+                WHERE earlier_media.conversation_id = request.conversation_id
+                  AND earlier_message.sequence < message.sequence
+                  AND earlier_media.status IN ('pending', 'leased', 'waiting_scan')
+              )
               AND NOT EXISTS (
                 SELECT 1 FROM conversations.agent_requests AS other
                  WHERE other.conversation_id = request.conversation_id

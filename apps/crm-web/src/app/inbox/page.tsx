@@ -50,6 +50,7 @@ interface CapabilitiesPayload {
     readonly canAssignContacts?: boolean;
     readonly canAssignConversations: boolean;
     readonly canConfigureAgent: boolean;
+    readonly canControlAgent?: boolean;
   };
 }
 
@@ -112,7 +113,7 @@ const historyLabel: Record<ConversationHistoryEntry["eventType"], string> = {
   TRANSFERRED: "Responsable transferido",
   STATUS_CHANGED: "Estado actualizado",
   ATTENTION_CHANGED: "Modo de atención actualizado",
-  AGENT_RESET: "Agente reiniciado",
+  AGENT_RESET: "Memoria de conversación reiniciada",
   MESSAGE_ADDED: "Mensaje registrado",
   NOTE_ADDED: "Nota interna registrada",
 };
@@ -268,6 +269,7 @@ export default function InboxPage(): React.JSX.Element {
   const [canAssignConversations, setCanAssignConversations] = useState(false);
   const [canAssignContacts, setCanAssignContacts] = useState(false);
   const [canConfigureAgent, setCanConfigureAgent] = useState(false);
+  const [canControlAgent, setCanControlAgent] = useState(false);
   const [agentControl, setAgentControl] = useState<{
     enabled: boolean;
     version: string;
@@ -315,6 +317,8 @@ export default function InboxPage(): React.JSX.Element {
   const lastModalFocusRef = useRef<HTMLElement | null>(null);
   const selectionRef = useRef<string | null>(null);
   const threadRequestRef = useRef<AbortController | null>(null);
+  const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  const followLatestMessageRef = useRef(true);
   const loadedListQueryRef = useRef<string | null>(null);
   const listCursor = listCursors.at(-1) ?? null;
 
@@ -375,13 +379,14 @@ export default function InboxPage(): React.JSX.Element {
       : null;
 
   const loadThread = useCallback(
-    async (id: string): Promise<void> => {
+    async (id: string, background = false): Promise<void> => {
       const key = `QUANTUM:${id}`;
       if (selectionRef.current !== key) return;
+      if (background && threadRequestRef.current) return;
       threadRequestRef.current?.abort();
       const controller = new AbortController();
       threadRequestRef.current = controller;
-      setThreadBusy(true);
+      if (!background) setThreadBusy(true);
       try {
         const response = await fetch(`/api/conversations/${id}`, {
           cache: "no-store",
@@ -422,13 +427,15 @@ export default function InboxPage(): React.JSX.Element {
           );
         }
       } catch (cause) {
-        if (!controller.signal.aborted && selectionRef.current === key) {
+        if (!background && !controller.signal.aborted && selectionRef.current === key) {
           setError(
             cause instanceof Error ? cause.message : "No fue posible abrir la conversación.",
           );
         }
       } finally {
-        if (!controller.signal.aborted && selectionRef.current === key) setThreadBusy(false);
+        if (threadRequestRef.current === controller) threadRequestRef.current = null;
+        if (!background && !controller.signal.aborted && selectionRef.current === key)
+          setThreadBusy(false);
       }
     },
     [csrf],
@@ -436,6 +443,7 @@ export default function InboxPage(): React.JSX.Element {
 
   function chooseConversation(item: UnifiedInboxItem): void {
     threadRequestRef.current?.abort();
+    followLatestMessageRef.current = true;
     const key = `${item.source}:${item.conversation.id}`;
     selectionRef.current = key;
     setSelectedKey(key);
@@ -557,6 +565,7 @@ export default function InboxPage(): React.JSX.Element {
         setCanAssignConversations(capabilities.canAssignConversations);
         setCanAssignContacts(Boolean(capabilities.canAssignContacts));
         setCanConfigureAgent(capabilities.canConfigureAgent);
+        setCanControlAgent(capabilities.canControlAgent === true);
         setAgentControl(AgentControlResponseSchema.parse(await agentResponse.json()).data);
         if (capabilities.canAssignConversations || capabilities.canAssignContacts) {
           void (async () => {
@@ -611,6 +620,33 @@ export default function InboxPage(): React.JSX.Element {
     }, 20_000);
     return () => window.clearInterval(timer);
   }, [csrf]);
+
+  const hasRecentPendingMedia = messages.some(
+    (message) =>
+      message.direction === "INBOUND" &&
+      (message.kind === "IMAGE" || message.kind === "AUDIO") &&
+      !message.fileId &&
+      Date.now() - Date.parse(message.createdAt) < 2 * 60_000,
+  );
+
+  useEffect(() => {
+    if (!csrf || !selectedKey?.startsWith("QUANTUM:")) return;
+    const id = selectedKey.slice("QUANTUM:".length);
+    const refresh = (): void => {
+      if (document.visibilityState === "visible") void loadThread(id, true);
+    };
+    const timer = window.setInterval(refresh, hasRecentPendingMedia ? 2_000 : 4_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [csrf, hasRecentPendingMedia, loadThread, selectedKey]);
+
+  useEffect(() => {
+    const scroll = messageScrollRef.current;
+    if (scroll && followLatestMessageRef.current) scroll.scrollTop = scroll.scrollHeight;
+  }, [messages, selectedKey]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClockNow(Date.now()), 30_000);
@@ -1022,6 +1058,17 @@ export default function InboxPage(): React.JSX.Element {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function resetConversation(): Promise<void> {
+    if (!selected || !canControlAgent) return;
+    if (
+      !window.confirm(
+        "¿Reiniciar la conversación? El agente olvidará el contexto anterior en este chat. Los mensajes seguirán visibles y no se reenviará nada.",
+      )
+    )
+      return;
+    await update({ resetAgent: true });
   }
 
   async function setAgentEnabled(enabled: boolean): Promise<void> {
@@ -1541,6 +1588,17 @@ export default function InboxPage(): React.JSX.Element {
                           : "Reactivar agente en este chat"}
                       </button>
                     ) : null}
+                    {selected.channel === "WHATSAPP" && canControlAgent ? (
+                      <button
+                        className={styles.outlineButton}
+                        type="button"
+                        disabled={saving}
+                        onClick={() => void resetConversation()}
+                        title="Borra la memoria del agente en este chat; conserva los mensajes"
+                      >
+                        Reiniciar conversación
+                      </button>
+                    ) : null}
                     <span className={cx(styles.statusTag, statusClass[selected.status])}>
                       {statusLabel[selected.status]}
                     </span>
@@ -1555,7 +1613,16 @@ export default function InboxPage(): React.JSX.Element {
                   </div>
                 </header>
 
-                <div className={styles.messageScroll} aria-live="polite">
+                <div
+                  className={styles.messageScroll}
+                  aria-live="polite"
+                  ref={messageScrollRef}
+                  onScroll={(event) => {
+                    const scroll = event.currentTarget;
+                    followLatestMessageRef.current =
+                      scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+                  }}
+                >
                   {messages.length === 0 ? (
                     <div className={styles.messageEmpty}>
                       <span className={styles.emptyIcon}>
@@ -1583,7 +1650,12 @@ export default function InboxPage(): React.JSX.Element {
                             <span>{authorLabel(item)}</span>
                             <time>{time(item.createdAt)}</time>
                           </div>
-                          <div className={styles.messageBubble}>
+                          <div
+                            className={cx(
+                              styles.messageBubble,
+                              item.kind === "AUDIO" && item.fileId && styles.messageBubbleWithAudio,
+                            )}
+                          >
                             {item.kind === "DOCUMENT" && item.documentSnapshot ? (
                               <div className={styles.documentMessage}>
                                 <span>
@@ -1597,8 +1669,18 @@ export default function InboxPage(): React.JSX.Element {
                                 </div>
                               </div>
                             ) : null}
-                            {item.fileId ? <ConversationMedia message={item} csrf={csrf} /> : null}
-                            <p>{item.body}</p>
+                            {item.fileId ? (
+                              <ConversationMedia message={item} csrf={csrf} />
+                            ) : item.direction === "INBOUND" &&
+                              (item.kind === "IMAGE" || item.kind === "AUDIO") ? (
+                              <p className={styles.mediaUnavailable}>
+                                {item.kind === "IMAGE" ? "Imagen" : "Audio"} pendiente o no
+                                disponible.
+                              </p>
+                            ) : null}
+                            {item.kind !== "AUDIO" || !item.fileId || item.body !== "Audio" ? (
+                              <p>{item.body}</p>
+                            ) : null}
                             <footer>
                               <span>{deliveryLabel[item.deliveryStatus]}</span>
                               {item.failureCode ? <span>{item.failureCode}</span> : null}
@@ -2045,26 +2127,6 @@ export default function InboxPage(): React.JSX.Element {
                         : "Tomar conversación"}
                       <Icon name="arrow" size={15} />
                     </button>
-                    {selected.attentionMode === "AGENT" && selected.channel === "WHATSAPP" && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={
-                            saving ||
-                            selected.status === "CLOSED" ||
-                            selected.status === "ESCALATED"
-                          }
-                          onClick={() => void update({ resetAgent: true })}
-                        >
-                          Reiniciar agente
-                        </button>
-                        <p className={styles.agentResetHint}>
-                          Borra el contexto que usa el agente en este chat, pero conserva el
-                          historial visible. El próximo mensaje inicia una conversación nueva con
-                          Alex.
-                        </p>
-                      </>
-                    )}
                   </section>
 
                   <section className={styles.contextFacts}>

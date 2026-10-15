@@ -24,4 +24,9 @@ export {
   type ReservedFileUploadAuthorization,
   type ReservedFileUploadOptions,
 } from "./reserved-file-upload.js";
-export { readAvailableOutboundMedia, type OutboundMedia } from "./outbound-media.js";
+export {
+  readAvailableOutboundMedia,
+  readAvailableInboundMedia,
+  type OutboundMedia,
+} from "./outbound-media.js";
+export { openYCloudMediaSource, sealYCloudMediaSource } from "./ycloud-media-source.js";

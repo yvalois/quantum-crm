@@ -8,7 +8,7 @@ import {
   handoffJsonSchema,
   handoffSchema,
 } from "./interamerican-handoff.js";
-import { interAmericanConversationPolicy } from "./interamerican-policy.js";
+import { renderInterAmericanPrompt } from "./interamerican-prompt-renderer.js";
 
 const responseSchema = z.object({
   status: z.literal("completed"),
@@ -34,9 +34,10 @@ export function createOpenAiConversationAnswer(options: {
   readonly question: string;
   readonly history: AgentConversationContext["messages"];
   readonly firstTurn?: boolean;
+  readonly language?: "es" | "en";
 }) => Promise<ConversationAnswer> {
   return async (input) => {
-    const policy = `${interAmericanConversationPolicy}\n\n${handoffDecisionInstructions}`;
+    const policy = renderInterAmericanPrompt(input);
     const response = await (options.fetcher ?? fetch)("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -47,10 +48,9 @@ export function createOpenAiConversationAnswer(options: {
       body: JSON.stringify({
         model: options.model ?? "gpt-5-mini",
         store: false,
-        max_output_tokens: 1600,
-        instructions: input.firstTurn
-          ? `${policy}\n\nLa primera presentación de Alex la agrega la aplicación a esta respuesta. No inicies tu texto con saludo ni presentación; responde directamente la solicitud.`
-          : policy,
+        max_output_tokens: 4000,
+        reasoning: { effort: "low" },
+        instructions: `${policy}\n\n${handoffDecisionInstructions.replace("answer", "mensaje")}`,
         input: [
           ...input.history.map((message) => ({
             role: message.role === "customer" ? "user" : "assistant",
@@ -65,14 +65,14 @@ export function createOpenAiConversationAnswer(options: {
             strict: true,
             schema: {
               type: "object",
-              properties: { answer: { type: "string" }, handoff: handoffJsonSchema },
-              required: ["answer", "handoff"],
+              properties: { mensaje: { type: "string" }, handoff: handoffJsonSchema },
+              required: ["mensaje", "handoff"],
               additionalProperties: false,
             },
           },
         },
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(60_000),
     });
     if (!response.ok) throw new Error("OpenAI conversation answer request failed");
     const payload = responseSchema.parse(await response.json());
@@ -83,15 +83,15 @@ export function createOpenAiConversationAnswer(options: {
       .map((content) => content.text ?? "")
       .join("");
     const parsed = z
-      .object({ answer: z.string().trim().min(1).max(2_000), handoff: handoffSchema })
+      .object({ mensaje: z.string().trim().min(1).max(4_000), handoff: handoffSchema })
       .parse(JSON.parse(text));
-    const answer = parsed.answer;
+    const answer = parsed.mensaje;
     const customerGreeted =
       /^(?:[¡!¿?\s]*)(?:hola|buen(?:os|as)(?:\s+d[ií]as|\s+tardes|\s+noches)?|hi|hello)\b/iu.test(
         input.question,
       );
     const continuation =
-      customerGreeted && !input.firstTurn
+      input.firstTurn || customerGreeted
         ? answer
         : answer
             .replace(/^\s*[¡!]?hola(?:\s+de nuevo)?[!¡.,:\s-]*/iu, "")

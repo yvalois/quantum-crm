@@ -209,9 +209,6 @@ export class ConversationService {
       if (
         input.resetAgent &&
         (current.channel !== "WHATSAPP" ||
-          current.attentionMode !== "AGENT" ||
-          current.status === "ESCALATED" ||
-          current.status === "CLOSED" ||
           input.attentionMode !== undefined ||
           input.status !== undefined ||
           input.assigneeMemberId !== undefined)

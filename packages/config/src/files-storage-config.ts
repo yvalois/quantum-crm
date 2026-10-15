@@ -37,6 +37,8 @@ export const filesSignerEnvironmentKeys = Object.freeze([
 
 export const filesProcessorEnvironmentKeys = Object.freeze([
   ...commonEnvironmentKeys,
+  "QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE",
+  "QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE",
   "QCRM_FILES_S3_PROCESSOR_ACCESS_KEY_FILE",
   "QCRM_FILES_S3_PROCESSOR_SECRET_KEY_FILE",
   "QCRM_FILES_CLAMAV_HOST",
@@ -46,6 +48,24 @@ export const filesProcessorEnvironmentKeys = Object.freeze([
   "QCRM_FILES_WORKER_POLL_INTERVAL_MS",
   "QCRM_FILES_WORKER_LEASE_SECONDS",
 ] as const);
+
+export function parseFilesUploadCredentials(
+  serviceName: string,
+  environmentName: QcrmEnvironment,
+  environment: Readonly<Record<string, string | undefined>>,
+  fileSystem?: SecretFileSystem,
+): FilesStorageCredentials {
+  return loadCredential(
+    serviceName,
+    environmentName,
+    environment,
+    "QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE",
+    "QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE",
+    uploadAccessKeyPath,
+    uploadSecretKeyPath,
+    fileSystem,
+  );
+}
 
 export interface FilesStorageCredentials {
   readonly accessKey: SecretValue;

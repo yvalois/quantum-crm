@@ -27,6 +27,7 @@ export interface RagGateway {
   answer(input: {
     readonly catalog: CatalogKind;
     readonly question: string;
+    readonly language?: "es" | "en";
     readonly sources: readonly RagSource[];
     readonly history: AgentConversationContext["messages"];
   }): Promise<{ readonly text: string; readonly sourceIds: readonly string[] }>;
@@ -36,6 +37,7 @@ const ragState = new StateSchema({
   question: z.string(),
   catalog: catalogKindSchema,
   history: AgentConversationContextSchema.shape.messages,
+  language: z.enum(["es", "en"]).default("es"),
   sources: z.array(sourceSchema).optional(),
   answer: z.string().optional(),
   citedSourceIds: z.array(z.string()).optional(),
@@ -67,11 +69,18 @@ export function createRagGraph(gateway: RagGateway) {
     .addNode("compose", async (state) => {
       const sources = state.sources ?? [];
       if (sources.length === 0) {
-        return { answer: noEvidenceAnswer, citedSourceIds: [] };
+        return {
+          answer:
+            state.language === "en"
+              ? "I'll verify that detail while preparing your quote so I can give you an accurate answer."
+              : noEvidenceAnswer,
+          citedSourceIds: [],
+        };
       }
       const generated = await gateway.answer({
         catalog: state.catalog,
         question: state.question,
+        language: state.language,
         sources,
         history: state.history,
       });
@@ -79,7 +88,13 @@ export function createRagGraph(gateway: RagGateway) {
       const citedSourceIds = z.array(z.string()).max(8).parse(generated.sourceIds);
       const allowed = new Set(sources.map((source) => source.id));
       if (citedSourceIds.length === 0 || citedSourceIds.some((id) => !allowed.has(id))) {
-        return { answer: noEvidenceAnswer, citedSourceIds: [] };
+        return {
+          answer:
+            state.language === "en"
+              ? "I'll verify that detail while preparing your quote so I can give you an accurate answer."
+              : noEvidenceAnswer,
+          citedSourceIds: [],
+        };
       }
       return { answer, citedSourceIds: [...new Set(citedSourceIds)] };
     })
@@ -95,6 +110,7 @@ export async function askCatalog(
     readonly catalog: CatalogKind;
     readonly question: string;
     readonly history?: AgentConversationContext["messages"];
+    readonly language?: "es" | "en";
   },
 ): Promise<RagResult> {
   const catalog = catalogKindSchema.parse(input.catalog);
@@ -103,6 +119,7 @@ export async function askCatalog(
     catalog,
     question,
     history: input.history ?? [],
+    language: input.language ?? "es",
   });
   const cited = new Set(result.citedSourceIds ?? []);
   const sources = (result.sources ?? [])
@@ -114,7 +131,11 @@ export async function askCatalog(
       revision,
     }));
   return {
-    answer: result.answer ?? noEvidenceAnswer,
+    answer:
+      result.answer ??
+      (input.language === "en"
+        ? "I'll verify that detail while preparing your quote so I can give you an accurate answer."
+        : noEvidenceAnswer),
     sources,
     grounded: sources.length > 0,
   };

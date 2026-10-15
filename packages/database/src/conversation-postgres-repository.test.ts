@@ -31,6 +31,21 @@ const row = Object.freeze({
 });
 
 describe("conversation PostgreSQL repository", () => {
+  it("returns only messages and history after a scoped visible-history reset", async () => {
+    const clearedAt = new Date("2026-10-15T20:50:00.000Z");
+    const query = vi.fn(async (statement: string) => {
+      if (statement.includes("conversation.visible_after_sequence::text"))
+        return { rows: [{ ...row, visible_after_sequence: "46", visible_cleared_at: clearedAt }] };
+      return { rows: [] };
+    });
+    const pool = { query } as unknown as PostgresPool;
+    const thread = await createConversationPostgresRepository(pool).thread(actor, row.id);
+    expect(thread?.messages).toEqual([]);
+    expect(query.mock.calls[1]?.[0]).toContain("message.sequence > $2::bigint");
+    expect(query.mock.calls[1]?.[1]).toEqual([row.id, "46"]);
+    expect(query.mock.calls[2]?.[1]).toEqual([row.id, clearedAt]);
+  });
+
   it("clears only inbound messages shown to the authorized viewer", async () => {
     const query = vi.fn(async (statement: string, _values?: unknown[]) => {
       if (statement.includes("UPDATE conversations.conversations conversation SET unread_count"))
@@ -40,7 +55,9 @@ describe("conversation PostgreSQL repository", () => {
     const pool = { query } as unknown as PostgresPool;
     const marked = await createConversationPostgresRepository(pool).markRead(actor, row.id, 8n);
     expect(marked?.unreadCount).toBe(1);
-    expect(query.mock.calls[0]?.[0]).toContain("message.sequence > $3::bigint");
+    expect(query.mock.calls[0]?.[0]).toContain(
+      "message.sequence > GREATEST($3::bigint, conversation.visible_after_sequence)",
+    );
     expect(query.mock.calls[0]?.[1]).toEqual([row.id, actor.memberId, "8"]);
   });
 

@@ -4,6 +4,7 @@ import { Controller, HttpException, Inject, Post, Req } from "@nestjs/common";
 import type { YCloudBindingConfig } from "@quantum-crm/config";
 import { POSTGRES_DATABASE, type CrmPostgresDatabase } from "@quantum-crm/database";
 import type { ConversationMessageKind } from "@quantum-crm/domain";
+import { sealYCloudMediaSource } from "@quantum-crm/files-infrastructure";
 
 import { CrmPublicRoute } from "./crm-security.js";
 
@@ -57,6 +58,12 @@ export interface ParsedYCloudMessage {
   readonly body: string;
   readonly occurredAt: Date;
   readonly historical: boolean;
+  readonly inboundMedia?: {
+    readonly providerMediaId: string;
+    readonly expectedSha256: string;
+    readonly declaredMime: string;
+    readonly sealedSource: string;
+  };
 }
 
 export interface ParsedYCloudOutboundStatus {
@@ -132,6 +139,10 @@ export function parseYCloudMessage(
   if (Number.isNaN(timestamp.getTime())) return null;
   const messageType = string(message.type) ?? "unknown";
   const media = object(message[messageType]);
+  const mediaId = string(media?.id);
+  const mediaLink = string(media?.link);
+  const mediaChecksum = string(media?.sha256);
+  const mediaMime = string(media?.mime_type)?.split(";", 1)[0]?.toLowerCase();
   const caption = string(media?.caption)?.trim();
   const text = string(object(message.text)?.body)?.trim();
   const labels: Readonly<Record<string, string>> = {
@@ -164,6 +175,28 @@ export function parseYCloudMessage(
     body,
     occurredAt: timestamp,
     historical: type === "whatsapp.smb.history",
+    ...(inbound &&
+    type !== "whatsapp.smb.history" &&
+    ["image", "audio"].includes(messageType) &&
+    mediaId &&
+    /^[A-Za-z0-9_-]{1,80}$/u.test(mediaId) &&
+    mediaLink &&
+    mediaChecksum &&
+    /^[A-Za-z0-9+/]{43}=$/u.test(mediaChecksum) &&
+    mediaMime &&
+    (messageType === "image"
+      ? ["image/jpeg", "image/png", "image/webp"]
+      : ["audio/mpeg", "audio/ogg", "audio/wav", "audio/webm"]
+    ).includes(mediaMime)
+      ? {
+          inboundMedia: {
+            providerMediaId: mediaId,
+            expectedSha256: mediaChecksum,
+            declaredMime: mediaMime,
+            sealedSource: sealYCloudMediaSource(mediaLink, mediaId, binding.signingSecret.expose()),
+          },
+        }
+      : {}),
   });
 }
 
@@ -228,6 +261,7 @@ export class YCloudWebhookController {
       body: message.body,
       occurredAt: message.occurredAt,
       historical: message.historical,
+      ...(message.inboundMedia ? { inboundMedia: message.inboundMedia } : {}),
     });
     return { received: true };
   }

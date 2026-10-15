@@ -49,7 +49,7 @@ export async function dispatchAgentRequest(
       }),
       redirect: "error",
       cache: "no-store",
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(70_000),
     });
     if (!response.ok) throw new Error("Agent runtime unavailable");
     const result = agentResultSchema.parse(await response.json());

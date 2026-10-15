@@ -134,6 +134,7 @@ export const MemberCapabilitiesResponseSchema = z
         canAssignContacts: z.boolean().optional(),
         canAssignConversations: z.boolean(),
         canConfigureAgent: z.boolean(),
+        canControlAgent: z.boolean().optional(),
         canManageMembers: z.boolean(),
         canViewAllCalendarEvents: z.boolean(),
         canConfigureCalendar: z.boolean(),

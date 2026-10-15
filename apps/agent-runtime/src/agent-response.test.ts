@@ -33,6 +33,17 @@ function gateway(messages: AgentConversationContext["messages"]) {
 }
 
 describe("InterAmerican agent memory", () => {
+  it("routes an unclassified SUV rental without asking particular requirements", async () => {
+    const current = gateway([]);
+    const result = await answerAgentTurn(
+      { question: "Hola, quiero rentar un SUV por tres días", firstTurn: true },
+      current,
+    );
+    expect(result.handoffRequested).toBe(true);
+    expect(result.answer).toContain("Voy a validar la disponibilidad");
+    expect(current.answerConversation).not.toHaveBeenCalled();
+  });
+
   it("greets the first turn and remembers the selected catalog on a later question", async () => {
     const first = gateway([]);
     expect((await answerAgentTurn({ question: "Hola", firstTurn: true }, first)).answer).toBe(
@@ -71,8 +82,12 @@ describe("InterAmerican agent memory", () => {
       question: "Quiero rentar un vehículo",
       history: [],
       firstTurn: true,
+      language: "es",
     });
     expect(result.answer).toContain("Soy Alex");
+    expect(result.answer).toContain(
+      "Hola 👋 gracias por escribir a InterAmerican Car Rental Guatemala.",
+    );
     expect(result.answer).not.toBe(initialGreeting);
   });
 
@@ -86,12 +101,42 @@ describe("InterAmerican agent memory", () => {
     expect(current.search).not.toHaveBeenCalled();
   });
 
+  it("does not duplicate an introduction or the exact Renting exception", async () => {
+    const introduced = gateway([]);
+    introduced.answerConversation.mockResolvedValueOnce({
+      answer:
+        "Hola 👋 Soy Alex, asesor de InterAmerican Car Rental Guatemala. ¿Qué tipo de vehículo buscas?",
+      handoffRequested: false,
+    });
+    const first = await answerAgentTurn(
+      { question: "Quiero un carro", firstTurn: true },
+      introduced,
+    );
+    expect(first.answer.match(/Soy Alex/gu)).toHaveLength(1);
+
+    const renting = gateway([]);
+    renting.answerConversation.mockResolvedValueOnce({
+      answer:
+        "Hola 👋 ¡Gracias por escribir a InterAmerican Car Rental Guatemala! Con gusto le comparto información sobre nuestro servicio de Renting 🚗",
+      handoffRequested: false,
+    });
+    const second = await answerAgentTurn({ question: "Quiero Renting", firstTurn: true }, renting);
+    expect(second.answer).not.toContain("Soy Alex");
+  });
+
   it("starts without prior memory after reset while leaving the CRM transcript untouched", async () => {
     const afterReset = gateway([]);
     const result = await answerAgentTurn({ question: "Hola", firstTurn: true }, afterReset);
     expect(result.answer).toBe(initialGreeting);
     expect(afterReset.context).toHaveBeenCalledOnce();
     expect(afterReset.answerCatalog).not.toHaveBeenCalled();
+  });
+
+  it("uses Alex's original greeting for a transcribed voice greeting after reset", async () => {
+    const afterReset = gateway([]);
+    const result = await answerAgentTurn({ question: "Buenos días.", firstTurn: true }, afterReset);
+    expect(result.answer).toBe(initialGreeting);
+    expect(afterReset.answerConversation).not.toHaveBeenCalled();
   });
 
   it("uses only the context returned for this execution", async () => {
@@ -101,6 +146,7 @@ describe("InterAmerican agent memory", () => {
       question: "¿Puede ser mañana?",
       history: [{ role: "customer", text: "Necesito un traslado" }],
       firstTurn: false,
+      language: "es",
     });
     expect(current.search).not.toHaveBeenCalled();
   });
@@ -112,6 +158,7 @@ describe("InterAmerican agent memory", () => {
       question: "Sí",
       history: [{ role: "customer", text: "Busco un carro individual" }],
       firstTurn: false,
+      language: "es",
     });
     expect(current.search).not.toHaveBeenCalled();
   });

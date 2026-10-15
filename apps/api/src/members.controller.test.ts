@@ -26,6 +26,18 @@ describe("member invitation reissue", () => {
     });
   });
 
+  it("exposes conversation reset only to a member with agent-control permission", () => {
+    const controller = new MembersController({} as IamMemberService, {} as never, {} as never);
+    const capabilities = (permissions: string[]) =>
+      controller.capabilities({
+        headers: {},
+        [CRM_AUTH_CONTEXT]: { principal: { id: memberId }, permissions },
+      } as never).data;
+    expect(capabilities([]).canControlAgent).toBe(false);
+    expect(capabilities(["crm:conversations:configure"]).canControlAgent).toBe(false);
+    expect(capabilities(["crm:conversations:control-agent"]).canControlAgent).toBe(true);
+  });
+
   it("reserves a generation and returns the new access only once", async () => {
     const reserveReissue = vi.fn(async () => ({
       invitationId,

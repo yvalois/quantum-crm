@@ -97,6 +97,7 @@ export {
   filesProcessorEnvironmentKeys,
   filesSignerEnvironmentKeys,
   parseFilesStorageConfig,
+  parseFilesUploadCredentials,
   type FilesProcessorConfig,
   type FilesSignerConfig,
   type FilesStorageConfig,

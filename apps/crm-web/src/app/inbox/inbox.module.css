@@ -1145,10 +1145,92 @@
   margin-bottom: 0.4rem;
 }
 
-.messageAudio {
+.messageImageButton {
   display: block;
-  width: min(100%, 19rem);
-  margin-bottom: 0.35rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.messageImageDialog {
+  max-width: min(94vw, 72rem);
+  max-height: 94vh;
+  border: 0;
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 0.7rem;
+}
+
+.messageImageDialog::backdrop {
+  background: rgb(9 22 27 / 0.85);
+}
+
+.messageImageDialog button {
+  display: block;
+  margin: 0 0 0.5rem auto;
+}
+
+.messageImageDialog img {
+  display: block;
+  max-width: 90vw;
+  max-height: calc(94vh - 3rem);
+  object-fit: contain;
+}
+
+.messageBubbleWithAudio {
+  width: min(23rem, 78%);
+  box-sizing: border-box;
+}
+
+.messageAudioPlayer {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.1rem 0 0.3rem;
+}
+
+.messageAudioPlayer audio {
+  display: none;
+}
+
+.messageAudioToggle {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--teal-deep);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.messageAudioTrack {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.12rem;
+  color: #344c51;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.messageAudioTrack input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--teal-deep);
+}
+
+.messageAudioTime {
+  flex: none;
+  color: #657b80;
+  font-size: 0.6rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .messageFile {
@@ -1616,13 +1698,6 @@
 
 .attentionCard button:hover:not(:disabled) {
   background: var(--teal-soft);
-}
-
-.agentResetHint {
-  margin: 0;
-  color: #71858a;
-  font-size: 0.61rem;
-  line-height: 1.4;
 }
 
 .contextFacts {

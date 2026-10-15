@@ -384,6 +384,26 @@ export function createExternalConversationReceiver(
             message.occurredAt,
           ],
         );
+        if (
+          message.direction === "INBOUND" &&
+          !message.historical &&
+          message.inboundMedia &&
+          (message.kind === "IMAGE" || message.kind === "AUDIO")
+        ) {
+          await client.query(
+            `INSERT INTO conversations.inbound_media
+             (message_id, conversation_id, provider_media_id, expected_sha256, declared_mime, sealed_source)
+             VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)`,
+            [
+              inboundMessageId,
+              conversationId,
+              message.inboundMedia.providerMediaId,
+              message.inboundMedia.expectedSha256,
+              message.inboundMedia.declaredMime,
+              message.inboundMedia.sealedSource,
+            ],
+          );
+        }
         await client.query(
           `UPDATE conversations.conversations SET
              last_message_preview = CASE WHEN last_message_at IS NULL OR $2 >= last_message_at
@@ -444,6 +464,8 @@ export interface ConversationRow {
   readonly version: string;
   readonly created_at: Date | string;
   readonly updated_at: Date | string;
+  readonly visible_after_sequence?: string;
+  readonly visible_cleared_at?: Date | string | null;
 }
 interface MessageRow {
   readonly id: string;
@@ -721,7 +743,7 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
           `UPDATE conversations.conversations conversation SET unread_count =
              (SELECT count(*)::int FROM conversations.messages message
               WHERE message.conversation_id = conversation.id AND message.direction = 'inbound'
-                AND message.sequence > $${through}::bigint)
+                AND message.sequence > GREATEST($${through}::bigint, conversation.visible_after_sequence))
            WHERE conversation.id = $1::uuid AND ${visible.sql}
            RETURNING ${conversationSelection}`,
           [id, ...visible.params, throughSequence.toString()],
@@ -735,7 +757,8 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
       try {
         const visible = access(actor, 2);
         const conversationResult = (await pool.query(
-          `SELECT ${conversationSelection} FROM conversations.conversations conversation
+          `SELECT ${conversationSelection}, conversation.visible_after_sequence::text,
+                  conversation.visible_cleared_at FROM conversations.conversations conversation
            WHERE conversation.id = $1::uuid AND ${visible.sql}`,
           [id, ...visible.params],
         )) as { rows: ConversationRow[] };
@@ -744,15 +767,17 @@ export function createConversationPostgresRepository(pool: PostgresPool): Conver
         const [messages, history] = await Promise.all([
           pool.query(
             `SELECT ${messageSelection} FROM conversations.messages message
-             WHERE message.conversation_id = $1::uuid ORDER BY message.sequence ASC`,
-            [id],
+             WHERE message.conversation_id = $1::uuid AND message.sequence > $2::bigint
+             ORDER BY message.sequence ASC`,
+            [id, row.visible_after_sequence ?? "0"],
           ) as Promise<{ rows: MessageRow[] }>,
           pool.query(
             `SELECT id::text, conversation_id::text, event_type, actor_member_id::text,
                     previous_value, next_value, created_at
              FROM conversations.history WHERE conversation_id = $1::uuid
+               AND created_at >= $2::timestamptz
              ORDER BY created_at ASC, id ASC`,
-            [id],
+            [id, row.visible_cleared_at ?? "-infinity"],
           ) as Promise<{ rows: HistoryRow[] }>,
         ]);
         return Object.freeze({

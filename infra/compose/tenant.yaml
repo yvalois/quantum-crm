@@ -186,6 +186,9 @@ services:
       QCRM_FILES_S3_REQUEST_TIMEOUT_MS: "${QCRM_FILES_S3_REQUEST_TIMEOUT_MS:-10000}"
       QCRM_FILES_S3_PROCESSOR_ACCESS_KEY_FILE: /run/secrets/qcrm_files_s3_processor_access_key
       QCRM_FILES_S3_PROCESSOR_SECRET_KEY_FILE: /run/secrets/qcrm_files_s3_processor_secret_key
+      QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE: /run/secrets/qcrm_files_s3_upload_access_key
+      QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE: /run/secrets/qcrm_files_s3_upload_secret_key
+      QCRM_OPENAI_API_KEY_FILE: "${QCRM_OPENAI_API_KEY_FILE:-}"
       QCRM_FILES_CLAMAV_HOST: platform-clamav
       QCRM_FILES_CLAMAV_PORT: "3310"
       QCRM_FILES_CLAMAV_TIMEOUT_MS: "${QCRM_FILES_CLAMAV_TIMEOUT_MS:-30000}"
@@ -205,6 +208,12 @@ services:
         target: qcrm_files_s3_processor_access_key
       - source: files-s3-processor-secret-key
         target: qcrm_files_s3_processor_secret_key
+      - source: files-s3-upload-access-key
+        target: qcrm_files_s3_upload_access_key
+      - source: files-s3-upload-secret-key
+        target: qcrm_files_s3_upload_secret_key
+      - source: openai-api-key
+        target: qcrm_openai_api_key
     healthcheck:
       test:
         [

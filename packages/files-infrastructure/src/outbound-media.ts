@@ -17,16 +17,18 @@ export interface OutboundMedia {
 }
 
 /** Files is the only module translating an approved file ID into object bytes. */
-export async function readAvailableOutboundMedia(input: {
+async function readAvailableConversationMedia(input: {
   readonly files: FileRepository;
   readonly storage: ObjectStorageClient;
   readonly actor: CommercialActor;
   readonly fileId: string;
   readonly conversationId: string;
+  readonly inbound: boolean;
 }): Promise<OutboundMedia> {
   const file = await input.files.find(input.actor, input.fileId);
   if (
     !file ||
+    (input.inbound && file.owner.kind !== "existing") ||
     (file.owner.kind !== "library" &&
       !(
         file.owner.kind === "existing" &&
@@ -46,8 +48,15 @@ export async function readAvailableOutboundMedia(input: {
   ) {
     throw new FileStateConflictError();
   }
-  const maxBytes =
-    file.fileClass === "IMAGE" ? 5_000_000 : file.fileClass === "AUDIO" ? 16_000_000 : 50_000_000;
+  const maxBytes = input.inbound
+    ? file.fileClass === "IMAGE"
+      ? 20_000_000
+      : 25_000_000
+    : file.fileClass === "IMAGE"
+      ? 5_000_000
+      : file.fileClass === "AUDIO"
+        ? 16_000_000
+        : 50_000_000;
   if (file.observedSize > maxBytes) throw new FileValidationError("Media too large for WhatsApp");
   const object = await input.storage.getObjectVersion(
     file.objectKey,
@@ -64,4 +73,16 @@ export async function readAvailableOutboundMedia(input: {
     mimeType: file.observedMime,
     filename: file.libraryTitle ?? file.originalName,
   });
+}
+
+export async function readAvailableOutboundMedia(
+  input: Omit<Parameters<typeof readAvailableConversationMedia>[0], "inbound">,
+): Promise<OutboundMedia> {
+  return readAvailableConversationMedia({ ...input, inbound: false });
+}
+
+export async function readAvailableInboundMedia(
+  input: Omit<Parameters<typeof readAvailableConversationMedia>[0], "inbound">,
+): Promise<OutboundMedia> {
+  return readAvailableConversationMedia({ ...input, inbound: true });
 }

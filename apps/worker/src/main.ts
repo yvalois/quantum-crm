@@ -5,10 +5,15 @@ import { NestFactory } from "@nestjs/core";
 import { createServiceTokenClient } from "@quantum-crm/auth";
 import { loadServiceConfig, requireDatabaseConfig, requireOidcConfig } from "@quantum-crm/config";
 import { createCrmPostgresDatabase } from "@quantum-crm/database";
-import { agentRoutingPrincipalId } from "@quantum-crm/domain";
+import { FileService, agentRoutingPrincipalId } from "@quantum-crm/domain";
+import {
+  startConversationInboundMediaLoop,
+  type InboundMediaLoopOptions,
+} from "./conversation-inbound-media-loop.js";
 import {
   createClamAvClient,
   createS3ObjectStorage,
+  ObjectStorageError,
   readAvailableOutboundMedia,
 } from "@quantum-crm/files-infrastructure";
 import { createInternalHealthServer, registerGracefulShutdown } from "@quantum-crm/observability";
@@ -68,6 +73,7 @@ async function bootstrap(): Promise<void> {
   let fileProcessingLoop: FileProcessingLoop | undefined;
   let ycloudOutboundLoop: YCloudOutboundLoop | undefined;
   let conversationAgentLoop: ConversationAgentLoop | undefined;
+  let inboundMediaLoop: { close: () => Promise<void> } | undefined;
   try {
     await database.connect();
     application = await NestFactory.createApplicationContext(AppModule, {
@@ -103,6 +109,72 @@ async function bootstrap(): Promise<void> {
           process.stderr.write('{"level":"error","event":"ycloud_outbound_attempt_failed"}\n');
         },
       });
+    }
+    if (config.ycloudBinding && config.ycloudApiKey && config.openAiApiKey) {
+      if (!config.filesInboundUploadCredentials)
+        throw new Error("Inbound media upload credential is required");
+      const uploadStorage = createS3ObjectStorage({
+        endpoint: filesConfig.endpoint,
+        region: filesConfig.region,
+        incomingBucket: filesConfig.incomingBucket,
+        objectsBucket: filesConfig.objectsBucket,
+        requestTimeoutMs: filesConfig.requestTimeoutMs,
+        credentials: {
+          accessKey: config.filesInboundUploadCredentials.accessKey.expose(),
+          secretKey: config.filesInboundUploadCredentials.secretKey.expose(),
+        },
+      });
+      const actor = { memberId: agentRoutingPrincipalId, scope: "PROFILE" as const };
+      inboundMediaLoop = startConversationInboundMediaLoop({
+        repository: database.commercial.inboundMedia,
+        fileRepository: database.commercial.files,
+        storage,
+        actor,
+        ycloudApiKey: config.ycloudApiKey,
+        ycloudSourceSecret: config.ycloudBinding.signingSecret,
+        openAiApiKey: config.openAiApiKey,
+        filesFor: (conversationId) =>
+          new FileService(
+            database.commercial.files,
+            {
+              canUseOwner: async (_actor, owner) =>
+                owner.kind === "existing" &&
+                owner.module === "conversations" &&
+                owner.type === "conversation" &&
+                owner.id === conversationId,
+            },
+            {
+              authorizeUpload: async (file) => ({
+                ...uploadStorage.reserveUpload({
+                  objectKey: file.incomingObjectKey,
+                  expectedSha256Base64: file.expectedSha256,
+                  contentType: file.declaredMime,
+                  maxBytes: file.declaredSize,
+                  expiresInSeconds: 600,
+                }),
+                method: "POST" as const,
+                expiresAt: new Date(Date.now() + 600_000),
+              }),
+              inspectUpload: (file) => uploadStorage.inspectIncomingUpload(file.incomingObjectKey),
+              authorizeDownload: async () => {
+                throw new Error("Worker cannot authorize customer download");
+              },
+            },
+          ),
+        pollIntervalMs: 2_000,
+        onError: (error) => {
+          const reason =
+            error instanceof ObjectStorageError
+              ? error.failure
+              : error instanceof Error
+                ? error.name
+                : "UNKNOWN";
+          process.stderr.write(
+            JSON.stringify({ level: "error", event: "inbound_media_attempt_failed", reason }) +
+              "\n",
+          );
+        },
+      } satisfies InboundMediaLoopOptions);
     }
     if (config.agentGatewaySecret && config.database?.tenantId) {
       conversationAgentLoop = startConversationAgentLoop({
@@ -146,6 +218,7 @@ async function bootstrap(): Promise<void> {
         fileProcessingLoop,
         ...(ycloudOutboundLoop ? [ycloudOutboundLoop] : []),
         ...(conversationAgentLoop ? [conversationAgentLoop] : []),
+        ...(inboundMediaLoop ? [inboundMediaLoop] : []),
         {
           close: async () => {
             ready = false;
@@ -160,6 +233,7 @@ async function bootstrap(): Promise<void> {
     await fileProcessingLoop?.close();
     await ycloudOutboundLoop?.close();
     await conversationAgentLoop?.close();
+    await inboundMediaLoop?.close();
     await application?.close();
     await database.close();
     throw error;

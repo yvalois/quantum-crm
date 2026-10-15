@@ -67,6 +67,22 @@ describe("S3 object storage", () => {
     ).toThrow(new ObjectStorageError("INVALID_INPUT"));
   });
 
+  it("presigns a verified media response for inline browser playback", () => {
+    const storage = createS3ObjectStorage(options);
+    const url = storage.presignDownload({
+      objectKey: "objects/019b/file-01",
+      versionId: "version-1",
+      expiresInSeconds: 60,
+      responseContentType: "audio/ogg",
+      responseContentDisposition: "inline; filename*=UTF-8''mensaje.ogg",
+    });
+
+    expect(new URL(url).searchParams.get("response-content-type")).toBe("audio/ogg");
+    expect(new URL(url).searchParams.get("response-content-disposition")).toBe(
+      "inline; filename*=UTF-8''mensaje.ogg",
+    );
+  });
+
   it("resolves the immutable incoming version after a Browser POST", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(null, {
