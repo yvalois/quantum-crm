@@ -185,3 +185,10 @@ Verificación enfocada: permisos y concurrencia del control, filtro para ambas f
 - Los campos personalizados muestran valores guardados primero y permiten buscar/activar campos vacíos; la edición, permisos y persistencia existentes permanecen sin cambios. El panel amplía su ancho y en pantallas estrechas se presenta como cajón, sin ocupar una fila debajo del hilo.
 - Evidencia: commit `de6b3535`, siete checks CI verdes, formato/ESLint/typecheck CRM en VPS, imagen web por digest saludable en InterAmerican y comprobación autenticada de dos asesores reales, apertura/cierre, custom guardado y enlace a la ficha completa. Sin migración, API ni escritura comercial durante el smoke.
 - **Pendientes de estabilización posterior:** ejecutar E2E sintético actualizado y sustituir candidata directa por promoción registrada. CHAT-13 y CHAT-07 globales siguen abiertos para sus demás subtareas.
+
+### Edición directa CHAT-13 / CON-06 / CFG-07 — 2026-10-15
+
+- El responsable del contacto se cambia desde el selector de su ficha en Conversaciones, separado del responsable del chat. El servidor reutiliza el PATCH autorizado y exige miembro activo, alcance y versión vigente.
+- El valor visible de cada campo personalizado abre su editor; en un campo de selección simple se muestran solo las opciones configuradas y la elección guarda directamente. «Limpiar valor» es una acción independiente, no una opción del campo.
+- Evidencia: candidato `e5a8409d`, siete checks CI verdes, formato/ESLint/typecheck API/CRM/contratos y 36 pruebas BFF en VPS. API y web desplegadas por digest, ambas saludables; navegador autenticado confirmó selector y dos opciones reales de «Asesor de Ventas» sin modificar datos comerciales. La prueba E2E sintética cubre asignación y edición en el mismo panel, pero su ejecución queda pendiente.
+- **Pendientes de estabilización posterior:** ejecutar ese E2E, promover la candidata por el flujo registrado y activar a los asesores invitados antes de permitir nuevas asignaciones. No se cierra el requisito CHAT-13 global.
