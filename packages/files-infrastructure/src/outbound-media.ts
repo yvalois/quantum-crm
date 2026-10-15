@@ -49,8 +49,14 @@ async function readAvailableConversationMedia(input: {
     throw new FileStateConflictError();
   }
   const maxBytes = input.inbound
-    ? file.fileClass === "IMAGE" ? 20_000_000 : 25_000_000
-    : file.fileClass === "IMAGE" ? 5_000_000 : file.fileClass === "AUDIO" ? 16_000_000 : 50_000_000;
+    ? file.fileClass === "IMAGE"
+      ? 20_000_000
+      : 25_000_000
+    : file.fileClass === "IMAGE"
+      ? 5_000_000
+      : file.fileClass === "AUDIO"
+        ? 16_000_000
+        : 50_000_000;
   if (file.observedSize > maxBytes) throw new FileValidationError("Media too large for WhatsApp");
   const object = await input.storage.getObjectVersion(
     file.objectKey,
@@ -69,10 +75,14 @@ async function readAvailableConversationMedia(input: {
   });
 }
 
-export async function readAvailableOutboundMedia(input: Omit<Parameters<typeof readAvailableConversationMedia>[0], "inbound">): Promise<OutboundMedia> {
+export async function readAvailableOutboundMedia(
+  input: Omit<Parameters<typeof readAvailableConversationMedia>[0], "inbound">,
+): Promise<OutboundMedia> {
   return readAvailableConversationMedia({ ...input, inbound: false });
 }
 
-export async function readAvailableInboundMedia(input: Omit<Parameters<typeof readAvailableConversationMedia>[0], "inbound">): Promise<OutboundMedia> {
+export async function readAvailableInboundMedia(
+  input: Omit<Parameters<typeof readAvailableConversationMedia>[0], "inbound">,
+): Promise<OutboundMedia> {
   return readAvailableConversationMedia({ ...input, inbound: true });
 }

@@ -69,7 +69,13 @@ export function createRagGraph(gateway: RagGateway) {
     .addNode("compose", async (state) => {
       const sources = state.sources ?? [];
       if (sources.length === 0) {
-        return { answer: state.language === "en" ? "I'll verify that detail while preparing your quote so I can give you an accurate answer." : noEvidenceAnswer, citedSourceIds: [] };
+        return {
+          answer:
+            state.language === "en"
+              ? "I'll verify that detail while preparing your quote so I can give you an accurate answer."
+              : noEvidenceAnswer,
+          citedSourceIds: [],
+        };
       }
       const generated = await gateway.answer({
         catalog: state.catalog,
@@ -82,7 +88,13 @@ export function createRagGraph(gateway: RagGateway) {
       const citedSourceIds = z.array(z.string()).max(8).parse(generated.sourceIds);
       const allowed = new Set(sources.map((source) => source.id));
       if (citedSourceIds.length === 0 || citedSourceIds.some((id) => !allowed.has(id))) {
-        return { answer: state.language === "en" ? "I'll verify that detail while preparing your quote so I can give you an accurate answer." : noEvidenceAnswer, citedSourceIds: [] };
+        return {
+          answer:
+            state.language === "en"
+              ? "I'll verify that detail while preparing your quote so I can give you an accurate answer."
+              : noEvidenceAnswer,
+          citedSourceIds: [],
+        };
       }
       return { answer, citedSourceIds: [...new Set(citedSourceIds)] };
     })
@@ -119,7 +131,11 @@ export async function askCatalog(
       revision,
     }));
   return {
-    answer: result.answer ?? (input.language === "en" ? "I'll verify that detail while preparing your quote so I can give you an accurate answer." : noEvidenceAnswer),
+    answer:
+      result.answer ??
+      (input.language === "en"
+        ? "I'll verify that detail while preparing your quote so I can give you an accurate answer."
+        : noEvidenceAnswer),
     sources,
     grounded: sources.length > 0,
   };

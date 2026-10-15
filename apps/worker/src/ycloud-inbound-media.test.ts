@@ -4,7 +4,11 @@ import { SecretValue } from "@quantum-crm/config";
 import type { InboundMediaLease } from "@quantum-crm/domain";
 import { describe, expect, it, vi } from "vitest";
 
-import { analyzeInboundMedia, downloadInboundMedia, InboundMediaError } from "./ycloud-inbound-media.js";
+import {
+  analyzeInboundMedia,
+  downloadInboundMedia,
+  InboundMediaError,
+} from "./ycloud-inbound-media.js";
 
 const bytes = new Uint8Array([79, 103, 103, 83, 0, 1, 2]);
 const lease: InboundMediaLease = {
@@ -12,7 +16,11 @@ const lease: InboundMediaLease = {
   conversationId: "019b0000-0000-7000-8000-000000000002",
   providerMediaId: "712063723747110",
   expectedSha256: createHash("sha256").update(bytes).digest("base64"),
-  declaredMime: "audio/ogg", kind: "AUDIO", caption: "Audio", fileId: null, generation: 1n,
+  declaredMime: "audio/ogg",
+  kind: "AUDIO",
+  caption: "Audio",
+  fileId: null,
+  generation: 1n,
 };
 const apiKey = new SecretValue("test-key-not-for-production");
 
@@ -25,10 +33,16 @@ describe("inbound provider media", () => {
       return new Response(bytes);
     });
     expect(await downloadInboundMedia({ lease, apiKey, fetcher })).toEqual(bytes);
-    await expect(downloadInboundMedia({ lease: { ...lease, expectedSha256: Buffer.alloc(32).toString("base64") }, apiKey, fetcher }))
-      .rejects.toMatchObject({ code: "SOURCE_INTEGRITY" });
-    await expect(downloadInboundMedia({ lease: { ...lease, providerMediaId: "../bad" }, apiKey, fetcher }))
-      .rejects.toBeInstanceOf(InboundMediaError);
+    await expect(
+      downloadInboundMedia({
+        lease: { ...lease, expectedSha256: Buffer.alloc(32).toString("base64") },
+        apiKey,
+        fetcher,
+      }),
+    ).rejects.toMatchObject({ code: "SOURCE_INTEGRITY" });
+    await expect(
+      downloadInboundMedia({ lease: { ...lease, providerMediaId: "../bad" }, apiKey, fetcher }),
+    ).rejects.toBeInstanceOf(InboundMediaError);
   });
 
   it("transcribes received audio in its original language", async () => {
@@ -37,8 +51,9 @@ describe("inbound provider media", () => {
       expect(init?.body).toBeInstanceOf(FormData);
       return new Response(JSON.stringify({ text: "I need an SUV tomorrow" }), { status: 200 });
     });
-    expect(await analyzeInboundMedia({ lease, bytes, mimeType: "audio/ogg", apiKey, fetcher }))
-      .toBe("I need an SUV tomorrow");
+    expect(
+      await analyzeInboundMedia({ lease, bytes, mimeType: "audio/ogg", apiKey, fetcher }),
+    ).toBe("I need an SUV tomorrow");
   });
 
   it("describes an image as internal context, not a customer-facing answer", async () => {
@@ -47,9 +62,23 @@ describe("inbound provider media", () => {
       const request = JSON.parse(String(init?.body));
       expect(request.input[0].content[1].image_url).toMatch(/^data:image\/jpeg;base64,/u);
       expect(request.instructions).toContain("Do not reply to the customer");
-      return new Response(JSON.stringify({ output: [{ type: "message", content: [{ type: "output_text", text: "A red SUV on a road" }] }] }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          output: [
+            { type: "message", content: [{ type: "output_text", text: "A red SUV on a road" }] },
+          ],
+        }),
+        { status: 200 },
+      );
     });
-    expect(await analyzeInboundMedia({ lease: { ...lease, kind: "IMAGE" }, bytes,
-      mimeType: "image/jpeg", apiKey, fetcher })).toBe("A red SUV on a road");
+    expect(
+      await analyzeInboundMedia({
+        lease: { ...lease, kind: "IMAGE" },
+        bytes,
+        mimeType: "image/jpeg",
+        apiKey,
+        fetcher,
+      }),
+    ).toBe("A red SUV on a road");
   });
 });

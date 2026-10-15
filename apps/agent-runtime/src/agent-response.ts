@@ -1,7 +1,15 @@
 import type { AgentConversationContext } from "@quantum-crm/contracts";
 
-import { briefIntroduction, briefIntroductionEnglish, initialGreeting, initialGreetingEnglish } from "./interamerican-greeting.js";
-import { resolveConversationLanguage, type ConversationLanguage } from "./interamerican-language.js";
+import {
+  briefIntroduction,
+  briefIntroductionEnglish,
+  initialGreeting,
+  initialGreetingEnglish,
+} from "./interamerican-greeting.js";
+import {
+  resolveConversationLanguage,
+  type ConversationLanguage,
+} from "./interamerican-language.js";
 import { askCatalog, type CatalogKind, type RagGateway } from "./rag-graph.js";
 import type { ConversationAnswer } from "./openai-conversation-answer.js";
 
@@ -71,7 +79,11 @@ export async function answerAgentTurn(
   const catalog = selectedCatalog(input.question, context.messages);
   const firstTurn = input.firstTurn && context.messages.length === 0;
   if (!catalog && firstTurn && asksOnlyForGeneralHelp(input.question))
-    return { answer: language === "en" ? initialGreetingEnglish : initialGreeting, sourceIds: [], grounded: false };
+    return {
+      answer: language === "en" ? initialGreetingEnglish : initialGreeting,
+      sourceIds: [],
+      grounded: false,
+    };
   if (!catalog || !asksForCatalogFact(input.question) || input.question.trim().length < 3) {
     const turn = await gateway.answerConversation({
       question: input.question,

@@ -55,9 +55,16 @@ export function parseFilesUploadCredentials(
   environment: Readonly<Record<string, string | undefined>>,
   fileSystem?: SecretFileSystem,
 ): FilesStorageCredentials {
-  return loadCredential(serviceName, environmentName, environment,
-    "QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE", "QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE",
-    uploadAccessKeyPath, uploadSecretKeyPath, fileSystem);
+  return loadCredential(
+    serviceName,
+    environmentName,
+    environment,
+    "QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE",
+    "QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE",
+    uploadAccessKeyPath,
+    uploadSecretKeyPath,
+    fileSystem,
+  );
 }
 
 export interface FilesStorageCredentials {

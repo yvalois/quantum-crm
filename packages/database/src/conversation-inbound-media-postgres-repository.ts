@@ -16,7 +16,9 @@ interface MediaRow {
 }
 
 /** Durable, fenced provider-media intake owned by conversations. */
-export function createConversationInboundMediaPostgresRepository(pool: PostgresPool): InboundMediaDispatcher {
+export function createConversationInboundMediaPostgresRepository(
+  pool: PostgresPool,
+): InboundMediaDispatcher {
   return {
     claimNext: async (workerId) => {
       let client: PoolClient | undefined;
@@ -71,27 +73,31 @@ export function createConversationInboundMediaPostgresRepository(pool: PostgresP
     },
     bindFile: async (lease, workerId, fileId) => {
       try {
-        const result = await pool.query(
+        const result = (await pool.query(
           `UPDATE conversations.inbound_media SET file_id = $4::uuid, updated_at = CURRENT_TIMESTAMP
             WHERE message_id = $1::uuid AND lease_owner = $2 AND lease_generation = $3::bigint
               AND status = 'leased' AND (file_id IS NULL OR file_id = $4::uuid)`,
           [lease.messageId, workerId, lease.generation.toString(), fileId],
-        ) as { readonly rowCount: number };
+        )) as { readonly rowCount: number };
         return result.rowCount === 1;
-      } catch { throw new DatabaseUnavailableError(); }
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
     },
     waitForScan: async (lease, workerId) => {
       try {
-        const result = await pool.query(
+        const result = (await pool.query(
           `UPDATE conversations.inbound_media SET status = 'waiting_scan', lease_owner = NULL,
                   lease_expires_at = NULL, next_attempt_at = CURRENT_TIMESTAMP + interval '3 seconds',
                   updated_at = CURRENT_TIMESTAMP
             WHERE message_id = $1::uuid AND lease_owner = $2 AND lease_generation = $3::bigint
               AND status = 'leased' AND file_id IS NOT NULL`,
           [lease.messageId, workerId, lease.generation.toString()],
-        ) as { readonly rowCount: number };
+        )) as { readonly rowCount: number };
         return result.rowCount === 1;
-      } catch { throw new DatabaseUnavailableError(); }
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
     },
     complete: async (lease, workerId, fileId, analysis) => {
       let client: PoolClient | undefined;
@@ -129,11 +135,13 @@ export function createConversationInboundMediaPostgresRepository(pool: PostgresP
       } catch {
         await client?.query("ROLLBACK").catch(() => undefined);
         throw new DatabaseUnavailableError();
-      } finally { client?.release(); }
+      } finally {
+        client?.release();
+      }
     },
     fail: async (lease, workerId, code, retry) => {
       try {
-        const result = await pool.query(
+        const result = (await pool.query(
           `UPDATE conversations.inbound_media
               SET attempts = attempts + 1,
                   status = CASE WHEN $4::boolean AND attempts < 4 THEN 'pending' ELSE 'failed' END,
@@ -143,9 +151,11 @@ export function createConversationInboundMediaPostgresRepository(pool: PostgresP
             WHERE message_id = $1::uuid AND lease_owner = $2 AND lease_generation = $3::bigint
               AND status = 'leased'`,
           [lease.messageId, workerId, lease.generation.toString(), retry, code],
-        ) as { readonly rowCount: number };
+        )) as { readonly rowCount: number };
         return result.rowCount === 1;
-      } catch { throw new DatabaseUnavailableError(); }
+      } catch {
+        throw new DatabaseUnavailableError();
+      }
     },
   };
 }

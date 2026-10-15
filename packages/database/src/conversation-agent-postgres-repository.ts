@@ -149,6 +149,13 @@ export function createConversationAgentPostgresRepository(
               AND conversation.status <> 'closed'
               AND (SELECT enabled FROM conversations.agent_control WHERE id = 1)
               AND NOT EXISTS (
+                SELECT 1 FROM conversations.inbound_media AS earlier_media
+                JOIN conversations.messages AS earlier_message ON earlier_message.id = earlier_media.message_id
+                WHERE earlier_media.conversation_id = request.conversation_id
+                  AND earlier_message.sequence < message.sequence
+                  AND earlier_media.status IN ('pending', 'leased', 'waiting_scan')
+              )
+              AND NOT EXISTS (
                 SELECT 1 FROM conversations.agent_requests AS other
                  WHERE other.conversation_id = request.conversation_id
                    AND other.inbound_message_id <> request.inbound_message_id

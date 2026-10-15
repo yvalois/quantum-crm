@@ -583,10 +583,17 @@ export function parseProcessConfig(
         fileSystem,
       )
     : undefined;
-  const filesInboundUploadCredentials = definition.serviceName === "worker" &&
-    (environment.QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE || environment.QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE)
-    ? parseFilesUploadCredentials(definition.serviceName, result.data.QCRM_ENV, environment, fileSystem)
-    : undefined;
+  const filesInboundUploadCredentials =
+    definition.serviceName === "worker" &&
+    (environment.QCRM_FILES_S3_UPLOAD_ACCESS_KEY_FILE ||
+      environment.QCRM_FILES_S3_UPLOAD_SECRET_KEY_FILE)
+      ? parseFilesUploadCredentials(
+          definition.serviceName,
+          result.data.QCRM_ENV,
+          environment,
+          fileSystem,
+        )
+      : undefined;
   const ycloudBinding = definition.supportsYCloudBinding
     ? parseYCloudBindingConfig(
         definition.serviceName,

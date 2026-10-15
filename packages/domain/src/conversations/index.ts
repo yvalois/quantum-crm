@@ -166,10 +166,24 @@ export interface InboundMediaLease {
 
 export interface InboundMediaDispatcher {
   readonly claimNext: (workerId: string) => Promise<InboundMediaLease | null>;
-  readonly bindFile: (lease: InboundMediaLease, workerId: string, fileId: string) => Promise<boolean>;
+  readonly bindFile: (
+    lease: InboundMediaLease,
+    workerId: string,
+    fileId: string,
+  ) => Promise<boolean>;
   readonly waitForScan: (lease: InboundMediaLease, workerId: string) => Promise<boolean>;
-  readonly complete: (lease: InboundMediaLease, workerId: string, fileId: string, analysis: string) => Promise<boolean>;
-  readonly fail: (lease: InboundMediaLease, workerId: string, code: string, retry: boolean) => Promise<boolean>;
+  readonly complete: (
+    lease: InboundMediaLease,
+    workerId: string,
+    fileId: string,
+    analysis: string,
+  ) => Promise<boolean>;
+  readonly fail: (
+    lease: InboundMediaLease,
+    workerId: string,
+    code: string,
+    retry: boolean,
+  ) => Promise<boolean>;
 }
 
 export interface ConversationAgentContextMessage {

@@ -110,7 +110,8 @@ async function bootstrap(): Promise<void> {
       });
     }
     if (config.ycloudBinding && config.ycloudApiKey && config.openAiApiKey) {
-      if (!config.filesInboundUploadCredentials) throw new Error("Inbound media upload credential is required");
+      if (!config.filesInboundUploadCredentials)
+        throw new Error("Inbound media upload credential is required");
       const uploadStorage = createS3ObjectStorage({
         endpoint: filesConfig.endpoint,
         region: filesConfig.region,
@@ -130,25 +131,38 @@ async function bootstrap(): Promise<void> {
         actor,
         ycloudApiKey: config.ycloudApiKey,
         openAiApiKey: config.openAiApiKey,
-        filesFor: (conversationId) => new FileService(
-          database.commercial.files,
-          { canUseOwner: async (_actor, owner) => owner.kind === "existing" &&
-              owner.module === "conversations" && owner.type === "conversation" &&
-              owner.id === conversationId },
-          {
-            authorizeUpload: async (file) => ({
-              ...uploadStorage.reserveUpload({ objectKey: file.incomingObjectKey,
-                expectedSha256Base64: file.expectedSha256, contentType: file.declaredMime,
-                maxBytes: file.declaredSize, expiresInSeconds: 600 }),
-              method: "POST" as const,
-              expiresAt: new Date(Date.now() + 600_000),
-            }),
-            inspectUpload: (file) => uploadStorage.inspectIncomingUpload(file.incomingObjectKey),
-            authorizeDownload: async () => { throw new Error("Worker cannot authorize customer download"); },
-          },
-        ),
+        filesFor: (conversationId) =>
+          new FileService(
+            database.commercial.files,
+            {
+              canUseOwner: async (_actor, owner) =>
+                owner.kind === "existing" &&
+                owner.module === "conversations" &&
+                owner.type === "conversation" &&
+                owner.id === conversationId,
+            },
+            {
+              authorizeUpload: async (file) => ({
+                ...uploadStorage.reserveUpload({
+                  objectKey: file.incomingObjectKey,
+                  expectedSha256Base64: file.expectedSha256,
+                  contentType: file.declaredMime,
+                  maxBytes: file.declaredSize,
+                  expiresInSeconds: 600,
+                }),
+                method: "POST" as const,
+                expiresAt: new Date(Date.now() + 600_000),
+              }),
+              inspectUpload: (file) => uploadStorage.inspectIncomingUpload(file.incomingObjectKey),
+              authorizeDownload: async () => {
+                throw new Error("Worker cannot authorize customer download");
+              },
+            },
+          ),
         pollIntervalMs: 2_000,
-        onError: () => { process.stderr.write('{"level":"error","event":"inbound_media_attempt_failed"}\n'); },
+        onError: () => {
+          process.stderr.write('{"level":"error","event":"inbound_media_attempt_failed"}\n');
+        },
       } satisfies InboundMediaLoopOptions);
     }
     if (config.agentGatewaySecret && config.database?.tenantId) {

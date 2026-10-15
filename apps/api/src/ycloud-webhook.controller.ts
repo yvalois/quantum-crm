@@ -172,13 +172,25 @@ export function parseYCloudMessage(
     body,
     occurredAt: timestamp,
     historical: type === "whatsapp.smb.history",
-    ...(inbound && ["image", "audio"].includes(messageType) &&
-    mediaId && /^[A-Za-z0-9_-]{1,80}$/u.test(mediaId) &&
-    mediaChecksum && /^[A-Za-z0-9+/]{43}=$/u.test(mediaChecksum) &&
+    ...(inbound &&
+    type !== "whatsapp.smb.history" &&
+    ["image", "audio"].includes(messageType) &&
+    mediaId &&
+    /^[A-Za-z0-9_-]{1,80}$/u.test(mediaId) &&
+    mediaChecksum &&
+    /^[A-Za-z0-9+/]{43}=$/u.test(mediaChecksum) &&
     mediaMime &&
-    (messageType === "image" ? ["image/jpeg", "image/png", "image/webp"] :
-      ["audio/mpeg", "audio/ogg", "audio/wav", "audio/webm"]).includes(mediaMime)
-      ? { inboundMedia: { providerMediaId: mediaId, expectedSha256: mediaChecksum, declaredMime: mediaMime } }
+    (messageType === "image"
+      ? ["image/jpeg", "image/png", "image/webp"]
+      : ["audio/mpeg", "audio/ogg", "audio/wav", "audio/webm"]
+    ).includes(mediaMime)
+      ? {
+          inboundMedia: {
+            providerMediaId: mediaId,
+            expectedSha256: mediaChecksum,
+            declaredMime: mediaMime,
+          },
+        }
       : {}),
   });
 }
