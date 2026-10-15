@@ -122,7 +122,7 @@ export async function routeInterAmericanAdvisor(
         createdAt: now,
         updatedAt: now,
       },
-      idempotencyKey: `agent-route-${input.contactId}`,
+      idempotencyKey: `agent-route-${input.contactId}-${opportunities[0]?.id ?? "initial"}`,
       payloadHash: hash(`${input.contactId}:${stage.pipelineId}:${stage.stageId}:${advisorId}`),
     });
   }

@@ -8,7 +8,13 @@ const carlosId = "019b0000-0000-7000-8000-000000000002";
 const julioId = "019b0000-0000-7000-8000-000000000003";
 const threadId = "ycloud:1234567890123456:50255556666";
 
-function database(input: { previousOwner?: string; existingThreadOwner?: string | null } = {}) {
+function database(
+  input: {
+    previousOwner?: string;
+    previousStatus?: "OPEN" | "WON";
+    existingThreadOwner?: string | null;
+  } = {},
+) {
   const contact = {
     id: contactId,
     displayName: "Cliente de prueba",
@@ -22,7 +28,7 @@ function database(input: { previousOwner?: string; existingThreadOwner?: string 
           id: "019b0000-0000-7000-8000-000000000004",
           contactId,
           ownerMemberId: input.previousOwner,
-          status: "OPEN",
+          status: input.previousStatus ?? "OPEN",
           version: 1n,
           updatedAt: new Date("2026-10-14T18:00:00Z"),
         },
@@ -88,6 +94,16 @@ describe("InterAmerican advisor routing", () => {
     expect(mock.commercial.sales.createOpportunity).toHaveBeenCalledWith(
       expect.objectContaining({
         opportunity: expect.objectContaining({ ownerMemberId: carlosId, currency: "GTQ" }),
+      }),
+    );
+  });
+
+  it("creates a fresh opportunity after the prior one has closed", async () => {
+    const { db, mock } = database({ previousOwner: julioId, previousStatus: "WON" });
+    await routeInterAmericanAdvisor(db, { contactId, externalThreadId: threadId });
+    expect(mock.commercial.sales.createOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: `agent-route-${contactId}-019b0000-0000-7000-8000-000000000004`,
       }),
     );
   });
