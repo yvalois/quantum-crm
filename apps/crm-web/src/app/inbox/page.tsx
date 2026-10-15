@@ -39,7 +39,7 @@ interface SessionPayload {
 }
 interface CapabilitiesPayload {
   readonly data: {
-    readonly canAssignContacts: boolean;
+    readonly canAssignContacts?: boolean;
     readonly canAssignConversations: boolean;
     readonly canConfigureAgent: boolean;
   };
@@ -493,7 +493,7 @@ export default function InboxPage(): React.JSX.Element {
         setQuickReplies(((await replyResponse.json()) as List<QuickReply>).data);
         const capabilities = ((await capabilitiesResponse.json()) as CapabilitiesPayload).data;
         setCanAssignConversations(capabilities.canAssignConversations);
-        setCanAssignContacts(capabilities.canAssignContacts);
+        setCanAssignContacts(Boolean(capabilities.canAssignContacts));
         setCanConfigureAgent(capabilities.canConfigureAgent);
         setAgentControl(AgentControlResponseSchema.parse(await agentResponse.json()).data);
         if (capabilities.canAssignConversations || capabilities.canAssignContacts) {
