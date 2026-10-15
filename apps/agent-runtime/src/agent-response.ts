@@ -1,6 +1,11 @@
 import type { AgentConversationContext } from "@quantum-crm/contracts";
 
-import { initialGreeting, initialGreetingEnglish } from "./interamerican-greeting.js";
+import {
+  briefIntroduction,
+  briefIntroductionEnglish,
+  initialGreeting,
+  initialGreetingEnglish,
+} from "./interamerican-greeting.js";
 import {
   resolveConversationLanguage,
   type ConversationLanguage,
@@ -53,6 +58,21 @@ function asksForCatalogFact(question: string): boolean {
   );
 }
 
+function preserveFirstIntroduction(
+  answer: string,
+  firstTurn: boolean,
+  language: ConversationLanguage,
+): string {
+  if (
+    !firstTurn ||
+    /\bAlex\b/iu.test(answer) ||
+    (/\bRenting\b/iu.test(answer) && /^(?:Hola|Hi)\b/iu.test(answer))
+  ) {
+    return answer;
+  }
+  return `${language === "en" ? briefIntroductionEnglish : briefIntroduction}${answer}`;
+}
+
 /** The CRM transcript is the durable thread memory; the reset marker bounds it in MCP. */
 export async function answerAgentTurn(
   input: { readonly question: string; readonly firstTurn: boolean },
@@ -86,7 +106,7 @@ export async function answerAgentTurn(
       language,
     });
     return {
-      answer: turn.answer,
+      answer: preserveFirstIntroduction(turn.answer, firstTurn, language),
       sourceIds: [],
       grounded: false,
       ...(turn.handoffRequested ? { handoffRequested: true } : {}),
@@ -97,7 +117,7 @@ export async function answerAgentTurn(
     { catalog, question: input.question, history: context.messages, language },
   );
   return {
-    answer: result.answer,
+    answer: preserveFirstIntroduction(result.answer, firstTurn, language),
     sourceIds: result.sources.map((source) => source.id),
     grounded: result.grounded,
   };
