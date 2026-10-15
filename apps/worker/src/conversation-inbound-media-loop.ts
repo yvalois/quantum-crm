@@ -37,6 +37,7 @@ const permissions = [
   "crm:files:upload",
   "crm:files:read",
   "crm:files:reference",
+  "crm:conversations:read",
   "crm:conversations:reply",
 ] as const;
 const extension = new Map([

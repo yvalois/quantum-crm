@@ -78,6 +78,11 @@ describe("inbound media agent gate", () => {
   it("analyzes an AVAILABLE object and then atomically exposes it to the agent", async () => {
     const h = harness("AVAILABLE");
     await processInboundMedia(h.options, lease, "worker");
+    expect(h.get).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.arrayContaining(["crm:conversations:read"]),
+      lease.fileId,
+    );
     expect(h.fetcher).toHaveBeenCalledOnce();
     expect(h.attachReference).toHaveBeenCalledOnce();
     expect(h.complete).toHaveBeenCalledWith(lease, "worker", lease.fileId, "A red SUV");
