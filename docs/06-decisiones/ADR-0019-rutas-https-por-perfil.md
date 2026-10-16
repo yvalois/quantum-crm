@@ -39,6 +39,8 @@ Para el VPS piloto, Caddy conserva su endpoint administrativo exclusivamente en 
 
 ## Consecuencias
 
+El dominio propio de Quantum puede usar un registro DNS comodin para dirigir subdominios al VPS, pero esto no convierte la ruta Caddy en comodin: el adaptador continua generando un hostname explicito por perfil desde el slug registrado. La seleccion entre `nip.io` y el sufijo propio se configura en el ejecutor; el adaptador solo admite el dominio propio autorizado y reserva etiquetas de servicios compartidos. El dominio principal pertenece a Quantum Admin.
+
 - Las rutas, certificados y cambios de tráfico quedan dentro del flujo de operaciones tipadas, con idempotencia y auditoría.
 - Un error de un perfil no puede modificar la ruta de otro ni publicar un servicio no allowlisted.
 - Se debe implementar un almacén durable de hostname/route generation, el adaptador de borde y la validación HTTPS externa antes de cerrar `ADM-04`.

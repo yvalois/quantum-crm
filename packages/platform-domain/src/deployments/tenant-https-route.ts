@@ -1,7 +1,9 @@
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
-const hostnamePattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.[0-9-]+\.nip\.io$/u;
+const hostnamePattern =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[0-9-]+\.nip\.io|quantumbusinessassistant\.com)$/u;
 const networkPrefixPattern = /^[a-z][a-z0-9-]{0,30}$/u;
+const reservedOwnedDomainLabels = new Set(["admin", "api", "identity", "storage", "www"]);
 
 export const tenantHttpsRouteStatuses = [
   "PENDING",
@@ -74,10 +76,17 @@ function slug(value: string): string {
   return normalized;
 }
 
-export function tenantHttpsHostname(tenantSlug: string, publicIpv4: string): string {
+export function tenantHttpsHostname(
+  tenantSlug: string,
+  publicIpv4: string,
+  domainSuffix?: "quantumbusinessassistant.com",
+): string {
   const normalizedSlug = slug(tenantSlug);
+  if (domainSuffix && reservedOwnedDomainLabels.has(normalizedSlug)) {
+    throw new TenantHttpsRouteValidationError("slug");
+  }
   const address = ipv4(publicIpv4).replaceAll(".", "-");
-  return `${normalizedSlug}.${address}.nip.io`;
+  return domainSuffix ? `${normalizedSlug}.${domainSuffix}` : `${normalizedSlug}.${address}.nip.io`;
 }
 
 export function tenantHttpsEdgeNetworkName(
@@ -98,7 +107,11 @@ export function validateTenantHttpsRouteProvisioningCommand(
   const tenantProfileId = uuid("tenantProfileId", input.tenantProfileId);
   uuid("serverId", input.serverId);
   uuid("releaseId", input.releaseId);
-  if (!hostnamePattern.test(input.hostname)) {
+  if (
+    !hostnamePattern.test(input.hostname) ||
+    (input.hostname.endsWith(".quantumbusinessassistant.com") &&
+      reservedOwnedDomainLabels.has(input.hostname.split(".")[0] ?? ""))
+  ) {
     throw new TenantHttpsRouteValidationError("hostname");
   }
   if (input.edgeNetworkName !== tenantHttpsEdgeNetworkName(tenantProfileId)) {

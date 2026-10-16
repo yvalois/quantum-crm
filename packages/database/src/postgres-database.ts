@@ -1736,6 +1736,7 @@ async function completeProvisioningContainers(
 async function resolveProvisioningHttpsContext(
   pool: PostgresPool,
   command: ResolveProvisioningHttpsContextCommand,
+  tenantDomainSuffix?: "quantumbusinessassistant.com",
 ): Promise<ProvisioningHttpsContext | null> {
   const resolved = validateResolveProvisioningHttpsContext(command);
   try {
@@ -1789,7 +1790,7 @@ async function resolveProvisioningHttpsContext(
     const configurationRevision = BigInt(row.configuration_revision);
     if (configurationRevision < 1n) throw new DatabaseUnavailableError();
     return Object.freeze({
-      hostname: tenantHttpsHostname(row.slug, row.public_ipv4),
+      hostname: tenantHttpsHostname(row.slug, row.public_ipv4, tenantDomainSuffix),
       edgeNetworkName: tenantHttpsEdgeNetworkName(resolved.tenantProfileId),
       upstreamServices: Object.freeze(["crm-web"] as const),
       configurationRevision,
@@ -1803,6 +1804,7 @@ async function resolveProvisioningHttpsContext(
 async function resolveProvisioningIdentityContext(
   pool: PostgresPool,
   command: ResolveProvisioningIdentityContextCommand,
+  tenantDomainSuffix?: "quantumbusinessassistant.com",
 ): Promise<ProvisioningIdentityContext | null> {
   const resolved = validateResolveProvisioningIdentityContext(command);
   try {
@@ -1837,7 +1839,9 @@ async function resolveProvisioningIdentityContext(
     };
     const row = result.rows[0];
     if (!row) return null;
-    return Object.freeze({ hostname: tenantHttpsHostname(row.slug, row.public_ipv4) });
+    return Object.freeze({
+      hostname: tenantHttpsHostname(row.slug, row.public_ipv4, tenantDomainSuffix),
+    });
   } catch (error) {
     if (error instanceof DatabaseUnavailableError) throw error;
     throw new DatabaseUnavailableError();
@@ -2199,6 +2203,7 @@ export function createPlatformPostgresDatabase(
   config: DatabaseConfig,
   serviceName: string,
   poolFactory: PostgresPoolFactory = defaultPoolFactory,
+  tenantDomainSuffix?: "quantumbusinessassistant.com",
 ): PlatformPostgresDatabase {
   if (config.target !== "platform") {
     throw new DatabaseUnavailableError();
@@ -3624,9 +3629,9 @@ export function createPlatformPostgresDatabase(
       completeHttps: (command: CompleteProvisioningHttpsCommand) =>
         completeProvisioningHttps(pool, command),
       resolveHttpsContext: (command: ResolveProvisioningHttpsContextCommand) =>
-        resolveProvisioningHttpsContext(pool, command),
+        resolveProvisioningHttpsContext(pool, command, tenantDomainSuffix),
       resolveIdentityContext: (command: ResolveProvisioningIdentityContextCommand) =>
-        resolveProvisioningIdentityContext(pool, command),
+        resolveProvisioningIdentityContext(pool, command, tenantDomainSuffix),
       resolveInitialAdministratorContext: (
         command: ResolveProvisioningInitialAdministratorContextCommand,
       ) => resolveProvisioningInitialAdministratorContext(pool, command),

@@ -70,6 +70,7 @@ const tenantSecretEnvironmentKey = "QCRM_TENANT_SECRET_DIRECTORY" as const;
 const iamBootstrapClientEnvironmentKey = "QCRM_IAM_BOOTSTRAP_CLIENT_ID" as const;
 const iamBootstrapClientSecretEnvironmentKey = "QCRM_IAM_BOOTSTRAP_CLIENT_SECRET_FILE" as const;
 const tenantConfigurationEnvironmentKey = "QCRM_TENANT_CONFIGURATION_DIRECTORY" as const;
+const tenantDomainSuffixEnvironmentKey = "QCRM_TENANT_DOMAIN_SUFFIX" as const;
 const deployHostSocketEnvironmentKey = "QCRM_DEPLOY_HOST_SOCKET_PATH" as const;
 const deployHostConfigurationRootEnvironmentKey = "QCRM_DEPLOY_HOST_CONFIGURATION_ROOT" as const;
 const deployHostComposeTemplateEnvironmentKey = "QCRM_DEPLOY_HOST_COMPOSE_TEMPLATE" as const;
@@ -140,6 +141,7 @@ export const processDefinitions = Object.freeze({
     database: Object.freeze({ target: "platform", requiresTenant: false, requiresAdmin: true }),
     requiresTenantSecretDirectory: true,
     requiresTenantConfigurationDirectory: true,
+    supportsTenantDomainSuffix: true,
     requiresStorageAdmin: true,
     requiresDeployHostSocket: true,
     requiresIdentityProvisioner: true,
@@ -178,6 +180,7 @@ export interface ProcessDefinition {
   readonly requiresGithubActionsReleasePublisher?: boolean;
   readonly requiresTenantSecretDirectory?: boolean;
   readonly requiresTenantConfigurationDirectory?: boolean;
+  readonly supportsTenantDomainSuffix?: boolean;
   readonly requiresStorageAdmin?: boolean;
   readonly requiresDeployHostSocket?: boolean;
   readonly requiresDeployHostComposeRuntime?: boolean;
@@ -202,6 +205,7 @@ export interface ProcessConfig {
   readonly githubActionsReleasePublisher?: GithubActionsReleasePublisherConfig;
   readonly tenantSecretDirectory?: string;
   readonly tenantConfigurationDirectory?: string;
+  readonly tenantDomainSuffix?: "quantumbusinessassistant.com";
   readonly deployHostSocketPath?: string;
   readonly deployHostConfigurationRoot?: string;
   readonly deployHostComposeTemplate?: string;
@@ -299,6 +303,7 @@ export function parseProcessConfig(
       ? [iamBootstrapClientSecretEnvironmentKey]
       : []),
     ...(definition.requiresTenantConfigurationDirectory ? [tenantConfigurationEnvironmentKey] : []),
+    ...(definition.supportsTenantDomainSuffix ? [tenantDomainSuffixEnvironmentKey] : []),
     ...(definition.requiresStorageAdmin ? storageEnvironmentKeys : []),
     ...(definition.requiresIdentityProvisioner ? identityProvisionerEnvironmentKeys : []),
     ...(definition.requiresActivationDeliveryCallback
@@ -421,6 +426,15 @@ export function parseProcessConfig(
       throw new ConfigurationError(definition.serviceName, [tenantConfigurationEnvironmentKey]);
     }
     tenantConfigurationDirectory = configured;
+  }
+
+  let tenantDomainSuffix: "quantumbusinessassistant.com" | undefined;
+  if (definition.supportsTenantDomainSuffix) {
+    const configured = environment[tenantDomainSuffixEnvironmentKey];
+    if (configured && configured !== "quantumbusinessassistant.com") {
+      throw new ConfigurationError(definition.serviceName, [tenantDomainSuffixEnvironmentKey]);
+    }
+    tenantDomainSuffix = configured === "quantumbusinessassistant.com" ? configured : undefined;
   }
 
   let deployHostSocketPath: string | undefined;
@@ -683,6 +697,7 @@ export function parseProcessConfig(
     ...(githubActionsReleasePublisher ? { githubActionsReleasePublisher } : {}),
     ...(tenantSecretDirectory ? { tenantSecretDirectory } : {}),
     ...(tenantConfigurationDirectory ? { tenantConfigurationDirectory } : {}),
+    ...(tenantDomainSuffix ? { tenantDomainSuffix } : {}),
     ...(deployHostSocketPath ? { deployHostSocketPath } : {}),
     ...(deployHostConfigurationRoot ? { deployHostConfigurationRoot } : {}),
     ...(deployHostComposeTemplate ? { deployHostComposeTemplate } : {}),

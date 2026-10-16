@@ -15,6 +15,33 @@ describe("tenant HTTPS route domain", () => {
     expect(tenantHttpsEdgeNetworkName(tenantProfileId)).toBe(`qcrm-tenant-edge-${tenantProfileId}`);
   });
 
+  it("derives the owned wildcard hostname without accepting another domain", () => {
+    expect(
+      tenantHttpsHostname("InterAmerican", "2.25.172.119", "quantumbusinessassistant.com"),
+    ).toBe("interamerican.quantumbusinessassistant.com");
+    const command = {
+      operationId: "01995f7e-7b52-7000-8000-000000000101",
+      tenantProfileId,
+      serverId: "01995f7e-7b52-7000-8000-000000000301",
+      releaseId: "01995f7e-7b52-7000-8000-000000000302",
+      hostname: "interamerican.quantumbusinessassistant.com",
+      edgeNetworkName: tenantHttpsEdgeNetworkName(tenantProfileId),
+      upstreamServices: ["crm-web"] as const,
+      configurationRevision: 1n,
+      attempt: 1,
+    };
+    expect(validateTenantHttpsRouteProvisioningCommand(command).hostname).toBe(command.hostname);
+    expect(() =>
+      tenantHttpsHostname("admin", "2.25.172.119", "quantumbusinessassistant.com"),
+    ).toThrow(new TenantHttpsRouteValidationError("slug"));
+    expect(() =>
+      validateTenantHttpsRouteProvisioningCommand({
+        ...command,
+        hostname: "interamerican.attacker.example",
+      }),
+    ).toThrow(new TenantHttpsRouteValidationError("hostname"));
+  });
+
   it("rejects invalid addresses before producing a public hostname", () => {
     expect(() => tenantHttpsHostname("acme", "2.25.172.999")).toThrow(
       new TenantHttpsRouteValidationError("publicIpv4"),

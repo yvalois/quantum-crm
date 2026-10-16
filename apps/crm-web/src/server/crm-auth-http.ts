@@ -2908,6 +2908,9 @@ export async function handleCrmCallback(
     );
     return new Response(null, { status: 303, headers });
   } catch {
+    if (new URL(request.url).searchParams.get("error") === "access_denied") {
+      return redirect(new URL("/access-error", runtime.config.origin).toString(), clearLogin);
+    }
     const response = crmProblem(401, "Authentication failed");
     response.headers.append("set-cookie", clearLogin);
     return response;

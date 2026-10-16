@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { adminCsrfToken, redirectIfAdminSessionExpired } from "../admin-session-client";
 import { TenantProvisioningDialog } from "./tenant-provisioning-dialog";
 import { TenantDecommissioningDialog } from "./tenant-decommissioning-dialog";
+import { tenantCrmUrl } from "./tenant-crm-url";
 
 type DialogMode = "create" | "edit" | "delete" | null;
 
@@ -458,11 +459,7 @@ export default function TenantProfilesPage() {
         throw new Error(await errorTitle(response));
       }
       const result = (await response.json()) as ActivationDeliveryResponse;
-      const hostnameParts = window.location.hostname.split(".");
-      const sharedDomain = hostnameParts.length > 1 ? hostnameParts.slice(1).join(".") : "";
-      const crmUrl = sharedDomain
-        ? `${window.location.protocol}//${profile.slug}.${sharedDomain}`
-        : `${window.location.protocol}//${window.location.host}`;
+      const crmUrl = tenantCrmUrl(window.location.origin, profile.slug);
       setAdministratorAccess({
         profileName: profile.name,
         adminEmail: profile.adminContactEmail,
