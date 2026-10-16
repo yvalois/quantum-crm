@@ -430,6 +430,23 @@ describe("CRM web authentication HTTP boundary", () => {
     expect(authRuntime.auth.completeLogin).not.toHaveBeenCalled();
   });
 
+  it("shows a recoverable page after Keycloak denies a login with a transaction", async () => {
+    const authRuntime = runtime();
+    vi.mocked(authRuntime.auth.completeLogin).mockRejectedValueOnce(new Error("access denied"));
+
+    const response = await handleCrmCallback(
+      new Request(`${config.callbackUrl}?error=access_denied&state=opaque`, {
+        headers: { cookie: `__Host-qcrm_crm_login=${loginHandle.expose()}` },
+      }),
+      authRuntime,
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://crm.example.test/access-error");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(authRuntime.auth.completeLogin).toHaveBeenCalledOnce();
+  });
+
   it("returns only session metadata and validated member data", async () => {
     const member = {
       id: "01995f7e-7b52-7000-8000-000000000102",

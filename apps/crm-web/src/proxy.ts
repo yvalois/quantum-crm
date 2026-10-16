@@ -29,6 +29,7 @@ export function proxy(request: NextRequest): NextResponse {
   const hasSession = request.cookies.has(sessionCookieName(request));
   const isPublic =
     request.nextUrl.pathname === "/signed-out" ||
+    request.nextUrl.pathname === "/access-error" ||
     request.nextUrl.pathname === "/icon.png" ||
     request.nextUrl.pathname.startsWith("/f/");
   const response =
