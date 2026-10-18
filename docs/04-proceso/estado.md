@@ -1,5 +1,7 @@
 # Estado del proyecto
 
+> **PROY-025 (2026-10-18): PESTANA EXTERIOR DEL SIDEBAR ACTIVA EN INTERAMERICAN.** El candidato `8e5b5161` mueve el control de abrir/cerrar fuera de la imagen al borde derecho del sidebar, donde acompana ambos anchos; conserva teclado, estado accesible y control movil. CRM web `sha256:c54eb3661c00b5ef9cb84360e6a74e11bb3cf10428060592db2964e8957703f1` activo y healthy; readiness 200 y `/inbox` mantiene 307 sin sesion. Pendiente: revision visual autenticada del propietario.
+
 > **PROY-025 (2026-10-18): MARCA DEL SIDEBAR AJUSTADA EN INTERAMERICAN.** El candidato `5a6ce092` da ancho completo al logotipo original sin recortar su contenido, integra el control de contraer en la cabecera y usa el isotipo al plegarla; preserva la marca completa en móvil. CRM web `sha256:4090052b7afe013ec8ae9a27e9874764a16bb534cdd8d3ed99155b84c75671dd` activo y healthy; readiness 200, icono 200 y `/inbox` mantiene 307 sin sesión. Pendiente: revisión visual autenticada del propietario.
 
 > **PROY-025 (2026-10-18): TARJETAS DE CONVERSACION COMPACTAS ACTIVAS EN INTERAMERICAN.** El candidato `42cb2f4d` deja cada chat en dos lineas: nombre/hora y vista previa con iconos accesibles de canal y estado, iniciales del asesor y contador sin leer; los estados abiertos ya no ocupan etiqueta. Imagen web `sha256:22d5ce47d1c4d74ae121bde04fc922aa14225e4b46af07a3ec4b2f699beef82c` compilada con TypeScript y activa; contenedor healthy, readiness 200 y `/inbox` conserva redireccion de acceso 307. Pendiente: revision visual autenticada del propietario.
