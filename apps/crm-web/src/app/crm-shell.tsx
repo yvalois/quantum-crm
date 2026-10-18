@@ -151,10 +151,12 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
     const handleNavigationKey = (event: KeyboardEvent): void => {
       if (event.key === "Escape") setMobileNavigationOpen(false);
       if (event.key !== "Tab") return;
-      const focusable = navigationRef.current?.querySelectorAll<HTMLAnchorElement | HTMLButtonElement>(
-        "a[href], button:not([disabled])",
-      );
-      if (!focusable?.length) return;
+      const focusable = Array.from(
+        navigationRef.current?.querySelectorAll<HTMLAnchorElement | HTMLButtonElement>(
+          "a[href], button:not([disabled])",
+        ) ?? [],
+      ).filter((element) => element.getClientRects().length > 0);
+      if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) {

@@ -1,5 +1,5 @@
 /* PROY-025 — una base visual coherente para las pantallas operativas del CRM. */
-:root {
+.crm-shell-stitch {
   --quantum-primary: #087f79;
   --quantum-primary-dark: #08635f;
   --quantum-night: #0b1b2b;
@@ -36,7 +36,7 @@
 }
 
 .crm-shell-stitch .brand-mark {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .crm-shell-stitch .brand-artwork {
@@ -148,7 +148,9 @@
   background: var(--quantum-canvas);
 }
 
-.crm-shell-stitch :where(.page-header, .report-header, .catalog-heading) h1 {
+.crm-shell-stitch .page-header h1,
+.crm-shell-stitch .report-header h1,
+.crm-shell-stitch .catalog-heading h1 {
   color: var(--quantum-ink);
   font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
   font-size: clamp(1.8rem, 2.5vw, 2.45rem);
@@ -157,18 +159,24 @@
   line-height: 1.1;
 }
 
-.crm-shell-stitch :where(.page-header, .report-header, .catalog-heading) p {
+.crm-shell-stitch .page-header p,
+.crm-shell-stitch .report-header p,
+.crm-shell-stitch .catalog-heading p {
   color: var(--quantum-muted);
 }
 
-.crm-shell-stitch :where(.primary-action, .catalog-primary, .team-new-member) {
+.crm-shell-stitch .primary-action,
+.crm-shell-stitch .catalog-primary,
+.crm-shell-stitch .team-new-member {
   border-color: var(--quantum-primary);
   background: var(--quantum-primary);
   box-shadow: 0 0.25rem 0.6rem rgb(8 100 94 / 0.12);
   color: #fff;
 }
 
-.crm-shell-stitch :where(.primary-action, .catalog-primary, .team-new-member):hover:not(:disabled) {
+.crm-shell-stitch .primary-action:hover:not(:disabled),
+.crm-shell-stitch .catalog-primary:hover:not(:disabled),
+.crm-shell-stitch .team-new-member:hover:not(:disabled) {
   border-color: var(--quantum-primary-dark);
   background: var(--quantum-primary-dark);
 }
@@ -316,7 +324,12 @@
   .crm-shell-stitch.sidebar-collapsed .nav-group > p,
   .crm-shell-stitch.sidebar-collapsed .nav-label,
   .crm-shell-stitch.sidebar-collapsed .operator-copy {
-    display: block;
+    display: block !important;
+  }
+
+  .crm-shell-stitch .sidebar-footer,
+  .crm-shell-stitch.sidebar-collapsed .sidebar-footer {
+    display: grid !important;
   }
 
   .crm-shell-stitch .crm-sidebar nav a,

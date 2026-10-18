@@ -2004,6 +2004,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .workspace {
+    height: calc(100dvh - 3.75rem);
+  }
+
   .shell > :global(.crm-sidebar) {
     min-width: 0;
     max-width: 100%;
@@ -2016,8 +2020,8 @@
 
 @media (max-width: 780px) {
   .workspace {
-    height: calc(100dvh - 4rem);
-    min-height: 38rem;
+    height: calc(100dvh - 3.75rem);
+    min-height: 0;
     padding: 0;
   }
 

@@ -31,6 +31,12 @@
 .boardWorkspace > :not(.boardViewport, .tableViewport) {
   flex-shrink: 0;
 }
+
+@media (max-width: 900px) {
+  .boardWorkspace {
+    height: calc(100dvh - 3.75rem);
+  }
+}
 .topbar {
   display: flex;
   align-items: center;
@@ -2253,8 +2259,8 @@
     max-width: 84vw;
   }
   .boardWorkspace {
-    min-height: 38rem;
-    height: calc(100dvh - 4rem);
+    min-height: 0;
+    height: calc(100dvh - 3.75rem);
   }
   .boardWorkspace .topbar {
     flex-direction: row;
