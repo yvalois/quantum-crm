@@ -298,9 +298,12 @@ export default function InboxPage(): React.JSX.Element {
   const [draft, setDraft] = useState("");
   const [pendingMedia, setPendingMedia] = useState<FileContract | null>(null);
   const [showFormPicker, setShowFormPicker] = useState(false);
+  const [showComposerMore, setShowComposerMore] = useState(false);
   const [availableForms, setAvailableForms] = useState<FormContract[]>([]);
   const [mediaProgress, setMediaProgress] = useState<string | null>(null);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
+  const composerMoreRef = useRef<HTMLDivElement | null>(null);
+  const composerTextRef = useRef<HTMLTextAreaElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -377,6 +380,23 @@ export default function InboxPage(): React.JSX.Element {
           ? "La ventana de 24 horas de WhatsApp está cerrada. Espera un mensaje del cliente o envía una plantilla aprobada cuando esté disponible."
           : null))
       : null;
+
+  useEffect(() => setShowComposerMore(false), [selected?.id, mode]);
+  useEffect(() => {
+    if (!showComposerMore) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!composerMoreRef.current?.contains(event.target as Node)) setShowComposerMore(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowComposerMore(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [showComposerMore]);
 
   const loadThread = useCallback(
     async (id: string, background = false): Promise<void> => {
@@ -821,7 +841,12 @@ export default function InboxPage(): React.JSX.Element {
 
   async function send(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!selected || (!draft.trim() && !pendingMedia) || (mode === "message" && composerBlocked))
+    if (
+      saving ||
+      !selected ||
+      (!draft.trim() && !pendingMedia) ||
+      (mode === "message" && composerBlocked)
+    )
       return;
     setSaving(true);
     setError(null);
@@ -1692,7 +1717,10 @@ export default function InboxPage(): React.JSX.Element {
                   )}
                 </div>
 
-                <form className={styles.composer} onSubmit={(event) => void send(event)}>
+                <form
+                  className={cx(styles.composer, mode === "note" && styles.composerNote)}
+                  onSubmit={(event) => void send(event)}
+                >
                   <div className={styles.composerMode}>
                     <div role="tablist" aria-label="Tipo de respuesta">
                       <button
@@ -1719,22 +1747,26 @@ export default function InboxPage(): React.JSX.Element {
                     </div>
                     {mode === "note" ? (
                       <span className={styles.noteHint}>Solo la ve el equipo</span>
+                    ) : selected.channel === "WHATSAPP" ? (
+                      <span
+                        className={cx(
+                          styles.windowNotice,
+                          whatsappWindowClosed && styles.windowNoticeClosed,
+                        )}
+                        title={
+                          whatsappWindowClosed
+                            ? "Espera un mensaje del cliente para abrir una nueva ventana."
+                            : `Vence ${when(new Date(whatsappWindowEndsAt ?? clockNow).toISOString())}`
+                        }
+                        role="status"
+                      >
+                        <span aria-hidden="true" className={styles.windowDot} />
+                        {whatsappWindowClosed
+                          ? "Ventana de 24 h cerrada"
+                          : `WhatsApp · ${Math.floor(windowMinutesRemaining / 60)} h ${windowMinutesRemaining % 60} min restantes`}
+                      </span>
                     ) : null}
                   </div>
-
-                  {selected.channel === "WHATSAPP" && mode === "message" ? (
-                    <p
-                      className={cx(
-                        styles.windowNotice,
-                        whatsappWindowClosed && styles.windowNoticeClosed,
-                      )}
-                      role="status"
-                    >
-                      {whatsappWindowClosed
-                        ? "Ventana de 24 horas cerrada · no puedes enviar mensajes libres."
-                        : `Ventana de WhatsApp: quedan ${Math.floor(windowMinutesRemaining / 60)} h ${windowMinutesRemaining % 60} min · vence ${when(new Date(whatsappWindowEndsAt ?? clockNow).toISOString())}.`}
-                    </p>
-                  ) : null}
 
                   {composerBlocked ? (
                     <div className={styles.composerBlocked}>
@@ -1817,8 +1849,23 @@ export default function InboxPage(): React.JSX.Element {
                         </div>
                       ) : null}
                       <textarea
+                        ref={composerTextRef}
+                        aria-label={mode === "note" ? "Nota interna" : "Mensaje"}
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === "Enter" &&
+                            !event.shiftKey &&
+                            !event.altKey &&
+                            !event.ctrlKey &&
+                            !event.metaKey &&
+                            !event.nativeEvent.isComposing
+                          ) {
+                            event.preventDefault();
+                            event.currentTarget.form?.requestSubmit();
+                          }
+                        }}
                         placeholder={
                           mode === "note"
                             ? "Escribe una nota para el equipo…"
@@ -1864,64 +1911,97 @@ export default function InboxPage(): React.JSX.Element {
                               />
                             </>
                           ) : null}
-                          <button
-                            className={styles.toolButton}
-                            type="button"
-                            disabled={
-                              saving ||
-                              !csrf ||
-                              Boolean(messageBlocked) ||
-                              Boolean(whatsappWindowClosed)
-                            }
-                            onClick={() => void openDocumentComposer()}
-                          >
-                            <Icon name="document" size={16} /> Crear borrador
-                          </button>
-                          {mode === "message" && selected.channel === "WHATSAPP" ? (
-                            <button
-                              className={styles.toolButton}
-                              type="button"
-                              disabled={
-                                saving ||
-                                !csrf ||
-                                Boolean(messageBlocked) ||
-                                Boolean(whatsappWindowClosed)
-                              }
-                              onClick={() => void openFormPicker()}
-                            >
-                              Formulario
-                            </button>
+                          {mode === "message" ? (
+                            <div className={styles.composerMore} ref={composerMoreRef}>
+                              <button
+                                className={styles.toolButton}
+                                type="button"
+                                aria-expanded={showComposerMore}
+                                aria-controls="composer-extra-actions"
+                                onClick={() => setShowComposerMore((open) => !open)}
+                              >
+                                <Icon name="add" size={16} /> Más
+                              </button>
+                              {showComposerMore ? (
+                                <div
+                                  id="composer-extra-actions"
+                                  className={styles.composerMenu}
+                                  role="region"
+                                  aria-label="Más acciones de conversación"
+                                >
+                                  <span className={styles.composerMenuHeading}>Compartir</span>
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      saving ||
+                                      !csrf ||
+                                      Boolean(messageBlocked) ||
+                                      Boolean(whatsappWindowClosed)
+                                    }
+                                    onClick={() => {
+                                      setShowComposerMore(false);
+                                      void openDocumentComposer();
+                                    }}
+                                  >
+                                    <Icon name="document" size={16} /> Crear documento
+                                  </button>
+                                  {selected.channel === "WHATSAPP" ? (
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        saving ||
+                                        !csrf ||
+                                        Boolean(messageBlocked) ||
+                                        Boolean(whatsappWindowClosed)
+                                      }
+                                      onClick={() => {
+                                        setShowComposerMore(false);
+                                        void openFormPicker();
+                                      }}
+                                    >
+                                      <Icon name="document" size={16} /> Enviar formulario
+                                    </button>
+                                  ) : null}
+                                  <span className={styles.composerMenuHeading}>
+                                    Respuestas rápidas
+                                  </span>
+                                  {quickReplies.length ? (
+                                    quickReplies.map((reply) => (
+                                      <button
+                                        key={reply.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setDraft(reply.body);
+                                          setShowComposerMore(false);
+                                          composerTextRef.current?.focus();
+                                        }}
+                                      >
+                                        <Icon name="message" size={16} /> {reply.title}
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <span className={styles.composerMenuEmpty}>
+                                      Todavía no hay respuestas guardadas
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    disabled={saving || !csrf}
+                                    onClick={() => {
+                                      setShowComposerMore(false);
+                                      setShowQuickReply(true);
+                                    }}
+                                  >
+                                    <Icon name="add" size={16} /> Guardar respuesta rápida
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           ) : null}
-                          <label className={styles.quickReplySelect}>
-                            <span className="sr-only">Insertar respuesta rápida</span>
-                            <select
-                              aria-label="Insertar respuesta rápida"
-                              defaultValue=""
-                              onChange={(event) => {
-                                const reply = quickReplies.find(
-                                  (item) => item.id === event.target.value,
-                                );
-                                if (reply) setDraft(reply.body);
-                                event.target.value = "";
-                              }}
-                            >
-                              <option value="">Respuestas rápidas</option>
-                              {quickReplies.map((reply) => (
-                                <option key={reply.id} value={reply.id}>
-                                  {reply.title}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <button
-                            className={styles.toolButton}
-                            type="button"
-                            onClick={() => setShowQuickReply(true)}
-                            disabled={saving || !csrf}
-                          >
-                            <Icon name="add" size={15} /> Guardar rápida
-                          </button>
                         </div>
+                        <span className={styles.composerShortcut}>
+                          Enter envía · Shift + Enter crea una línea
+                        </span>
                         <button
                           className={styles.sendButton}
                           disabled={saving || (!draft.trim() && !pendingMedia)}
@@ -1931,13 +2011,9 @@ export default function InboxPage(): React.JSX.Element {
                           <Icon name={mode === "note" ? "arrow" : "send"} size={16} />
                         </button>
                       </footer>
-                      {mode === "message" ? (
+                      {mode === "message" && selected.attentionMode === "AGENT" ? (
                         <p className={styles.composerNotice}>
-                          {selected.attentionMode === "AGENT"
-                            ? "Al enviar, tomarás este chat y el agente quedará pausado aquí."
-                            : selected.channel === "WHATSAPP"
-                              ? "El mensaje se enviará por el WhatsApp conectado; revisa su estado de entrega."
-                              : "El mensaje quedará registrado; confirma que el canal esté conectado."}
+                          Al enviar, tomarás este chat y el agente quedará pausado aquí.
                         </p>
                       ) : null}
                     </>

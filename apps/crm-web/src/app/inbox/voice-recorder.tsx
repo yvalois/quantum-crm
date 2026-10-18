@@ -154,11 +154,26 @@ export function VoiceRecorder({
         <button
           className={styles.toolButton}
           type="button"
+          aria-label={phase === "requesting" ? "Abriendo micrófono" : "Grabar audio"}
+          title="Grabar audio"
           disabled={disabled || phase === "requesting"}
           onClick={() => void start()}
         >
-          <span aria-hidden="true">●</span>{" "}
-          {phase === "requesting" ? "Abriendo micrófono…" : "Grabar audio"}
+          <svg
+            aria-hidden="true"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="9" y="3" width="6" height="12" rx="3" />
+            <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />
+          </svg>
+          {phase === "requesting" ? "Abriendo…" : "Audio"}
         </button>
       ) : (
         <div className={styles.voiceRecording} role="status">
