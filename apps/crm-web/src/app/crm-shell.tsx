@@ -275,6 +275,14 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
                 height={870}
                 unoptimized
               />
+              <Image
+                className="brand-symbol"
+                src="/icon.png"
+                alt=""
+                width={40}
+                height={40}
+                unoptimized
+              />
             </span>
           </a>
           <button

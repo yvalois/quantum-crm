@@ -13,6 +13,7 @@
 }
 
 .crm-shell-stitch {
+  --sidebar-width: 16.25rem;
   background: var(--quantum-canvas);
   color: var(--quantum-ink);
   font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
@@ -28,19 +29,29 @@
 }
 
 .crm-shell-stitch .sidebar-brand-row {
-  padding-bottom: 0.7rem;
+  padding-bottom: 0.85rem;
 }
 
 .crm-shell-stitch .brand {
-  padding-right: 1.45rem;
+  padding-right: 0;
 }
 
 .crm-shell-stitch .brand-mark {
-  overflow: visible;
+  overflow: hidden;
+  border: 1px solid rgb(90 223 224 / 0.16);
+  border-radius: 0.75rem;
+  background: #071424;
+  box-shadow: 0 0.5rem 1.25rem rgb(0 0 0 / 0.14);
 }
 
 .crm-shell-stitch .brand-artwork {
   object-fit: contain;
+  mix-blend-mode: screen;
+  transform: scale(1.12);
+}
+
+.crm-shell-stitch .brand-symbol {
+  display: none;
 }
 
 .crm-shell-stitch.sidebar-collapsed .brand {
@@ -49,10 +60,37 @@
 }
 
 .crm-shell-stitch .sidebar-collapse {
-  top: 0.15rem;
-  right: 0;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 1;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid rgb(211 243 247 / 0.2);
   border-radius: 0.55rem;
-  color: #abc1ca;
+  background: rgb(7 20 36 / 0.64);
+  color: #e6f4f5;
+}
+
+.crm-shell-stitch.sidebar-collapsed .brand-mark {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+}
+
+.crm-shell-stitch.sidebar-collapsed .brand-artwork {
+  display: none;
+}
+
+.crm-shell-stitch.sidebar-collapsed .brand-symbol {
+  display: block;
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+.crm-shell-stitch.sidebar-collapsed .sidebar-collapse {
+  position: static;
+  justify-self: center;
 }
 
 .crm-shell-stitch .crm-sidebar nav {
@@ -290,13 +328,28 @@
     display: block;
     width: 100%;
     max-width: none;
-    padding-right: 2.2rem;
+    padding-right: 0;
+  }
+
+  .crm-shell-stitch.sidebar-collapsed .brand-mark {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .crm-shell-stitch.sidebar-collapsed .brand-artwork {
+    display: block;
+  }
+
+  .crm-shell-stitch.sidebar-collapsed .brand-symbol {
+    display: none;
   }
 
   .crm-shell-stitch .sidebar-mobile-close {
     position: absolute;
-    top: 0.15rem;
-    right: 0;
+    top: 0.45rem;
+    right: 0.45rem;
+    z-index: 1;
     border-color: rgb(255 255 255 / 0.18);
     background: rgb(255 255 255 / 0.08);
     color: #fff;
