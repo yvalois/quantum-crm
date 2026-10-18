@@ -1,0 +1,359 @@
+/* PROY-025 — una base visual coherente para las pantallas operativas del CRM. */
+:root {
+  --quantum-primary: #087f79;
+  --quantum-primary-dark: #08635f;
+  --quantum-night: #0b1b2b;
+  --quantum-night-soft: #142b3d;
+  --quantum-cyan: #22b8aa;
+  --quantum-surface: #ffffff;
+  --quantum-canvas: #f3f6f7;
+  --quantum-line: #dce5e8;
+  --quantum-muted: #5f7380;
+  --quantum-ink: #172c38;
+}
+
+.crm-shell-stitch {
+  background: var(--quantum-canvas);
+  color: var(--quantum-ink);
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  line-height: 1.45;
+}
+
+.crm-shell-stitch .crm-sidebar {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  border-right: 1px solid rgb(255 255 255 / 0.09);
+  background: linear-gradient(180deg, #0c1b2d 0%, #0b1b2b 68%, #102b38 100%);
+  padding: 0.9rem 0.8rem 0.8rem;
+}
+
+.crm-shell-stitch .sidebar-brand-row {
+  padding-bottom: 0.7rem;
+}
+
+.crm-shell-stitch .brand {
+  padding-right: 1.45rem;
+}
+
+.crm-shell-stitch .brand-mark {
+  overflow: hidden;
+}
+
+.crm-shell-stitch .brand-artwork {
+  object-fit: contain;
+}
+
+.crm-shell-stitch.sidebar-collapsed .brand {
+  width: 3rem;
+  padding-right: 0;
+}
+
+.crm-shell-stitch .sidebar-collapse {
+  top: 0.15rem;
+  right: 0;
+  border-radius: 0.55rem;
+  color: #abc1ca;
+}
+
+.crm-shell-stitch .crm-sidebar nav {
+  gap: 1rem;
+  padding: 0 0.2rem 0.8rem 0;
+}
+
+.crm-shell-stitch .nav-group {
+  gap: 0.22rem;
+}
+
+.crm-shell-stitch .nav-group > p {
+  margin: 0 0 0.16rem;
+  padding: 0.4rem 0.65rem 0.25rem;
+  color: #8aa1b2;
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.085em;
+}
+
+.crm-shell-stitch .crm-sidebar nav a {
+  min-height: 2.5rem;
+  gap: 0.72rem;
+  border-radius: 0.62rem;
+  color: #c4d2db;
+  padding: 0.52rem 0.67rem;
+  font-size: 0.83rem;
+  font-weight: 600;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.crm-shell-stitch .crm-sidebar nav a:hover {
+  background: rgb(255 255 255 / 0.09);
+}
+
+.crm-shell-stitch .crm-sidebar nav a[aria-current="page"] {
+  border-color: rgb(87 221 205 / 0.25);
+  background: rgb(20 151 145 / 0.22);
+  box-shadow: inset 3px 0 #55d9c9;
+  color: #ffffff;
+}
+
+.crm-shell-stitch .crm-sidebar nav .nav-icon {
+  color: #9db3c0;
+}
+
+.crm-shell-stitch .crm-sidebar nav a[aria-current="page"] .nav-icon,
+.crm-shell-stitch .crm-sidebar nav a:hover .nav-icon {
+  color: #80ede0;
+}
+
+.crm-shell-stitch .sidebar-footer {
+  border-top-color: rgb(255 255 255 / 0.12);
+  padding-top: 0.8rem;
+}
+
+.crm-shell-stitch .operator-avatar {
+  background: rgb(255 255 255 / 0.1);
+  color: #d8f6f1;
+}
+
+.crm-shell-stitch .operator-avatar svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.crm-shell-stitch .operator-copy strong {
+  font-size: 0.78rem;
+}
+
+.crm-shell-stitch .operator-copy small {
+  font-size: 0.65rem;
+}
+
+.crm-shell-stitch.sidebar-collapsed .sidebar-footer {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 0.5rem;
+}
+
+.crm-shell-stitch.sidebar-collapsed .sidebar-footer .sidebar-logout {
+  display: grid;
+}
+
+.crm-shell-stitch :where(.crm-content, .board-content, .inbox-content) {
+  min-width: 0;
+}
+
+.crm-shell-stitch .crm-content.team-workspace,
+.crm-shell-stitch > .catalog-page,
+.crm-shell-stitch .report-page {
+  background: var(--quantum-canvas);
+}
+
+.crm-shell-stitch :where(.page-header, .report-header, .catalog-heading) h1 {
+  color: var(--quantum-ink);
+  font-family: "Instrument Sans", "Aptos", "Segoe UI", sans-serif;
+  font-size: clamp(1.8rem, 2.5vw, 2.45rem);
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+}
+
+.crm-shell-stitch :where(.page-header, .report-header, .catalog-heading) p {
+  color: var(--quantum-muted);
+}
+
+.crm-shell-stitch :where(.primary-action, .catalog-primary, .team-new-member) {
+  border-color: var(--quantum-primary);
+  background: var(--quantum-primary);
+  box-shadow: 0 0.25rem 0.6rem rgb(8 100 94 / 0.12);
+  color: #fff;
+}
+
+.crm-shell-stitch :where(.primary-action, .catalog-primary, .team-new-member):hover:not(:disabled) {
+  border-color: var(--quantum-primary-dark);
+  background: var(--quantum-primary-dark);
+}
+
+.crm-shell-stitch :where(input, select, textarea):focus-visible,
+.crm-shell-stitch :where(button, a):focus-visible {
+  outline: 2px solid #0e9188;
+  outline-offset: 2px;
+}
+
+.crm-shell-stitch :where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+
+.crm-mobile-bar,
+.crm-mobile-backdrop,
+.sidebar-mobile-close {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .crm-shell-stitch,
+  .crm-shell-stitch.sidebar-collapsed {
+    display: block;
+    min-width: 0;
+  }
+
+  .crm-mobile-bar {
+    position: sticky;
+    top: 0;
+    z-index: 51;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    min-height: 3.75rem;
+    border-bottom: 1px solid var(--quantum-line);
+    background: rgb(255 255 255 / 0.97);
+    padding: 0.45rem 1rem;
+    box-shadow: 0 0.15rem 0.8rem rgb(23 44 56 / 0.05);
+  }
+
+  .crm-mobile-menu-button,
+  .sidebar-mobile-close {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border: 1px solid var(--quantum-line);
+    border-radius: 0.6rem;
+    background: #fff;
+    color: var(--quantum-ink);
+    cursor: pointer;
+  }
+
+  .crm-mobile-menu-button svg,
+  .sidebar-mobile-close svg {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  .crm-mobile-location {
+    display: grid;
+    gap: 0.06rem;
+    min-width: 0;
+    line-height: 1.12;
+  }
+
+  .crm-mobile-location strong {
+    overflow: hidden;
+    color: var(--quantum-ink);
+    font-size: 0.76rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .crm-mobile-location span {
+    color: var(--quantum-muted);
+    font-size: 0.71rem;
+  }
+
+  .crm-shell-stitch .crm-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 60;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: min(19rem, calc(100vw - 3rem));
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.9rem 0.8rem;
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+    visibility: hidden;
+  }
+
+  .crm-shell-stitch.mobile-navigation-open .crm-sidebar {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .crm-shell-stitch .sidebar-brand-row,
+  .crm-shell-stitch.sidebar-collapsed .sidebar-brand-row {
+    display: block;
+    margin: 0;
+  }
+
+  .crm-shell-stitch .brand,
+  .crm-shell-stitch.sidebar-collapsed .brand {
+    display: block;
+    width: 100%;
+    max-width: none;
+    padding-right: 2.2rem;
+  }
+
+  .crm-shell-stitch .sidebar-mobile-close {
+    position: absolute;
+    top: 0.15rem;
+    right: 0;
+    border-color: rgb(255 255 255 / 0.18);
+    background: rgb(255 255 255 / 0.08);
+    color: #fff;
+  }
+
+  .crm-shell-stitch .crm-sidebar nav,
+  .crm-shell-stitch.sidebar-collapsed .crm-sidebar nav {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0 0.15rem 0.7rem 0;
+  }
+
+  .crm-shell-stitch .nav-group,
+  .crm-shell-stitch.sidebar-collapsed .nav-group {
+    display: grid;
+    gap: 0.2rem;
+    border: 0;
+    padding: 0;
+  }
+
+  .crm-shell-stitch .nav-group > p,
+  .crm-shell-stitch.sidebar-collapsed .nav-group > p,
+  .crm-shell-stitch.sidebar-collapsed .nav-label,
+  .crm-shell-stitch.sidebar-collapsed .operator-copy {
+    display: block;
+  }
+
+  .crm-shell-stitch .crm-sidebar nav a,
+  .crm-shell-stitch.sidebar-collapsed .crm-sidebar nav a {
+    width: 100%;
+    min-height: 2.6rem;
+    justify-content: flex-start;
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+  }
+
+  .crm-shell-stitch .sidebar-footer,
+  .crm-shell-stitch.sidebar-collapsed .sidebar-footer {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    justify-items: stretch;
+  }
+
+  .crm-mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 59;
+    display: block;
+    width: 100%;
+    border: 0;
+    background: rgb(7 21 32 / 0.58);
+    cursor: pointer;
+  }
+
+  .crm-shell-stitch :where(.inbox-content, .contact-workspace, .boardWorkspace) {
+    max-height: calc(100dvh - 3.75rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crm-shell-stitch .crm-sidebar,
+  .crm-shell-stitch .crm-sidebar nav a {
+    transition: none;
+  }
+}

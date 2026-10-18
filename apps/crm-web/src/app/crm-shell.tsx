@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import brandArtwork from "./business-assistant-brand.jpeg";
 
@@ -41,7 +41,7 @@ interface NavigationGroup {
 
 const navigation: readonly NavigationGroup[] = [
   {
-    label: "Espacio de trabajo",
+    label: "Trabajo diario",
     items: [
       { href: "/", icon: "home", label: "Resumen" },
       { href: "/inbox", icon: "inbox", label: "Conversaciones" },
@@ -52,15 +52,12 @@ const navigation: readonly NavigationGroup[] = [
     ],
   },
   {
-    label: "Crecimiento",
+    label: "Contenido y recursos",
     items: [
       { href: "/forms", icon: "forms", label: "Formularios" },
       { href: "/catalog", icon: "catalog", label: "Catálogo" },
       { href: "/documents", icon: "documents", label: "Documentos" },
       { href: "/media", icon: "media", label: "Multimedia" },
-      { icon: "automation", label: "Automatizaciones" },
-      { icon: "reports", label: "Reportes" },
-      { icon: "agent", label: "Agente Quantum" },
     ],
   },
   {
@@ -68,7 +65,6 @@ const navigation: readonly NavigationGroup[] = [
     items: [
       { href: "/pipelines", icon: "pipeline", label: "Pipelines" },
       { href: "/team", icon: "team", label: "Equipo y acceso" },
-      { icon: "settings", label: "Configuración" },
     ],
   },
 ];
@@ -134,6 +130,63 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
   const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const navigationRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(window.localStorage.getItem("business-assistant:sidebar-collapsed") === "true");
+    } catch {
+      // Storage may be unavailable in private browsing; the navigation still works.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mobileNavigationOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    mobileCloseButtonRef.current?.focus();
+    const handleNavigationKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setMobileNavigationOpen(false);
+      if (event.key !== "Tab") return;
+      const focusable = navigationRef.current?.querySelectorAll<HTMLAnchorElement | HTMLButtonElement>(
+        "a[href], button:not([disabled])",
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleNavigationKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleNavigationKey);
+      mobileMenuButtonRef.current?.focus();
+    };
+  }, [mobileNavigationOpen]);
+
+  const currentPage =
+    navigation.flatMap((group) => group.items).find((item) => item.href && isCurrent(pathname, item.href))
+      ?.label ?? "Espacio de trabajo";
+
+  function toggleSidebar(): void {
+    setSidebarCollapsed((collapsed) => {
+      try {
+        window.localStorage.setItem("business-assistant:sidebar-collapsed", String(!collapsed));
+      } catch {
+        // Keep the current page usable even when storage is disabled.
+      }
+      return !collapsed;
+    });
+  }
 
   async function logout(): Promise<void> {
     setLoggingOut(true);
@@ -168,6 +221,7 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
     "crm-shell",
     "crm-shell-stitch",
     sidebarCollapsed ? "sidebar-collapsed" : "",
+    mobileNavigationOpen ? "mobile-navigation-open" : "",
     className,
   ]
     .filter(Boolean)
@@ -175,7 +229,39 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
 
   return (
     <main className={shellClassName}>
-      <aside className="crm-sidebar" aria-label="Navegación principal">
+      <div className="crm-mobile-bar">
+        <button
+          ref={mobileMenuButtonRef}
+          className="crm-mobile-menu-button"
+          type="button"
+          onClick={() => setMobileNavigationOpen(true)}
+          aria-label="Abrir menú"
+          aria-controls="crm-navigation"
+          aria-expanded={mobileNavigationOpen}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
+          </svg>
+        </button>
+        <div className="crm-mobile-location">
+          <strong>Business Assistant</strong>
+          <span>{currentPage}</span>
+        </div>
+      </div>
+      {mobileNavigationOpen && (
+        <button
+          className="crm-mobile-backdrop"
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={() => setMobileNavigationOpen(false)}
+        />
+      )}
+      <aside
+        ref={navigationRef}
+        id="crm-navigation"
+        className="crm-sidebar"
+        aria-label="Navegación principal"
+      >
         <div className="sidebar-brand-row">
           <a className="brand" href="/" aria-label="Business Assistant, resumen">
             <span className="brand-mark" aria-hidden="true">
@@ -192,7 +278,7 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
           <button
             className="sidebar-collapse"
             type="button"
-            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            onClick={toggleSidebar}
             aria-label={sidebarCollapsed ? "Expandir navegación" : "Contraer navegación"}
             aria-expanded={!sidebarCollapsed}
           >
@@ -204,6 +290,17 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
               aria-hidden="true"
             >
               <path d="m14 7-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            ref={mobileCloseButtonRef}
+            className="sidebar-mobile-close"
+            type="button"
+            onClick={() => setMobileNavigationOpen(false)}
+            aria-label="Cerrar menú"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
             </svg>
           </button>
         </div>
@@ -228,6 +325,7 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
                     key={item.label}
                     aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
                     title={sidebarCollapsed ? item.label : undefined}
+                    onClick={() => setMobileNavigationOpen(false)}
                   >
                     {itemContent}
                   </a>
@@ -247,24 +345,16 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
           ))}
         </nav>
 
-        <div
-          className="sidebar-environment"
-          title={sidebarCollapsed ? "Entorno conectado" : undefined}
-        >
-          <span className="pulse-dot" aria-hidden="true" />
-          <span className="environment-copy">
-            <strong>Entorno conectado</strong>
-            <small>Perfil de desarrollo</small>
-          </span>
-        </div>
-
         <div className="sidebar-footer">
           <span className="operator-avatar" aria-hidden="true">
-            QA
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="8" r="3.4" />
+              <path d="M5.2 20c.4-3.4 2.7-5.2 6.8-5.2s6.4 1.8 6.8 5.2" strokeLinecap="round" />
+            </svg>
           </span>
           <span className="operator-copy">
-            <strong>Administrador</strong>
-            <small>Sesión protegida</small>
+            <strong>Mi sesión</strong>
+            <small>Business Assistant</small>
           </span>
           <button
             className="sidebar-logout"
