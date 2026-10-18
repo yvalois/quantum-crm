@@ -4,16 +4,19 @@ import styles from "./historical-inbox.module.css";
 export function HistoricalChannelBadge({
   rawChannel,
   rawType,
+  compact = false,
 }: {
   readonly rawChannel: string | null;
   readonly rawType?: string | null;
+  readonly compact?: boolean;
 }): React.JSX.Element {
   const channel = historicalChannel(rawChannel, rawType);
   return (
     <span
-      className={styles.channelBadge}
+      className={`${styles.channelBadge} ${compact ? styles.channelBadgeCompact : ""}`}
       data-channel={channel.key}
-      title={[rawChannel, rawType].filter(Boolean).join(" · ") || undefined}
+      title={compact ? channel.label : [rawChannel, rawType].filter(Boolean).join(" · ") || undefined}
+      aria-label={compact ? `Canal: ${channel.label}` : undefined}
     >
       <svg
         className={styles.channelIcon}

@@ -200,6 +200,38 @@ function Icon({
   );
 }
 
+function ConversationStatusIcon({
+  status,
+}: {
+  readonly status: Conversation["status"];
+}): React.JSX.Element {
+  return (
+    <span
+      className={styles.cardStatusIcon}
+      data-status={status}
+      title={`Estado: ${statusLabel[status]}`}
+      aria-label={`Estado: ${statusLabel[status]}`}
+    >
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        {status === "OPEN" ? (
+          <circle cx="10" cy="10" r="5.5" />
+        ) : status === "PENDING" ? (
+          <>
+            <circle cx="10" cy="10" r="7" />
+            <path d="M10 6v4l2.5 1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : status === "ESCALATED" ? (
+          <>
+            <path d="M5 15 15 5M7 5h8v8" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : (
+          <path d="m4.5 10 3.5 3.5L15.5 6" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+      </svg>
+    </span>
+  );
+}
+
 function problem(response: Response): Promise<string> {
   return response
     .json()
@@ -1476,40 +1508,54 @@ export default function InboxPage(): React.JSX.Element {
                               {when(item.lastMessageAt ?? imported?.sourceCreatedAt ?? null)}
                             </time>
                           </span>
-                          <span className={styles.cardPreview}>
-                            {native?.lastMessagePreview ??
-                              (imported
-                                ? historicalThreadSubject(imported.subject)
-                                : item.subject) ??
-                              (imported ? "Historial disponible" : "Sin mensajes")}
-                          </span>
-                          <span className={styles.cardMeta}>
-                            {native ? (
-                              <>
-                                <HistoricalChannelBadge rawChannel={native.channel} />
-                                <span className={cx(styles.statusTag, statusClass[native.status])}>
-                                  {statusLabel[native.status]}
+                          <span className={styles.cardBottomLine}>
+                            <span className={styles.cardPreview}>
+                              {native?.lastMessagePreview ??
+                                (imported
+                                  ? historicalThreadSubject(imported.subject)
+                                  : item.subject) ??
+                                (imported ? "Historial disponible" : "Sin mensajes")}
+                            </span>
+                            <span className={styles.cardSignals}>
+                              {native ? (
+                                <>
+                                  <HistoricalChannelBadge rawChannel={native.channel} compact />
+                                  {native.status !== "OPEN" ? (
+                                    <ConversationStatusIcon status={native.status} />
+                                  ) : null}
+                                </>
+                              ) : imported ? (
+                                <>
+                                  <HistoricalChannelBadge rawChannel={imported.rawChannel} compact />
+                                  {!imported.contactId ? (
+                                    <span
+                                      className={styles.cardUnlinkedIcon}
+                                      title="Sin contacto vinculado"
+                                      aria-label="Sin contacto vinculado"
+                                    >
+                                      <Icon name="user" size={14} />
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : null}
+                              {assigneeName ? (
+                                <span
+                                  className={styles.cardAssigneeIcon}
+                                  title={`Asesor: ${assigneeName}`}
+                                  aria-label={`Asesor: ${assigneeName}`}
+                                >
+                                  {initials(assigneeName)}
                                 </span>
-                              </>
-                            ) : imported ? (
-                              <>
-                                <HistoricalChannelBadge rawChannel={imported.rawChannel} />
-                                {!imported.contactId ? (
-                                  <span className={styles.sourceTag}>Sin contacto vinculado</span>
-                                ) : null}
-                              </>
-                            ) : null}
-                            {assigneeName ? (
-                              <span className={styles.assigneeTag}>{assigneeName}</span>
-                            ) : null}
-                            {native && native.unreadCount > 0 ? (
-                              <span
-                                className={styles.unreadBadge}
-                                aria-label={`${native.unreadCount} mensaje${native.unreadCount === 1 ? "" : "s"} sin leer`}
-                              >
-                                {native.unreadCount}
-                              </span>
-                            ) : null}
+                              ) : null}
+                              {native && native.unreadCount > 0 ? (
+                                <span
+                                  className={styles.unreadBadge}
+                                  aria-label={`${native.unreadCount} mensaje${native.unreadCount === 1 ? "" : "s"} sin leer`}
+                                >
+                                  {native.unreadCount}
+                                </span>
+                              ) : null}
+                            </span>
                           </span>
                         </span>
                       </button>

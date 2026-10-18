@@ -325,6 +325,16 @@
   width: 17px;
   height: 17px;
 }
+.channelBadgeCompact {
+  display: inline-grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  place-items: center;
+}
+.channelBadgeCompact span {
+  display: none;
+}
 .channelBadge[data-channel="whatsapp"] .channelIcon {
   color: #14845b;
 }
