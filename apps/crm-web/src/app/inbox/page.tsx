@@ -1912,7 +1912,6 @@ export default function InboxPage(): React.JSX.Element {
                                 </option>
                               ))}
                             </select>
-                            <Icon name="chevron" size={15} />
                           </label>
                           <button
                             className={styles.toolButton}
@@ -1962,8 +1961,8 @@ export default function InboxPage(): React.JSX.Element {
                 <>
                   <header className={styles.contextHeader}>
                     <div>
-                      <span className={styles.panelKicker}>Contacto</span>
-                      <h2>Información y seguimiento</h2>
+                      <span className={styles.panelKicker}>Contexto</span>
+                      <h2>Cliente y conversación</h2>
                     </div>
                     <button
                       type="button"
@@ -2017,8 +2016,8 @@ export default function InboxPage(): React.JSX.Element {
                 <>
                   <header className={styles.contextHeader}>
                     <div>
-                      <span className={styles.panelKicker}>Contacto</span>
-                      <h2>Información y seguimiento</h2>
+                      <span className={styles.panelKicker}>Contexto</span>
+                      <h2>Cliente y conversación</h2>
                     </div>
                     <button
                       type="button"
@@ -2053,6 +2052,7 @@ export default function InboxPage(): React.JSX.Element {
                   />
 
                   <section className={styles.controlSection}>
+                    <h3>Gestión del chat</h3>
                     {canAssignConversations ? (
                       <label>
                         Responsable
@@ -2133,10 +2133,6 @@ export default function InboxPage(): React.JSX.Element {
                     <div>
                       <span>Canal</span>
                       <strong>{channelLabel[selected.channel]}</strong>
-                    </div>
-                    <div>
-                      <span>Responsable</span>
-                      <strong>{selectedAssigneeName}</strong>
                     </div>
                     <div>
                       <span>Última actividad</span>

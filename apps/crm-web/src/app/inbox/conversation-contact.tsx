@@ -141,15 +141,15 @@ export function ConversationContactCard({
   return (
     <section className={styles.card} aria-label="Ficha del cliente" aria-busy={loading}>
       <div className={styles.heading}>
-        <span className={styles.headingText}>
-          <span>Ficha del contacto</span>
-          <h3>{contact?.displayName ?? "Datos del contacto"}</h3>
-        </span>
         {contact ? (
           <span className={styles.contactInitials} aria-hidden="true">
             {contact.displayName.slice(0, 2).toUpperCase()}
           </span>
         ) : null}
+        <span className={styles.headingText}>
+          <span>Perfil del cliente</span>
+          <h3>{contact?.displayName ?? "Datos del contacto"}</h3>
+        </span>
       </div>
       <div className={styles.content}>
         {loading ? (
@@ -159,6 +159,26 @@ export function ConversationContactCard({
         ) : contact ? (
           <>
             <dl className={styles.facts}>
+              <div>
+                <dt>Correo</dt>
+                <dd>
+                  {contact.email ? (
+                    <a href={`mailto:${contact.email}`}>{contact.email}</a>
+                  ) : (
+                    "Sin correo"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Teléfono</dt>
+                <dd>
+                  {contact.phone ? (
+                    <a href={`tel:${contact.phone}`}>{contact.phone}</a>
+                  ) : (
+                    "Sin teléfono"
+                  )}
+                </dd>
+              </div>
               <div>
                 <dt>Responsable del contacto</dt>
                 <dd>
@@ -204,26 +224,6 @@ export function ConversationContactCard({
                       {ownerError}
                     </span>
                   ) : null}
-                </dd>
-              </div>
-              <div>
-                <dt>Correo</dt>
-                <dd>
-                  {contact.email ? (
-                    <a href={`mailto:${contact.email}`}>{contact.email}</a>
-                  ) : (
-                    "Sin correo"
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Teléfono</dt>
-                <dd>
-                  {contact.phone ? (
-                    <a href={`tel:${contact.phone}`}>{contact.phone}</a>
-                  ) : (
-                    "Sin teléfono"
-                  )}
                 </dd>
               </div>
             </dl>
