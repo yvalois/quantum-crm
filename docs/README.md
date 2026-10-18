@@ -6,6 +6,7 @@ Esta carpeta separa alcance, plan, operacion, estado y reglas para que cada dato
 
 | Tema | Archivo autorizado | Funcion |
 |---|---|---|
+| Operacion cotidiana | `00-entrega-directa.md` | Define el flujo unico: cambios solicitados, cambio activo y entrega. |
 | Comportamiento esperado | `01-producto/funcionalidades.md` | Define que debe hacer Quantum CRM |
 | Descomposicion del trabajo | `02-plan/trabajo.md` | Contiene requisitos, subtareas y comprobaciones |
 | Alcance del MVP integral | `02-plan/mvp-piloto.md` | Incluye los 249 requisitos de producto, 24 OPS, fases y puerta del piloto |
@@ -14,8 +15,8 @@ Esta carpeta separa alcance, plan, operacion, estado y reglas para que cada dato
 | Infraestructura y despliegue | `03-operaciones/despliegues.md` | Define el trabajo operativo `OPS` |
 | Inventario real del VPS | `03-operaciones/inventario-vps.md` | Registra capacidad, acceso no secreto, servicios existentes y riesgos observados |
 | Estado vigente y evidencia | `04-proceso/estado.md` | Indica que esta activo, bloqueado o terminado |
-| Forma de trabajar | `04-proceso/flujo-de-trabajo.md` | Define el ciclo de una tarea |
-| Criterio de cierre | `04-proceso/definicion-de-terminado.md` | Impide cierres parciales o sin pruebas |
+| Forma de trabajar | `04-proceso/flujo-de-trabajo.md` | Resume el flujo directo vigente; el detalle anterior esta archivado. |
+| Criterio de cierre | `04-proceso/definicion-de-terminado.md` | Cierra el cambio cuando la solicitud funciona en VPS. |
 | Reglas de ingenieria | `05-reglas/` | Establece practicas obligatorias |
 | Git y GitHub | `05-reglas/05-git-y-github.md` | Define ramas, commits, PR, merges y recuperacion |
 | Decisiones estructurales | `06-decisiones/` | Conserva las razones mediante ADR |
@@ -27,14 +28,9 @@ No se deben crear listas paralelas de funcionalidades o estados. Los tableros ex
 
 ## Orden de consulta
 
-1. Buscar el identificador en `01-producto/funcionalidades.md`.
-2. Leer todas sus subtareas en `02-plan/trabajo.md`.
-3. Si afecta infraestructura, revisar `03-operaciones/despliegues.md`.
-4. Consultar `04-proceso/estado.md` para saber si alguien ya trabaja en ello o si existe evidencia de cierre.
-5. Leer la ficha correspondiente en `02-plan/tareas/` si existe.
-6. Buscar implementacion y pruebas con `rg "IDENTIFICADOR" .` y por los conceptos funcionales relacionados.
-7. Si afecta limites o estructura, revisar `08-arquitectura/` y los ADR relacionados.
-8. Aplicar las reglas y la definicion de terminado.
+1. Leer `00-entrega-directa.md`.
+2. Revisar solo la solicitud y la implementacion relacionada para no duplicar trabajo.
+3. Consultar documentos historicos unicamente si el cambio toca datos, identidad, aislamiento por perfil, secretos, recuperacion o integridad del VPS.
 
 ## Resolucion de diferencias
 

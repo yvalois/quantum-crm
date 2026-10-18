@@ -2,6 +2,18 @@
 
 Estas reglas se aplican a todo el repositorio.
 
+## Modo vigente: entrega directa
+
+**Estado: ACTIVO.** Por instruccion del propietario, todos los componentes usan un flujo unico: **cambios solicitados → hacer el cambio → entrega**. Esta seccion prevalece sobre cualquier requisito procedimental posterior de lectura extensa, fichas, ADR, checklist, pruebas, CI, PR, documentacion o verificaciones generales.
+
+- Antes de trabajar basta revisar la solicitud y el codigo relacionado para no duplicar una funcion existente.
+- Se implementa el resultado solicitado completo y se deja activo directamente en el VPS cuando el propietario lo pida.
+- Se comprueba exclusivamente la conducta solicitada en la ruta real; no se ejecutan pruebas, builds, lint, typecheck, CI o auditorias no solicitadas.
+- La entrega comunica que funciona y donde verlo. `estado.md` recibe solo una linea breve cuando haga falta conservar contexto.
+- Las reglas extensas se consideran referencia historica; `docs/00-entrega-directa.md` es la guia operativa diaria.
+
+Siguen siendo obligatorios, sin burocracia adicional, los controles que evitan dañar datos o servicios: no exponer secretos, no cruzar datos entre perfiles, no ampliar permisos por accidente, no duplicar efectos externos y no destruir datos o el VPS. Si uno de esos riesgos aplica, se hace solo la comprobacion minima necesaria para el cambio.
+
 ## Modo temporal: entrega funcional prioritaria
 
 **Estado: ACTIVO.** Este modo existe para acelerar la construccion de funcionalidades visibles y utilizables mientras el propietario recupera ritmo de producto. El propietario puede desactivarlo expresamente cuando considere que el producto esta firme; al hacerlo se elimina esta seccion y vuelven a aplicar sin excepcion todas las reglas procedimentales ordinarias.
