@@ -16,6 +16,7 @@ export function HistoricalChannelBadge({
       className={`${styles.channelBadge} ${compact ? styles.channelBadgeCompact : ""}`}
       data-channel={channel.key}
       title={compact ? channel.label : [rawChannel, rawType].filter(Boolean).join(" · ") || undefined}
+      role={compact ? "img" : undefined}
       aria-label={compact ? `Canal: ${channel.label}` : undefined}
     >
       <svg

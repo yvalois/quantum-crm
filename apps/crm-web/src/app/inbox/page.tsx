@@ -210,6 +210,7 @@ function ConversationStatusIcon({
       className={styles.cardStatusIcon}
       data-status={status}
       title={`Estado: ${statusLabel[status]}`}
+      role="img"
       aria-label={`Estado: ${statusLabel[status]}`}
     >
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -1531,6 +1532,7 @@ export default function InboxPage(): React.JSX.Element {
                                     <span
                                       className={styles.cardUnlinkedIcon}
                                       title="Sin contacto vinculado"
+                                      role="img"
                                       aria-label="Sin contacto vinculado"
                                     >
                                       <Icon name="user" size={14} />
@@ -1542,6 +1544,7 @@ export default function InboxPage(): React.JSX.Element {
                                 <span
                                   className={styles.cardAssigneeIcon}
                                   title={`Asesor: ${assigneeName}`}
+                                  role="img"
                                   aria-label={`Asesor: ${assigneeName}`}
                                 >
                                   {initials(assigneeName)}
