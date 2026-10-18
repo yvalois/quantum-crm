@@ -26,6 +26,8 @@ if [[ "$working_dir" == /opt/quantum/config/staging/tenants/tenant/* ]]; then
   secret_dir="/opt/quantum/secrets/staging/tenants/$tenant_id"
   export QCRM_YCLOUD_BINDING_SECRET_HOST_FILE="$secret_dir/ycloud-binding"
   export QCRM_YCLOUD_API_KEY_SECRET_HOST_FILE="$secret_dir/ycloud-api-key"
+  export QCRM_YCLOUD_BINDING_FILE=/run/secrets/qcrm_ycloud_binding
+  export QCRM_YCLOUD_API_KEY_FILE=/run/secrets/qcrm_ycloud_api_key
   export QCRM_AGENT_GATEWAY_SECRET_HOST_FILE="$secret_dir/agent-gateway-client-secret"
   export QCRM_AGENT_RUNTIME_SECRET_HOST_FILE="$secret_dir/agent-runtime-client-secret"
   export QCRM_OPENAI_API_KEY_SECRET_HOST_FILE="$secret_dir/openai-api-key"
