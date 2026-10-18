@@ -60,15 +60,35 @@
 }
 
 .crm-shell-stitch .sidebar-collapse {
-  top: 0.4rem;
-  right: 0.4rem;
-  z-index: 1;
-  width: 1.75rem;
-  height: 1.75rem;
-  border: 1px solid rgb(211 243 247 / 0.2);
-  border-radius: 0.55rem;
-  background: rgb(7 20 36 / 0.64);
-  color: #e6f4f5;
+  position: fixed;
+  top: 1.45rem;
+  right: auto;
+  left: calc(var(--sidebar-width) - 1px);
+  z-index: 31;
+  width: 2rem;
+  height: 2.6rem;
+  border: 1px solid rgb(58 169 177 / 0.4);
+  border-left: 0;
+  border-radius: 0 0.7rem 0.7rem 0;
+  background: linear-gradient(160deg, #102b3d, #0b2031);
+  box-shadow: 0.25rem 0.35rem 0.8rem rgb(4 19 31 / 0.2);
+  color: #d1edf0;
+  transition:
+    left 180ms ease,
+    background 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.crm-shell-stitch .sidebar-collapse:hover {
+  background: #153a4d;
+  box-shadow: 0.3rem 0.4rem 1rem rgb(4 19 31 / 0.27);
+  color: #fff;
+}
+
+.crm-shell-stitch .sidebar-collapse:focus-visible {
+  outline: 2px solid #48d8d2;
+  outline-offset: 3px;
 }
 
 .crm-shell-stitch.sidebar-collapsed .brand-mark {
@@ -89,8 +109,8 @@
 }
 
 .crm-shell-stitch.sidebar-collapsed .sidebar-collapse {
-  position: static;
-  justify-self: center;
+  position: fixed;
+  left: calc(var(--sidebar-width) - 1px);
 }
 
 .crm-shell-stitch .crm-sidebar nav {
@@ -419,7 +439,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .crm-shell-stitch .crm-sidebar,
-  .crm-shell-stitch .crm-sidebar nav a {
+  .crm-shell-stitch .crm-sidebar nav a,
+  .crm-shell-stitch .sidebar-collapse {
     transition: none;
   }
 }

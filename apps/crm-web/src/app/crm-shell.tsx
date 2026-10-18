@@ -286,23 +286,6 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
             </span>
           </a>
           <button
-            className="sidebar-collapse"
-            type="button"
-            onClick={toggleSidebar}
-            aria-label={sidebarCollapsed ? "Expandir navegación" : "Contraer navegación"}
-            aria-expanded={!sidebarCollapsed}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              aria-hidden="true"
-            >
-              <path d="m14 7-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button
             ref={mobileCloseButtonRef}
             className="sidebar-mobile-close"
             type="button"
@@ -394,6 +377,25 @@ export function CrmShell({ children, className = "" }: CrmShellProps): React.JSX
           </button>
         </div>
       </aside>
+      <button
+        className="sidebar-collapse"
+        type="button"
+        onClick={toggleSidebar}
+        aria-label={sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral"}
+        aria-controls="crm-navigation"
+        aria-expanded={!sidebarCollapsed}
+        title={sidebarCollapsed ? "Expandir menú lateral" : "Contraer menú lateral"}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          aria-hidden="true"
+        >
+          <path d="m14 7-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
       {children}
     </main>
   );
