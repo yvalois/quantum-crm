@@ -3,7 +3,7 @@
 > Este archivo contiene solo metadatos operativos no secretos. Contraseñas, claves privadas y valores de credenciales no se guardan en el repositorio.
 
 - Requisito propietario: `OPS-02`
-- Ultima comprobacion: 2026-10-05
+- Ultima comprobacion: 2026-10-17
 - Estado: acceso operativo SSH por clave endurecido; release piloto validada y desplegada; dimensionamiento en curso
 
 ## Identidad y acceso
@@ -77,6 +77,8 @@ Caddy reemplazo a Nginx como frontera el 2026-09-20 mediante el procedimiento re
 El 2026-09-20 el filesystem raiz llego a 79 % de uso. La inspeccion atribuyo el consumo a checkouts de build con `node_modules`, `.next`, `dist` y `.pnpm-store`, imagenes historicas e intermedias y cache de Docker; los volumenes persistentes no eran la causa. Se eliminaron solo artefactos reproducibles bajo `/opt/quantum/builds`, imagenes no usadas y cache sin referencias. Se conservaron los fuentes del build vigente, las imagenes activas y el rollback inmediato. Tras construir y desplegar `ADM-05-a`, retirar dos checkouts de prueba, el store local de pnpm y cache reproducible, quedaron 14 GiB usados y 34 GiB libres, 29 % de uso, con siete contenedores saludables. `.dockerignore` excluye ahora `.pnpm-store` para que no vuelva a inflar el contexto de imagen. No se tocaron bases, volumenes persistentes, secretos ni respaldos.
 
 El 2026-09-29, la descarga de los diez artefactos de la release `0.0.0-candidate.22fd67e8b98b` llevo temporalmente el filesystem a 98 %. `docker system df` atribuyo el margen recuperable a cache de builds e imagenes, no a volumenes persistentes. Se retiraron 12.97 GB de cache de compilacion reproducible con `docker builder prune --all`; el uso bajo a 73 % con 14 GiB libres. No se eliminaron volumenes, bases, secretos, configuraciones ni contenedores activos.
+
+El 2026-10-17, el disco raiz de 387 GiB tenia 225 GiB usados y 163 GiB libres. `docker system df` identifico 101,7 GB logicos de cache de compilacion sin uso activo y `/opt/quantum/builds` ocupaba 93 GiB, principalmente dependencias duplicadas. Se podo la cache BuildKit y se retiraron 130 directorios `node_modules`/`.pnpm-store` verificados (85 GiB medidos) de workspaces de build no referenciados por servicios en ejecucion. Se conservaron los siete workspaces usados, las fuentes, imagenes activas, contenedores, volumenes, bases, archivos comerciales, secretos y configuracion. El uso fisico termino en 47 GiB (12 %) y 341 GiB libres; Admin e InterAmerican respondieron readiness `200` y los servicios siguieron saludables. La diferencia fisica neta fue de aproximadamente 178 GiB; los tamanos logicos de Docker y `du` no se deben sumar entre si. Queda pendiente una politica automatica de retencion de builds y caches que preserve rutas referenciadas y candidatos de rollback.
 
 El 2026-10-05 se verifico la ampliacion a 8 vCPU, 31 GiB de RAM y 387 GiB de disco. Durante la comprobacion habia 26 GiB de memoria disponibles, 321 GiB libres, 5 % de inodos utilizados, carga de 1.47/1.54/1.17 y ningun servicio `systemd` fallido. Los 25 contenedores estaban en ejecucion, sin reinicios ni eventos OOM; los 24 que declaran healthcheck estaban saludables. Docker conservaba 12.94 GB de imagenes y 12.41 GB de cache de build recuperables, pero no se podaron porque existe margen suficiente y varias imagenes sostienen candidatos o rollback inmediato. El host no tiene swap: no es presion actual, pero debe decidirse una reserva pequena y controlada antes de aumentar la densidad de perfiles.
 
