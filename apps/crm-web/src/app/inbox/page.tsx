@@ -332,10 +332,13 @@ export default function InboxPage(): React.JSX.Element {
   const [pendingMedia, setPendingMedia] = useState<FileContract | null>(null);
   const [showFormPicker, setShowFormPicker] = useState(false);
   const [showComposerMore, setShowComposerMore] = useState(false);
+  const [showQuickReplyPicker, setShowQuickReplyPicker] = useState(false);
+  const [quickReplySearch, setQuickReplySearch] = useState("");
   const [availableForms, setAvailableForms] = useState<FormContract[]>([]);
   const [mediaProgress, setMediaProgress] = useState<string | null>(null);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const composerMoreRef = useRef<HTMLDivElement | null>(null);
+  const quickReplyPickerRef = useRef<HTMLDivElement | null>(null);
   const composerTextRef = useRef<HTMLTextAreaElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -414,14 +417,31 @@ export default function InboxPage(): React.JSX.Element {
           : null))
       : null;
 
-  useEffect(() => setShowComposerMore(false), [selected?.id, mode]);
+  const matchingQuickReplies = useMemo(() => {
+    const search = quickReplySearch.trim().toLocaleLowerCase();
+    return search
+      ? quickReplies.filter((reply) =>
+          `${reply.title} ${reply.body}`.toLocaleLowerCase().includes(search),
+        )
+      : quickReplies;
+  }, [quickReplies, quickReplySearch]);
+
   useEffect(() => {
-    if (!showComposerMore) return;
+    setShowComposerMore(false);
+    setShowQuickReplyPicker(false);
+  }, [selected?.id, mode]);
+  useEffect(() => {
+    if (!showComposerMore && !showQuickReplyPicker) return;
     const closeOutside = (event: PointerEvent) => {
       if (!composerMoreRef.current?.contains(event.target as Node)) setShowComposerMore(false);
+      if (!quickReplyPickerRef.current?.contains(event.target as Node))
+        setShowQuickReplyPicker(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowComposerMore(false);
+      if (event.key === "Escape") {
+        setShowComposerMore(false);
+        setShowQuickReplyPicker(false);
+      }
     };
     document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("keydown", closeOnEscape);
@@ -429,7 +449,7 @@ export default function InboxPage(): React.JSX.Element {
       document.removeEventListener("pointerdown", closeOutside);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [showComposerMore]);
+  }, [showComposerMore, showQuickReplyPicker]);
 
   const loadThread = useCallback(
     async (id: string, background = false): Promise<void> => {
@@ -1021,6 +1041,24 @@ export default function InboxPage(): React.JSX.Element {
     } finally {
       setSaving(false);
     }
+  }
+
+  function insertQuickReply(reply: QuickReply): void {
+    const textarea = composerTextRef.current;
+    const start = textarea?.selectionStart ?? draft.length;
+    const end = textarea?.selectionEnd ?? draft.length;
+    const next = `${draft.slice(0, start)}${reply.body}${draft.slice(end)}`;
+    if (next.length > 16_000) {
+      setError("La respuesta supera el límite de 16.000 caracteres del mensaje.");
+      return;
+    }
+    setDraft(next);
+    setShowQuickReplyPicker(false);
+    setQuickReplySearch("");
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + reply.body.length, start + reply.body.length);
+    });
   }
 
   async function openDocumentComposer(): Promise<void> {
@@ -1961,13 +1999,86 @@ export default function InboxPage(): React.JSX.Element {
                             </>
                           ) : null}
                           {mode === "message" ? (
+                            <div className={styles.quickReplyPicker} ref={quickReplyPickerRef}>
+                              <button
+                                className={styles.toolButton}
+                                type="button"
+                                aria-expanded={showQuickReplyPicker}
+                                aria-controls="composer-quick-replies"
+                                onClick={() => {
+                                  setShowComposerMore(false);
+                                  setShowQuickReplyPicker((open) => !open);
+                                }}
+                              >
+                                <Icon name="message" size={16} /> Respuestas rápidas
+                              </button>
+                              {showQuickReplyPicker ? (
+                                <div
+                                  id="composer-quick-replies"
+                                  className={styles.quickReplyPanel}
+                                  role="region"
+                                  aria-label="Respuestas rápidas"
+                                >
+                                  <div className={styles.quickReplyPanelHeader}>
+                                    <strong>Respuestas rápidas</strong>
+                                    <span>{quickReplies.length} guardadas</span>
+                                  </div>
+                                  <input
+                                    className={styles.quickReplySearch}
+                                    type="search"
+                                    value={quickReplySearch}
+                                    onChange={(event) => setQuickReplySearch(event.target.value)}
+                                    placeholder="Buscar por nombre o contenido"
+                                    aria-label="Buscar respuestas rápidas"
+                                  />
+                                  <div className={styles.quickReplyList}>
+                                    {matchingQuickReplies.length ? (
+                                      matchingQuickReplies.map((reply) => (
+                                        <button
+                                          key={reply.id}
+                                          type="button"
+                                          onClick={() => insertQuickReply(reply)}
+                                        >
+                                          <strong>{reply.title}</strong>
+                                          <span>{reply.body}</span>
+                                        </button>
+                                      ))
+                                    ) : (
+                                      <p>
+                                        {quickReplies.length
+                                          ? "No hay respuestas con esa búsqueda."
+                                          : "Aún no hay respuestas guardadas para este equipo."}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {canConfigureAgent ? (
+                                    <button
+                                      className={styles.quickReplyCreate}
+                                      type="button"
+                                      disabled={saving || !csrf}
+                                      onClick={() => {
+                                        setShowQuickReplyPicker(false);
+                                        setShowQuickReply(true);
+                                      }}
+                                    >
+                                      <Icon name="add" size={16} /> Crear respuesta rápida
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {mode === "message" ? (
                             <div className={styles.composerMore} ref={composerMoreRef}>
                               <button
                                 className={styles.toolButton}
                                 type="button"
                                 aria-expanded={showComposerMore}
                                 aria-controls="composer-extra-actions"
-                                onClick={() => setShowComposerMore((open) => !open)}
+                                onClick={() => {
+                                  setShowQuickReplyPicker(false);
+                                  setShowComposerMore((open) => !open);
+                                }}
                               >
                                 <Icon name="add" size={16} /> Más
                               </button>
@@ -2011,38 +2122,6 @@ export default function InboxPage(): React.JSX.Element {
                                       <Icon name="document" size={16} /> Enviar formulario
                                     </button>
                                   ) : null}
-                                  <span className={styles.composerMenuHeading}>
-                                    Respuestas rápidas
-                                  </span>
-                                  {quickReplies.length ? (
-                                    quickReplies.map((reply) => (
-                                      <button
-                                        key={reply.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setDraft(reply.body);
-                                          setShowComposerMore(false);
-                                          composerTextRef.current?.focus();
-                                        }}
-                                      >
-                                        <Icon name="message" size={16} /> {reply.title}
-                                      </button>
-                                    ))
-                                  ) : (
-                                    <span className={styles.composerMenuEmpty}>
-                                      Todavía no hay respuestas guardadas
-                                    </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    disabled={saving || !csrf}
-                                    onClick={() => {
-                                      setShowComposerMore(false);
-                                      setShowQuickReply(true);
-                                    }}
-                                  >
-                                    <Icon name="add" size={16} /> Guardar respuesta rápida
-                                  </button>
                                 </div>
                               ) : null}
                             </div>

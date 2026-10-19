@@ -1542,6 +1542,130 @@
   position: relative;
 }
 
+.quickReplyPicker {
+  position: relative;
+}
+
+.quickReplyPanel {
+  position: absolute;
+  z-index: 13;
+  bottom: calc(100% + 0.55rem);
+  left: 0;
+  display: grid;
+  width: min(23rem, calc(100vw - 2rem));
+  max-height: min(27rem, 60vh);
+  border: 1px solid #cfdfdc;
+  border-radius: 0.8rem;
+  background: #fff;
+  box-shadow: 0 1rem 2.6rem rgb(16 42 45 / 0.18);
+  overflow: hidden;
+}
+
+.quickReplyPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem 0.5rem;
+  color: #183b40;
+  font-size: 0.8rem;
+}
+
+.quickReplyPanelHeader span {
+  color: #6f8588;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.quickReplySearch {
+  width: calc(100% - 1.8rem);
+  min-height: 2.4rem;
+  margin: 0 0.9rem 0.55rem;
+  border: 1px solid #d6e3e1;
+  border-radius: 0.5rem;
+  background: #f9fbfa;
+  color: #183b40;
+  padding: 0.5rem 0.7rem;
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+.quickReplySearch:focus-visible {
+  outline: 2px solid #0f8c82;
+  outline-offset: 2px;
+}
+
+.quickReplyList {
+  min-height: 4rem;
+  overflow-y: auto;
+  padding: 0 0.4rem 0.4rem;
+}
+
+.quickReplyList button {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #24454a;
+  padding: 0.6rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quickReplyList button:hover,
+.quickReplyList button:focus-visible {
+  background: #ecf8f4;
+  outline-color: #0f8c82;
+}
+
+.quickReplyList button strong {
+  font-size: 0.75rem;
+}
+
+.quickReplyList button span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #647a7e;
+  font-size: 0.68rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.quickReplyList p {
+  margin: 0.5rem;
+  color: #647a7e;
+  font-size: 0.72rem;
+}
+
+.quickReplyCreate {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.6rem;
+  border: 0;
+  border-top: 1px solid #e4eeec;
+  background: #f7fbfa;
+  color: #08756e;
+  padding: 0.55rem 0.9rem;
+  text-align: left;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.quickReplyCreate:hover:not(:disabled),
+.quickReplyCreate:focus-visible {
+  background: #e9f7f3;
+}
+
+.quickReplyCreate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .composerMenu {
   position: absolute;
   z-index: 12;
@@ -2304,11 +2428,13 @@
 
   .composerTools > .toolButton,
   .composerTools > .voiceRecorder,
+  .composerTools > .quickReplyPicker,
   .composerTools > .composerMore {
     flex: 1 1 auto;
   }
 
   .composerTools > .voiceRecorder .toolButton,
+  .composerTools > .quickReplyPicker .toolButton,
   .composerTools > .composerMore .toolButton {
     width: 100%;
   }
